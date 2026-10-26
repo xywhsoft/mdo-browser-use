@@ -489,3 +489,14 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   an observation's historical coordinates. This commit supplies the native
   primitives only; the scoped public selection action, option discovery,
   change detection and managed-tool validation are the next stage.
+
+## Dev1 — Windows test cleanup tolerates an already-ended process tree
+
+- A normal UI SDK run completed its checks, but cleanup failed when Windows
+  `taskkill /T` returned errors for Chromium children already ending. The host
+  PID and project browser processes were confirmed absent; the stale saved PID
+  prevented restoration of the one headless deployment.
+- On tree-command failure, the helper now checks the root PID again. It accepts
+  only absence as termination, preserves live/reused identities and never tries
+  to kill an unrelated process. Three focused process-control tests cover these
+  cases. Public selection development remains uncommitted until its full gate.

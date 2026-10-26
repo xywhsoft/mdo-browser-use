@@ -203,7 +203,14 @@ def stop() -> None:
                 expected_config = current.get("active_config", current.get("config", str(ENV / "dev.json")))
                 if Path(process["ExecutablePath"]).resolve() != Path(current["host"]).resolve() or expected_config not in process["CommandLine"]:
                     raise RuntimeError("Recorded PID identity does not match this development deployment")
-                run("taskkill", "/PID", str(pid), "/T", "/F")
+                try:
+                    run("taskkill", "/PID", str(pid), "/T", "/F")
+                except RuntimeError:
+                    # Chromium children can exit during /T enumeration. A
+                    # nonzero tree result is terminal only if the exact root
+                    # PID is now absent; never clear a live/reused root PID.
+                    if run("powershell", "-NoProfile", "-Command", script):
+                        raise
         else:
             raise RuntimeError("Native Linux development process control is not implemented yet")
         current["pid"] = None
