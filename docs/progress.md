@@ -295,3 +295,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   a trusted user gesture before a second before-unload attempt.
 - This is the native layer. Shared public dialog services, Agent tools and the
   human toolbar response UI are the next stage; no complete-dialog-UX claim yet.
+
+## D1 — shared dialogs, managed tools and trusted human response UI
+
+- Added `browseruse.dialog`, the generated C/JS contracts, JS completion/recovery,
+  and separate read-only `browser_dialog` / mutating `browser_dialog_respond`
+  tools. Responses use the existing scoped operation identity and permissions.
+- Interrupted observations/actions/navigation/waits yield an explicit
+  `dialog_open, completed:false` checkpoint. A native modal interrupt now ends
+  any pending isolated reads once, without replaying the script or subsequent
+  input. Omitted prompt text preserves its private native default; explicit
+  empty text clears it without exposing that default.
+- The trusted toolbar response UI uses text nodes, clears replies after use,
+  discards stale async refreshes and cancels layout work on disposal. A human
+  response takes over first and keeps that control until explicitly returned.
+- Passed 18 actual C/broker checks, 13 JS checks, 134 native WebView2 checks,
+  all eight actual managed tools, and the normal UI C/JS client probes. These
+  cover dialog checkpoints, Unicode response, duplicate-response admission,
+  read-only denial, actual human-widget response and takeover, plus existing
+  ten actions/four navigations/five condition waits. No real model call used.
+- Long-duration expiry, new-window ownership, file transfers, broader frame
+  support and platform adapters remain outstanding. No production deployment.

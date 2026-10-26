@@ -81,6 +81,7 @@ export function createBrowserUseClient(sdk) {
     act: perform("act"),
     navigate: perform("navigate"),
     waitFor: complete("wait"),
+    dialog: (params, options) => params.action === "respond" ? perform("dialog")(params, options) : complete("dialog")(params, options),
     wait,
     operation: params => invoke("operation", params),
     recover,

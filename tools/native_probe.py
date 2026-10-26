@@ -12,6 +12,7 @@ REPORT_PATH = "qa/page-observation.json"
 
 SCRIPT = r'''
 import { createNativeBrowserBridge } from '/js/features/workbench/native-browser.js';
+import { createBrowserDialogs } from '/js/features/workbench/dialog-ui.js';
 const runtimeSource = RUNTIME_SOURCE;
 const bridge = createNativeBrowserBridge(), browser = 'browser-use-page-probe';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -135,6 +136,36 @@ try {
   await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:promptDialog.id,accept:true,text:'响应 🦉'});
   assert(await evaluate("document.querySelector('#dialog-result').textContent")==='prompt:响应 🦉','Prompt Unicode response was lost');
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'Closed prompt was retained');
+  const defaultPrompt=await openDialog('#dialog-prompt');
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:defaultPrompt.id,accept:true});
+  assert(await evaluate("document.querySelector('#dialog-result').textContent")==='prompt:fixture-private-default','Omitted prompt text did not preserve its native default');
+  const emptyPrompt=await openDialog('#dialog-prompt');
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:emptyPrompt.id,accept:true,text:'',has_text:true});
+  assert(await evaluate("document.querySelector('#dialog-result').textContent")==='prompt:','Explicit empty prompt text did not clear its value');
+  const readModal=bridge.call('automation',{browser,agent:true,script:"(()=>{alert('Isolated read dialog');return {ok:true}})()"});
+  const readBoundary=await Promise.race([readModal,pause(1000).then(()=>{throw Error('Isolated reading did not yield at its dialog')})]);
+  assert(readBoundary.value?.blocked_by_dialog,'Isolated reading did not report its modal boundary');
+  const readDialog=(await bridge.call('dialog',{browser,action:'list'})).dialogs[0];
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:readDialog.id,accept:true});
+  assert((await engine('observe({})')).document===first.document,'Dialog interrupted observation corrupted its runtime');
+  const humanPrompt=await openDialog('#dialog-prompt');
+  let humanControl=0,layoutChanges=0,humanError;
+  const widget=createBrowserDialogs({execute:(command,params={})=>bridge.call(command,{browser,...params}),
+    onControl:()=>humanControl++,onChange:()=>layoutChanges++,onError:error=>{humanError=error}});
+  document.body.append(widget.element);
+  await widget.refresh(await bridge.call('state',{browser}));
+  assert(!widget.element.hidden&&widget.element.querySelector('p').textContent==='Fixture prompt','Human dialog UI did not show the pending prompt');
+  const humanInput=widget.element.querySelector('input');
+  assert(humanInput.value===''&&!humanInput.hidden,'Human dialog UI exposed a private default');
+  humanInput.value='手动回复 🦉';
+  widget.element.querySelectorAll('button')[1].click();
+  for(let i=0;i<100&&!widget.element.hidden&&!humanError;i++)await pause(20);
+  assert(!humanError&&widget.element.hidden&&humanInput.value==='','Human prompt response failed or retained its text');
+  assert(humanControl===1&&(await bridge.call('state',{browser})).manual,'Human dialog response did not take over browser control');
+  assert(await evaluate("document.querySelector('#dialog-result').textContent")==='prompt:手动回复 🦉','Human UI reply was not delivered to the native prompt');
+  const changesBeforeDispose=layoutChanges;widget.dispose();
+  assert(layoutChanges===changesBeforeDispose,'Disposed dialog UI changed native layout');
+  widget.element.remove();await bridge.call('release',{browser});
   const ambiguous=await engine(`locate(${JSON.stringify({document:first.document,target:{role:'button',name:'Duplicate'}})})`);
   assert(ambiguous.error?.code==='element_ambiguous','Duplicate locator silently selected an element');
   const limited=await engine('observe({limit:2})');

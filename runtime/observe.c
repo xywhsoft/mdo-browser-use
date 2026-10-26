@@ -35,7 +35,7 @@ static mdo_result BuResult(void* User,const mdo_sdk_context_v1* C,const xvalue* 
     const char* Action=BuText(C,Receipt,"action");
     const char* Project=BuText(C,Scope,"project");
     const char* Command=BuText(C,V->Get(Receipt,"params"),"command");
-    bool Owned=BuEqual(Action,"workbench.browser")&&(BuEqual(Command,"observe")||BuEqual(Command,"act")||BuEqual(Command,"navigate_to")||BuEqual(Command,"wait_for"))&&
+    bool Owned=BuEqual(Action,"workbench.browser")&&(BuEqual(Command,"observe")||BuEqual(Command,"act")||BuEqual(Command,"navigate_to")||BuEqual(Command,"wait_for")||BuEqual(Command,"dialog"))&&
         BuEqual(C->ExtensionId,BuText(C,Scope,"extension"))&&
         BuEqual(C->DeviceId,BuText(C,Scope,"device"))&&
         BuEqual(C->ProjectId&&*C->ProjectId?C->ProjectId:"default",Project&&*Project?Project:"default")&&

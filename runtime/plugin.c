@@ -3,6 +3,7 @@
 #include "observe.c"
 #include "actions.c"
 #include "navigation.c"
+#include "dialogs.c"
 
 typedef struct BuService {
     const char *Id,*Description,*Input,*Output;

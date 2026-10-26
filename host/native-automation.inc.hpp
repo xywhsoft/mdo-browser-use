@@ -12,32 +12,45 @@ static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
   callback->Release();if(FAILED(status))done(false,"{}");
 }
 static bool xb_automation_live(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation){
-  return host->alive&&!view->closed&&!view->failed&&!view->manual&&view->navigation==navigation;
+  return host->alive&&!view->closed&&!view->failed&&!view->manual&&!view->dialog&&view->navigation==navigation;
+}
+static void xb_automation_reply(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
+                                const std::string& id,const std::string& result,const std::string& error=""){
+  if(view->automationRequests.erase(id))host->reply(id,result,error);
+}
+static void xb_abort_automation(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,bool dialog){
+  auto pending=std::move(view->automationRequests);view->automationRequests.clear();
+  for(const auto& item:pending)host->reply(item.first,dialog?"{\"ok\":true,\"value\":{\"ok\":true,\"blocked_by_dialog\":true}}":"",dialog?"":"The browser was closed");
 }
 static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                           const std::string& id,const std::string& script){
   if(script.size()>131072){host->reply(id,"","Automation script exceeds 128 KiB");return;}
+  if(view->automationRequests.size()>=32){host->reply(id,"","Native automation request limit reached");return;}
+  view->automationRequests[id]=true;
   const auto navigation=view->navigation;
   const auto evaluate=[host,view,id,script,navigation](int context){
-    if(!xb_automation_live(host,view,navigation)){host->reply(id,"","Browser control or document changed");return;}
+    if(!view->automationRequests.count(id))return;
+    if(!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Browser control or document changed");return;}
     const auto params="{\"expression\":"+xb_quote(script)+",\"contextId\":"+std::to_string(context)+
       ",\"returnByValue\":true,\"awaitPromise\":false,\"timeout\":3000}";
     xb_cdp(view,L"Runtime.evaluate",params,[host,view,id,navigation](bool ok,const std::string& result){
-      if(!xb_automation_live(host,view,navigation)){host->reply(id,"","Browser control or document changed during evaluation");return;}
+      if(!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Browser control or document changed during evaluation");return;}
       const auto value=xb_get(xb_get(result,"result"),"value");
-      if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty())host->reply(id,"","Isolated page evaluation failed");
-      else host->reply(id,"{\"ok\":true,\"value\":"+value+"}");
+      if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty())xb_automation_reply(host,view,id,"","Isolated page evaluation failed");
+      else xb_automation_reply(host,view,id,"{\"ok\":true,\"value\":"+value+"}");
     });
   };
   if(view->automationContext){evaluate(view->automationContext);return;}
   xb_cdp(view,L"Page.getFrameTree","{}",[host,view,id,navigation,evaluate](bool ok,const std::string& tree){
-    if(!ok||!xb_automation_live(host,view,navigation)){host->reply(id,"","Cannot resolve current document");return;}
+    if(!view->automationRequests.count(id))return;
+    if(!ok||!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Cannot resolve current document");return;}
     const auto frame=xb_get(xb_get(xb_get(tree,"frameTree"),"frame"),"id");
-    if(frame.empty()){host->reply(id,"","Current document has no frame identity");return;}
+    if(frame.empty()){xb_automation_reply(host,view,id,"","Current document has no frame identity");return;}
     xb_cdp(view,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(frame)+",\"worldName\":\"mdo.browser-use.v1\"}",
       [host,view,id,navigation,evaluate](bool ready,const std::string& result){
         int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-        if(!ready||context<=0||!xb_automation_live(host,view,navigation)){host->reply(id,"","Cannot create isolated browser world");return;}
+        if(!view->automationRequests.count(id))return;
+        if(!ready||context<=0||!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Cannot create isolated browser world");return;}
         view->automationContext=context;evaluate(context);
       });
   });
@@ -125,10 +138,10 @@ static const char* xb_dialog_kind(COREWEBVIEW2_SCRIPT_DIALOG_KIND kind){
     case COREWEBVIEW2_SCRIPT_DIALOG_KIND_PROMPT:return "prompt";
     case COREWEBVIEW2_SCRIPT_DIALOG_KIND_BEFOREUNLOAD:return "beforeunload";default:return "unknown";}
 }
-static void xb_install_dialogs(const std::shared_ptr<xb_view>& view){
-  std::weak_ptr<xb_view> weak=view;
+static void xb_install_dialogs(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){
+  std::weak_ptr<xb_view> weak=view;std::weak_ptr<xb_host> parent=host;
   auto* callback=xb_cb<ICoreWebView2ScriptDialogOpeningEventHandler,ICoreWebView2*,ICoreWebView2ScriptDialogOpeningEventArgs*>(
-    IID_ICoreWebView2ScriptDialogOpeningEventHandler,[weak](ICoreWebView2*,ICoreWebView2ScriptDialogOpeningEventArgs* args){
+    IID_ICoreWebView2ScriptDialogOpeningEventHandler,[weak,parent](ICoreWebView2*,ICoreWebView2ScriptDialogOpeningEventArgs* args){
       auto active=weak.lock();if(!active||active->closed||active->dialog)return S_OK;
       auto dialog=std::make_shared<xb_dialog>();GUID guid{};wchar_t identifier[40]{};
       if(FAILED(CoCreateGuid(&guid))||!StringFromGUID2(guid,identifier,40)||FAILED(args->GetDeferral(&dialog->deferral))){active->error="Cannot retain a JavaScript dialog; it was dismissed";return S_OK;}
@@ -136,7 +149,8 @@ static void xb_install_dialogs(const std::shared_ptr<xb_view>& view){
       dialog->expires=GetTickCount64()+120000;active->dialog=dialog;
       xb_dialog_views[active->window]=active;
       if(!SetTimer(active->window,xb_dialog_timer,1000,xb_dialog_expire)){active->error="Cannot retain a JavaScript dialog; it was dismissed";active->dialog.reset();xb_dialog_cleanup(active->window);return S_OK;}
-      if(auto input=active->input.lock())input->dialogOpened();return S_OK;
+      if(auto input=active->input.lock())input->dialogOpened();
+      if(auto owner=parent.lock())xb_abort_automation(owner,active,true);return S_OK;
     });
   EventRegistrationToken token{};HRESULT status=view->core->add_ScriptDialogOpening(callback,&token);callback->Release();
   if(SUCCEEDED(status)){
@@ -164,7 +178,10 @@ static void xb_dialog_request(const std::shared_ptr<xb_host>& host,const std::sh
   if((accept!="true"&&accept!="false")||text.size()>8192){host->reply(id,"","A boolean response and at most 8 KiB of text are required");return;}
   COREWEBVIEW2_SCRIPT_DIALOG_KIND kind;dialog->args->get_Kind(&kind);HRESULT status=S_OK;
   if(accept=="true"){
-    if(kind==COREWEBVIEW2_SCRIPT_DIALOG_KIND_PROMPT)status=dialog->args->put_ResultText(webview::detail::widen_string(text).c_str());
+    if(kind==COREWEBVIEW2_SCRIPT_DIALOG_KIND_PROMPT){
+      if(xb_get(json,"has_text")=="true"||!text.empty())status=dialog->args->put_ResultText(webview::detail::widen_string(text).c_str());
+      else{xs_wv_text initial;status=dialog->args->get_DefaultText(&initial.p);if(SUCCEEDED(status))status=dialog->args->put_ResultText(initial.p?initial.p:L"");}
+    }
     if(SUCCEEDED(status))status=dialog->args->Accept();
   }
   if(FAILED(status)){host->reply(id,"","Dialog response was not confirmed; inspect the current page");return;}

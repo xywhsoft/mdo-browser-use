@@ -81,3 +81,37 @@ test("changing the displaying device rejects work before the native bridge", asy
   assert.equal(result.result.error.code, "context_changed");
   assert.equal(result.result.error.effect_may_have_occurred, false);
 });
+
+test("a pending dialog is a normal checkpoint and manual control protects responses", async () => {
+  let responses = 0;
+  const view = { async execute(command) {
+    if (command === "state") return { loading: false, automation: true, dialog_capability: true, dialog_open: true, manual: false };
+    if (command === "automation") throw Error("A modal page must not be evaluated");
+    responses++; return { ok: true, dialogs: [{ id: "pending-dialog", kind: "confirm" }] };
+  }};
+  const base = { params: {}, view, action: { id: "dialog-boundary" }, api: { async call() { return { state: "pending" }; } } };
+  const checkpoint = await executeBrowserAutomation({ ...base, command: "observe" });
+  assert.equal(checkpoint.result.outcome, "dialog_open");
+  assert.equal(checkpoint.result.completed, false);
+  view.execute = async command => {
+    if (command === "state") return { manual: true, dialog_capability: true };
+    responses++; return { ok: true, dialogs: [{ id: "pending-dialog" }] };
+  };
+  assert.equal((await executeBrowserAutomation({ ...base, command: "dialog", params: { action: "list" } })).result.dialogs.length, 1);
+  const before = responses;
+  const blocked = await executeBrowserAutomation({ ...base, command: "dialog", params: { action: "respond" } });
+  assert.equal(blocked.result.error.code, "manual_control");
+  assert.equal(responses, before);
+});
+
+test("a dialog opening during isolated reading yields without retrying the script", async () => {
+  let evaluations = 0;
+  const result = await executeBrowserAutomation({ command: "observe", params: {}, action: { id: "read-dialog" },
+    api: { async call() { return { state: "pending" }; } }, view: { async execute(command) {
+      if (command === "state") return { loading: false, automation: true };
+      if (command === "automation") { evaluations++; return { ok: true, value: { ok: true, blocked_by_dialog: true } }; }
+      return { ok: true, dialogs: [{ id: "read-race-dialog" }] };
+    } } });
+  assert.equal(result.result.outcome, "dialog_open");
+  assert.equal(evaluations, 1);
+});

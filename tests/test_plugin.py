@@ -165,6 +165,34 @@ class PluginTests(unittest.TestCase):
             dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
             self.invoke({"action": "close", "browser": browser["id"]})
 
+    def test_dialog_validation_and_scoped_receipts(self):
+        for fields, code in [
+            ({"action": "respond"}, "dialog_response_required"),
+            ({"action": "respond", "dialog": "pending"}, "dialog_response_required"),
+            ({"action": "respond", "dialog": "pending", "accept": "yes"}, "arguments_invalid"),
+            ({"action": "list", "script": "arbitrary JS"}, "arguments_invalid")
+        ]:
+            with self.subTest(fields=fields):
+                status, _, raw = dev.request("POST", "/api/v1/application/call", {
+                    "method": "browseruse.dialog", "params": {"browser": "unused", **fields}, "context": self.scope})
+                self.assertEqual(status, 422, json.loads(raw))
+                self.assertEqual(json.loads(raw)["error"]["code"], code)
+        browser = self.invoke({"action": "create", "client": self.client, "key": "dialog-scope"})
+        receipt = dev.call("browseruse.dialog", {"browser": browser["id"], "action": "list"}, self.scope)
+        try:
+            status, _, raw = dev.request("POST", "/api/v1/application/call", {
+                "method": "browseruse.result", "params": {"id": receipt["id"]},
+                "context": dict(self.scope, session="foreign")})
+            self.assertEqual(status, 409, json.loads(raw))
+            dev.call("client.ack", {"client": self.client, "id": receipt["id"], "success": True,
+                                    "result": {"ok": True, "dialogs": []}})
+            result = dev.call("browseruse.result", {"id": receipt["id"]}, self.scope)
+            self.assertEqual(result["state"], "succeeded")
+            self.assertEqual(result["result"]["dialogs"], [])
+        finally:
+            dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
+            self.invoke({"action": "close", "browser": browser["id"]})
+
 
 if __name__ == "__main__":
     unittest.main()

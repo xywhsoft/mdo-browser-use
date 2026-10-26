@@ -6,7 +6,7 @@ static bool BuOperationId(const char* Id){
     return true;
 }
 static const BuService* BuOperationTarget(const char* Method){
-    if(!Method||(!BuEqual(Method,"browseruse.act")&&!BuEqual(Method,"browseruse.navigate")&&!BuEqual(Method,"browseruse.tabs")))return NULL;
+    if(!Method||(!BuEqual(Method,"browseruse.act")&&!BuEqual(Method,"browseruse.navigate")&&!BuEqual(Method,"browseruse.tabs")&&!BuEqual(Method,"browseruse.dialog")))return NULL;
     for(size_t I=0;I<sizeof(BuServices)/sizeof(*BuServices);I++)if(BuEqual(Method,BuServices[I].Id))return &BuServices[I];
     return NULL;
 }
@@ -27,7 +27,7 @@ static mdo_result BuOperation(void* User,const mdo_sdk_context_v1* C,const xvalu
     mdo_result Code;
     if(BuEqual(Action,"submit")){
         const char* Method=BuText(C,P,"method");const BuService* Service=BuOperationTarget(Method);
-        if(!Service){V->Release(Args);return BuFail(E,"method_invalid","Only Browser Use tabs, actions and navigation can be submitted",422);}
+        if(!Service){V->Release(Args);return BuFail(E,"method_invalid","Only supported Browser Use operations can be submitted",422);}
         const xvalue* Input=V->Get(P,"arguments");xvalue* Schema=V->Parse(Service->Input);
         bool Valid=Schema&&BuValidate(C,Schema,Input,0);V->Release(Schema);
         if(!Valid){V->Release(Args);return BuFail(E,"arguments_invalid","Submitted arguments do not match the shared service schema",422);}

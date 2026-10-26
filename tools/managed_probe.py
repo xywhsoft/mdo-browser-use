@@ -78,12 +78,27 @@ def main():
                       "op": "fill", "target": {"label": "订单号"}, "text": "Managed native input"})
         assert filled["success"] and value(filled)["verification"] == "field_state"
         assert tool("browser_wait", {"browser": browser, "until": "visible", "target": {"name": "查询"}})["success"]
+        checkpoint = tool("browser_act", {"browser": browser, "document": value(resumed)["document"],
+                          "op": "click", "target": {"name": "Confirm dialog"}})
+        assert checkpoint["success"]
+        boundary = value(checkpoint)
+        assert boundary["outcome"] == "dialog_open" and boundary["completed"] is False
+        pending = value(tool("browser_dialog", {"browser": browser, "action": "list"}))["dialogs"]
+        assert len(pending) == 1 and pending[0]["kind"] == "confirm"
+        denied_dialog = tool("browser_dialog_respond", {"browser": browser, "action": "respond",
+                             "dialog": pending[0]["id"], "accept": True}, READ_ONLY)
+        assert denied_dialog["success"] is False, "Read-only tool answered a dialog"
+        answered = tool("browser_dialog_respond", {"browser": browser, "action": "respond",
+                        "dialog": pending[0]["id"], "accept": False})
+        assert answered["success"]
+        assert tool("browser_wait", {"browser": browser, "until": "text", "text": "confirm:false"})["success"]
         assert tool("browser_navigate", {"browser": browser, "action": "reload"})["success"]
         assert tool("browser_open", {"action": "close", "browser": browser})["success"]
         browser = None
-        report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 6,
+        report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 8,
                   "readonly_read_allowed": True, "readonly_write_denied": True,
-                  "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True}
+                  "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
+                  "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True}
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:

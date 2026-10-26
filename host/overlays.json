@@ -9,17 +9,17 @@
     {
       "path": "app/src/application/workbench.c",
       "before": "\"wait\",\"snapshot\",\"screenshot\",\"click\"",
-      "after": "\"wait\",\"snapshot\",\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"screenshot\",\"click\""
+      "after": "\"wait\",\"snapshot\",\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"dialog\",\"screenshot\",\"click\""
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "'wait','snapshot','screenshot','click'",
-      "after": "'wait','snapshot','observe','act','navigate_to','wait_for','screenshot','click'"
+      "after": "'wait','snapshot','observe','act','navigate_to','wait_for','dialog','screenshot','click'"
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "'control_token':s},('id','command'))",
-      "after": "'control_token':s,'mode':{'type':'string','enum':['readable','interactive']},'limit':{'type':'integer','minimum':1,'maximum':400},'max_bytes':{'type':'integer','minimum':256,'maximum':32768},'op':s,'action':s,'until':s,'document':s,'target':{'type':'object'},'key':s,'checked':{'type':'boolean'},'dx':{'type':'integer'},'dy':{'type':'integer'}},('id','command'))"
+      "after": "'control_token':s,'mode':{'type':'string','enum':['readable','interactive']},'limit':{'type':'integer','minimum':1,'maximum':400},'max_bytes':{'type':'integer','minimum':256,'maximum':32768},'dialog':s,'accept':{'type':'boolean'},'op':s,'action':s,'until':s,'document':s,'target':{'type':'object'},'key':s,'checked':{'type':'boolean'},'dx':{'type':'integer'},'dy':{'type':'integer'}},('id','command'))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -115,6 +115,37 @@
       "path": "app/src/application/ui.c",
       "before": "        if(!SdkGet(Scope,\"project\")&&C->ProjectId&&C->ProjectId[0])SdkPut(Scope,\"project\",C->ProjectId);\n        if(!SdkGet(Scope,\"session\")&&C->SessionId&&C->SessionId[0])SdkPut(Scope,\"session\",C->SessionId);",
       "after": "        SdkPut(Scope,\"project\",C->ProjectId&&C->ProjectId[0]?C->ProjectId:\"default\");\n        SdkPut(Scope,\"session\",C->SessionId);SdkPut(Scope,\"run\",C->RunId);\n        SdkPut(Scope,\"namespace\",C->Namespace);SdkPut(Scope,\"member\",C->MemberId);"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "import { browserLocation, browserPhase, safeBrowserUrl } from \"./model.js\";",
+      "after": "import { createBrowserDialogs } from \"./dialog-ui.js\";\nimport { browserLocation, browserPhase, safeBrowserUrl } from \"./model.js\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "  region.append(surface, message); root.append(toolbar, viewport, status, region);",
+      "after": "  const dialogs = createBrowserDialogs({ execute, onControl:()=>{state={...state,manual:true};paint();}, onChange:()=>{void mount.visible?.(shown());}, onError:errorToast });\n  region.append(surface, message); root.append(toolbar, dialogs.element, viewport, status, region);"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "    clearTimeout(timer); menu.dispose();",
+      "after": "    clearTimeout(timer); dialogs.dispose(); menu.dispose();"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "state = await execute(\"state\"); if (signal.aborted) return; paint();",
+      "after": "state = await execute(\"state\"); if (signal.aborted) return; await dialogs.refresh(state); if (signal.aborted) return; paint();"
+    },
+    {
+      "path": "app/web/css/workbench.css",
+      "before": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }",
+      "after_file": "host/browser-dialog.css",
+      "suffix": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "\"click\",\"type\",\"scroll\",\"evaluate\"].includes(request.command)",
+      "after": "\"click\",\"type\",\"scroll\",\"evaluate\",\"input\",\"automation\",\"dialog\"].includes(request.command)"
     }
   ],
   "files": [
@@ -133,6 +164,10 @@
     {
       "source": "host/operation-scope.inc.c",
       "target": "app/src/application/browser_use_operation_scope.inc.c"
+    },
+    {
+      "source": "host/dialog-ui.js",
+      "target": "app/web/js/features/workbench/dialog-ui.js"
     }
   ]
 }

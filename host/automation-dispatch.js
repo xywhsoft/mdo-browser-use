@@ -7,8 +7,8 @@ const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
 export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
-  if (!["observe", "act", "navigate_to", "wait_for"].includes(command)) return { handled: false };
-  const writing = command === "act" || command === "navigate_to";
+  if (!["observe", "act", "navigate_to", "wait_for", "dialog"].includes(command)) return { handled: false };
+  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond";
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
@@ -19,10 +19,14 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   if (writing && writers.has(writer)) return fail("browser_busy", "Another action is writing to this tab; inspect its receipt before retrying");
   if (writing) writers.add(writer);
   let lastReceipt = -Infinity, navigation;
+  const dialogBoundary = async () => ({ handled: true, result: { ok: true,
+    outcome: "dialog_open", completed: false, dispatched, action: action.id,
+    dialogs: (await view.execute("dialog", { action: "list", agent: true })).dialogs || [] } });
   const read = async (method, options) => {
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
     if (!result.ok || typeof result.value?.ok !== "boolean") throw Error("The browser returned an invalid automation result");
+    if (result.value.blocked_by_dialog) throw Object.assign(new Error("A JavaScript dialog interrupted page reading"), { dialog: true });
     return result.value;
   };
   const guard = async (force = false) => {
@@ -34,20 +38,29 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (receipt.state === "cancelled") return fail("cancelled", "The originating browser call was cancelled");
     }
     const state = await view.execute("state");
-    if (state.error && command !== "navigate_to" || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
-    if (state.manual) return fail("manual_control", "The user currently controls the browser");
+    if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
+    if (state.manual && !(command === "dialog" && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
+    if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
     if (typeof state.loading !== "boolean" || !state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution and readiness");
+    if (state.dialog_open) return dialogBoundary();
     if (navigation !== undefined && state.navigation !== navigation) return fail("stale_document", "The document changed; inspect it before another input");
     return { state };
   };
   const send = async parameters => {
-    const stopped = await guard(true); if (stopped.handled) return stopped;
+    let stopped = await guard(true); if (stopped.handled) return stopped;
+    while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
     dispatched = true;
     const delivered = await view.execute("input", { ...parameters, agent: true, navigation });
     if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
+    if (delivered.dialog_open) return dialogBoundary();
     return null;
   };
   try {
+    if (command === "dialog") {
+      const checked = await guard(true); if (checked.handled) return checked;
+      if (params.action === "respond") dispatched = true;
+      return { handled: true, result: await view.execute("dialog", { ...params, has_text: Object.hasOwn(params, "text"), agent: true }) };
+    }
     if (command === "navigate_to") {
       const checked = await guard(true); if (checked.handled) return checked;
       const oldNavigation = checked.state.navigation;
@@ -143,6 +156,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       verification: ["fill", "check"].includes(params.op) ? "field_state" : "native_delivery",
       observation: await read("observe", { limit: 100, max_bytes: 4096 }) } };
   } catch (error) {
+    if (error.dialog) return dialogBoundary();
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
     if (writing) writers.delete(writer);

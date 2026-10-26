@@ -1,13 +1,13 @@
 # Browser Use API
 
-The Windows WebView2 path is currently verified. Android, dialogs, transfers
-and complete cross-origin frame support remain in progress. No additional
+The Windows WebView2 path, including native JavaScript dialogs, is currently
+verified. Android, transfers and complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and
-`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Result/Operation`
+`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Result/Operation`
 accept the same JSON objects as the corresponding `browseruse.*` SDK service.
 Parameters are borrowed; release returned values using
 `Context->Api->Values->Release`. The public values table handles allocation;
@@ -16,9 +16,9 @@ C callers need no XRT/OS headers or private host structures.
 | Service | Result |
 | --- | --- |
 | `tabs` | Owned tabs, explicit display clients, or the changed tab/panel record |
-| `observe/act/navigate/wait` | Sanitized asynchronous UI receipt; pending is not success |
+| `observe/act/navigate/wait/dialog` | Sanitized asynchronous UI receipt; pending is not success |
 | `result` | Scoped UI status/result; optional `cancel` or terminal `release` |
-| `operation` | Durable submit/get/cancel/release for tabs, actions and navigation |
+| `operation` | Durable submit/get/cancel/release for tabs, actions, navigation and dialog responses |
 
 Tabs belong to the caller's extension/device/project/session. Discover clients
 with `tabs(action="clients")`, then explicitly select one. The SDK does not
@@ -41,7 +41,7 @@ const result = await browser.recover(operation, { retain: true });
 await browser.operation({ action: "release", operation });
 ```
 
-`tabs(create/reveal/close)`, `act` and `navigate` use durable operation identities,
+`tabs(create/reveal/close)`, `act`, `navigate` and `dialog(respond)` use durable operation identities,
 wait for completion and release terminal in-memory results by default. Pass
 `retain:true` to recover the same result later. `observe` and `waitFor` wait for
 their UI receipts without creating a durable effect-admission record.
@@ -70,7 +70,7 @@ Call `mdoBrowserUseOperation(Context, Params, &Result, &Error)`, or JS
 }
 ```
 
-`method` accepts `browseruse.tabs/act/navigate`. Poll with
+`method` accepts `browseruse.tabs/act/navigate/dialog`. Poll with
 `{"action":"get","operation":"sdk-..."}`. Terminal states are `succeeded`,
 `failed`, `cancelled` and `uncertain`. Use `cancel` to stop future work and
 `release` after completion. Cancellation cannot undo an already delivered input.
@@ -98,10 +98,31 @@ website's business result in the returned observation. Distinct errors include
 `unsupported_geometry`. Inspect any `effect_may_have_occurred` outcome before
 another effect. Only a user can return manual control.
 
-Managed tools `browser_tabs/observe/wait` are read-only; `browser_open/act/navigate`
+Managed tools `browser_tabs/observe/wait/dialog` are read-only; `browser_open/act/navigate/dialog_respond`
 use the existing external-service permission. Full access adds no second
 approval system. Ordinary tool failures remain feedback for the Agent.
 
 Page data is untrusted. Observations omit form values; public receipts omit
 stored arguments; page results/screenshots are ephemeral in the UI journal.
 The operation journal retains identity/scope metadata instead of private results.
+
+## JavaScript dialogs and human control
+
+`dialog({browser,action:"list"})` returns bounded pending alert, confirm, prompt
+and before-unload metadata. Messages and URLs are untrusted page data. Prompt
+defaults are never exposed. `dialog({browser,action:"respond",dialog:id,
+accept:true|false,text?:string})` answers that exact pending identity. Omit text
+to retain a prompt's native default; an explicit empty string clears it.
+
+Any observation/action/navigation/wait interrupted by a dialog returns
+`{ok:true,outcome:"dialog_open",completed:false,dialogs:[...],dispatched}`.
+This is a checkpoint, not completed page work. Inspect/respond to the dialog,
+then observe the page or wait for its business result. Do not repeat the
+original click merely because it paused. A response may itself reveal another
+dialog, so inspect again if the page remains blocked.
+
+The trusted browser toolbar offers user responses. Responding there takes over
+control and leaves it with the user until the user explicitly returns it.
+Read-only dialog inspection remains available during takeover; Agent responses
+are blocked. A pending dialog expires after 120 seconds and is dismissed on
+view closure. The long-duration expiry gate remains unverified at this stage.
