@@ -284,3 +284,24 @@ ID as data. New panel references/commands for a closed browser are rejected;
 late UI acknowledgements cannot revive a cancelled receipt. An input already
 delivered before closure may have taken effect, so cancellation is not rollback.
 Closing/hiding only a panel remains distinct from ending its browser session.
+
+## File snapshots for transfer staging
+
+The host now provides `files.digest({path,space?,revision?,max_bytes?})` and the
+generated C `mdoFilesDigest` helper. It returns regular-file metadata/revision
+and complete lowercase SHA-256, without contents. The default byte budget is
+32 MiB and the maximum is 64 MiB. Directories/links, changed identities and
+oversized/growing files do not produce a partial digest.
+
+`files.read` and `fs.read` accept an optional `revision` precondition. With it,
+the host checks the named entry and opened handle before/after the bounded
+range, and returns no bytes on mismatch. EOF is explicit; an offset beyond the
+selected size is an error. Reads without a revision retain their existing
+behavior. Windows snapshot calls deny write/delete sharing while their handle
+is open; POSIX relies on identity/metadata checks. A revision is not a permanent
+lock across separate calls, and the staged copy must still match the complete
+digest before it can be assigned to a website.
+
+These calls run against the original SDK task's filesystem. They do not treat
+a server path as a path on the browser's displaying device. Browser upload and
+download services and their staging lifecycle are still under development.

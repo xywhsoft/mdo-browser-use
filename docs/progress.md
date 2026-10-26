@@ -622,3 +622,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   the single Home; tests used no live model call or additional app copy.
   Vision coordinates, offscreen dragging, file transfers, complete frames,
   Android and final lifecycle/package validation remain required.
+
+## D6 — bounded source snapshots for file transfers
+
+- Added host `files.digest` with generated C/JS discovery/contracts. It hashes
+  one regular file with a 64 KiB buffer, a 32 MiB default/64 MiB maximum budget,
+  inherited cancellation/deadline and named/handle identity checks before/after.
+  It returns metadata plus SHA-256, never contents or a digest of a prefix.
+- Fixed an existing substrate gap needed by uploads: `files.read` already
+  advertised revision but ignored it. Both files/fs range reads now enforce an
+  optional revision before and after reading, reject out-of-snapshot offsets,
+  and return no bytes on conflict. Ordinary unconditioned reads retain their
+  behavior. Windows snapshot handles allow read sharing only during each call.
+- The actual TCC/XRT tests cover binary/empty hashing, exact multi-chunk
+  reconstruction, bounded EOF/budgets, directory rejection, same-size/same-time
+  path replacement, and an open Windows writer followed by recovery. Full Python
+  run: 41 tests, 40 passed, one symlink case skipped because this process lacks
+  symlink creation privilege (1314). That unavailable case is not a pass.
+- Applied only reviewed overlays to the one pinned deployment; generated
+  `mdoFilesDigest` and overlay checks pass. Browser-native staging/assignment,
+  downloads and cross-device transport integration remain the next work.

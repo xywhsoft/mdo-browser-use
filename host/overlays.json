@@ -341,6 +341,36 @@
       "path": "app/web/js/features/workbench/browser-view.js",
       "before": "    if (document.activeElement !== address) address.value =",
       "after": "    if (document.activeElement !== address && !state.initial_navigation_pending) address.value ="
+    },
+    {
+      "path": "app/src/application/runtime.c",
+      "before": "    {\"files.read\",\"Read a bounded file workbench byte range\"},",
+      "after": "    {\"files.digest\",\"Hash a bounded regular file and return its stable revision and SHA-256\"},\n    {\"files.read\",\"Read a bounded file workbench byte range\"},"
+    },
+    {
+      "path": "app/src/application/runtime.c",
+      "before": "static bool SdkFileCall(",
+      "after": "#include \"browser_use_files_digest.inc.c\"\nstatic bool SdkFileCall("
+    },
+    {
+      "path": "app/src/application/runtime.c",
+      "before": "    if(!strncmp(Method,\"files.\",6))",
+      "after": "    if(!strcmp(Method,\"files.digest\"))return BuFileDigest(C,P,R,E);\n    if(!strncmp(Method,\"files.\",6))"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "    add('files.search'",
+      "after": "    add('files.digest','Hash one stable regular file; complete SHA-256 with a bounded read and optional revision precondition',\n        {**file_path,'revision':s,'max_bytes':{'type':'integer','minimum':1,'maximum':67108864}},('path',))\n    add('files.search'"
+    },
+    {
+      "path": "tools/application_sdk.py",
+      "before": "if action=='read':fields.update(offset=uint,limit={**uint,'minimum':1,'maximum':262144})",
+      "after": "if action=='read':fields.update(offset=uint,limit={**uint,'minimum':1,'maximum':262144},revision=string)"
+    },
+    {
+      "path": "app/src/application/runtime.c",
+      "before": "    cstr Revision=SdkField(P,\"revision\");",
+      "after": "    cstr Revision=SdkField(P,\"revision\");\n    if(!Vfs&&SdkGet(P,\"revision\")&&!strcmp(Action,\"read\")){bool Read=BuFileRead(C,P,Path,R,E);xrtFree(Path);return Read;}"
     }
   ],
   "files": [
@@ -383,6 +413,10 @@
     {
       "source": "host/browser-lifecycle.inc.c",
       "target": "app/src/application/browser_lifecycle.inc.c"
+    },
+    {
+      "source": "host/files-digest.inc.c",
+      "target": "app/src/application/browser_use_files_digest.inc.c"
     }
   ]
 }
