@@ -33,7 +33,12 @@ python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
 node --test tests/test_client.mjs
+python tools/native_probe.py
 ```
+
+The native probe reuses this exact deployment, briefly opens its real WebView2
+window with local fixtures, and restores headless mode afterwards. No live model
+or external website is needed. Its latest result is `.mdo/page-observation-result.json`.
 
 ## Scope
 

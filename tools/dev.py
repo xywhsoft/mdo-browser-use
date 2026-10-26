@@ -125,17 +125,35 @@ def setup(base: Path) -> None:
     print("Prepared one pinned mdo deployment in", ENV)
 
 
-def start() -> None:
+def start(*, window: bool = False, page: str = "/") -> None:
     current = state()
     if not current:
         raise RuntimeError("Run setup first")
     if current.get("pid"):
         raise RuntimeError("A development PID is recorded; use status/stop before starting again")
+    if not page.startswith("/") or any(ch in page for ch in "\r\n"):
+        raise RuntimeError("The development window page must be a local URL path")
+    config = json.loads(Path(current["config"]).read_text(encoding="utf-8"))
+    if window:
+        config["services"][0]["class"] = "app"
+        original = json.loads((SOURCE / "app/xs.json").read_text(encoding="utf-8"))
+        native = original["services"][0]["window"]
+        native.update({"title": "Mdo Browser Use Development", "url": page,
+                       "width": 1100, "height": 800, "install_fallback": "headless"})
+        config["services"][0]["window"] = native
+    run_config = SOURCE / "app/.browser-use.run.json"
+    run_config.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    current["active_config"] = str(run_config)
+    current["window"] = window
+    exclude = SOURCE / ".git/info/exclude"
+    text = exclude.read_text(encoding="utf-8")
+    if "/app/.browser-use.run.json" not in text:
+        exclude.write_text(text + "/app/.browser-use.run.json\n", encoding="utf-8")
     log_path = ENV / "server.log"
     with log_path.open("wb") as log:
         child = subprocess.Popen(
-            [current["host"], current["config"], "--", "--home", str(HOME)],
-            cwd=SOURCE / "app", env=dict(os.environ, USE_WEBVIEW="0"), stdout=log, stderr=log,
+            [current["host"], current["active_config"], "--", "--home", str(HOME)],
+            cwd=SOURCE / "app", env=dict(os.environ, USE_WEBVIEW="1" if window else "0"), stdout=log, stderr=log,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     current["pid"] = child.pid
     save(current)
@@ -177,7 +195,7 @@ def stop() -> None:
             output = run("powershell", "-NoProfile", "-Command", script)
             if output:
                 process = json.loads(output)
-                expected_config = current.get("config", str(ENV / "dev.json"))
+                expected_config = current.get("active_config", current.get("config", str(ENV / "dev.json")))
                 if Path(process["ExecutablePath"]).resolve() != Path(current["host"]).resolve() or expected_config not in process["CommandLine"]:
                     raise RuntimeError("Recorded PID identity does not match this development deployment")
                 run("taskkill", "/PID", str(pid), "/T", "/F")
@@ -207,10 +225,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("setup", "start", "stop", "status"))
     parser.add_argument("--mdo-source", type=Path, default=Path("D:/GIT/mdo"))
+    parser.add_argument("--window", action="store_true", help="Use this same deployment with its native app window")
+    parser.add_argument("--page", default="/", help="Local initial window page")
     args = parser.parse_args()
     try:
         if args.command == "setup":
             setup(args.mdo_source)
+        elif args.command == "start":
+            start(window=args.window, page=args.page)
         else:
             globals()[args.command]()
         return 0

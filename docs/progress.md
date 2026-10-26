@@ -7,7 +7,7 @@ development stream and the single deployment inside this project.
 | --- | --- | --- |
 | A0 | Pin mdo, bootstrap reusable development environment, real startup | Complete |
 | A1 | Shared contracts and actual C plugin/SDK registration | Complete |
-| B | Windows observation, element references and native input | Pending |
+| B | Windows observation, element references and native input | In progress |
 | C | Waiting, action identity, ownership, cancellation and recovery | Pending |
 | D | Frames, tabs, dialogs, upload/download and visible UI | Pending |
 | E | Android implementation and explicit platform limits | Pending |
@@ -57,3 +57,20 @@ latest generated result is kept unless a failure needs investigation.
   actual native pixels, page observation and inputs are not yet validated.
 - The tab `reveal` probe requires the standard browser type normally registered
   by the real UI, so the headless fixture explicitly supplies that contribution.
+
+## B0 — shared page observation engine
+
+- Added a bounded, self-contained JavaScript page runtime with readable text,
+  DOM-subset roles/names, stable element references, frame-local CSS geometry,
+  explicit truncation and no input/password values in observations.
+- Open shadow roots and same-origin frames are traversed. Opaque frames are
+  explicitly reported as inaccessible. Duplicate semantic matches return
+  candidates; removed elements, changed top documents and navigated child
+  frames reject old references without invalidating unrelated live references.
+- `tools/native_probe.py` runs this engine inside the actual project WebView2,
+  checks native screenshot output, then restores the same Home/service to its
+  headless SDK mode. It creates only two small fixture pages in the existing
+  app directory and overwrites one report, with no copied applications/Homes.
+- The page runtime is tested directly via the existing native evaluate channel.
+  This is not yet the public observe service or an isolated-world/native-input
+  implementation; those remain pending. Page execution results are untrusted data.
