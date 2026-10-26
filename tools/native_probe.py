@@ -357,6 +357,11 @@ try {
 def main():
     output = dev.ENV / "page-observation-result.json"
     output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
+    dump_root = dev.ENV / "host"
+    def dumps():
+        return {p.name: (p.stat().st_size, p.stat().st_mtime_ns)
+                for p in dump_root.glob("crash_*") if p.suffix in (".dmp", ".txt")}
+    previous_dumps = dumps()
     web = dev.SOURCE / "app/web"
     runtime = (ROOT / "page/runtime.js").read_text(encoding="utf-8")
     if runtime.count("export function browserRuntime()") != 1:
@@ -391,6 +396,15 @@ def main():
         if not result:
             output.write_text('{"passed":false,"error":"Native checks did not return a result"}\n', encoding="utf-8")
             raise RuntimeError("Native page checks did not return a result; inspect .mdo/server.log")
+        result["new_native_diagnostics"] = [name for name, fingerprint in dumps().items()
+                                            if previous_dumps.get(name) != fingerprint]
+        if result["new_native_diagnostics"]:
+            result["passed"] = False
+            result["error"] = "The host generated new exception diagnostics; inspect them before accepting the native result"
+        # A saved page result alone must not hide a host failure afterwards.
+        if not dev.call("runtime.info").get("application_root"):
+            result["passed"] = False
+            result["error"] = "The host was not healthy after native completion"
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))

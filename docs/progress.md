@@ -350,3 +350,18 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Automatic scoped tab adoption/display in the normal workbench is the next
   stage. This native milestone does not claim complete public popup support.
 - Native contract reference: [Microsoft WebView2 new-window arguments](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2newwindowrequestedeventargs).
+
+## D2a — native result acceptance and historical dump storage
+
+- The disk audit found three 117–122 MiB dumps from 20:48–20:56, before the
+  21:05 controller-close fix, rather than fresh output from D2. Their sidecars
+  and memory-module records identify the same access-violation location in
+  `EmbeddedBrowserWebView.dll`. The pinned host records first-chance exceptions;
+  a dump alone does not establish process termination or a local root cause.
+- Preserved all six historical dump/sidecar files in one private archive under
+  `.mdo/evidence/native-dialog-pre-fix.zip`. Verified every archived byte with
+  SHA-256 before removing the redundant originals, saving about 232 MiB.
+- Native acceptance now rejects new/changed exception diagnostic files even
+  when the page wrote a passing result, and checks host readiness afterwards.
+  The full 169-check native run passed again with no new diagnostics and a
+  healthy host. This does not suppress or alter native exception handling.
