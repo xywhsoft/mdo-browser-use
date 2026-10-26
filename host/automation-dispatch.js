@@ -1,21 +1,23 @@
 import { browserRuntime } from "./automation-runtime.js";
 
-const writers = new WeakSet();
+const writers = new Set();
 const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
   a.geometry?.every((number, index) => Math.abs(number - b.geometry[index]) <= 0.5);
 
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
-export async function executeBrowserAutomation({ command, params, view, action, api, alive = () => true }) {
-  if (!["observe", "act"].includes(command)) return { handled: false };
+export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
+  if (!["observe", "act", "navigate_to", "wait_for"].includes(command)) return { handled: false };
+  const writing = command === "act" || command === "navigate_to";
+  const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   let dispatched = false;
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
-  if (command === "act" && writers.has(view)) return fail("browser_busy", "Another action is writing to this tab; inspect its receipt before retrying");
-  if (command === "act") writers.add(view);
+  if (writing && writers.has(writer)) return fail("browser_busy", "Another action is writing to this tab; inspect its receipt before retrying");
+  if (writing) writers.add(writer);
   let lastReceipt = -Infinity, navigation;
   const read = async (method, options) => {
     const result = await view.execute("automation", { agent: true,
@@ -32,7 +34,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (receipt.state === "cancelled") return fail("cancelled", "The originating browser call was cancelled");
     }
     const state = await view.execute("state");
-    if (state.error || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
+    if (state.error && command !== "navigate_to" || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual) return fail("manual_control", "The user currently controls the browser");
     if (typeof state.loading !== "boolean" || !state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution and readiness");
     if (navigation !== undefined && state.navigation !== navigation) return fail("stale_document", "The document changed; inspect it before another input");
@@ -46,6 +48,44 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   try {
+    if (command === "navigate_to") {
+      const checked = await guard(true); if (checked.handled) return checked;
+      const oldNavigation = checked.state.navigation;
+      if (params.action === "back" && !checked.state.can_go_back || params.action === "forward" && !checked.state.can_go_forward) return fail("history_unavailable", "There is no matching browser history entry");
+      dispatched = true;
+      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, url: params.url });
+      if (!accepted.accepted) return fail("navigation_uncertain", "Navigation was not confirmed; inspect the current tab before repeating it");
+      while (performance.now() < deadline) {
+        const current = await guard(); if (current.handled) return current;
+        if (!current.state.loading && current.state.navigation !== oldNavigation) {
+          if (current.state.error) return fail("navigation_failed", current.state.error);
+          const observation = await read("observe", { limit: 100, max_bytes: 4096 });
+          if (observation.ok && observation.ready === "complete") return { handled: true, result: { ok: true, action: action.id, url: current.state.url, observation } };
+        }
+        await pause(50);
+      }
+      return fail("timed_out", "Navigation did not complete before its deadline; inspect the tab before retrying");
+    }
+    if (command === "wait_for") {
+      while (performance.now() < deadline) {
+        const current = await guard(); if (current.handled) return current;
+        if (!current.state.loading) {
+          const observation = await read("observe", { limit: 20, max_bytes: params.until === "text" ? 32768 : 1024 });
+          if (params.document && params.document !== observation.document) return fail("stale_document", "The document changed while waiting");
+          if (params.until === "ready" && observation.ready === "complete" ||
+              params.until === "text" && observation.text.includes(params.text)) return { handled: true, result: { ok: true, matched: true, observation } };
+          if (params.target) {
+            const located = await read("locate", { document: observation.document, target: params.target });
+            const absent = ["element_not_found", "element_detached"].includes(located.error?.code);
+            if (params.until === "hidden" && absent || params.until === "visible" && located.ok ||
+                params.until === "enabled" && located.ok && !located.element.disabled) return { handled: true, result: { ok: true, matched: true, document: observation.document, ...(located.ok ? { element: located.element } : {}) } };
+            if (!located.ok && !absent) return { handled: true, result: located };
+          }
+        }
+        await pause(60);
+      }
+      return fail("timed_out", "The requested page condition was not met before its deadline");
+    }
     while (performance.now() < deadline) {
       const checked = await guard(); if (checked.handled) return checked;
       const { state } = checked;
@@ -105,6 +145,6 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   } catch (error) {
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
-    if (command === "act") writers.delete(view);
+    if (writing) writers.delete(writer);
   }
 }

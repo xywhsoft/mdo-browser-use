@@ -2,6 +2,7 @@
 #include "tabs.c"
 #include "observe.c"
 #include "actions.c"
+#include "navigation.c"
 
 typedef struct BuService {
     const char *Id,*Description,*Input,*Output;

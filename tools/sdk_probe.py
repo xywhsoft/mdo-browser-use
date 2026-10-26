@@ -8,12 +8,12 @@ import dev
 SCOPE = {"extension": "plugin.mdo.browser-use"}
 
 
-def wait_receipt(identity, service="browseruse.result", timeout=30):
+def wait_receipt(identity, service="browseruse.result", timeout=30, allow_failure=False):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         receipt = dev.call(service, {"id": identity}, SCOPE)
         if receipt["state"] in ("succeeded", "failed", "cancelled"):
-            if receipt["state"] != "succeeded":
+            if receipt["state"] != "succeeded" and not allow_failure:
                 raise RuntimeError("Native SDK action failed: " + str(receipt.get("error")))
             return receipt
         time.sleep(0.1)
@@ -79,8 +79,38 @@ def main():
         assert "Trusted click" in clicked["observation"]["text"]
         assert act("key", {"testid": "order-field"}, key="Tab")["dispatched"]
         assert act("scroll", dy=150)["dispatched"]
+        waits = 0
+        def complete(service, fields, failure=None):
+            queued_call = dev.call(service, {"browser": browser, **fields}, SCOPE)
+            try:
+                receipt = wait_receipt(queued_call["id"], allow_failure=bool(failure))
+                if failure:
+                    assert receipt["state"] == "failed", receipt["state"]
+                    assert receipt["error"]["code"] == failure, receipt.get("error")
+                    return receipt
+                return receipt["result"]
+            finally:
+                dev.call("browseruse.result", {"id": queued_call["id"], "release": True}, SCOPE)
+        for fields in [
+            {"until": "text", "text": "Trusted click"},
+            {"until": "visible", "target": {"label": "订单号"}},
+            {"until": "hidden", "target": {"css": "#does-not-exist"}},
+            {"until": "enabled", "target": {"name": "Agree"}},
+            {"until": "ready"}
+        ]:
+            assert complete("browseruse.wait", fields)["matched"]
+            waits += 1
+        failed_wait = complete("browseruse.wait", {"until": "visible", "target": {"css": "#never-created"}, "timeout_ms": 250}, "timed_out")
+        assert failed_wait["error"]["effect_may_have_occurred"] is False
+        navigated = complete("browseruse.navigate", {"action": "goto", "url": f"http://127.0.0.1:{dev.state()['port']}/__browser_use_page__.html?navigation=2"})
+        assert navigated["observation"]["document"] != page["document"]
+        stale = complete("browseruse.act", {"document": page["document"], "op": "click", "target": {"name": "查询"}}, "stale_document")
+        assert stale["error"].get("effect_may_have_occurred", False) is False
+        for navigation in ["back", "forward", "reload"]:
+            assert complete("browseruse.navigate", {"action": navigation})["observation"]["ready"] == "complete"
         report = {"passed": True, "backend": "actual-mdo-ui-webview2",
-                  "public_services": ["browseruse.observe", "browseruse.act"], "actions": actions,
+                  "public_services": ["browseruse.observe", "browseruse.act", "browseruse.navigate", "browseruse.wait"],
+                  "actions": actions, "navigations": 4, "wait_conditions": waits,
                   "automatic_readiness": True, "elements": len(page["elements"]),
                   "frames": len(page["frames"]), "request_bytes_in_ui_queue": len(json.dumps(queued["params"]).encode())}
         report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

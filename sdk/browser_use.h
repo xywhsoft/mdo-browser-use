@@ -10,4 +10,8 @@ static inline mdo_result mdoBrowserUseResult(const mdo_sdk_context_v1* C,const x
 {return mdoCall(C,"browseruse.result",P,R,E);}
 static inline mdo_result mdoBrowserUseAct(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
 {return mdoCall(C,"browseruse.act",P,R,E);}
+static inline mdo_result mdoBrowserUseNavigate(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.navigate",P,R,E);}
+static inline mdo_result mdoBrowserUseWait(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.wait",P,R,E);}
 #endif

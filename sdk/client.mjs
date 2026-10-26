@@ -3,6 +3,10 @@ import { services } from "./contracts.mjs";
 export function createBrowserUseClient(sdk) {
   if (typeof sdk?.call !== "function") throw new TypeError("An mdo Application SDK is required");
   const invoke = (name, params) => sdk.call(`browseruse.${name}`, params);
+  const complete = name => async (params, options = {}) => {
+    if (options.signal?.aborted) throw Object.assign(new Error("Browser call cancelled"), { code: "cancelled" });
+    return wait(await invoke(name, params), { timeout: (params.timeout_ms || 10000) + 5000, ...options });
+  };
   async function wait(receipt, { signal, timeout = 20000 } = {}) {
     const deadline = Date.now() + timeout;
     while (!signal?.aborted && Date.now() < deadline) {
@@ -33,15 +37,11 @@ export function createBrowserUseClient(sdk) {
   }
   return Object.freeze({
     tabs: params => invoke("tabs", params),
-    observe: async (params, options = {}) => {
-      if (options.signal?.aborted) throw Object.assign(new Error("Browser call cancelled"), { code: "cancelled" });
-      return wait(await invoke("observe", params), { timeout: (params.timeout_ms || 10000) + 5000, ...options });
-    },
+    observe: complete("observe"),
     result: params => invoke("result", params),
-    act: async (params, options = {}) => {
-      if (options.signal?.aborted) throw Object.assign(new Error("Browser call cancelled"), { code: "cancelled" });
-      return wait(await invoke("act", params), { timeout: (params.timeout_ms || 10000) + 5000, ...options });
-    },
+    act: complete("act"),
+    navigate: complete("navigate"),
+    waitFor: complete("wait"),
     wait,
     services: Object.freeze(services.map(row => row.id))
   });

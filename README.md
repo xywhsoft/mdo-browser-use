@@ -23,6 +23,16 @@ The default service is headless for SDK checks. Native browser verification will
 use the same deployment in window mode, not a second application installation.
 Running `setup` again reuses the same files. Stop the service before rebuilding.
 
+For the current Windows automation backend, build the enhanced host once:
+
+```powershell
+python tools/dev.py stop
+python tools/build_native.py --source D:\GIT\xserver
+```
+
+This uses one pinned SDK checkout and one object directory under `.mdo/`, reusing
+local Git objects. GCC/MinGW is needed for development, not for the shipped plugin.
+
 Install the current development plugin into this deployment, then restart the
 same process when the installer reports a native restart requirement:
 
@@ -35,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test tests/test_client.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 ```
@@ -47,8 +57,8 @@ or external website is needed. Its latest result is `.mdo/page-observation-resul
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
 `host/overlays.json` and applied only to the single `.mdo/source` checkout.
-The raw C services return UI receipts; `createBrowserUseClient(sdk).observe()`
-waits for the terminal result. C callers read `browseruse.result` and release the
+The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor`
+helpers wait for terminal results. C callers read `browseruse.result` and release the
 receipt after completion. Pending/accepted delivery is never page success.
 
 ## Scope

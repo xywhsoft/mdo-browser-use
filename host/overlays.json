@@ -9,17 +9,17 @@
     {
       "path": "app/src/application/workbench.c",
       "before": "\"wait\",\"snapshot\",\"screenshot\",\"click\"",
-      "after": "\"wait\",\"snapshot\",\"observe\",\"act\",\"screenshot\",\"click\""
+      "after": "\"wait\",\"snapshot\",\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"screenshot\",\"click\""
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "'wait','snapshot','screenshot','click'",
-      "after": "'wait','snapshot','observe','act','screenshot','click'"
+      "after": "'wait','snapshot','observe','act','navigate_to','wait_for','screenshot','click'"
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "'control_token':s},('id','command'))",
-      "after": "'control_token':s,'mode':{'type':'string','enum':['readable','interactive']},'limit':{'type':'integer','minimum':1,'maximum':400},'max_bytes':{'type':'integer','minimum':256,'maximum':32768},'op':s,'document':s,'target':{'type':'object'},'key':s,'checked':{'type':'boolean'},'dx':{'type':'integer'},'dy':{'type':'integer'}},('id','command'))"
+      "after": "'control_token':s,'mode':{'type':'string','enum':['readable','interactive']},'limit':{'type':'integer','minimum':1,'maximum':400},'max_bytes':{'type':'integer','minimum':256,'maximum':32768},'op':s,'action':s,'until':s,'document':s,'target':{'type':'object'},'key':s,'checked':{'type':'boolean'},'dx':{'type':'integer'},'dy':{'type':'integer'}},('id','command'))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -54,7 +54,7 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "      if (command === \"wait\") {",
-      "after": "      const automation = await executeBrowserAutomation({ command,params,view,action,api,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });\n      if (automation.handled) return automation.result;\n      if (command === \"wait\") {"
+      "after": "      const automation = await executeBrowserAutomation({ command,params,view,action,api,browser:id,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });\n      if (automation.handled) return automation.result;\n      if (command === \"wait\") {"
     },
     {
       "path": "app/web/js/api/application.js",

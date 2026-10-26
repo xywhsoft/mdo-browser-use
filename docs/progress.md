@@ -186,3 +186,19 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   concurrent writers and cancellation between click and keyboard input.
 - Cross-request idempotency/recovery, navigation APIs, Agent tools, dialogs,
   file transfer and Android are still outstanding.
+
+## B6 — navigation and condition waits
+
+- Added generated `browseruse.navigate/wait` services and C/JS wrappers. Navigation
+  supports explicit HTTP(S) URLs, back/forward/reload and waits for the new native
+  document to finish loading. Old document references cannot silently target it.
+- Waiting supports page readiness, bounded readable text, visible/hidden and
+  enabled elements. Every loop respects timeout, cancellation and manual control;
+  locator errors remain distinguishable from an unmet condition.
+- Writer ownership now keys on the browser identity, surviving a UI view remount.
+  Navigation shares this lock with input actions. Navigating away from a failed
+  URL is allowed; renderer crash recovery remains a separate pending capability.
+- The normal mdo UI/public C probe passed ten actions, four navigations and five
+  condition waits, plus unmet-condition timeout and stale-document rejection.
+- HTTP response diagnostics, persistent operation identity, Agent tools, native
+  dialogs/transfers, out-of-process frames and Android remain outstanding.

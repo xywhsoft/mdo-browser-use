@@ -253,5 +253,144 @@ export const services = [
     "output": {
       "type": "object"
     }
+  },
+  {
+    "id": "browseruse.navigate",
+    "description": "Navigate, go back/forward or reload an owned tab and wait for its new document. Delivery is not completion; read the receipt.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "action"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "goto",
+            "back",
+            "forward",
+            "reload"
+          ]
+        },
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.wait",
+    "description": "Wait for page readiness, visible/hidden/enabled element or bounded readable text. A reference requires its document identity.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "until"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "until": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "visible",
+            "hidden",
+            "enabled",
+            "text"
+          ]
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "placeholder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "testid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "css": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "document": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
   }
 ];
