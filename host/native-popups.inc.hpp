@@ -42,6 +42,7 @@ static void xb_install_popups(const std::shared_ptr<xb_host>& host,const std::sh
       if(!SetTimer(active->window,xb_popup_timer,250,xb_popup_expire)){active->popupError="Cannot retain a new-window request";active->popups.erase(popup->id);if(active->popups.empty())xb_popup_cleanup(active->window);return S_OK;}
       if(auto input=active->input.lock())input->popupOpened();
       xb_upload_boundary(active,true);
+      xb_chooser_boundary(active,true);
       xb_abort_automation(owner,active,2);
       const auto event="{\"channel\":\"mdo-browser-popup\",\"browser\":"+xb_quote(browser)+"}";
       owner->main->PostWebMessageAsJson(webview::detail::widen_string(event).c_str());return S_OK;

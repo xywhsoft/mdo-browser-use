@@ -830,3 +830,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Installed the updated runtime in the same Home; source and generated host
   checks match. The chooser/download/frame/platform work listed above remains
   required before the full Browser Use goal can be marked complete.
+
+## D11a — native file-picker interception and bounded lifecycle
+
+- Added private native arm/list/target/cancel/disarm operations. Interception is
+  off by default and enabled only after an acknowledged protocol call. One
+  opaque picker ticket per view carries a bounded lease; raw protocol node/frame
+  identities and selected paths never cross its metadata boundary. Pending
+  pickers fence competing native input, drag and file-selection changes.
+- Exact hidden, shadow and same-origin frame inputs resolve in an isolated
+  world, using page runtime version eight. An invalid document argument cannot
+  pin/poison the ticket. Later picker requests cannot replace the first ticket.
+  Navigation invalidates it; closing/recreating a view drops its subscription,
+  timer and pending callbacks. This step does not yet claim OOPIF support.
+- Cancellation dispatches one explicitly untrusted cancel event without
+  changing a preexisting FileList or releasing website-owned bytes. Page-world
+  EventTarget overrides cannot hijack the fixed isolated transaction. Dialogs
+  and popups opened by a cancel handler yield checkpoints while callbacks drain.
+  Expiry cancels once; takeover disables interception and cancels the old
+  request without opening another OS picker or returning control automatically.
+  Failed policy cleanup blocks input instead of retrying every timer tick.
+- Actual WebView2 confirmed mouseReleased acknowledgement may precede the
+  fileChooserOpened event. The native input receipt alone cannot guarantee a
+  picker checkpoint; bounded failure evidence is retained privately. The next
+  shared-dispatcher stage must inspect picker state after input/verification.
+- Rebuilt the same native host. The final full WebView2 gate passed 1020
+  assertions, with no new native diagnostics, a private cache ACL and zero
+  remaining file reservations. The focused chooser lifecycle also passed.
+  Local checks passed: 47 Python cases (46 passed, one unavailable Windows
+  symlink privilege skipped), 45 JS cases and generated/deployed contract checks.
+- This is the native foundation, not the completed public chooser feature.
+  Automatic Agent arming, C/JS/managed chooser APIs, chooser-bound upload
+  acceptance and visible pending-picker controls remain the next vertical step.
+  Downloads, full frame/directory support, vision coordinates, offscreen drag,
+  Android and final stability/package gates are still required for the full goal.

@@ -39,6 +39,7 @@ const engine = async expression => {
 };
 UPLOAD_PROBE_SOURCE
 FILE_INPUT_PROBE_SOURCE
+CHOOSER_PROBE_SOURCE
 try {
   const raceBrowser='browser-use-creation-race';
   const interrupted=bridge.call('create',{browser:raceBrowser,url:location.origin+'/__browser_use_page__.html?creation=old',visible:false})
@@ -171,6 +172,8 @@ try {
   await runUploadProbe({bridge,assert,pause});
   await trace('native-file-input');
   await runFileInputProbe({bridge,assert,pause,runtimeSource});
+  await trace('native-file-chooser');
+  await runChooserProbe({bridge,assert,pause,runtimeSource});
   await trace('native-drag-fixture');
   const dragBrowser='browser-use-native-drag';
   await bridge.call('create',{browser:dragBrowser,url:location.origin+'/__browser_use_drag__.html',visible:true,
@@ -570,7 +573,7 @@ try {
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -589,7 +592,7 @@ try {
 '''
 
 
-def main(dialog_expiry=False):
+def main(dialog_expiry=False, chooser_only=False):
     output = dev.ENV / "page-observation-result.json"
     output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
     dump_root = dev.ENV / "host"
@@ -602,13 +605,20 @@ def main(dialog_expiry=False):
     if runtime.count("export function browserRuntime()") != 1:
         raise RuntimeError("The injectable page entry changed")
     runtime = runtime.replace("export function browserRuntime()", "function browserRuntime()")
-    script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry))
+    selected_script = SCRIPT
+    if chooser_only:
+        start = selected_script.index('try {\n  const raceBrowser=')
+        end = selected_script.index('} catch(error) { report=')
+        selected_script = selected_script[:start] + 'try { await runChooserProbe({bridge,assert,pause,runtimeSource}); report={passed:true,checks,backend:"actual-webview2-chooser",native_upload_staging:true,native_file_chooser:true};\n' + selected_script[end:]
+    script = selected_script.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry))
     script = script.replace("UPLOAD_PROBE_SOURCE", (ROOT / "tools/native_upload_probe.js").read_text(encoding="utf-8"))
     script = script.replace("FILE_INPUT_PROBE_SOURCE", (ROOT / "tools/native_file_input_probe.js").read_text(encoding="utf-8"))
+    script = script.replace("CHOOSER_PROBE_SOURCE", (ROOT / "tools/native_chooser_probe.js").read_text(encoding="utf-8"))
     (web / "__browser_use_page__.html").write_bytes((ROOT / "tests/fixtures/page.html").read_bytes())
     (web / "__browser_use_popup__.html").write_bytes((ROOT / "tests/fixtures/popup.html").read_bytes())
     (web / "__browser_use_drag__.html").write_bytes((ROOT / "tests/fixtures/drag.html").read_bytes())
     (web / "__browser_use_upload__.html").write_bytes((ROOT / "tests/fixtures/upload.html").read_bytes())
+    (web / "__browser_use_chooser__.html").write_bytes((ROOT / "tests/fixtures/chooser.html").read_bytes())
     (web / "__browser_use_probe__.html").write_text(
         '<!doctype html><meta charset="utf-8"><h1 id="status">Browser Use native checks</h1>'
         '<script type="module">' + script + '</script>', encoding="utf-8")
@@ -653,9 +663,10 @@ def main(dialog_expiry=False):
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))
-        image = dev.call("storage.read", {"path": "qa/capture-fixture.png", "limit": 262144}, REPORT)
-        import base64
-        (dev.ENV / "capture-fixture.png").write_bytes(base64.b64decode(image["base64"], validate=True))
+        if not chooser_only:
+            image = dev.call("storage.read", {"path": "qa/capture-fixture.png", "limit": 262144}, REPORT)
+            import base64
+            (dev.ENV / "capture-fixture.png").write_bytes(base64.b64decode(image["base64"], validate=True))
         print(json.dumps(result, indent=2))
         return 0
     finally:
@@ -666,9 +677,10 @@ def main(dialog_expiry=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dialog-expiry", action="store_true", help="Also wait for the actual 120-second native dialog lease")
+    parser.add_argument("--chooser-only", action="store_true", help="Run the actual chooser lifecycle in the same Home")
     args = parser.parse_args()
     try:
-        raise SystemExit(main(args.dialog_expiry))
+        raise SystemExit(main(args.dialog_expiry, args.chooser_only))
     except (RuntimeError, OSError, ValueError) as error:
         print(error, file=sys.stderr)
         raise SystemExit(1)

@@ -124,7 +124,7 @@ static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::sha
     if(job->assigning)host->reply(id,"{\"accepted\":true,\"pending\":true,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+"}");
     else host->reply(id,"{\"accepted\":false,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+",\"error\":{\"code\":\"action_uncertain\",\"message\":\"Inspect the page before another upload\",\"effect_may_have_occurred\":true}}");return;
   }
-  if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||!view->input.expired()||view->capture||view->drag||!view->automationContext||view->loading||view->initialNavigationPending||
+  if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||xb_chooser_blocked(view)||!view->input.expired()||view->capture||view->drag||!view->automationContext||view->loading||view->initialNavigationPending||
      xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){
     reject("upload_not_ready","The sealed upload, isolated document or native input slot is no longer ready");return;
   }

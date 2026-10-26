@@ -1,0 +1,24 @@
+<!doctype html><meta charset="utf-8"><title>Browser Use chooser fixture</title>
+<h1>Browser Use chooser fixture</h1>
+<input id="file" type="file" hidden><input id="many" type="file" hidden multiple>
+<button id="open">Choose file</button><button id="show">Show picker</button><button id="multi">Choose multiple</button>
+<div id="shadow"></div><button id="shadow-open">Choose shadow file</button>
+<iframe id="frame" srcdoc="<input id='framed' type='file' hidden><button id='frame-open' onclick='document.querySelector(&quot;#framed&quot;).click()'>Choose framed file</button>"></iframe>
+<output id="result"></output>
+<script>
+globalThis.chooserEvents=[];globalThis.cancelMode='';
+function track(input){input.addEventListener('cancel',event=>{
+  chooserEvents.push({id:input.id,type:event.type,trusted:event.isTrusted,count:input.files.length});
+  if(cancelMode==='dialog')alert('File picker cancellation checkpoint');
+  if(cancelMode==='popup')window.open('/__browser_use_popup__.html','_blank');
+});}
+const shadow=document.querySelector('#shadow').attachShadow({mode:'open'});
+shadow.innerHTML='<input id="shadowed" type="file" hidden>';
+document.querySelector('#open').onclick=()=>document.querySelector('#file').click();
+document.querySelector('#show').onclick=()=>document.querySelector('#file').showPicker();
+document.querySelector('#multi').onclick=()=>document.querySelector('#many').click();
+document.querySelector('#shadow-open').onclick=()=>shadow.querySelector('input').click();
+document.querySelectorAll('input').forEach(track);shadow.querySelectorAll('input').forEach(track);
+document.querySelector('#frame').onload=event=>event.target.contentDocument.querySelectorAll('input').forEach(track);
+globalThis.fixtureReady=true;
+</script>

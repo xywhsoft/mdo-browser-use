@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 7;
+  const version = 8;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -251,6 +251,24 @@ export function browserRuntime() {
   function uploadNode(options = {}) {
     const found = uploadInfo(options); return found.ok ? refs.get(found.element.ref).element : null;
   }
+  // A native intercepted chooser supplies the actual node, never a model's
+  // selector or protocol ID. Only current same-origin documents can be pinned.
+  function pinUploadNode(element) {
+    try {
+      if (!element?.isConnected || element.localName !== "input" || element.type !== "file")
+        return fail("element_not_file_input", "The picker no longer has a connected HTML file input");
+      let doc = element.ownerDocument, owner = null;
+      for (let depth = 0; doc !== document && depth < maxFrames; depth++) {
+        if (doc.defaultView?.document !== doc) return fail("stale_frame", "The picker frame has navigated");
+        const frame = doc.defaultView.frameElement;
+        if (!frame?.isConnected || frame.contentDocument !== doc) return fail("frame_unsupported", "Use manual control for this picker frame");
+        owner ||= frame; doc = frame.ownerDocument;
+      }
+      if (doc !== document) return fail("frame_unsupported", "The picker frame is outside the observable document");
+      const ref = reference(element, owner ? frameIdentity(owner) : "f0");
+      return ref ? uploadInfo({document:documentId,target:{ref}}) : fail("reference_limit", "Too many retained element references");
+    } catch { return fail("frame_unsupported", "Use manual control for this picker frame"); }
+  }
   function contains(parent, child) {
     for (let node = child, depth = 0; node && depth < 32; depth++) {
       if (parent === node || parent.contains(node)) return true;
@@ -443,7 +461,7 @@ export function browserRuntime() {
       return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode, clearFiles });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode, pinUploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }
