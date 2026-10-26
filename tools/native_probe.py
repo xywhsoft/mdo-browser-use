@@ -37,6 +37,7 @@ const engine = async expression => {
   const result=await bridge.call('automation',{browser,agent:true,script:`(${runtimeSource})().${expression}`});
   assert(result.ok,'Native isolated evaluation failed');return result.value;
 };
+UPLOAD_PROBE_SOURCE
 try {
   const raceBrowser='browser-use-creation-race';
   const interrupted=bridge.call('create',{browser:raceBrowser,url:location.origin+'/__browser_use_page__.html?creation=old',visible:false})
@@ -165,6 +166,8 @@ try {
   const tinyOptions=await engine(`optionList(${JSON.stringify({document:first.document,target:{name:'Delivery method'},max_bytes:256})})`);
   assert(tinyOptions.error.code==='option_result_limit','An unreadable option page could repeat the same empty offset');
   await evaluate("document.querySelector('#shipping').options[0].label='Standard'");
+  await trace('native-upload-staging');
+  await runUploadProbe({bridge,assert,pause});
   await trace('native-drag-fixture');
   const dragBrowser='browser-use-native-drag';
   await bridge.call('create',{browser:dragBrowser,url:location.origin+'/__browser_use_drag__.html',visible:true,
@@ -564,7 +567,7 @@ try {
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -597,6 +600,7 @@ def main(dialog_expiry=False):
         raise RuntimeError("The injectable page entry changed")
     runtime = runtime.replace("export function browserRuntime()", "function browserRuntime()")
     script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry))
+    script = script.replace("UPLOAD_PROBE_SOURCE", (ROOT / "tools/native_upload_probe.js").read_text(encoding="utf-8"))
     (web / "__browser_use_page__.html").write_bytes((ROOT / "tests/fixtures/page.html").read_bytes())
     (web / "__browser_use_popup__.html").write_bytes((ROOT / "tests/fixtures/popup.html").read_bytes())
     (web / "__browser_use_drag__.html").write_bytes((ROOT / "tests/fixtures/drag.html").read_bytes())
@@ -635,6 +639,12 @@ def main(dialog_expiry=False):
         if not dev.call("runtime.info").get("application_root"):
             result["passed"] = False
             result["error"] = "The host was not healthy after native completion"
+        if result.get("native_upload_staging"):
+            from upload_cache_probe import inspect_cache
+            result["native_upload_cache"] = inspect_cache(dev.HOME / "data/cache/webview2-content/mdo-browser-use-transfers")
+            if result["native_upload_cache"]["remaining_reservations"]:
+                result["passed"] = False
+                result["error"] = "Native upload close/cancel left file reservations behind"
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))

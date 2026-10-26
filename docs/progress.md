@@ -642,3 +642,42 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Applied only reviewed overlays to the one pinned deployment; generated
   `mdoFilesDigest` and overlay checks pass. Browser-native staging/assignment,
   downloads and cross-device transport integration remain the next work.
+
+## D7 — private browser-device byte staging and crash-safe collection
+
+- Added internal native upload staging (begin/chunk/seal/status/cancel), bound
+  to the exact view/document. It accepts bytes and safe basenames, never task-host
+  filesystem paths. Canonical Base64 chunks are capped at 64 KiB; a file is at
+  most 32 MiB, a 16-file reservation at most 64 MiB, and this host reserves at
+  most 128 MiB/eight tickets with two per view. Leases are 1–120 seconds.
+- Same-key/same-manifest admission and matching chunk replay reuse their native
+  state. Conflicts, gaps, excessive data, bad hashes and sealed writes fail
+  explicitly. Complete SHA-256 is checked against the read-locked staged files.
+  Partial initialization is never reused as a prepared admission. Closing,
+  navigation, takeover, expiry and cancellation reclaim unassigned staging.
+- The cache grants access only to the current user and SYSTEM. A cross-process
+  guard protects creation/collection; a held reservation lease is preserved.
+  Original file names/sizes/digests are retained in its private lease inventory.
+  Collection validates the entire inventory and directory layout before deleting
+  exact owned names, and refuses unknown names, extra entries and reparse points.
+- A real adversarial fixture found premature deletion while enumerating a
+  malformed cache directory. The failed result is private evidence; validation
+  now precedes all deletes. Actual restart gates preserve unknown extra files,
+  a single renamed file and an external directory-junction target, then restore
+  those same project-local fixtures and prove final collection.
+- File/token/local-allocation/hash/find handles have exception-safe ownership;
+  byte buffers clear their data on destruction. Compiling the actual owners
+  verifies one release each during a simulated allocation exception. This is
+  an ownership unit gate, not a claim of exhaustive live-process OOM testing.
+- Rebuilt one native host and passed the full real WebView2 run (409 assertions,
+  no new diagnostics). The force-stop/restart gate passes with held-lease,
+  immutable-inventory, unknown-entry and junction protections, an independently
+  checked private ACL and zero remaining reservations. No extra Home/app used.
+- Full local run: 43 Python checks (42 passed, the unavailable file-symlink
+  privilege case skipped), plus 33 JS checks passed. The real directory-junction
+  gate is separate and did pass. Contracts/deployed overlays match. Range-read
+  revision is advertised only for filesystem/storage reads, not the VFS backend.
+- This is staging infrastructure. Website input assignment/chooser handling,
+  submission retention, public C/JS/Agent upload, downloads, complete frames,
+  Android and final lifecycle/package validation remain required.
+- Filename rules: [Microsoft Win32 naming conventions](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).

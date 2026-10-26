@@ -102,5 +102,10 @@ test("the actual native bridge serializes concurrent creation and rejects a chan
     assert.equal((await cancelled).message,"Browser creation was cancelled");
     receive({data:{channel:"mdo-browser",id:sent[start+2].id,result:{created:true}}});
     assert.equal((await replacement).created,true);
+    const uploadIndex=sent.length;
+    const upload=bridge.call("upload",{browser:"replace",action:"chunk"});
+    assert.equal(bridge.busy(),true,"A pending native file chunk was omitted from the bridge busy state");
+    receive({data:{channel:"mdo-browser",id:sent[uploadIndex].id,result:{}}});await upload;
+    assert.equal(bridge.busy(),false);
   }finally{bridge.dispose();globalThis.window=savedWindow;globalThis.chrome=savedChrome;}
 });

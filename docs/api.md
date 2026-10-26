@@ -305,3 +305,15 @@ digest before it can be assigned to a website.
 These calls run against the original SDK task's filesystem. They do not treat
 a server path as a path on the browser's displaying device. Browser upload and
 download services and their staging lifecycle are still under development.
+
+The Windows host now includes the private native staging foundation: bounded
+`begin/chunk/seal/status/cancel` requests, opaque browser/document-bound tickets,
+canonical 64 KiB byte chunks and complete SHA-256 verification. Its private
+current-user/SYSTEM cache uses per-reservation leases and cleanup inventories.
+Unknown/renamed entries and directory reparse points block collection instead
+of being followed or guessed. Unfinished/expired/cancelled/closed reservations
+are reclaimed, and a new host can collect an abandoned process's files.
+
+This native foundation does not yet assign a file to an HTML input or expose
+`browser_upload` to an Agent. Public C/JS upload orchestration, chooser handling,
+retention during website submission, downloads and Android remain unfinished.

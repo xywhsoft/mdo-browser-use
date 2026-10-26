@@ -365,12 +365,17 @@
     {
       "path": "tools/application_sdk.py",
       "before": "if action=='read':fields.update(offset=uint,limit={**uint,'minimum':1,'maximum':262144})",
-      "after": "if action=='read':fields.update(offset=uint,limit={**uint,'minimum':1,'maximum':262144},revision=string)"
+      "after": "if action=='read':fields.update(offset=uint,limit={**uint,'minimum':1,'maximum':262144},**({'revision':string} if prefix!='vfs' else {}))"
     },
     {
       "path": "app/src/application/runtime.c",
       "before": "    cstr Revision=SdkField(P,\"revision\");",
       "after": "    cstr Revision=SdkField(P,\"revision\");\n    if(!Vfs&&SdkGet(P,\"revision\")&&!strcmp(Action,\"read\")){bool Read=BuFileRead(C,P,Path,R,E);xrtFree(Path);return Read;}"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "\"drag_cancel\"].includes(request.command)",
+      "after": "\"drag_cancel\",\"upload\"].includes(request.command)"
     }
   ],
   "files": [

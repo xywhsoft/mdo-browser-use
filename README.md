@@ -50,6 +50,7 @@ python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
+python tools/upload_restart_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2

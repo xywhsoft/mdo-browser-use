@@ -52,7 +52,7 @@ static bool BuFileDigest(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,
     if(!Name||!Name[0]||strlen(Name)>4096)return MdoApplicationError(E,"sdk_arguments_invalid","Select a nonempty file path up to 4096 bytes","filesystem",422,false);
     if((Max&&(!SdkUInt(Max,&Limit)||!Limit||Limit>64u*1024u*1024u))||
        (SdkGet(P,"revision")&&(!Expected||!Expected[0]||strlen(Expected)>160)))
-        return MdoApplicationError(E,"sdk_arguments_invalid","Digest needs a 1-64 MiB byte budget and an optional observed revision","filesystem",422,false);
+        return MdoApplicationError(E,"sdk_arguments_invalid","Digest needs a budget from 1 through 67108864 bytes and an optional observed revision","filesystem",422,false);
     char* Path=SdkNativePath(C,P,false,E);if(!Path)return false;
     xfileinfo Named={0},Before={0},After={0},Current={0};xfile File=NULL;unsigned char* Bytes=NULL;
     xvalue* Metadata=NULL;bool Ok=false;

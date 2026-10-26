@@ -35,11 +35,11 @@ def main():
         dev.run("git", "apply", "--whitespace=nowarn", str(patch), cwd=NATIVE)
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
-        ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>'),
-        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_view{'),
+        ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>\n#include <cstdint>\n#include <wincrypt.h>\n#include <sddl.h>'),
+        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_upload_store;\nstruct xb_view{'),
         ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
         ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
-        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\n#include "xs_browser_navigation.inc.hpp"\nstatic void xb_receive('),
+        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\n#include "xs_browser_navigation.inc.hpp"\n#include "xs_browser_upload.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
         ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(host,view);\n            std::weak_ptr<xb_view> weak=view;'),
         ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
@@ -86,6 +86,19 @@ def main():
     for before, after in drag_hooks:
         if base.count(before) != 1:
             raise RuntimeError("Native drag hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
+    upload_hooks = [
+        ('bool alive=true;unsigned captures=0;', 'bool alive=true;unsigned captures=0;std::shared_ptr<xb_upload_store> uploads;'),
+        ('if(command=="drag_cancel"){', 'if(command=="upload"){xb_upload_request(host,view,id,json);return;}\n  if(command=="drag_cancel"){'),
+        ('const bool mutation=command!="drag_cancel"', 'const bool mutation=command!="upload"&&command!="drag_cancel"'),
+        ('\\"drag_capability\\":true,', '\\"drag_capability\\":true,\\"upload_capability\\":true,'),
+        ('if(found->second->controller)found->second->controller->Close();', 'if(found->second->controller)found->second->controller->Close();xb_upload_close_view(host,found->second);'),
+        ('if(entry.second->controller)entry.second->controller->Close();', 'if(entry.second->controller)entry.second->controller->Close();xb_upload_close_view(host,entry.second);'),
+        ('host->views.clear();host->main=nullptr;', 'xb_upload_shutdown(host);host->views.clear();host->main=nullptr;'),
+    ]
+    for before, after in upload_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native upload hook no longer unique: " + before)
         base = base.replace(before, after, 1)
     initial_navigation_hooks = [
         ('int automationContext=0;', 'int automationContext=0;bool initialNavigationPending=false,initialNavigationStarted=false;std::vector<std::string> navigationEvents;'),
@@ -148,14 +161,21 @@ def main():
         current = navigation_path.read_text(encoding="utf-8")
         if current != navigation_helper and hashlib.sha256(current.encode()).hexdigest() != record.get("navigation"):
             raise RuntimeError("Unreviewed native navigation helper edit preserved")
+    upload = (dev.ROOT / "host/native-upload.inc.hpp").read_text(encoding="utf-8")
+    upload_path = target.with_name("xs_browser_upload.inc.hpp")
+    if upload_path.exists():
+        current = upload_path.read_text(encoding="utf-8")
+        if current != upload and hashlib.sha256(current.encode()).hexdigest() != record.get("upload"):
+            raise RuntimeError("Unreviewed native upload helper edit preserved")
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
     capture_path.write_text(capture, encoding="utf-8", newline="\n")
     drag_path.write_text(drag, encoding="utf-8", newline="\n")
     navigation_path.write_text(navigation_helper, encoding="utf-8", newline="\n")
+    upload_path.write_text(upload, encoding="utf-8", newline="\n")
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
-              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest(),"navigation":hashlib.sha256(navigation_helper.encode()).hexdigest()}
+              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest(),"navigation":hashlib.sha256(navigation_helper.encode()).hexdigest(),"upload":hashlib.sha256(upload.encode()).hexdigest()}
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

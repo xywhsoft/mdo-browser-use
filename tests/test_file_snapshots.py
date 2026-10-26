@@ -42,6 +42,8 @@ class FileSnapshotTests(unittest.TestCase):
                 self.assertEqual(path.read_bytes(),data)
         description=dev.call("sdk.describe",{"id":"files.digest"},self.scope)
         self.assertEqual(description["input_schema"]["properties"]["max_bytes"]["maximum"],67108864)
+        self.assertIn("revision",dev.call("sdk.describe",{"id":"fs.read"},self.scope)["input_schema"]["properties"])
+        self.assertNotIn("revision",dev.call("sdk.describe",{"id":"vfs.read"},self.scope)["input_schema"]["properties"])
 
     def test_revision_ranges_reconstruct_exact_snapshot_and_bound_eof(self):
         snapshot=dev.call("files.digest",{"path":str(self.path)},self.scope)
