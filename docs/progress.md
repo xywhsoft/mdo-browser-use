@@ -365,3 +365,17 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   when the page wrote a passing result, and checks host readiness afterwards.
   The full 169-check native run passed again with no new diagnostics and a
   healthy host. This does not suppress or alter native exception handling.
+
+## D3 — broker popup admission under the original task
+
+- Added shared host `browser.popup.admit/settle` contracts and generated C/JS
+  helpers. Admission atomically checks the opener's owner/device/project/session
+  and exact display client, saves one child record, and retains only a volatile
+  native request descriptor. The durable record keeps its original opener.
+- Repeated admission returns the same child. A changed opener, foreign task,
+  different client, malformed request or unsafe URL is rejected. Settlement
+  never recreates a released native ticket. Saved workbench state contains no
+  runtime deferral descriptor, so a restart cannot replay pending native work.
+- Three actual broker regressions cover identity, ownership, URL policy,
+  volatile descriptors, settlement and repeat admission. This stage supplies
+  the race-safe broker boundary; normal-workbench automatic adoption is next.

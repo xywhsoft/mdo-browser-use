@@ -146,6 +146,26 @@
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "\"click\",\"type\",\"scroll\",\"evaluate\"].includes(request.command)",
       "after": "\"click\",\"type\",\"scroll\",\"evaluate\",\"input\",\"automation\",\"dialog\"].includes(request.command)"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\"",
+      "after": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\",\"browser.popup.admit\",\"browser.popup.settle\""
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "bool MdoApplicationWorkbenchCall(",
+      "after": "#include \"browser_popup_admission.inc.c\"\nbool MdoApplicationWorkbenchCall("
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "    if(!strcmp(Method,\"browser.result\")",
+      "after": "    if(!strcmp(Method,\"browser.popup.admit\")||!strcmp(Method,\"browser.popup.settle\"))return WbPopupCall(C,Method,P,R,E);\n    if(!strcmp(Method,\"browser.result\")"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "    add('browser.update'",
+      "after": "    add('browser.popup.admit','Admit one native popup under its exact opener; pending native tickets are ephemeral',{'opener':s,'client':s,'popup':s,'url':s},('opener','client','popup'))\n    add('browser.popup.settle','Acknowledge native adoption without recreating a released popup',{'id':s,'client':s,'popup':s},('id','client','popup'))\n    add('browser.update'"
     }
   ],
   "files": [
@@ -168,6 +188,10 @@
     {
       "source": "host/dialog-ui.js",
       "target": "app/web/js/features/workbench/dialog-ui.js"
+    },
+    {
+      "source": "host/popup-admission.inc.c",
+      "target": "app/src/application/browser_popup_admission.inc.c"
     }
   ]
 }
