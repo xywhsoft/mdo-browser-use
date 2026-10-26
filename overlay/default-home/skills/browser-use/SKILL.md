@@ -33,6 +33,21 @@ Never repeat an uncertain drag without inspecting its effects. Native cleanup
 failure requires ending the affected browser. Dragging does not upload files;
 do not pass local paths, raw data or invented coordinates as target locators.
 
+For an authorized file upload, observe an exact HTML file input (including a
+hidden `fileinput`) and call `browser_upload(action="set",document=<fresh id>,
+target=<exact input>,files=[{path:<task-host source>,space:"workspace"}])`.
+Paths refer to the original task device, not the device displaying the browser.
+An optional `name` overrides the safe basename; never paste file bytes/Base64
+into tools. Limits are sixteen files, 32 MiB per file and 64 MiB in total. This
+version needs a regular file input, not a directory picker or OS chooser.
+Assignment verifies FileList, not website acceptance. Follow the website's
+actual upload/submit result. Keep `transfer.ticket`; use `browser_upload_status`
+to inspect it. Only call `browser_upload(action="release",ticket=<exact ticket>,
+confirmed=true)` after the website has consumed the files. Cancellation and
+navigation can leave assigned files retained for delayed submission. A dialog,
+popup or uncertain reply is a checkpoint to inspect, never a reason to assign
+the same files again. Ending the browser also reclaims its retained transfers.
+
 After acting, verify the relevant page or business result. An action being
 accepted or dispatched does not prove that the user's task succeeded. If a
 mutating action may already have run, inspect the state instead of repeating it.

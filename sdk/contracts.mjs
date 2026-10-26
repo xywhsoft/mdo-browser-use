@@ -567,7 +567,8 @@ export const services = [
             "browseruse.tabs",
             "browseruse.act",
             "browseruse.navigate",
-            "browseruse.dialog"
+            "browseruse.dialog",
+            "browseruse.upload"
           ]
         },
         "arguments": {
@@ -729,6 +730,138 @@ export const services = [
         "timeout_ms": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.upload",
+    "description": "Assign verified task-host file snapshots to one exact native file input. Inspect transfer status; explicitly release only after website consumption. File assignment is not website acceptance.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "action"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "set",
+            "status",
+            "release"
+          ]
+        },
+        "document": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "placeholder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "testid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "css": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "space": {
+                "type": "string",
+                "enum": [
+                  "native",
+                  "workspace",
+                  "home",
+                  "application"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
+            }
+          }
+        },
+        "ticket": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "confirmed": {
+          "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
           "maximum": 60000
         }
       }

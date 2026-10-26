@@ -45,12 +45,13 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
 python tools/upload_restart_probe.py
+python tools/upload_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -62,7 +63,7 @@ that also waits for the real 120-second native dialog lease.
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
 `host/overlays.json` and applied only to the single `.mdo/source` checkout.
-The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor/screenshot`
+The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor/screenshot/upload`
 helpers wait for terminal results. C callers read `browseruse.result` and release the
 receipt after completion. Pending/accepted delivery is never page success.
 
@@ -70,6 +71,12 @@ receipt after completion. Pending/accepted delivery is never page success.
 full-access permissions, without requesting model output. It reuses named QA
 sessions in this deployment. Read-only inspection and browser mutations are
 separate tools; ordinary browser errors remain tool feedback.
+
+`upload_probe.py` verifies actual C/JS/managed file-input uploads and exact file
+bytes, duplicate-operation recovery, scope and read-only denial. Its sources are
+small synthetic files in the existing `.mdo/qa`; it restores headless mode and
+checks zero remaining private cache reservations. Downloads and chooser-based
+uploads remain in development.
 
 See [the shared API](docs/api.md) for C/JS calls, operation identities and
 recovery. The SDK probe also runs the actual JS client against WebView2;

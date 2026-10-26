@@ -188,7 +188,7 @@ def main():
         finally:dev.call("browser.close",{"id":readonly_drag},readonly_scope)
         assert tool("browser_open", {"action": "close", "browser": browser})["success"]
         browser = None
-        report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 9,
+        report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": len(json.loads((dev.ROOT/"contracts.json").read_text(encoding="utf-8"))["tools"]),
                   "readonly_read_allowed": True, "readonly_write_denied": True,
                   "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
                   "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,

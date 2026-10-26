@@ -736,3 +736,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   source now passes. Existing public C/UI regression (19 actions, four
   navigations, five waits) and the real JS client pass with the bound SDK.
   This changes path context, not the caller's filesystem authorization.
+
+## D9b — shared public C/JS/Agent file-input uploads
+
+- Added the generated `browseruse.upload` / `mdoBrowserUseUpload` contract with
+  set/status/confirmed-release actions. C validates precise targets and action
+  fields before UI queuing. The JS client uses the existing durable operation
+  journal for set/release; raw C callers use the ordinary scoped UI receipts.
+  Added managed `browser_upload` and read-only `browser_upload_status` tools.
+- The visible workbench checks native capabilities and the input before file
+  access, hashes bounded original-task sources, streams revision-pinned 64 KiB
+  ranges to the displaying device, seals complete SHA-256, then revalidates the
+  original reference for one assignment. No browser-device path is supplied by
+  an Agent. Staging failure cancels its reservation; uncertain assigned bytes
+  remain available for website consumption. Release needs explicit confirmation.
+- Failures retain the SDK code, stage, source index and bounded original cause.
+  Lost assignment/release replies retain conservative uncertainty rather than
+  becoming a generic source-read error. Unsupported devices fail before source
+  reads; cancellation/document change during transfer cannot deliver another
+  chunk or silently select a replacement input.
+- Actual normal-UI C-service/JS-client tests verify binary and empty File bytes,
+  one assignment across duplicate durable submissions, foreign-task rejection,
+  confirmed release and non-replay after releasing an operation result. Actual
+  managed tools verify workspace-relative and absolute sources, status, release,
+  full access without extra prompts and read-only denial on an owned tab.
+  The private ACL check passes and no transfer reservations remain afterwards.
+- Existing public C/UI regression (19 actions, four navigations, five waits),
+  real JS client (including one native drag and duplicate suppression), and the
+  prior managed tools pass; eleven managed tools now exist. Local unit/contract
+  checks: 47 Python cases (46 passed, one unavailable symlink privilege skipped)
+  and 42 JS cases. Contracts and deployed overlays match. The updated plugin and
+  Skill are installed in the single Home; no model calls or extra app copy used.
+- Full Browser Use remains in progress: chooser interception, clearing inputs,
+  directory/OOPIF support, downloads, vision coordinates, offscreen drag,
+  Android and final lifecycle/performance/package validation are still required.

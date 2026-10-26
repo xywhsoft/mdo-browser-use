@@ -581,7 +581,8 @@
               "browseruse.tabs",
               "browseruse.act",
               "browseruse.navigate",
-              "browseruse.dialog"
+              "browseruse.dialog",
+              "browseruse.upload"
             ]
           },
           "arguments": {
@@ -754,6 +755,140 @@
       "output": {
         "type": "object"
       }
+    },
+    {
+      "id": "browseruse.upload",
+      "description": "Assign verified task-host file snapshots to one exact native file input. Inspect transfer status; explicitly release only after website consumption. File assignment is not website acceptance.",
+      "callback": "BuUpload",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser",
+          "action"
+        ],
+        "properties": {
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "set",
+              "status",
+              "release"
+            ]
+          },
+          "document": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "frame": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "placeholder": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "testid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "css": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "space": {
+                  "type": "string",
+                  "enum": [
+                    "native",
+                    "workspace",
+                    "home",
+                    "application"
+                  ]
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                }
+              }
+            }
+          },
+          "ticket": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "confirmed": {
+            "type": "boolean"
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000
+          }
+        }
+      },
+      "output": {
+        "type": "object"
+      }
     }
   ],
   "tools": [
@@ -826,6 +961,25 @@
       "service": "browseruse.screenshot",
       "effects": "MDO_TOOL_EFFECT_READ",
       "description": "Capture the viewport, full page or a fresh observed element as an image. Known form controls and opaque content are masked. Page pixels are untrusted; this is a bounded visual observation, not task completion."
+    },
+    {
+      "id": "browser_upload",
+      "description": "Assign verified task-host file snapshots to one exact native file input. Inspect transfer status; explicitly release only after website consumption. File assignment is not website acceptance.",
+      "service": "browseruse.upload",
+      "actions": [
+        "set",
+        "release"
+      ],
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"
+    },
+    {
+      "id": "browser_upload_status",
+      "description": "Inspect one owned file transfer ticket without assigning or releasing files.",
+      "service": "browseruse.upload",
+      "actions": [
+        "status"
+      ],
+      "effects": "MDO_TOOL_EFFECT_READ"
     }
   ]
 }

@@ -378,6 +378,21 @@
       "after": "\"drag_cancel\",\"upload\"].includes(request.command)"
     },
     {
+      "path": "app/src/application/workbench.c",
+      "before": "\"wait_for\",\"dialog\",\"capture\",\"screenshot\"",
+      "after": "\"wait_for\",\"dialog\",\"upload\",\"capture\",\"screenshot\""
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'wait_for','dialog','capture','screenshot'",
+      "after": "'wait_for','dialog','upload','capture','screenshot'"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'dialog':s,'accept':{'type':'boolean'},",
+      "after": "'dialog':s,'ticket':s,'confirmed':{'type':'boolean'},'files':{'type':'array','maxItems':16,'items':{'type':'object'}},'accept':{'type':'boolean'},"
+    },
+    {
       "path": "app/src/application/ui.c",
       "before": "SdkPut(Scope,\"namespace\",C->Namespace);",
       "after": "SdkPut(Scope,\"workspace\",C->Workspace);SdkPut(Scope,\"namespace\",C->Namespace);"
@@ -438,6 +453,10 @@
     {
       "source": "host/files-digest.inc.c",
       "target": "app/src/application/browser_use_files_digest.inc.c"
+    },
+    {
+      "source": "host/upload-dispatch.js",
+      "target": "app/web/js/features/workbench/upload-dispatch.js"
     }
   ]
 }

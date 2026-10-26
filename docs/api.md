@@ -1,14 +1,15 @@
 # Browser Use API
 
 The Windows WebView2 path, including native JavaScript dialogs, is currently
-verified. New windows are adopted into visible scoped tabs. Android, transfers
-and complete cross-origin frame support remain in progress. No additional
+verified. New windows are adopted into visible scoped tabs, and regular HTML
+file inputs receive verified task-host snapshots. Android, chooser/download
+transfers and complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and
-`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Screenshot/Result/Operation`
+`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Screenshot/Upload/Result/Operation`
 accept the same JSON objects as the corresponding `browseruse.*` SDK service.
 Parameters are borrowed; release returned values using
 `Context->Api->Values->Release`. The public values table handles allocation;
@@ -17,7 +18,7 @@ C callers need no XRT/OS headers or private host structures.
 | Service | Result |
 | --- | --- |
 | `tabs` | Owned tabs, explicit display clients, or the changed tab/panel record |
-| `observe/act/navigate/wait/dialog/screenshot` | Sanitized asynchronous UI receipt; pending is not success |
+| `observe/act/navigate/wait/dialog/screenshot/upload` | Sanitized asynchronous UI receipt; pending is not success |
 | `result` | Scoped UI status/result; optional `cancel` or terminal `release` |
 | `operation` | Durable submit/get/cancel/release for tabs, actions, navigation and dialog responses |
 
@@ -42,7 +43,7 @@ const result = await browser.recover(operation, { retain: true });
 await browser.operation({ action: "release", operation });
 ```
 
-`tabs(create/reveal/close)`, `act`, `navigate` and `dialog(respond)` use durable operation identities,
+`tabs(create/reveal/close)`, `act`, `navigate`, `dialog(respond)` and `upload(set/release)` use durable operation identities,
 wait for completion and release terminal in-memory results by default. Pass
 `retain:true` to recover the same result later. `observe`, `waitFor` and `screenshot` wait for
 their UI receipts without creating a durable effect-admission record.
@@ -71,7 +72,7 @@ Call `mdoBrowserUseOperation(Context, Params, &Result, &Error)`, or JS
 }
 ```
 
-`method` accepts `browseruse.tabs/act/navigate/dialog`. Poll with
+`method` accepts `browseruse.tabs/act/navigate/dialog/upload`. Poll with
 `{"action":"get","operation":"sdk-..."}`. Terminal states are `succeeded`,
 `failed`, `cancelled` and `uncertain`. Use `cancel` to stop future work and
 `release` after completion. Cancellation cannot undo an already delivered input.
@@ -303,17 +304,61 @@ lock across separate calls, and the staged copy must still match the complete
 digest before it can be assigned to a website.
 
 These calls run against the original SDK task's filesystem. They do not treat
-a server path as a path on the browser's displaying device. Browser upload and
-download services and their staging lifecycle are still under development.
+a server path as a path on the browser's displaying device. UI continuations
+preserve the original C task's absolute workspace in their frozen context.
+Relative source paths resolve there, even when a different task is selected.
 
 The Windows host now includes the private native staging foundation: bounded
 `begin/chunk/seal/status/cancel` requests, opaque browser/document-bound tickets,
 canonical 64 KiB byte chunks and complete SHA-256 verification. Its private
 current-user/SYSTEM cache uses per-reservation leases and cleanup inventories.
 Unknown/renamed entries and directory reparse points block collection instead
-of being followed or guessed. Unfinished/expired/cancelled/closed reservations
+of being followed or guessed. Unassigned expired/cancelled and closed reservations
 are reclaimed, and a new host can collect an abandoned process's files.
 
-This native foundation does not yet assign a file to an HTML input or expose
-`browser_upload` to an Agent. Public C/JS upload orchestration, chooser handling,
-retention during website submission, downloads and Android remain unfinished.
+## File-input uploads
+
+`browseruse.upload` / `mdoBrowserUseUpload` accepts `action:"set"` with an owned
+browser, fresh document, precise target and `files:[{path,space?,name?}]`. Sources
+belong to the original task host. `space` supports native/workspace/home/application;
+the default resolves relative paths against the original workspace. An optional
+safe `name` overrides the source basename. Arbitrary scripts, raw file bytes and
+browser-device paths are not part of this public contract.
+
+The displaying device must advertise `file_input_capability` and
+`upload_capability` before any task file is read. Source snapshots are pinned by
+revision, streamed in 64 KiB ranges and sealed against complete SHA-256. Limits
+are sixteen files, 32 MiB each and 64 MiB total, within the normal 16 KiB UI
+argument budget. Native retained-file limits are sixteen reservations per view,
+thirty-two per host, 128 files and 128 MiB. Resource exhaustion is explicit.
+
+```javascript
+const page = await browser.observe({ browser: tab.id });
+const assigned = await browser.upload({ browser: tab.id, action: "set",
+  document: page.document, target: { role: "fileinput", name: "Attachment" },
+  files: [{ path: "report.txt", space: "workspace" }], timeout_ms: 30000 });
+const ticket = assigned.transfer.ticket;
+const status = await browser.upload({ browser: tab.id, action: "status", ticket });
+// Submit through the site's observed controls and verify its consumption first.
+await browser.upload({ browser: tab.id, action: "release", ticket, confirmed: true });
+```
+
+`set/release` use durable operation identities in the JS client; `status` waits
+for its read-only UI receipt. Raw C calls return the same kind of receipt as
+other queued services. Agent tools are `browser_upload` (set/release, external
+effect) and `browser_upload_status` (read). They use the existing live permissions;
+full access needs no additional prompt and read-only tools cannot assign files.
+
+FileList verification confirms exact names/sizes/count, not website acceptance.
+Hidden inputs, open Shadow DOM and accessible same-origin frame inputs work.
+Disabled/inert, stale, non-file, directory and single-file capacity mismatches
+fail before assignment. Assigned bytes survive cancellation, navigation and
+staging expiry because a website can submit its File objects later. Retain the
+ticket until `release(confirmed:true)` after consumption or close the browser.
+Release is refused while assignment is in flight. A dialog/new-window checkpoint,
+timeout or lost native reply can mean the files were already assigned; inspect
+the page and transfer instead of repeating that effect.
+
+Chooser interception, clearing file inputs, directory/OOPIF inputs, downloads
+and Android transfer support remain unfinished. Unsupported devices fail before
+source reads; there is no browser-device path fallback.

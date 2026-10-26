@@ -1,5 +1,6 @@
 import { browserRuntime } from "./automation-runtime.js";
 import { prepareScreenshot } from "./capture-image.js";
+import { executeFileUpload } from "./upload-dispatch.js";
 
 const writers = new Set();
 let capturing = false;
@@ -9,8 +10,8 @@ const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
 export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
-  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "capture"].includes(command)) return { handled: false };
-  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond";
+  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "capture", "upload"].includes(command)) return { handled: false };
+  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "upload" && params.action !== "status";
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
@@ -46,6 +47,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     const snapshot = await view.execute("state");
     const state = { ...snapshot, loading: snapshot.initial_navigation_pending && typeof snapshot.loading === "boolean" ? true : snapshot.loading };
+    if(command==='upload'&&params.action==='status')return{state};
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(command === "dialog" && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
@@ -68,6 +70,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   try {
+    if(command==='upload')return await executeFileUpload({params,view,api,action,guard,read,deadline,
+      setDispatched:value=>{dispatched=value;},fail});
     if (command === "capture") {
       let checked;
       do {
