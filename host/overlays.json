@@ -23,12 +23,12 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "import { normalizeLayout, reorderPanel, safeBrowserUrl, validateImageFrame } from \"./model.js\";",
-      "after": "import { browserRuntime } from \"./automation-runtime.js\";\nimport { normalizeLayout, reorderPanel, safeBrowserUrl, validateImageFrame } from \"./model.js\";"
+      "after": "import { executeBrowserAutomation } from \"./automation-dispatch.js\";\nimport { normalizeLayout, reorderPanel, safeBrowserUrl, validateImageFrame } from \"./model.js\";"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "      if (command === \"wait\") {",
-      "after": "      if (command === \"observe\") {\n        const options = { mode:params.mode,limit:params.limit,max_bytes:params.max_bytes };\n        const result = await view.execute(\"evaluate\", { agent:true,script:`(${browserRuntime.toString()})().observe(${JSON.stringify(options)})` });\n        if (!result.ok || !result.value?.ok) throw Error(\"Browser returned an invalid observation\");\n        return result.value;\n      }\n      if (command === \"wait\") {"
+      "after": "      const automation = await executeBrowserAutomation({ command,params,view,action,api });\n      if (automation.handled) return automation.result;\n      if (command === \"wait\") {"
     },
     {
       "path": "app/web/js/api/application.js",
@@ -37,6 +37,7 @@
     }
   ],
   "files": [
-    {"source": "page/runtime.js", "target": "app/web/js/features/workbench/automation-runtime.js"}
+    {"source": "page/runtime.js", "target": "app/web/js/features/workbench/automation-runtime.js"},
+    {"source": "host/automation-dispatch.js", "target": "app/web/js/features/workbench/automation-dispatch.js"}
   ]
 }

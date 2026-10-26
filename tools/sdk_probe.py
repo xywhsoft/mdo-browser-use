@@ -40,11 +40,8 @@ def main():
         browser = dev.call("browseruse.tabs", {"action": "create", "client": client,
                            "url": f"http://127.0.0.1:{dev.state()['port']}/__browser_use_page__.html",
                            "key": "public-sdk-observe"}, SCOPE)["id"]
-        # The existing native ready/wait path is exercised before the page
-        # read. Automatic readiness is a separate pending implementation stage.
-        ready = dev.call("browser.command", {"id": browser, "command": "wait", "timeout_ms": 15000}, SCOPE)
-        wait_receipt(ready["id"], "browser.result")
-        dev.call("browser.release", {"id": ready["id"]}, SCOPE)
+        # Observe must wait for its newly created native page itself. The
+        # probe deliberately does not call a separate low-level ready/wait.
         queued = dev.call("browseruse.observe", {"browser": browser, "limit": 100}, SCOPE)
         assert queued["state"] == "pending", queued
         received = wait_receipt(queued["id"])
@@ -56,7 +53,7 @@ def main():
         assert any(e["name"] == "Frame action" for e in page["elements"])
         dev.call("browseruse.result", {"id": queued["id"], "release": True}, SCOPE)
         report = {"passed": True, "backend": "actual-mdo-ui-webview2",
-                  "public_service": "browseruse.observe", "elements": len(page["elements"]),
+                  "public_service": "browseruse.observe", "automatic_readiness": True, "elements": len(page["elements"]),
                   "frames": len(page["frames"]), "request_bytes_in_ui_queue": len(json.dumps(queued["params"]).encode())}
         (dev.ENV / "public-sdk-result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))

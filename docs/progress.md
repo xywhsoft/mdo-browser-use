@@ -102,3 +102,13 @@ reviewed update; an unrecognized local edit is preserved and blocks all writes.
 `python tools/apply_host.py --check` compares the single deployment to the
 current reviewed files without stopping it. Existing nine Python/three JS
 checks passed after reapplying the overlays.
+
+## B2 — bounded automatic observation readiness
+
+- Observation now waits for document readiness itself, with typed timeout,
+  renderer failure, user-control and originating-call cancellation results.
+  The first receipt check is unconditional, including a newly started UI process.
+- The real normal-frontend SDK probe passed without a preliminary wait command.
+  Targeted dispatch checks cover timeout, takeover, cancellation and renderer
+  failure; none of these paths evaluates the page after its stop condition.
+- Native input and the remaining stages are still in progress.
