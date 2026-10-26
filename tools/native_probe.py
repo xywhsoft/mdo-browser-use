@@ -14,6 +14,7 @@ REPORT_PATH = "qa/page-observation.json"
 SCRIPT = r'''
 import { createNativeBrowserBridge } from '/js/features/workbench/native-browser.js';
 import { createBrowserDialogs } from '/js/features/workbench/dialog-ui.js';
+import { createBrowserChoosers } from '/js/features/workbench/chooser-ui.js';
 import { prepareScreenshot } from '/js/features/workbench/capture-image.js';
 const runtimeSource = RUNTIME_SOURCE;
 const expiryProbe = DIALOG_EXPIRY;

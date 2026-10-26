@@ -39,7 +39,7 @@ target=<exact input>,files=[{path:<task-host source>,space:"workspace"}])`.
 Paths refer to the original task device, not the device displaying the browser.
 An optional `name` overrides the safe basename; never paste file bytes/Base64
 into tools. Limits are sixteen files, 32 MiB per file and 64 MiB in total. This
-version needs a regular file input, not a directory picker or OS chooser.
+version needs a regular HTML file input, not a directory or arbitrary OS picker.
 Assignment verifies FileList, not website acceptance. Follow the website's
 actual upload/submit result. Keep `transfer.ticket`; use `browser_upload_status`
 to inspect it. Only call `browser_upload(action="release",ticket=<exact ticket>,
@@ -56,6 +56,20 @@ does not release a prior upload's bytes: scripts may still hold its File objects
 Keep/release the prior transfer ticket according to actual website consumption.
 Transfer status describes its saved assignment, not the current input value;
 observe the input again to inspect its current `selected_count`.
+
+Agent input automatically enables native file-picker interception. For
+`outcome:"file_chooser_open",completed:false`, do not repeat the opening click.
+Use `browser_choosers(action="list")` and observe the current document. Provide
+the exact pending `chooser` ID instead of `target` to
+`browser_upload(action="set",document=<fresh id>,chooser=<picker id>,files=[...])`.
+The source paths still belong to the original task host. Native delivery pins
+the actual input and consumes the picker only when assigning its files.
+Alternatively use `browser_chooser_cancel(action="cancel",chooser=<exact id>)`.
+Cancellation preserves previous selected files and dispatches an untrusted
+cancel event; inspect any dialog/popup checkpoint rather than repeating it.
+Expired/stale/unsupported pickers require a fresh observation or manual control,
+never a guessed node, raw protocol ID or browser-device path. Only the user can
+return control after takeover; using the OS picker requires another user click.
 
 After acting, verify the relevant page or business result. An action being
 accepted or dispatched does not prove that the user's task succeeded. If a

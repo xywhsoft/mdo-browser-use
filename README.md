@@ -75,8 +75,10 @@ separate tools; ordinary browser errors remain tool feedback.
 `upload_probe.py` verifies actual C/JS/managed file-input uploads and exact file
 bytes, duplicate-operation recovery, scope and read-only denial. Its sources are
 small synthetic files in the existing `.mdo/qa`; it restores headless mode and
-checks zero remaining private cache reservations. Downloads and chooser-based
-uploads remain in development.
+checks zero remaining private cache reservations. It also covers automatic
+picker interception, opaque chooser uploads, cancellation, repeat-click fencing
+and read-only picker inspection versus cancellation. Downloads, directory/OOPIF
+uploads and Android transfer support remain in development.
 
 See [the shared API](docs/api.md) for C/JS calls, operation identities and
 recovery. The SDK probe also runs the actual JS client against WebView2;

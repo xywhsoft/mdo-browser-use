@@ -6,8 +6,11 @@
 <iframe id="frame" srcdoc="<input id='framed' type='file' hidden><button id='frame-open' onclick='document.querySelector(&quot;#framed&quot;).click()'>Choose framed file</button>"></iframe>
 <output id="result"></output>
 <script>
-globalThis.chooserEvents=[];globalThis.cancelMode='';
-function track(input){input.addEventListener('cancel',event=>{
+globalThis.chooserEvents=[];globalThis.chooserSelections=[];globalThis.cancelMode='';
+function track(input){input.addEventListener('change',async()=>{
+  const files=[];for(const file of input.files)files.push({name:file.name,size:file.size,hex:[...new Uint8Array(await file.arrayBuffer())].map(x=>x.toString(16).padStart(2,'0')).join('')});
+  chooserSelections.push({id:input.id,files});document.querySelector('#result').textContent=JSON.stringify(chooserSelections);
+});input.addEventListener('cancel',event=>{
   chooserEvents.push({id:input.id,type:event.type,trusted:event.isTrusted,count:input.files.length});
   if(cancelMode==='dialog')alert('File picker cancellation checkpoint');
   if(cancelMode==='popup')window.open('/__browser_use_popup__.html','_blank');

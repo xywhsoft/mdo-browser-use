@@ -4,6 +4,7 @@
 #include "actions.c"
 #include "navigation.c"
 #include "dialogs.c"
+#include "choosers.c"
 #include "screenshot.c"
 #include "upload.c"
 

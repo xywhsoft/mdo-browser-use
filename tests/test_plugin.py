@@ -39,6 +39,18 @@ class PluginTests(unittest.TestCase):
         self.assertEqual(description["input_schema"], contract["input"])
         self.assertEqual(description["output_schema"], contract["output"])
 
+    def test_chooser_contract_and_conditional_fields_are_enforced_in_c(self):
+        contract=next(row for row in json.loads((ROOT/'contracts.json').read_text(encoding='utf-8'))['services'] if row['id']=='browseruse.chooser')
+        self.assertEqual(dev.call('sdk.describe',{'id':'browseruse.chooser'})['input_schema'],contract['input'])
+        for method,params,code in (
+            ('browseruse.chooser',{'browser':'unused','action':'cancel'},'chooser_required'),
+            ('browseruse.chooser',{'browser':'unused','action':'list','chooser':'unused'},'arguments_invalid'),
+            ('browseruse.upload',{'browser':'unused','action':'set','document':'d1','chooser':'picker','target':{'ref':'e1'},'files':[{'path':'file.bin'}]},'upload_target_required'),
+            ('browseruse.upload',{'browser':'unused','action':'clear','document':'d1','chooser':'picker'},'arguments_invalid'),
+        ):
+            status,_,raw=dev.request('POST','/api/v1/application/call',{'method':method,'params':params,'context':self.scope})
+            self.assertEqual(status,422,json.loads(raw));self.assertEqual(json.loads(raw)['error']['code'],code)
+
     def test_actual_create_get_list_reveal_and_close(self):
         created = self.invoke({"action": "create", "client": self.client,
                                "url": "https://example.com/", "key": "sdk-tab"})

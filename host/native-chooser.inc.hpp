@@ -4,7 +4,18 @@ static constexpr UINT_PTR xb_chooser_timer=0xBADD6;
 struct xb_chooser_owner{std::weak_ptr<xb_host> host;std::weak_ptr<xb_view> view;};
 static std::map<HWND,xb_chooser_owner> xb_chooser_views;
 static void xb_chooser_maintain(const std::shared_ptr<xb_host>&,const std::shared_ptr<xb_view>&);
-static bool xb_chooser_blocked(const std::shared_ptr<xb_view>& view){auto state=view->chooser;return state&&(state->pending||state->changing||state->policyFailed||state->objectFailed);}
+static bool xb_chooser_blocked(const std::shared_ptr<xb_view>& view){auto state=view->chooser;return state&&(state->pending||state->deferredCancel||state->cleanupWanted||state->changing||state->policyFailed||state->objectFailed);}
+static bool xb_chooser_upload_ready(const std::shared_ptr<xb_view>& view,const std::string& chooser,const std::string& document,const std::string& ref){
+  auto state=view->chooser;if(!state)return chooser.empty();
+  if(state->changing||state->policyFailed||state->objectFailed||state->cleanupWanted||state->deferredCancel)return false;
+  auto pending=state->pending;if(!pending)return chooser.empty();
+  return !chooser.empty()&&pending->id==chooser&&pending->navigation==view->navigation&&GetTickCount64()<pending->expires&&
+    !document.empty()&&!ref.empty()&&pending->document==document&&pending->ref==ref;
+}
+static bool xb_chooser_upload_consume(const std::shared_ptr<xb_view>& view,const std::string& chooser,const std::string& document,const std::string& ref){
+  if(!xb_chooser_upload_ready(view,chooser,document,ref))return false;
+  if(!chooser.empty())view->chooser->pending.reset();return true;
+}
 struct xb_chooser_operation:std::enable_shared_from_this<xb_chooser_operation>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::shared_ptr<xb_chooser_state> state;std::shared_ptr<xb_chooser_pending> pending;
   std::string id,kind,group,error,document;UINT64 navigation=0;uint64_t epoch=0;ULONGLONG deadline=0;
@@ -96,10 +107,10 @@ static void xb_chooser_maintain(const std::shared_ptr<xb_host>& host,const std::
   if(!state->changing){
     // At most one automatic policy cleanup. A failed CDP acknowledgement must
     // block input and remain inspectable, never turn into a 100 ms retry loop.
-    if(state->cleanupWanted){xb_chooser_start(host,view,"","disarm");return;}
-    if(state->deferredCancel){auto pending=std::move(state->deferredCancel);if(view->navigation==pending->navigation&&pending->backend){xb_chooser_start(host,view,"","cancel",pending);return;}}
+    if(state->cleanupWanted&&!view->uploadBusy&&!view->drag&&view->input.expired()){xb_chooser_start(host,view,"","disarm");return;}
+    if(state->deferredCancel&&!view->uploadBusy&&!view->drag&&view->input.expired()){auto pending=std::move(state->deferredCancel);if(view->navigation==pending->navigation&&pending->backend){xb_chooser_start(host,view,"","cancel",pending);return;}}
   }
-  if(!state->changing&&!state->pending&&!state->deferredCancel){KillTimer(view->window,xb_chooser_timer);xb_chooser_views.erase(view->window);}
+  if(!state->changing&&!state->pending&&!state->deferredCancel&&!state->cleanupWanted){KillTimer(view->window,xb_chooser_timer);xb_chooser_views.erase(view->window);}
 }
 static void xb_chooser_close(const std::shared_ptr<xb_view>& view){KillTimer(view->window,xb_chooser_timer);xb_chooser_views.erase(view->window);if(!view->chooser)return;
   auto state=view->chooser;if(auto op=state->operation.lock())op->stop("The browser was closed during file-picker processing");state->pending.reset();state->deferredCancel.reset();state->unsubscribe();}
@@ -140,7 +151,7 @@ static void xb_chooser_request(const std::shared_ptr<xb_host>& host,const std::s
   if(state->changing){host->reply(id,"","A file-picker operation is still completing");return;}
   if(action=="arm"){
     uint64_t lease=120000;if((!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),lease))||lease<1000||lease>120000){host->reply(id,"","File-picker lease must be 1000..120000 ms");return;}
-    if(view->manual||state->pending||state->deferredCancel||state->objectFailed||view->loading||view->initialNavigationPending||view->dialog||xb_popup_blocked(view)||!view->input.expired()||view->uploadBusy||view->drag){host->reply(id,"","The browser input slot is not ready for file-picker interception");return;}
+    if(view->manual||state->pending||state->deferredCancel||state->cleanupWanted||state->objectFailed||view->loading||view->initialNavigationPending||view->dialog||xb_popup_blocked(view)||!view->input.expired()||view->uploadBusy||view->drag){host->reply(id,"","The browser input slot is not ready for file-picker interception");return;}
     state->lease=static_cast<unsigned>(lease);state->wanted=true;if(state->enabled&&!state->policyFailed){host->reply(id,"{\"ok\":true,\"armed\":true}");return;}xb_chooser_start(host,view,id,"arm");return;
   }
   if(action=="disarm"){
@@ -153,6 +164,7 @@ static void xb_chooser_request(const std::shared_ptr<xb_host>& host,const std::s
     xb_chooser_start(host,view,id,"target",pending,document);return;
   }
   if(action=="cancel"){
+    if(view->uploadBusy||view->drag||!view->input.expired()){host->reply(id,"","Wait for the current native input or take control before cancelling this picker");return;}
     state->pending.reset();if(!pending->backend){host->reply(id,"{\"ok\":true,\"cancelled\":true,\"cancel_event_sent\":false}");return;}xb_chooser_start(host,view,id,"cancel",pending);return;
   }
   host->reply(id,"","Unsupported file-picker action");

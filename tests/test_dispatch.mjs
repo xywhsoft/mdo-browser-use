@@ -8,6 +8,53 @@ const source = (await readFile(new URL("../host/automation-dispatch.js", import.
   .replace('import { executeFileUpload } from "./upload-dispatch.js";', 'async function executeFileUpload(){throw Error("Unexpected upload path")}');
 const { executeBrowserAutomation } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 
+test('interception is acknowledged before input and a late picker event is a checkpoint',async()=>{
+  let armed=false,open=false;const commands=[];
+  const result=await executeBrowserAutomation({command:'act',params:{op:'click',document:'d1',target:{ref:'e1'}},action:{id:'late-picker'},
+    api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+      commands.push(command+(params?.action?':'+params.action:''));
+      if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:armed,chooser_open:open};
+      if(command==='chooser'){if(params.action==='arm'){armed=true;return{ok:true,armed:true};}return{ok:true,choosers:[{id:'pending-picker'}]};}
+      if(command==='input'){assert(armed);return{accepted:true,trusted_input:true};}
+      if(params.script.includes('.observe(')){open=true;return{ok:true,value:{ok:true,document:'d1',ready:'complete'}};}
+      return{ok:true,value:{ok:true,element:{ref:'e1'},point:{x:10,y:10},geometry:[10,10,20,20]}};
+    }}});
+  assert.equal(result.result.outcome,'file_chooser_open');assert.equal(result.result.completed,false);assert.equal(result.result.dispatched,true);
+  assert.equal(result.result.choosers[0].id,'pending-picker');assert(commands.indexOf('chooser:arm')<commands.indexOf('input'));
+  assert.equal(commands.filter(x=>x==='input').length,1);
+});
+test('pending pickers stop another action but remain observable with a fresh document',async()=>{
+  let input=0;
+  const base={params:{},action:{id:'pending-picker'},api:{async call(){return{state:'pending'};}},view:{async execute(command){
+    if(command==='state')return{loading:false,automation:true,chooser_open:true};
+    if(command==='chooser')return{ok:true,choosers:[{id:'first-picker'}]};
+    if(command==='automation')return{ok:true,value:{ok:true,document:'fresh-doc',ready:'complete'}};
+    input++;throw Error('A pending picker allowed another input');
+  }}};
+  const checkpoint=await executeBrowserAutomation({...base,command:'act'});assert.equal(checkpoint.result.outcome,'file_chooser_open');assert.equal(checkpoint.result.dispatched,false);
+  const observed=await executeBrowserAutomation({...base,command:'observe'});assert.equal(observed.result.document,'fresh-doc');assert.equal(observed.result.choosers[0].id,'first-picker');assert.equal(input,0);
+});
+test('picker listing is read-only during takeover while Agent cancellation is blocked',async()=>{
+  let mutations=0;const base={action:{id:'manual-picker'},api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+    if(command==='state')return{manual:true,chooser_capability:true};if(params.action!=='list')mutations++;return{ok:true,choosers:[]};
+  }}};
+  assert.deepEqual((await executeBrowserAutomation({...base,command:'chooser',params:{action:'list'}})).result.choosers,[]);
+  assert.equal((await executeBrowserAutomation({...base,command:'chooser',params:{action:'cancel',chooser:'pending'}})).result.error.code,'manual_control');assert.equal(mutations,0);
+});
+test('unsupported interception refuses Agent input before page preparation',async()=>{
+  let evaluations=0;const result=await executeBrowserAutomation({command:'act',params:{op:'click'},action:{id:'unsafe-host'},api:{async call(){return{state:'pending'};}},view:{async execute(command){
+    if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:false};evaluations++;throw Error('Unsafe host received input');
+  }}});assert.equal(result.result.error.code,'unsupported_capability');assert.equal(evaluations,0);
+});
+test('a modal checkpoint is resolved before cancelling a still-pending picker',async()=>{
+  let cancelled=0;const result=await executeBrowserAutomation({command:'chooser',params:{action:'cancel',chooser:'picker'},action:{id:'modal-picker'},
+    api:{async call(){return{state:'pending'};}},view:{async execute(command){
+      if(command==='state')return{chooser_capability:true,dialog_open:true};
+      if(command==='dialog')return{ok:true,dialogs:[{id:'modal'}]};cancelled++;throw Error('Picker cancellation reached a modal page');
+    }}});
+  assert.equal(result.result.outcome,'dialog_open');assert.equal(result.result.completed,false);assert.equal(cancelled,0);
+});
+
 async function observe(state, receipt = "pending", timeout_ms = 50) {
   let evaluations = 0;
   const result = await executeBrowserAutomation({
@@ -47,7 +94,7 @@ function actionFixture() {
   let cancelled = false, moving = false, focus = true, samples = 0;
   const inputs = [];
   const view = { async execute(command, params) {
-    if (command === "state") return { loading: false, automation: true, navigation: "1" };
+    if (command === "state") return { loading: false, automation: true, chooser_capability:true,chooser_upload_capability:true,chooser_armed:true, navigation: "1" };
     if (command === "input") { inputs.push(params); cancelled = true; return { accepted: true, trusted_input: true }; }
     if (params.script.includes(".prepare(")) {
       samples++;
@@ -148,7 +195,7 @@ test("unsupported mouse gestures fail before scrolling, input or page evaluation
     let evaluated=0;
     const result=await executeBrowserAutomation({command:"act",params:{op,document:"d1",target:{ref:"e1"}},action:{id:`unsupported-${op}`},
       api:{async call(){return{state:"pending"};}},view:{async execute(command){
-        if(command==="state")return{loading:false,automation:true,navigation:"1"};
+        if(command==="state")return{loading:false,automation:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1"};
         evaluated++;throw Error("Unsupported mouse input reached the page");
       }}});
     assert.equal(result.result.error.code,"unsupported_capability");assert.equal(evaluated,0);
@@ -159,7 +206,7 @@ test("mouse gestures deliver one typed sequence to the pinned fresh element",asy
   for(const [op,button,click_count] of [["double_click","left",2],["right_click","right",1],["middle_click","middle",1]]){
     const inputs=[];
     const view={async execute(command,params){
-      if(command==="state")return{loading:false,automation:true,advanced_mouse:true,navigation:"1"};
+      if(command==="state")return{loading:false,automation:true,advanced_mouse:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1"};
       if(command==="input"){inputs.push(params);return{accepted:true,trusted_input:true};}
       if(params.script.includes(".prepare("))return{ok:true,value:{ok:true,element:{ref:"fresh"},point:{x:20,y:30},geometry:[0,0,40,60,20,30]}};
       return{ok:true,value:{ok:true,text:"after gesture"}};
@@ -175,7 +222,7 @@ test("mouse gestures deliver one typed sequence to the pinned fresh element",asy
 test("selection uses one controlled transaction with fresh document, guard and pinned target",async()=>{
   let commits=0,inputs=0;
   const view={async execute(command,params){
-    if(command==="state")return{loading:false,automation:true,navigation:"1"};
+    if(command==="state")return{loading:false,automation:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1"};
     if(command==="input"){inputs++;throw Error("Select must not click through intermediate choices");}
     if(params.script.includes(".prepare("))return{ok:true,value:{ok:true,element:{ref:"select-ref"},point:{x:20,y:30},geometry:[0,0,40,60,20,30]}};
     if(params.script.includes(".selectOptions(")){
@@ -207,7 +254,7 @@ test("cancellation or user takeover before selection prevents its transaction",a
     let prepared=0,committed=0;
     const result=await executeBrowserAutomation({command:"act",params:{op:"select",document:"d1",target:{ref:"select"},choices:[{index:0}]},
       action:{id:boundary},api:{async call(){return{state:boundary==="cancelled"&&prepared>=3?"cancelled":"pending"};}},view:{async execute(command,params){
-        if(command==="state")return{loading:false,automation:true,navigation:"1",manual:boundary==="manual_control"&&prepared>=3};
+        if(command==="state")return{loading:false,automation:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1",manual:boundary==="manual_control"&&prepared>=3};
         if(params.script.includes(".prepare(")){prepared++;return{ok:true,value:{ok:true,element:{ref:"select"},point:{x:20,y:30},geometry:[0,0,40,60,20,30]}};}
         committed++;throw Error("A stopped selection reached the transaction");
       }}});

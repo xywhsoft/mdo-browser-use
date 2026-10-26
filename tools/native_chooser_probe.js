@@ -56,6 +56,22 @@ async function runChooserProbe({bridge,assert,pause,runtimeSource}){
     await read('(()=>{document.querySelector("#file").click();return true})()');
     const flood=await listed();assert(flood.choosers.length===1&&flood.choosers[0].id===firstPending.id,'A later picker replaced the first retained ticket');
     await cancel(firstPending);
+    await click('#multi');const accepting=await ticket();await idle();
+    const acceptedTarget=await call('target',{chooser:accepting.id,document:observed.document});assert(acceptedTarget.ok,'Cannot resolve the accepted picker');await idle();
+    const manifest={action:'begin',upload_key:'chooser-accept-files',chooser:accepting.id,document:observed.document,ref:acceptedTarget.element.ref,files:[{name:'picker.bin',size:4,sha256:digest}]};
+    await rejected(upload({...manifest,chooser:'foreign-picker'}),'Foreign picker admitted source bytes');
+    const acceptingTicket=(await upload(manifest)).ticket;
+    await upload({action:'chunk',ticket:acceptingTicket,file:0,offset:0,base64:btoa(String.fromCharCode(...bytes))});await upload({action:'seal',ticket:acceptingTicket});
+    await rejected(upload({action:'assign',ticket:acceptingTicket,document:observed.document,ref:target.element.ref}),'Picker-bound bytes were assigned to another input');
+    const cancelCount=await read('chooserEvents.length');
+    const assigned=await upload({action:'assign',ticket:acceptingTicket,document:observed.document,ref:acceptedTarget.element.ref});
+    assert(assigned.verified&&assigned.retained,'Picker-bound assignment was not verified: '+JSON.stringify(assigned));
+    for(let i=0;i<150;i++){if(await read('chooserSelections.some(row=>row.id==="many"&&row.files[0]?.hex==="000102ff")'))break;await pause(20);}
+    assert(await read('chooserSelections.some(row=>row.id==="many"&&row.files[0]?.hex==="000102ff")'),'Website could not read accepted picker bytes');
+    assert(!(await listed()).choosers.length,'Successful assignment did not consume its exact picker');
+    assert(await read('chooserEvents.length')===cancelCount,'Accepting files emitted an additional cancel event');
+    assert((await upload({action:'assign',ticket:acceptingTicket,document:observed.document,ref:acceptedTarget.element.ref})).verified,'Accepted picker assignment lost its idempotent receipt');
+    await upload({action:'release',ticket:acceptingTicket,confirmed:true});
     for(const [css,id,multiple] of [['#show','file',false],['#multi','many',true],['#shadow-open','shadowed',false],['#frame-open','framed',false]]){
       await click(css);const next=await ticket();assert(next.id!==pending.id&&next.multiple===multiple,'Picker identities or modes were reused');await idle();
       const pin=await call('target',{chooser:next.id,document:observed.document});assert(pin.ok&&pin.element.input_type==='file','Actual shadow/frame picker could not be pinned: '+JSON.stringify(pin));await idle();
@@ -93,6 +109,28 @@ async function runChooserProbe({bridge,assert,pause,runtimeSource}){
     assert((await read('chooserEvents')).length===0,'Navigation cancellation dispatched an event into the next document');
     await upload({action:'release',ticket:retained,confirmed:true});retained=null;
     await call('disarm');assert(!(await listed()).armed,'Explicit interception disarm did not complete');
+    let manualControls=0;const uiErrors=[];
+    const ui=createBrowserChoosers({execute:(command,params={})=>bridge.call(command,{browser,...params}),onControl:()=>{manualControls++;},onError:error=>uiErrors.push(String(error))});
+    document.body.append(ui.element);
+    try{
+      await call('arm');await click('#multi');await ticket();await idle();await ui.refresh(await bridge.call('state',{browser}));
+      assert(!ui.element.hidden&&ui.element.textContent.includes('多个文件'),'Visible picker controls did not show the current picker mode');
+      await ui.refresh({...await bridge.call('state',{browser}),dialog_open:true});assert(ui.element.hidden,'Picker buttons remained actionable over a modal checkpoint');
+      await ui.refresh(await bridge.call('state',{browser}));assert(!ui.element.hidden,'Picker controls did not resume after a modal checkpoint');
+      ui.element.querySelector('button').click();
+      for(let i=0;i<150;i++){if(!(await listed()).choosers.length&&ui.element.hidden)break;await pause(20);}
+      assert(ui.element.hidden&&!manualControls,'The cancel UI did not hide, or took over without being asked');
+      await idle();await click('#multi');await ticket();await idle();await ui.refresh(await bridge.call('state',{browser}));
+      ui.element.querySelectorAll('button')[1].click();
+      for(let i=0;i<150;i++){const current=await bridge.call('state',{browser});if(current.manual&&!current.input_busy&&!current.chooser_armed&&!current.chooser_open&&ui.element.hidden)break;await pause(20);}
+      assert(ui.element.hidden&&manualControls===1&&!uiErrors.length,'Picker takeover UI failed or hid a native error: '+JSON.stringify(uiErrors));
+      assert((await bridge.call('state',{browser})).manual,'The takeover button did not return browser control to the user');
+    }finally{ui.dispose();ui.element.remove();}
+    let resolveLate;
+    const late=createBrowserChoosers({execute:()=>new Promise(resolve=>{resolveLate=resolve;})});
+    const refreshing=late.refresh({chooser_open:true});late.dispose();resolveLate({choosers:[{id:'obsolete'}]});await refreshing;
+    assert(late.element.hidden,'An obsolete picker refresh revived disposed UI');
+    await bridge.call('release',{browser});
     await call('arm');await click('#multi');await ticket();await idle();await bridge.call('close',{browser});
     await bridge.call('create',{browser,url,visible:false});await ready();assert(!(await listed()).armed&&!(await listed()).choosers.length,'Recreated browser inherited the previous picker or interception');
   }finally{await bridge.call('close',{browser}).catch(()=>{});}

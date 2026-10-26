@@ -16,10 +16,29 @@ function fixture(){
   const fail=(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:dispatched}}});
   const guard=async()=>cancelled?fail('cancelled','Original operation cancelled'):{state};
   const params={action:'set',document:'doc',target:{css:'#file'},files:[{path:'C:\\task-host\\source.bin'}]};
-  const read=async(method,options)=>{inspections++;assert.equal(method,'uploadInfo');return{ok:true,document:'doc',element:{ref:'e1',multiple:true}};};
+  const read=async(method,options)=>{inspections++;assert.equal(method,'uploadInfo');return{ok:true,document:'doc',element:{ref:options.target?.ref||'e1',multiple:true}};};
   const run=()=>executeFileUpload({params,view,api,action:{id:'frozen-action'},guard,read,deadline:performance.now()+2000,setDispatched:value=>{dispatched=value;},fail});
   return{ticket,calls,native,state,params,api,view,run,get inspections(){return inspections;},cancel(){cancelled=true;}};
 }
+test('picker acceptance resolves its actual input before sources and retains its consumed receipt',async()=>{
+  const f=fixture(),execute=f.view.execute;delete f.params.target;f.params.chooser='picker';f.state.chooser_upload_capability=true;let present=true;
+  f.view.execute=async(command,params)=>{
+    if(command==='chooser')return params.action==='list'?{ok:true,choosers:present?[{id:'picker'}]:[]}:{ok:true,element:{ref:'actual-picker-input',multiple:true}};
+    if(params.action==='assign'){present=false;await new Promise(resolve=>setTimeout(resolve,55));}
+    return execute(command,params);
+  };
+  const result=(await f.run()).result;assert.equal(result.ok,true);assert.equal(result.verified,true);
+  assert.equal(f.native[0].chooser,'picker');assert.equal(f.native[0].document,'doc');assert.equal(f.native[0].ref,'actual-picker-input');assert.equal(f.native.at(-1).ref,'actual-picker-input');
+});
+test('cancelled or unsupported pickers fail before source reads and cancelled transfers never assign',async()=>{
+  const unsupported=fixture();unsupported.params.chooser='picker';delete unsupported.params.target;
+  assert.equal((await unsupported.run()).result.error.code,'unsupported_capability');assert.equal(unsupported.calls.length,0);
+  const f=fixture(),execute=f.view.execute,call=f.api.call;f.state.chooser_upload_capability=true;f.params.chooser='picker';delete f.params.target;let present=true;
+  f.view.execute=async(command,params)=>command==='chooser'?params.action==='list'?{ok:true,choosers:present?[{id:'picker'}]:[]}:{ok:true,element:{ref:'e1',multiple:true}}:execute(command,params);
+  f.api.call=async(method,params)=>{const value=await call(method,params);if(method==='files.read')present=false;return value;};
+  const result=(await f.run()).result;assert.equal(result.error.code,'chooser_changed');assert.equal(result.error.effect_may_have_occurred,false);
+  assert.deepEqual(f.native.map(row=>row.action),['begin','cancel']);
+});
 test('upload probes capability and exact target before reading any task files',async()=>{
   const f=fixture();f.state.file_input_capability=false;
   assert.equal((await f.run()).result.error.code,'unsupported_capability');assert.equal(f.calls.length,0);assert.equal(f.native.length,0);

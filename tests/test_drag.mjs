@@ -11,7 +11,7 @@ const {executeBrowserAutomation}=await import(`data:text/javascript;base64,${Buf
 function fixture(){
   const commands=[];let moving=false,samples=0,cancelled=false,active=false,reject;
   const view={async execute(command,params){commands.push({command,params});
-    if(command==="state")return{loading:false,automation:true,drag_capability:true,navigation:"1"};
+    if(command==="state")return{loading:false,automation:true,drag_capability:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1"};
     if(command==="drag"){active=true;return{accepted:true,trusted_input:true,drag_kind:"html5",dispatched:true};}
     if(command==="drag_cancel"){reject?.(Error("Cancelled"));return{};}
     if(params.script.includes(".prepare(")){
@@ -25,7 +25,7 @@ function fixture(){
     commands.push({command,params});
     if(command==="drag"){active=true;return new Promise((resolve,no)=>{reject=no;});}
     if(command==="drag_cancel"){reject?.(Error("Cancelled"));return{};}
-    if(command==="state")return{loading:false,automation:true,drag_capability:true,navigation:"1"};
+    if(command==="state")return{loading:false,automation:true,drag_capability:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1"};
     const destination=params.script.includes('"name":"Destination"')||params.script.includes('"ref":"destination"'),x=destination?200:20;
     return{ok:true,value:{ok:true,element:{ref:destination?"destination":"source"},point:{x,y:20},geometry:[x,0,20,40,x,20]}};
   };cancelled=true;},execute:()=>executeBrowserAutomation({command:"act",params:{op:"drag",document:"d1",target:{name:"Source"},destination:{name:"Destination"},timeout_ms:300},

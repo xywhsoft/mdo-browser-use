@@ -15,7 +15,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     if(view->uploadAssignmentKey==id){view->uploadBusy=false;view->uploadAssignment.reset();view->uploadAssignmentKey.clear();}
     releaseGroup();
   }
-  bool live()const{return !done&&!stopped&&!job->closing&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
+  bool live()const{return !done&&!stopped&&!job->closing&&(dispatched||xb_chooser_upload_ready(view,job->chooser,document,ref))&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
   std::string failure(const std::string& code,const std::string& message)const{
     return "{\"accepted\":false,\"ticket\":"+xb_quote(job->ticket)+clearMeta()+",\"dispatched\":"+(dispatched?"true":"false")+",\"retained\":"+(job->retained?"true":"false")+
       ",\"error\":{\"code\":"+xb_quote(code)+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":"+(dispatched?"true":"false")+"}}";
@@ -69,6 +69,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   }
   void dispatch(){
     if(!live()){stop("Upload context changed immediately before file assignment");return;}
+    if(!xb_chooser_upload_consume(view,job->chooser,document,ref)){stop("The exact file picker changed before assignment");return;}
     std::string paths="[";for(const auto& file:job->files){if(paths.size()>1)paths+=",";paths+=xb_quote(webview::detail::narrow_string(file->path));}paths+="]";
     auto self=shared_from_this();
     // Retain bytes before the native call: even a lost/error reply cannot prove
@@ -124,7 +125,8 @@ static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::sha
     if(job->assigning)host->reply(id,"{\"accepted\":true,\"pending\":true,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+"}");
     else host->reply(id,"{\"accepted\":false,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+",\"error\":{\"code\":\"action_uncertain\",\"message\":\"Inspect the page before another upload\",\"effect_may_have_occurred\":true}}");return;
   }
-  if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||xb_chooser_blocked(view)||!view->input.expired()||view->capture||view->drag||!view->automationContext||view->loading||view->initialNavigationPending||
+  if(!job->chooser.empty()&&(job->assignDocument!=document||job->assignRef!=ref)){reject("upload_identity_conflict","This upload belongs to a different file picker target");return;}
+  if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||!xb_chooser_upload_ready(view,job->chooser,document,ref)||!view->input.expired()||view->capture||view->drag||!view->automationContext||view->loading||view->initialNavigationPending||
      xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){
     reject("upload_not_ready","The sealed upload, isolated document or native input slot is no longer ready");return;
   }

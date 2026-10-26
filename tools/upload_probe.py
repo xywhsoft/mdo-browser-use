@@ -51,8 +51,22 @@ def main():
         assert next(row for row in current['elements'] if row['name']=='Multiple attachments')['selected_count']==0
         assert value(tool('browser_upload_status',{'browser':browser,'action':'status','ticket':transfer['ticket']}))['retained']
         assert tool('browser_upload',{'browser':browser,'action':'release','ticket':transfer['ticket'],'confirmed':True})['success']
+        picker=value(tool('browser_act',{'browser':browser,'op':'click','document':page['document'],'target':{'css':'#choose-hidden'}}))
+        assert picker['outcome']=='file_chooser_open' and not picker['completed']
+        pending=value(tool('browser_choosers',{'browser':browser,'action':'list'}))['choosers'][0]
+        picked=tool('browser_upload',{'browser':browser,'action':'set','document':page['document'],'chooser':pending['id'],'files':[{'path':str(empty),'name':'managed-picker.txt'}]})
+        assert picked['success'] and value(picked)['verified'],picked['text']
+        assert not value(tool('browser_choosers',{'browser':browser,'action':'list'}))['choosers']
+        assert tool('browser_wait',{'browser':browser,'until':'text','text':'managed-picker.txt'})['success']
+        assert tool('browser_upload',{'browser':browser,'action':'release','ticket':value(picked)['transfer']['ticket'],'confirmed':True})['success']
+        assert value(tool('browser_act',{'browser':browser,'op':'click','document':page['document'],'target':{'css':'#choose-hidden'}}))['outcome']=='file_chooser_open'
+        pending=value(tool('browser_choosers',{'browser':browser,'action':'list'}))['choosers'][0]
+        assert tool('browser_chooser_cancel',{'browser':browser,'action':'cancel','chooser':pending['id']})['success']
         readonly=dev.call('browser.create',{'client':clients[0]['id'],'url':url},ro_owner)['id']
         ro_page=value(tool('browser_observe',{'browser':readonly},READ_ONLY))
+        assert tool('browser_choosers',{'browser':readonly,'action':'list'},READ_ONLY)['success']
+        ro_cancel=tool('browser_chooser_cancel',{'browser':readonly,'action':'cancel','chooser':'fake-picker'},READ_ONLY)
+        assert not ro_cancel['success'] and 'context_mismatch' not in ro_cancel['text'],'Read-only session cancelled a picker or ownership hid the permission check'
         denied=tool('browser_upload',{'browser':readonly,'action':'set','document':ro_page['document'],
             'target':{'css':'#single'},'files':[{'path':str(source)}]},READ_ONLY)
         assert not denied['success'],'Read-only managed tool assigned a file'
@@ -64,7 +78,8 @@ def main():
         cache=inspect_cache(dev.HOME/'data/cache/webview2-content/mdo-browser-use-transfers')
         assert cache['remaining_reservations']==0
         result={'passed':True,'backend':'actual-public-and-managed-webview2',**js,'managed_upload_and_status':True,
-            'read_only_upload_denied_on_owned_tab':True,'managed_clear_and_read_only_denial':True,'full_access_no_extra_prompt':True,'cache':cache}
+            'read_only_upload_denied_on_owned_tab':True,'managed_clear_and_read_only_denial':True,'full_access_no_extra_prompt':True,
+            'managed_chooser_accept_and_cancel':True,'read_only_chooser_list_allowed_cancel_denied':True,'cache':cache}
         output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
     except Exception as error:
         output.write_text(json.dumps({'passed':False,'error':str(error)[:512]})+'\n',encoding='utf-8')

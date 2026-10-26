@@ -2,14 +2,14 @@
 
 The Windows WebView2 path, including native JavaScript dialogs, is currently
 verified. New windows are adopted into visible scoped tabs, and regular HTML
-file inputs receive verified task-host snapshots. Android, chooser/download
-transfers and complete cross-origin frame support remain in progress. No additional
+file inputs and intercepted pickers receive verified task-host snapshots. Android,
+downloads and complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and
-`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Screenshot/Upload/Result/Operation`
+`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Chooser/Screenshot/Upload/Result/Operation`
 accept the same JSON objects as the corresponding `browseruse.*` SDK service.
 Parameters are borrowed; release returned values using
 `Context->Api->Values->Release`. The public values table handles allocation;
@@ -371,6 +371,58 @@ the independent file-staging ticket/byte budget. Clearing never releases a
 previous upload: the site can retain old File objects. Status is historical
 transfer state; a fresh observation provides the current `selected_count`.
 
-Chooser interception, directory/OOPIF uploads, downloads
-and Android transfer support remain unfinished. Unsupported devices fail before
-source reads; there is no browser-device path fallback.
+Directory/OOPIF uploads, downloads and Android transfer support remain unfinished.
+Unsupported devices fail before source reads; there is no browser-device path fallback.
+
+## Intercepted file pickers
+
+The Windows dispatcher acknowledges native interception before Agent input. A
+click can return `outcome:"file_chooser_open",completed:false,choosers:[...]`;
+this is a checkpoint, not a completed upload. It does not repeat the click or
+open an OS dialog. Mouse acknowledgement can precede the picker event, so the
+dispatcher also inspects state after input and observation. Later asynchronous
+page activity is inspected before subsequent input. Native delivery never
+claims website completion.
+
+Use `browseruse.chooser` / `mdoBrowserUseChooser` (`list` or `cancel`). The JS
+client's `chooser` waits for a read receipt or uses a durable cancellation
+identity. Managed tools are `browser_choosers` and `browser_chooser_cancel`.
+List is read-only; cancellation is an external effect and respects live tool
+permissions. Foreign task/browser tickets are rejected. Observation remains
+available while a picker is pending and includes its opaque metadata.
+
+```javascript
+const clicked = await browser.act({browser:tab.id,document:page.document,
+  op:"click",target:{role:"button",name:"Choose file"}});
+if (clicked.outcome === "file_chooser_open") {
+  const current = await browser.observe({browser:tab.id});
+  const picker = (await browser.chooser({browser:tab.id,action:"list"})).choosers[0];
+  const selected = await browser.upload({browser:tab.id,action:"set",
+    document:current.document,chooser:picker.id,
+    files:[{path:"report.txt",space:"workspace"}]});
+  // Or cancel this exact picker instead of assigning files:
+  // await browser.chooser({browser:tab.id,action:"cancel",chooser:picker.id});
+  // Retain selected.transfer.ticket until verified website consumption.
+}
+```
+
+`chooser` replaces `target` only for upload `set`. The actual input is resolved
+and pinned before source reads; its document, picker and reference are checked
+through native staging/assignment. Cancelled, expired or replaced tickets
+cannot deliver files. Successful assignment consumes that picker once without
+also emitting cancel. The same file-operation receipt cannot select another
+input. Hidden/shadow/same-origin frame inputs work; other frame/picker kinds
+fail before source reads and require manual control.
+
+Cancelling preserves the preexisting FileList and retained website File bytes.
+It emits one fixed isolated `cancel` event (`events_trusted:false`), which may
+open a dialog or popup and yield another checkpoint. Picker leases are at most
+120 seconds. Pending pickers block competing actions; explicit cancellation,
+navigation, expiry or browser close releases their metadata. Native policy or
+object cleanup failure fences further input rather than retrying indefinitely.
+
+The trusted side pane shows Cancel selection and Take over browser controls.
+Takeover disables interception after in-flight input releases drain and
+cancels the old picker without clearing files. Busy state includes both
+deferred phases. To use the OS picker, the user clicks the website again after
+takeover. Returning control never replays that click or reopens the picker.

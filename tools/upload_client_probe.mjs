@@ -57,7 +57,25 @@ try{
   const completed=reads(await client.observe({browser:browser.id}));assert.equal(completed.length,3);
   assert.equal(completed[2].files[0].sha256,emptyHash);
   await client.upload({browser:browser.id,action:'release',ticket:raw.transfer.ticket,confirmed:true});
+  const openPicker=()=>client.act({browser:browser.id,document:page.document,op:'click',target:{css:'#choose-hidden'}});
+  const opened=await openPicker();assert.equal(opened.outcome,'file_chooser_open');assert.equal(opened.completed,false);
+  const chooser=(await client.chooser({browser:browser.id,action:'list'})).choosers[0];assert(chooser?.id);
+  const observedPicker=await client.observe({browser:browser.id});assert.equal(observedPicker.choosers[0].id,chooser.id);assert.equal(observedPicker.document,page.document);
+  const blocked=await openPicker();assert.equal(blocked.outcome,'file_chooser_open');assert.equal(blocked.dispatched,false);
+  const cancelOperation=`sdk-${crypto.randomUUID().replaceAll('-','')}`,cancelParams={browser:browser.id,action:'cancel',chooser:chooser.id};
+  const cancelled=await client.chooser(cancelParams,{operation:cancelOperation,retain:true});assert.equal(cancelled.cancelled,true);assert.equal(cancelled.events_trusted,false);
+  assert.deepEqual(await client.chooser(cancelParams,{operation:cancelOperation,retain:true}),cancelled);
+  assert.equal((await client.observe({browser:browser.id})).elements.find(row=>row.name==='Hidden attachment').selected_count,1,'Cancel cleared the previously selected empty file');
+  await client.operation({action:'release',operation:cancelOperation});
+  const second=await openPicker();assert.equal(second.outcome,'file_chooser_open');
+  const secondChooser=(await client.chooser({browser:browser.id,action:'list'})).choosers[0];assert.notEqual(secondChooser.id,chooser.id);
+  await assert.rejects(sdk.call('browseruse.chooser',{browser:browser.id,action:'cancel',chooser:secondChooser.id},{...context,session:'foreign'}),{code:'context_mismatch'});
+  const pickerAssigned=await client.upload({browser:browser.id,action:'set',document:page.document,chooser:secondChooser.id,files:[{path:nativePath(empty),name:'picker-zero.txt'}]});
+  assert.equal(pickerAssigned.verified,true);assert.equal((await client.chooser({browser:browser.id,action:'list'})).choosers.length,0);
+  await client.waitFor({browser:browser.id,until:'text',text:'picker-zero.txt'});
+  await client.upload({browser:browser.id,action:'release',ticket:pickerAssigned.transfer.ticket,confirmed:true});
   await writeFile(new URL('.mdo/upload-client-result.json',root),JSON.stringify({passed:true,backend:'actual-c-service-js-client-webview2',
     exact_binary_and_empty_bytes:true,retained_until_confirmed_release:true,durable_duplicate_once:true,foreign_scope_denied:true,raw_c_service:true,
-    controlled_clear_once:true,clear_events_trusted:false,empty_clear_no_events:true})+'\n');
+    controlled_clear_once:true,clear_events_trusted:false,empty_clear_no_events:true,automatic_picker_interception:true,
+    observed_picker_metadata:true,pending_picker_blocks_repeat_click:true,durable_cancel_once:true,chooser_bound_upload:true})+'\n');
 }finally{if(browser)await client.tabs({action:'close',browser:browser.id});}

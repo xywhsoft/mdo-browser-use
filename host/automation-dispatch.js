@@ -10,8 +10,8 @@ const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
 export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
-  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "capture", "upload"].includes(command)) return { handled: false };
-  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "upload" && params.action !== "status";
+  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload"].includes(command)) return { handled: false };
+  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status";
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
@@ -29,6 +29,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     dialogs: (await view.execute("dialog", { action: "list", agent: true })).dialogs || [] } });
   const popupBoundary = () => ({ handled: true, result: { ok: true,
     outcome: "popup_open", completed: false, dispatched, action: action.id } });
+  const chooserBoundary = async () => ({handled:true,result:{ok:true,outcome:"file_chooser_open",completed:false,dispatched,action:action.id,
+    choosers:(await view.execute("chooser",{action:"list",agent:true})).choosers||[]}});
   const read = async (method, options) => {
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
@@ -50,12 +52,20 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(command==='upload'&&params.action==='status')return{state};
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
-    if (state.manual && !(command === "dialog" && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
+    if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
     if (state.drag_cleanup_failed && (writing || command === "capture")) return fail("drag_cleanup_failed", "Native drag cleanup was not confirmed; inspect and end this browser before further input");
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
+    if (command === "chooser") {
+      if(!state.chooser_capability)return fail("unsupported_capability","This browser backend cannot inspect native file pickers");
+      if(params.action==='cancel'&&state.dialog_open)return dialogBoundary();
+      if(params.action==='cancel'&&state.popup_open)return popupBoundary();
+      return {state};
+    }
     if (typeof state.loading !== "boolean" || !state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution and readiness");
     if (state.dialog_open) return dialogBoundary();
     if (state.popup_open) return popupBoundary();
+    if (state.chooser_cleanup_failed && writing && !(command==='upload'&&params.action==='release')) return fail("chooser_cleanup_failed","File-picker cleanup was not confirmed; end this browser before further input");
+    if (state.chooser_open && ["act","navigate_to","wait_for"].includes(command) || state.chooser_open && command==='upload' && params.action!=='release'&&!params.chooser) return chooserBoundary();
     if (navigation !== undefined && state.navigation !== navigation) return fail("stale_document", "The document changed; inspect it before another input");
     return { state };
   };
@@ -67,6 +77,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
     if (delivered.dialog_open) return dialogBoundary();
     if (delivered.popup_open) return popupBoundary();
+    if (delivered.file_chooser_open) return chooserBoundary();
+    const checked=await guard(true);if(checked.handled)return checked;
     return null;
   };
   try {
@@ -106,6 +118,12 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const image = await prepareScreenshot(native,area,after,params);
       checked = await guard(true);if (checked.handled) return checked;
       return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image}};
+    }
+    if (command === "chooser") {
+      const checked=await guard(true);if(checked.handled)return checked;
+      if(params.action==='cancel')dispatched=true;
+      const result=await view.execute('chooser',{...params,agent:true});
+      return {handled:true,result:{...result,action:action.id}};
     }
     if (command === "dialog") {
       const checked = await guard(true); if (checked.handled) return checked;
@@ -164,11 +182,23 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         const result = await read(params.mode === "options" ? "optionList" : "observe", options);
         if (!result.ok) return { handled: true, result };
         if (params.mode === "options") return { handled:true,result };
-        if (["interactive", "complete"].includes(result.ready)) return { handled: true, result };
+        if (["interactive", "complete"].includes(result.ready)) {
+          const checked=await guard(true);if(checked.handled)return checked;
+          if(checked.state.chooser_open)result.choosers=(await view.execute('chooser',{action:'list',agent:true})).choosers||[];
+          return { handled: true, result };
+        }
       }
       await pause(Math.min(50, Math.max(0, deadline - performance.now())));
     }
     if (command === "observe" || navigation === undefined) return fail("timed_out", "The page was not ready before the deadline");
+    let policy=await guard(true);if(policy.handled)return policy;
+    while(policy.state.input_busy){await pause(20);policy=await guard(true);if(policy.handled)return policy;}
+    if(!policy.state.chooser_capability||!policy.state.chooser_upload_capability)
+      return fail('unsupported_capability','This host cannot safely intercept Agent file pickers; update the host or use manual control');
+    if(!policy.state.chooser_armed){
+      const armed=await view.execute('chooser',{action:'arm',agent:true});
+      if(!armed.ok||!armed.armed)return fail('chooser_unavailable','Native file-picker interception was not confirmed; no input was sent');
+    }
     if (params.op === "drag") {
       const samePair=(a,b)=>a&&b&&sameGeometry(a.source,b.source)&&sameGeometry(a.destination,b.destination);
       const preparePair=async(source=params.target,destination=params.destination,scroll=true)=>{
@@ -265,9 +295,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       }
     }
     const stopped = await guard(true); if (stopped.handled) return stopped;
+    const observation=await read("observe",{limit:100,max_bytes:4096});
+    const after=await guard(true);if(after.handled)return after;
     return { handled: true, result: { ok: true, action: action.id, dispatched,
       verification: ["fill", "check"].includes(params.op) ? "field_state" : "native_delivery",
-      observation: await read("observe", { limit: 100, max_bytes: 4096 }) } };
+      observation } };
   } catch (error) {
     if (error.dialog) return dialogBoundary();
     if (error.popup) return popupBoundary();

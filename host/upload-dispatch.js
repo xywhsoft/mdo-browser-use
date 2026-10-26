@@ -8,6 +8,11 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     return result;
   };
   const stopped=async()=>{const checked=await guard(true);if(checked.handled)return transfer(checked);
+    if(params.chooser&&params.action==='set'&&!requested){
+      if(!checked.state.chooser_upload_capability)return transfer(fail('unsupported_capability','This displaying device cannot accept file pickers; no source files were read'));
+      const pickers=await view.execute('chooser',{action:'list',agent:true});
+      if(!pickers.choosers?.some(row=>row.id===params.chooser))return transfer(fail('chooser_changed','The exact file picker expired, was cancelled or was consumed; do not repeat its opening click'));
+    }
     return navigation!==undefined&&checked.state.navigation!==navigation?transfer(fail('stale_document','The document changed during file transfer')):checked;};
   const native=params=>view.execute('upload',params);
   const assign=async parameters=>{
@@ -36,7 +41,9 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
       await pause(30);checked=await stopped();if(checked.handled)return checked;
     }
     navigation=checked.state.navigation;
-    let pinned=await read('uploadInfo',{document:params.document,target:params.target});
+    if(params.chooser&&!checked.state.chooser_upload_capability)return fail('unsupported_capability','This browser cannot accept intercepted file pickers; no source files were read');
+    stage='target_resolution';
+    let pinned=params.chooser?await view.execute('chooser',{action:'target',chooser:params.chooser,document:params.document,agent:true}):await read('uploadInfo',{document:params.document,target:params.target});
     if(!pinned.ok)return{handled:true,result:pinned};
     if(params.action==='clear'){
       checked=await stopped();if(checked.handled)return checked;
@@ -64,6 +71,7 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     if(checked.state.navigation!==navigation)return fail('stale_document','The document changed before transfer admission');
     sourceIndex=null;stage='native_admission';
     const admitted=await native({action:'begin',navigation,upload_key:action.id,timeout_ms:Math.min(120000,remaining()+5000),
+      ...(params.chooser?{chooser:params.chooser,document:params.document,ref:pinned.element.ref}:{}),
       files:snapshots.map(file=>({name:file.name,size:file.size,sha256:file.sha256}))});
     if(typeof admitted.ticket!=='string'||!/^u-[a-f0-9-]{36}$/i.test(admitted.ticket))return fail('upload_receipt_invalid','The browser did not return a valid staging ticket');
     ticket=admitted.ticket;

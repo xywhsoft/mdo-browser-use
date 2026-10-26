@@ -864,3 +864,50 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   acceptance and visible pending-picker controls remain the next vertical step.
   Downloads, full frame/directory support, vision coordinates, offscreen drag,
   Android and final stability/package gates are still required for the full goal.
+
+## D11b — shared chooser workflows and exact picker-bound upload acceptance
+
+- Added generated `browseruse.chooser` / `mdoBrowserUseChooser`, the JS
+  `chooser` completion helper and managed `browser_choosers` (read) /
+  `browser_chooser_cancel` (external effect). Cancellation uses the existing
+  durable operation journal; foreign scopes and invalid conditional arguments
+  fail in C. Thirteen managed Browser Use tools now exist.
+- Agent actions acknowledge interception before sending trusted native input.
+  Pending pickers return `file_chooser_open,completed:false` and fence another
+  click; observation remains available with a fresh document and opaque picker
+  metadata. The dispatcher checks after input and after its final observation
+  to cover the observed mouse-ack/event ordering. Older hosts without safe
+  interception fail explicitly before sending Agent input.
+- Upload set accepts exactly one `target` or `chooser`. The chooser resolves its
+  actual hidden/shadow/same-origin frame input before source reads. Native
+  admission, chunks, sealing and assignment retain the original chooser,
+  document and reference. Cancellation/expiry/navigation cannot deliver an old
+  staged file to a replacement target. Assignment consumes its picker once,
+  without an additional cancel event; retained File bytes follow the existing
+  explicit website-consumption release rules.
+- Added trusted side-pane Cancel selection / Take over browser controls. Their
+  actual DOM/native tests cover cancellation, takeover, stale refresh disposal
+  and hiding controls over modal checkpoints. Public cancellation yields an
+  existing dialog/popup checkpoint before attempting another page transaction.
+- The new UI test exposed a takeover cleanup gap: busy became false between
+  disabling interception and deferred cancellation. Its bounded failed report
+  is retained privately. Busy/input fences now cover both deferred phases, and
+  automatic policy cleanup waits for existing input/drag/upload releases. The
+  exact failed UI sequence now passes, without opening/replaying an OS picker.
+- Final full native gate passed 1027 assertions, with no new native diagnostics,
+  private cache ACL and zero file reservations. The focused chooser/visible-UI
+  gate also passes. Actual C-service/JS-client and managed tests pass for
+  automatic interception, pending-click fencing, fresh observation, exact picker
+  acceptance, durable cancel-once, file preservation and scope denial. Read-only
+  owned tabs allow listing and deny cancellation/upload; full access adds no
+  extra prompt. The existing SDK suite (19 actions, four navigations, five
+  waits), JS client and managed tools (including selection and drag) pass again.
+- Local checks pass: 48 Python cases (47 passed, one Windows symlink-privilege
+  skip), 52 JS cases and current generated/deployed host checks. Updated plugin
+  and Skill are installed in the single Home, using the same rebuilt native
+  host. No model calls, extra application copy or downloaded browser used.
+- The full goal remains active. Directory/OOPIF uploads, downloads, complete
+  frame/AX support, vision coordinates, offscreen drag, Android and final
+  lifecycle/performance/packaging validation remain open. The separate earlier
+  isolated startup lookup failure still lacks a captured cause; this chooser
+  work does not claim to resolve it.

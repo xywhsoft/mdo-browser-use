@@ -568,7 +568,8 @@ export const services = [
             "browseruse.act",
             "browseruse.navigate",
             "browseruse.dialog",
-            "browseruse.upload"
+            "browseruse.upload",
+            "browseruse.chooser"
           ]
         },
         "arguments": {
@@ -740,7 +741,7 @@ export const services = [
   },
   {
     "id": "browseruse.upload",
-    "description": "Set or clear exact HTML file-input selections using native delivery. Upload snapshots belong to the original task host. Inspect status and release only after website consumption; clearing never releases retained File bytes.",
+    "description": "Set files on an exact input or pending chooser, or clear an exact input. Snapshots belong to the original task host. Release retained bytes only after website consumption; cancelling a picker never clears old files.",
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -859,6 +860,50 @@ export const services = [
         },
         "confirmed": {
           "type": "boolean"
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 60000
+        },
+        "chooser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.chooser",
+    "description": "List intercepted native file pickers or cancel an exact pending picker. Cancellation preserves existing selected files and emits an untrusted cancel event. Only the user can return manual control.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "action"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "cancel"
+          ]
+        },
+        "chooser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
         },
         "timeout_ms": {
           "type": "integer",
