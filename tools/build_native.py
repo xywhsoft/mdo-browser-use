@@ -36,10 +36,10 @@ def main():
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>'),
-        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_view{'),
+        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_view{'),
         ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
         ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
-        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\nstatic void xb_receive('),
+        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
         ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(host,view);\n            std::weak_ptr<xb_view> weak=view;'),
         ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
@@ -65,10 +65,10 @@ def main():
             raise RuntimeError("Native hook no longer unique: " + before)
         base = base.replace(before, after, 1)
     capture_hooks = [
-        ('std::string opener,popupError,popupTicket;', 'std::string opener,popupError,popupTicket;std::shared_ptr<xb_capture_job> capture;'),
+        ('std::string opener,popupError,popupTicket;', 'std::string opener,popupError,popupTicket;std::shared_ptr<xb_capture_job> capture;std::shared_ptr<xb_drag_job> drag;'),
         ('bool alive=true;std::wstring', 'bool alive=true;unsigned captures=0;std::wstring'),
-        ('found->second->closed=true;xb_cancel_popups', 'found->second->closed=true;xb_cancel_capture(found->second);xb_cancel_popups'),
-        ('entry.second->closed=true;xb_cancel_popups', 'entry.second->closed=true;xb_cancel_capture(entry.second);xb_cancel_popups'),
+        ('found->second->closed=true;xb_cancel_popups', 'found->second->closed=true;xb_close_drag(found->second);xb_cancel_capture(found->second);xb_cancel_popups'),
+        ('entry.second->closed=true;xb_cancel_popups', 'entry.second->closed=true;xb_close_drag(entry.second);xb_cancel_capture(entry.second);xb_cancel_popups'),
         ('if(command=="popups"){', 'if(command=="capture_cancel"){auto job=view->capture;if(job&&job->key==xb_get(json,"capture_key"))job->finish("","Screenshot was cancelled");host->reply(id,"{}");return;}\n  if(command=="capture"){xb_capture(host,view,id,json);return;}\n  if(command=="popups"){'),
         ('const bool mutation=command!="snapshot"', 'const bool mutation=command!="capture"&&command!="capture_cancel"&&command!="snapshot"'),
         ('\\"dialog_capability\\":', '\\"capture_capability\\":true,\\"advanced_mouse\\":true,\\"capture_busy\\":"+std::string(host->captures?"true":"false")+",\\"dialog_capability\\":'),
@@ -76,6 +76,16 @@ def main():
     for before, after in capture_hooks:
         if base.count(before) != 1:
             raise RuntimeError("Native capture hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
+    drag_hooks = [
+        ('if(command=="capture_cancel"){', 'if(command=="drag_cancel"){auto job=view->drag;if(job&&job->key==xb_get(json,"drag_key"))job->stop("Native drag was cancelled; inspect delivered effects");host->reply(id,"{}");return;}\n  if(command=="drag"){xb_drag(host,view,id,json);return;}\n  if(command=="capture_cancel"){'),
+        ('const bool mutation=command!="capture"', 'const bool mutation=command!="drag_cancel"&&command!="capture"'),
+        ('\\"advanced_mouse\\":true,', '\\"advanced_mouse\\":true,\\"drag_capability\\":true,\\"drag_cleanup_failed\\":"+std::string(view->drag&&view->drag->cleanupFailed?"true":"false")+",'),
+        ('view->input.expired()?"false":"true"', 'view->input.expired()&&!view->drag?"false":"true"'),
+    ]
+    for before, after in drag_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native drag hook no longer unique: " + before)
         base = base.replace(before, after, 1)
     popup_start = base.index('            auto* popup=xb_cb<ICoreWebView2NewWindowRequestedEventHandler')
     popup_end = base.index('            if(!xb_place(view,visible))', popup_start)
@@ -105,12 +115,19 @@ def main():
         current = capture_path.read_text(encoding="utf-8")
         if current != capture and hashlib.sha256(current.encode()).hexdigest() != record.get("capture"):
             raise RuntimeError("Unreviewed native capture helper edit preserved")
+    drag = (dev.ROOT / "host/native-drag.inc.hpp").read_text(encoding="utf-8")
+    drag_path = target.with_name("xs_browser_drag.inc.hpp")
+    if drag_path.exists():
+        current = drag_path.read_text(encoding="utf-8")
+        if current != drag and hashlib.sha256(current.encode()).hexdigest() != record.get("drag"):
+            raise RuntimeError("Unreviewed native drag helper edit preserved")
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
     capture_path.write_text(capture, encoding="utf-8", newline="\n")
+    drag_path.write_text(drag, encoding="utf-8", newline="\n")
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
-              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest()}
+              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest()}
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

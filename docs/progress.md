@@ -537,3 +537,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   read-only denial. No live provider/model call or new application/Home used.
 - Drag, vision coordinates, upload/download, complete cross-origin/frame support,
   Android and final lifecycle/package gates remain outstanding.
+
+## D5 — bounded native pointer and HTML5 drag lifecycle
+
+- Added one native drag job per view, with exact request-key cancellation,
+  deadlines, paced pointer motion and release/drag cancellation/interception
+  cleanup. A cleanup failure retains the blocked native slot until view closure.
+  Competing native input/capture is refused, and bridge busy state includes drag.
+- Pointer gestures emit trusted events. HTML5 drag data is obtained from that
+  page's intercepted browser event and delivered through typed native drag
+  events. Caller-supplied data, file lists, oversized payloads/items and late
+  data arriving after cleanup cannot become a successful drop. Data stays in
+  memory and is never echoed in result text.
+- Passed 342 actual native checks without new diagnostics: pointer/HTML5
+  delivery, matching/mismatching cancellation, takeover, deadline-before-input,
+  oversized data rejection then recovery, and closing/recreating a view during
+  a gesture (including a busy renderer handler). Native creation checks now wait
+  for the requested URL within the normal 10-second readiness budget and record
+  elapsed time, rather than treating an initial about:blank snapshot as a final
+  replacement result. Failed fixture results remain private evidence.
+- This is the native foundation. Shared C/JS `act` integration, final target
+  preparation and managed-tool drag tests are the next stage; transfers,
+  complete frame support, Android and packaging remain unfinished.
+- Protocol contract: [official Chrome DevTools Input definitions](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/browser_protocol.json).

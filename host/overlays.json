@@ -321,6 +321,11 @@
       "path": "tools/workbench_contracts.py",
       "before": "'target':{'type':'object'},'key':s",
       "after": "'target':{'type':'object'},'choices':{'type':'array','maxItems':32,'items':{'type':'object'}},'offset':{'type':'integer','minimum':0,'maximum':256},'key':s"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "\"capture_cancel\"].includes(request.command)",
+      "after": "\"capture_cancel\",\"drag\",\"drag_cancel\"].includes(request.command)"
     }
   ],
   "files": [

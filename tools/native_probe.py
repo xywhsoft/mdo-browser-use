@@ -45,12 +45,13 @@ try {
   await bridge.call('create',{browser:raceBrowser,url:location.origin+'/__browser_use_page__.html?creation=new',visible:false});
   const oldCreation=await interrupted;
   assert(oldCreation.cancelled,'Closing in-flight creation did not cancel its original callback');
-  let replacement;
-  for(let i=0;i<100;i++){
+  let replacement;const replacementStarted=performance.now();
+  while(performance.now()-replacementStarted<10000){
     replacement=await bridge.call('state',{browser:raceBrowser});
-    if(!replacement.loading)break;await pause(20);
+    if(!replacement.loading&&replacement.url.includes('creation=new'))break;await pause(20);
   }
-  assert(replacement.url.includes('creation=new'),'A stale creation callback replaced the new native browser');
+  const replacementReadyMs=Math.round(performance.now()-replacementStarted);
+  assert(!replacement.loading&&replacement.url.includes('creation=new'),'The replacement did not reach its requested document: '+JSON.stringify(replacement));
   await bridge.call('close',{browser:raceBrowser});
   await bridge.call('create', { browser, url:location.origin+'/__browser_use_page__.html',
     visible:true, bounds:{ x:10,y:70,width:1000,height:650,scale:devicePixelRatio } });
@@ -161,6 +162,74 @@ try {
   const tinyOptions=await engine(`optionList(${JSON.stringify({document:first.document,target:{name:'Delivery method'},max_bytes:256})})`);
   assert(tinyOptions.error.code==='option_result_limit','An unreadable option page could repeat the same empty offset');
   await evaluate("document.querySelector('#shipping').options[0].label='Standard'");
+  await trace('native-drag-fixture');
+  const dragBrowser='browser-use-native-drag';
+  await bridge.call('create',{browser:dragBrowser,url:location.origin+'/__browser_use_drag__.html',visible:true,
+    bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});
+  const dragRead=async script=>{const result=await bridge.call('evaluate',{browser:dragBrowser,script});assert(result.ok,'Cannot inspect drag fixture');return result.value;};
+  let dragState;
+  for(let i=0;i<100;i++){dragState=await bridge.call('state',{browser:dragBrowser});if(!dragState.loading)break;await pause(20)}
+  assert(dragState.drag_capability,'Native drag capability missing');
+  const dragPrepare=async selector=>{
+    const result=await bridge.call('automation',{browser:dragBrowser,agent:true,script:`(${runtimeSource})().prepare({document:(${runtimeSource})().document,target:{css:${JSON.stringify(selector)}},scroll:true,op:'drag'})`});
+    assert(result.value?.ok,'Drag fixture target was not actionable');return result.value.point;
+  };
+  const startDrag=async(selector,key,timeout_ms=3000)=>{
+    const source=await dragPrepare(selector),destination=await dragPrepare('#drop');
+    return {result:bridge.call('drag',{browser:dragBrowser,agent:true,navigation:dragState.navigation,drag_key:key,...source,
+      to_x:destination.x,to_y:destination.y,timeout_ms})};
+  };
+  const pointerDrag=await startDrag('#pointer','pointer-drag');
+  const pointerDone=await pointerDrag.result;
+  assert(pointerDone.accepted&&pointerDone.trusted_input&&pointerDone.drag_kind==='pointer','Native pointer drag failed');
+  assert(await dragRead("document.body.dataset.held==='false'&&document.body.dataset.pointerTrusted==='true'&&Number(document.body.dataset.dx)>200"),'Pointer drag was synthetic or did not release');
+  const htmlDrag=await startDrag('#html','html-drag');
+  const htmlDone=await htmlDrag.result;
+  assert(htmlDone.accepted&&htmlDone.drag_kind==='html5','HTML5 drag was not intercepted and delivered');
+  assert(await dragRead("document.body.dataset.dropTrusted==='true'&&document.querySelector('#drop-result').textContent==='HTML drop verified'&&document.body.dataset.drops==='1'"),'HTML5 drop lost its trusted event or original data');
+  const cancelDrag=await startDrag('#pointer','cancel-drag');
+  for(let i=0;i<100&&!(await dragRead("document.body.dataset.held==='true'"));i++)await pause(10);
+  assert(bridge.busy(),'A pending drag was omitted from the native bridge busy state');
+  let concurrentInput=false;try{await bridge.call('input',{browser:dragBrowser,navigation:dragState.navigation,agent:true,kind:'key',key:'Enter'})}catch{concurrentInput=true}
+  assert(concurrentInput,'A competing native input entered a held drag');
+  await bridge.call('drag_cancel',{browser:dragBrowser,drag_key:'not-this-drag'});
+  assert((await bridge.call('state',{browser:dragBrowser})).input_busy,'A foreign cancellation ended the drag');
+  await bridge.call('drag_cancel',{browser:dragBrowser,drag_key:'cancel-drag'});
+  assert(!(await cancelDrag.result).accepted,'Cancelled drag reported success');
+  for(let i=0;i<100&&(await bridge.call('state',{browser:dragBrowser})).input_busy;i++)await pause(20);
+  assert(!(await bridge.call('state',{browser:dragBrowser})).input_busy&&await dragRead("document.body.dataset.held==='false'"),'Cancelled drag left a pressed pointer or retained native budget');
+  const takeoverDrag=await startDrag('#pointer','takeover-drag');
+  for(let i=0;i<100&&!(await dragRead("document.body.dataset.held==='true'"));i++)await pause(10);
+  await bridge.call('takeover',{browser:dragBrowser});
+  assert(!(await takeoverDrag.result).accepted,'User takeover did not stop the native drag');
+  for(let i=0;i<100&&(await bridge.call('state',{browser:dragBrowser})).input_busy;i++)await pause(20);
+  assert(await dragRead("document.body.dataset.held==='false'"),'Takeover left the pointer pressed');
+  await bridge.call('release',{browser:dragBrowser});
+  await dragRead("document.body.dataset.large='true'");
+  const largeDrag=await startDrag('#html','large-drag');
+  assert(!(await largeDrag.result).accepted,'Oversized native drag data was dropped');
+  for(let i=0;i<100&&(await bridge.call('state',{browser:dragBrowser})).input_busy;i++)await pause(20);
+  assert(await dragRead("document.body.dataset.drops==='1'"),'Rejected drag payload still reached the drop handler');
+  await dragRead("document.body.dataset.large='false'");
+  assert((await (await startDrag('#html','after-rejection')).result).accepted,'A rejected drag prevented the next native gesture');
+  const expiringDrag=await startDrag('#pointer','short-drag',1);
+  const expiredDrag=await expiringDrag.result;
+  assert(!expiredDrag.accepted&&!expiredDrag.dispatched,'An expired native drag began pointer input');
+  for(let i=0;i<100&&(await bridge.call('state',{browser:dragBrowser})).input_busy;i++)await pause(20);
+  await dragRead("document.body.dataset.blockPointer='true'");
+  const closingDrag=await startDrag('#pointer','closing-drag');
+  await pause(100);
+  const activeBeforeClose=await bridge.call('state',{browser:dragBrowser});
+  assert(activeBeforeClose.input_busy,'The close fixture missed its active native gesture');
+  await bridge.call('close',{browser:dragBrowser});
+  const closedDrag=await closingDrag.result;
+  assert(!closedDrag.accepted,'Closing a live native drag reported success: '+JSON.stringify(closedDrag));
+  await bridge.call('create',{browser:dragBrowser,url:location.origin+'/__browser_use_drag__.html',visible:true,
+    bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});
+  for(let i=0;i<100;i++){dragState=await bridge.call('state',{browser:dragBrowser});if(!dragState.loading&&dragState.url.includes('__browser_use_drag__.html'))break;await pause(20)}
+  assert(!dragState.input_busy,'The replacement inherited a closed native drag');
+  assert((await (await startDrag('#pointer','replacement-drag')).result).accepted,'Old drag callbacks affected the replacement browser');
+  await bridge.call('close',{browser:dragBrowser});
   let staleInput=false;
   try{await bridge.call('input',{browser,agent:true,kind:'click',navigation:'stale',x:10,y:10})}catch{staleInput=true}
   assert(staleInput,'Native input accepted a stale navigation identity');
@@ -474,7 +543,7 @@ try {
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,dialog_expiry_ms:dialogExpiryMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -509,6 +578,7 @@ def main(dialog_expiry=False):
     script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry))
     (web / "__browser_use_page__.html").write_bytes((ROOT / "tests/fixtures/page.html").read_bytes())
     (web / "__browser_use_popup__.html").write_bytes((ROOT / "tests/fixtures/popup.html").read_bytes())
+    (web / "__browser_use_drag__.html").write_bytes((ROOT / "tests/fixtures/drag.html").read_bytes())
     (web / "__browser_use_probe__.html").write_text(
         '<!doctype html><meta charset="utf-8"><h1 id="status">Browser Use native checks</h1>'
         '<script type="module">' + script + '</script>', encoding="utf-8")
