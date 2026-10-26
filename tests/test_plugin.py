@@ -103,6 +103,25 @@ class PluginTests(unittest.TestCase):
             dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
             self.invoke({"action": "close", "browser": browser["id"]})
 
+    def test_cancel_stops_owned_receipt_and_late_ack_cannot_revive_it(self):
+        browser = self.invoke({"action": "create", "client": self.client, "key": "cancel-receipt"})
+        receipt = dev.call("browseruse.observe", {"browser": browser["id"]}, self.scope)
+        try:
+            status, _, raw = dev.request("POST", "/api/v1/application/call", {
+                "method": "ui.cancel", "params": {"id": receipt["id"]},
+                "context": dict(self.scope, session="foreign")})
+            self.assertEqual(status, 409, json.loads(raw))
+            cancelled = dev.call("browseruse.result", {"id": receipt["id"], "cancel": True}, self.scope)
+            self.assertEqual(cancelled["state"], "cancelled")
+            self.assertNotIn("params", cancelled)
+            self.assertNotIn("context", cancelled)
+            dev.call("client.ack", {"client": self.client, "id": receipt["id"], "success": True,
+                                    "result": {"ok": True, "text": "late"}})
+            self.assertEqual(dev.call("browseruse.result", {"id": receipt["id"]}, self.scope)["state"], "cancelled")
+        finally:
+            dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
+            self.invoke({"action": "close", "browser": browser["id"]})
+
     def test_ephemeral_journal_placeholder_is_not_a_successful_observation(self):
         browser = self.invoke({"action": "create", "client": self.client, "key": "ephemeral-result"})
         receipt = dev.call("browseruse.observe", {"browser": browser["id"]}, self.scope)

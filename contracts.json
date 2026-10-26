@@ -47,7 +47,8 @@
         "type": "object", "additionalProperties": false, "required": ["id"],
         "properties": {
           "id": {"type": "string", "minLength": 1, "maxLength": 64},
-          "release": {"type": "boolean"}
+          "release": {"type": "boolean"},
+          "cancel": {"type": "boolean"}
         }
       },
       "output": {"type": "object"}

@@ -111,6 +111,9 @@ export const services = [
         },
         "release": {
           "type": "boolean"
+        },
+        "cancel": {
+          "type": "boolean"
         }
       }
     },

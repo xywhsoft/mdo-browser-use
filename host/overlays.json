@@ -21,6 +21,26 @@
       "after": "SdkPut(Scope,\"extension\",C->ExtensionId);SdkPut(Scope,\"device\",C->DeviceId);"
     },
     {
+      "path": "app/src/application/ui.c",
+      "before": "\"ui.result\",\"ui.release\"};",
+      "after": "\"ui.result\",\"ui.release\",\"ui.cancel\"};"
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "bool MdoApplicationUiInit(void)",
+      "after": "#include \"browser_use_cancel.inc.c\"\nbool MdoApplicationUiInit(void)"
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "    }else if(!strcmp(Method,\"ui.release\")){",
+      "after": "    }else if(!strcmp(Method,\"ui.cancel\")){\n        Ok=BuUiCancel(C,Action,R,E);\n    }else if(!strcmp(Method,\"ui.release\")){"
+    },
+    {
+      "path": "tools/application_sdk.py",
+      "before": "    add('ui.release','Release a terminal UI receipt; pending actions remain retained',{'id':string},('id',))",
+      "after": "    add('ui.release','Release a terminal UI receipt; pending actions remain retained',{'id':string},('id',))\n    add('ui.cancel','Cancel an owned UI receipt; already dispatched effects require inspection',{'id':string},('id',))"
+    },
+    {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "import { normalizeLayout, reorderPanel, safeBrowserUrl, validateImageFrame } from \"./model.js\";",
       "after": "import { executeBrowserAutomation } from \"./automation-dispatch.js\";\nimport { normalizeLayout, reorderPanel, safeBrowserUrl, validateImageFrame } from \"./model.js\";"
@@ -37,6 +57,7 @@
     }
   ],
   "files": [
+    {"source": "host/ui-cancel.inc.c", "target": "app/src/application/browser_use_cancel.inc.c"},
     {"source": "page/runtime.js", "target": "app/web/js/features/workbench/automation-runtime.js"},
     {"source": "host/automation-dispatch.js", "target": "app/web/js/features/workbench/automation-dispatch.js"}
   ]

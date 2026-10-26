@@ -149,3 +149,16 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   controls, CSS errors, semantic locators, frame and shadow hit tests.
 - This is the page engine; the public operation dispatcher still needs stable
   geometry sampling, one writer, cancellation and effect-result handling.
+
+## C0 — cancellation reaches the UI operation
+
+- Added a scoped native `ui.cancel` service and matching generated host contract.
+  The plugin checks receipt ownership before cancellation and returns only its
+  sanitized status. Late acknowledgements cannot revive cancelled work.
+- JavaScript abort/timeout now requests host cancellation and retains the receipt
+  ID for inspection; a signal cancelled before invocation queues no work.
+- Ten real SDK/C tests and six JS checks passed, including foreign cancellation,
+  late delivery, sanitized cancellation replies and reader-to-host propagation.
+- Already dispatched effects cannot be rolled back by cancellation. Native
+  mutation dispatch will recheck cancellation between steps and report uncertain
+  outcomes rather than automatically repeating an input.

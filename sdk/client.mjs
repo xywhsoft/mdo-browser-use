@@ -24,15 +24,18 @@ export function createBrowserUseClient(sdk) {
       }
       await new Promise(resolve => setTimeout(resolve, 50));
     }
-    const error = new Error(signal?.aborted ? "Browser observation cancelled" : "Browser observation timed out");
+    try { await invoke("result", { id: receipt.id, cancel: true }); } catch {}
+    const error = new Error(signal?.aborted ? "Browser call cancelled; verify any dispatched effects" : "Browser call timed out; verify any dispatched effects");
     error.code = signal?.aborted ? "cancelled" : "timed_out";
+    error.receipt = receipt.id;
     throw error;
   }
   return Object.freeze({
     tabs: params => invoke("tabs", params),
-    observe: async (params, options = {}) => wait(await invoke("observe", params), {
-      timeout: (params.timeout_ms || 10000) + 5000, ...options
-    }),
+    observe: async (params, options = {}) => {
+      if (options.signal?.aborted) throw Object.assign(new Error("Browser call cancelled"), { code: "cancelled" });
+      return wait(await invoke("observe", params), { timeout: (params.timeout_ms || 10000) + 5000, ...options });
+    },
     result: params => invoke("result", params),
     wait,
     services: Object.freeze(services.map(row => row.id))

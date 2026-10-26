@@ -33,8 +33,13 @@ static mdo_result BuResult(void* User,const mdo_sdk_context_v1* C,const xvalue* 
         BuEqual(C->ProjectId&&*C->ProjectId?C->ProjectId:"default",Project&&*Project?Project:"default")&&
         BuEqual(C->SessionId,BuText(C,Scope,"session"));
     if(!Owned){V->Release(Args);V->Release(Receipt);return BuFail(E,"context_mismatch","Receipt belongs to another extension or task",409);}
-    const char* State=BuText(C,Receipt,"state");bool Release=false;
+    bool Release=false,Cancel=false;
     V->Boolean(V->Get(P,"release"),&Release);
+    V->Boolean(V->Get(P,"cancel"),&Cancel);
+    if(Release&&Cancel){V->Release(Args);V->Release(Receipt);return BuFail(E,"arguments_invalid","Choose cancel or release separately",422);}
+    if(Cancel){xvalue* Cancelled=NULL;Code=mdoCall(C,"ui.cancel",Args,&Cancelled,E);
+        V->Release(Receipt);Receipt=Cancelled;if(Code!=MDO_RESULT_OK){V->Release(Args);return Code;}}
+    const char* State=BuText(C,Receipt,"state");
     if(Release){Code=mdoCall(C,"ui.release",Args,Result,E);V->Release(Args);V->Release(Receipt);return Code;}
     *Result=V->Object();BuPut(C,*Result,"id",BuText(C,Receipt,"id"));
     BuPut(C,*Result,"state",State);

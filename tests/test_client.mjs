@@ -55,3 +55,16 @@ test("actual mdo UI journal does not persist even a small browser observation", 
   assert.equal(duplicate.result.ephemeral, true);
   assert.equal(executions, 1);
 });
+
+test("reader cancellation reaches the owned host receipt", async () => {
+  const calls = [];
+  const client = createBrowserUseClient({ async call(method, params) {
+    calls.push({ method, params });
+    return { state: "pending" };
+  }});
+  await assert.rejects(client.wait({ id: "cancellation-fixture" }, { timeout: 0 }), { code: "timed_out", receipt: "cancellation-fixture" });
+  assert.deepEqual(calls[0], { method: "browseruse.result", params: { id: "cancellation-fixture", cancel: true } });
+  const controller = new AbortController(); controller.abort(); calls.length = 0;
+  await assert.rejects(client.observe({ browser: "unused" }, { signal: controller.signal }), { code: "cancelled" });
+  assert.equal(calls.length, 0);
+});
