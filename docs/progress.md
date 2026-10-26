@@ -477,3 +477,15 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   fresh target, as the production action dispatcher already does.
 - Drag/select, vision coordinates, transfers, full frames, Android and packaging
   are still pending. No live model call or production release was performed.
+
+## K0 — verified native selection keyboard primitives
+
+- Added bounded Control+Home/End/ArrowUp/ArrowDown/Space and Space native key
+  mappings. The real WebView2 probe selected a single option while skipping
+  disabled options/groups, and selected an exact multi-select set using native
+  keyboard input. Both emitted trusted change events.
+- The native run passed 223 checks without new diagnostics. Low-level fixture
+  input now re-prepares its point after earlier scrolling rather than reusing
+  an observation's historical coordinates. This commit supplies the native
+  primitives only; the scoped public selection action, option discovery,
+  change detection and managed-tool validation are the next stage.

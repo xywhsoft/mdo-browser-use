@@ -98,12 +98,22 @@ try {
     let invalid=false;try{await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,x:10,y:10,...fields})}catch{invalid=true}
     assert(invalid,'Invalid native mouse gesture was accepted');
   }
-  const input=first.elements.find(e=>e.name==='订单号').bounds;
-  await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,x:input.x+input.width/2,y:input.y+input.height/2});
+  const input=await engine(`prepare(${JSON.stringify({document:first.document,op:'fill',target:{name:'订单号'},scroll:true})})`);
+  assert(input.ok,'Native input target was not actionable');
+  await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,...input.point});
   await bridge.call('input',{browser,agent:true,kind:'key',navigation:state.navigation,key:'Control+A'});
   await bridge.call('input',{browser,agent:true,kind:'text',navigation:state.navigation,text:'订单 🦉 42'});
   assert(await evaluate('document.querySelector("#order").value')==='订单 🦉 42','Native Unicode replacement failed');
   assert(await evaluate('document.body.dataset.input')==='trusted','Input event was synthetic');
+  await evaluate("document.querySelector('#shipping').focus({preventScroll:true})");
+  for(const key of ['Home','ArrowDown'])await bridge.call('input',{browser,agent:true,kind:'key',navigation:state.navigation,key});
+  assert(await evaluate("document.querySelector('#shipping').value")==='express','Native select keys did not skip disabled choices/groups');
+  assert(await evaluate("document.querySelector('#selection-result').textContent")==='shipping:true','Single-select change was not trusted');
+  await evaluate("document.querySelector('#colors').focus({preventScroll:true})");
+  for(const key of ['Home','Control+Space','Control+ArrowDown','Control+Space','Control+ArrowDown','Control+Space'])
+    await bridge.call('input',{browser,agent:true,kind:'key',navigation:state.navigation,key});
+  assert(await evaluate("[...document.querySelector('#colors').selectedOptions].map(option=>option.value).join(',')")==='green,blue','Native multi-select keys did not produce exact choices');
+  assert(await evaluate("document.querySelector('#selection-result').textContent")==='colors:true','Multi-select change was not trusted');
   let staleInput=false;
   try{await bridge.call('input',{browser,agent:true,kind:'click',navigation:'stale',x:10,y:10})}catch{staleInput=true}
   assert(staleInput,'Native input accepted a stale navigation identity');

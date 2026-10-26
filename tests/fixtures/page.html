@@ -20,6 +20,8 @@
 <button id="popup-open">Open popup</button><output id="popup-result"></output>
 <button id="popup-blank">Open blank popup</button>
 <button id="mouse-gestures">Mouse gestures</button><output id="mouse-result"></output>
+<label for="shipping">Delivery method</label><select id="shipping"><option value="standard">Standard</option><option value="disabled" disabled>Unavailable</option><optgroup label="Paused" disabled><option value="group-disabled">Paused delivery</option></optgroup><option value="express">Express</option><option value="overnight">Overnight</option></select>
+<label for="colors">Colors</label><select id="colors" multiple size="4"><option value="red">Red</option><option disabled value="disabled">Unavailable</option><option value="green">Green</option><option value="blue">Blue</option></select><output id="selection-result"></output>
 <script>document.querySelector('#shadow').attachShadow({mode:'open'}).innerHTML='<button>Shadow action</button>';</script>
 <script>
 document.querySelector('#search').addEventListener('click',e=>{document.body.dataset.clicked=e.isTrusted?'trusted':'untrusted';document.body.dataset.clicks=String(Number(document.body.dataset.clicks||0)+1);document.querySelector('#events').textContent=(e.isTrusted?'Trusted click ':'Untrusted click ')+document.body.dataset.clicks});
@@ -32,5 +34,8 @@ document.querySelector('#popup-blank').onclick=()=>{const child=window.open('abo
 window.addEventListener('message',event=>{if(event.origin===location.origin&&event.data?.fixture==='popup-ready')document.querySelector('#popup-result').textContent='Popup connected'});
 for(const type of ['dblclick','contextmenu','auxclick'])document.querySelector('#mouse-gestures').addEventListener(type,event=>{
   event.preventDefault();document.querySelector('#mouse-result').textContent=type+':'+event.button+':'+event.isTrusted;
+});
+for(const id of ['shipping','colors'])document.querySelector('#'+id).addEventListener('change',event=>{
+  document.querySelector('#selection-result').textContent=id+':'+event.isTrusted;
 });
 </script>

@@ -119,6 +119,12 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
   }else if(kind=="key"){
     const auto key=xb_get(json,"key");std::string code=key,actual=key;int vk=0,modifiers=0;
     if(key=="Control+A"){actual="a";code="KeyA";vk=65;modifiers=2;}
+    else if(key=="Control+Home"){actual="Home";code="Home";vk=36;modifiers=2;}
+    else if(key=="Control+End"){actual="End";code="End";vk=35;modifiers=2;}
+    else if(key=="Control+ArrowUp"){actual="ArrowUp";code="ArrowUp";vk=38;modifiers=2;}
+    else if(key=="Control+ArrowDown"){actual="ArrowDown";code="ArrowDown";vk=40;modifiers=2;}
+    else if(key=="Control+Space"){actual=" ";code="Space";vk=32;modifiers=2;}
+    else if(key=="Space"){actual=" ";code="Space";vk=32;}
     else if(key=="Shift+Tab"){actual="Tab";code="Tab";vk=9;modifiers=8;}
     else if(key=="Enter")vk=13;else if(key=="Tab")vk=9;else if(key=="Escape")vk=27;
     else if(key=="Backspace")vk=8;else if(key=="Delete")vk=46;else if(key=="ArrowLeft")vk=37;
