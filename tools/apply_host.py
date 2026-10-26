@@ -31,9 +31,15 @@ def apply(check=False):
             ["git", "show", dev.LOCK["commit"] + ":" + relative], cwd=dev.SOURCE).decode("utf-8").replace("\r\n", "\n")
         wanted = baseline
         for change in (row for row in spec["changes"] if row["path"] == relative):
+            after = change.get("after")
+            if "after_file" in change:
+                insertion = (dev.ROOT / change["after_file"]).resolve()
+                if not insertion.is_relative_to(dev.ROOT):
+                    raise RuntimeError("Overlay insertion leaves the project")
+                after = insertion.read_text(encoding="utf-8") + change["suffix"]
             if wanted.count(change["before"]) != 1:
                 raise RuntimeError("Overlay does not match the pinned source: " + relative)
-            wanted = wanted.replace(change["before"], change["after"], 1)
+            wanted = wanted.replace(change["before"], after, 1)
         current = path.read_text(encoding="utf-8")
         if current not in (baseline, wanted) and previous.get(relative) != digest(current):
             raise RuntimeError("Unreviewed host edit preserved: " + relative)

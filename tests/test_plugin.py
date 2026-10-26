@@ -122,6 +122,22 @@ class PluginTests(unittest.TestCase):
             dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
             self.invoke({"action": "close", "browser": browser["id"]})
 
+    def test_action_arguments_fail_before_queueing(self):
+        for fields, code in [
+            ({"op": "click"}, "target_required"),
+            ({"op": "fill", "target": {"css": "input"}}, "text_required"),
+            ({"op": "click", "target": {"ref": "e1", "name": "Other"}}, "target_invalid"),
+            ({"op": "check", "target": {"name": "Agree"}}, "checked_required"),
+            ({"op": "key", "target": {"name": "Field"}, "key": "arbitrary CDP"}, "arguments_invalid"),
+            ({"op": "click", "target": {"script": "arbitrary JS"}}, "arguments_invalid")
+        ]:
+            with self.subTest(code=code, fields=fields):
+                status, _, raw = dev.request("POST", "/api/v1/application/call", {
+                    "method": "browseruse.act", "params": {"browser": "unused", "document": "test", **fields},
+                    "context": self.scope})
+                self.assertEqual(status, 422, json.loads(raw))
+                self.assertEqual(json.loads(raw)["error"]["code"], code)
+
     def test_ephemeral_journal_placeholder_is_not_a_successful_observation(self):
         browser = self.invoke({"action": "create", "client": self.client, "key": "ephemeral-result"})
         receipt = dev.call("browseruse.observe", {"browser": browser["id"]}, self.scope)

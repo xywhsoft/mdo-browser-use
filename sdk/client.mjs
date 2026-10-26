@@ -12,6 +12,7 @@ export function createBrowserUseClient(sdk) {
           if (current.state !== "succeeded") {
             const error = new Error(current.error?.message || current.error || "Browser operation failed");
             error.code = current.error?.code || current.state;
+            error.details = current.result || current.error;
             throw error;
           }
           return current.result;
@@ -37,6 +38,10 @@ export function createBrowserUseClient(sdk) {
       return wait(await invoke("observe", params), { timeout: (params.timeout_ms || 10000) + 5000, ...options });
     },
     result: params => invoke("result", params),
+    act: async (params, options = {}) => {
+      if (options.signal?.aborted) throw Object.assign(new Error("Browser call cancelled"), { code: "cancelled" });
+      return wait(await invoke("act", params), { timeout: (params.timeout_ms || 10000) + 5000, ...options });
+    },
     wait,
     services: Object.freeze(services.map(row => row.id))
   });

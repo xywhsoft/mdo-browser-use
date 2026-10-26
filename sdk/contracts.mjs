@@ -120,5 +120,138 @@ export const services = [
     "output": {
       "type": "object"
     }
+  },
+  {
+    "id": "browseruse.act",
+    "description": "Queue one native browser action against an observed document and exact target. Wait for browseruse.result; never repeat an uncertain effect. No arbitrary script is accepted.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "document",
+        "op"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "document": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "click",
+            "hover",
+            "fill",
+            "type",
+            "key",
+            "check",
+            "scroll"
+          ]
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "placeholder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "testid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "css": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 8192
+        },
+        "key": {
+          "type": "string",
+          "enum": [
+            "Enter",
+            "Tab",
+            "Shift+Tab",
+            "Escape",
+            "Backspace",
+            "Delete",
+            "ArrowLeft",
+            "ArrowUp",
+            "ArrowRight",
+            "ArrowDown",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown",
+            "Control+A"
+          ]
+        },
+        "checked": {
+          "type": "boolean"
+        },
+        "dx": {
+          "type": "integer",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "dy": {
+          "type": "integer",
+          "minimum": -10000,
+          "maximum": 10000
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
   }
 ];

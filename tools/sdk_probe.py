@@ -21,6 +21,8 @@ def wait_receipt(identity, service="browseruse.result", timeout=30):
 
 
 def main():
+    report_path = dev.ENV / "public-sdk-result.json"
+    report_path.write_text(json.dumps({"passed": False, "state": "running"}) + "\n", encoding="utf-8")
     fixture = dev.SOURCE / "app/web/__browser_use_page__.html"
     fixture.write_bytes((dev.ROOT / "tests/fixtures/page.html").read_bytes())
     dev.stop()
@@ -52,10 +54,36 @@ def main():
         assert any(e["name"] == "Shadow action" for e in page["elements"])
         assert any(e["name"] == "Frame action" for e in page["elements"])
         dev.call("browseruse.result", {"id": queued["id"], "release": True}, SCOPE)
+        actions = 0
+        def act(op, target=None, **options):
+            nonlocal actions
+            request = {"browser": browser, "document": page["document"], "op": op, **options}
+            if target is not None:
+                request["target"] = target
+            queued_action = dev.call("browseruse.act", request, SCOPE)
+            try:
+                outcome = wait_receipt(queued_action["id"])["result"]
+                assert outcome["ok"], outcome.get("error")
+                actions += 1
+                return outcome
+            finally:
+                dev.call("browseruse.result", {"id": queued_action["id"], "release": True}, SCOPE)
+        assert act("fill", {"label": "订单号"}, text="订单 🦉 42")["verification"] == "field_state"
+        assert act("type", {"testid": "order-field"}, text="++")["dispatched"]
+        assert act("fill", {"css": "#order"}, text="")["verification"] == "field_state"
+        assert act("fill", {"name": "Frame input"}, text="Frame native input")["verification"] == "field_state"
+        assert act("check", {"name": "Agree"}, checked=True)["verification"] == "field_state"
+        assert act("check", {"name": "Agree"}, checked=True)["changed"] is False
+        assert act("hover", {"name": "Shadow action"})["dispatched"]
+        clicked = act("click", {"name": "查询"})
+        assert "Trusted click" in clicked["observation"]["text"]
+        assert act("key", {"testid": "order-field"}, key="Tab")["dispatched"]
+        assert act("scroll", dy=150)["dispatched"]
         report = {"passed": True, "backend": "actual-mdo-ui-webview2",
-                  "public_service": "browseruse.observe", "automatic_readiness": True, "elements": len(page["elements"]),
+                  "public_services": ["browseruse.observe", "browseruse.act"], "actions": actions,
+                  "automatic_readiness": True, "elements": len(page["elements"]),
                   "frames": len(page["frames"]), "request_bytes_in_ui_queue": len(json.dumps(queued["params"]).encode())}
-        (dev.ENV / "public-sdk-result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
         return 0
     finally:

@@ -170,6 +170,7 @@ export function browserRuntime() {
       let snapshot;
       try { snapshot = scan({ limit: 400, _match: (element, frame) => {
         if (target.frame && frame !== target.frame) return false;
+        if (target.name !== undefined && !role(element)) return false;
         if (target.role && role(element) !== target.role) return false;
         if (target.name !== undefined && name(element) !== target.name) return false;
         if (target.label !== undefined && normalize([...element.labels || []].map(label => label.textContent).join(" ")) !== target.label) return false;
@@ -260,6 +261,7 @@ export function browserRuntime() {
     if (options.op === "fill") matches = (element.isContentEditable ? element.textContent : element.value) === options.text;
     if (options.op === "check") matches = element.checked === options.checked;
     return { ok: true, verified: matches, document: documentId,
+      focused: element.getRootNode().activeElement === element,
       sensitive: element.localName === "input" && element.type === "password" };
   }
   const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify });

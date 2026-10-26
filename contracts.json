@@ -9,17 +9,49 @@
       "input": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["action"],
+        "required": [
+          "action"
+        ],
         "properties": {
-          "action": {"type": "string", "enum": ["list", "get", "create", "reveal", "close"]},
-          "browser": {"type": "string", "minLength": 1, "maxLength": 100},
-          "client": {"type": "string", "minLength": 1, "maxLength": 128},
-          "url": {"type": "string", "minLength": 1, "maxLength": 8192},
-          "key": {"type": "string", "minLength": 1, "maxLength": 200},
-          "title": {"type": "string", "maxLength": 256}
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "get",
+              "create",
+              "reveal",
+              "close"
+            ]
+          },
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "client": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8192
+          },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 256
+          }
         }
       },
-      "output": {"type": "object"}
+      "output": {
+        "type": "object"
+      }
     },
     {
       "id": "browseruse.observe",
@@ -27,16 +59,44 @@
       "callback": "BuObserve",
       "effects": "MDO_TOOL_EFFECT_READ",
       "input": {
-        "type": "object", "additionalProperties": false, "required": ["browser"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser"
+        ],
         "properties": {
-          "browser": {"type": "string", "minLength": 1, "maxLength": 100},
-          "mode": {"type": "string", "enum": ["readable", "interactive"]},
-          "limit": {"type": "integer", "minimum": 1, "maximum": 400},
-          "max_bytes": {"type": "integer", "minimum": 256, "maximum": 32768},
-          "timeout_ms": {"type": "integer", "minimum": 1, "maximum": 60000}
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "readable",
+              "interactive"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 400
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 32768
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60000
+          }
         }
       },
-      "output": {"type": "object"}
+      "output": {
+        "type": "object"
+      }
     },
     {
       "id": "browseruse.result",
@@ -44,14 +104,163 @@
       "callback": "BuResult",
       "effects": "MDO_TOOL_EFFECT_READ",
       "input": {
-        "type": "object", "additionalProperties": false, "required": ["id"],
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1, "maxLength": 64},
-          "release": {"type": "boolean"},
-          "cancel": {"type": "boolean"}
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "release": {
+            "type": "boolean"
+          },
+          "cancel": {
+            "type": "boolean"
+          }
         }
       },
-      "output": {"type": "object"}
+      "output": {
+        "type": "object"
+      }
+    },
+    {
+      "id": "browseruse.act",
+      "description": "Queue one native browser action against an observed document and exact target. Wait for browseruse.result; never repeat an uncertain effect. No arbitrary script is accepted.",
+      "callback": "BuAct",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser",
+          "document",
+          "op"
+        ],
+        "properties": {
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "document": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "click",
+              "hover",
+              "fill",
+              "type",
+              "key",
+              "check",
+              "scroll"
+            ]
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "frame": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "placeholder": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "testid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "css": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 8192
+          },
+          "key": {
+            "type": "string",
+            "enum": [
+              "Enter",
+              "Tab",
+              "Shift+Tab",
+              "Escape",
+              "Backspace",
+              "Delete",
+              "ArrowLeft",
+              "ArrowUp",
+              "ArrowRight",
+              "ArrowDown",
+              "Home",
+              "End",
+              "PageUp",
+              "PageDown",
+              "Control+A"
+            ]
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "dx": {
+            "type": "integer",
+            "minimum": -10000,
+            "maximum": 10000
+          },
+          "dy": {
+            "type": "integer",
+            "minimum": -10000,
+            "maximum": 10000
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60000
+          }
+        }
+      },
+      "output": {
+        "type": "object"
+      }
     }
   ]
 }

@@ -162,3 +162,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Already dispatched effects cannot be rolled back by cancellation. Native
   mutation dispatch will recheck cancellation between steps and report uncertain
   outcomes rather than automatically repeating an input.
+
+## B5 — public native actions through C and JavaScript
+
+- Added `browseruse.act` with generated C/JS schemas and wrappers: click, hover,
+  fill, type, key, check and scroll. Arguments are validated before queueing;
+  browser receipts remain scoped and private. The JS client waits for terminal
+  outcomes and preserves uncertainty details on failures.
+- The workbench shows the actual browser panel before actions. A hidden WebView
+  could dispatch a click yet fail to focus its input; this was found in the real
+  UI probe and fixed by using the visible native viewport.
+- Actions wait for an actionable target and stable geometry, pin its reference
+  immediately before input, use one writer per view, and recheck cancellation,
+  document, device and user control before each native input step. Once input
+  was dispatched, failures report possible effects and do not replay it.
+- Fill/check verify the requested field state. Other operations explicitly
+  report native delivery, leaving website-specific semantic success to the
+  returned fresh observation. Checking an already-correct checkbox is a no-op;
+  attempting to uncheck a radio is rejected before input.
+- The actual normal mdo frontend passed ten public actions, including Unicode
+  fill, empty fill, native type/key, iframe input, shadow hover, trusted click,
+  checkbox/no-op and scrolling. Targeted dispatcher tests cover moving targets,
+  concurrent writers and cancellation between click and keyboard input.
+- Cross-request idempotency/recovery, navigation APIs, Agent tools, dialogs,
+  file transfer and Android are still outstanding.
