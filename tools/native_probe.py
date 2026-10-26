@@ -38,6 +38,7 @@ const engine = async expression => {
   assert(result.ok,'Native isolated evaluation failed');return result.value;
 };
 UPLOAD_PROBE_SOURCE
+FILE_INPUT_PROBE_SOURCE
 try {
   const raceBrowser='browser-use-creation-race';
   const interrupted=bridge.call('create',{browser:raceBrowser,url:location.origin+'/__browser_use_page__.html?creation=old',visible:false})
@@ -168,6 +169,8 @@ try {
   await evaluate("document.querySelector('#shipping').options[0].label='Standard'");
   await trace('native-upload-staging');
   await runUploadProbe({bridge,assert,pause});
+  await trace('native-file-input');
+  await runFileInputProbe({bridge,assert,pause,runtimeSource});
   await trace('native-drag-fixture');
   const dragBrowser='browser-use-native-drag';
   await bridge.call('create',{browser:dragBrowser,url:location.origin+'/__browser_use_drag__.html',visible:true,
@@ -567,7 +570,7 @@ try {
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -601,9 +604,11 @@ def main(dialog_expiry=False):
     runtime = runtime.replace("export function browserRuntime()", "function browserRuntime()")
     script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry))
     script = script.replace("UPLOAD_PROBE_SOURCE", (ROOT / "tools/native_upload_probe.js").read_text(encoding="utf-8"))
+    script = script.replace("FILE_INPUT_PROBE_SOURCE", (ROOT / "tools/native_file_input_probe.js").read_text(encoding="utf-8"))
     (web / "__browser_use_page__.html").write_bytes((ROOT / "tests/fixtures/page.html").read_bytes())
     (web / "__browser_use_popup__.html").write_bytes((ROOT / "tests/fixtures/popup.html").read_bytes())
     (web / "__browser_use_drag__.html").write_bytes((ROOT / "tests/fixtures/drag.html").read_bytes())
+    (web / "__browser_use_upload__.html").write_bytes((ROOT / "tests/fixtures/upload.html").read_bytes())
     (web / "__browser_use_probe__.html").write_text(
         '<!doctype html><meta charset="utf-8"><h1 id="status">Browser Use native checks</h1>'
         '<script type="module">' + script + '</script>', encoding="utf-8")
@@ -617,7 +622,7 @@ def main(dialog_expiry=False):
     result = None
     try:
         dev.start(window=True, page="/__browser_use_probe__.html")
-        deadline = time.monotonic() + (200 if dialog_expiry else 70)
+        deadline = time.monotonic() + (230 if dialog_expiry else 100)
         while time.monotonic() < deadline:
             try:
                 saved = dev.call("storage.read", {"path": REPORT_PATH}, REPORT)

@@ -48,7 +48,10 @@ async function runUploadProbe({bridge,assert,pause}){
     await rejected({action:"chunk",ticket,file:0,offset:0,base64:"eA=="},"A sealed snapshot accepted another write");
     const reserved=[{name:"one.bin",size:33554432,sha256:empty},{name:"two.bin",size:33554432,sha256:empty}];
     const second=await begin("reserved-only",reserved);
-    await rejected({action:"begin",upload_key:"third-owned",files:[{name:"empty.txt",size:0,sha256:empty}]},"One browser exceeded two staging reservations");
+    const slots=[];
+    for(let i=0;i<14;i++)slots.push(await begin(`bounded-slot-${i}`,[{name:"empty.txt",size:0,sha256:empty}]));
+    await rejected({action:"begin",upload_key:"seventeenth-owned",files:[{name:"empty.txt",size:0,sha256:empty}]},"One browser exceeded sixteen staging/retained reservations");
+    for(const slot of slots)await upload({action:"cancel",ticket:slot.ticket});
     const foreignState=await bridge.call("state",{browser:foreign});
     await rejected({action:"begin",navigation:foreignState.navigation,upload_key:"global-budget",files:reserved},"Two browsers exceeded the global byte reservation",true);
     assert((await upload({action:"cancel",ticket:second.ticket})).cancelled,"Cancellation did not acknowledge its exact staging ticket");

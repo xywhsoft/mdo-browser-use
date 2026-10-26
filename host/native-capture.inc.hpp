@@ -50,7 +50,7 @@ static double xb_capture_number(const std::string& json,const char* key,double f
   return -1e100;
 }
 static void xb_capture(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json){
-  if(host->captures||view->capture||view->drag){host->reply(id,"","Another screenshot or drag is still completing");return;}
+  if(host->captures||view->capture||view->drag||view->uploadBusy){host->reply(id,"","Another screenshot, upload or drag is still completing");return;}
   const auto clip=xb_get(json,"clip"),format=xb_get(json,"format"),key=xb_get(json,"capture_key");
   double x=xb_capture_number(clip,"x",0),y=xb_capture_number(clip,"y",0),width=xb_capture_number(clip,"width",0),height=xb_capture_number(clip,"height",0),scale=xb_capture_number(clip,"scale",1);
   double maximum=xb_capture_number(json,"max_bytes",131072),timeout=xb_capture_number(json,"timeout_ms",10000);

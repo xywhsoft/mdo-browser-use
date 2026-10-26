@@ -115,7 +115,7 @@ static void CALLBACK xb_drag_tick(HWND window,UINT,UINT_PTR,DWORD){
 }
 static void xb_close_drag(const std::shared_ptr<xb_view>& view){auto job=view->drag;if(job)job->close();}
 static void xb_drag(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json){
-  if(view->drag||!view->input.expired()||view->capture){host->reply(id,"","Another native input or capture is still completing");return;}
+  if(view->drag||!view->input.expired()||view->capture||view->uploadBusy){host->reply(id,"","Another native input, upload or capture is still completing");return;}
   const auto key=xb_get(json,"drag_key");
   double x=xb_capture_number(json,"x",-1),y=xb_capture_number(json,"y",-1),toX=xb_capture_number(json,"to_x",-1),toY=xb_capture_number(json,"to_y",-1),timeout=xb_capture_number(json,"timeout_ms",10000);
   if(key.empty()||key.size()>100||x<0||y<0||toX<0||toY<0||x>16384||y>16384||toX>16384||toY>16384||timeout<1||timeout>60000||xb_get(json,"navigation")!=std::to_string(view->navigation)||!xb_automation_live(host,view,view->navigation)){

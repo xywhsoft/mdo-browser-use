@@ -681,3 +681,40 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   submission retention, public C/JS/Agent upload, downloads, complete frames,
   Android and final lifecycle/package validation remain required.
 - Filename rules: [Microsoft Win32 naming conventions](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file).
+
+## D8 — native file-input assignment and website-byte retention
+
+- Added a private typed assignment adapter. A fresh isolated-runtime document
+  and pinned file-input reference resolve the actual DOM node; only internally
+  sealed cache paths reach `DOM.setFileInputFiles`. Agent-supplied JavaScript,
+  DOM object IDs and browser-device filesystem paths are never accepted.
+- Observation reports bounded file-input constraints and hidden inputs without
+  exposing existing filenames or values. Assignment supports hidden inputs,
+  open Shadow DOM and accessible same-origin frames. Disabled/inert, stale,
+  non-file, directory and insufficient multiple-file targets fail before delivery.
+- Success verifies the exact resulting FileList names/sizes/count, rather than
+  claiming website acceptance. The real fixture also reads all File bytes and
+  independently compares their SHA-256, including binary and empty files, and
+  observes exactly one trusted input/change event pair. Repeated assignment
+  returns its saved receipt; conflicting targets cannot reuse that effect.
+- Retention begins before the native call. Cancellation, staging expiry,
+  takeover and navigation preserve potentially assigned bytes for delayed page
+  submission. Explicit release requires consumption confirmation; closing the
+  owned browser reclaims its transfers. Retained reservations are bounded to
+  sixteen per view/thirty-two per host, 128 files and the existing 128 MiB limit.
+- Native input, drag and capture cannot overlap assignment. Dialog/new-window
+  boundaries yield checkpoints without repeating assignment. Cancellation and
+  timeout preserve conservative effect uncertainty until callbacks drain. Unique
+  object groups and view identities prevent old callbacks affecting replacement
+  views; failed object-group cleanup blocks further uploads in that view.
+- Rebuilt the same native host and passed 658 real WebView2 assertions, including
+  delayed File reads beyond the staging TTL, page-cleared FileList uncertainty,
+  dialog/popup interruption, cancellation, deadline expiry and close/recreate.
+  No new native diagnostics; private ACL and zero cache reservations verified.
+  Actual crash/restart inventory/held-lease/junction collection gates pass again.
+  All 43 Python checks (42 passed, one unavailable symlink privilege skipped)
+  and 33 JS checks passed. No additional app/Home/build tree was created.
+- Public C/JS/Agent upload transport, file-chooser interception, clearing inputs,
+  directory/OOPIF handling, downloads, Android and final packaging remain open.
+  This commit does not advertise a public upload service yet.
+- Protocol reference: [CDP DOM file input assignment](https://chromedevtools.github.io/devtools-protocol/tot/DOM/#method-setFileInputFiles).

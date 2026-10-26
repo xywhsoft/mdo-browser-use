@@ -83,7 +83,8 @@ struct xb_upload_file{
 };
 struct xb_upload_job{
   std::weak_ptr<xb_view> view;std::string ticket,key;std::wstring directory;UINT64 navigation=0;uint64_t size=0;
-  ULONGLONG expires=0;HANDLE lease=INVALID_HANDLE_VALUE;bool prepared=false,sealed=false,closing=false,directoryOwned=false,leaseOwned=false;
+  ULONGLONG expires=0;HANDLE lease=INVALID_HANDLE_VALUE;bool prepared=false,sealed=false,closing=false,directoryOwned=false,leaseOwned=false,retained=false,assigning=false,verified=false;
+  std::weak_ptr<xb_upload_assignment> assignment;std::string assignDocument,assignRef,assignmentResult;
   std::vector<std::shared_ptr<xb_upload_file>> files;
   bool cleanup(){
     closing=true;bool ok=true;
@@ -98,6 +99,9 @@ struct xb_upload_job{
   }
   ~xb_upload_job(){try{cleanup();}catch(...){/* Startup collector retains the private layout after allocation failure. */}if(lease!=INVALID_HANDLE_VALUE)CloseHandle(lease);}
 };
+static void xb_upload_assignment_tick(const std::shared_ptr<xb_upload_job>&);
+static void xb_upload_cancel_assignment(const std::shared_ptr<xb_upload_job>&);
+static void xb_upload_assign(const std::shared_ptr<xb_host>&,const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::shared_ptr<xb_upload_job>&);
 /* Only our fixed u-GUID / numeric-index / single-basename layout is collected.
  * A held lease or any unexpected/reparse entry is preserved, never traversed. */
 static bool xb_upload_stale(const std::wstring& root){
@@ -149,6 +153,7 @@ static bool xb_upload_stale(const std::wstring& root){
 struct xb_upload_store{
   std::weak_ptr<xb_host> host;std::wstring root;std::map<std::string,std::shared_ptr<xb_upload_job>> jobs;bool initialized=false;
   uint64_t reserved()const{uint64_t total=0;for(const auto& item:jobs)total+=item.second->size;return total;}
+  size_t fileCount()const{size_t count=0;for(const auto& item:jobs)count+=item.second->files.size();return count;}
   bool initialize(const std::shared_ptr<xb_host>& owner){
     if(initialized)return true;
     host=owner;root=owner->profile+L"\\mdo-browser-use-transfers";
@@ -157,21 +162,24 @@ struct xb_upload_store{
     initialized=true;return true;
   }
   void collect(){
-    auto owner=host.lock();
+    auto owner=host.lock();bool watching=false;
     for(auto at=jobs.begin();at!=jobs.end();){auto job=at->second;auto view=job->view.lock();
-      if(!job->prepared||!owner||!view||!xb_automation_live(owner,view,job->navigation)||GetTickCount64()>=job->expires)job->closing=true;
-      if(job->closing&&job->cleanup())at=jobs.erase(at);else ++at;
+      if(job->assigning)xb_upload_assignment_tick(job);
+      if(!job->prepared||!owner||!view||view->closed||(!job->retained&&!job->assigning&&(!xb_automation_live(owner,view,job->navigation)||GetTickCount64()>=job->expires)))job->closing=true;
+      if(job->closing&&!job->assigning&&job->cleanup())at=jobs.erase(at);else{watching|=!job->retained||job->assigning||job->closing;++at;}
     }
-    if(jobs.empty()&&owner)KillTimer(owner->window,xb_upload_timer);
+    if(!watching&&owner)KillTimer(owner->window,xb_upload_timer);
   }
 };
 static std::map<HWND,std::weak_ptr<xb_upload_store>> xb_upload_stores;
 static void CALLBACK xb_upload_tick(HWND window,UINT,UINT_PTR,DWORD){auto at=xb_upload_stores.find(window);if(at==xb_upload_stores.end()){KillTimer(window,xb_upload_timer);return;}if(auto store=at->second.lock())store->collect();else{KillTimer(window,xb_upload_timer);xb_upload_stores.erase(at);}}
-static void xb_upload_close_view(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){if(!host->uploads)return;for(auto& item:host->uploads->jobs)if(item.second->view.lock()==view)item.second->closing=true;host->uploads->collect();}
+static void xb_upload_close_view(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){xb_upload_abort_view(view);if(!host->uploads)return;for(auto& item:host->uploads->jobs)if(item.second->view.lock()==view)item.second->closing=true;host->uploads->collect();}
 static void xb_upload_shutdown(const std::shared_ptr<xb_host>& host){KillTimer(host->window,xb_upload_timer);xb_upload_stores.erase(host->window);if(host->uploads){for(auto& item:host->uploads->jobs)item.second->cleanup();host->uploads.reset();}}
 static std::string xb_upload_status(const std::shared_ptr<xb_upload_job>& job){
   std::string files="[";for(const auto& file:job->files){if(files.size()>1)files+=",";files+="{\"name\":"+xb_quote(file->name)+",\"size\":"+std::to_string(file->size)+",\"received\":"+std::to_string(file->received)+"}";}files+="]";
-  return "{\"ticket\":"+xb_quote(job->ticket)+",\"sealed\":"+(job->sealed?"true":"false")+",\"closing\":"+(job->closing?"true":"false")+",\"files\":"+files+"}";
+  return "{\"ticket\":"+xb_quote(job->ticket)+",\"sealed\":"+(job->sealed?"true":"false")+",\"closing\":"+(job->closing?"true":"false")+
+    ",\"retained\":"+(job->retained?"true":"false")+",\"assigning\":"+(job->assigning?"true":"false")+",\"verified\":"+(job->verified?"true":"false")+
+    (job->assignmentResult.empty()?"":",\"assignment_result\":"+job->assignmentResult)+",\"files\":"+files+"}";
 }
 static bool xb_upload_seal(const std::shared_ptr<xb_upload_job>& job){
   xb_upload_provider provider;if(!CryptAcquireContextW(&provider.value,nullptr,nullptr,PROV_RSA_AES,CRYPT_VERIFYCONTEXT))return false;
@@ -196,7 +204,7 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
   store->collect();
   if(action=="begin"){
     const auto key=xb_get(json,"upload_key"),manifest=xb_get(json,"files");uint64_t timeout=60000;
-    if(key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||manifest.empty()||manifest.front()!='['||
+    if(view->uploadCleanupFailed||key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||manifest.empty()||manifest.front()!='['||
        xb_get(json,"navigation")!=std::to_string(view->navigation)||view->loading||view->initialNavigationPending||!xb_automation_live(host,view,view->navigation)){fail("Upload needs a live document, exact key and bounded file manifest");return;}
     auto job=std::make_shared<xb_upload_job>();job->view=view;job->key=key;job->navigation=view->navigation;job->expires=GetTickCount64()+timeout;
     for(int n=0;n<17;n++){auto item=webview::detail::json_parse(manifest,"",n);if(item.empty())break;auto file=std::make_shared<xb_upload_file>();file->name=xb_get(item,"name");file->sha=xb_get(item,"sha256");
@@ -209,7 +217,7 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
       for(size_t i=0;same&&i<job->files.size();i++)same=old->files[i]->name==job->files[i]->name&&old->files[i]->size==job->files[i]->size&&old->files[i]->sha==job->files[i]->sha;
       if(same)host->reply(id,xb_upload_status(old));else fail("Upload identity conflicts with its original manifest");return;
     }}
-    if(owned>=2||store->jobs.size()>=8||job->size>xb_upload_total_limit-store->reserved()){fail("Browser transfer cache resource limit reached; release completed staging first");return;}
+    if(owned>=16||store->jobs.size()>=32||job->files.size()>128-store->fileCount()||job->size>xb_upload_total_limit-store->reserved()){fail("Browser transfer cache resource limit reached; release completed staging first");return;}
     GUID guid{};wchar_t identifier[40]{};if(FAILED(CoCreateGuid(&guid))||!StringFromGUID2(guid,identifier,40)){fail("Cannot allocate a private upload identity");return;}
     xb_upload_guard guard(store->root);if(guard.handle==INVALID_HANDLE_VALUE){fail("Another browser is updating its transfer cache; retry admission after checking its receipt");return;}
     if(!xb_upload_stale(store->root)){fail("Private browser transfer cache has uncollected entries; inspect them before another admission");return;}
@@ -233,8 +241,13 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     host->reply(id,xb_upload_status(job));return;
   }
   auto at=store->jobs.find(xb_get(json,"ticket"));
+  if(action=="assign"){xb_upload_assign(host,view,id,json,at!=store->jobs.end()&&at->second->view.lock()==view?at->second:std::shared_ptr<xb_upload_job>{});return;}
   if(at==store->jobs.end()||at->second->view.lock()!=view){fail("Upload ticket expired or belongs to another browser");return;}auto job=at->second;
-  if(action=="cancel"){job->closing=true;store->collect();host->reply(id,"{\"cancelled\":true,\"cleanup_pending\":"+std::string(store->jobs.count(job->ticket)?"true":"false")+"}");return;}
+  if(action=="cancel"){xb_upload_cancel_assignment(job);if(!job->retained)job->closing=true;store->collect();host->reply(id,"{\"cancelled\":true,\"retained\":"+std::string(job->retained?"true":"false")+",\"cleanup_pending\":"+std::string(!job->retained&&store->jobs.count(job->ticket)?"true":"false")+"}");return;}
+  if(action=="release"){
+    if(xb_get(json,"confirmed")!="true"||job->assigning){fail("Confirm website file consumption and wait for assignment before releasing retained bytes");return;}
+    job->closing=true;store->collect();host->reply(id,"{\"released\":true,\"cleanup_pending\":"+std::string(store->jobs.count(job->ticket)?"true":"false")+"}");return;
+  }
   if(action=="status"){host->reply(id,xb_upload_status(job));return;}
   if(job->closing||xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){fail("Upload document or control changed; inspect before retrying");return;}
   if(action=="seal"){

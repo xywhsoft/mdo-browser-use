@@ -88,7 +88,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
   if(xb_get(json,"navigation")!=std::to_string(view->navigation)||view->manual||view->closed){host->reply(id,"","Stale document or manual control");return;}
   if(view->dialog){host->reply(id,"","Respond to the pending JavaScript dialog before input");return;}
   if(xb_popup_blocked(view)){host->reply(id,"","A new-window request is still being adopted");return;}
-  if(!view->input.expired()||view->drag){host->reply(id,"","A native input is still completing; inspect the page before another action");return;}
+  if(!view->input.expired()||view->drag||view->uploadBusy){host->reply(id,"","A native input is still completing; inspect the page before another action");return;}
   auto sequence=std::make_shared<xb_input_sequence>();sequence->host=host;sequence->view=view;sequence->id=id;sequence->navigation=view->navigation;
   const auto kind=xb_get(json,"kind");
   if(kind=="click"||kind=="move"||kind=="wheel"){
@@ -170,6 +170,7 @@ static void xb_install_dialogs(const std::shared_ptr<xb_host>& host,const std::s
       xb_dialog_views[active->window]=active;
       if(!SetTimer(active->window,xb_dialog_timer,1000,xb_dialog_expire)){active->error="Cannot retain a JavaScript dialog; it was dismissed";active->dialog.reset();xb_dialog_cleanup(active->window);return S_OK;}
       if(auto input=active->input.lock())input->dialogOpened();
+      xb_upload_boundary(active,false);
       if(auto owner=parent.lock())xb_abort_automation(owner,active,true);return S_OK;
     });
   EventRegistrationToken token{};HRESULT status=view->core->add_ScriptDialogOpening(callback,&token);callback->Release();

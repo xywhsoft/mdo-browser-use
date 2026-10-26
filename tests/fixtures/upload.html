@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>Browser Use upload fixture</title>
+<h1>Browser Use upload fixture</h1>
+<label>Single attachment <input id="single" type="file"></label>
+<label>Multiple attachments <input id="multiple" type="file" multiple accept=".bin,.txt"></label>
+<input id="hidden" type="file" hidden aria-label="Hidden attachment">
+<fieldset disabled><input id="disabled" type="file" aria-label="Disabled attachment"></fieldset>
+<input id="directory" type="file" webkitdirectory aria-label="Directory attachment">
+<button id="wrong">Not a file input</button>
+<div id="shadow"></div>
+<iframe id="frame" srcdoc="<input id='framed' type='file' aria-label='Framed attachment'>"></iframe>
+<output id="result"></output>
+<script>
+const shadow=document.querySelector('#shadow').attachShadow({mode:'open'});
+shadow.innerHTML='<input id="shadowed" type="file" hidden aria-label="Shadow attachment">';
+globalThis.uploadEvents=[];globalThis.uploadReads=[];
+const hex=bytes=>[...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,'0')).join('');
+function register(input){
+  for(const type of ['input','change'])input.addEventListener(type,event=>{
+    uploadEvents.push({id:input.id,type,trusted:event.isTrusted,count:input.files.length});
+    if(type!=='change')return;
+    const files=[...input.files],mode=input.dataset.mode||'';
+    if(mode==='busy'){const end=performance.now()+1000;while(performance.now()<end){}}
+    if(mode==='clear')input.value='';
+    if(mode==='dialog')alert('Synthetic file assignment checkpoint');
+    if(mode==='popup')window.open('/__browser_use_popup__.html','_blank');
+    setTimeout(async()=>{
+      try{
+        const values=[];
+        for(const file of files)values.push({name:file.name,size:file.size,sha256:hex(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))});
+        uploadReads.push({id:input.id,files:values});
+      }catch(error){uploadReads.push({id:input.id,error:error.name});}
+      document.querySelector('#result').textContent=JSON.stringify(uploadReads);
+    },mode==='delayed'?2500:0);
+  });
+}
+document.querySelectorAll('input[type=file]').forEach(register);
+shadow.querySelectorAll('input').forEach(register);
+document.querySelector('#frame').addEventListener('load',event=>event.target.contentDocument.querySelectorAll('input').forEach(register));
+globalThis.fixtureReady=true;
+</script>

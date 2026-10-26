@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 4;
+  const version = 5;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -93,7 +93,14 @@ export function browserRuntime() {
       bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
       coordinate_space: "frame-css"
     };
-    if (element.localName === "input") item.input_type = element.type;
+    if (element.localName === "input") {
+      item.input_type = element.type;
+      if (element.type === "file") {
+        item.multiple = element.multiple; item.accept = clip(element.accept || "", 1024).text;
+        item.directory = Boolean(element.webkitdirectory); item.hidden = !visible(element);
+        item.selected_count = element.files?.length || 0;
+      }
+    }
     if (element.matches("input[type=checkbox],input[type=radio]")) item.checked = element.checked;
     if (element.localName === "select") { item.multiple = element.multiple; item.option_count = element.options.length; }
     if (element.localName === "a") {
@@ -120,13 +127,14 @@ export function browserRuntime() {
         if (shown && includeText && !element.children.length && !["input", "textarea", "select", "option"].includes(element.localName)) {
           const value = normalize(element.textContent); if (value) text.push(value.slice(0, 2048));
         }
-        const elementRole = shown ? role(element) : "";
-        const matched = typeof options._match === "function" ? shown && options._match(element, frame) : Boolean(elementRole);
+        const fileInput = element.localName === "input" && element.type === "file";
+        const elementRole = shown || fileInput ? role(element) : "";
+        const matched = typeof options._match === "function" ? (shown || fileInput) && options._match(element, frame) : Boolean(elementRole);
         if (matched && elements.length < limit) {
           const item = inspect(element, frame);
           if (item.ref) elements.push(item); else incomplete = true;
         } else if (matched) incomplete = true;
-        if (shown && element.shadowRoot) walk(element.shadowRoot, frame, includeText);
+        if ((shown || options._upload) && element.shadowRoot) walk(element.shadowRoot, frame, includeText);
         if (shown && ["iframe", "frame"].includes(element.localName)) {
           if (frames.length >= maxFrames) { incomplete = true; continue; }
           const id = frameIdentity(element);
@@ -170,6 +178,7 @@ export function browserRuntime() {
     } else {
       let snapshot;
       try { snapshot = scan({ limit: 400, _match: (element, frame) => {
+        if (options._upload && !(element.localName === "input" && element.type === "file")) return false;
         if (target.frame && frame !== target.frame) return false;
         if (target.name !== undefined && !role(element)) return false;
         if (target.role && role(element) !== target.role) return false;
@@ -181,11 +190,11 @@ export function browserRuntime() {
         if (target.text !== undefined && (normalize(element.textContent) !== target.text ||
           [...element.children].some(child => normalize(child.textContent) === target.text))) return false;
         return ["role", "name", "label", "placeholder", "testid", "css", "text"].some(key => target[key] !== undefined);
-      } }); } catch { return fail("locator_invalid", "The target contains an invalid CSS selector"); }
+      }, _upload: Boolean(options._upload) }); } catch { return fail("locator_invalid", "The target contains an invalid CSS selector"); }
       if (snapshot.truncated) return fail("observation_incomplete", "Narrow the search in a fresh observation");
       candidates = snapshot.elements.map(item => refs.get(item.ref));
     }
-    candidates = candidates.filter(row => visible(row.element));
+    candidates = candidates.filter(row => visible(row.element) || options._upload && row.element.localName === "input" && row.element.type === "file");
     if (!candidates.length) return fail("element_not_found", "No visible element matches the target");
     if (candidates.length > 1) return fail("element_ambiguous", "More than one element matches", {
       candidates: candidates.slice(0, 8).map(row => inspect(row.element, row.frame))
@@ -201,6 +210,18 @@ export function browserRuntime() {
       hit = inner;
     }
     return hit;
+  }
+  function uploadInfo(options = {}) {
+    const found = locate({ ...options, _upload: true }); if (!found.ok) return found;
+    const element = refs.get(found.element.ref).element;
+    if (element.localName !== "input" || element.type !== "file") return fail("element_not_file_input", "Choose an exact HTML file input");
+    if (found.element.disabled || element.closest("[inert]")) return fail("element_disabled", "The file input is disabled or inert");
+    return { ok: true, document: documentId, element: found.element };
+  }
+  // Only the trusted native adapter requests a remote DOM object. Public
+  // observations/results use uploadInfo and never serialize a live element.
+  function uploadNode(options = {}) {
+    const found = uploadInfo(options); return found.ok ? refs.get(found.element.ref).element : null;
   }
   function contains(parent, child) {
     for (let node = child, depth = 0; node && depth < 32; depth++) {
@@ -394,7 +415,7 @@ export function browserRuntime() {
       return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }
