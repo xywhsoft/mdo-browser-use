@@ -1,5 +1,6 @@
 """Public C service -> real mdo UI -> native WebView2 -> scoped SDK result."""
 import json
+import base64
 import sys
 import subprocess
 import time
@@ -54,6 +55,12 @@ def main():
         assert page["ok"] and "Readable fixture text" in page["text"], page.get("error")
         assert any(e["name"] == "查询" for e in page["elements"])
         assert any(e["name"] == "Shadow action" for e in page["elements"])
+        screenshot = dev.call("browseruse.screenshot", {"browser": browser, "document": page["document"],
+                              "max_width": 800, "max_height": 600}, SCOPE)
+        screenshot_result = wait_receipt(screenshot["id"])["result"]
+        assert screenshot_result["ok"] and screenshot_result["image"]["media_type"] == "image/png"
+        assert len(base64.b64decode(screenshot_result["image"]["base64"], validate=True)) <= 131072
+        dev.call("browseruse.result", {"id": screenshot["id"], "release": True}, SCOPE)
         assert any(e["name"] == "Frame action" for e in page["elements"])
         dev.call("browseruse.result", {"id": queued["id"], "release": True}, SCOPE)
         actions = 0
@@ -113,7 +120,7 @@ def main():
             assert complete("browseruse.navigate", {"action": navigation})["observation"]["ready"] == "complete"
         subprocess.run(["node", "tools/client_probe.mjs"], cwd=dev.ROOT, check=True)
         report = {"passed": True, "backend": "actual-mdo-ui-webview2",
-                  "public_services": ["browseruse.observe", "browseruse.act", "browseruse.navigate", "browseruse.wait"],
+                  "public_services": ["browseruse.observe", "browseruse.act", "browseruse.navigate", "browseruse.wait", "browseruse.screenshot"],
                   "actions": actions, "navigations": 4, "wait_conditions": waits,
                   "automatic_readiness": True, "elements": len(page["elements"]),
                   "frames": len(page["frames"]), "public_receipt_bytes": len(json.dumps(queued).encode())}

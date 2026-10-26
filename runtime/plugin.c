@@ -4,6 +4,7 @@
 #include "actions.c"
 #include "navigation.c"
 #include "dialogs.c"
+#include "screenshot.c"
 
 typedef struct BuService {
     const char *Id,*Description,*Input,*Output;

@@ -27,6 +27,15 @@ try {
     url: `${origin}/__browser_use_page__.html`, key: "js-native-client" });
   const page = await client.observe({ browser: browser.id });
   assert.ok(page.text.includes("Readable fixture text"));
+  const screenshotModes=[];
+  for(const parameters of [{mode:"viewport",format:"png"},{mode:"element",format:"jpeg",target:{name:"查询"}},
+    {mode:"full_page",format:"png",max_height:640}]){
+    const capture=await client.screenshot({browser:browser.id,document:page.document,max_width:800,max_height:600,...parameters});
+    assert.equal(capture.image.media_type,`image/${parameters.format}`);
+    assert.ok(capture.image.width<=800&&capture.image.height<=(parameters.max_height||600));
+    assert.equal(Buffer.from(capture.image.base64,"base64").length,capture.image.bytes);
+    assert.equal(capture.document,page.document);screenshotModes.push(capture.mode);
+  }
   const operation = `sdk-${crypto.randomUUID().replaceAll("-", "")}`;
   const params = { browser: browser.id, document: page.document, op: "click", target: { name: "查询" } };
   const first = await client.act(params, { operation, retain: true });
@@ -91,7 +100,7 @@ try {
   await client.tabs({ action: "close", browser: blank.child.id });
   const report = { passed: true, backend: "actual-js-client-mdo-webview2", duplicate_native_clicks: 0,
     released_identity_not_replayed: true, navigation_completed: true, native_dialog_checkpoint_and_response: true,
-    duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true };
+    duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true, screenshot_modes:screenshotModes };
   await writeFile(output, JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(JSON.stringify(report) + "\n");
 } catch (error) {

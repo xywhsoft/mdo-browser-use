@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const source = (await readFile(new URL("../host/automation-dispatch.js", import.meta.url), "utf8"))
-  .replace('import { browserRuntime } from "./automation-runtime.js";', 'function browserRuntime() {}');
+  .replace('import { browserRuntime } from "./automation-runtime.js";', 'function browserRuntime() {}')
+  .replace('import { prepareScreenshot } from "./capture-image.js";', 'async function prepareScreenshot(){throw Error("An unapproved image path was reached")}');
 const { executeBrowserAutomation } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 
 async function observe(state, receipt = "pending", timeout_ms = 50) {
@@ -127,4 +128,32 @@ test("new-window boundaries stop page reading without retry or an ordinary tool 
       evaluations++; return { ok: true, value: { ok: true, blocked_by_popup: true } };
     } } });
   assert.equal(raced.result.outcome, "popup_open"); assert.equal(evaluations, 1);
+});
+
+test("unsupported screenshots do not evaluate a page or return an image",async()=>{
+  let evaluations=0;
+  const result=await executeBrowserAutomation({command:"capture",params:{},action:{id:"unsupported-capture"},
+    api:{async call(){return{state:"pending"};}},view:{async execute(command){
+      if(command==="state")return{loading:false,automation:true,capture_capability:false};
+      evaluations++;throw Error("Unsupported capture must not touch page content");
+    }}});
+  assert.equal(result.result.error.code,"unsupported_capability");assert.equal(evaluations,0);assert.equal(result.result.image,undefined);
+});
+
+test("screenshot cancellation stops the native request and releases its UI writer",async()=>{
+  let started=false,stop;
+  const commands=[];
+  const view={async execute(command,params){commands.push(command);
+    if(command==="state")return{loading:false,automation:true,capture_capability:true,navigation:"1"};
+    if(command==="automation")return{ok:true,value:{ok:true,document:"d1",region:{x:0,y:0,width:100,height:100},redactions:[],device_pixel_ratio:1}};
+    if(command==="capture"){started=true;return new Promise((resolve,reject)=>{stop=reject;});}
+    if(command==="capture_cancel"){assert.equal(params.capture_key,"cancel-native-capture");stop(Error("Cancelled"));return{};}
+    throw Error("Unexpected screenshot command");
+  }};
+  const result=await executeBrowserAutomation({command:"capture",params:{timeout_ms:1000},view,browser:"capture-browser",action:{id:"cancel-native-capture"},
+    api:{async call(){return{state:started?"cancelled":"pending"};}}});
+  assert.equal(result.result.error.code,"cancelled");assert.ok(commands.includes("capture_cancel"));assert.equal(result.result.image,undefined);
+  view.execute=async()=>({loading:false,automation:true,capture_capability:false});
+  const next=await executeBrowserAutomation({command:"capture",params:{},view,browser:"capture-browser",action:{id:"next-capture"},api:{async call(){return{state:"pending"};}}});
+  assert.equal(next.result.error.code,"unsupported_capability");
 });

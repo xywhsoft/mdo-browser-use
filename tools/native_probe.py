@@ -13,6 +13,7 @@ REPORT_PATH = "qa/page-observation.json"
 SCRIPT = r'''
 import { createNativeBrowserBridge } from '/js/features/workbench/native-browser.js';
 import { createBrowserDialogs } from '/js/features/workbench/dialog-ui.js';
+import { prepareScreenshot } from '/js/features/workbench/capture-image.js';
 const runtimeSource = RUNTIME_SOURCE;
 const bridge = createNativeBrowserBridge(), browser = 'browser-use-page-probe';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -112,6 +113,52 @@ try {
   await evaluate(`document.querySelector('#cover').remove()`);
   const verified=await engine(`verify(${JSON.stringify({document:first.document,target:{testid:'order-field'},op:'fill',text:'订单 🦉 42'})})`);
   assert(verified.verified&&!JSON.stringify(verified).includes('订单 🦉 42'),'Input verification leaked field text');
+  assert((await bridge.call('state',{browser})).capture_capability,'Typed screenshot capability missing');
+  const capture=async(area,format='png',key='native-capture',limit=131072)=>{
+    const live=await bridge.call('state',{browser}),dpr=area.device_pixel_ratio||1;
+    return bridge.call('capture',{browser,agent:true,navigation:live.navigation,capture_key:key,format,max_bytes:limit,
+      clip:{...area.region,scale:Math.min(1,1280/(area.region.width*dpr),960/(area.region.height*dpr))}});
+  };
+  const captureArea=await engine('captureArea({mode:"viewport"})');
+  assert(captureArea.ok&&captureArea.redactions.length>=3,'Known form controls and opaque frames were not masked');
+  const rawCapture=await capture(captureArea);
+  const masked=await prepareScreenshot(rawCapture,captureArea,captureArea,{format:'png'});
+  assert(masked.image.media_type==='image/png'&&masked.image.bytes<=131072&&masked.image.width<=1280&&masked.image.height<=960,'Typed screenshot budgets or format were incorrect');
+  const pixels=await createImageBitmap(new Blob([Uint8Array.from(atob(masked.image.base64),c=>c.charCodeAt(0))],{type:'image/png'}));
+  const canvas=document.createElement('canvas');canvas.width=pixels.width;canvas.height=pixels.height;
+  const drawing=canvas.getContext('2d');drawing.drawImage(pixels,0,0);pixels.close();
+  const field=captureArea.redactions[0],mx=Math.floor((field.x+field.width/2-captureArea.region.x)*canvas.width/captureArea.region.width),my=Math.floor((field.y+field.height/2-captureArea.region.y)*canvas.height/captureArea.region.height);
+  assert([...drawing.getImageData(mx,my,1,1).data].slice(0,3).every(value=>value===32),'Screenshot field masking did not change the actual pixels');
+  assert(drawing.getImageData(1,1,1,1).data[0]>200,'Screenshot was empty or entirely masked');
+  const imageBootstrap=await fetch('/api/v1/bootstrap'),imageToken=imageBootstrap.headers.get('x-mdo-write-token');await imageBootstrap.arrayBuffer();
+  const savedImage=await fetch('/api/v1/application/call',{method:'POST',headers:{'Content-Type':'application/json','X-Mdo-Write-Token':imageToken},
+    body:JSON.stringify({method:'storage.write',context:{extension:'browser-use-qa'},params:{path:'qa/capture-fixture.png',base64:masked.image.base64}})});
+  assert(savedImage.ok,'Could not save the bounded masked fixture image');
+  const elementArea=await engine(`captureArea(${JSON.stringify({mode:'element',document:first.document,target:{ref:query.ref}})})`);
+  const elementCapture=await prepareScreenshot(await capture(elementArea,'jpeg','element-capture',8192),elementArea,elementArea,{format:'jpeg',max_bytes:8192});
+  assert(elementCapture.image.media_type==='image/jpeg'&&elementCapture.image.bytes<=8192&&elementCapture.image.width<captureArea.region.width,'Element JPEG screenshot was not cropped or bounded');
+  const oldViewport=await evaluate('({width:innerWidth,height:innerHeight,scroll:scrollY})');
+  await evaluate("document.body.style.minHeight='2000px'");
+  await evaluate("(()=>{const field=document.createElement('input');field.id='fixed-private-capture';field.value='fixture-private-fixed';field.style.cssText='position:fixed;bottom:0;left:700px;width:100px;height:30px;background:rgb(250,20,150);z-index:9999';document.body.append(field);return true})()");
+  const fullArea=await engine('captureArea({mode:"full_page"})');
+  const fullCapture=await prepareScreenshot(await capture(fullArea,'png','full-capture'),fullArea,fullArea,{format:'png'});
+  assert(fullArea.region.height>=2000&&fullCapture.scaled&&fullCapture.image.height<=960,'Full-page capture did not include the document or respect scaling');
+  const fullBitmap=await createImageBitmap(new Blob([Uint8Array.from(atob(fullCapture.image.base64),c=>c.charCodeAt(0))],{type:'image/png'}));
+  const fullCanvas=document.createElement('canvas');fullCanvas.width=fullBitmap.width;fullCanvas.height=fullBitmap.height;
+  const fullDrawing=fullCanvas.getContext('2d');fullDrawing.drawImage(fullBitmap,0,0);fullBitmap.close();
+  const fullPixels=fullDrawing.getImageData(0,0,fullCanvas.width,fullCanvas.height).data;let exposedFixed=0;
+  for(let i=0;i<fullPixels.length;i+=4)if(fullPixels[i]>=235&&fullPixels[i+1]<=30&&fullPixels[i+2]>=140&&fullPixels[i+2]<=160)exposedFixed++;
+  assert(exposedFixed===0,'Full-page capture exposed a fixed-position form control');
+  assert(JSON.stringify(await evaluate('({width:innerWidth,height:innerHeight,scroll:scrollY})'))===JSON.stringify(oldViewport),'Screenshot capture changed the page viewport or scrolling');
+  await evaluate("document.querySelector('#fixed-private-capture').remove()");
+  await evaluate("document.body.style.minHeight=''");
+  let invalidCapture=false;try{await bridge.call('capture',{browser,agent:true,navigation:state.navigation,capture_key:'bad-capture',format:'png',clip:{x:0,y:0,width:1000000,height:1000,scale:1}})}catch{invalidCapture=true}
+  assert(invalidCapture,'A screenshot bypassed its native raster limits');
+  const pendingCapture=bridge.call('capture',{browser,agent:true,navigation:state.navigation,capture_key:'cancel-capture',format:'png',clip:{...captureArea.region,scale:0.5}}).then(()=>({completed:true}),()=>({cancelled:true}));
+  await bridge.call('capture_cancel',{browser,capture_key:'cancel-capture'});
+  const cancelResult=await pendingCapture;assert(cancelResult.cancelled||cancelResult.completed,'Screenshot cancellation had no terminal receipt');
+  for(let i=0;i<100&&(await bridge.call('state',{browser})).capture_busy;i++)await pause(20);
+  assert(!(await bridge.call('state',{browser})).capture_busy,'Cancelled screenshot retained its native budget');
   const openDialog=async selector=>{
     const prepared=await prepare({op:'click',target:{css:selector},scroll:true});
     assert(prepared.ok,'Dialog button was not actionable');
@@ -409,6 +456,9 @@ def main():
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))
+        image = dev.call("storage.read", {"path": "qa/capture-fixture.png", "limit": 262144}, REPORT)
+        import base64
+        (dev.ENV / "capture-fixture.png").write_bytes(base64.b64decode(image["base64"], validate=True))
         print(json.dumps(result, indent=2))
         return 0
     finally:

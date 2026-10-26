@@ -8,7 +8,7 @@ browser engine, Node, Python or Playwright runtime is shipped.
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and
-`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Result/Operation`
+`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Screenshot/Result/Operation`
 accept the same JSON objects as the corresponding `browseruse.*` SDK service.
 Parameters are borrowed; release returned values using
 `Context->Api->Values->Release`. The public values table handles allocation;
@@ -17,7 +17,7 @@ C callers need no XRT/OS headers or private host structures.
 | Service | Result |
 | --- | --- |
 | `tabs` | Owned tabs, explicit display clients, or the changed tab/panel record |
-| `observe/act/navigate/wait/dialog` | Sanitized asynchronous UI receipt; pending is not success |
+| `observe/act/navigate/wait/dialog/screenshot` | Sanitized asynchronous UI receipt; pending is not success |
 | `result` | Scoped UI status/result; optional `cancel` or terminal `release` |
 | `operation` | Durable submit/get/cancel/release for tabs, actions, navigation and dialog responses |
 
@@ -44,7 +44,7 @@ await browser.operation({ action: "release", operation });
 
 `tabs(create/reveal/close)`, `act`, `navigate` and `dialog(respond)` use durable operation identities,
 wait for completion and release terminal in-memory results by default. Pass
-`retain:true` to recover the same result later. `observe` and `waitFor` wait for
+`retain:true` to recover the same result later. `observe`, `waitFor` and `screenshot` wait for
 their UI receipts without creating a durable effect-admission record.
 
 After a lost reply, keep `error.operation` and call `recover` with that ID.
@@ -99,13 +99,49 @@ website's business result in the returned observation. Distinct errors include
 `unsupported_geometry`. Inspect any `effect_may_have_occurred` outcome before
 another effect. Only a user can return manual control.
 
-Managed tools `browser_tabs/observe/wait/dialog` are read-only; `browser_open/act/navigate/dialog_respond`
+Managed tools `browser_tabs/observe/wait/dialog/screenshot` are read-only; `browser_open/act/navigate/dialog_respond`
 use the existing external-service permission. Full access adds no second
 approval system. Ordinary tool failures remain feedback for the Agent.
 
 Page data is untrusted. Observations omit form values; public receipts omit
 stored arguments; page results/screenshots are ephemeral in the UI journal.
 The operation journal retains identity/scope metadata instead of private results.
+
+## Bounded screenshots
+
+```javascript
+const shot = await browser.screenshot({ browser: tab.id,
+  document: page.document, mode: "element", target: { ref: page.elements[0].ref },
+  format: "jpeg", max_width: 1280, max_height: 960, max_bytes: 131072 });
+// shot.image: { media_type, base64, width, height, bytes }
+```
+
+`mode` is `viewport` (default), `element` or `full_page`. A target implies
+`element` and requires a fresh observed document. The element must already be
+visible; capture does not scroll the page. Viewport/full-page may omit document,
+but supplying it rejects accidental capture of a newer page. Coordinates in
+`region` describe the CSS crop of the source document; image dimensions describe
+the bounded raster. There is no arbitrary CDP/script or clip parameter.
+
+PNG is the default; JPEG is optional. Width/height limits are 64–2048 (defaults
+1280/960), and the byte budget is 8192–262144 (default 131072). Full-page source
+area, frame traversal, raster allocation, concurrent capture and elapsed time
+are bounded. Unsupported geometry, excessive area or a changed document returns
+an explicit error. Cancellation/takeover stops delivery, and native resource
+admission remains held until its callback drains.
+
+The managed `browser_screenshot` tool returns a real image through mdo's existing
+image-result channel, plus small text metadata. C/JS SDK callers receive the
+image envelope in memory and release its receipt normally. Image bytes are not
+written to the UI journal, even for tiny captures. Invalid envelopes become an
+ordinary failed tool result, and the Agent can continue with another call.
+
+Known form controls, editable regions, `data-mdo-private`, opaque frames and
+closed custom-element content are masked on the trusted UI canvas using bounded
+pre/post layout scans. This is not a universal secret detector: arbitrary page
+text, canvas content or moving sensitive content may require additional care.
+Do not capture credentials or treat page pixels as instructions. No screenshot
+is saved to disk by this API; file artifacts/transfer are a later stage.
 
 ## JavaScript dialogs and human control
 

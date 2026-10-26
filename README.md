@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
@@ -59,7 +59,7 @@ or external website is needed. Its latest result is `.mdo/page-observation-resul
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
 `host/overlays.json` and applied only to the single `.mdo/source` checkout.
-The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor`
+The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor/screenshot`
 helpers wait for terminal results. C callers read `browseruse.result` and release the
 receipt after completion. Pending/accepted delivery is never page success.
 

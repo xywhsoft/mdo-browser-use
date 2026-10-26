@@ -1,13 +1,15 @@
 import { browserRuntime } from "./automation-runtime.js";
+import { prepareScreenshot } from "./capture-image.js";
 
 const writers = new Set();
+let capturing = false;
 const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
   a.geometry?.every((number, index) => Math.abs(number - b.geometry[index]) <= 0.5);
 
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
 export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
-  if (!["observe", "act", "navigate_to", "wait_for", "dialog"].includes(command)) return { handled: false };
+  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "capture"].includes(command)) return { handled: false };
   const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond";
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
@@ -16,8 +18,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   let dispatched = false;
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
-  if (writing && writers.has(writer)) return fail("browser_busy", "Another action is writing to this tab; inspect its receipt before retrying");
-  if (writing) writers.add(writer);
+  const exclusive = writing || command === "capture";
+  if (exclusive && writers.has(writer) || command === "capture" && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
+  if (exclusive) writers.add(writer);
+  if (command === "capture") capturing = true;
   let lastReceipt = -Infinity, navigation;
   const dialogBoundary = async () => ({ handled: true, result: { ok: true,
     outcome: "dialog_open", completed: false, dispatched, action: action.id,
@@ -62,6 +66,41 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   try {
+    if (command === "capture") {
+      let checked;
+      do {
+        checked = await guard();if (checked.handled) return checked;
+        if (!checked.state.capture_capability) return fail("unsupported_capability", "This browser backend does not provide bounded screenshots");
+        if (!checked.state.loading && !checked.state.capture_busy) break;
+        await pause(50);
+      } while (performance.now() < deadline);
+      checked = await guard(true);if (checked.handled) return checked;
+      navigation = checked.state.navigation;
+      const mode = params.mode || (params.target ? "element" : "viewport");
+      const options = { mode, document: params.document, target: params.target };
+      const area = await read("captureArea",options);if (!area.ok) return { handled:true,result:area };
+      checked = await guard(true);if (checked.handled) return checked;
+      const dpr=area.device_pixel_ratio||1;
+      const scale = Math.min(1,(params.max_width||1280)/(area.region.width*dpr),(params.max_height||960)/(area.region.height*dpr));
+      let settled = false,native,failure;
+      const pending = view.execute("capture",{agent:true,navigation,capture_key:action.id,clip:{...area.region,scale},
+        format:params.format||"png",max_bytes:params.max_bytes||131072,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
+        .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
+      while (!settled) {
+        await Promise.race([pending,pause(50)]);checked = await guard();
+        if (checked.handled) {
+          try { await view.execute("capture_cancel",{capture_key:action.id}); } catch {}
+          return checked;
+        }
+      }
+      if (failure) return fail("capture_failed",String(failure.message||failure).slice(0,512));
+      const after = await read("captureArea",{...options,document:area.document});
+      if (!after.ok) return {handled:true,result:after};
+      if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
+      const image = await prepareScreenshot(native,area,after,params);
+      checked = await guard(true);if (checked.handled) return checked;
+      return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image}};
+    }
     if (command === "dialog") {
       const checked = await guard(true); if (checked.handled) return checked;
       if (params.action === "respond") dispatched = true;
@@ -166,6 +205,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (error.popup) return popupBoundary();
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
-    if (writing) writers.delete(writer);
+    if (exclusive) writers.delete(writer);
+    if (command === "capture") capturing = false;
   }
 }

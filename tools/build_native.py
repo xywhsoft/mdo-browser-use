@@ -36,10 +36,10 @@ def main():
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>'),
-        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
+        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_view{'),
         ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
         ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
-        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\nstatic void xb_receive('),
+        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
         ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(host,view);\n            std::weak_ptr<xb_view> weak=view;'),
         ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
@@ -64,6 +64,19 @@ def main():
         if base.count(before) != 1:
             raise RuntimeError("Native hook no longer unique: " + before)
         base = base.replace(before, after, 1)
+    capture_hooks = [
+        ('std::string opener,popupError,popupTicket;', 'std::string opener,popupError,popupTicket;std::shared_ptr<xb_capture_job> capture;'),
+        ('bool alive=true;std::wstring', 'bool alive=true;unsigned captures=0;std::wstring'),
+        ('found->second->closed=true;xb_cancel_popups', 'found->second->closed=true;xb_cancel_capture(found->second);xb_cancel_popups'),
+        ('entry.second->closed=true;xb_cancel_popups', 'entry.second->closed=true;xb_cancel_capture(entry.second);xb_cancel_popups'),
+        ('if(command=="popups"){', 'if(command=="capture_cancel"){auto job=view->capture;if(job&&job->key==xb_get(json,"capture_key"))job->finish("","Screenshot was cancelled");host->reply(id,"{}");return;}\n  if(command=="capture"){xb_capture(host,view,id,json);return;}\n  if(command=="popups"){'),
+        ('const bool mutation=command!="snapshot"', 'const bool mutation=command!="capture"&&command!="capture_cancel"&&command!="snapshot"'),
+        ('\\"dialog_capability\\":', '\\"capture_capability\\":true,\\"capture_busy\\":"+std::string(host->captures?"true":"false")+",\\"dialog_capability\\":'),
+    ]
+    for before, after in capture_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native capture hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
     popup_start = base.index('            auto* popup=xb_cb<ICoreWebView2NewWindowRequestedEventHandler')
     popup_end = base.index('            if(!xb_place(view,visible))', popup_start)
     base = base[:popup_start] + '            xb_install_popups(host,view,browser);\n' + base[popup_end:]
@@ -86,11 +99,18 @@ def main():
         current = popup_path.read_text(encoding="utf-8")
         if current != popups and hashlib.sha256(current.encode()).hexdigest() != record.get("popups"):
             raise RuntimeError("Unreviewed native popup helper edit preserved")
+    capture = (dev.ROOT / "host/native-capture.inc.hpp").read_text(encoding="utf-8")
+    capture_path = target.with_name("xs_browser_capture.inc.hpp")
+    if capture_path.exists():
+        current = capture_path.read_text(encoding="utf-8")
+        if current != capture and hashlib.sha256(current.encode()).hexdigest() != record.get("capture"):
+            raise RuntimeError("Unreviewed native capture helper edit preserved")
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
+    capture_path.write_text(capture, encoding="utf-8", newline="\n")
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
-              "popups": hashlib.sha256(popups.encode()).hexdigest()}
+              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest()}
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

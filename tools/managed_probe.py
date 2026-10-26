@@ -1,5 +1,7 @@
 """Run Browser Use through mdo's actual managed tool and permission executor."""
 import json
+import base64
+import struct
 import sys
 import time
 import uuid
@@ -9,6 +11,22 @@ import dev
 SCOPE = {"extension": "browser-use-managed-qa", "project": "default"}
 FULL = "b0a00000000000000000000000000001"
 READ_ONLY = "b0a00000000000000000000000000002"
+
+def read_operation_result(identity, scope):
+    result = dev.call("operation.result", {"id": identity}, scope)
+    if result.get("encoding") != "utf-8-json":
+        return result
+    total = result["bytes"]
+    if not 0 < total <= 2097152:
+        raise RuntimeError("Managed probe result exceeds its bounded reader")
+    output = bytearray()
+    while len(output) < total:
+        page = dev.call("operation.result", {"id": identity, "offset": len(output), "limit": 16384}, scope)
+        data = base64.b64decode(page["base64"], validate=True)
+        if not data or page["next"] != len(output) + len(data) or page["next"] > total:
+            raise RuntimeError("Managed result range was inconsistent")
+        output.extend(data)
+    return json.loads(output)
 
 
 def tool(name, arguments, session=FULL):
@@ -22,7 +40,13 @@ def tool(name, arguments, session=FULL):
         if current.get("terminal"):
             if current["state"] != "succeeded":
                 raise RuntimeError("Managed tool transport failed: " + current.get("error", {}).get("code", "unknown"))
-            return dev.call("operation.result", {"id": job["id"]}, scope)
+            try:
+                return read_operation_result(job["id"], scope)
+            finally:
+                try:
+                    dev.call("operation.release", {"id": job["id"]}, scope)
+                except (OSError, RuntimeError):
+                    pass
         time.sleep(0.05)
     dev.call("operation.cancel", {"id": job["id"]}, scope)
     raise RuntimeError("Managed tool did not finish in its bounded probe")
@@ -78,6 +102,20 @@ def main():
         filled = tool("browser_act", {"browser": browser, "document": value(resumed)["document"],
                       "op": "fill", "target": {"label": "订单号"}, "text": "Managed native input"})
         assert filled["success"] and value(filled)["verification"] == "field_state"
+        captured = tool("browser_screenshot", {"browser": browser, "document": value(resumed)["document"],
+                        "format": "png", "max_width": 800, "max_height": 600})
+        assert captured["success"] and captured["image"]["media_type"] == "image/png"
+        png = base64.b64decode(captured["image"]["base64"], validate=True)
+        width, height = struct.unpack(">II", png[16:24])
+        assert 0 < width <= 800 and 0 < height <= 600
+        assert value(captured)["image"]["bytes"] == len(png)
+        assert "base64" not in captured["text"], "Screenshot bytes were repeated in tool text"
+        cropped = tool("browser_screenshot", {"browser": browser, "document": value(resumed)["document"],
+                       "target": {"name": "查询"}, "format": "jpeg", "max_bytes": 16384})
+        assert cropped["success"] and cropped["image"]["media_type"] == "image/jpeg"
+        jpeg = base64.b64decode(cropped["image"]["base64"], validate=True)
+        assert jpeg.startswith(b"\xff\xd8") and jpeg.endswith(b"\xff\xd9")
+        assert value(cropped)["image"]["bytes"] == len(jpeg)
         assert tool("browser_wait", {"browser": browser, "until": "visible", "target": {"name": "查询"}})["success"]
         checkpoint = tool("browser_act", {"browser": browser, "document": value(resumed)["document"],
                           "op": "click", "target": {"name": "Confirm dialog"}})
@@ -111,11 +149,11 @@ def main():
         assert tool("browser_navigate", {"browser": browser, "action": "reload"})["success"]
         assert tool("browser_open", {"action": "close", "browser": browser})["success"]
         browser = None
-        report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 8,
+        report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 9,
                   "readonly_read_allowed": True, "readonly_write_denied": True,
                   "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
                   "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,
-                  "managed_popup_ownership": True}
+                  "managed_popup_ownership": True, "native_screenshot_image": True}
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:

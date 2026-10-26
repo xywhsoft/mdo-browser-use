@@ -1,7 +1,8 @@
 /* Managed Agent tools use exactly the same public service contracts. They run
  * on mdo's existing tool worker, with its live permissions and cancellation. */
 static mdo_result BuToolWrite(const mdo_sdk_context_v1* C,const xvalue* Value,bool Success,
-                               mdo_result Code,mdo_result_writer_v1* Writer,char* Error,size_t Capacity){
+                               mdo_result Code,mdo_result_writer_v1* Writer,char* Error,size_t Capacity,bool Image){
+    if(Image&&Success&&C->Api->Values->Get(Value,"image"))return BuToolImage(C,Value,Writer,Error,Capacity);
     char* Json=C->Api->Values->Json(Value);
     bool Written=Json&&Writer->WriteText(Writer->Context,Json)&&Writer->SetSuccess(Writer->Context,Success);
     C->Api->Values->Free(Json);
@@ -54,9 +55,9 @@ static mdo_result BuToolExecute(void* User,const mdo_tool_context_v1* Tool,const
         mdo_error_v1 Cleanup={0};(void)BuResult(NULL,C,Args,&Unused,&Cleanup);V->Release(Unused);
         V->Release(Args);Args=NULL;V->Release(Value);Value=Outcome;
         if(!Success){if(!Value)goto failed;snprintf(Error,Capacity,"%s: %s",E.Code,E.Message);}
-        Code=BuToolWrite(C,Value,Success,Success?MDO_RESULT_OK:Code,Writer,Error,Capacity);V->Release(Value);return Code;
+        Code=BuToolWrite(C,Value,Success,Success?MDO_RESULT_OK:Code,Writer,Error,Capacity,BuEqual(Spec->Id,"browser_screenshot"));V->Release(Value);return Code;
     }
-    Code=BuToolWrite(C,Value,true,MDO_RESULT_OK,Writer,Error,Capacity);V->Release(Value);return Code;
+    Code=BuToolWrite(C,Value,true,MDO_RESULT_OK,Writer,Error,Capacity,false);V->Release(Value);return Code;
 failed:
     V->Release(Params);V->Release(Args);V->Release(Value);
     Value=V->Object();xvalue* Detail=V->Object(),*No=V->Bool(false);
@@ -66,5 +67,5 @@ failed:
     V->Set(Value,"error",Detail);V->Release(Detail);if(Receipt[0])BuPut(C,Value,"receipt",Receipt);
     snprintf(Error,Capacity,"%s: %s",E.Code,E.Message);
     if(Code==MDO_RESULT_OK)Code=MDO_RESULT_ERROR;
-    Code=BuToolWrite(C,Value,false,Code,Writer,Error,Capacity);V->Release(Value);return Code;
+    Code=BuToolWrite(C,Value,false,Code,Writer,Error,Capacity,false);V->Release(Value);return Code;
 }

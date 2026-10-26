@@ -77,6 +77,7 @@ export function createBrowserUseClient(sdk) {
   return Object.freeze({
     tabs: (params, options) => ["create", "reveal", "close"].includes(params.action) ? perform("tabs")(params, options) : invoke("tabs", params),
     observe: complete("observe"),
+    screenshot: complete("screenshot"),
     result: params => invoke("result", params),
     act: perform("act"),
     navigate: perform("navigate"),

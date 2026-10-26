@@ -54,6 +54,11 @@ test("actual mdo UI journal does not persist even a small browser observation", 
   const duplicate = await applyApplicationAction(action, () => { throw Error("Repeated an effect"); }, storage, "journal");
   assert.equal(duplicate.result.ephemeral, true);
   assert.equal(executions, 1);
+  const screenshot = { id: "private-page-image", action: "workbench.browser" };
+  const image = await applyApplicationAction(screenshot, async () => ({ok:true,image:{base64:"Private fixture screenshot bytes"}}), storage, "journal");
+  assert.equal(image.result.image.base64,"Private fixture screenshot bytes");
+  assert.ok(!storage.getItem("journal").includes("Private fixture screenshot bytes"));
+  assert.equal((await applyApplicationAction(screenshot,()=>{throw Error("Repeated screenshot read");},storage,"journal")).result.ephemeral,true);
 });
 
 test("reader cancellation reaches the owned host receipt", async () => {
@@ -66,6 +71,7 @@ test("reader cancellation reaches the owned host receipt", async () => {
   assert.deepEqual(calls[0], { method: "browseruse.result", params: { id: "cancellation-fixture", cancel: true } });
   const controller = new AbortController(); controller.abort(); calls.length = 0;
   await assert.rejects(client.observe({ browser: "unused" }, { signal: controller.signal }), { code: "cancelled" });
+  await assert.rejects(client.screenshot({ browser: "unused" }, { signal: controller.signal }), { code: "cancelled" });
   assert.equal(calls.length, 0);
 });
 

@@ -18,4 +18,6 @@ static inline mdo_result mdoBrowserUseOperation(const mdo_sdk_context_v1* C,cons
 {return mdoCall(C,"browseruse.operation",P,R,E);}
 static inline mdo_result mdoBrowserUseDialog(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
 {return mdoCall(C,"browseruse.dialog",P,R,E);}
+static inline mdo_result mdoBrowserUseScreenshot(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.screenshot",P,R,E);}
 #endif

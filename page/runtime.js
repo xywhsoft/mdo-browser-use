@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 2;
+  const version = 3;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -264,7 +264,62 @@ export function browserRuntime() {
       focused: element.getRootNode().activeElement === element,
       sensitive: element.localName === "input" && element.type === "password" };
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify });
+  function captureArea(options = {}) {
+    if (options.document && options.document !== documentId) return fail("stale_document", "Observe the current document before capturing it");
+    if (Math.abs((visualViewport?.scale || 1) - 1) > 0.001) return fail("unsupported_geometry", "Pinch-zoomed screenshots require a supported viewport scale");
+    const intersect = (a, b) => { const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);return {x,y,width:Math.max(0,Math.min(a.x+a.width,b.x+b.width)-x),height:Math.max(0,Math.min(a.y+a.height,b.y+b.height)-y)}; };
+    const viewport={x:0,y:0,width:innerWidth,height:innerHeight};
+    function rootRect(element) {
+      let doc=element.ownerDocument,box=element.getBoundingClientRect(),area={x:box.x,y:box.y,width:box.width,height:box.height};
+      for(let depth=0;doc!==document&&depth<16;depth++){
+        const view=doc.defaultView,frame=view?.frameElement;if(!frame?.isConnected)throw Error("Frame changed during screenshot preparation");
+        for(let node=frame;node;node=node.parentElement){const style=node.ownerDocument.defaultView.getComputedStyle(node);if(style.transform!=="none"||(style.zoom&&Number(style.zoom)!==1))throw Error("Transformed frame screenshots require visual/manual control");}
+        area=intersect(area,{x:0,y:0,width:view.innerWidth,height:view.innerHeight});
+        const parent=frame.getBoundingClientRect();area.x+=parent.x+frame.clientLeft;area.y+=parent.y+frame.clientTop;doc=frame.ownerDocument;
+      }
+      if(doc!==document)throw Error("Frame nesting exceeds the screenshot budget");
+      if(options.mode!=="full_page")area=intersect(area,viewport);
+      area.x+=scrollX;area.y+=scrollY;return area;
+    }
+    let region={x:scrollX,y:scrollY,width:innerWidth,height:innerHeight};
+    try {
+      if(options.mode==="element"){
+        const found=locate({document:documentId,target:options.target});if(!found.ok)return found;
+        region=rootRect(refs.get(found.element.ref).element);
+      }else if(options.mode==="full_page"){
+        if(scrollX<0)return fail("unsupported_geometry", "Full-page capture of a negative horizontal scroll requires a supported layout");
+        region={x:0,y:0,width:Math.max(innerWidth,document.documentElement.scrollWidth,document.body?.scrollWidth||0),
+          height:Math.max(innerHeight,document.documentElement.scrollHeight,document.body?.scrollHeight||0)};
+      }
+      region={x:Math.floor(region.x),y:Math.floor(region.y),width:Math.ceil(region.width),height:Math.ceil(region.height)};
+      const dpr=devicePixelRatio||1;
+      if(region.width<=0||region.height<=0)return fail("element_outside_viewport", "The screenshot target has no visible area");
+      if(region.width>32768||region.height>32768||region.width*region.height>16777216||region.width*region.height*dpr*dpr>33554432)
+        return fail("capture_area_limit", "The page area exceeds the screenshot raster budget; capture a smaller region");
+      const redactions=[];let nodes=0,frames=0;const started=performance.now();
+      function mask(element){const area=intersect(rootRect(element),region);if(area.width&&area.height){if(redactions.length>=256)throw Error("Screenshot masking budget exceeded");redactions.push(area);}}
+      function walk(root){
+        const walker=root.ownerDocument?.createTreeWalker(root,1)||document.createTreeWalker(root,1);
+        for(let element=walker.nextNode();element;element=walker.nextNode()){
+          if(++nodes>6000||performance.now()-started>100)throw Error("Screenshot masking scan exceeded its budget");
+          if(!visible(element))continue;
+          const tag=element.localName;
+          if(tag==="textarea"||tag==="select"||element.isContentEditable||element.hasAttribute("data-mdo-private")||
+            ["textbox","combobox","spinbutton"].includes(element.getAttribute("role"))||
+            tag==="input"&&!["button","submit","reset","checkbox","radio","hidden","image"].includes(element.type))mask(element);
+          if(element.shadowRoot)walk(element.shadowRoot);
+          else if(tag.includes("-"))mask(element); // Closed custom-element internals cannot be inspected here.
+          if(["iframe","frame"].includes(tag)){
+            if(++frames>32)throw Error("Screenshot frame budget exceeded");let child=null;try{child=element.contentDocument;}catch{}
+            if(child)walk(child);else mask(element);
+          }
+        }
+      }
+      walk(document);
+      return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
+    } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
+  }
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, captureArea });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

@@ -404,3 +404,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   isolation of the child. Existing ten actions/four navigations/five waits pass.
 - File transfers, complete frame/observation coverage, richer actions/screenshot
   services, Android and the final lifecycle/package gates remain unfinished.
+
+## S0 — bounded screenshots through C, JS and managed image tools
+
+- Added the shared `browseruse.screenshot` service and read-only
+  `browser_screenshot` tool. Viewport, visible-element and bounded full-page
+  capture support PNG/JPEG, explicit dimensions/byte budgets and unchanged-page
+  checks. Native CDP calls are typed; callers cannot provide scripts or CDP.
+- Native capture holds one physical request budget until its callback drains,
+  including cancellation. Trusted UI raster validation runs before decoding;
+  bounded pre/post scans mask known form controls and opaque content on canvas.
+  Arbitrary page text/canvas is not covered by a universal privacy guarantee.
+- Managed calls use the existing image-result channel with small text metadata;
+  malformed images become ordinary tool errors. C/JS receive in-memory image
+  envelopes. UI journals exclude screenshots even when their bytes are tiny.
+- Passed 23 Python and 23 JS checks; 192 actual native checks with no new
+  diagnostics; normal mdo UI C/JS viewport/element/full-page calls; and nine
+  managed tools including actual PNG/JPEG, read-only capture, and failure then
+  recovery. Verified masked synthetic pixels, fixed controls on full-page
+  capture, cancellation and bounded images. No live model/provider call used.
+- A state audit found a separate existing close defect: broker browser closure
+  can leave its panels and queued UI work behind. Fixing that lifecycle path is
+  next. Transfers, richer input, complete frames, Android and final packaging
+  remain unfinished; no release or completion claim.

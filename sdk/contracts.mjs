@@ -482,5 +482,117 @@ export const services = [
     "output": {
       "type": "object"
     }
+  },
+  {
+    "id": "browseruse.screenshot",
+    "description": "Capture an owned document as a bounded in-memory image. Known form controls and opaque content are masked; read browseruse.result for completion.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "document": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "placeholder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "testid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "css": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "viewport",
+            "full_page",
+            "element"
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "png",
+            "jpeg"
+          ]
+        },
+        "max_width": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 2048
+        },
+        "max_height": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 2048
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 8192,
+          "maximum": 262144
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
   }
 ];

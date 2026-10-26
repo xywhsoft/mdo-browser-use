@@ -236,6 +236,36 @@
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "      if (command === \"create\" && creating.has(params.browser)) {",
       "after": "      if (command === \"close\") creating.delete(params.browser);\n      if (command === \"create\" && creating.has(params.browser)) {"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "\"wait_for\",\"dialog\",\"screenshot\"",
+      "after": "\"wait_for\",\"dialog\",\"capture\",\"screenshot\""
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'wait_for','dialog','screenshot'",
+      "after": "'wait_for','dialog','capture','screenshot'"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'dialog':s,'accept':{'type':'boolean'},",
+      "after": "'dialog':s,'accept':{'type':'boolean'},'format':s,'max_width':{'type':'integer'},'max_height':{'type':'integer'},'max_bytes':{'type':'integer'},"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "\"input\",\"automation\",\"dialog\"].includes(request.command)",
+      "after": "\"input\",\"automation\",\"dialog\",\"capture\",\"capture_cancel\"].includes(request.command)"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'enum':['readable','interactive']",
+      "after": "'enum':['readable','interactive','viewport','full_page','element']"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'max_bytes':{'type':'integer','minimum':256,'maximum':32768}",
+      "after": "'max_bytes':{'type':'integer','minimum':256,'maximum':262144}"
     }
   ],
   "files": [
@@ -270,6 +300,10 @@
     {
       "source": "host/popup-manager.js",
       "target": "app/web/js/features/workbench/popup-manager.js"
+    },
+    {
+      "source": "host/capture-image.js",
+      "target": "app/web/js/features/workbench/capture-image.js"
     }
   ]
 }
