@@ -718,3 +718,21 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   directory/OOPIF handling, downloads, Android and final packaging remain open.
   This commit does not advertise a public upload service yet.
 - Protocol reference: [CDP DOM file input assignment](https://chromedevtools.github.io/devtools-protocol/tot/DOM/#method-setFileInputFiles).
+
+## D9a — preserve the original task workspace across UI continuations
+
+- An actual relative-file upload probe failed before file assignment: the
+  workbench passed its global SDK client, and HTTP SDK context reconstruction
+  selected the project default instead of the native caller's session root.
+  The bounded failed report is retained privately as reproduction evidence.
+- The workbench now binds automation to the action's frozen context. Native UI
+  admission includes its original workspace; the HTTP adapter preserves that
+  explicit absolute root instead of recomputing it from the selected project.
+  Empty context retains existing default behavior. Invalid types, embedded NUL,
+  control characters, oversized, relative and Windows drive-relative roots fail
+  explicitly rather than falling back to a different directory.
+- Actual SDK tests verify context, UI queuing and relative digest continuations
+  against a distinct root. The actual managed upload with a workspace-relative
+  source now passes. Existing public C/UI regression (19 actions, four
+  navigations, five waits) and the real JS client pass with the bound SDK.
+  This changes path context, not the caller's filesystem authorization.

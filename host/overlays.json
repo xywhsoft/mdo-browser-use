@@ -175,7 +175,7 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "  const browserViews = new Map();",
-      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"\u65b0\u7a97\u53e3\",resource:{id:browser.id},reveal},sdk),\n    closePanels:async browser=>{for(const [id,row] of [...entries])if(row.resource?.id===browser)await close(id);},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
+      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"新窗口\",resource:{id:browser.id},reveal},sdk),\n    closePanels:async browser=>{for(const [id,row] of [...entries])if(row.resource?.id===browser)await close(id);},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -220,7 +220,7 @@
     {
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "      return new Promise((resolve, reject) => {",
-      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"\u539f\u751f\u6d4f\u89c8\u5668\u6b63\u5728\u4e3a\u53e6\u4e00\u4e2a\u5f39\u51fa\u8bf7\u6c42\u521b\u5efa\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
+      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"原生浏览器正在为另一个弹出请求创建\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",
@@ -376,6 +376,22 @@
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "\"drag_cancel\"].includes(request.command)",
       "after": "\"drag_cancel\",\"upload\"].includes(request.command)"
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "SdkPut(Scope,\"namespace\",C->Namespace);",
+      "after": "SdkPut(Scope,\"workspace\",C->Workspace);SdkPut(Scope,\"namespace\",C->Namespace);"
+    },
+    {
+      "path": "app/src/api/application.c",
+      "before": "    MdoApplicationContext(&Native,&I,",
+      "after_file": "host/http-workspace.inc.c",
+      "suffix": "    MdoApplicationContext(&Native,&I,"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "command,params,view,action,api,browser:id,",
+      "after": "command,params,view,action,api:api.bind(action.context || {}),browser:id,"
     }
   ],
   "files": [
