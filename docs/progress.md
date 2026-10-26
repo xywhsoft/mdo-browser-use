@@ -112,3 +112,26 @@ checks passed after reapplying the overlays.
   Targeted dispatch checks cover timeout, takeover, cancellation and renderer
   failure; none of these paths evaluates the page after its stop condition.
 - Native input and the remaining stages are still in progress.
+
+## B3 — real isolated-world execution and native input
+
+- Built the pinned xs SDK plus its existing verified compatibility patch in one
+  shared-object checkout under `.mdo/native-source`. Build objects and the host
+  are reused in place. Setup preserves a locally built host with its valid
+  binary receipt instead of overwriting it with the bootstrap executable.
+- Windows observations now execute in a named CDP isolated world. A page-world
+  imitation of the runtime does not influence observations. The context resets
+  on navigation, and callbacks recheck document/control ownership.
+- Added private, constrained native mouse/wheel/key/text commands using CDP
+  Input. Public model operations do not expose raw scripts or CDP. Input checks
+  navigation identity and manual takeover; release steps survive interruption.
+- Direct real-WebView2 checks passed (49 checks): trusted click and input events,
+  Unicode replacement, spoof isolation, stale navigation, takeover, earlier
+  reference/frame checks and screenshot. The normal-frontend public observation
+  probe also passed with automatic readiness and isolated execution.
+- Element actionability, public actions, Agent tools and Android are not yet
+  complete. Low-level transport success alone is not an action's semantic result.
+
+Native API references: [CDP Input](https://chromedevtools.github.io/devtools-protocol/tot/Input/),
+[Page isolated worlds](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-createIsolatedWorld),
+[Runtime evaluation](https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate).

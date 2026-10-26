@@ -14,3 +14,7 @@
 <iframe title="opaque" src="data:text/html,%3Cbutton%3EOpaque%20action%3C/button%3E"></iframe>
 <p>Readable fixture text. 中文和 Emoji 🦉 remain intact.</p>
 <script>document.querySelector('#shadow').attachShadow({mode:'open'}).innerHTML='<button>Shadow action</button>';</script>
+<script>
+document.querySelector('#search').addEventListener('click',e=>{document.body.dataset.clicked=e.isTrusted?'trusted':'untrusted'});
+document.querySelector('#order').addEventListener('input',e=>{document.body.dataset.input=e.isTrusted?'trusted':'untrusted'});
+</script>

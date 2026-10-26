@@ -23,7 +23,10 @@ async function evaluate(expression) {
   assert(result.ok, 'Native evaluation failed');
   return result.value;
 }
-const engine = expression => evaluate(`(${runtimeSource})().${expression}`);
+const engine = async expression => {
+  const result=await bridge.call('automation',{browser,agent:true,script:`(${runtimeSource})().${expression}`});
+  assert(result.ok,'Native isolated evaluation failed');return result.value;
+};
 try {
   await bridge.call('create', { browser, url:location.origin+'/__browser_use_page__.html',
     visible:true, bounds:{ x:10,y:70,width:1000,height:650,scale:devicePixelRatio } });
@@ -37,9 +40,11 @@ try {
     await pause(100);
   }
   assert(ready,'Page did not load');
+  await evaluate(`globalThis.__mdo_browser_use_runtime_v1={version:1,documentNode:document,observe:()=>({ok:true,text:'forged observation'})}`);
   const first = await engine('observe({})');
   assert(first.ok && first.document,'No structured observation');
   assert(first.text.includes('Readable fixture text'),'Missing readable text');
+  assert(!first.text.includes('forged observation'),'Page-world runtime spoofed isolated observations');
   assert(!JSON.stringify(first).includes('fixture-private-value'),'Password value was exposed');
   assert(!JSON.stringify(first).includes('Hidden action'),'Hidden action was exposed');
   assert(first.elements.some(e=>e.role==='textbox'&&e.name==='订单号'),'Label-based accessible name missing');
@@ -50,6 +55,27 @@ try {
   assert(query?.ref,'Missing query reference');
   const located=await engine(`locate(${JSON.stringify({document:first.document,target:{ref:query.ref}})})`);
   assert(located.ok && located.element.bounds.width>0,'Reference lookup failed');
+  const state=await bridge.call('state',{browser});
+  assert(state.automation&&state.navigation,'Native automation capability missing');
+  const point=located.element.bounds;
+  const clicked=await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,
+    x:point.x+point.width/2,y:point.y+point.height/2});
+  assert(clicked.trusted_input,'Click was not dispatched through native input');
+  assert(await evaluate('document.body.dataset.clicked')==='trusted','Click event was synthetic');
+  const input=first.elements.find(e=>e.name==='订单号').bounds;
+  await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,x:input.x+input.width/2,y:input.y+input.height/2});
+  await bridge.call('input',{browser,agent:true,kind:'key',navigation:state.navigation,key:'Control+A'});
+  await bridge.call('input',{browser,agent:true,kind:'text',navigation:state.navigation,text:'订单 🦉 42'});
+  assert(await evaluate('document.querySelector("#order").value')==='订单 🦉 42','Native Unicode replacement failed');
+  assert(await evaluate('document.body.dataset.input')==='trusted','Input event was synthetic');
+  let staleInput=false;
+  try{await bridge.call('input',{browser,agent:true,kind:'click',navigation:'stale',x:10,y:10})}catch{staleInput=true}
+  assert(staleInput,'Native input accepted a stale navigation identity');
+  await bridge.call('takeover',{browser});
+  let manualInput=false;
+  try{await bridge.call('input',{browser,agent:true,kind:'text',navigation:state.navigation,text:'must not type'})}catch{manualInput=true}
+  assert(manualInput,'Input ignored manual takeover');
+  await bridge.call('release',{browser});
   const ambiguous=await engine(`locate(${JSON.stringify({document:first.document,target:{role:'button',name:'Duplicate'}})})`);
   assert(ambiguous.error?.code==='element_ambiguous','Duplicate locator silently selected an element');
   const limited=await engine('observe({limit:2})');
@@ -85,7 +111,7 @@ try {
   const stale=await engine(`locate(${JSON.stringify({document:first.document,target:{ref:query.ref}})})`);
   assert(stale.error?.code==='stale_document','Navigation did not reject an old reference');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2'};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}

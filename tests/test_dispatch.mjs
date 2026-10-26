@@ -21,10 +21,10 @@ async function observe(state, receipt = "pending", timeout_ms = 50) {
 }
 
 test("observe waits for readiness and reports bounded timeout", async () => {
-  const result = await observe({ loading: true });
+  const result = await observe({ loading: true, automation: true });
   assert.equal(result.result.error.code, "timed_out");
   assert.equal(result.evaluations, 0);
-  assert.equal((await observe({ loading: false })).result.text, "fixture");
+  assert.equal((await observe({ loading: false, automation: true })).result.text, "fixture");
 });
 
 test("manual takeover, cancellation and stopped renderer prevent page evaluation", async () => {

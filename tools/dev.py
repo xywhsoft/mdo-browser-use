@@ -90,7 +90,12 @@ def setup(base: Path) -> None:
     if hashlib.sha256(original_host.read_bytes()).hexdigest() != LOCK["bootstrap_host_sha256"]:
         raise RuntimeError("Bootstrap host hash changed; review mdo.lock.json before reuse")
     host.parent.mkdir(exist_ok=True)
-    if not host.exists() or hashlib.sha256(host.read_bytes()).hexdigest() != LOCK["bootstrap_host_sha256"]:
+    if host.exists() and hashlib.sha256(host.read_bytes()).hexdigest() != LOCK["bootstrap_host_sha256"]:
+        receipt_path = ENV / "host/browser-use-build.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8")) if receipt_path.exists() else {}
+        if receipt.get("binary_sha256") != hashlib.sha256(host.read_bytes()).hexdigest():
+            raise RuntimeError("Unrecognized project host preserved; review its build receipt before setup")
+    if not host.exists():
         shutil.copy2(original_host, host)
     # Generate through the upstream source generator without materializing
     # another xs dependency checkout just to prepare C/SDK source files.

@@ -20,9 +20,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (state.error || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
       if (state.manual) return fail("manual_control", "The user currently controls the browser");
       if (typeof state.loading !== "boolean") return fail("unsupported_capability", "This backend does not report page readiness");
+      if (!state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution");
       if (!state.loading) {
         const options = { mode: params.mode, limit: params.limit, max_bytes: params.max_bytes };
-        const result = await view.execute("evaluate", {
+        const result = await view.execute("automation", {
           agent: true, script: `(${browserRuntime.toString()})().observe(${JSON.stringify(options)})`
         });
         if (!result.ok || !result.value?.ok) return fail("observation_failed", "The browser returned an invalid observation");
