@@ -9,6 +9,11 @@ typedef struct BuService {
     mdo_tool_effects Effects;
     mdo_service_execute_v1 Execute;
 } BuService;
+typedef struct BuToolSpec {
+    const char *Id,*Description,*Input;
+    mdo_tool_effects Effects;
+    size_t Service;
+} BuToolSpec;
 #include "contracts.inc.h"
 
 static mdo_result BuDispatch(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
@@ -19,6 +24,7 @@ static mdo_result BuDispatch(void* User,const mdo_sdk_context_v1* C,const xvalue
     if(!Valid)return BuFail(E,"arguments_invalid","Arguments do not match the Browser Use service contract",422);
     return Service->Execute(NULL,C,P,Result,E);
 }
+#include "tools.c"
 static mdo_result BuRegister(const mdo_host_services_v1* Host,
                              const mdo_registrar_v1* Registrar,void** Data,char* Error,size_t Capacity) {
     (void)Host;(void)Data;
@@ -27,6 +33,14 @@ static mdo_result BuRegister(const mdo_host_services_v1* Host,
         mdo_service_v1 Service={sizeof(Service),MDO_SDK_VERSION,Spec->Id,Spec->Description,
             Spec->Input,Spec->Output,Spec->Effects,(void*)Spec,BuDispatch,0};
         mdo_result Code=Registrar->AddService(Registrar->Context,&Service,Error,Capacity);
+        if(Code!=MDO_RESULT_OK)return Code;
+    }
+    for(size_t I=0;I<sizeof(BuTools)/sizeof(BuTools[0]);I++){
+        const BuToolSpec* Spec=&BuTools[I];
+        mdo_tool_v1 Tool={sizeof(Tool),MDO_MODULE_ABI_VERSION,Spec->Id,Spec->Id,Spec->Description,
+            Spec->Input,Spec->Effects,0,"browser-use",
+            Spec->Effects==MDO_TOOL_EFFECT_READ?NULL:"browser-use",524288,(void*)Spec,NULL,BuToolExecute,NULL};
+        mdo_result Code=Registrar->AddTool(Registrar->Context,&Tool,Error,Capacity);
         if(Code!=MDO_RESULT_OK)return Code;
     }
     return MDO_RESULT_OK;

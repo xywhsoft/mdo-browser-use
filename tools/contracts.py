@@ -1,5 +1,6 @@
 """Generate matching C registration and JavaScript declarations from one file."""
 import argparse
+import copy
 import json
 from pathlib import Path
 import sys
@@ -34,6 +35,23 @@ def outputs():
             f"static inline mdo_result {name}(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)",
             '{return mdoCall(C,"' + row["id"] + '",P,R,E);}'
         ])
+    lines.extend(["};", ""])
+    lines.append("static const BuToolSpec BuTools[] = {")
+    tools = document.get("tools", [])
+    if len({tool["id"] for tool in tools}) != len(tools):
+        raise ValueError("Duplicate tool identity")
+    for tool in tools:
+        index = next(i for i, row in enumerate(rows) if row["id"] == tool["service"])
+        if not tool["id"].isidentifier() or tool["effects"] not in ("MDO_TOOL_EFFECT_READ", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"):
+            raise ValueError("Invalid tool identity/effects")
+        schema = copy.deepcopy(rows[index]["input"])
+        if "actions" in tool:
+            original = schema["properties"]["action"]["enum"]
+            if not set(tool["actions"]).issubset(original):
+                raise ValueError("Tool action is outside its shared service contract")
+            schema["properties"]["action"]["enum"] = tool["actions"]
+        lines.append("    {%s, %s, %s, %s, %d}," % (
+            stringify(tool["id"]), stringify(tool["description"]), stringify(stringify(schema)), tool["effects"], index))
     lines.extend(["};", ""])
     wrappers.extend(["#endif", ""])
     return {

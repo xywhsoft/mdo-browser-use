@@ -14,6 +14,7 @@ export const services = [
         "action": {
           "type": "string",
           "enum": [
+            "clients",
             "list",
             "get",
             "create",

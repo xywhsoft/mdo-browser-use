@@ -48,6 +48,7 @@ python -m unittest discover -s tests -v
 node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
+python tools/managed_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -60,6 +61,11 @@ service call through its workbench to WebView2. Host overlays are recorded in
 The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor`
 helpers wait for terminal results. C callers read `browseruse.result` and release the
 receipt after completion. Pending/accepted delivery is never page success.
+
+`managed_probe.py` exercises the actual Agent tool executor and live read-only/
+full-access permissions, without requesting model output. It reuses named QA
+sessions in this deployment. Read-only inspection and browser mutations are
+separate tools; ordinary browser errors remain tool feedback.
 
 ## Scope
 

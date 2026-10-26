@@ -202,3 +202,21 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   condition waits, plus unmet-condition timeout and stale-document rejection.
 - HTTP response diagnostics, persistent operation identity, Agent tools, native
   dialogs/transfers, out-of-process frames and Android remain outstanding.
+
+## C1 — managed Agent tools and live permission integration
+
+- Registered six real tools from the same contracts: `browser_tabs`,
+  `browser_open`, `browser_observe`, `browser_act`, `browser_navigate` and
+  `browser_wait`. Read-only tab actions are separated from browser mutations;
+  mutating tools use the existing external-service permission and serial group.
+- C tools wait through the existing cancellable SDK sleep service, keeping the
+  plugin independent of XRT/OS headers and additional runtime dependencies.
+  They publish actual terminal results and preserve typed browser failures.
+- `tools/managed_probe.py` uses the normal UI and actual `tool.call` executor
+  through an asynchronous SDK operation. It reuses two named QA sessions in the
+  same Home. Read-only reads succeeded and writes were denied; full-access
+  calls completed without a second confirmation system. An ordinary stale-page
+  tool failure was followed by a successful observation and verified fill.
+- All six tools were exercised, including navigation, condition wait and tab
+  cleanup. No provider/model call was made; this does not claim a model-driven
+  end-to-end task or Android validation.

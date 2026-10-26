@@ -22,6 +22,12 @@ static mdo_result BuTabs(void* U,const mdo_sdk_context_v1* C,const xvalue* P,
                          xvalue** Result,mdo_error_v1* E) {
     (void)U;const mdo_values_v1* V=C->Api->Values;
     const char* Action=BuText(C,P,"action"),*Id=BuText(C,P,"browser"),*Client=BuText(C,P,"client");
+    if(!strcmp(Action,"clients")){
+        xvalue* Clients=NULL;mdo_result Code=mdoCall(C,"ui.clients",NULL,&Clients,E);
+        if(Code!=MDO_RESULT_OK)return Code;
+        *Result=V->Object();bool Ok=*Result&&V->Set(*Result,"clients",Clients);V->Release(Clients);
+        return Ok?MDO_RESULT_OK:BuFail(E,"allocation_failed","Cannot collect display clients",500);
+    }
     if(!strcmp(Action,"list")){
         xvalue* Rows=NULL; mdo_result Code=mdoCall(C,"browser.list",P,&Rows,E);
         if(Code!=MDO_RESULT_OK)return Code;
