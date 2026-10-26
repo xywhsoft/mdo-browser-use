@@ -18,6 +18,14 @@ static mdo_result BuAct(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
         for(size_t I=0;I<V->Count(Choices);I++)if(V->Count(V->At(Choices,I))!=1)
             return BuFail(E,"choice_invalid","Each choice requires exactly one label, value or index",422);
     }else if(Choices)return BuFail(E,"arguments_invalid","Choices apply only to the select action",422);
-    const char* Fields[]={"op","document","target","text","key","checked","dx","dy","timeout_ms","choices"};
-    return BuQueue(C,P,"act",Fields,10,Result,E);
+    const xvalue* Destination=V->Get(P,"destination");
+    if(BuEqual(Op,"drag")){
+        if(!Destination||!V->Count(Destination))return BuFail(E,"destination_required","Select an exact observed destination before dragging",422);
+        bool Selector=false;const char* Keys[]={"role","name","label","placeholder","text","testid","css","ref"};
+        for(size_t I=0;I<8;I++)if(V->Get(Destination,Keys[I]))Selector=true;
+        if(!Selector)return BuFail(E,"destination_required","A frame alone is not a drop target",422);
+        if(V->Get(Destination,"ref")&&V->Count(Destination)>(V->Get(Destination,"frame")?2:1))return BuFail(E,"target_invalid","Use a destination reference or semantic selectors",422);
+    }else if(Destination)return BuFail(E,"arguments_invalid","Destination applies only to dragging",422);
+    const char* Fields[]={"op","document","target","text","key","checked","dx","dy","timeout_ms","choices","destination"};
+    return BuQueue(C,P,"act",Fields,11,Result,E);
 }

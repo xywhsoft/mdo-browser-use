@@ -598,3 +598,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   including successful HTML5 drop after rejection, resize/cancel release and
   file URI filtering. All checks reuse the same host/Home/output directories.
 - Implementation evidence: [Chromium input handler](https://raw.githubusercontent.com/chromium/chromium/main/content/browser/devtools/protocol/input_handler.cc).
+
+## B9 — shared C/JS drag actions and managed Agent integration
+
+- Added `browseruse.act(op="drag",target,destination)` to the generated shared
+  contract, C adapter, JS completion client and existing `browser_act` tool.
+  Destination validation rejects absent/imprecise/mixed/unsafe locators before
+  admission. Both targets retain the original frozen task scope.
+- Preparation waits for two stable, visible hit-tested targets, then pins and
+  rechecks their references immediately before one native gesture. Old backend
+  capabilities fail before reading/scrolling. This stage requires both targets
+  visible together; automatic scrolling during a held drag remains unfinished.
+- Cancellation reaches the exact native key, including exceptional exits;
+  native cleanup remains admitted until callbacks finish. Results distinguish
+  pointer/HTML5 native delivery from business success, and retain conservative
+  uncertainty. Normal operation identity/recovery prevents duplicate dragging.
+- Final build passed 35 Python and 33 JS tests, 360 actual native assertions
+  with no new diagnostics, 19 public C/UI actions and the real JS client. The
+  duplicate retained HTML5 operation produced one drop. All nine actual managed
+  tools passed, including pointer/HTML5 delivery and read-only denial on an
+  owned tab, so foreign ownership cannot hide that permission check.
+- Contracts/deployed overlay checks pass. Reinstalled the plugin and Skill in
+  the single Home; tests used no live model call or additional app copy.
+  Vision coordinates, offscreen dragging, file transfers, complete frames,
+  Android and final lifecycle/package validation remain required.

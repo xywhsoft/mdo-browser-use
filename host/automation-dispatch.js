@@ -15,7 +15,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false;
+  let dispatched = false,dragRequested = false;
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
   const exclusive = writing || command === "capture";
@@ -49,6 +49,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(command === "dialog" && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
+    if (state.drag_cleanup_failed && (writing || command === "capture")) return fail("drag_cleanup_failed", "Native drag cleanup was not confirmed; inspect and end this browser before further input");
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
     if (typeof state.loading !== "boolean" || !state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution and readiness");
     if (state.dialog_open) return dialogBoundary();
@@ -150,6 +151,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const { state } = checked;
       if (!state.loading) {
         if (command === "act") {
+          if (params.op === "drag" && !state.drag_capability) return fail("unsupported_capability", "This browser backend cannot deliver bounded native dragging");
           if (["double_click", "right_click", "middle_click"].includes(params.op) && !state.advanced_mouse)
             return fail("unsupported_capability", "This browser backend cannot deliver the requested mouse gesture");
           navigation = state.navigation; break;
@@ -163,6 +165,51 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       await pause(Math.min(50, Math.max(0, deadline - performance.now())));
     }
     if (command === "observe" || navigation === undefined) return fail("timed_out", "The page was not ready before the deadline");
+    if (params.op === "drag") {
+      const samePair=(a,b)=>a&&b&&sameGeometry(a.source,b.source)&&sameGeometry(a.destination,b.destination);
+      const preparePair=async(source=params.target,destination=params.destination,scroll=true)=>{
+        const first=await read("prepare",{document:params.document,op:"drag",target:source,scroll});
+        if(!first.ok)return{error:first};
+        const second=await read("prepare",{document:params.document,op:"drop",target:destination,scroll:false});
+        if(!second.ok)return{error:second};
+        return{source:first,destination:second};
+      };
+      let previous,pair;
+      while(performance.now()<deadline){
+        const stopped=await guard(true);if(stopped.handled)return stopped;
+        if(stopped.state.input_busy){previous=null;await pause(20);continue;}
+        pair=await preparePair();
+        if(pair.error){
+          if(pair.error.error?.code==="element_outside_viewport")return fail("drag_target_outside_viewport","Both drag targets must be visible together; scroll the page before another attempt");
+          if(!["element_not_found","element_disabled","element_obscured"].includes(pair.error.error?.code))return{handled:true,result:pair.error};
+          previous=null;
+        }else if(samePair(pair,previous))break;
+        else previous=pair;
+        await pause(60);
+      }
+      const checked=await guard(true);if(checked.handled)return checked;
+      if(!pair?.source||!samePair(pair,previous))return fail("timed_out","The drag targets did not become stable and actionable before the deadline");
+      const fresh=await preparePair({ref:pair.source.element.ref},{ref:pair.destination.element.ref},false);
+      if(fresh.error||!samePair(fresh,pair))return fail("target_changed","A drag target moved or changed immediately before input");
+      if(fresh.source.element.ref===fresh.destination.element.ref)return fail("drag_same_target","Choose distinct source and destination elements");
+      const from=fresh.source.point,to=fresh.destination.point;
+      if(Math.hypot(to.x-from.x,to.y-from.y)<4)return fail("drag_distance_too_small","Choose distinct drag points at least four CSS pixels apart");
+      const stopped=await guard(true);if(stopped.handled)return stopped;
+      let settled=false,native,failure;dispatched=true;dragRequested=true;
+      const pending=view.execute("drag",{agent:true,navigation,drag_key:action.id,...from,to_x:to.x,to_y:to.y,
+        timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
+        .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
+      while(!settled){
+        await Promise.race([pending,pause(40)]);
+        const boundary=await guard(true);
+        if(boundary.handled){try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}return boundary;}
+      }
+      if(failure)return fail("action_uncertain",String(failure.message||failure).slice(0,512));
+      if(!native.accepted||!native.trusted_input){if(native.dispatched===false)dispatched=false;return fail(dispatched?"action_uncertain":"drag_rejected",String(native.error||"Native dragging was not confirmed").slice(0,512));}
+      const boundary=await guard(true);if(boundary.handled)return boundary;
+      return{handled:true,result:{ok:true,action:action.id,dispatched,verification:"native_delivery",input_method:"native_drag",
+        drag_kind:native.drag_kind,observation:await read("observe",{limit:100,max_bytes:4096})}};
+    }
     if (params.op === "scroll" && !params.target) {
       const snapshot = await read("observe", { limit: 1, max_bytes: 256 });
       if (snapshot.document !== params.document) return fail("stale_document", "Observe the current document before scrolling");
@@ -222,6 +269,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (error.popup) return popupBoundary();
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
+    if(dragRequested)try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}
     if (exclusive) writers.delete(writer);
     if (command === "capture") capturing = false;
   }

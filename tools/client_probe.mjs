@@ -118,10 +118,21 @@ try {
   assert.equal((await client.result({id:interrupted.id})).state,"cancelled");
   assert.ok(!(await sdk.call("panel.list")).some(panel=>panel.resource?.id===closedId),"Browser close left a panel");
   await client.result({id:interrupted.id,release:true});
+  browser=await client.tabs({action:"create",client:clients[0].id,url:`${origin}/__browser_use_drag__.html`,key:"js-native-drag"});
+  const dragPage=await client.observe({browser:browser.id});
+  const pointerDrag=await client.act({browser:browser.id,document:dragPage.document,op:"drag",target:{name:"Pointer handle"},destination:{name:"Drop target"}});
+  assert.equal(pointerDrag.drag_kind,"pointer");assert.ok(pointerDrag.observation.text.includes("Pointer release true"));
+  const dragOperation=`sdk-${crypto.randomUUID().replaceAll("-","")}`;
+  const dragParams={browser:browser.id,document:dragPage.document,op:"drag",target:{name:"HTML handle"},destination:{name:"Drop target"}};
+  const dropped=await client.act(dragParams,{operation:dragOperation,retain:true});
+  assert.equal(dropped.drag_kind,"html5");assert.ok(dropped.observation.text.includes("Drops 1"));
+  assert.deepEqual(await client.act(dragParams,{operation:dragOperation,retain:true}),dropped);
+  assert.ok((await client.observe({browser:browser.id})).text.includes("Drops 1"));
+  await client.operation({action:"release",operation:dragOperation});
   const report = { passed: true, backend: "actual-js-client-mdo-webview2", duplicate_native_clicks: 0,
     released_identity_not_replayed: true, navigation_completed: true, native_dialog_checkpoint_and_response: true,
     duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true,
-    closed_panels_removed:true,closed_pending_wait_cancelled:true,exact_selection_once:true,screenshot_modes:screenshotModes };
+    closed_panels_removed:true,closed_pending_wait_cancelled:true,exact_selection_once:true,native_drag_once:true,screenshot_modes:screenshotModes };
   await writeFile(output, JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(JSON.stringify(report) + "\n");
 } catch (error) {

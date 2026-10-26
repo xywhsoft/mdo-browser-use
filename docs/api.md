@@ -87,7 +87,7 @@ text, `data-testid` (`testid`) and CSS. Optional `frame` narrows matching. Do no
 combine `ref` with semantic selectors. Ambiguity returns candidates.
 
 Actions: `click`, `double_click`, `right_click`, `middle_click`, `hover`, `fill`,
-`type`, `key`, `check`, `select`, `scroll`.
+`type`, `key`, `check`, `select`, `scroll`, `drag`.
 Fill/type require text; check requires a boolean `checked`; key uses the generated
 bounded enum. Viewport scrolling may omit a target. Timeouts are 1–60000 ms,
 default 10000. Each action requires a fresh observed document.
@@ -97,8 +97,43 @@ stable geometry. Double-click performs two left clicks with native click counts;
 right/middle use their actual buttons. A backend must advertise `advanced_mouse`
 for these gestures; otherwise it fails before scrolling/evaluating/input rather
 than substituting a left click. Page event delivery does not prove the website's
-business operation succeeded. Drag and vision-coordinate input are later
-stages.
+business operation succeeded. Vision-coordinate input is a later stage.
+
+## Native dragging through the shared action service
+
+```javascript
+await browser.act({ browser: tab.id, document: page.document, op: "drag",
+  target: { role: "button", name: "Card to move" },
+  destination: { role: "button", name: "Drop target" } });
+```
+
+C callers pass the same object to `mdoBrowserUseAct`; Agent calls use
+`browser_act`. Both targets must resolve precisely in the same fresh observed
+document. `destination` supports the same locator fields as `target`, requires
+a selector beyond `frame`, and is only valid for drag. There is no supplied
+JavaScript, raw drag payload, local file path or coordinate escape hatch.
+
+The source can scroll into view during preparation. Both elements must then be
+visible together, stable and hit-testable; this version does not drag across an
+offscreen/autoscrolling region. An unsupported backend fails before reading or
+scrolling the targets. Native input owns one view slot through completion and
+cleanup, and refuses conflicting input/capture. Viewport resize, navigation,
+user takeover, cancellation and deadlines stop further delivery and release
+the pointer. An uncertain outcome must be inspected before another attempt.
+
+Success reports `input_method:"native_drag",verification:"native_delivery"`
+and `drag_kind:"pointer"|"html5"`, with a fresh observation. Pointer gestures
+deliver trusted native press/move/release events. HTML5 data comes only from
+the intercepted browser event and stays in memory; it is not echoed in results
+or stored as operation arguments. File lists, local/non-HTTP or credential URI
+lists, download payloads and excessive data are refused. Files require the
+separate transfer capability, which is still under development.
+
+Native delivery does not prove the website accepted the drop or saved a change.
+Verify the business result. The normal durable operation identity/recovery rules
+apply to drag, so recovering the same operation cannot issue a second gesture.
+If native cleanup cannot be confirmed, `drag_cleanup_failed` blocks further
+mutations/capture in that view; inspect and end that browser before reopening.
 
 ## Select option discovery and exact selection
 

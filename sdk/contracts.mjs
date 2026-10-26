@@ -219,7 +219,8 @@ export const services = [
             "double_click",
             "right_click",
             "middle_click",
-            "select"
+            "select",
+            "drag"
           ]
         },
         "target": {
@@ -336,6 +337,57 @@ export const services = [
                 "minimum": 0,
                 "maximum": 255
               }
+            }
+          }
+        },
+        "destination": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "placeholder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "testid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "css": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
             }
           }
         }

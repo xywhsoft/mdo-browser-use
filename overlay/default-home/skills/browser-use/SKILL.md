@@ -24,6 +24,15 @@ dropdown widgets need their visible controls. Select emits one controlled DOM
 input/change pair (`events_trusted:false`); verify the website's business result.
 If the page overrides the result, inspect it instead of repeating the selection.
 
+Use `browser_act(op="drag",document=<fresh id>,target=<precise source>,
+destination=<precise drop target>)` for a native pointer/HTML5 drag. Both targets
+must be visible together; this version cannot drag through offscreen regions.
+Read the returned observation and verify the website's actual drop result.
+`verification:"native_delivery"` does not mean the website saved the change.
+Never repeat an uncertain drag without inspecting its effects. Native cleanup
+failure requires ending the affected browser. Dragging does not upload files;
+do not pass local paths, raw data or invented coordinates as target locators.
+
 After acting, verify the relevant page or business result. An action being
 accepted or dispatched does not prove that the user's task succeeded. If a
 mutating action may already have run, inspect the state instead of repeating it.

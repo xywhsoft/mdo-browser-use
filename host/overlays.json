@@ -328,6 +328,11 @@
       "after": "\"capture_cancel\",\"drag\",\"drag_cancel\"].includes(request.command)"
     },
     {
+      "path": "tools/workbench_contracts.py",
+      "before": "'target':{'type':'object'},'choices':",
+      "after": "'target':{'type':'object'},'destination':{'type':'object'},'choices':"
+    },
+    {
       "path": "app/web/js/features/workbench/model.js",
       "before": "  if (!state.url || state.url === \"about:blank\" && !state.opener) return \"empty\";",
       "after": "  if (state.initial_navigation_pending) return \"loading\";\n  if (!state.url || state.url === \"about:blank\" && !state.opener) return \"empty\";"

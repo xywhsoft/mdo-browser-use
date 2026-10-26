@@ -227,7 +227,8 @@
               "double_click",
               "right_click",
               "middle_click",
-              "select"
+              "select",
+              "drag"
             ]
           },
           "target": {
@@ -344,6 +345,57 @@
                   "minimum": 0,
                   "maximum": 255
                 }
+              }
+            }
+          },
+          "destination": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "frame": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "placeholder": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "testid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "css": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
               }
             }
           }
@@ -737,7 +789,7 @@
       "id": "browser_act",
       "service": "browseruse.act",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
-      "description": "Click, double-click, right-click, middle-click, fill, type, hover, key, check, select exact HTML options or scroll a browser using a fresh observed document and exact target. Waits for actionability. If an effect may have occurred, observe its result instead of repeating it. Dialog/new-window checkpoints are not completion: inspect the dialog or child tab instead of repeating the click. Select uses one controlled DOM input/change transaction (events are not trusted), with exact field-state verification; never substitute repeated clicks after an uncertain result."
+      "description": "Click, double-click, right-click, middle-click, fill, type, hover, key, check, select exact HTML options or scroll a browser using a fresh observed document and exact target. Waits for actionability. If an effect may have occurred, observe its result instead of repeating it. Dialog/new-window checkpoints are not completion: inspect the dialog or child tab instead of repeating the click. Select uses one controlled DOM input/change transaction (events are not trusted), with exact field-state verification; never substitute repeated clicks after an uncertain result. Drag requires a distinct exact destination, both visible in the same viewport. Native delivery is not website success; verify its business result."
     },
     {
       "id": "browser_navigate",

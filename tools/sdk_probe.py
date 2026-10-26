@@ -28,6 +28,7 @@ def main():
     fixture = dev.SOURCE / "app/web/__browser_use_page__.html"
     fixture.write_bytes((dev.ROOT / "tests/fixtures/page.html").read_bytes())
     (dev.SOURCE / "app/web/__browser_use_popup__.html").write_bytes((dev.ROOT / "tests/fixtures/popup.html").read_bytes())
+    (dev.SOURCE / "app/web/__browser_use_drag__.html").write_bytes((dev.ROOT / "tests/fixtures/drag.html").read_bytes())
     dev.stop()
     browser = None
     try:
@@ -52,6 +53,10 @@ def main():
         received = wait_receipt(queued["id"])
         assert "params" not in received and "context" not in received
         page = received["result"]
+        if not page.get("ok") or "Readable fixture text" not in page.get("text",""):
+            report_path.write_text(json.dumps({"passed":False,"phase":"initial-observation","page":{
+                key:page.get(key) for key in ("document","url","title","ready","error")},
+                "text_bytes":len(page.get("text","").encode()),"elements":len(page.get("elements",[]))})+"\n",encoding="utf-8")
         assert page["ok"] and "Readable fixture text" in page["text"], page.get("error")
         assert any(e["name"] == "查询" for e in page["elements"])
         assert any(e["name"] == "Shadow action" for e in page["elements"])
@@ -138,6 +143,12 @@ def main():
         assert stale["error"].get("effect_may_have_occurred", False) is False
         for navigation in ["back", "forward", "reload"]:
             assert complete("browseruse.navigate", {"action": navigation})["observation"]["ready"] == "complete"
+        drag_page=complete("browseruse.navigate",{"action":"goto","url":f"http://127.0.0.1:{dev.state()['port']}/__browser_use_drag__.html"})["observation"]
+        for source,kind,expected in (("Pointer handle","pointer","Pointer release true"),("HTML handle","html5","HTML drop verified")):
+            gesture=complete("browseruse.act",{"document":drag_page["document"],"op":"drag","target":{"name":source},"destination":{"name":"Drop target"}})
+            assert gesture["input_method"]=="native_drag" and gesture["drag_kind"]==kind
+            assert expected in gesture["observation"]["text"]
+            actions+=1
         subprocess.run(["node", "tools/client_probe.mjs"], cwd=dev.ROOT, check=True)
         report = {"passed": True, "backend": "actual-mdo-ui-webview2",
                   "public_services": ["browseruse.observe", "browseruse.act", "browseruse.navigate", "browseruse.wait", "browseruse.screenshot"],
@@ -161,5 +172,10 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except (RuntimeError, OSError, ValueError, AssertionError) as error:
+        path=dev.ENV/"public-sdk-result.json"
+        try:report=json.loads(path.read_text(encoding="utf-8"))
+        except (OSError,ValueError):report={}
+        report.update({"passed":False,"state":"failed","error":str(error)[:1024]})
+        path.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8")
         print(error, file=sys.stderr)
         raise SystemExit(1)

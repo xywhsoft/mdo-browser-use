@@ -68,6 +68,7 @@ def main():
             raise RuntimeError("The persistent QA session permission changed; refusing to overwrite it")
     (dev.SOURCE / "app/web/__browser_use_page__.html").write_bytes((dev.ROOT / "tests/fixtures/page.html").read_bytes())
     (dev.SOURCE / "app/web/__browser_use_popup__.html").write_bytes((dev.ROOT / "tests/fixtures/popup.html").read_bytes())
+    (dev.SOURCE / "app/web/__browser_use_drag__.html").write_bytes((dev.ROOT / "tests/fixtures/drag.html").read_bytes())
     dev.stop()
     browser = None
     owner = {"extension": "plugin.mdo.browser-use", "project": "default", "session": FULL}
@@ -171,6 +172,20 @@ def main():
         assert not any(row["id"] == child["id"] for row in foreign), "A different managed task could see the popup"
         assert tool("browser_open", {"action": "close", "browser": child["id"]})["success"]
         assert tool("browser_navigate", {"browser": browser, "action": "reload"})["success"]
+        dragged_page=value(tool("browser_navigate",{"browser":browser,"action":"goto","url":f"http://127.0.0.1:{dev.state()['port']}/__browser_use_drag__.html"}))["observation"]
+        for source,kind,expected in (("Pointer handle","pointer","Pointer release true"),("HTML handle","html5","HTML drop verified")):
+            dragged=tool("browser_act",{"browser":browser,"document":dragged_page["document"],"op":"drag",
+                "target":{"name":source},"destination":{"name":"Drop target"}})
+            assert dragged["success"] and value(dragged)["drag_kind"]==kind
+            assert expected in value(dragged)["observation"]["text"]
+        readonly_drag=dev.call("browser.create",{"client":client,"url":f"http://127.0.0.1:{dev.state()['port']}/__browser_use_drag__.html"},readonly_scope)["id"]
+        try:
+            readonly_page=value(tool("browser_observe",{"browser":readonly_drag},READ_ONLY))
+            denied_drag=tool("browser_act",{"browser":readonly_drag,"document":readonly_page["document"],"op":"drag",
+                "target":{"name":"HTML handle"},"destination":{"name":"Drop target"}},READ_ONLY)
+            assert denied_drag["success"] is False
+            assert "context_mismatch" not in denied_drag["text"],"Foreign ownership hid the permission check"
+        finally:dev.call("browser.close",{"id":readonly_drag},readonly_scope)
         assert tool("browser_open", {"action": "close", "browser": browser})["success"]
         browser = None
         report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 9,
@@ -179,7 +194,7 @@ def main():
                   "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,
                   "managed_popup_ownership": True, "native_screenshot_image": True,
                   "native_mouse_gestures": ["double_click", "right_click", "middle_click"],
-                  "exact_selection_and_discovery":True,"readonly_select_denied":True}
+                  "exact_selection_and_discovery":True,"readonly_select_denied":True,"native_drag":True}
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:
