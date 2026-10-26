@@ -1,0 +1,11 @@
+.mdo/
+.build/
+dist/
+__pycache__/
+*.pyc
+*.log
+*.dmp
+node_modules/
+.env
+.env.*
+!.env.example
