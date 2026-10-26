@@ -8,7 +8,7 @@ development stream and the single deployment inside this project.
 | A0 | Pin mdo, bootstrap reusable development environment, real startup | Complete |
 | A1 | Shared contracts and actual C plugin/SDK registration | Complete |
 | B | Windows observation, element references and native input | In progress |
-| C | Waiting, action identity, ownership, cancellation and recovery | Pending |
+| C | Waiting, action identity, ownership, cancellation and recovery | In progress |
 | D | Frames, tabs, dialogs, upload/download and visible UI | Pending |
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
@@ -253,3 +253,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - The normal UI probe then passed all ten actions, four navigations and five
   waits, followed by an actual JavaScript-client native click/recovery probe.
   Viewport failure messages retain bounded mount/readiness diagnostics.
+
+## C3 — durable shared operation recovery
+
+- Added `browseruse.operation` and generated C/JS definitions, reusing mdo's
+  durable admission journal rather than adding another queue or storage engine.
+  Submit/get/cancel/release preserve the original identity and task scope.
+  Different parameters conflict; released/interrupted results never replay.
+- The JS client uses this service for mutations, preserves the ID when a reply
+  is lost and exposes `recover`. Low-level queued receipts no longer echo their
+  arguments. Confirmed argument failures remain distinct from uncertain effects.
+- Three actual C/broker tests cover duplicate admission, changed arguments,
+  scope, release and known no-effect failure. JS tests cover lost replies and
+  expiry without replacement submission. All 17 Python/11 JS checks passed.
+- A real JS client operating the normal native UI clicked once across repeated
+  submissions, including after release, and completed navigation. A real restart
+  of this same host/Home retained admission and reported the missing result;
+  re-submission produced no duplicate tab even with a live replacement client.
+- API usage and explicit recovery semantics are documented in `docs/api.md`.
+  Dialogs, native transfer, frame completion, platform adapters and remaining
+  lifecycle/adversarial validation still prevent a completion claim.

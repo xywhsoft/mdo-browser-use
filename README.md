@@ -49,6 +49,7 @@ node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
+python tools/restart_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -66,6 +67,11 @@ receipt after completion. Pending/accepted delivery is never page success.
 full-access permissions, without requesting model output. It reuses named QA
 sessions in this deployment. Read-only inspection and browser mutations are
 separate tools; ordinary browser errors remain tool feedback.
+
+See [the shared API](docs/api.md) for C/JS calls, operation identities and
+recovery. The SDK probe also runs the actual JS client against WebView2;
+`restart_probe.py` restarts this same project host and verifies that retained
+admission prevents re-execution after an ephemeral result is lost.
 
 ## Scope
 

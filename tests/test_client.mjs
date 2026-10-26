@@ -68,3 +68,27 @@ test("reader cancellation reaches the owned host receipt", async () => {
   await assert.rejects(client.observe({ browser: "unused" }, { signal: controller.signal }), { code: "cancelled" });
   assert.equal(calls.length, 0);
 });
+
+test("lost admission reply retains the identity and recovery never resubmits it", async () => {
+  const calls = [];
+  const operation = "sdk-00000000000000000000000000000001";
+  const client = createBrowserUseClient({ async call(method, params) {
+    calls.push({ method, params });
+    if (params.action === "submit") throw Error("Admission reply lost");
+    return { operation, state: "succeeded", result: { ok: true } };
+  }});
+  await assert.rejects(client.act({ browser: "fixture" }, { operation }), { operation, message: "Admission reply lost" });
+  assert.equal((await client.recover(operation)).ok, true);
+  assert.deepEqual(calls.map(row => row.params.action), ["submit", "get", "release"]);
+});
+
+test("expired operation recovery never creates a replacement action", async () => {
+  const actions = [];
+  const operation = "sdk-00000000000000000000000000000002";
+  const client = createBrowserUseClient({ async call(method, params) {
+    actions.push(params.action);
+    return { operation, state: "uncertain", error: { code: "result_expired", message: "Inspect the tab" } };
+  }});
+  await assert.rejects(client.recover(operation), { operation, code: "result_expired" });
+  assert.deepEqual(actions, ["get", "release"]);
+});

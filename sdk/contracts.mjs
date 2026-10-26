@@ -393,5 +393,47 @@ export const services = [
     "output": {
       "type": "object"
     }
+  },
+  {
+    "id": "browseruse.operation",
+    "description": "Submit or recover one Browser Use operation by a durable at-most-once identity. Released, interrupted or expired results are never silently replayed.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "operation"
+      ],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "submit",
+            "get",
+            "cancel",
+            "release"
+          ]
+        },
+        "operation": {
+          "type": "string",
+          "minLength": 36,
+          "maxLength": 36
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "browseruse.tabs",
+            "browseruse.act",
+            "browseruse.navigate"
+          ]
+        },
+        "arguments": {
+          "type": "object"
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
   }
 ];

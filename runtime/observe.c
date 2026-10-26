@@ -12,8 +12,12 @@ static mdo_result BuQueue(const mdo_sdk_context_v1* C,const xvalue* P,const char
     uint64_t Timeout=10000;V->Unsigned(V->Get(P,"timeout_ms"),&Timeout);
     mdo_sdk_context_v1 Bound=*C;uint64_t Deadline=C->Api->MonotonicMicroseconds()+(Timeout+5000)*1000;
     if(!Bound.Deadline||Bound.Deadline>Deadline)Bound.Deadline=Deadline;
-    Code=mdoCall(&Bound,"browser.command",Args,Result,E);
-    V->Release(Args);V->Release(Browser);return Code;
+    xvalue* Receipt=NULL;Code=mdoCall(&Bound,"browser.command",Args,&Receipt,E);
+    if(Code==MDO_RESULT_OK){
+        *Result=V->Object();bool Ok=*Result&&BuPut(C,*Result,"id",BuText(C,Receipt,"id"))&&BuPut(C,*Result,"state",BuText(C,Receipt,"state"));
+        if(!Ok){V->Release(*Result);*Result=NULL;Code=BuFail(E,"allocation_failed","Cannot publish the queued receipt",500);if(E)E->MayHaveCompleted=true;}
+    }
+    V->Release(Receipt);V->Release(Args);V->Release(Browser);return Code;
 }
 static mdo_result BuObserve(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
                             xvalue** Result,mdo_error_v1* E) {

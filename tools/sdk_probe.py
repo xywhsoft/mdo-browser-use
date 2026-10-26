@@ -1,6 +1,7 @@
 """Public C service -> real mdo UI -> native WebView2 -> scoped SDK result."""
 import json
 import sys
+import subprocess
 import time
 
 import dev
@@ -57,6 +58,7 @@ def main():
         actions = 0
         def act(op, target=None, **options):
             nonlocal actions
+            report_path.write_text(json.dumps({"passed": False, "state": "running", "phase": "act:" + op, "completed_actions": actions}) + "\n", encoding="utf-8")
             request = {"browser": browser, "document": page["document"], "op": op, **options}
             if target is not None:
                 request["target"] = target
@@ -108,11 +110,12 @@ def main():
         assert stale["error"].get("effect_may_have_occurred", False) is False
         for navigation in ["back", "forward", "reload"]:
             assert complete("browseruse.navigate", {"action": navigation})["observation"]["ready"] == "complete"
+        subprocess.run(["node", "tools/client_probe.mjs"], cwd=dev.ROOT, check=True)
         report = {"passed": True, "backend": "actual-mdo-ui-webview2",
                   "public_services": ["browseruse.observe", "browseruse.act", "browseruse.navigate", "browseruse.wait"],
                   "actions": actions, "navigations": 4, "wait_conditions": waits,
                   "automatic_readiness": True, "elements": len(page["elements"]),
-                  "frames": len(page["frames"]), "request_bytes_in_ui_queue": len(json.dumps(queued["params"]).encode())}
+                  "frames": len(page["frames"]), "public_receipt_bytes": len(json.dumps(queued).encode())}
         report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
         return 0

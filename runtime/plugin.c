@@ -14,6 +14,7 @@ typedef struct BuToolSpec {
     mdo_tool_effects Effects;
     size_t Service;
 } BuToolSpec;
+static mdo_result BuOperation(void*,const mdo_sdk_context_v1*,const xvalue*,xvalue**,mdo_error_v1*);
 #include "contracts.inc.h"
 
 static mdo_result BuDispatch(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
@@ -24,6 +25,7 @@ static mdo_result BuDispatch(void* User,const mdo_sdk_context_v1* C,const xvalue
     if(!Valid)return BuFail(E,"arguments_invalid","Arguments do not match the Browser Use service contract",422);
     return Service->Execute(NULL,C,P,Result,E);
 }
+#include "operations.c"
 #include "tools.c"
 static mdo_result BuRegister(const mdo_host_services_v1* Host,
                              const mdo_registrar_v1* Registrar,void** Data,char* Error,size_t Capacity) {
