@@ -135,3 +135,17 @@ checks passed after reapplying the overlays.
 Native API references: [CDP Input](https://chromedevtools.github.io/devtools-protocol/tot/Input/),
 [Page isolated worlds](https://chromedevtools.github.io/devtools-protocol/tot/Page/#method-createIsolatedWorld),
 [Runtime evaluation](https://chromedevtools.github.io/devtools-protocol/tot/Runtime/#method-evaluate).
+
+## B4 — locator and actionability preparation
+
+- Added exact label, placeholder, test-id, CSS and smallest-text matching across
+  the bounded document/frame/shadow traversal. Invalid selectors, ambiguous
+  matches and incomplete scans remain explicit failures.
+- Preparation checks enabled/editable/checkable state, scrolls the target when
+  requested, checks actual hit testing and translates same-origin frame CSS
+  points. Unsupported transformed-frame geometry is rejected before input.
+- Fill/check verification returns a boolean without returning the field value.
+  The real native fixture now passes 73 checks including covered/disabled/read-only
+  controls, CSS errors, semantic locators, frame and shadow hit tests.
+- This is the page engine; the public operation dispatcher still needs stable
+  geometry sampling, one writer, cancellation and effect-result handling.

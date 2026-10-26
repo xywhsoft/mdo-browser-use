@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 1;
+  const version = 2;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -120,10 +120,11 @@ export function browserRuntime() {
           const value = normalize(element.textContent); if (value) text.push(value.slice(0, 2048));
         }
         const elementRole = shown ? role(element) : "";
-        if (elementRole && elements.length < limit) {
+        const matched = typeof options._match === "function" ? shown && options._match(element, frame) : Boolean(elementRole);
+        if (matched && elements.length < limit) {
           const item = inspect(element, frame);
           if (item.ref) elements.push(item); else incomplete = true;
-        } else if (elementRole) incomplete = true;
+        } else if (matched) incomplete = true;
         if (shown && element.shadowRoot) walk(element.shadowRoot, frame, includeText);
         if (shown && ["iframe", "frame"].includes(element.localName)) {
           if (frames.length >= maxFrames) { incomplete = true; continue; }
@@ -166,14 +167,21 @@ export function browserRuntime() {
       } catch { return fail("stale_frame", "The referenced frame is no longer accessible"); }
       candidates = [row];
     } else {
-      const snapshot = scan({ limit: 400 });
+      let snapshot;
+      try { snapshot = scan({ limit: 400, _match: (element, frame) => {
+        if (target.frame && frame !== target.frame) return false;
+        if (target.role && role(element) !== target.role) return false;
+        if (target.name !== undefined && name(element) !== target.name) return false;
+        if (target.label !== undefined && normalize([...element.labels || []].map(label => label.textContent).join(" ")) !== target.label) return false;
+        if (target.placeholder !== undefined && element.getAttribute("placeholder") !== target.placeholder) return false;
+        if (target.testid !== undefined && element.getAttribute("data-testid") !== target.testid) return false;
+        if (target.css && !element.matches(target.css)) return false;
+        if (target.text !== undefined && (normalize(element.textContent) !== target.text ||
+          [...element.children].some(child => normalize(child.textContent) === target.text))) return false;
+        return ["role", "name", "label", "placeholder", "testid", "css", "text"].some(key => target[key] !== undefined);
+      } }); } catch { return fail("locator_invalid", "The target contains an invalid CSS selector"); }
       if (snapshot.truncated) return fail("observation_incomplete", "Narrow the search in a fresh observation");
-      candidates = snapshot.elements.filter(item => {
-        if (target.frame && item.frame !== target.frame) return false;
-        if (target.role && item.role !== target.role) return false;
-        if (target.name !== undefined && item.name !== target.name) return false;
-        return Boolean(target.role || target.name !== undefined);
-      }).map(item => refs.get(item.ref));
+      candidates = snapshot.elements.map(item => refs.get(item.ref));
     }
     candidates = candidates.filter(row => visible(row.element));
     if (!candidates.length) return fail("element_not_found", "No visible element matches the target");
@@ -183,7 +191,78 @@ export function browserRuntime() {
     const row = candidates[0], item = inspect(row.element, row.frame);
     return { ok: true, document: documentId, element: item };
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate });
+  function deepHit(doc, x, y) {
+    let hit = doc.elementFromPoint(x, y);
+    for (let depth = 0; depth < 16 && hit?.shadowRoot; depth++) {
+      const inner = hit.shadowRoot.elementFromPoint?.(x, y);
+      if (!inner || inner === hit) break;
+      hit = inner;
+    }
+    return hit;
+  }
+  function contains(parent, child) {
+    for (let node = child, depth = 0; node && depth < 32; depth++) {
+      if (parent === node || parent.contains(node)) return true;
+      node = node.getRootNode()?.host;
+    }
+    return false;
+  }
+  function pointFor(element, local) {
+    let doc = element.ownerDocument, x = local.x, y = local.y;
+    if (!contains(element, deepHit(doc, x, y))) return null;
+    for (let depth = 0; doc !== document && depth < 16; depth++) {
+      const frame = doc.defaultView.frameElement;
+      if (!frame?.isConnected) return null;
+      for (let ancestor = frame; ancestor; ancestor = ancestor.parentElement) {
+        const style = ancestor.ownerDocument.defaultView.getComputedStyle(ancestor);
+        if (style.transform !== "none" || (style.zoom && Number(style.zoom) !== 1)) return { unsupported: true };
+      }
+      const rect = frame.getBoundingClientRect();
+      x += rect.x + frame.clientLeft; y += rect.y + frame.clientTop;
+      doc = frame.ownerDocument;
+      if (deepHit(doc, x, y) !== frame) return null;
+    }
+    if (doc !== document || x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
+    return { x, y };
+  }
+  function prepare(options = {}) {
+    const found = locate(options); if (!found.ok) return found;
+    const row = refs.get(found.element.ref), element = row.element;
+    if (found.element.disabled) return fail("element_disabled", "The target is disabled");
+    if (["fill", "type"].includes(options.op)) {
+      if (!found.element.editable || element.localName === "input" &&
+          !["text", "search", "tel", "url", "email", "password", "number"].includes(element.type)) {
+        return fail("element_not_editable", "The target does not accept text input");
+      }
+    }
+    if (options.op === "check" && !["checkbox", "radio"].includes(found.element.role)) return fail("element_not_checkable", "The target is not a checkbox or radio input");
+    if (options.scroll) element.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
+    const rect = element.getBoundingClientRect();
+    const viewport = element.ownerDocument.defaultView;
+    const left = Math.max(0, rect.left), top = Math.max(0, rect.top);
+    const right = Math.min(viewport.innerWidth, rect.right), bottom = Math.min(viewport.innerHeight, rect.bottom);
+    if (right <= left || bottom <= top) return fail("element_outside_viewport", "The target is outside the viewport");
+    let point;
+    for (const [rx, ry] of [[0.5, 0.5], [0.25, 0.25], [0.75, 0.75]]) {
+      point = pointFor(element, { x: left + (right-left)*rx, y: top + (bottom-top)*ry });
+      if (point) break;
+    }
+    if (point?.unsupported) return fail("unsupported_geometry", "Transformed frame coordinates require visual or manual control");
+    if (!point) return fail("element_obscured", "Another element covers the target");
+    const current = inspect(element, row.frame);
+    return { ok: true, document: documentId, element: current, point,
+      geometry: [rect.x, rect.y, rect.width, rect.height, point.x, point.y] };
+  }
+  function verify(options = {}) {
+    const found = locate(options); if (!found.ok) return found;
+    const element = refs.get(found.element.ref).element;
+    let matches = true;
+    if (options.op === "fill") matches = (element.isContentEditable ? element.textContent : element.value) === options.text;
+    if (options.op === "check") matches = element.checked === options.checked;
+    return { ok: true, verified: matches, document: documentId,
+      sensitive: element.localName === "input" && element.type === "password" };
+  }
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

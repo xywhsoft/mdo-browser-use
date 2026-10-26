@@ -40,7 +40,7 @@ try {
     await pause(100);
   }
   assert(ready,'Page did not load');
-  await evaluate(`globalThis.__mdo_browser_use_runtime_v1={version:1,documentNode:document,observe:()=>({ok:true,text:'forged observation'})}`);
+  await evaluate(`globalThis.__mdo_browser_use_runtime_v1={version:2,documentNode:document,observe:()=>({ok:true,text:'forged observation'})}`);
   const first = await engine('observe({})');
   assert(first.ok && first.document,'No structured observation');
   assert(first.text.includes('Readable fixture text'),'Missing readable text');
@@ -76,6 +76,22 @@ try {
   try{await bridge.call('input',{browser,agent:true,kind:'text',navigation:state.navigation,text:'must not type'})}catch{manualInput=true}
   assert(manualInput,'Input ignored manual takeover');
   await bridge.call('release',{browser});
+  const prepare=options=>engine(`prepare(${JSON.stringify({document:first.document,...options})})`);
+  for(const target of [{label:'订单号'},{placeholder:'Order number'},{testid:'order-field'},{css:'#order'}]) {
+    assert((await prepare({op:'fill',target})).ok,'Locator failed: '+JSON.stringify(target));
+  }
+  assert((await prepare({op:'click',target:{css:'#disabled'}})).error?.code==='element_disabled','Disabled button admitted');
+  assert((await prepare({op:'fill',target:{name:'Read only'}})).error?.code==='element_not_editable','Read-only field admitted');
+  assert((await prepare({op:'click',target:{css:'['}})).error?.code==='locator_invalid','Invalid CSS locator admitted');
+  const frameTarget=first.elements.find(e=>e.name==='Frame action');
+  assert((await prepare({op:'click',target:{ref:frameTarget.ref},scroll:true})).point,'Frame point translation failed');
+  const shadowTarget=first.elements.find(e=>e.name==='Shadow action');
+  assert((await prepare({op:'click',target:{ref:shadowTarget.ref},scroll:true})).point,'Shadow hit test failed');
+  await evaluate(`document.body.insertAdjacentHTML('beforeend','<div id="cover" style="position:fixed;inset:0;z-index:99999;background:white"></div>')`);
+  assert((await prepare({op:'click',target:{ref:query.ref}})).error?.code==='element_obscured','Obscured button admitted');
+  await evaluate(`document.querySelector('#cover').remove()`);
+  const verified=await engine(`verify(${JSON.stringify({document:first.document,target:{testid:'order-field'},op:'fill',text:'订单 🦉 42'})})`);
+  assert(verified.verified&&!JSON.stringify(verified).includes('订单 🦉 42'),'Input verification leaked field text');
   const ambiguous=await engine(`locate(${JSON.stringify({document:first.document,target:{role:'button',name:'Duplicate'}})})`);
   assert(ambiguous.error?.code==='element_ambiguous','Duplicate locator silently selected an element');
   const limited=await engine('observe({limit:2})');

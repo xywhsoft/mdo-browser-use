@@ -3,7 +3,7 @@
 <title>Browser Use page fixture</title>
 <style>body{font:16px sans-serif;margin:24px}label,button,input{margin:6px}iframe{height:80px;width:400px}</style>
 <h1>Browser Use fixture</h1>
-<label for="order">订单号</label><input id="order" value="initial">
+<label for="order">订单号</label><input id="order" value="initial" data-testid="order-field" placeholder="Order number">
 <label for="password">Password</label><input id="password" type="password" value="fixture-private-value">
 <button id="search" aria-label="查询">Run query</button>
 <button>Duplicate</button><button>Duplicate</button>
@@ -13,6 +13,7 @@
 <iframe title="same origin" srcdoc="<label for='inner'>Frame input</label><input id='inner'><button>Frame action</button>"></iframe>
 <iframe title="opaque" src="data:text/html,%3Cbutton%3EOpaque%20action%3C/button%3E"></iframe>
 <p>Readable fixture text. 中文和 Emoji 🦉 remain intact.</p>
+<button disabled id="disabled">Disabled action</button><input readonly aria-label="Read only">
 <script>document.querySelector('#shadow').attachShadow({mode:'open'}).innerHTML='<button>Shadow action</button>';</script>
 <script>
 document.querySelector('#search').addEventListener('click',e=>{document.body.dataset.clicked=e.isTrusted?'trusted':'untrusted'});
