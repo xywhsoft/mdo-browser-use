@@ -162,7 +162,9 @@ The trusted browser toolbar offers user responses. Responding there takes over
 control and leaves it with the user until the user explicitly returns it.
 Read-only dialog inspection remains available during takeover; Agent responses
 are blocked. A pending dialog expires after 120 seconds and is dismissed on
-view closure. The long-duration expiry gate remains unverified at this stage.
+view closure. The real expiry gate has been verified in WebView2: the page
+resumed after dismissal, the obsolete identity was rejected, and fresh
+observation still worked.
 
 ## New windows and scoped tabs
 

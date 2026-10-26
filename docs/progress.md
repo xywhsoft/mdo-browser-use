@@ -446,3 +446,15 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   rejected stale references and late acknowledgements. Existing page-close,
   popup, screenshot, dialog, navigation and action cases remain passing.
   Transfer/frame/platform/package work remains unfinished.
+
+## L1 — actual native dialog expiry gate
+
+- Added an optional `native_probe.py --dialog-expiry` gate instead of shortening
+  the production timer for tests. The same WebView2/Home waited for its actual
+  lease: the confirm expired after 120931 ms and dismissed as false.
+- Verified that the pending identity stayed stable during the lease, its late
+  response was rejected after expiry, page execution resumed and a fresh isolated
+  observation succeeded. The complete native run passed with 322 assertions
+  (including repeated identity checks) and no new exception diagnostics.
+- The gate restores this same service to headless mode. Android and the remaining
+  transfer/frame/richer-input/package stages are still outstanding.

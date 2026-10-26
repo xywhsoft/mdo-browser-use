@@ -1,4 +1,5 @@
 """Run the page engine in the project's real WebView2, then reuse headless mode."""
+import argparse
 import json
 from pathlib import Path
 import sys
@@ -15,6 +16,8 @@ import { createNativeBrowserBridge } from '/js/features/workbench/native-browser
 import { createBrowserDialogs } from '/js/features/workbench/dialog-ui.js';
 import { prepareScreenshot } from '/js/features/workbench/capture-image.js';
 const runtimeSource = RUNTIME_SOURCE;
+const expiryProbe = DIALOG_EXPIRY;
+let dialogExpiryMs = null;
 const bridge = createNativeBrowserBridge(), browser = 'browser-use-page-probe';
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let checks=0;
@@ -203,6 +206,25 @@ try {
   const emptyPrompt=await openDialog('#dialog-prompt');
   await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:emptyPrompt.id,accept:true,text:'',has_text:true});
   assert(await evaluate("document.querySelector('#dialog-result').textContent")==='prompt:','Explicit empty prompt text did not clear its value');
+  if(expiryProbe){
+    await trace('waiting-for-real-dialog-expiry');
+    await evaluate("document.querySelector('#dialog-result').textContent='expiry-waiting'");
+    const expiring=await openDialog('#dialog-confirm'),started=performance.now();
+    let expired=false;
+    while(performance.now()-started<126000){
+      await pause(1000);
+      const pending=(await bridge.call('dialog',{browser,action:'list'})).dialogs;
+      if(!pending.length){expired=true;break;}
+      assert(pending[0].id===expiring.id,'An unrelated dialog replaced the expiry target');
+    }
+    dialogExpiryMs=Math.round(performance.now()-started);
+    assert(expired&&dialogExpiryMs>=118000&&dialogExpiryMs<126000,'The real 120-second dialog lease did not expire within its bound');
+    assert(await evaluate("document.querySelector('#dialog-result').textContent")==='confirm:false','Expired confirm did not dismiss and resume its page');
+    let stale=false;try{await bridge.call('dialog',{browser,action:'respond',dialog:expiring.id,accept:true})}catch{stale=true}
+    assert(stale,'An expired dialog identity was accepted');
+    assert((await engine('observe({})')).document===first.document,'The expired dialog prevented fresh page observation');
+    await trace('real-dialog-expiry-passed');
+  }
   const readModal=bridge.call('automation',{browser,agent:true,script:"(()=>{alert('Isolated read dialog');return {ok:true}})()"});
   const readBoundary=await Promise.race([readModal,pause(1000).then(()=>{throw Error('Isolated reading did not yield at its dialog')})]);
   assert(readBoundary.value?.blocked_by_dialog,'Isolated reading did not report its modal boundary');
@@ -383,7 +405,7 @@ try {
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,dialog_expiry_ms:dialogExpiryMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -402,7 +424,7 @@ try {
 '''
 
 
-def main():
+def main(dialog_expiry=False):
     output = dev.ENV / "page-observation-result.json"
     output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
     dump_root = dev.ENV / "host"
@@ -415,7 +437,7 @@ def main():
     if runtime.count("export function browserRuntime()") != 1:
         raise RuntimeError("The injectable page entry changed")
     runtime = runtime.replace("export function browserRuntime()", "function browserRuntime()")
-    script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c"))
+    script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry))
     (web / "__browser_use_page__.html").write_bytes((ROOT / "tests/fixtures/page.html").read_bytes())
     (web / "__browser_use_popup__.html").write_bytes((ROOT / "tests/fixtures/popup.html").read_bytes())
     (web / "__browser_use_probe__.html").write_text(
@@ -431,7 +453,7 @@ def main():
     result = None
     try:
         dev.start(window=True, page="/__browser_use_probe__.html")
-        deadline = time.monotonic() + 70
+        deadline = time.monotonic() + (200 if dialog_expiry else 70)
         while time.monotonic() < deadline:
             try:
                 saved = dev.call("storage.read", {"path": REPORT_PATH}, REPORT)
@@ -467,8 +489,11 @@ def main():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--dialog-expiry", action="store_true", help="Also wait for the actual 120-second native dialog lease")
+    args = parser.parse_args()
     try:
-        raise SystemExit(main())
+        raise SystemExit(main(args.dialog_expiry))
     except (RuntimeError, OSError, ValueError) as error:
         print(error, file=sys.stderr)
         raise SystemExit(1)
