@@ -122,6 +122,20 @@ class PluginTests(unittest.TestCase):
             dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
             self.invoke({"action": "close", "browser": browser["id"]})
 
+    def test_ui_origin_includes_empty_fields_and_cannot_inherit_another_selected_chat(self):
+        scope = {"extension": "browser-use-empty-origin"}
+        queued = dev.call("ui.invoke", {"client": self.client, "action": "ui.toast", "params": {"message": "fixture"},
+            "context": {"project": "forged-project", "session": "forged-session", "run": "forged-run"}}, scope)
+        try:
+            frozen = queued["context"]
+            self.assertEqual(frozen["project"], "default")
+            for field in ("session", "run", "namespace", "member"):
+                self.assertEqual(frozen[field], "")
+            self.assertEqual(frozen["extension"], scope["extension"])
+        finally:
+            dev.call("ui.cancel", {"id": queued["id"]}, scope)
+            dev.call("ui.release", {"id": queued["id"]}, scope)
+
     def test_action_arguments_fail_before_queueing(self):
         for fields, code in [
             ({"op": "click"}, "target_required"),

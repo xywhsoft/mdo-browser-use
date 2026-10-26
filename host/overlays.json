@@ -110,6 +110,11 @@
       "path": "app/src/application/jobs.c",
       "before": "            bool Ok=J->Extension&&J->Project",
       "after": "            BuOperationStamp(J->Info,C);\n            bool Ok=J->Device&&J->Extension&&J->Project"
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "        if(!SdkGet(Scope,\"project\")&&C->ProjectId&&C->ProjectId[0])SdkPut(Scope,\"project\",C->ProjectId);\n        if(!SdkGet(Scope,\"session\")&&C->SessionId&&C->SessionId[0])SdkPut(Scope,\"session\",C->SessionId);",
+      "after": "        SdkPut(Scope,\"project\",C->ProjectId&&C->ProjectId[0]?C->ProjectId:\"default\");\n        SdkPut(Scope,\"session\",C->SessionId);SdkPut(Scope,\"run\",C->RunId);\n        SdkPut(Scope,\"namespace\",C->Namespace);SdkPut(Scope,\"member\",C->MemberId);"
     }
   ],
   "files": [

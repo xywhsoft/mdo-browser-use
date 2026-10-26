@@ -237,3 +237,19 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   execution. The full managed native-tool probe still passed after this fix.
 - This is isolation between local SDK scopes, not evidence of an anonymous or
   cross-account network vulnerability. No production service was changed.
+
+## C2a — frozen empty UI scope fixes a real viewport failure
+
+- The expanded native recovery probe reproduced a second-step viewport failure
+  after another QA conversation had been opened. The page was loaded and its
+  renderer alive, but browser reporting failed context validation and the UI
+  then hid the native view.
+- Root cause: UI receipts omitted empty session/project fields. Frontend SDK
+  binding filled those missing fields from the currently selected conversation,
+  creating the browser panel in a different session from the browser itself.
+- UI origins now freeze project/session/run/collaboration fields explicitly,
+  including empty values. Invocation parameters cannot substitute a different
+  origin. A real SDK regression checks empty fields and forged input context.
+- The normal UI probe then passed all ten actions, four navigations and five
+  waits, followed by an actual JavaScript-client native click/recovery probe.
+  Viewport failure messages retain bounded mount/readiness diagnostics.
