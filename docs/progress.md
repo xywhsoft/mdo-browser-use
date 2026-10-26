@@ -579,3 +579,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   automatic first observation, navigation, written blank popups and dragging.
 - Public drag integration and transfer/frame/platform/package work remain in
   progress; this entry does not declare the full Browser Use goal complete.
+
+## L4 — release intercepted HTML5 drag sources after rejection
+
+- A strengthened recovery check found that `Input.cancelDragging` alone left
+  an intercepted HTML5 source active after payload rejection. The next gesture
+  returned pointer delivery without a new HTML5 start/drop. The failing result
+  and bounded source start/end metadata are retained privately as evidence.
+- Cleanup now also sends `dispatchDragEvent(dragCancel)` for intercepted sources,
+  using an empty payload even when the original data was rejected. Late first
+  interception during cleanup schedules that source cancellation before release.
+  No cleanup branch issues a drop or repeats the original action.
+- Local/non-HTTP URI lists, credential URLs, download payloads and file lists
+  are rejected before drop. Gesture viewport resizing cancels its old coordinates.
+  A compiled test exercises the actual URI policy, including values Chromium
+  can strip before interception. The native fixture checks actual received data.
+- Rebuilt and passed 360 real native assertions with no new diagnostics,
+  including successful HTML5 drop after rejection, resize/cancel release and
+  file URI filtering. All checks reuse the same host/Home/output directories.
+- Implementation evidence: [Chromium input handler](https://raw.githubusercontent.com/chromium/chromium/main/content/browser/devtools/protocol/input_handler.cc).

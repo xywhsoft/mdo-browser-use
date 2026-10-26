@@ -3,14 +3,30 @@
 static constexpr UINT_PTR xb_drag_timer=0xBADD4;
 struct xb_drag_job;
 static std::map<HWND,std::weak_ptr<xb_drag_job>> xb_drag_jobs;
+static bool xb_drag_url(const std::string& url){
+  if(url=="about:blank")return true;
+  size_t start=url.rfind("https://",0)==0?8:url.rfind("http://",0)==0?7:0;
+  if(!start||url.size()>8192)return false;auto end=url.find_first_of("/?#",start);if(end==std::string::npos)end=url.size();
+  if(end==start||url.substr(start,end-start).find('@')!=std::string::npos)return false;
+  for(unsigned char c:url)if(c<=32||c=='\\')return false;return true;
+}
+static bool xb_drag_uri_list(const std::string& data){
+  size_t start=0;unsigned lines=0;
+  while(start<data.size()){
+    if(++lines>32)return false;auto end=data.find('\n',start);if(end==std::string::npos)end=data.size();
+    auto line=data.substr(start,end-start);if(!line.empty()&&line.back()=='\r')line.pop_back();
+    if(!line.empty()&&line.front()!='#'&&!xb_drag_url(line))return false;start=end+1;
+  }return true;
+}
 struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;
   ICoreWebView2DevToolsProtocolEventReceiver* receiver=nullptr;EventRegistrationToken token{};
   std::string id,key,error,dragData;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
   double x=0,y=0,toX=0,toY=0,currentX=0,currentY=0;unsigned phase=0,moved=0,cleanup=0;
-  bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
+  LONG width=0,height=0;
+  bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
   ~xb_drag_job(){if(receiver){if(subscribed)receiver->remove_DevToolsProtocolEventReceived(token);receiver->Release();}}
-  bool live()const{return xb_automation_live(host,view,navigation);}
+  bool live()const{return xb_automation_live(host,view,navigation)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
   void reply(){
     if(replied)return;replied=true;
     host->reply(id,"{\"accepted\":"+std::string(error.empty()?"true":"false")+",\"trusted_input\":true,\"dispatched\":"+
@@ -37,7 +53,13 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     });
   }
   void receive(const std::string& json){
-    if(done||!error.empty()||!dragData.empty())return;
+    if(done||intercepted)return;
+    intercepted=true;
+    // cancelDragging only owns Chromium's automatic drag controller. An
+    // intercepted drag needs dragCancel even when its payload was rejected.
+    // A late intercepted event can arrive while earlier cleanup drains.
+    if(cleanup>1&&!dropped)cleanup=1;
+    if(!error.empty())return;
     if(phase>=8){stop("Native drag data arrived after gesture cleanup; no drop was issued");return;}
     const auto data=xb_get(json,"data"),files=xb_get(data,"files"),items=xb_get(data,"items"),mask=xb_get(data,"dragOperationsMask");
     if(data.empty()||data.size()>65536||(!files.empty()&&files!="[]")||items.empty()||items.front()!='['){stop("File drag or oversized native drag data is not allowed through this gesture");return;}
@@ -47,6 +69,8 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
       const auto item=webview::detail::json_parse(items,"",n);if(item.empty())break;
       const auto mime=xb_get(item,"mimeType"),value=xb_get(item,"data"),title=xb_get(item,"title"),base=xb_get(item,"baseURL");
       if(n==16||mime.empty()||mime.size()>128||value.size()>16384||title.size()>2048||base.size()>8192){stop("Native drag item exceeds its resource bound");return;}
+      auto type=mime;for(char& c:type)if(c>='A'&&c<='Z')c+=32;
+      if(type=="downloadurl"||(type=="text/uri-list"&&!xb_drag_uri_list(value))||(!base.empty()&&!xb_drag_url(base))){stop("Local/non-HTTP file or download data requires the transfer interface");return;}
       if(!safe.empty())safe+=",";safe+="{\"mimeType\":"+xb_quote(mime)+",\"data\":"+xb_quote(value);
       if(!title.empty())safe+=",\"title\":"+xb_quote(title);if(!base.empty())safe+=",\"baseURL\":"+xb_quote(base);safe+="}";
     }
@@ -59,8 +83,9 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     if(!error.empty()||phase>=8){
       // Cleanup is attempted once per step; it cannot issue another drop.
       if(cleanup==0){cleanup++;if(!error.empty()||!dropped){call(L"Input.cancelDragging","{}");return;}}
-      if(cleanup==1){cleanup++;if(pressed){pressed=false;call(L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"button\":\"left\",\"buttons\":0,\"clickCount\":1"+point()+"}");return;}}
-      if(cleanup==2){cleanup++;if(intercepting){intercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}");return;}}
+      if(cleanup==1){cleanup++;if(intercepted&&!dropped){call(L"Input.dispatchDragEvent","{\"type\":\"dragCancel\",\"x\":"+std::to_string(x)+",\"y\":"+std::to_string(y)+",\"data\":{\"items\":[],\"dragOperationsMask\":0}}");return;}}
+      if(cleanup==2){cleanup++;if(pressed){pressed=false;call(L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"button\":\"left\",\"buttons\":0,\"clickCount\":1"+point()+"}");return;}}
+      if(cleanup==3){cleanup++;if(intercepting){intercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}");return;}}
       reply();detach(cleanupFailed);return;
     }
     if(phase==0){phase=1;intercepting=true;call(L"Input.setInterceptDrags","{\"enabled\":true}");return;}
@@ -97,6 +122,7 @@ static void xb_drag(const std::shared_ptr<xb_host>& host,const std::shared_ptr<x
     host->reply(id,"","Invalid drag target, document, control or resource budget");return;
   }
   auto job=std::make_shared<xb_drag_job>();job->host=host;job->view=view;job->id=id;job->key=key;job->navigation=view->navigation;
+  job->width=view->bounds.right-view->bounds.left;job->height=view->bounds.bottom-view->bounds.top;
   job->x=x;job->y=y;job->toX=toX;job->toY=toY;job->expires=GetTickCount64()+static_cast<ULONGLONG>(timeout);
   HRESULT received=view->core->GetDevToolsProtocolEventReceiver(L"Input.dragIntercepted",&job->receiver);
   if(FAILED(received)||!job->receiver){host->reply(id,"","This browser does not support native drag interception");return;}
