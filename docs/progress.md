@@ -93,3 +93,12 @@ latest generated result is kept unless a failure needs investigation.
 - Automatic readiness inside observe, Agent tool execution, isolated worlds and
   reliable native inputs are still pending. Manual control currently blocks the
   underlying evaluate operation; no unrestricted evaluate tool is exposed.
+
+## Overlay update safety
+
+Host enhancements are now regenerated from the pinned baseline rather than
+patching already-modified text repeatedly. Previous deployed hashes permit a
+reviewed update; an unrecognized local edit is preserved and blocks all writes.
+`python tools/apply_host.py --check` compares the single deployment to the
+current reviewed files without stopping it. Existing nine Python/three JS
+checks passed after reapplying the overlays.
