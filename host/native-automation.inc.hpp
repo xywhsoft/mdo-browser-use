@@ -1,6 +1,9 @@
 /* Included in the native browser namespace. CDP remains private to the trusted
  * application document. Models receive typed operations, never CDP/script. */
 using xb_cdp_result = std::function<void(bool,const std::string&)>;
+static bool xb_popup_blocked(const std::shared_ptr<xb_view>& view){
+  for(const auto& item:view->popups)if(!item.second->completed)return true;return false;
+}
 static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
                    const std::string& params,xb_cdp_result done){
   auto* callback=xb_cb<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,HRESULT,LPCWSTR>(
@@ -12,15 +15,16 @@ static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
   callback->Release();if(FAILED(status))done(false,"{}");
 }
 static bool xb_automation_live(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation){
-  return host->alive&&!view->closed&&!view->failed&&!view->manual&&!view->dialog&&view->navigation==navigation;
+  return host->alive&&!view->closed&&!view->failed&&!view->manual&&!view->dialog&&!xb_popup_blocked(view)&&view->navigation==navigation;
 }
 static void xb_automation_reply(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                                 const std::string& id,const std::string& result,const std::string& error=""){
   if(view->automationRequests.erase(id))host->reply(id,result,error);
 }
-static void xb_abort_automation(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,bool dialog){
+static void xb_abort_automation(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,int interruption){
   auto pending=std::move(view->automationRequests);view->automationRequests.clear();
-  for(const auto& item:pending)host->reply(item.first,dialog?"{\"ok\":true,\"value\":{\"ok\":true,\"blocked_by_dialog\":true}}":"",dialog?"":"The browser was closed");
+  const auto result=interruption==2?"{\"ok\":true,\"value\":{\"ok\":true,\"blocked_by_popup\":true}}":"{\"ok\":true,\"value\":{\"ok\":true,\"blocked_by_dialog\":true}}";
+  for(const auto& item:pending)host->reply(item.first,interruption?result:"",interruption?"":"The browser was closed");
 }
 static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                           const std::string& id,const std::string& script){
@@ -60,11 +64,13 @@ struct xb_input_step{const wchar_t* method;std::string params;bool release=false
 struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::string id,error;
   UINT64 navigation;std::vector<xb_input_step> steps;size_t index=0;bool replied=false;
-  void dialogOpened(){
+  void boundary(const char* kind){
     if(replied)return;replied=true;
-    error="A JavaScript dialog interrupted input; inspect the page after responding";
-    host->reply(id,"{\"accepted\":true,\"trusted_input\":true,\"dialog_open\":true}");
+    error="A new window or JavaScript dialog interrupted input; inspect the page before continuing";
+    host->reply(id,std::string("{\"accepted\":true,\"trusted_input\":true,\"")+kind+"_open\":true}");
   }
+  void dialogOpened(){boundary("dialog");}
+  void popupOpened(){boundary("popup");}
   void run(){
     if(index==steps.size()){if(!replied)host->reply(id,error.empty()?"{\"accepted\":true,\"trusted_input\":true}":"",error);return;}
     const auto step=steps[index++];
@@ -81,6 +87,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
                      const std::string& id,const std::string& json){
   if(xb_get(json,"navigation")!=std::to_string(view->navigation)||view->manual||view->closed){host->reply(id,"","Stale document or manual control");return;}
   if(view->dialog){host->reply(id,"","Respond to the pending JavaScript dialog before input");return;}
+  if(xb_popup_blocked(view)){host->reply(id,"","A new-window request is still being adopted");return;}
   if(!view->input.expired()){host->reply(id,"","A native input is still completing; inspect the page before another action");return;}
   auto sequence=std::make_shared<xb_input_sequence>();sequence->host=host;sequence->view=view;sequence->id=id;sequence->navigation=view->navigation;
   const auto kind=xb_get(json,"kind");

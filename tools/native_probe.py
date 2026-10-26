@@ -180,6 +180,87 @@ try {
   const changesBeforeDispose=layoutChanges;widget.dispose();
   assert(layoutChanges===changesBeforeDispose,'Disposed dialog UI changed native layout');
   widget.element.remove();await bridge.call('release',{browser});
+  assert((await bridge.call('state',{browser})).popup_capability,'Native popup capability missing');
+  const popupButton=await prepare({op:'click',target:{css:'#popup-open'},scroll:true});
+  const popupInput=bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,...popupButton.point});
+  let popup;
+  for(let i=0;i<100;i++){
+    popup=(await bridge.call('popups',{browser,action:'list'})).popups[0];
+    if(popup)break;await pause(20);
+  }
+  assert(popup?.id&&popup.user_initiated,'New-window request did not preserve its trusted user gesture');
+  const child='browser-use-native-child';
+  await bridge.call('create',{browser:child,popup:popup.id,opener:browser,visible:false});
+  const popupBoundary=await popupInput;assert(popupBoundary.popup_open,'Native input did not yield at the new-window boundary');
+  assert((await bridge.call('state',{browser})).url===first.url,'A popup navigated its opener');
+  let childState;
+  for(let i=0;i<100;i++){
+    childState=await bridge.call('state',{browser:child});
+    if(!childState.loading&&childState.title==='Browser Use popup fixture')break;await pause(30);
+  }
+  assert(childState.opener===browser&&childState.title==='Browser Use popup fixture','Popup was not attached to an independent native browser');
+  const relation=await bridge.call('evaluate',{browser:child,script:'Boolean(window.opener)'});
+  assert(relation.value===true,'The adopted popup lost window.opener');
+  assert(await evaluate("document.querySelector('#popup-result').textContent")==='Popup connected','Popup could not send its normal message to the opener');
+  let reused=false;try{await bridge.call('create',{browser:'browser-use-duplicate-child',popup:popup.id,opener:browser,visible:false})}catch{reused=true}
+  assert(reused,'A popup request was adopted more than once');
+  await evaluate("document.querySelector('#popup-open').click()");
+  assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'An existing named window was opened as a duplicate tab');
+  for(let i=0;i<100;i++){
+    const current=await bridge.call('state',{browser:child});
+    if(!current.loading)break;await pause(20);
+  }
+  await bridge.call('bounds',{browser:child,visible:true,bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});
+  const childTarget=await bridge.call('automation',{browser:child,agent:true,script:`(${runtimeSource})().observe({})`});
+  const closeButton=childTarget.value.elements.find(e=>e.name==='Close popup').bounds;
+  const childNavigation=(await bridge.call('state',{browser:child})).navigation;
+  await bridge.call('input',{browser:child,agent:true,kind:'click',navigation:childNavigation,x:closeButton.x+closeButton.width/2,y:closeButton.y+closeButton.height/2});
+  for(let i=0;i<100&&!(await bridge.call('state',{browser:child})).closed_by_page;i++)await pause(20);
+  assert((await bridge.call('state',{browser:child})).closed_by_page,'Native window.close did not request tab closure');
+  await bridge.call('close',{browser:child});
+  const floodInput=bridge.call('evaluate',{browser,script:"(()=>{for(let i=0;i<5;i++)window.open('/__browser_use_popup__.html?flood='+i,'');return true})()"});
+  let dismissed=0;
+  for(let attempt=0;attempt<250&&dismissed<5;attempt++){
+    const flooded=await bridge.call('popups',{browser,action:'list'});
+    assert(flooded.popups.length<=4,'Popup flood bypassed the bounded pending-window limit');
+    for(const pending of flooded.popups){await bridge.call('popups',{browser,action:'dismiss',popup:pending.id});dismissed++;}
+    if(dismissed<5)await pause(20);
+  }
+  assert(dismissed===5,'The browser did not complete all five serialized new-window requests');
+  assert((await floodInput).ok,'Popup flood evaluation did not resume after dismissal');
+  assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'Dismissed popup requests were retained');
+  const capacity=[];
+  for(let i=0;i<7;i++){const id='browser-use-capacity-'+i;await bridge.call('create',{browser:id,url:'about:blank',visible:false});capacity.push(id)}
+  let capacityBlocked=false;try{await bridge.call('create',{browser:'browser-use-over-capacity',url:'about:blank',visible:false})}catch{capacityBlocked=true}
+  assert(capacityBlocked,'The native browser count exceeded eight');
+  await evaluate("(()=>{window.open('about:blank','capacity-blocked');return true})()");
+  const atCapacity=await bridge.call('popups',{browser,action:'list'});
+  assert(atCapacity.popups.length===0&&atCapacity.error.includes('limit'),'Popup creation bypassed the native browser capacity');
+  for(const id of capacity)await bridge.call('close',{browser:id});
+  await bridge.call('takeover',{browser});
+  const blankInput=bridge.call('evaluate',{browser,script:"(()=>{window.open('about:blank','manual-blank');return true})()"});
+  let blank;
+  for(let i=0;i<100&&!blank;i++){blank=(await bridge.call('popups',{browser,agent:true,action:'list'})).popups[0];if(!blank)await pause(20)}
+  assert(blank?.url==='about:blank','Blank popup request was lost');
+  await bridge.call('create',{browser:child,popup:blank.id,opener:browser,visible:false});
+  assert((await blankInput).ok,'Blank-popup evaluation did not resume');
+  const blankState=await bridge.call('state',{browser:child});
+  assert(blankState.manual&&!blankState.loading&&blankState.url==='about:blank','Blank popup did not inherit user control or readiness');
+  await bridge.call('close',{browser:child});await bridge.call('release',{browser});
+  const expiryInput=bridge.call('evaluate',{browser,script:"(()=>{window.open('about:blank','expired-popup');return true})()"},{timeout:30000});
+  let expiring;
+  for(let i=0;i<100&&!expiring;i++){expiring=(await bridge.call('popups',{browser,action:'list'})).popups[0];if(!expiring)await pause(20)}
+  assert(expiring?.id,'Expiry fixture did not create its pending popup');
+  await trace('waiting-for-popup-lease-expiry');
+  for(let i=0;i<115;i++){
+    if(!(await bridge.call('popups',{browser,action:'list'})).popups.some(p=>p.id===expiring.id))break;
+    await pause(200);
+  }
+  const expired=await bridge.call('popups',{browser,action:'list'});
+  assert((await expiryInput).ok,'Popup lease expiry did not resume the opener');
+  assert(!expired.popups.some(p=>p.id===expiring.id)&&expired.error.includes('expired'),'Unadopted popup did not expire and release its deferral');
+  let stalePopup=false;try{await bridge.call('create',{browser:child,popup:expiring.id,opener:browser,visible:false})}catch{stalePopup=true}
+  assert(stalePopup,'An expired popup request was adopted');
   const ambiguous=await engine(`locate(${JSON.stringify({document:first.document,target:{role:'button',name:'Duplicate'}})})`);
   assert(ambiguous.error?.code==='element_ambiguous','Duplicate locator silently selected an element');
   const limited=await engine('observe({limit:2})');
@@ -252,8 +333,9 @@ try {
   await bridge.call('create',{browser,url:location.origin+'/__browser_use_page__.html',visible:true,
     bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
+  assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -282,6 +364,7 @@ def main():
     runtime = runtime.replace("export function browserRuntime()", "function browserRuntime()")
     script = SCRIPT.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c"))
     (web / "__browser_use_page__.html").write_bytes((ROOT / "tests/fixtures/page.html").read_bytes())
+    (web / "__browser_use_popup__.html").write_bytes((ROOT / "tests/fixtures/popup.html").read_bytes())
     (web / "__browser_use_probe__.html").write_text(
         '<!doctype html><meta charset="utf-8"><h1 id="status">Browser Use native checks</h1>'
         '<script type="module">' + script + '</script>', encoding="utf-8")

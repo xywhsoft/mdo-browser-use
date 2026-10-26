@@ -1,0 +1,7 @@
+<!doctype html>
+<meta charset="utf-8"><title>Browser Use popup fixture</title>
+<h1>Independent popup</h1><button id="close">Close popup</button>
+<script>
+document.querySelector('#close').onclick=()=>window.close();
+if(window.opener)window.opener.postMessage({fixture:'popup-ready'},location.origin);
+</script>

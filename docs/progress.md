@@ -329,3 +329,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - The same native probe then passed 136 checks, including cancellation of the
   old creation and verification that the replacement kept its own target URL.
   The failed pre-fix result is retained privately under `.mdo/evidence/`.
+
+## D2 — native popup ownership and bounded deferrals
+
+- Removed the old behavior that navigated the opener to a popup URL. A pending
+  new-window request is now retained under its exact native opener; a trusted
+  client can adopt it only once into a fresh WebView in that opener's environment.
+  Settings/handlers are installed before adoption, preserving normal opener,
+  named-window reuse and postMessage behavior. The native layer signals page
+  close requests and inherits user takeover into the child.
+- Pending requests have GUID identities, a 20-second lease, per-opener/global
+  bounds and the existing eight-view limit. Dismissal, timeout and source closure
+  complete their deferrals. Interrupted input/isolated reads return an explicit
+  `popup_open, completed:false` checkpoint instead of waiting for generic timeout.
+- The real native probe passed 169 checks, including independent popup content,
+  postMessage, duplicate-adoption rejection, named-window reuse, trusted close,
+  five serialized window opens, actual eight-view capacity, blank-page readiness,
+  takeover inheritance and real lease expiry with opener resumption. Fourteen JS
+  checks also passed. No per-test application/Home was created.
+- Automatic scoped tab adoption/display in the normal workbench is the next
+  stage. This native milestone does not claim complete public popup support.
+- Native contract reference: [Microsoft WebView2 new-window arguments](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/win32/icorewebview2newwindowrequestedeventargs).

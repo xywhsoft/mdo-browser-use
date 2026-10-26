@@ -17,6 +17,7 @@
 <button disabled id="disabled">Disabled action</button><input readonly aria-label="Read only">
 <button id="dialog-alert">Alert dialog</button><button id="dialog-confirm">Confirm dialog</button><button id="dialog-prompt">Prompt dialog</button>
 <output id="dialog-result"></output>
+<button id="popup-open">Open popup</button><output id="popup-result"></output>
 <script>document.querySelector('#shadow').attachShadow({mode:'open'}).innerHTML='<button>Shadow action</button>';</script>
 <script>
 document.querySelector('#search').addEventListener('click',e=>{document.body.dataset.clicked=e.isTrusted?'trusted':'untrusted';document.body.dataset.clicks=String(Number(document.body.dataset.clicks||0)+1);document.querySelector('#events').textContent=(e.isTrusted?'Trusted click ':'Untrusted click ')+document.body.dataset.clicks});
@@ -24,4 +25,6 @@ document.querySelector('#order').addEventListener('input',e=>{document.body.data
 document.querySelector('#dialog-alert').onclick=()=>{alert('Fixture alert');document.querySelector('#dialog-result').textContent='alert:closed'};
 document.querySelector('#dialog-confirm').onclick=()=>{document.querySelector('#dialog-result').textContent='confirm:'+confirm('Fixture confirm')};
 document.querySelector('#dialog-prompt').onclick=()=>{document.querySelector('#dialog-result').textContent='prompt:'+prompt('Fixture prompt','fixture-private-default')};
+document.querySelector('#popup-open').onclick=()=>{window.open('/__browser_use_popup__.html','browser-use-child')};
+window.addEventListener('message',event=>{if(event.origin===location.origin&&event.data?.fixture==='popup-ready')document.querySelector('#popup-result').textContent='Popup connected'});
 </script>

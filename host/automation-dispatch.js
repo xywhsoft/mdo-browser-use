@@ -22,11 +22,14 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const dialogBoundary = async () => ({ handled: true, result: { ok: true,
     outcome: "dialog_open", completed: false, dispatched, action: action.id,
     dialogs: (await view.execute("dialog", { action: "list", agent: true })).dialogs || [] } });
+  const popupBoundary = () => ({ handled: true, result: { ok: true,
+    outcome: "popup_open", completed: false, dispatched, action: action.id } });
   const read = async (method, options) => {
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
     if (!result.ok || typeof result.value?.ok !== "boolean") throw Error("The browser returned an invalid automation result");
     if (result.value.blocked_by_dialog) throw Object.assign(new Error("A JavaScript dialog interrupted page reading"), { dialog: true });
+    if (result.value.blocked_by_popup) throw Object.assign(new Error("A new window interrupted page reading"), { popup: true });
     return result.value;
   };
   const guard = async (force = false) => {
@@ -43,6 +46,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
     if (typeof state.loading !== "boolean" || !state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution and readiness");
     if (state.dialog_open) return dialogBoundary();
+    if (state.popup_open) return popupBoundary();
     if (navigation !== undefined && state.navigation !== navigation) return fail("stale_document", "The document changed; inspect it before another input");
     return { state };
   };
@@ -53,6 +57,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     const delivered = await view.execute("input", { ...parameters, agent: true, navigation });
     if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
     if (delivered.dialog_open) return dialogBoundary();
+    if (delivered.popup_open) return popupBoundary();
     return null;
   };
   try {
@@ -157,6 +162,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       observation: await read("observe", { limit: 100, max_bytes: 4096 }) } };
   } catch (error) {
     if (error.dialog) return dialogBoundary();
+    if (error.popup) return popupBoundary();
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
     if (writing) writers.delete(writer);

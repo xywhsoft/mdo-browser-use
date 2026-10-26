@@ -36,26 +36,37 @@ def main():
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>'),
-        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
-        ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;'),
-        ('~xb_view(){if(controller)', '~xb_view(){dialog.reset();xb_dialog_cleanup(window);if(controller)'),
-        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\nstatic void xb_receive('),
+        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
+        ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError;'),
+        ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
+        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
         ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(host,view);\n            std::weak_ptr<xb_view> weak=view;'),
-        ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view){host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
-        ('if(!host->alive||host->views.find(browser)==host->views.end()){if(controller)controller->Close();return S_OK;}', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view){if(controller)controller->Close();host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
+        ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
+        ('if(!host->alive||host->views.find(browser)==host->views.end()){if(controller)controller->Close();return S_OK;}', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(controller)controller->Close();if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
         ('      auto view=found->second;\n      if(view->controller)', '      auto view=found->second;\n      if(view->creating){host->reply(id,"","Browser creation is still in progress");return;}\n      if(view->controller)'),
-        ('if(command=="close"){host->views.erase(browser);', 'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;xb_abort_automation(host,found->second,false);found->second->dialog.reset();xb_dialog_cleanup(found->second->window);if(found->second->controller)found->second->controller->Close();if(found->second->window)ShowWindow(found->second->window,SW_HIDE);}host->views.erase(browser);'),
+        ('if(command=="close"){host->views.erase(browser);', 'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;xb_cancel_popups(found->second);xb_abort_automation(host,found->second,false);found->second->dialog.reset();xb_dialog_cleanup(found->second->window);if(found->second->controller)found->second->controller->Close();if(found->second->window)ShowWindow(found->second->window,SW_HIDE);}host->views.erase(browser);'),
         ('const auto viewport=",\\"viewport_attached\\":', 'const auto viewport=",\\"navigation\\":"+xb_quote(std::to_string(view->navigation))+",\\"automation\\":true,\\"viewport_attached\\":'),
-        ('+viewport+",\\"process_failed\\":', '+viewport+",\\"dialog_capability\\":"+(view->dialogsEnabled?"true":"false")+",\\"input_busy\\":"+(view->input.expired()?"false":"true")+",\\"dialog_open\\":"+(view->dialog?"true":"false")+",\\"process_failed\\":'),
-        ('const bool mutation=command!="snapshot"&&command!="screenshot";', 'const bool mutation=command!="snapshot"&&command!="screenshot"&&!(command=="dialog"&&xb_get(json,"action")=="list");'),
-        ('  HRESULT code=S_OK;', '  if(command=="dialog"){xb_dialog_request(host,view,id,json);return;}\n  if(command=="automation"){if(view->dialog){host->reply(id,"","A JavaScript dialog blocks page execution");return;}xb_automation(host,view,id,xb_get(json,"script"));return;}\n  if(command=="input"){xb_input(host,view,id,json);return;}\n  HRESULT code=S_OK;'),
-        ('host->alive=false;host->views.clear();', 'host->alive=false;for(auto& entry:host->views){entry.second->closed=true;entry.second->dialog.reset();xb_dialog_cleanup(entry.second->window);if(entry.second->controller)entry.second->controller->Close();}host->views.clear();')
+        ('+viewport+",\\"process_failed\\":', '+viewport+",\\"dialog_capability\\":"+(view->dialogsEnabled?"true":"false")+",\\"popup_capability\\":"+(view->popupsEnabled?"true":"false")+",\\"popup_open\\":"+(xb_popup_blocked(view)?"true":"false")+",\\"closed_by_page\\":"+(view->requestedClose?"true":"false")+",\\"opener\\":"+xb_quote(view->opener)+",\\"input_busy\\":"+(view->input.expired()?"false":"true")+",\\"dialog_open\\":"+(view->dialog?"true":"false")+",\\"process_failed\\":'),
+        ('const bool mutation=command!="snapshot"&&command!="screenshot";', 'const bool mutation=command!="snapshot"&&command!="screenshot"&&!((command=="dialog"||command=="popups")&&xb_get(json,"action")=="list");'),
+        ('  HRESULT code=S_OK;', '  if(command=="popups"){xb_popup_request(host,view,id,json);return;}\n  if(command=="dialog"){xb_dialog_request(host,view,id,json);return;}\n  if(command=="automation"){if(view->dialog){host->reply(id,"","A JavaScript dialog blocks page execution");return;}xb_automation(host,view,id,xb_get(json,"script"));return;}\n  if(command=="input"){xb_input(host,view,id,json);return;}\n  HRESULT code=S_OK;'),
+        ('host->alive=false;host->views.clear();', 'host->alive=false;for(auto& entry:host->views){entry.second->closed=true;xb_cancel_popups(entry.second);entry.second->dialog.reset();xb_dialog_cleanup(entry.second->window);if(entry.second->controller)entry.second->controller->Close();}host->views.clear();'),
+        ('    const auto url=xb_get(json,"url");const bool visible=xb_get(json,"visible")!="false";if(!xb_url(url)){host->reply(id,"","Only HTTP(S) navigation is supported");return;}', (dev.ROOT / 'host/native-popup-create.inc.hpp').read_text(encoding='utf-8').rstrip()),
+        ('auto view=std::make_shared<xb_view>();view->bounds=xb_bounds(json);', 'auto view=std::make_shared<xb_view>();view->bounds=xb_bounds(json);if(popup){popup->claimed=true;view->opening=popup;view->opener=xb_get(json,"opener");view->manual=opener->manual;}'),
+        ('[host,view,id,browser,url,visible](HRESULT status', '[host,view,id,browser,url,visible,popup](HRESULT status'),
+        ('[host,view,id,browser,url,visible](HRESULT code', '[host,view,id,browser,url,visible,popup](HRESULT code'),
+        ('        auto* ready=xb_cb', '        view->environment=env;env->AddRef();\n        auto* ready=xb_cb'),
+        ('      auto view=found->second;', '      if(!xb_get(json,"popup").empty()){host->reply(id,"","Popup target browser already exists");return;}\n      auto view=found->second;'),
+        ('            HRESULT navigationResult=view->core->Navigate', '            if(popup){view->loading=url!="about:blank";HRESULT adopted=popup->complete(view->core);view->opening.reset();if(FAILED(adopted)){view->closed=true;view->controller->Close();host->views.erase(browser);host->reply(id,"","Cannot adopt the requested popup");return S_OK;}host->reply(id,"{\\"created\\":true,\\"popup\\":true}");return S_OK;}\n            HRESULT navigationResult=view->core->Navigate'),
+        ('HRESULT result=host->loader.create_environment_with_options(nullptr,host->profile.c_str(),nullptr,environment);', 'HRESULT result=popup?environment->Invoke(S_OK,opener->environment):host->loader.create_environment_with_options(nullptr,host->profile.c_str(),nullptr,environment);')
     ]
     for before, after in changes:
         if base.count(before) != 1:
             raise RuntimeError("Native hook no longer unique: " + before)
         base = base.replace(before, after, 1)
+    popup_start = base.index('            auto* popup=xb_cb<ICoreWebView2NewWindowRequestedEventHandler')
+    popup_end = base.index('            if(!xb_place(view,visible))', popup_start)
+    base = base[:popup_start] + '            xb_install_popups(host,view,browser);\n' + base[popup_end:]
     target = NATIVE / "src/webview/xs_browser.inc.hpp"
     record_path = dev.ENV / "native-overlay.json"
     record = json.loads(record_path.read_text(encoding="utf-8")) if record_path.exists() else {}
@@ -69,9 +80,17 @@ def main():
         current = helper_path.read_text(encoding="utf-8")
         if current != helper and hashlib.sha256(current.encode()).hexdigest() != record.get("helper"):
             raise RuntimeError("Unreviewed native helper edit preserved")
+    popups = (dev.ROOT / "host/native-popups.inc.hpp").read_text(encoding="utf-8")
+    popup_path = target.with_name("xs_browser_popups.inc.hpp")
+    if popup_path.exists():
+        current = popup_path.read_text(encoding="utf-8")
+        if current != popups and hashlib.sha256(current.encode()).hexdigest() != record.get("popups"):
+            raise RuntimeError("Unreviewed native popup helper edit preserved")
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
-    hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest()}
+    popup_path.write_text(popups, encoding="utf-8", newline="\n")
+    hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
+              "popups": hashlib.sha256(popups.encode()).hexdigest()}
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

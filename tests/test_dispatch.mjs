@@ -115,3 +115,16 @@ test("a dialog opening during isolated reading yields without retrying the scrip
   assert.equal(result.result.outcome, "dialog_open");
   assert.equal(evaluations, 1);
 });
+
+test("new-window boundaries stop page reading without retry or an ordinary tool error", async () => {
+  const pending = await observe({ loading: false, automation: true, popup_open: true });
+  assert.equal(pending.result.outcome, "popup_open");
+  assert.equal(pending.result.completed, false); assert.equal(pending.evaluations, 0);
+  let evaluations = 0;
+  const raced = await executeBrowserAutomation({ command: "observe", params: {}, action: { id: "read-popup" },
+    api: { async call() { return { state: "pending" }; } }, view: { async execute(command) {
+      if (command === "state") return { loading: false, automation: true };
+      evaluations++; return { ok: true, value: { ok: true, blocked_by_popup: true } };
+    } } });
+  assert.equal(raced.result.outcome, "popup_open"); assert.equal(evaluations, 1);
+});
