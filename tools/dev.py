@@ -110,12 +110,17 @@ def setup(base: Path) -> None:
         "ip": "127.0.0.1", "port": current["port"],
         "recv_limit": 8388608, "body_limit": 8388608,
         "host_default": {"enabled": True, "name": "mdo",
-                         "path": str(SOURCE / "app/web"), "devlang": "c",
-                         "devfile": str(SOURCE / "app/generated/mdo_unity.c")}
+                         "path": "web", "devlang": "c",
+                         "devfile": "generated/mdo_unity.c"}
     }]}
-    (ENV / "dev.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    config_path = SOURCE / "app/.browser-use.dev.json"
+    config_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    exclude = SOURCE / ".git/info/exclude"
+    existing = exclude.read_text(encoding="utf-8") if exclude.exists() else ""
+    if "/app/.browser-use.dev.json" not in existing:
+        exclude.write_text(existing + "\n/app/.browser-use.dev.json\n", encoding="utf-8")
     current.update({"source_commit": LOCK["commit"], "bootstrap_source": str(base),
-                    "host": str(host), "home": str(HOME), "pid": None})
+                    "host": str(host), "home": str(HOME), "config": str(config_path), "pid": None})
     save(current)
     print("Prepared one pinned mdo deployment in", ENV)
 
@@ -129,8 +134,8 @@ def start() -> None:
     log_path = ENV / "server.log"
     with log_path.open("wb") as log:
         child = subprocess.Popen(
-            [current["host"], str(ENV / "dev.json"), "--", "--home", str(HOME)],
-            cwd=SOURCE, env=dict(os.environ, USE_WEBVIEW="0"), stdout=log, stderr=log,
+            [current["host"], current["config"], "--", "--home", str(HOME)],
+            cwd=SOURCE / "app", env=dict(os.environ, USE_WEBVIEW="0"), stdout=log, stderr=log,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     current["pid"] = child.pid
     save(current)
@@ -142,11 +147,14 @@ def start() -> None:
             raise RuntimeError("mdo startup failed; inspect .mdo/server.log")
         try:
             code, _, _ = request("GET", "/api/v1/bootstrap")
-            if code == 200:
+            if code == 200 and call("runtime.info").get("application_root"):
+                call("plugin.list")
                 print(f"mdo ready at http://127.0.0.1:{current['port']} (PID {child.pid})")
                 return
         except OSError:
             pass
+        except RuntimeError:
+            break
         time.sleep(0.2)
     child.terminate()
     child.wait(timeout=10)
@@ -169,7 +177,8 @@ def stop() -> None:
             output = run("powershell", "-NoProfile", "-Command", script)
             if output:
                 process = json.loads(output)
-                if Path(process["ExecutablePath"]).resolve() != Path(current["host"]).resolve() or str(ENV / "dev.json") not in process["CommandLine"]:
+                expected_config = current.get("config", str(ENV / "dev.json"))
+                if Path(process["ExecutablePath"]).resolve() != Path(current["host"]).resolve() or expected_config not in process["CommandLine"]:
                     raise RuntimeError("Recorded PID identity does not match this development deployment")
                 run("taskkill", "/PID", str(pid), "/T", "/F")
         else:

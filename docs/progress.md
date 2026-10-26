@@ -33,3 +33,8 @@ latest generated result is kept unless a failure needs investigation.
 - `tests/test_environment.py` checks the real bootstrap, plugin/browser/operation
   service discovery, bound configuration, and pinned source identity.
 - This is a development deployment, not a published client or completed Browser Use.
+- The first plugin installation caught a deployment root error: bootstrap HTTP
+  and SDK discovery can respond even when Home initialization failed. Moved the
+  configuration into the single source app directory so `/app/default-home`
+  resolves correctly; readiness now also requires a nonempty application root
+  and a working plugin manager. The first shallow readiness check was insufficient.

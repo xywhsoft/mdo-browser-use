@@ -23,6 +23,8 @@ class EnvironmentTests(unittest.TestCase):
             self.assertIn(required, names)
         description = dev.call("sdk.describe", {"id": "browser.command"})
         self.assertEqual(description["id"], "browser.command")
+        self.assertTrue(dev.call("runtime.info")["application_root"])
+        self.assertIsInstance(dev.call("plugin.list")["items"], list)
 
     def test_deployment_uses_pinned_source_and_this_project_home(self):
         current = dev.state()
@@ -30,7 +32,8 @@ class EnvironmentTests(unittest.TestCase):
         revision = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], cwd=dev.SOURCE, text=True).strip()
         self.assertEqual(revision, dev.LOCK["commit"])
-        config = json.loads((dev.ENV / "dev.json").read_text(encoding="utf-8"))
+        self.assertEqual(Path(current["config"]).parent, dev.SOURCE / "app")
+        config = json.loads(Path(current["config"]).read_text(encoding="utf-8"))
         self.assertEqual(config["engine"]["workers"], 1)
         self.assertEqual(config["services"][0]["ip"], "127.0.0.1")
         self.assertEqual(len(config["services"]), 1)
