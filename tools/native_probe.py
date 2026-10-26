@@ -86,6 +86,18 @@ try {
     x:point.x+point.width/2,y:point.y+point.height/2});
   assert(clicked.trusted_input,'Click was not dispatched through native input');
   assert(await evaluate('document.body.dataset.clicked')==='trusted','Click event was synthetic');
+  assert((await bridge.call('state',{browser})).advanced_mouse,'Advanced native mouse capability missing');
+  for(const [button,click_count,expected] of [['left',2,'dblclick:0:true'],['right',1,'contextmenu:2:true'],['middle',1,'auxclick:1:true']]){
+    const gesture=await engine(`prepare(${JSON.stringify({document:first.document,op:'click',target:{name:'Mouse gestures'},scroll:true})})`);
+    assert(gesture.ok,'Mouse gesture target was not actionable');
+    await trace({phase:'native-mouse-'+button,point:gesture.point,hit:await evaluate(`document.elementFromPoint(${gesture.point.x},${gesture.point.y})?.id`)});
+    await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,button,click_count,...gesture.point});
+    assert(await evaluate("document.querySelector('#mouse-result').textContent")===expected,'Native '+button+' gesture did not dispatch trusted events');
+  }
+  for(const fields of [{button:'forged'},{click_count:3},{click_count:1.5}]){
+    let invalid=false;try{await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,x:10,y:10,...fields})}catch{invalid=true}
+    assert(invalid,'Invalid native mouse gesture was accepted');
+  }
   const input=first.elements.find(e=>e.name==='订单号').bounds;
   await bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,x:input.x+input.width/2,y:input.y+input.height/2});
   await bridge.call('input',{browser,agent:true,kind:'key',navigation:state.navigation,key:'Control+A'});

@@ -71,7 +71,7 @@ def main():
         ('entry.second->closed=true;xb_cancel_popups', 'entry.second->closed=true;xb_cancel_capture(entry.second);xb_cancel_popups'),
         ('if(command=="popups"){', 'if(command=="capture_cancel"){auto job=view->capture;if(job&&job->key==xb_get(json,"capture_key"))job->finish("","Screenshot was cancelled");host->reply(id,"{}");return;}\n  if(command=="capture"){xb_capture(host,view,id,json);return;}\n  if(command=="popups"){'),
         ('const bool mutation=command!="snapshot"', 'const bool mutation=command!="capture"&&command!="capture_cancel"&&command!="snapshot"'),
-        ('\\"dialog_capability\\":', '\\"capture_capability\\":true,\\"capture_busy\\":"+std::string(host->captures?"true":"false")+",\\"dialog_capability\\":'),
+        ('\\"dialog_capability\\":', '\\"capture_capability\\":true,\\"advanced_mouse\\":true,\\"capture_busy\\":"+std::string(host->captures?"true":"false")+",\\"dialog_capability\\":'),
     ]
     for before, after in capture_hooks:
         if base.count(before) != 1:

@@ -102,6 +102,12 @@ def main():
         filled = tool("browser_act", {"browser": browser, "document": value(resumed)["document"],
                       "op": "fill", "target": {"label": "订单号"}, "text": "Managed native input"})
         assert filled["success"] and value(filled)["verification"] == "field_state"
+        for operation, expected in (("double_click", "dblclick:0:true"),
+                                    ("right_click", "contextmenu:2:true"),
+                                    ("middle_click", "auxclick:1:true")):
+            gesture = tool("browser_act", {"browser": browser, "document": page["document"],
+                           "op": operation, "target": {"name": "Mouse gestures"}})
+            assert gesture["success"] and expected in value(gesture)["observation"]["text"]
         captured = tool("browser_screenshot", {"browser": browser, "document": value(resumed)["document"],
                         "format": "png", "max_width": 800, "max_height": 600})
         assert captured["success"] and captured["image"]["media_type"] == "image/png"
@@ -153,7 +159,8 @@ def main():
                   "readonly_read_allowed": True, "readonly_write_denied": True,
                   "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
                   "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,
-                  "managed_popup_ownership": True, "native_screenshot_image": True}
+                  "managed_popup_ownership": True, "native_screenshot_image": True,
+                  "native_mouse_gestures": ["double_click", "right_click", "middle_click"]}
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:

@@ -148,7 +148,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const checked = await guard(); if (checked.handled) return checked;
       const { state } = checked;
       if (!state.loading) {
-        if (command === "act") { navigation = state.navigation; break; }
+        if (command === "act") {
+          if (["double_click", "right_click", "middle_click"].includes(params.op) && !state.advanced_mouse)
+            return fail("unsupported_capability", "This browser backend cannot deliver the requested mouse gesture");
+          navigation = state.navigation; break;
+        }
         const options = { mode: params.mode, limit: params.limit, max_bytes: params.max_bytes };
         const result = await read("observe", options);
         if (!result.ok) return { handled: true, result };
@@ -179,7 +183,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (!fresh.ok || !sameGeometry(fresh, prepared)) return fail("target_changed", "The target moved or changed immediately before input");
       if (params.op === "check" && fresh.element.checked === params.checked) return { handled: true, result: { ok: true, changed: false, action: action.id, verified: true } };
       if (params.op === "check" && fresh.element.role === "radio" && !params.checked) return fail("unsupported_action", "A radio input cannot be unchecked by clicking it; select another radio in the group");
-      let error = await send({ kind: params.op === "hover" ? "move" : params.op === "scroll" ? "wheel" : "click", ...fresh.point, dx: params.dx || 0, dy: params.dy || 0 });
+      let error = await send({ kind: params.op === "hover" ? "move" : params.op === "scroll" ? "wheel" : "click", ...fresh.point,
+        button: params.op === "right_click" ? "right" : params.op === "middle_click" ? "middle" : "left",
+        click_count: params.op === "double_click" ? 2 : 1, dx: params.dx || 0, dy: params.dy || 0 });
       if (error) return error;
       if (["fill", "type", "key"].includes(params.op)) {
         const focus = await read("verify", pinned);

@@ -458,3 +458,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   (including repeated identity checks) and no new exception diagnostics.
 - The gate restores this same service to headless mode. Android and the remaining
   transfer/frame/richer-input/package stages are still outstanding.
+
+## B7 — native double, right and middle mouse gestures
+
+- Added typed `double_click`, `right_click` and `middle_click` to the shared
+  C/JS action contract and existing managed `browser_act` tool. Native input
+  validates the button/count and sends bounded press/release sequences; releases
+  remain part of interrupted-input cleanup. No page-dispatched mouse event is
+  used as a replacement for native input.
+- Capability admission rejects an older/unsupported host before page evaluation,
+  scrolling or input. Existing document, stable geometry, hit testing, writer,
+  takeover, cancellation and durable-operation identity checks remain in effect.
+- Passed 26 Python and 25 JS checks, 210 actual native checks without new
+  diagnostics, 13 public C/UI actions and actual managed tool calls. Verified
+  trusted dblclick/contextmenu/auxclick events and malformed native arguments.
+  The initial low-level fixture run timed out using cached coordinates; its
+  failure report is retained privately. The probe now prepares and hit-tests a
+  fresh target, as the production action dispatcher already does.
+- Drag/select, vision coordinates, transfers, full frames, Android and packaging
+  are still pending. No live model call or production release was performed.

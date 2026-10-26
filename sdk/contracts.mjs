@@ -153,7 +153,10 @@ export const services = [
             "type",
             "key",
             "check",
-            "scroll"
+            "scroll",
+            "double_click",
+            "right_click",
+            "middle_click"
           ]
         },
         "target": {

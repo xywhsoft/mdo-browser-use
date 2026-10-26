@@ -87,6 +87,11 @@ def main():
         assert act("hover", {"name": "Shadow action"})["dispatched"]
         clicked = act("click", {"name": "查询"})
         assert "Trusted click" in clicked["observation"]["text"]
+        for operation, expected in (("double_click", "dblclick:0:true"),
+                                    ("right_click", "contextmenu:2:true"),
+                                    ("middle_click", "auxclick:1:true")):
+            gesture = act(operation, {"name": "Mouse gestures"})
+            assert expected in gesture["observation"]["text"]
         assert act("key", {"testid": "order-field"}, key="Tab")["dispatched"]
         assert act("scroll", dy=150)["dispatched"]
         waits = 0

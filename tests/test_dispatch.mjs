@@ -140,6 +140,35 @@ test("unsupported screenshots do not evaluate a page or return an image",async()
   assert.equal(result.result.error.code,"unsupported_capability");assert.equal(evaluations,0);assert.equal(result.result.image,undefined);
 });
 
+test("unsupported mouse gestures fail before scrolling, input or page evaluation",async()=>{
+  for(const op of ["double_click","right_click","middle_click"]){
+    let evaluated=0;
+    const result=await executeBrowserAutomation({command:"act",params:{op,document:"d1",target:{ref:"e1"}},action:{id:`unsupported-${op}`},
+      api:{async call(){return{state:"pending"};}},view:{async execute(command){
+        if(command==="state")return{loading:false,automation:true,navigation:"1"};
+        evaluated++;throw Error("Unsupported mouse input reached the page");
+      }}});
+    assert.equal(result.result.error.code,"unsupported_capability");assert.equal(evaluated,0);
+  }
+});
+
+test("mouse gestures deliver one typed sequence to the pinned fresh element",async()=>{
+  for(const [op,button,click_count] of [["double_click","left",2],["right_click","right",1],["middle_click","middle",1]]){
+    const inputs=[];
+    const view={async execute(command,params){
+      if(command==="state")return{loading:false,automation:true,advanced_mouse:true,navigation:"1"};
+      if(command==="input"){inputs.push(params);return{accepted:true,trusted_input:true};}
+      if(params.script.includes(".prepare("))return{ok:true,value:{ok:true,element:{ref:"fresh"},point:{x:20,y:30},geometry:[0,0,40,60,20,30]}};
+      return{ok:true,value:{ok:true,text:"after gesture"}};
+    }};
+    const result=await executeBrowserAutomation({command:"act",params:{op,document:"d1",target:{ref:"fresh"}},view,action:{id:op},
+      api:{async call(){return{state:"pending"};}}});
+    assert.equal(result.result.verification,"native_delivery");assert.equal(inputs.length,1);
+    assert.equal(inputs[0].button,button);assert.equal(inputs[0].click_count,click_count);
+    assert.equal(inputs[0].navigation,"1");assert.equal(inputs[0].agent,true);
+  }
+});
+
 test("screenshot cancellation stops the native request and releases its UI writer",async()=>{
   let started=false,stop;
   const commands=[];

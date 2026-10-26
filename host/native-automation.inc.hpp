@@ -102,8 +102,15 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
     }else{
       sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mouseMoved\""+point+"}"});
       if(kind=="click"){
-        sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mousePressed\",\"button\":\"left\",\"buttons\":1,\"clickCount\":1"+point+"}"});
-        sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"button\":\"left\",\"buttons\":0,\"clickCount\":1"+point+"}",true});
+        auto button=xb_get(json,"button"),count=xb_get(json,"click_count");
+        if(button.empty())button="left";if(count.empty())count="1";
+        if((button!="left"&&button!="right"&&button!="middle")||(count!="1"&&count!="2")){host->reply(id,"","Unsupported mouse button or click count");return;}
+        const int buttons=button=="left"?1:button=="right"?2:4,clicks=count=="2"?2:1;
+        for(int n=1;n<=clicks;n++){
+          const auto fields=",\"button\":"+xb_quote(button)+",\"clickCount\":"+std::to_string(n)+point;
+          sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mousePressed\",\"buttons\":"+std::to_string(buttons)+fields+"}"});
+          sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"buttons\":0"+fields+"}",true});
+        }
       }
     }
   }else if(kind=="text"){

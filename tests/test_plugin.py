@@ -139,6 +139,9 @@ class PluginTests(unittest.TestCase):
     def test_action_arguments_fail_before_queueing(self):
         for fields, code in [
             ({"op": "click"}, "target_required"),
+            ({"op": "double_click"}, "target_required"),
+            ({"op": "right_click"}, "target_required"),
+            ({"op": "middle_click"}, "target_required"),
             ({"op": "fill", "target": {"css": "input"}}, "text_required"),
             ({"op": "click", "target": {"ref": "e1", "name": "Other"}}, "target_invalid"),
             ({"op": "check", "target": {"name": "Agree"}}, "checked_required"),

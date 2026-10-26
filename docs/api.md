@@ -86,10 +86,19 @@ Targets support a stable `ref`, or exact role/name, label, placeholder, smallest
 text, `data-testid` (`testid`) and CSS. Optional `frame` narrows matching. Do not
 combine `ref` with semantic selectors. Ambiguity returns candidates.
 
-Actions: `click`, `hover`, `fill`, `type`, `key`, `check`, `scroll`.
+Actions: `click`, `double_click`, `right_click`, `middle_click`, `hover`, `fill`,
+`type`, `key`, `check`, `scroll`.
 Fill/type require text; check requires a boolean `checked`; key uses the generated
 bounded enum. Viewport scrolling may omit a target. Timeouts are 1–60000 ms,
 default 10000. Each action requires a fresh observed document.
+
+Mouse gestures use native press/release sequences after fresh hit testing and
+stable geometry. Double-click performs two left clicks with native click counts;
+right/middle use their actual buttons. A backend must advertise `advanced_mouse`
+for these gestures; otherwise it fails before scrolling/evaluating/input rather
+than substituting a left click. Page event delivery does not prove the website's
+business operation succeeded. Drag/select and vision-coordinate input are later
+stages.
 
 Input waits for actionability and stable geometry, checks hit testing, document,
 one writer, cancellation and user takeover. Fill/check verify the field state

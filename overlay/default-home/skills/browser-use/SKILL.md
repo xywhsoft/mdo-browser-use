@@ -11,6 +11,9 @@ completed observations/conditions, not pending UI receipts.
 Choose the explicit display client and tab; do not guess a browser by its URL.
 Read a fresh page observation before acting. Prefer element references or precise
 semantic locators. A stale document or ambiguous match requires a fresh observation.
+`browser_act` supports `double_click`, `right_click` and `middle_click` as exact
+native gestures. Select the real target from a fresh page observation. Do not
+replace an unsupported gesture with repeated ordinary clicks or guessed input.
 
 After acting, verify the relevant page or business result. An action being
 accepted or dispatched does not prove that the user's task succeeded. If a
