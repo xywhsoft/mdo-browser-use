@@ -87,7 +87,7 @@ text, `data-testid` (`testid`) and CSS. Optional `frame` narrows matching. Do no
 combine `ref` with semantic selectors. Ambiguity returns candidates.
 
 Actions: `click`, `double_click`, `right_click`, `middle_click`, `hover`, `fill`,
-`type`, `key`, `check`, `scroll`.
+`type`, `key`, `check`, `select`, `scroll`.
 Fill/type require text; check requires a boolean `checked`; key uses the generated
 bounded enum. Viewport scrolling may omit a target. Timeouts are 1–60000 ms,
 default 10000. Each action requires a fresh observed document.
@@ -97,8 +97,46 @@ stable geometry. Double-click performs two left clicks with native click counts;
 right/middle use their actual buttons. A backend must advertise `advanced_mouse`
 for these gestures; otherwise it fails before scrolling/evaluating/input rather
 than substituting a left click. Page event delivery does not prove the website's
-business operation succeeded. Drag/select and vision-coordinate input are later
+business operation succeeded. Drag and vision-coordinate input are later
 stages.
+
+## Select option discovery and exact selection
+
+```javascript
+const options = await browser.observe({ browser: tab.id, mode: "options",
+  document: page.document, target: { label: "Delivery method" }, limit: 16 });
+await browser.act({ browser: tab.id, document: options.document, op: "select",
+  target: { ref: options.ref }, choices: [{ index: 3 }] });
+```
+
+Ordinary observations describe each HTML select's `multiple` and `option_count`.
+`mode:"options"` requires a fresh `document` and exact select target; it returns
+labels, indices and disabled states without stored option values or current
+selection. Follow `next_offset` when `truncated` is true. `offset` is 0–256,
+the select is bounded to 256 options, and `max_bytes` bounds this whole option
+result. A label may have `label_truncated:true`; use its observed index.
+
+`choices` is a required array of at most 32 objects. Each object has exactly one
+`label`, `value` or `index`. Labels collapse whitespace; values are exact and may
+be empty. A single-select needs one choice. A multi-select accepts an exact set,
+including `[]` to clear it. Missing, ambiguous, duplicate or disabled choices
+fail before selection. Use visible controls for custom ARIA dropdowns instead
+of treating them as HTML selects.
+
+After the normal fresh-target/stability/hit-testing and live permission checks,
+selection uses one controlled DOM transaction and one input/change pair. It
+returns `input_method:"dom_select",events_trusted:false,verification:"field_state"`.
+Keyboard navigation is not substituted: the real WebView2 probe showed that
+it can commit unwanted intermediate choices. An unchanged exact set emits no
+events. These DOM events are not native trusted input, and field verification
+does not prove a website's business result; inspect that result separately.
+
+Option nodes, labels, values, disabled states, select type and final selection
+are checked again after page handlers. A page override returns
+`action_uncertain` with `effect_may_have_occurred:true`, never an automatic retry.
+Metadata has bounded length/total inspection cost. Submitted choice data stays
+out of public receipt arguments and UI journals. The same `browser_observe`
+read-only / `browser_act` mutation permissions and C/JS contracts apply.
 
 Input waits for actionability and stable geometry, checks hit testing, document,
 one writer, cancellation and user takeover. Fill/check verify the field state

@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 3;
+  const version = 4;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -95,6 +95,7 @@ export function browserRuntime() {
     };
     if (element.localName === "input") item.input_type = element.type;
     if (element.matches("input[type=checkbox],input[type=radio]")) item.checked = element.checked;
+    if (element.localName === "select") { item.multiple = element.multiple; item.option_count = element.options.length; }
     if (element.localName === "a") {
       try { const url = new URL(element.href); url.username = ""; url.password = ""; item.url = url.href.slice(0, 2048); }
       catch { /* Invalid links are still locatable, but have no usable URL. */ }
@@ -237,6 +238,7 @@ export function browserRuntime() {
       }
     }
     if (options.op === "check" && !["checkbox", "radio"].includes(found.element.role)) return fail("element_not_checkable", "The target is not a checkbox or radio input");
+    if (options.op === "select" && element.localName !== "select") return fail("element_not_selectable", "The target is not an HTML select; operate a custom dropdown through its visible controls");
     if (options.scroll) element.scrollIntoView({ block: "center", inline: "center", behavior: "instant" });
     const rect = element.getBoundingClientRect();
     const viewport = element.ownerDocument.defaultView;
@@ -263,6 +265,79 @@ export function browserRuntime() {
     return { ok: true, verified: matches, document: documentId,
       focused: element.getRootNode().activeElement === element,
       sensitive: element.localName === "input" && element.type === "password" };
+  }
+  const optionDisabled = option => option.disabled || option.parentElement?.localName === "optgroup" && option.parentElement.disabled;
+  function optionTarget(options) {
+    const found = locate(options); if (!found.ok) return found;
+    const row = refs.get(found.element.ref), element = row.element;
+    if (element.localName !== "select") return fail("element_not_selectable", "Option discovery requires an HTML select");
+    if (element.options.length > 256) return fail("selection_limit", "The select exceeds the 256-option inspection and mutation budget");
+    return { ok:true, found, row, element, options:Array.from(element.options) };
+  }
+  function optionList(options = {}) {
+    const target=optionTarget(options);if(!target.ok)return target;
+    const offset=Number(options.offset||0),limit=Math.min(256,Math.max(1,Number(options.limit)||100));
+    if(!Number.isInteger(offset)||offset<0||offset>256)return fail("arguments_invalid","Invalid option offset");
+    const out={ok:true,document:documentId,ref:target.found.element.ref,frame:target.row.frame,
+      multiple:target.element.multiple,option_count:target.options.length,offset,options:[],truncated:false,values_exposed:false};
+    const budget=Math.min(32768,Math.max(256,Number(options.max_bytes)||16384));
+    for(let index=offset;index<target.options.length&&out.options.length<limit;index++){
+      const option=target.options[index],raw=option.label,label=clip(normalize(raw.slice(0,4096)),256);
+      const entry={index,label:label.text,disabled:Boolean(optionDisabled(option))};
+      if(label.truncated||raw.length>4096)entry.label_truncated=true;
+      out.options.push(entry);
+      if(new TextEncoder().encode(JSON.stringify({...out,next_offset:index+1,truncated:true})).length>budget){out.options.pop();break;}
+    }
+    const next=offset+out.options.length;
+    if(next<target.options.length){
+      if(!out.options.length)return fail("option_result_limit","Increase max_bytes to read an option within its result budget");
+      out.next_offset=next;out.truncated=true;
+    }
+    return out;
+  }
+  function selectOptions(options = {}) {
+    const no=(code,message)=>fail(code,message,{effect_may_have_occurred:false});
+    const target=optionTarget(options);if(!target.ok)return {...target,error:{...target.error,effect_may_have_occurred:false}};
+    const {element}=target,choices=options.choices,multiple=element.multiple;
+    if(element.disabled||element.matches(":disabled")||element.getAttribute("aria-disabled")==="true")return no("element_disabled","The select is disabled");
+    if(!Array.isArray(choices)||choices.length>32)return no("choice_invalid","Specify at most 32 exact choices");
+    if(!multiple&&choices.length!==1)return no("choice_invalid","A single-select requires exactly one choice");
+    const snapshot=[];let inspected=0;
+    for(const option of target.options){
+      const value=option.value,label=option.label;
+      inspected+=value.length+label.length;
+      if(value.length>4096||label.length>4096||inspected>65536)return no("selection_limit","Option metadata exceeds the bounded selection snapshot");
+      snapshot.push({value,label:normalize(label),disabled:Boolean(optionDisabled(option))});
+    }
+    const desired=new Set();
+    for(const choice of choices){
+      if(!choice||Object.keys(choice).length!==1||!["label","value","index"].some(key=>Object.hasOwn(choice,key)))return no("choice_invalid","Use exactly one label, value or index for each choice");
+      const matches=snapshot.map((option,index)=>({option,index})).filter(({option,index})=>
+        choice.index!==undefined?index===choice.index:choice.value!==undefined?option.value===choice.value:option.label===normalize(choice.label));
+      if(!matches.length)return no("option_not_found","No option matches the requested choice");
+      if(matches.length!==1)return no("option_ambiguous","More than one option matches; select an exact observed index");
+      const match=matches[0];if(match.option.disabled)return no("option_disabled","The requested option or its group is disabled");
+      if(desired.has(match.index))return no("choice_duplicate","Multiple choices resolve to the same option");
+      desired.add(match.index);
+    }
+    const verified=()=>element.isConnected&&element.ownerDocument===target.row.documentNode&&element.multiple===multiple&&
+      !element.matches(":disabled")&&element.getAttribute("aria-disabled")!=="true"&&
+      element.options.length===target.options.length&&target.options.every((option,index)=>element.options[index]===option&&
+        option.value===snapshot[index].value&&option.label.length<=4096&&normalize(option.label)===snapshot[index].label&&
+        Boolean(optionDisabled(option))===snapshot[index].disabled&&option.selected===desired.has(index));
+    if(verified())return {ok:true,document:documentId,changed:false,dispatched:false,verified:true,input_method:"dom_select",events_trusted:false};
+    // One controlled selection transaction, followed by exactly one input and
+    // change. Keyboard navigation may commit unwanted intermediate choices.
+    // These standard DOM events are intentionally not claimed to be trusted.
+    try{
+      if(element.multiple){const set=Object.getOwnPropertyDescriptor(HTMLOptionElement.prototype,"selected").set;
+        for(let index=0;index<target.options.length;index++)set.call(target.options[index],desired.has(index));
+      }else Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,"selectedIndex").set.call(element,[...desired][0]);
+      element.dispatchEvent(new Event("input",{bubbles:true,composed:true}));
+      element.dispatchEvent(new Event("change",{bubbles:true}));
+      if(!verified())return fail("action_uncertain","The page changed the selection during its event handlers; inspect before repeating",{effect_may_have_occurred:true});
+      return {ok:true,document:documentId,changed:true,dispatched:true,verified:true,input_method:"dom_select",events_trusted:false};
+    }catch{return fail("action_uncertain","The selection or its event handlers did not finish; inspect before repeating",{effect_may_have_occurred:true});}
   }
   function captureArea(options = {}) {
     if (options.document && options.document !== documentId) return fail("stale_document", "Observe the current document before capturing it");
@@ -319,7 +394,7 @@ export function browserRuntime() {
       return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, captureArea });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

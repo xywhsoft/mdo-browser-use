@@ -12,6 +12,12 @@ static mdo_result BuAct(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
     if((BuEqual(Op,"fill")||BuEqual(Op,"type"))&&!V->Get(P,"text"))return BuFail(E,"text_required","Text is required for fill or type",422);
     if(BuEqual(Op,"key")&&!V->Get(P,"key"))return BuFail(E,"key_required","A supported key is required",422);
     if(BuEqual(Op,"check")&&!V->Get(P,"checked"))return BuFail(E,"checked_required","Specify the desired checked state",422);
-    const char* Fields[]={"op","document","target","text","key","checked","dx","dy","timeout_ms"};
-    return BuQueue(C,P,"act",Fields,9,Result,E);
+    const xvalue* Choices=V->Get(P,"choices");
+    if(BuEqual(Op,"select")){
+        if(!Choices)return BuFail(E,"choices_required","Specify the exact select choices; an empty array clears a multi-select",422);
+        for(size_t I=0;I<V->Count(Choices);I++)if(V->Count(V->At(Choices,I))!=1)
+            return BuFail(E,"choice_invalid","Each choice requires exactly one label, value or index",422);
+    }else if(Choices)return BuFail(E,"arguments_invalid","Choices apply only to the select action",422);
+    const char* Fields[]={"op","document","target","text","key","checked","dx","dy","timeout_ms","choices"};
+    return BuQueue(C,P,"act",Fields,10,Result,E);
 }

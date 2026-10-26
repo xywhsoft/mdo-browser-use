@@ -250,7 +250,7 @@
     {
       "path": "tools/workbench_contracts.py",
       "before": "'dialog':s,'accept':{'type':'boolean'},",
-      "after": "'dialog':s,'accept':{'type':'boolean'},'format':s,'max_width':{'type':'integer'},'max_height':{'type':'integer'},'max_bytes':{'type':'integer'},"
+      "after": "'dialog':s,'accept':{'type':'boolean'},'format':s,'max_width':{'type':'integer'},'max_height':{'type':'integer'},"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",
@@ -311,6 +311,16 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "          for (const [panelId, panel] of entries) if (panel.type === \"mdo.browser\" && panel.resource?.id === id) remount(panelId);",
       "after": "          for (const [panelId, panel] of [...entries]) if (definitions.get(panel.type)?.renderer === \"browser\" && panel.resource?.id === id) await close(panelId);"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'enum':['readable','interactive','viewport','full_page','element']",
+      "after": "'enum':['readable','interactive','viewport','full_page','element','options']"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'target':{'type':'object'},'key':s",
+      "after": "'target':{'type':'object'},'choices':{'type':'array','maxItems':32,'items':{'type':'object'}},'offset':{'type':'integer','minimum':0,'maximum':256},'key':s"
     }
   ],
   "files": [

@@ -54,7 +54,7 @@ export const services = [
   },
   {
     "id": "browseruse.observe",
-    "description": "Queue a bounded page observation in the tab's display client. Read browseruse.result to obtain the terminal observation; pending is not success.",
+    "description": "Queue a bounded page observation or paged HTML select-option discovery in the tab display client. Read browseruse.result; pending is not success.",
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -71,7 +71,8 @@ export const services = [
           "type": "string",
           "enum": [
             "readable",
-            "interactive"
+            "interactive",
+            "options"
           ]
         },
         "limit": {
@@ -88,6 +89,67 @@ export const services = [
           "type": "integer",
           "minimum": 1,
           "maximum": 60000
+        },
+        "document": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "frame": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "role": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "placeholder": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "testid": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "css": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
         }
       }
     },
@@ -156,7 +218,8 @@ export const services = [
             "scroll",
             "double_click",
             "right_click",
-            "middle_click"
+            "middle_click",
+            "select"
           ]
         },
         "target": {
@@ -251,6 +314,30 @@ export const services = [
           "type": "integer",
           "minimum": 1,
           "maximum": 60000
+        },
+        "choices": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "value": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            }
+          }
         }
       }
     },

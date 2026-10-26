@@ -56,6 +56,14 @@ static bool BuValidate(const mdo_sdk_context_v1* C,const xvalue* Schema,
         return true;
     }
     if(!strcmp(Type,"boolean"))return Kind==MDO_VALUE_BOOL;
+    if(!strcmp(Type,"array")){
+        uint64_t Min=0,Max=UINT64_MAX;
+        if(Kind!=MDO_VALUE_ARRAY||!V->Get(Schema,"items"))return false;
+        V->Unsigned(V->Get(Schema,"minItems"),&Min);V->Unsigned(V->Get(Schema,"maxItems"),&Max);
+        if(V->Count(Value)<Min||V->Count(Value)>Max)return false;
+        for(size_t I=0;I<V->Count(Value);I++)if(!BuValidate(C,V->Get(Schema,"items"),V->At(Value,I),Depth+1))return false;
+        return true;
+    }
     if(!strcmp(Type,"integer")){
         int64_t Number=0,Min=INT64_MIN,Max=INT64_MAX;
         if(!V->Integer(Value,&Number))return false;

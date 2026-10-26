@@ -15,6 +15,15 @@ semantic locators. A stale document or ambiguous match requires a fresh observat
 native gestures. Select the real target from a fresh page observation. Do not
 replace an unsupported gesture with repeated ordinary clicks or guessed input.
 
+For an HTML select, use `browser_observe(mode="options",document=<fresh id>,
+target=<exact select>)` to read labels/indices/disabled states. Follow its
+`next_offset`; a clipped label should be selected by observed index. Then use
+`browser_act(op="select",choices=[{index:...}])`, or one exact label/value per
+choice. Multi-select replaces the entire set; `choices=[]` clears it. Custom
+dropdown widgets need their visible controls. Select emits one controlled DOM
+input/change pair (`events_trusted:false`); verify the website's business result.
+If the page overrides the result, inspect it instead of repeating the selection.
+
 After acting, verify the relevant page or business result. An action being
 accepted or dispatched does not prove that the user's task succeeded. If a
 mutating action may already have run, inspect the state instead of repeating it.

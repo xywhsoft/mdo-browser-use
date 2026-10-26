@@ -27,6 +27,16 @@ try {
     url: `${origin}/__browser_use_page__.html`, key: "js-native-client" });
   const page = await client.observe({ browser: browser.id });
   assert.ok(page.text.includes("Readable fixture text"));
+  const choices=await client.observe({browser:browser.id,mode:"options",document:page.document,target:{label:"Delivery method"}});
+  assert.equal(choices.options[3].label,"Express");assert.equal(choices.values_exposed,false);
+  const selectionOperation=`sdk-${crypto.randomUUID().replaceAll("-","")}`;
+  const selectParams={browser:browser.id,document:page.document,op:"select",target:{ref:choices.ref},choices:[{index:3}]};
+  const selected=await client.act(selectParams,{operation:selectionOperation,retain:true});
+  assert.equal(selected.input_method,"dom_select");assert.equal(selected.events_trusted,false);
+  assert.ok(selected.observation.text.includes("Selection events 1/1"));
+  assert.deepEqual(await client.act(selectParams,{operation:selectionOperation,retain:true}),selected);
+  assert.ok((await client.observe({browser:browser.id})).text.includes("Selection events 1/1"));
+  await client.operation({action:"release",operation:selectionOperation});
   const screenshotModes=[];
   for(const parameters of [{mode:"viewport",format:"png"},{mode:"element",format:"jpeg",target:{name:"查询"}},
     {mode:"full_page",format:"png",max_height:640}]){
@@ -111,7 +121,7 @@ try {
   const report = { passed: true, backend: "actual-js-client-mdo-webview2", duplicate_native_clicks: 0,
     released_identity_not_replayed: true, navigation_completed: true, native_dialog_checkpoint_and_response: true,
     duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true,
-    closed_panels_removed:true,closed_pending_wait_cancelled:true,screenshot_modes:screenshotModes };
+    closed_panels_removed:true,closed_pending_wait_cancelled:true,exact_selection_once:true,screenshot_modes:screenshotModes };
   await writeFile(output, JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(JSON.stringify(report) + "\n");
 } catch (error) {

@@ -511,3 +511,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   on a ticket. The real 20-second lease, opener resumption, expired-ID rejection
   and the full native run then passed (271 assertions, no new diagnostics).
   The timer remains the idle cleanup path; the production lease was unchanged.
+
+## B8 — exact select transactions and paged option discovery
+
+- Added shared `browseruse.act(op="select",choices=[...])` and read-only
+  `browseruse.observe(mode="options",document,target,offset)` through the C/JS
+  services and existing managed tools. C validation now covers bounded typed
+  arrays; choices resolve by exactly one label/value/index. Discovery returns
+  labels/indices/disabled states without stored values or selected state.
+- The native prototype proved that navigating to a choice can commit three
+  intermediate change events. The public action instead applies one complete
+  selection and one standard DOM input/change pair. It explicitly reports
+  `input_method:"dom_select",events_trusted:false`; unchanged sets emit nothing.
+  Fresh target geometry, scope, permissions, takeover/cancellation and durable
+  operation admission remain enforced. Website business success is separate.
+- Selection verifies the final set, option node identities/labels/values/disabled
+  state and select type after handlers. Page overrides return an uncertain
+  effect, and are never retried automatically. Inspection/mutation count,
+  metadata, choice and result-byte budgets fail explicitly before effects.
+- Passed 31 Python and 28 JS checks, 282 actual native assertions with no new
+  diagnostics, 17 public C/UI actions, the actual JS client (duplicate selection
+  delivered once), and nine managed tools. Covered single/multiple/clear,
+  unchanged sets, disabled groups, ambiguity/duplicate choices, page overrides,
+  oversized metadata/count, pagination/byte limits, failure recovery and real
+  read-only denial. No live provider/model call or new application/Home used.
+- Drag, vision coordinates, upload/download, complete cross-origin/frame support,
+  Android and final lifecycle/package gates remain outstanding.

@@ -94,6 +94,18 @@ def main():
             assert expected in gesture["observation"]["text"]
         assert act("key", {"testid": "order-field"}, key="Tab")["dispatched"]
         assert act("scroll", dy=150)["dispatched"]
+        listed=dev.call("browseruse.observe",{"browser":browser,"mode":"options","document":page["document"],
+                       "target":{"label":"Delivery method"},"limit":2},SCOPE)
+        try:
+            listing=wait_receipt(listed["id"])["result"]
+            assert listing["truncated"] and listing["next_offset"]==2 and listing["values_exposed"] is False
+        finally:dev.call("browseruse.result",{"id":listed["id"],"release":True},SCOPE)
+        selection=act("select",{"label":"Delivery method"},choices=[{"label":"Express"}])
+        assert selection["verified"] and selection["events_trusted"] is False
+        assert "Selection events 1/1" in selection["observation"]["text"]
+        assert act("select",{"label":"Delivery method"},choices=[{"value":"express"}])["changed"] is False
+        assert act("select",{"label":"Colors"},choices=[{"index":0},{"label":"Blue"}])["verified"]
+        assert act("select",{"label":"Colors"},choices=[])["verified"]
         waits = 0
         def complete(service, fields, failure=None):
             queued_call = dev.call(service, {"browser": browser, **fields}, SCOPE)
@@ -117,6 +129,9 @@ def main():
             waits += 1
         failed_wait = complete("browseruse.wait", {"until": "visible", "target": {"css": "#never-created"}, "timeout_ms": 250}, "timed_out")
         assert failed_wait["error"]["effect_may_have_occurred"] is False
+        invalid_selection=complete("browseruse.act",{"document":page["document"],"op":"select",
+            "target":{"label":"Delivery method"},"choices":[{"index":2}]},"option_disabled")
+        assert invalid_selection["error"]["effect_may_have_occurred"] is False
         navigated = complete("browseruse.navigate", {"action": "goto", "url": f"http://127.0.0.1:{dev.state()['port']}/__browser_use_page__.html?navigation=2"})
         assert navigated["observation"]["document"] != page["document"]
         stale = complete("browseruse.act", {"document": page["document"], "op": "click", "target": {"name": "查询"}}, "stale_document")

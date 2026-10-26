@@ -21,8 +21,17 @@ static mdo_result BuQueue(const mdo_sdk_context_v1* C,const xvalue* P,const char
 }
 static mdo_result BuObserve(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
                             xvalue** Result,mdo_error_v1* E) {
-    (void)User;const char* Fields[]={"mode","limit","max_bytes","timeout_ms"};
-    return BuQueue(C,P,"observe",Fields,4,Result,E);
+    (void)User;const mdo_values_v1* V=C->Api->Values;
+    if(BuEqual(BuText(C,P,"mode"),"options")){
+        if(!V->Get(P,"document")||!V->Count(V->Get(P,"target")))return BuFail(E,"target_required","Option discovery requires a fresh document and exact select target",422);
+        const xvalue* Target=V->Get(P,"target");bool Selector=false;
+        const char* Keys[]={"role","name","label","placeholder","text","testid","css","ref"};
+        for(size_t I=0;I<8;I++)if(V->Get(Target,Keys[I]))Selector=true;
+        if(!Selector)return BuFail(E,"target_required","A frame alone is not a select target",422);
+        if(V->Get(Target,"ref")&&V->Count(Target)>(V->Get(Target,"frame")?2:1))return BuFail(E,"target_invalid","Use a reference or semantic selectors",422);
+    }else if(V->Get(P,"document")||V->Get(P,"target")||V->Get(P,"offset"))return BuFail(E,"arguments_invalid","Document, target and offset are used only for options observation",422);
+    const char* Fields[]={"mode","limit","max_bytes","timeout_ms","document","target","offset"};
+    return BuQueue(C,P,"observe",Fields,7,Result,E);
 }
 
 static mdo_result BuResult(void* User,const mdo_sdk_context_v1* C,const xvalue* P,

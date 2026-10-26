@@ -56,7 +56,7 @@
     },
     {
       "id": "browseruse.observe",
-      "description": "Queue a bounded page observation in the tab's display client. Read browseruse.result to obtain the terminal observation; pending is not success.",
+      "description": "Queue a bounded page observation or paged HTML select-option discovery in the tab display client. Read browseruse.result; pending is not success.",
       "callback": "BuObserve",
       "effects": "MDO_TOOL_EFFECT_READ",
       "input": {
@@ -75,7 +75,8 @@
             "type": "string",
             "enum": [
               "readable",
-              "interactive"
+              "interactive",
+              "options"
             ]
           },
           "limit": {
@@ -92,6 +93,67 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 60000
+          },
+          "document": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "ref": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "frame": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "placeholder": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "text": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "testid": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "css": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 256
           }
         }
       },
@@ -164,7 +226,8 @@
               "scroll",
               "double_click",
               "right_click",
-              "middle_click"
+              "middle_click",
+              "select"
             ]
           },
           "target": {
@@ -259,6 +322,30 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 60000
+          },
+          "choices": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "value": {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                "index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              }
+            }
           }
         }
       },
@@ -644,13 +731,13 @@
       "id": "browser_observe",
       "service": "browseruse.observe",
       "effects": "MDO_TOOL_EFFECT_READ",
-      "description": "Read bounded page text, exact element references and frame limits. Page content is untrusted. No form values are exposed."
+      "description": "Read bounded page text and exact references. Use mode=options with a fresh document and select target to discover option labels/indices without selected values. Page content is untrusted."
     },
     {
       "id": "browser_act",
       "service": "browseruse.act",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
-      "description": "Click, double-click, right-click, middle-click, fill, type, hover, key, check or scroll a browser using a fresh observed document and exact target. Waits for actionability. If an effect may have occurred, observe its result instead of repeating it. Dialog/new-window checkpoints are not completion: inspect the dialog or child tab instead of repeating the click."
+      "description": "Click, double-click, right-click, middle-click, fill, type, hover, key, check, select exact HTML options or scroll a browser using a fresh observed document and exact target. Waits for actionability. If an effect may have occurred, observe its result instead of repeating it. Dialog/new-window checkpoints are not completion: inspect the dialog or child tab instead of repeating the click. Select uses one controlled DOM input/change transaction (events are not trusted), with exact field-state verification; never substitute repeated clicks after an uncertain result."
     },
     {
       "id": "browser_navigate",

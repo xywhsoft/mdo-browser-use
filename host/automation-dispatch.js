@@ -153,9 +153,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
             return fail("unsupported_capability", "This browser backend cannot deliver the requested mouse gesture");
           navigation = state.navigation; break;
         }
-        const options = { mode: params.mode, limit: params.limit, max_bytes: params.max_bytes };
-        const result = await read("observe", options);
+        const options = { mode: params.mode, limit: params.limit, max_bytes: params.max_bytes,document:params.document,target:params.target,offset:params.offset };
+        const result = await read(params.mode === "options" ? "optionList" : "observe", options);
         if (!result.ok) return { handled: true, result };
+        if (params.mode === "options") return { handled:true,result };
         if (["interactive", "complete"].includes(result.ready)) return { handled: true, result };
       }
       await pause(Math.min(50, Math.max(0, deadline - performance.now())));
@@ -181,6 +182,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const pinned = { ...params, target: { ref: prepared.element.ref } };
       const fresh = await read("prepare", pinned);
       if (!fresh.ok || !sameGeometry(fresh, prepared)) return fail("target_changed", "The target moved or changed immediately before input");
+      if (params.op === "select") {
+        const checked = await guard(true);if(checked.handled)return checked;
+        dispatched = true;
+        const selected = await read("selectOptions",pinned);
+        if (!selected.ok) { if(selected.error?.effect_may_have_occurred===false)dispatched=false;return {handled:true,result:selected}; }
+        dispatched = Boolean(selected.dispatched);
+        const stopped = await guard(true);if(stopped.handled)return stopped;
+        return {handled:true,result:{...selected,action:action.id,verification:"field_state",observation:await read("observe",{limit:100,max_bytes:4096})}};
+      }
       if (params.op === "check" && fresh.element.checked === params.checked) return { handled: true, result: { ok: true, changed: false, action: action.id, verified: true } };
       if (params.op === "check" && fresh.element.role === "radio" && !params.checked) return fail("unsupported_action", "A radio input cannot be unchecked by clicking it; select another radio in the group");
       let error = await send({ kind: params.op === "hover" ? "move" : params.op === "scroll" ? "wheel" : "click", ...fresh.point,

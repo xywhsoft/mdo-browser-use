@@ -94,6 +94,24 @@ def main():
         assert observed["success"]
         page = value(observed)
         assert "Readable fixture text" in page["text"]
+        options=tool("browser_observe",{"browser":browser,"mode":"options","document":page["document"],"target":{"label":"Delivery method"}})
+        assert options["success"] and value(options)["options"][3]["label"]=="Express"
+        invalid_choice=tool("browser_act",{"browser":browser,"document":page["document"],"op":"select",
+            "target":{"label":"Delivery method"},"choices":[{"index":2}]})
+        assert invalid_choice["success"] is False and "option_disabled" in invalid_choice["text"]
+        selected=tool("browser_act",{"browser":browser,"document":page["document"],"op":"select",
+            "target":{"label":"Delivery method"},"choices":[{"label":"Express"}]})
+        assert selected["success"] and value(selected)["verified"] and value(selected)["events_trusted"] is False
+        assert "Selection events 1/1" in value(selected)["observation"]["text"]
+        readonly_scope=dict(owner,session=READ_ONLY)
+        readonly_browser=dev.call("browser.create",{"client":client,"url":f"http://127.0.0.1:{dev.state()['port']}/__browser_use_page__.html"},readonly_scope)["id"]
+        try:
+            readonly_page=value(tool("browser_observe",{"browser":readonly_browser},READ_ONLY))
+            readonly_options=tool("browser_observe",{"browser":readonly_browser,"mode":"options","document":readonly_page["document"],"target":{"label":"Delivery method"}},READ_ONLY)
+            assert readonly_options["success"] and value(readonly_options)["values_exposed"] is False
+            assert tool("browser_act",{"browser":readonly_browser,"document":readonly_page["document"],"op":"select",
+                "target":{"label":"Delivery method"},"choices":[{"index":3}]},READ_ONLY)["success"] is False
+        finally:dev.call("browser.close",{"id":readonly_browser},readonly_scope)
         failed = tool("browser_act", {"browser": browser, "document": "stale-document", "op": "click", "target": {"name": "查询"}})
         assert failed["success"] is False
         assert "stale_document" in failed["text"]
@@ -160,7 +178,8 @@ def main():
                   "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
                   "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,
                   "managed_popup_ownership": True, "native_screenshot_image": True,
-                  "native_mouse_gestures": ["double_click", "right_click", "middle_click"]}
+                  "native_mouse_gestures": ["double_click", "right_click", "middle_click"],
+                  "exact_selection_and_discovery":True,"readonly_select_denied":True}
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:

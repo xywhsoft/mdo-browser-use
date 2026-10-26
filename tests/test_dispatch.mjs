@@ -169,6 +169,49 @@ test("mouse gestures deliver one typed sequence to the pinned fresh element",asy
   }
 });
 
+test("selection uses one controlled transaction with fresh document, guard and pinned target",async()=>{
+  let commits=0,inputs=0;
+  const view={async execute(command,params){
+    if(command==="state")return{loading:false,automation:true,navigation:"1"};
+    if(command==="input"){inputs++;throw Error("Select must not click through intermediate choices");}
+    if(params.script.includes(".prepare("))return{ok:true,value:{ok:true,element:{ref:"select-ref"},point:{x:20,y:30},geometry:[0,0,40,60,20,30]}};
+    if(params.script.includes(".selectOptions(")){
+      commits++;assert.ok(params.script.includes('"target":{"ref":"select-ref"}'));
+      assert.ok(params.script.includes('"choices":[{"label":"Express"}]'));
+      return{ok:true,value:{ok:true,changed:true,dispatched:true,verified:true,input_method:"dom_select",events_trusted:false}};
+    }
+    return{ok:true,value:{ok:true,text:"after selection"}};
+  }};
+  const result=await executeBrowserAutomation({command:"act",params:{op:"select",document:"d1",target:{name:"Delivery"},choices:[{label:"Express"}]},
+    view,action:{id:"select-transaction"},api:{async call(){return{state:"pending"};}}});
+  assert.equal(commits,1);assert.equal(inputs,0);assert.equal(result.result.verification,"field_state");
+  assert.equal(result.result.events_trusted,false);assert.equal(result.result.input_method,"dom_select");
+});
+
+test("options observation is read-only and bypasses ordinary page text collection",async()=>{
+  let calls=0;
+  const result=await executeBrowserAutomation({command:"observe",params:{mode:"options",document:"d1",target:{ref:"select-ref"},offset:2},
+    action:{id:"options-list"},api:{async call(){return{state:"pending"};}},view:{async execute(command,params){
+      if(command==="state")return{loading:false,automation:true};
+      assert.equal(command,"automation");assert.ok(params.script.includes(".optionList("));
+      assert.ok(params.script.includes('"offset":2'));calls++;return{ok:true,value:{ok:true,options:[{index:2,label:"Express",disabled:false}]}};
+    }}});
+  assert.equal(result.result.options[0].label,"Express");assert.equal(calls,1);
+});
+
+test("cancellation or user takeover before selection prevents its transaction",async()=>{
+  for(const boundary of ["cancelled","manual_control"]){
+    let prepared=0,committed=0;
+    const result=await executeBrowserAutomation({command:"act",params:{op:"select",document:"d1",target:{ref:"select"},choices:[{index:0}]},
+      action:{id:boundary},api:{async call(){return{state:boundary==="cancelled"&&prepared>=3?"cancelled":"pending"};}},view:{async execute(command,params){
+        if(command==="state")return{loading:false,automation:true,navigation:"1",manual:boundary==="manual_control"&&prepared>=3};
+        if(params.script.includes(".prepare(")){prepared++;return{ok:true,value:{ok:true,element:{ref:"select"},point:{x:20,y:30},geometry:[0,0,40,60,20,30]}};}
+        committed++;throw Error("A stopped selection reached the transaction");
+      }}});
+    assert.equal(result.result.error.code,boundary);assert.equal(result.result.error.effect_may_have_occurred,false);assert.equal(committed,0);
+  }
+});
+
 test("screenshot cancellation stops the native request and releases its UI writer",async()=>{
   let started=false,stop;
   const commands=[];
