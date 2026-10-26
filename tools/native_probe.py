@@ -34,6 +34,20 @@ const engine = async expression => {
   assert(result.ok,'Native isolated evaluation failed');return result.value;
 };
 try {
+  const raceBrowser='browser-use-creation-race';
+  const interrupted=bridge.call('create',{browser:raceBrowser,url:location.origin+'/__browser_use_page__.html?creation=old',visible:false})
+    .then(()=>({created:true}),error=>({cancelled:true,message:error.message}));
+  await bridge.call('close',{browser:raceBrowser});
+  await bridge.call('create',{browser:raceBrowser,url:location.origin+'/__browser_use_page__.html?creation=new',visible:false});
+  const oldCreation=await interrupted;
+  assert(oldCreation.cancelled,'Closing in-flight creation did not cancel its original callback');
+  let replacement;
+  for(let i=0;i<100;i++){
+    replacement=await bridge.call('state',{browser:raceBrowser});
+    if(!replacement.loading)break;await pause(20);
+  }
+  assert(replacement.url.includes('creation=new'),'A stale creation callback replaced the new native browser');
+  await bridge.call('close',{browser:raceBrowser});
   await bridge.call('create', { browser, url:location.origin+'/__browser_use_page__.html',
     visible:true, bounds:{ x:10,y:70,width:1000,height:650,scale:devicePixelRatio } });
   let ready = false;

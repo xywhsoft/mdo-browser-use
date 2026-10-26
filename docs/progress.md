@@ -316,3 +316,16 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   ten actions/four navigations/five condition waits. No real model call used.
 - Long-duration expiry, new-window ownership, file transfers, broader frame
   support and platform adapters remain outstanding. No production deployment.
+
+## D1a — cancelled browser creation cannot attach to a replacement
+
+- A real create/close/recreate sequence reproduced success from an obsolete
+  creation callback. It checked only whether an ID was present, so a new
+  instance under the same ID could satisfy the old callback's condition.
+- Environment/controller completion now checks the retained instance pointer
+  and closed state before registration, cleanup or response. An obsolete
+  controller is closed and its original request reports cancellation. A second
+  create cannot report attachment while the first instance is still creating.
+- The same native probe then passed 136 checks, including cancellation of the
+  old creation and verification that the replacement kept its own target URL.
+  The failed pre-fix result is retained privately under `.mdo/evidence/`.
