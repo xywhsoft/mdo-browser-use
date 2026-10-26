@@ -220,3 +220,20 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - All six tools were exercised, including navigation, condition wait and tab
   cleanup. No provider/model call was made; this does not claim a model-driven
   end-to-end task or Android validation.
+
+## C2 — confirmed operation-receipt scope defect
+
+- Before extending recovery, reproduced a host defect in this QA deployment:
+  a different extension/session could read an SDK operation receipt by ID.
+  Existing checks protected repeated admission hashes, but did not authorize
+  get/result/cancel/release/list against the originating task.
+- Operation receipts now carry versioned extension/device/project/session and
+  collaboration identity metadata. Live and persisted reads/mutations check
+  that scope; list filters it. Worker contexts retain the original device.
+  Older unverifiable receipts fail closed and are not replayed.
+- Two actual SDK regressions cover foreign extension/session access across the
+  receipt methods, list isolation and released admission identities. Reusing a
+  released identity returns its retained admission with no result, never a new
+  execution. The full managed native-tool probe still passed after this fix.
+- This is isolation between local SDK scopes, not evidence of an anonymous or
+  cross-account network vulnerability. No production service was changed.

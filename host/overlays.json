@@ -60,6 +60,56 @@
       "path": "app/web/js/api/application.js",
       "before": "  const journalAck = JSON.stringify(ack).length > 16384",
       "after": "  const privateBrowserResult = action.action.startsWith(\"browseruse.\") || action.action === \"workbench.browser\";\n  const journalAck = privateBrowserResult || JSON.stringify(ack).length > 16384"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "char *Extension,*Project,*Session,*Run,*Workspace,*Method,*Namespace,*MemberId;",
+      "after": "char *Extension,*Project,*Session,*Run,*Workspace,*Method,*Namespace,*MemberId,*Device;"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "static bool SdkRandomId(cstr Prefix,char Id[37]){",
+      "after": "#include \"browser_use_operation_scope.inc.c\"\nstatic bool SdkRandomId(cstr Prefix,char Id[37]){"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "xrtFree(J->Extension);xrtFree(J->Project);",
+      "after": "xrtFree(J->Device);xrtFree(J->Extension);xrtFree(J->Project);"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "    C.Namespace=J->Namespace;C.MemberId=J->MemberId;",
+      "after": "    C.Namespace=J->Namespace;C.MemberId=J->MemberId;C.DeviceId=J->Device;"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "if(SdkJobs.Jobs[i].Id[0])xrtValueArrayAppendNew(*R,xrtValueClone(SdkJobs.Jobs[i].Info));",
+      "after": "if(SdkJobs.Jobs[i].Id[0]&&BuOperationScope(C,SdkJobs.Jobs[i].Info))xrtValueArrayAppendNew(*R,xrtValueClone(SdkJobs.Jobs[i].Info));"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "SdkPut(Admission,\"namespace\",C->Namespace);",
+      "after": "SdkPut(Admission,\"device\",C->DeviceId);SdkPut(Admission,\"namespace\",C->Namespace);"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "        if(J&&J->Disposing){",
+      "after": "        if(J&&!BuOperationScope(C,J->Info)){xrtMutexUnlock(SdkJobs.Lock);return MdoApplicationError(E,\"context_mismatch\",\"Operation belongs to another task or lacks a verifiable scope\",\"operation\",409,false);}\n        if(J&&J->Disposing){"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "if(Receipt){bool Match=",
+      "after": "if(Receipt){if(!BuOperationScope(C,Receipt)){xrtValueRelease(Receipt);xrtMutexUnlock(SdkJobs.Lock);return MdoApplicationError(E,\"context_mismatch\",\"Persisted operation belongs to another task or lacks a verifiable scope\",\"operation\",409,false);}bool Match="
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "J->Extension=xrtStrDup(C->ExtensionId);",
+      "after": "J->Device=xrtStrDup(C->DeviceId);J->Extension=xrtStrDup(C->ExtensionId);"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "            bool Ok=J->Extension&&J->Project",
+      "after": "            BuOperationStamp(J->Info,C);\n            bool Ok=J->Device&&J->Extension&&J->Project"
     }
   ],
   "files": [
@@ -74,6 +124,10 @@
     {
       "source": "host/automation-dispatch.js",
       "target": "app/web/js/features/workbench/automation-dispatch.js"
+    },
+    {
+      "source": "host/operation-scope.inc.c",
+      "target": "app/src/application/browser_use_operation_scope.inc.c"
     }
   ]
 }
