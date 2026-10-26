@@ -4,6 +4,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::shared_ptr<xb_upload_job> job;
   std::string id,document,ref,group,object,error;ULONGLONG deadline=0;
   bool done=false,stopped=false,replied=false,inFlight=false,dispatched=false;
+  std::string clearMeta()const{return job->clear?",\"input_method\":\"dom_file_clear\",\"events_trusted\":false":"";}
   void releaseGroup()noexcept{
     if(group.empty()||view->closed||!host->alive)return;
     try{std::weak_ptr<xb_view> weak=view;xb_cdp(view,L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",[weak](bool ok,const std::string& result){if(!ok||!xb_get(result,"error").empty())if(auto active=weak.lock())active->uploadCleanupFailed=true;});}catch(...){view->uploadCleanupFailed=true;}
@@ -16,7 +17,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   }
   bool live()const{return !done&&!stopped&&!job->closing&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
   std::string failure(const std::string& code,const std::string& message)const{
-    return "{\"accepted\":false,\"ticket\":"+xb_quote(job->ticket)+",\"dispatched\":"+(dispatched?"true":"false")+",\"retained\":"+(job->retained?"true":"false")+
+    return "{\"accepted\":false,\"ticket\":"+xb_quote(job->ticket)+clearMeta()+",\"dispatched\":"+(dispatched?"true":"false")+",\"retained\":"+(job->retained?"true":"false")+
       ",\"error\":{\"code\":"+xb_quote(code)+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":"+(dispatched?"true":"false")+"}}";
   }
   void reply(const std::string& result){job->assignmentResult=result;if(replied)return;replied=true;host->reply(id,result);}
@@ -32,7 +33,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   void boundary(bool popup){
     if(done)return;
     if(!dispatched){stop("A dialog or new window interrupted upload preparation; inspect the page");return;}
-    reply("{\"accepted\":true,\"ticket\":"+xb_quote(job->ticket)+",\"dispatched\":true,\"retained\":true,\"completed\":false,\"outcome\":"+xb_quote(popup?"popup_open":"dialog_open")+"}");
+    reply("{\"accepted\":true,\"ticket\":"+xb_quote(job->ticket)+clearMeta()+",\"dispatched\":true,\"retained\":"+(job->retained?"true":"false")+",\"completed\":false,\"outcome\":"+xb_quote(popup?"popup_open":"dialog_open")+"}");
   }
   void tick(){
     if(done)return;
@@ -54,16 +55,16 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   }
   void verify(){
     auto self=shared_from_this();
-    const std::string function="function(){return {valid:this.isConnected&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),directory:!!this.webkitdirectory,files:Array.from({length:Math.min(this.files?.length||0,17)},(_,i)=>({name:this.files[i].name.slice(0,241),size:this.files[i].size}))}}";
+    const std::string function="function(){return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),directory:!!this.webkitdirectory,files:Array.from({length:Math.min(this.files?.length||0,17)},(_,i)=>({name:this.files[i].name.slice(0,241),size:this.files[i].size}))}}";
     call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
-      const auto value=xb_get(xb_get(result,"result"),"value"),files=xb_get(value,"files");bool verified=xb_get(value,"valid")=="true"&&xb_get(value,"disabled")!="true"&&xb_get(value,"directory")!="true";
+      const auto value=xb_get(xb_get(result,"result"),"value"),files=xb_get(value,"files");bool verified=xb_get(value,"valid")=="true"&&xb_get(value,"disabled")!="true"&&(self->job->clear||xb_get(value,"directory")!="true");
       for(size_t i=0;verified&&i<self->job->files.size();i++){auto item=webview::detail::json_parse(files,"",static_cast<int>(i));uint64_t size=0;
         verified=!item.empty()&&xb_get(item,"name")==self->job->files[i]->name&&xb_upload_uint(xb_get(item,"size"),size)&&size==self->job->files[i]->size;
       }
       verified=verified&&webview::detail::json_parse(files,"",static_cast<int>(self->job->files.size())).empty();
       if(!verified){self->finish(self->failure("action_uncertain","The page changed the assigned file list; inspect before repeating"));return;}
       self->job->verified=true;
-      self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+",\"dispatched\":true,\"retained\":true,\"verified\":true,\"verification\":\"file_list\",\"input_method\":\"native_file_input\"}");
+      self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+",\"dispatched\":true,\"retained\":"+(self->job->retained?"true":"false")+",\"cleared\":"+(self->job->clear?"true":"false")+",\"verified\":true,\"verification\":\"file_list\""+(self->job->clear?self->clearMeta():",\"input_method\":\"native_file_input\"")+"}");
     });
   }
   void dispatch(){
@@ -72,22 +73,35 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     auto self=shared_from_this();
     // Retain bytes before the native call: even a lost/error reply cannot prove
     // that the website did not obtain a File object for delayed submission.
-    dispatched=true;job->retained=true;job->assignDocument=document;job->assignRef=ref;
+    dispatched=true;job->dispatched=true;job->retained=!job->clear;job->assignDocument=document;job->assignRef=ref;
+    if(job->clear){
+      const auto expression="globalThis.__mdo_browser_use_runtime_v1.clearFiles({document:"+xb_quote(document)+",target:{ref:"+xb_quote(ref)+"}})";
+      call(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(view->automationContext)+",\"returnByValue\":true}",[self](const std::string& output){
+        const auto value=xb_get(xb_get(output,"result"),"value"),error=xb_get(value,"error");
+        if(xb_get(value,"dispatched")=="false"||xb_get(error,"effect_may_have_occurred")=="false"){self->dispatched=false;self->job->dispatched=false;}
+        if(xb_get(value,"ok")!="true"){self->finish(self->failure(self->dispatched?"action_uncertain":"upload_target_changed","The file selection change was not confirmed; inspect before repeating"));return;}
+        if(!self->dispatched){self->job->verified=true;self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+self->clearMeta()+",\"dispatched\":false,\"retained\":false,\"cleared\":true,\"changed\":false,\"verified\":true,\"verification\":\"file_list\"}");return;}
+        self->verify();
+      });return;
+    }
     call(L"DOM.setFileInputFiles","{\"objectId\":"+xb_quote(object)+",\"files\":"+paths+"}",[self](const std::string&){self->verify();});
   }
   void inspect(){
     auto self=shared_from_this();
-    const std::string function="function(){return {valid:this.isConnected&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),multiple:!!this.multiple,directory:!!this.webkitdirectory}}";
+    const std::string function="function(){return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),multiple:!!this.multiple,directory:!!this.webkitdirectory,count:this.files?.length||0}}";
     call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
       const auto value=xb_get(xb_get(result,"result"),"value");
-      if(xb_get(value,"valid")!="true"||xb_get(value,"disabled")=="true"||xb_get(value,"directory")=="true"||self->job->files.size()>1&&xb_get(value,"multiple")!="true"){
+      if(xb_get(value,"valid")!="true"||xb_get(value,"disabled")=="true"||!self->job->clear&&xb_get(value,"directory")=="true"||self->job->files.size()>1&&xb_get(value,"multiple")!="true"){
         self->finish(self->failure("upload_target_invalid","Choose an enabled regular file input with enough multiple-file capacity"));return;
+      }
+      if(self->job->clear&&xb_get(value,"count")=="0"){
+        self->job->verified=true;self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+self->clearMeta()+",\"dispatched\":false,\"retained\":false,\"cleared\":true,\"changed\":false,\"verified\":true,\"verification\":\"file_list\"}");return;
       }self->dispatch();
     });
   }
   void start(){
     auto self=shared_from_this();
-    const auto expression="(()=>{const r=globalThis.__mdo_browser_use_runtime_v1;return r&&r.version>=5&&r.document==="+xb_quote(document)+"?r.uploadNode({document:"+xb_quote(document)+",target:{ref:"+xb_quote(ref)+"}}):null})()";
+    const auto expression="(()=>{const r=globalThis.__mdo_browser_use_runtime_v1;return r&&r.version>="+std::string(job->clear?"6":"5")+"&&r.document==="+xb_quote(document)+"?r.uploadNode({document:"+xb_quote(document)+",target:{ref:"+xb_quote(ref)+"}}):null})()";
     call(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(view->automationContext)+",\"objectGroup\":"+xb_quote(group)+",\"returnByValue\":false,\"timeout\":3000}",[self](const std::string& result){
       const auto node=xb_get(result,"result");self->object=xb_get(node,"objectId");
       if(self->object.empty()||xb_get(node,"subtype")!="node"){self->finish(self->failure("upload_target_changed","The pinned file input changed; observe it again"));return;}
@@ -104,11 +118,11 @@ static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::sha
   if(!job){reject("upload_ticket_missing","The upload ticket expired or belongs to another browser");return;}
   const auto document=xb_get(json,"document"),ref=xb_get(json,"ref");uint64_t timeout=10000;
   if(document.empty()||document.size()>100||ref.empty()||ref.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||!timeout||timeout>60000){reject("upload_arguments_invalid","Choose a fresh document, pinned input reference and bounded deadline");return;}
-  if(job->retained){
+  if(job->dispatched||job->clear&&!job->assignmentResult.empty()){
     if(job->assignDocument!=document||job->assignRef!=ref){reject("upload_identity_conflict","This upload already belongs to a different file input");return;}
     if(!job->assignmentResult.empty()){host->reply(id,job->assignmentResult);return;}
-    if(job->assigning)host->reply(id,"{\"accepted\":true,\"pending\":true,\"dispatched\":true,\"retained\":true}");
-    else host->reply(id,"{\"accepted\":false,\"dispatched\":true,\"retained\":true,\"error\":{\"code\":\"action_uncertain\",\"message\":\"Inspect the page before another upload\",\"effect_may_have_occurred\":true}}");return;
+    if(job->assigning)host->reply(id,"{\"accepted\":true,\"pending\":true,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+"}");
+    else host->reply(id,"{\"accepted\":false,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+",\"error\":{\"code\":\"action_uncertain\",\"message\":\"Inspect the page before another upload\",\"effect_may_have_occurred\":true}}");return;
   }
   if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||!view->input.expired()||view->capture||view->drag||!view->automationContext||view->loading||view->initialNavigationPending||
      xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){
@@ -118,4 +132,30 @@ static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::sha
   assignment->id=id;assignment->document=document;assignment->ref=ref;assignment->group="mdo-upload-"+id;
   assignment->deadline=std::min<ULONGLONG>(GetTickCount64()+timeout,job->expires);
   job->assignment=assignment;job->assigning=true;view->uploadAssignment=assignment;view->uploadAssignmentKey=id;view->uploadBusy=true;assignment->start();
+}
+/* Clearing has no filesystem reservation. Its bounded in-memory identity still
+ * participates in the same input slot, cancellation timer and callback rules. */
+static void xb_upload_clear(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json){
+  const auto key=xb_get(json,"upload_key"),document=xb_get(json,"document"),ref=xb_get(json,"ref");uint64_t timeout=10000;
+  if(key.empty()||key.size()>100||document.empty()||document.size()>100||ref.empty()||ref.size()>100||
+     (!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||!timeout||timeout>60000||
+     xb_get(json,"navigation")!=std::to_string(view->navigation)){
+    host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":{\"code\":\"upload_arguments_invalid\",\"message\":\"Clear requires a fresh document, exact input, operation key and deadline\",\"effect_may_have_occurred\":false}}");return;
+  }
+  auto store=host->uploads;unsigned owned=0,total=0;
+  for(const auto& item:store->jobs){auto old=item.second;if(old->clear)total++;
+    if(old->view.lock()==view){owned+=old->clear;if(old->key==key){
+      if(!old->clear||old->assignDocument!=document||old->assignRef!=ref||old->navigation!=view->navigation){
+        host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":{\"code\":\"upload_identity_conflict\",\"message\":\"This identity belongs to another file operation\",\"effect_may_have_occurred\":false}}");return;
+      }xb_upload_assign(host,view,id,json,old);return;
+    }}
+  }
+  if(owned>=32||total>=64){host->reply(id,"","Clear-operation receipt limit reached; wait for previous deadlines or end the browser");return;}
+  GUID guid{};wchar_t identifier[40]{};if(FAILED(CoCreateGuid(&guid))||!StringFromGUID2(guid,identifier,40)){host->reply(id,"","Cannot allocate a clear-operation identity");return;}
+  auto job=std::make_shared<xb_upload_job>();job->view=view;job->key=key;job->navigation=view->navigation;
+  job->clear=job->sealed=job->prepared=true;job->assignDocument=document;job->assignRef=ref;job->expires=GetTickCount64()+timeout;
+  job->ticket="c-"+webview::detail::narrow_string(std::wstring(identifier+1,36));store->jobs[job->ticket]=job;
+  xb_upload_stores[host->window]=store;
+  if(!SetTimer(host->window,xb_upload_timer,250,xb_upload_tick)){job->closing=true;store->collect();host->reply(id,"","Cannot retain clear-operation deadline");return;}
+  xb_upload_assign(host,view,id,json,job);
 }

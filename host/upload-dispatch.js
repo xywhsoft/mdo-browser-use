@@ -1,6 +1,6 @@
 // Bytes cross the original task SDK boundary; browser-device paths never do.
 export async function executeFileUpload({params,view,api,action,guard,read,deadline,setDispatched,fail}){
-  let ticket=null,navigation,stage='capability',sourceIndex=null,requested=false,cleanupRequested=false,retained=false,settled=false,completed=false;
+  let ticket=null,navigation,stage='capability',sourceIndex=null,requested=false,cleanupRequested=false,clearStarted=false,retained=false,settled=false,completed=false;
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const remaining=()=>Math.max(1,Math.ceil(deadline-performance.now()));
   const transfer=result=>{
@@ -10,9 +10,20 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
   const stopped=async()=>{const checked=await guard(true);if(checked.handled)return transfer(checked);
     return navigation!==undefined&&checked.state.navigation!==navigation?transfer(fail('stale_document','The document changed during file transfer')):checked;};
   const native=params=>view.execute('upload',params);
+  const assign=async parameters=>{
+    let result,error;stage=clearStarted?'native_clear':'native_assignment';requested=true;retained=!clearStarted;setDispatched(true);
+    const pending=native(parameters).then(value=>{result=value;settled=true;},value=>{error=value;settled=true;});
+    while(!settled){await Promise.race([pending,pause(40)]);if(!settled){const checked=await stopped();if(checked.handled)return checked;}}
+    if(error)throw error;
+    if(clearStarted&&typeof result.ticket==='string')ticket=result.ticket;
+    if(result.dispatched===false){setDispatched(false);retained=false;requested=false;}
+    if(!result.accepted)return transfer(fail(result.error?.code||'action_uncertain',result.error?.message||'Inspect the page before another upload'));
+    completed=true;retained=result.retained===true;
+    return transfer({handled:true,result:{ok:true,action:action.id,...result}});
+  };
   try{
     let checked=await stopped();if(checked.handled)return checked;
-    if(!checked.state.file_input_capability||!checked.state.upload_capability)
+    if(!checked.state.file_input_capability||!(params.action==='clear'?checked.state.file_clear_capability:checked.state.upload_capability))
       return fail('unsupported_capability','This displaying device cannot receive verified native file inputs; no source files were read');
     if(params.action==='status'||params.action==='release'){
       stage='transfer_'+params.action;
@@ -27,6 +38,11 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     navigation=checked.state.navigation;
     let pinned=await read('uploadInfo',{document:params.document,target:params.target});
     if(!pinned.ok)return{handled:true,result:pinned};
+    if(params.action==='clear'){
+      checked=await stopped();if(checked.handled)return checked;
+      clearStarted=true;
+      return await assign({action:'clear',upload_key:action.id,navigation,document:params.document,ref:pinned.element.ref,timeout_ms:remaining()});
+    }
     if(pinned.element.directory||params.files.length>1&&!pinned.element.multiple)
       return fail('upload_target_invalid','Choose a regular file input with enough multiple-file capacity');
     const snapshots=[];let total=0;
@@ -73,20 +89,7 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     if(!pinned.ok)return transfer({handled:true,result:pinned});
     checked=await stopped();if(checked.handled)return checked;
     if(checked.state.navigation!==navigation)return transfer(fail('stale_document','The document changed before file assignment'));
-    let result,error;stage='native_assignment';requested=true;retained=true;setDispatched(true);
-    const pending=native({action:'assign',ticket,navigation,document:params.document,ref:pinned.element.ref,timeout_ms:remaining()})
-      .then(value=>{result=value;settled=true;},value=>{error=value;settled=true;});
-    while(!settled){
-      await Promise.race([pending,pause(40)]);
-      // Native assignment itself reports dialog/new-window checkpoints. A
-      // cancelled UI action must also stop preparation before native delivery.
-      if(!settled){checked=await stopped();if(checked.handled)return checked;}
-    }
-    if(error)throw error;
-    if(result.dispatched===false){setDispatched(false);retained=false;requested=false;}
-    if(!result.accepted)return transfer(fail(result.error?.code||'action_uncertain',result.error?.message||'Inspect the page before another upload'));
-    completed=true;retained=result.retained===true;
-    return transfer({handled:true,result:{ok:true,action:action.id,...result}});
+    return await assign({action:'assign',ticket,navigation,document:params.document,ref:pinned.element.ref,timeout_ms:remaining()});
   }catch(error){
     const result=transfer(fail(requested||cleanupRequested?'action_uncertain':error?.code||'upload_transfer_failed',requested?
       'File assignment was not confirmed; inspect the page and retained transfer before repeating':
@@ -98,6 +101,7 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     result.result.error.cause={code:String(error?.code||'transport_failed').slice(0,128),message:String(error?.message||error).slice(0,512)};
     return result;
   }finally{
-    if(ticket&&!completed)try{await native({action:'cancel',ticket});}catch{}
+    if(clearStarted&&!completed)try{await native({action:'clear_cancel',upload_key:action.id});}catch{}
+    else if(ticket&&!completed)try{await native({action:'cancel',ticket});}catch{}
   }
 }

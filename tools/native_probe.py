@@ -570,7 +570,7 @@ try {
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}

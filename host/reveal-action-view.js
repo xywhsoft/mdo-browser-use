@@ -1,6 +1,6 @@
 // Inserted into the existing workbench executor. Actions run in the visible
 // native viewport, with its ordinary toolbar and user takeover affordance.
-if (command === "act" || command === "navigate_to" || command === "capture" || command === "upload" && params.action === "set") {
+if (command === "act" || command === "navigate_to" || command === "capture" || command === "upload" && ["set","clear"].includes(params.action)) {
   const caller = api.bind(action.context || {});
   const panel = await caller.call("panel.open", { type: "mdo.browser", client: clientId,
     key: id, resource: { id }, reveal: "activate" });

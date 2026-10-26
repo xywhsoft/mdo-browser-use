@@ -30,6 +30,16 @@ try{
   assert.equal(reads(observed.observation).length,1);assert.equal(reads(observed.observation)[0].files[1].size,0);
   assert.deepEqual(await client.upload(params,{operation,retain:true}),assigned);
   assert.equal(reads(await client.observe({browser:browser.id})).length,1,'Repeated operation assigned its files again');
+  const clearOperation=`sdk-${crypto.randomUUID().replaceAll('-','')}`;
+  const clearParams={browser:browser.id,action:'clear',document:page.document,target:{css:'#multiple'}};
+  const cleared=await client.upload(clearParams,{operation:clearOperation,retain:true});
+  assert.equal(cleared.cleared,true);assert.equal(cleared.verified,true);assert.equal(cleared.input_method,'dom_file_clear');assert.equal(cleared.events_trusted,false);
+  await client.waitFor({browser:browser.id,until:'text',text:'"files":[]'});
+  assert.equal(reads(await client.observe({browser:browser.id})).length,2);
+  assert.deepEqual(await client.upload(clearParams,{operation:clearOperation,retain:true}),cleared);
+  assert.equal(reads(await client.observe({browser:browser.id})).length,2,'Repeated clear dispatched new events');
+  const emptySelection=await client.upload(clearParams);assert.equal(emptySelection.changed,false);assert.equal(emptySelection.dispatched,false);
+  await client.operation({action:'release',operation:clearOperation});
   assert.equal((await client.upload({browser:browser.id,action:'status',ticket})).verified,true);
   await assert.rejects(sdk.call('browseruse.upload',{browser:browser.id,action:'status',ticket},{...context,session:'foreign'}),{code:'context_mismatch'});
   await assert.rejects(client.upload({browser:browser.id,action:'release',ticket}),{code:'upload_confirmation_required'});
@@ -37,16 +47,17 @@ try{
   assert.equal((await client.upload({browser:browser.id,action:'release',ticket,confirmed:true})).released,true);
   await client.operation({action:'release',operation});
   await assert.rejects(client.upload(params,{operation}),{code:'result_expired'});
-  assert.equal(reads(await client.observe({browser:browser.id})).length,1);
+  assert.equal(reads(await client.observe({browser:browser.id})).length,2);
   // Raw SDK reaches the same installed C service without the JS completion helper.
   const queued=await sdk.call('browseruse.upload',{browser:browser.id,action:'set',document:page.document,target:{css:'#hidden'},
     files:[{path:nativePath(empty),name:'zero.txt'}]});
   const raw=await client.wait(queued);assert.equal(raw.verified,true);
   const emptyHash=createHash('sha256').update('').digest('hex');
   await client.waitFor({browser:browser.id,until:'text',text:'"id":"hidden"'});
-  const completed=reads(await client.observe({browser:browser.id}));assert.equal(completed.length,2);
-  assert.equal(completed[1].files[0].sha256,emptyHash);
+  const completed=reads(await client.observe({browser:browser.id}));assert.equal(completed.length,3);
+  assert.equal(completed[2].files[0].sha256,emptyHash);
   await client.upload({browser:browser.id,action:'release',ticket:raw.transfer.ticket,confirmed:true});
   await writeFile(new URL('.mdo/upload-client-result.json',root),JSON.stringify({passed:true,backend:'actual-c-service-js-client-webview2',
-    exact_binary_and_empty_bytes:true,retained_until_confirmed_release:true,durable_duplicate_once:true,foreign_scope_denied:true,raw_c_service:true})+'\n');
+    exact_binary_and_empty_bytes:true,retained_until_confirmed_release:true,durable_duplicate_once:true,foreign_scope_denied:true,raw_c_service:true,
+    controlled_clear_once:true,clear_events_trusted:false,empty_clear_no_events:true})+'\n');
 }finally{if(browser)await client.tabs({action:'close',browser:browser.id});}

@@ -48,6 +48,15 @@ navigation can leave assigned files retained for delayed submission. A dialog,
 popup or uncertain reply is a checkpoint to inspect, never a reason to assign
 the same files again. Ending the browser also reclaims its retained transfers.
 
+Use `browser_upload(action="clear",document=<fresh id>,target=<exact input>)`
+to clear a selection without source files. This performs one controlled DOM
+change (`input_method:"dom_file_clear",events_trusted:false`) and verifies the
+empty FileList; an already empty control emits no events. Clearing a control
+does not release a prior upload's bytes: scripts may still hold its File objects.
+Keep/release the prior transfer ticket according to actual website consumption.
+Transfer status describes its saved assignment, not the current input value;
+observe the input again to inspect its current `selected_count`.
+
 After acting, verify the relevant page or business result. An action being
 accepted or dispatched does not prove that the user's task succeeded. If a
 mutating action may already have run, inspect the state instead of repeating it.

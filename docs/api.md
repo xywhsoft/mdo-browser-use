@@ -343,9 +343,9 @@ const status = await browser.upload({ browser: tab.id, action: "status", ticket 
 await browser.upload({ browser: tab.id, action: "release", ticket, confirmed: true });
 ```
 
-`set/release` use durable operation identities in the JS client; `status` waits
+`set/clear/release` use durable operation identities in the JS client; `status` waits
 for its read-only UI receipt. Raw C calls return the same kind of receipt as
-other queued services. Agent tools are `browser_upload` (set/release, external
+other queued services. Agent tools are `browser_upload` (set/clear/release, external
 effect) and `browser_upload_status` (read). They use the existing live permissions;
 full access needs no additional prompt and read-only tools cannot assign files.
 
@@ -359,6 +359,18 @@ Release is refused while assignment is in flight. A dialog/new-window checkpoint
 timeout or lost native reply can mean the files were already assigned; inspect
 the page and transfer instead of repeating that effect.
 
-Chooser interception, clearing file inputs, directory/OOPIF inputs, downloads
+For `action:"clear"`, provide a fresh document and exact input without `files`,
+`ticket` or `confirmed`. It uses a fixed isolated DOM transaction to empty the
+value, emits one input/change pair and checks the final FileList. Chromium's
+empty `DOM.setFileInputFiles` does not clear it, so the result explicitly says
+`input_method:"dom_file_clear",events_trusted:false`. An empty input is a no-op;
+repeating an operation returns its receipt even if a later file was selected.
+Clears have no filesystem reservation. Their in-memory receipts are limited to
+32 per view and 64 per host, expire by the operation deadline and do not consume
+the independent file-staging ticket/byte budget. Clearing never releases a
+previous upload: the site can retain old File objects. Status is historical
+transfer state; a fresh observation provides the current `selected_count`.
+
+Chooser interception, directory/OOPIF uploads, downloads
 and Android transfer support remain unfinished. Unsupported devices fail before
 source reads; there is no browser-device path fallback.

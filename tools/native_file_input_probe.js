@@ -24,7 +24,7 @@ async function runFileInputProbe({bridge,assert,pause,runtimeSource}){
   };
   const target=async css=>{
     const doc=await engine('observe({})');const found=await engine(`uploadInfo({document:${JSON.stringify(doc.document)},target:{css:${JSON.stringify(css)}}})`);
-    assert(found.ok,'File input was not discoverable: '+css);return {document:doc.document,ref:found.element.ref,element:found.element};
+    assert(found.ok,'File input was not discoverable: '+css+' '+JSON.stringify(found.error));return {document:doc.document,ref:found.element.ref,element:found.element};
   };
   const assign=(ticket,pinned,extra={})=>upload({action:'assign',ticket,document:pinned.document,ref:pinned.ref,...extra});
   const release=ticket=>upload({action:'release',ticket,confirmed:true});
@@ -119,5 +119,59 @@ async function runFileInputProbe({bridge,assert,pause,runtimeSource}){
     assert(!(await bridge.call('state',{browser})).input_busy,'Closed assignment poisoned a replacement browser');
     await rejected({action:'status',ticket:closing},'Closed browser leaked an assigned file ticket');
     const replacement=await stage();assert((await assign(replacement,await target('#single'))).verified,'Replacement browser could not assign fresh files');await consumed('single',1);await release(replacement);
+    assert((await bridge.call('state',{browser})).file_clear_capability,'Native file selection clearing capability is missing');
+    const clear=async(pinned,key,extra={})=>upload({action:'clear',upload_key:key,document:pinned.document,ref:pinned.ref,...extra});
+    const clearTarget=await target('#clearable');
+    const retained=await stage();await read('document.querySelector("#clearable").dataset.mode="delayed"');
+    assert((await assign(retained,clearTarget)).verified,'Retained-clear fixture could not assign its original file');
+    const cleared=await clear(clearTarget,'clear-retained',{timeout_ms:60000});
+    assert(cleared.cleared&&cleared.verified&&cleared.dispatched&&!cleared.retained,'Native clearing did not verify its empty FileList: '+JSON.stringify(cleared));
+    assert(await read('document.querySelector("#clearable").files.length')===0,'Native clearing left a selected file');
+    const clearEvents=await read('uploadEvents.filter(x=>x.id==="clearable")');
+    assert(clearEvents.length===4&&clearEvents.slice(0,2).every(x=>x.trusted)&&clearEvents.slice(2).every(x=>!x.trusted)&&clearEvents[3].count===0&&cleared.input_method==='dom_file_clear'&&cleared.events_trusted===false,'Clearing did not accurately describe its single controlled input/change pair');
+    assert((await clear(clearTarget,'clear-retained')).verified,'Repeated clear lost its original receipt');
+    assert((await read('uploadEvents.filter(x=>x.id==="clearable")')).length===4,'Repeating a clear dispatched new change events');
+    const noChange=await clear(clearTarget,'clear-empty');assert(noChange.cleared&&noChange.changed===false&&!noChange.dispatched,'An empty file input was cleared with unnecessary events');
+    assert((await read('uploadEvents.filter(x=>x.id==="clearable")')).length===4,'No-op clear emitted page events');
+    const wrongKey=await clear(await target('#single'),'clear-retained');assert(wrongKey.error?.code==='upload_identity_conflict'&&!wrongKey.dispatched,'A clear operation identity moved to another input');
+    await consumed('clearable',2);
+    const delayedReads=await read('uploadReads.filter(x=>x.id==="clearable")');
+    assert(delayedReads.find(x=>x.files.length===1)?.files[0].sha256===source[0].sha256&&delayedReads.some(x=>x.files.length===0),'Clearing deleted a File retained by the website before delayed consumption');
+    assert((await upload({action:'status',ticket:retained})).retained,'Clearing released its previous upload reservation');await release(retained);
+    const folder=await clear(await target('#directory'),'clear-directory');assert(folder.cleared&&!folder.dispatched,'An empty directory input could not be cleared safely');
+    const stale=await clear({...clearTarget,document:'stale-document'},'clear-stale');assert(!stale.accepted&&!stale.dispatched,'Clearing accepted a stale document');
+    const observed=await engine('observe({})'),disabled=observed.elements.find(x=>x.name==='Disabled attachment');
+    assert(!(await clear({document:observed.document,ref:disabled.ref},'clear-disabled')).accepted,'A disabled file input accepted a clear');
+    for(const [css,container] of [['#shadowed','#shadow'],['#framed','#frame']]){
+      const pinned=await target(css);await read(`document.querySelector(${JSON.stringify(container)}).inert=true`);
+      const blocked=await engine(`uploadInfo({document:${JSON.stringify(pinned.document)},target:{ref:${JSON.stringify(pinned.ref)}}})`);
+      assert(blocked.error?.code==='element_disabled','A shadow/frame inert ancestor was ignored by upload validation');
+      const attempted=await clear(pinned,`inert-${container}`);assert(!attempted.accepted&&!attempted.dispatched,'Clearing bypassed an inert shadow/frame ancestor');
+      await read(`document.querySelector(${JSON.stringify(container)}).inert=false`);
+    }
+    const beforeCancel=await stage();await read('document.querySelector("#clearable").dataset.mode=""');
+    assert((await assign(beforeCancel,clearTarget)).verified,'Cancellation fixture did not assign its source');await consumed('clearable',3);
+    assert((await clear(clearTarget,'clear-retained')).ticket===cleared.ticket&&await read('document.querySelector("#clearable").files.length')===1,'Repeating an old clear erased a later file selection');
+    await read('document.querySelector("#clearable").dataset.mode="busy"');
+    const clearing=clear(clearTarget,'clear-cancel');
+    for(let i=0;i<100;i++){if((await upload({action:'clear_status',upload_key:'clear-cancel'})).dispatched)break;await pause(5);}
+    assert((await bridge.call('state',{browser})).input_busy,'A clearing input failed to retain its native input slot');
+    await upload({action:'clear_cancel',upload_key:'foreign-key'});
+    assert((await bridge.call('state',{browser})).input_busy,'Foreign-key cancellation interrupted a file clear');
+    await upload({action:'clear_cancel',upload_key:'clear-cancel'});const clearCancelled=await clearing;
+    assert(clearCancelled.dispatched&&clearCancelled.error.effect_may_have_occurred,'Cancelled clear lost its possible page effect');await idle();await consumed('clearable',4);
+    assert((await upload({action:'status',ticket:beforeCancel})).retained,'Cancelling a clear released previously assigned files');await release(beforeCancel);
+    const dialogSource=await stage();await read('document.querySelector("#clearable").dataset.mode=""');
+    assert((await assign(dialogSource,clearTarget)).verified,'Clear-dialog fixture could not assign its source');await consumed('clearable',5);
+    await read('document.querySelector("#clearable").dataset.mode="dialog"');
+    const clearDialog=await clear(clearTarget,'clear-dialog');assert(clearDialog.outcome==='dialog_open'&&!clearDialog.retained,'Clearing did not yield a dialog checkpoint without retaining new bytes');
+    const clearDialogs=await bridge.call('dialog',{browser,action:'list'});
+    await bridge.call('dialog',{browser,action:'respond',dialog:clearDialogs.dialogs[0].id,accept:true});await idle();await consumed('clearable',6);await release(dialogSource);
+    await bridge.call('close',{browser});await create();
+    const emptyTarget=await target('#clearable');
+    for(let i=0;i<32;i++)assert((await clear(emptyTarget,`clear-budget-${i}`,{timeout_ms:60000})).cleared,'Bounded clear receipt admission failed early');
+    await rejected({action:'clear',upload_key:'clear-over-budget',document:emptyTarget.document,ref:emptyTarget.ref,timeout_ms:60000},'Clearing exceeded its per-view receipt budget');
+    const independent=await stage();assert((await assign(independent,emptyTarget)).verified,'Clear receipts consumed the independent file-staging budget');await consumed('clearable',1);await release(independent);
+    for(let i=0;i<32;i++)await upload({action:'clear_cancel',upload_key:`clear-budget-${i}`});
   }finally{try{await bridge.call('close',{browser});}catch{}}
 }

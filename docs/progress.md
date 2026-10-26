@@ -770,3 +770,44 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Full Browser Use remains in progress: chooser interception, clearing inputs,
   directory/OOPIF support, downloads, vision coordinates, offscreen drag,
   Android and final lifecycle/performance/package validation are still required.
+
+## D10 — clear file selections without losing retained website files
+
+- Added `browseruse.upload(action="clear")` through the shared C/JS/Agent
+  contract. It takes an exact document/input, rejects source-file and transfer
+  arguments, checks `file_clear_capability`, and never reads task files or
+  reserves disk space. It shares the native input/cancellation lifecycle.
+- Actual WebView2 evidence showed that empty `DOM.setFileInputFiles` leaves a
+  nonempty FileList unchanged. That failed receipt is preserved privately.
+  Clearing now uses a fixed isolated DOM transaction with one controlled
+  input/change pair and post-handler verification. Results explicitly say
+  `input_method:"dom_file_clear",events_trusted:false`; an already empty input
+  emits no events. The underlying protocol limitation is not claimed fixed.
+- A clear identity returns its original receipt even after a later selection;
+  it cannot erase that later file by replay. In-memory clear receipts are bounded
+  to 32 per view/64 per host and expire by their deadline, independently of file
+  staging counts/bytes. Failed and cancelled clear preparation has an exact-key
+  cleanup path. Old uploaded files remain retained for a site's delayed File
+  reads, until explicit consumption-confirmed release or browser closure.
+- File-input metadata no longer marks file controls as text-editable. Upload
+  validation follows inert ancestors through open shadow slots/hosts and
+  accessible frame owners. Native object checks also reject obsolete owner
+  documents. Disabled, stale, foreign and unsupported paths remain explicit.
+- Rebuilt the same host. Final full WebView2 gate: 870 assertions, no new native
+  diagnostics, private ACL and zero cache reservations. The focused input gate
+  also passed 470 assertions. Tests include late-replay protection, delayed
+  reads after clearing, exact event trust/counts, no-op/directory clear, inert
+  shadow/frame ancestors, cancellation/dialog recovery and independent quota.
+- One intervening broad probe failed an initial locator preflight without its
+  error details; it did not reproduce in focused/final broad runs. The probe now
+  includes bounded locator failure metadata. No local root cause is claimed for
+  that isolated observation; startup/latency stability remains a final audit gate.
+- Actual public C/JS/Agent tests pass, including duplicate operation recovery,
+  controlled clear/no-op semantics, preserved old transfer state, and read-only
+  denial on an owned tab. Force-stop/restart inventory/junction/lease collection
+  passes again. Local checks: 47 Python cases (46 passed, one unavailable
+  symlink privilege skipped) and 45 JS cases passed. All use the single Home.
+- Chooser interception, directory/OOPIF uploads, downloads, vision coordinates,
+  offscreen dragging, Android and final lifecycle/performance/package validation
+  remain open; the full goal is still active.
+- Reference for the protocol special case: [Puppeteer file input implementation](https://github.com/puppeteer/puppeteer/blob/main/packages/puppeteer-core/src/cdp/ElementHandle.ts).

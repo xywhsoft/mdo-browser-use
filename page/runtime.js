@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 5;
+  const version = 6;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -96,6 +96,7 @@ export function browserRuntime() {
     if (element.localName === "input") {
       item.input_type = element.type;
       if (element.type === "file") {
+        item.editable = false;
         item.multiple = element.multiple; item.accept = clip(element.accept || "", 1024).text;
         item.directory = Boolean(element.webkitdirectory); item.hidden = !visible(element);
         item.selected_count = element.files?.length || 0;
@@ -215,8 +216,33 @@ export function browserRuntime() {
     const found = locate({ ...options, _upload: true }); if (!found.ok) return found;
     const element = refs.get(found.element.ref).element;
     if (element.localName !== "input" || element.type !== "file") return fail("element_not_file_input", "Choose an exact HTML file input");
-    if (found.element.disabled || element.closest("[inert]")) return fail("element_disabled", "The file input is disabled or inert");
+    let parent=element;
+    for(let depth=0;parent&&depth<256;depth++){
+      if(parent.inert)return fail("element_disabled","The file input or its shadow/frame ancestor is inert");
+      const doc=parent.ownerDocument;
+      parent=parent.assignedSlot||parent.parentElement||parent.getRootNode()?.host||doc?.defaultView?.frameElement;
+    }
+    if(parent)return fail("element_ancestry_limit","Narrow the file input ancestry before acting");
+    if (found.element.disabled) return fail("element_disabled", "The file input is disabled");
     return { ok: true, document: documentId, element: found.element };
+  }
+  // Chromium's empty DOM.setFileInputFiles is not a clear operation. Keep the
+  // controlled value change and its single event pair in one isolated task.
+  function clearFiles(options={}) {
+    const before=uploadInfo(options);
+    if(!before.ok)return{...before,error:{...before.error,effect_may_have_occurred:false}};
+    const element=refs.get(before.element.ref).element;
+    const result={ok:true,cleared:true,verified:true,verification:"file_list",input_method:"dom_file_clear",events_trusted:false};
+    if(!element.files.length)return{...result,changed:false,dispatched:false};
+    try{
+      element.value="";
+      if(element.files.length)throw Error("The file input did not clear");
+      element.dispatchEvent(new Event("input",{bubbles:true,composed:true}));
+      element.dispatchEvent(new Event("change",{bubbles:true}));
+      const after=uploadInfo({document:options.document,target:{ref:before.element.ref}});
+      if(!after.ok||element.files.length)throw Error("The file input changed during its handlers");
+      return{...result,dispatched:true};
+    }catch{return fail("action_uncertain","The file selection change was not confirmed; inspect before repeating",{effect_may_have_occurred:true});}
   }
   // Only the trusted native adapter requests a remote DOM object. Public
   // observations/results use uploadInfo and never serialize a live element.
@@ -415,7 +441,7 @@ export function browserRuntime() {
       return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

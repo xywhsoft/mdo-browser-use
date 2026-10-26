@@ -740,7 +740,7 @@ export const services = [
   },
   {
     "id": "browseruse.upload",
-    "description": "Assign verified task-host file snapshots to one exact native file input. Inspect transfer status; explicitly release only after website consumption. File assignment is not website acceptance.",
+    "description": "Set or clear exact HTML file-input selections using native delivery. Upload snapshots belong to the original task host. Inspect status and release only after website consumption; clearing never releases retained File bytes.",
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -759,7 +759,8 @@ export const services = [
           "enum": [
             "set",
             "status",
-            "release"
+            "release",
+            "clear"
           ]
         },
         "document": {

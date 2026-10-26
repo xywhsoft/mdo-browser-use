@@ -45,6 +45,11 @@ def main():
         assert status['success'] and value(status)['verified']
         consumed=tool('browser_wait',{'browser':browser,'until':'text','text':hashlib.sha256(data).hexdigest()})
         assert consumed['success'],consumed['text']
+        cleared=tool('browser_upload',{'browser':browser,'action':'clear','document':page['document'],'target':{'name':'Multiple attachments'}})
+        assert cleared['success'] and value(cleared)['cleared'] and value(cleared)['events_trusted'] is False
+        current=value(tool('browser_observe',{'browser':browser}))
+        assert next(row for row in current['elements'] if row['name']=='Multiple attachments')['selected_count']==0
+        assert value(tool('browser_upload_status',{'browser':browser,'action':'status','ticket':transfer['ticket']}))['retained']
         assert tool('browser_upload',{'browser':browser,'action':'release','ticket':transfer['ticket'],'confirmed':True})['success']
         readonly=dev.call('browser.create',{'client':clients[0]['id'],'url':url},ro_owner)['id']
         ro_page=value(tool('browser_observe',{'browser':readonly},READ_ONLY))
@@ -52,12 +57,14 @@ def main():
             'target':{'css':'#single'},'files':[{'path':str(source)}]},READ_ONLY)
         assert not denied['success'],'Read-only managed tool assigned a file'
         assert 'context_mismatch' not in denied['text'],'Foreign ownership hid the permission check'
+        denied_clear=tool('browser_upload',{'browser':readonly,'action':'clear','document':ro_page['document'],'target':{'css':'#single'}},READ_ONLY)
+        assert not denied_clear['success'] and 'context_mismatch' not in denied_clear['text'],'Read-only session cleared a file input or ownership hid the permission check'
         dev.call('browser.close',{'id':readonly},ro_owner);readonly=None
         dev.call('browser.close',{'id':browser},owner);browser=None
         cache=inspect_cache(dev.HOME/'data/cache/webview2-content/mdo-browser-use-transfers')
         assert cache['remaining_reservations']==0
         result={'passed':True,'backend':'actual-public-and-managed-webview2',**js,'managed_upload_and_status':True,
-            'read_only_upload_denied_on_owned_tab':True,'full_access_no_extra_prompt':True,'cache':cache}
+            'read_only_upload_denied_on_owned_tab':True,'managed_clear_and_read_only_denial':True,'full_access_no_extra_prompt':True,'cache':cache}
         output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
     except Exception as error:
         output.write_text(json.dumps({'passed':False,'error':str(error)[:512]})+'\n',encoding='utf-8')

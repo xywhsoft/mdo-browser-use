@@ -4,8 +4,8 @@ import {executeFileUpload} from '../host/upload-dispatch.js';
 
 function fixture(){
   const ticket='u-00000000-0000-0000-0000-000000000000',calls=[],native=[];
-  const state={navigation:'1',file_input_capability:true,upload_capability:true};
-  let cancelled=false,dispatched=false;
+  const state={navigation:'1',file_input_capability:true,upload_capability:true,file_clear_capability:true};
+  let cancelled=false,dispatched=false,inspections=0;
   const api={async call(method,params){calls.push({method,params});
     if(method==='files.digest')return{size:65539,sha256:'a'.repeat(64),revision:'f-snapshot'};
     if(method==='files.read')return{revision:'f-snapshot',bytes:params.limit,next:params.offset+params.limit,base64:Buffer.alloc(params.limit).toString('base64')};
@@ -16,9 +16,9 @@ function fixture(){
   const fail=(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:dispatched}}});
   const guard=async()=>cancelled?fail('cancelled','Original operation cancelled'):{state};
   const params={action:'set',document:'doc',target:{css:'#file'},files:[{path:'C:\\task-host\\source.bin'}]};
-  const read=async(method,options)=>{assert.equal(method,'uploadInfo');return{ok:true,document:'doc',element:{ref:'e1',multiple:true}};};
+  const read=async(method,options)=>{inspections++;assert.equal(method,'uploadInfo');return{ok:true,document:'doc',element:{ref:'e1',multiple:true}};};
   const run=()=>executeFileUpload({params,view,api,action:{id:'frozen-action'},guard,read,deadline:performance.now()+2000,setDispatched:value=>{dispatched=value;},fail});
-  return{ticket,calls,native,state,params,api,view,run,cancel(){cancelled=true;}};
+  return{ticket,calls,native,state,params,api,view,run,get inspections(){return inspections;},cancel(){cancelled=true;}};
 }
 test('upload probes capability and exact target before reading any task files',async()=>{
   const f=fixture();f.state.file_input_capability=false;
@@ -73,4 +73,21 @@ test('a lost release reply reports uncertain cleanup instead of a source-read fa
   f.view.execute=async()=>{throw Error('Release reply lost');};
   const result=(await f.run()).result;assert.equal(result.error.code,'action_uncertain');assert.equal(result.error.stage,'transfer_release');
   assert.equal(result.error.effect_may_have_occurred,true);assert.equal(f.calls.length,0);
+});
+test('clearing uses the pinned input without hashing or staging task files',async()=>{
+  const f=fixture(),execute=f.view.execute,clears=[];f.params.action='clear';delete f.params.files;
+  f.view.execute=async(command,params)=>{if(params.action==='clear'){clears.push(params);return{accepted:true,verified:true,cleared:true,dispatched:true,retained:false,ticket:'c-00000000-0000-0000-0000-000000000000'};}return execute(command,params);};
+  const result=(await f.run()).result;assert.equal(result.ok,true);assert.equal(result.cleared,true);assert.equal(result.transfer.retained,false);
+  assert.equal(f.calls.length,0);assert.equal(f.native.length,0);assert.equal(clears.length,1);assert.equal(clears[0].ref,'e1');assert.equal(clears[0].upload_key,'frozen-action');assert(!('files' in clears[0]));
+});
+test('unsupported clear fails before page inspection or task file reads',async()=>{
+  const f=fixture();f.params.action='clear';delete f.params.files;f.state.file_clear_capability=false;
+  const result=(await f.run()).result;assert.equal(result.error.code,'unsupported_capability');assert.equal(f.calls.length,0);assert.equal(f.native.length,0);assert.equal(f.inspections,0);
+});
+test('a lost clear reply cancels only its exact clear key and preserves uncertainty',async()=>{
+  const f=fixture(),execute=f.view.execute;f.params.action='clear';delete f.params.files;
+  f.view.execute=async(command,params)=>{if(params.action==='clear')throw Error('Clear reply lost');return execute(command,params);};
+  const result=(await f.run()).result;assert.equal(result.error.code,'action_uncertain');assert.equal(result.error.stage,'native_clear');
+  assert.equal(result.error.effect_may_have_occurred,true);assert.equal(f.calls.length,0);
+  assert.deepEqual(f.native,[{action:'clear_cancel',upload_key:'frozen-action'}]);
 });
