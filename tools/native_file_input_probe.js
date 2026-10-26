@@ -173,5 +173,12 @@ async function runFileInputProbe({bridge,assert,pause,runtimeSource}){
     await rejected({action:'clear',upload_key:'clear-over-budget',document:emptyTarget.document,ref:emptyTarget.ref,timeout_ms:60000},'Clearing exceeded its per-view receipt budget');
     const independent=await stage();assert((await assign(independent,emptyTarget)).verified,'Clear receipts consumed the independent file-staging budget');await consumed('clearable',1);await release(independent);
     for(let i=0;i<32;i++)await upload({action:'clear_cancel',upload_key:`clear-budget-${i}`});
+    await read('(()=>{for(let i=0;i<16;i++){const text=document.createElement("p");text.textContent="Long visible fixture text ".repeat(100);document.body.prepend(text);}return true})()');
+    const longPage=await engine('observe({limit:400,max_bytes:16384})');
+    assert(longPage.truncated&&longPage.visited<6000&&longPage.text.length===16384,'Long-page locator fixture did not clip only its readable text');
+    const longTarget=await engine(`uploadInfo({document:${JSON.stringify(longPage.document)},target:{css:"#clearable"}})`);
+    assert(longTarget.ok,'Unrelated clipped page text prevented an exact file-input locator: '+JSON.stringify(longTarget.error));
+    const genericTarget=await engine(`locate({document:${JSON.stringify(longPage.document)},target:{css:"#single"}})`);
+    assert(genericTarget.ok,'Unrelated clipped page text prevented a general exact locator: '+JSON.stringify(genericTarget.error));
   }finally{try{await bridge.call('close',{browser});}catch{}}
 }

@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime() {
-  const version = 6;
+  const version = 7;
   const marker = "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
@@ -148,7 +148,9 @@ export function browserRuntime() {
         }
       }
     }
-    walk(document, "f0", true);
+    // Locator scans need matching metadata, not a second readable-page copy.
+    // Text clipping must not make an otherwise complete exact search fail.
+    walk(document, "f0", typeof options._match !== "function");
     const readable = clip(text.join("\n"), Math.min(32768, Math.max(256, Number(options.max_bytes) || 16384)));
     return {
       ok: true, document: documentId, url: location.href, title: document.title,

@@ -811,3 +811,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   offscreen dragging, Android and final lifecycle/performance/package validation
   remain open; the full goal is still active.
 - Reference for the protocol special case: [Puppeteer file input implementation](https://github.com/puppeteer/puppeteer/blob/main/packages/puppeteer-core/src/cdp/ElementHandle.ts).
+
+## D10a — readable-text clipping cannot invalidate exact locators
+
+- A separate actual long-page regression confirmed that private locator scans
+  collected readable text unnecessarily. Clipping that copy at 16 KiB marked
+  the entire search incomplete, so a uniquely matching file input returned
+  `observation_incomplete`. The failed bounded report is preserved privately.
+- Locator scans now collect matching metadata without copying readable text.
+  Normal observations still enforce their text limit; node, frame, time and
+  candidate limits remain unchanged. Runtime version advances to seven.
+- A local fixture with sixteen long paragraphs proves observations still clip
+  at exactly 16 KiB while both general and file-input exact CSS locators succeed.
+  Focused input tests and the full actual WebView2 run pass (905 assertions in
+  the final broad run), with no new native diagnostics and zero cache leftovers.
+  This is distinct from the earlier isolated startup lookup failure; its cause
+  was not captured and is not attributed to this text-clipping defect.
+- Installed the updated runtime in the same Home; source and generated host
+  checks match. The chooser/download/frame/platform work listed above remains
+  required before the full Browser Use goal can be marked complete.
