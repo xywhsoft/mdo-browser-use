@@ -427,3 +427,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   can leave its panels and queued UI work behind. Fixing that lifecycle path is
   next. Transfers, richer input, complete frames, Android and final packaging
   remain unfinished; no release or completion claim.
+
+## L0 — closing a browser cleans up panels and pending UI work
+
+- Reproduced both defects through the actual broker: `browser.close` left its
+  browser-renderer panel behind and left queued UI work pending. A late success
+  acknowledgement could otherwise complete that work after closure.
+- Closure now saves browser/panel removal together, then cancels matching work
+  under the established workbench-to-UI lock order. Command admission keeps the
+  same workbench lock through enqueue, eliminating the check/close/enqueue race.
+  Browser panel open/update rejects removed or foreign browser references.
+- UI cleanup accepts an already-removed panel's 404 and removes stale views
+  instead of remounting error placeholders. Unrelated browsers, custom panels,
+  other task receipts and already-terminal results are preserved. No bulk
+  deletion of pre-existing saved records or user state was performed.
+- Passed 26 Python broker/C checks and the actual normal UI C/JS probe,
+  including a live pending wait cancelled by closure, atomic panel cleanup,
+  rejected stale references and late acknowledgements. Existing page-close,
+  popup, screenshot, dialog, navigation and action cases remain passing.
+  Transfer/frame/platform/package work remains unfinished.

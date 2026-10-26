@@ -192,3 +192,11 @@ The source keeps its document and named windows can be reused. Written
 about:blank documents display and accept native input. Native page-close events
 remove their corresponding browser and panels. Pending popups expire after
 20 seconds; a full native-view budget blocks further windows explicitly.
+
+Closing a broker browser also removes its owned browser-renderer panels in the
+same saved-state update and cancels pending UI work for that exact task/browser.
+It does not close unrelated tabs or custom panels that merely contain the same
+ID as data. New panel references/commands for a closed browser are rejected;
+late UI acknowledgements cannot revive a cancelled receipt. An input already
+delivered before closure may have taken effect, so cancellation is not rollback.
+Closing/hiding only a panel remains distinct from ending its browser session.

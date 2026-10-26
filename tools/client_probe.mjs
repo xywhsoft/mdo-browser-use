@@ -98,9 +98,20 @@ try {
   const blankClick = await client.act({ browser: blank.child.id, document: blank.page.document, op: "click", target: { name: "Blank action" } });
   assert.ok(blankClick.observation.text.includes("Blank action verified"));
   await client.tabs({ action: "close", browser: blank.child.id });
+  assert.ok(!(await sdk.call("panel.list", {client:browser.client})).some(panel=>panel.resource?.id===blank.child.id),
+    "Broker close left a dangling popup panel");
+  const interrupted=await sdk.call("browseruse.wait",{browser:browser.id,until:"text",text:"never-in-this-fixture",timeout_ms:60000});
+  await new Promise(resolve=>setTimeout(resolve,1000));
+  const closedId=browser.id;
+  await client.tabs({action:"close",browser:closedId});browser=null;
+  await new Promise(resolve=>setTimeout(resolve,500));
+  assert.equal((await client.result({id:interrupted.id})).state,"cancelled");
+  assert.ok(!(await sdk.call("panel.list")).some(panel=>panel.resource?.id===closedId),"Browser close left a panel");
+  await client.result({id:interrupted.id,release:true});
   const report = { passed: true, backend: "actual-js-client-mdo-webview2", duplicate_native_clicks: 0,
     released_identity_not_replayed: true, navigation_completed: true, native_dialog_checkpoint_and_response: true,
-    duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true, screenshot_modes:screenshotModes };
+    duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true,
+    closed_panels_removed:true,closed_pending_wait_cancelled:true,screenshot_modes:screenshotModes };
   await writeFile(output, JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(JSON.stringify(report) + "\n");
 } catch (error) {

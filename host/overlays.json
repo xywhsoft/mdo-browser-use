@@ -175,7 +175,7 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "  const browserViews = new Map();",
-      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"新窗口\",resource:{id:browser.id},reveal},sdk),\n    closePanels:async browser=>{for(const [id,row] of [...entries])if(row.resource?.id===browser)await close(id);},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
+      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"\u65b0\u7a97\u53e3\",resource:{id:browser.id},reveal},sdk),\n    closePanels:async browser=>{for(const [id,row] of [...entries])if(row.resource?.id===browser)await close(id);},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -220,7 +220,7 @@
     {
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "      return new Promise((resolve, reject) => {",
-      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"原生浏览器正在为另一个弹出请求创建\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
+      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"\u539f\u751f\u6d4f\u89c8\u5668\u6b63\u5728\u4e3a\u53e6\u4e00\u4e2a\u5f39\u51fa\u8bf7\u6c42\u521b\u5efa\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",
@@ -266,6 +266,51 @@
       "path": "tools/workbench_contracts.py",
       "before": "'max_bytes':{'type':'integer','minimum':256,'maximum':32768}",
       "after": "'max_bytes':{'type':'integer','minimum':256,'maximum':262144}"
+    },
+    {
+      "path": "app/include/mdo/application.h",
+      "before": "bool MdoApplicationUiInit(void);",
+      "after": "void MdoApplicationUiCancelBrowser(const mdo_sdk_context_v1*,cstr);\nbool MdoApplicationUiInit(void);"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "#include \"browser_popup_admission.inc.c\"",
+      "after": "#include \"browser_popup_admission.inc.c\"\n#include \"browser_lifecycle.inc.c\""
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "        xrtMutexLock(Workbench.Lock);xvalue* V=WbFind(Workbench.State,\"browsers\",Id);xvalue* Copy=V?xrtValueClone(V):NULL;xrtMutexUnlock(Workbench.Lock);\n        if(!Copy)return WbFail(E,\"browser_missing\",\"Browser session is unavailable\",404);\n        if(!WbBound(C,Copy)){xrtValueRelease(Copy);return WbFail(E,\"context_mismatch\",\"Browser belongs to another extension or context\",409);}\n        bool Ok=WbQueue(C,SdkField(Copy,\"client\"),\"workbench.browser\",P,R,E);xrtValueRelease(Copy);return Ok;",
+      "after": "        xrtMutexLock(Workbench.Lock);xvalue* V=WbFind(Workbench.State,\"browsers\",Id);bool Ok=false;\n        if(!V)WbFail(E,\"browser_missing\",\"Browser session is unavailable\",404);\n        else if(!WbBound(C,V))WbFail(E,\"context_mismatch\",\"Browser belongs to another extension or context\",409);\n        else Ok=WbQueue(C,SdkField(V,\"client\"),\"workbench.browser\",P,R,E);\n        xrtMutexUnlock(Workbench.Lock);return Ok;"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "        cstr Kind=Browser?\"browsers\":\"panels\";xvalue* V=NULL;",
+      "after": "        if(!Browser&&!WbPanelBrowserReference(C,Next,P,E))goto done;\n        cstr Kind=Browser?\"browsers\":\"panels\";xvalue* V=NULL;"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "            WbBump(V);*R=xrtValueClone(V);",
+      "after": "            if(!strcmp(Kind,\"panels\")&&!WbPanelBrowserReference(C,Next,V,E))goto done;\n            WbBump(V);*R=xrtValueClone(V);"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "            *R=xrtValueClone(V);WbRemove(Next,Kind,Id);",
+      "after": "            if(!strcmp(Method,\"browser.close\")&&!WbCloseBrowserPanels(C,Next,Id,E))goto done;\n            *R=xrtValueClone(V);WbRemove(Next,Kind,Id);"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "    xrtValueRelease(Workbench.State);Workbench.State=Next;Next=NULL;Ok=true;Changed=true;",
+      "after": "    xrtValueRelease(Workbench.State);Workbench.State=Next;Next=NULL;Ok=true;Changed=true;\n    if(!strcmp(Method,\"browser.close\"))MdoApplicationUiCancelBrowser(C,Id);"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "    await bound(row).call(\"panel.close\", { id }); disposeMount(id); entries.delete(id); selectRemaining();",
+      "after": "    try { await bound(row).call(\"panel.close\", { id }); } catch (error) { if (error.status !== 404) throw error; }\n    disposeMount(id); entries.delete(id); selectRemaining();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "          for (const [panelId, panel] of entries) if (panel.type === \"mdo.browser\" && panel.resource?.id === id) remount(panelId);",
+      "after": "          for (const [panelId, panel] of [...entries]) if (definitions.get(panel.type)?.renderer === \"browser\" && panel.resource?.id === id) await close(panelId);"
     }
   ],
   "files": [
@@ -304,6 +349,10 @@
     {
       "source": "host/capture-image.js",
       "target": "app/web/js/features/workbench/capture-image.js"
+    },
+    {
+      "source": "host/browser-lifecycle.inc.c",
+      "target": "app/src/application/browser_lifecycle.inc.c"
     }
   ]
 }
