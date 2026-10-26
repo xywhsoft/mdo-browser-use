@@ -51,6 +51,9 @@ static void xb_install_popups(const std::shared_ptr<xb_host>& host,const std::sh
   EventRegistrationToken closedToken{};view->core->add_WindowCloseRequested(closed,&closedToken);closed->Release();
 }
 static void xb_popup_request(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json){
+  // A query can run after the lease boundary but before the queued WM_TIMER.
+  // Do not hide an expired ticket while still retaining its native deferral.
+  xb_popup_expire(view->window,0,0,0);
   const auto action=xb_get(json,"action");
   if(action=="list"){
     std::string items;for(const auto& item:view->popups){const auto& popup=item.second;

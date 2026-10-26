@@ -500,3 +500,14 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   only absence as termination, preserves live/reused identities and never tries
   to kill an unrelated process. Three focused process-control tests cover these
   cases. Public selection development remains uncommitted until its full gate.
+
+## L2 — popup queries release expired native deferrals immediately
+
+- A real native run caught an expiry-boundary inconsistency: listing filtered
+  out an expired ticket before the queued timer released its deferral, so the
+  visible list/error and actual opener completion did not describe one state.
+  The failed result is preserved privately in `.mdo/evidence/`.
+- Popup requests now run the existing expiry cleanup before listing or acting
+  on a ticket. The real 20-second lease, opener resumption, expired-ID rejection
+  and the full native run then passed (271 assertions, no new diagnostics).
+  The timer remains the idle cleanup path; the production lease was unchanged.
