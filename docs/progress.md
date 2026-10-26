@@ -9,7 +9,7 @@ development stream and the single deployment inside this project.
 | A1 | Shared contracts and actual C plugin/SDK registration | Complete |
 | B | Windows observation, element references and native input | In progress |
 | C | Waiting, action identity, ownership, cancellation and recovery | In progress |
-| D | Frames, tabs, dialogs, upload/download and visible UI | Pending |
+| D | Frames, tabs, dialogs, upload/download and visible UI | In progress |
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
@@ -273,3 +273,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - API usage and explicit recovery semantics are documented in `docs/api.md`.
   Dialogs, native transfer, frame completion, platform adapters and remaining
   lifecycle/adversarial validation still prevent a completion claim.
+
+## D0 — native JavaScript dialogs and closing in-flight input
+
+- WebView2 script-dialog events now retain an actual deferral for alert, confirm,
+  prompt and before-unload. Each pending dialog has a non-reused GUID; metadata
+  is bounded and omits prompt defaults. One dialog per view has a 120-second
+  lease, with cleanup on response, view closure and host shutdown. Long-duration
+  expiry validation remains part of the final lifecycle gate.
+- An input interrupted by a dialog yields a native checkpoint instead of
+  holding the caller until a generic timeout. Read-only metadata remains
+  available under user takeover; Agent responses are blocked until control is
+  returned by the user. Native capability reflects handler installation.
+- A close/recreate regression found that closing only erased the registry entry:
+  callbacks could retain the controller, preventing prompt replacement. Close
+  now closes the controller immediately and hides its child viewport; callback
+  references finish without keeping the native view open.
+- The real native probe passed 108 checks, including all four dialog kinds,
+  Unicode prompt response, stale identity, takeover, before-unload dismissal/
+  acceptance, and closing/recreating a view with a pending dialog. It re-arms
+  a trusted user gesture before a second before-unload attempt.
+- This is the native layer. Shared public dialog services, Agent tools and the
+  human toolbar response UI are the next stage; no complete-dialog-UX claim yet.

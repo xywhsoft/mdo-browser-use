@@ -46,9 +46,14 @@ static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared
 struct xb_input_step{const wchar_t* method;std::string params;bool release=false;};
 struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::string id,error;
-  UINT64 navigation;std::vector<xb_input_step> steps;size_t index=0;
+  UINT64 navigation;std::vector<xb_input_step> steps;size_t index=0;bool replied=false;
+  void dialogOpened(){
+    if(replied)return;replied=true;
+    error="A JavaScript dialog interrupted input; inspect the page after responding";
+    host->reply(id,"{\"accepted\":true,\"trusted_input\":true,\"dialog_open\":true}");
+  }
   void run(){
-    if(index==steps.size()){host->reply(id,error.empty()?"{\"accepted\":true,\"trusted_input\":true}":"",error);return;}
+    if(index==steps.size()){if(!replied)host->reply(id,error.empty()?"{\"accepted\":true,\"trusted_input\":true}":"",error);return;}
     const auto step=steps[index++];
     if(!xb_automation_live(host,view,navigation)&&error.empty())error="Browser control or document changed; verify the action result";
     // Releases must run even if a navigation/takeover interrupted a press.
@@ -62,6 +67,8 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
 static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                      const std::string& id,const std::string& json){
   if(xb_get(json,"navigation")!=std::to_string(view->navigation)||view->manual||view->closed){host->reply(id,"","Stale document or manual control");return;}
+  if(view->dialog){host->reply(id,"","Respond to the pending JavaScript dialog before input");return;}
+  if(!view->input.expired()){host->reply(id,"","A native input is still completing; inspect the page before another action");return;}
   auto sequence=std::make_shared<xb_input_sequence>();sequence->host=host;sequence->view=view;sequence->id=id;sequence->navigation=view->navigation;
   const auto kind=xb_get(json,"kind");
   if(kind=="click"||kind=="move"||kind=="wheel"){
@@ -95,5 +102,72 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
     sequence->steps.push_back({L"Input.dispatchKeyEvent","{\"type\":\"keyDown\""+fields+(key=="Enter"?",\"text\":\"\\r\"":"")+"}"});
     sequence->steps.push_back({L"Input.dispatchKeyEvent","{\"type\":\"keyUp\""+fields+"}",true});
   }else{host->reply(id,"","Unsupported native input kind");return;}
-  sequence->run();
+  view->input=sequence;sequence->run();
+}
+
+static constexpr UINT_PTR xb_dialog_timer=0xBADD1;
+static std::map<HWND,std::weak_ptr<xb_view>> xb_dialog_views;
+static void xb_dialog_cleanup(HWND window){KillTimer(window,xb_dialog_timer);xb_dialog_views.erase(window);}
+static void CALLBACK xb_dialog_expire(HWND window,UINT,UINT_PTR,DWORD){
+  auto item=xb_dialog_views.find(window);if(item==xb_dialog_views.end()){KillTimer(window,xb_dialog_timer);return;}
+  auto view=item->second.lock();
+  if(!view||!view->dialog||GetTickCount64()>=view->dialog->expires){
+    auto expired=view?std::move(view->dialog):std::shared_ptr<xb_dialog>{};
+    xb_dialog_cleanup(window);expired.reset();
+  }
+}
+static std::string xb_bounded_text(std::string text,size_t maximum){
+  if(text.size()>maximum){size_t end=maximum;while(end&&(static_cast<unsigned char>(text[end])&0xC0)==0x80)end--;text.resize(end);}return text;
+}
+static const char* xb_dialog_kind(COREWEBVIEW2_SCRIPT_DIALOG_KIND kind){
+  switch(kind){case COREWEBVIEW2_SCRIPT_DIALOG_KIND_ALERT:return "alert";
+    case COREWEBVIEW2_SCRIPT_DIALOG_KIND_CONFIRM:return "confirm";
+    case COREWEBVIEW2_SCRIPT_DIALOG_KIND_PROMPT:return "prompt";
+    case COREWEBVIEW2_SCRIPT_DIALOG_KIND_BEFOREUNLOAD:return "beforeunload";default:return "unknown";}
+}
+static void xb_install_dialogs(const std::shared_ptr<xb_view>& view){
+  std::weak_ptr<xb_view> weak=view;
+  auto* callback=xb_cb<ICoreWebView2ScriptDialogOpeningEventHandler,ICoreWebView2*,ICoreWebView2ScriptDialogOpeningEventArgs*>(
+    IID_ICoreWebView2ScriptDialogOpeningEventHandler,[weak](ICoreWebView2*,ICoreWebView2ScriptDialogOpeningEventArgs* args){
+      auto active=weak.lock();if(!active||active->closed||active->dialog)return S_OK;
+      auto dialog=std::make_shared<xb_dialog>();GUID guid{};wchar_t identifier[40]{};
+      if(FAILED(CoCreateGuid(&guid))||!StringFromGUID2(guid,identifier,40)||FAILED(args->GetDeferral(&dialog->deferral))){active->error="Cannot retain a JavaScript dialog; it was dismissed";return S_OK;}
+      args->AddRef();dialog->args=args;dialog->id="dialog-"+webview::detail::narrow_string(identifier);
+      dialog->expires=GetTickCount64()+120000;active->dialog=dialog;
+      xb_dialog_views[active->window]=active;
+      if(!SetTimer(active->window,xb_dialog_timer,1000,xb_dialog_expire)){active->error="Cannot retain a JavaScript dialog; it was dismissed";active->dialog.reset();xb_dialog_cleanup(active->window);return S_OK;}
+      if(auto input=active->input.lock())input->dialogOpened();return S_OK;
+    });
+  EventRegistrationToken token{};HRESULT status=view->core->add_ScriptDialogOpening(callback,&token);callback->Release();
+  if(SUCCEEDED(status)){
+    xs_wv_com<ICoreWebView2Settings> settings;
+    if(SUCCEEDED(view->core->get_Settings(settings.out()))&&SUCCEEDED(settings->put_AreDefaultScriptDialogsEnabled(FALSE)))view->dialogsEnabled=true;
+    else view->core->remove_ScriptDialogOpening(token);
+  }
+}
+static void xb_dialog_request(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
+                              const std::string& id,const std::string& json){
+  const auto action=xb_get(json,"action");auto dialog=view->dialog;
+  if(action=="list"){
+    std::string item;
+    if(dialog){xs_wv_text message,url;COREWEBVIEW2_SCRIPT_DIALOG_KIND kind;
+      dialog->args->get_Kind(&kind);dialog->args->get_Message(&message.p);dialog->args->get_Uri(&url.p);
+      item="{\"id\":"+xb_quote(dialog->id)+",\"kind\":"+xb_quote(xb_dialog_kind(kind))+
+        ",\"message\":"+xb_quote(xb_bounded_text(webview::detail::narrow_string(message.p?message.p:L""),4096))+
+        ",\"url\":"+xb_quote(xb_bounded_text(webview::detail::narrow_string(url.p?url.p:L""),2048))+"}";
+    }
+    host->reply(id,"{\"ok\":true,\"dialogs\":["+item+"]}");return;
+  }
+  if(action!="respond"||!dialog||dialog->id!=xb_get(json,"dialog")){host->reply(id,"","The requested JavaScript dialog is no longer pending");return;}
+  if(view->manual&&xb_get(json,"agent")=="true"){host->reply(id,"","The user currently controls this browser");return;}
+  const auto accept=xb_get(json,"accept"),text=xb_get(json,"text");
+  if((accept!="true"&&accept!="false")||text.size()>8192){host->reply(id,"","A boolean response and at most 8 KiB of text are required");return;}
+  COREWEBVIEW2_SCRIPT_DIALOG_KIND kind;dialog->args->get_Kind(&kind);HRESULT status=S_OK;
+  if(accept=="true"){
+    if(kind==COREWEBVIEW2_SCRIPT_DIALOG_KIND_PROMPT)status=dialog->args->put_ResultText(webview::detail::widen_string(text).c_str());
+    if(SUCCEEDED(status))status=dialog->args->Accept();
+  }
+  if(FAILED(status)){host->reply(id,"","Dialog response was not confirmed; inspect the current page");return;}
+  view->dialog.reset();xb_dialog_cleanup(view->window);dialog.reset();
+  host->reply(id,"{\"ok\":true,\"responded\":true}");
 }

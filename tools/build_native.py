@@ -36,12 +36,18 @@ def main():
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>'),
-        ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false;'),
+        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
+        ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;'),
+        ('~xb_view(){if(controller)', '~xb_view(){dialog.reset();xb_dialog_cleanup(window);if(controller)'),
         ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
-        ('if(command=="close"){host->views.erase(browser);', 'if(command=="close"){if(found!=host->views.end())found->second->closed=true;host->views.erase(browser);'),
+        ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(view);\n            std::weak_ptr<xb_view> weak=view;'),
+        ('if(command=="close"){host->views.erase(browser);', 'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;found->second->dialog.reset();xb_dialog_cleanup(found->second->window);if(found->second->controller)found->second->controller->Close();if(found->second->window)ShowWindow(found->second->window,SW_HIDE);}host->views.erase(browser);'),
         ('const auto viewport=",\\"viewport_attached\\":', 'const auto viewport=",\\"navigation\\":"+xb_quote(std::to_string(view->navigation))+",\\"automation\\":true,\\"viewport_attached\\":'),
-        ('  HRESULT code=S_OK;', '  if(command=="automation"){xb_automation(host,view,id,xb_get(json,"script"));return;}\n  if(command=="input"){xb_input(host,view,id,json);return;}\n  HRESULT code=S_OK;')
+        ('+viewport+",\\"process_failed\\":', '+viewport+",\\"dialog_capability\\":"+(view->dialogsEnabled?"true":"false")+",\\"input_busy\\":"+(view->input.expired()?"false":"true")+",\\"dialog_open\\":"+(view->dialog?"true":"false")+",\\"process_failed\\":'),
+        ('const bool mutation=command!="snapshot"&&command!="screenshot";', 'const bool mutation=command!="snapshot"&&command!="screenshot"&&!(command=="dialog"&&xb_get(json,"action")=="list");'),
+        ('  HRESULT code=S_OK;', '  if(command=="dialog"){xb_dialog_request(host,view,id,json);return;}\n  if(command=="automation"){if(view->dialog){host->reply(id,"","A JavaScript dialog blocks page execution");return;}xb_automation(host,view,id,xb_get(json,"script"));return;}\n  if(command=="input"){xb_input(host,view,id,json);return;}\n  HRESULT code=S_OK;'),
+        ('host->alive=false;host->views.clear();', 'host->alive=false;for(auto& entry:host->views){entry.second->closed=true;entry.second->dialog.reset();xb_dialog_cleanup(entry.second->window);if(entry.second->controller)entry.second->controller->Close();}host->views.clear();')
     ]
     for before, after in changes:
         if base.count(before) != 1:

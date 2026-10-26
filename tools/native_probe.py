@@ -18,6 +18,11 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let checks=0;
 const assert = (test, message) => { checks++; if (!test) throw Error(message); };
 let report;
+async function trace(phase) {
+  const response=await fetch('/api/v1/bootstrap'), token=response.headers.get('x-mdo-write-token');await response.arrayBuffer();
+  await fetch('/api/v1/application/call',{method:'POST',headers:{'Content-Type':'application/json','X-Mdo-Write-Token':token},
+    body:JSON.stringify({method:'storage.write',context:{extension:'browser-use-qa'},params:{path:'qa/page-trace.json',text:JSON.stringify({phase})}})});
+}
 async function evaluate(expression) {
   const result = await bridge.call('evaluate', { browser, script: expression });
   assert(result.ok, 'Native evaluation failed');
@@ -92,6 +97,44 @@ try {
   await evaluate(`document.querySelector('#cover').remove()`);
   const verified=await engine(`verify(${JSON.stringify({document:first.document,target:{testid:'order-field'},op:'fill',text:'订单 🦉 42'})})`);
   assert(verified.verified&&!JSON.stringify(verified).includes('订单 🦉 42'),'Input verification leaked field text');
+  const openDialog=async selector=>{
+    const prepared=await prepare({op:'click',target:{css:selector},scroll:true});
+    assert(prepared.ok,'Dialog button was not actionable');
+    const input=bridge.call('input',{browser,agent:true,kind:'click',navigation:state.navigation,...prepared.point});
+    let pending;
+    for(let i=0;i<50;i++){
+      const snapshot=await bridge.call('state',{browser});
+      if(snapshot.dialog_open){pending=(await bridge.call('dialog',{browser,action:'list',agent:true})).dialogs[0];break}
+      await pause(20);
+    }
+    assert(pending?.id,'Native script dialog was not captured');
+    const outcome=await Promise.race([input,pause(1000).then(()=>{throw Error('Input did not yield at the dialog boundary')})]);
+    assert(outcome.accepted&&outcome.trusted_input,'Dialog input was not acknowledged');
+    return pending;
+  };
+  assert((await bridge.call('state',{browser})).dialog_capability,'Native dialog capability missing');
+  const alertDialog=await openDialog('#dialog-alert');
+  assert(alertDialog.kind==='alert'&&alertDialog.message==='Fixture alert','Alert metadata was incorrect');
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:alertDialog.id,accept:true});
+  assert(await evaluate("document.querySelector('#dialog-result').textContent")==='alert:closed','Alert did not resume page execution');
+  const confirmDialog=await openDialog('#dialog-confirm');
+  assert(confirmDialog.kind==='confirm','Confirm kind missing');
+  let staleDialog=false;
+  try{await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:alertDialog.id,accept:true})}catch{staleDialog=true}
+  assert(staleDialog,'An obsolete dialog identity was accepted');
+  await bridge.call('takeover',{browser});
+  assert((await bridge.call('dialog',{browser,agent:true,action:'list'})).dialogs.length===1,'Read-only dialog metadata disappeared during takeover');
+  let protectedDialog=false;
+  try{await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:confirmDialog.id,accept:true})}catch{protectedDialog=true}
+  assert(protectedDialog,'Agent answered a dialog while the user had control');
+  await bridge.call('dialog',{browser,action:'respond',dialog:confirmDialog.id,accept:false});
+  assert(await evaluate("document.querySelector('#dialog-result').textContent")==='confirm:false','User dismissal did not reach confirm');
+  await bridge.call('release',{browser});
+  const promptDialog=await openDialog('#dialog-prompt');
+  assert(promptDialog.kind==='prompt'&&!JSON.stringify(promptDialog).includes('fixture-private-default'),'Prompt default value was exposed');
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:promptDialog.id,accept:true,text:'响应 🦉'});
+  assert(await evaluate("document.querySelector('#dialog-result').textContent")==='prompt:响应 🦉','Prompt Unicode response was lost');
+  assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'Closed prompt was retained');
   const ambiguous=await engine(`locate(${JSON.stringify({document:first.document,target:{role:'button',name:'Duplicate'}})})`);
   assert(ambiguous.error?.code==='element_ambiguous','Duplicate locator silently selected an element');
   const limited=await engine('observe({limit:2})');
@@ -116,7 +159,34 @@ try {
   assert(removed.error?.code==='element_detached','Detached element reference was reused');
   const image=await bridge.call('screenshot',{browser});
   assert(image.data?.length>1000,'Native screenshot was empty');
+  await evaluate(`window.addEventListener('beforeunload',e=>{e.preventDefault();e.returnValue=''})`);
+  const pendingUnload=async()=>{
+    for(let i=0;i<100;i++){
+      const pending=await bridge.call('dialog',{browser,action:'list'});
+      if(pending.dialogs.length)return pending.dialogs[0];
+      await pause(20);
+    }
+    throw Error('Before-unload dialog was not captured');
+  };
+  await trace('before-cancel-navigation');
+  await bridge.call('navigate',{browser,url:location.origin+'/__browser_use_page__.html?cancelled=1'});
+  const cancelledUnload=await pendingUnload();
+  assert(cancelledUnload.kind==='beforeunload','Before-unload kind was incorrect');
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:cancelledUnload.id,accept:false});
+  await trace('after-beforeunload-dismiss');
+  assert(!(await bridge.call('state',{browser})).url.includes('cancelled=1'),'Dismissed before-unload navigation was performed');
+  await evaluate('document.readyState');
+  await trace('after-document-resumed');
+  const rearm=await prepare({op:'click',target:{css:'#order'},scroll:true});
+  const rearmState=await bridge.call('state',{browser});
+  await bridge.call('input',{browser,agent:true,kind:'click',navigation:rearmState.navigation,...rearm.point});
+  await trace('after-rearm-input');
   await bridge.call('navigate',{browser,url:location.origin+'/__browser_use_page__.html?next=1'});
+  const acceptedUnload=await pendingUnload();
+  await trace('second-beforeunload-captured');
+  assert(acceptedUnload.id!==cancelledUnload.id,'Before-unload reused its previous identity');
+  await bridge.call('dialog',{browser,agent:true,action:'respond',dialog:acceptedUnload.id,accept:true});
+  await trace('after-beforeunload-accept');
   let second;
   for(let i=0;i<100;i++) {
     await pause(100);
@@ -124,10 +194,21 @@ try {
     catch { /* Execution context can disappear during navigation. */ }
   }
   assert(second?.document!==first.document,'Navigation reused the previous document identity');
+  await trace('after-new-document');
   const stale=await engine(`locate(${JSON.stringify({document:first.document,target:{ref:query.ref}})})`);
   assert(stale.error?.code==='stale_document','Navigation did not reject an old reference');
+  const pendingClose=await engine(`prepare(${JSON.stringify({document:second.document,op:'click',target:{css:'#dialog-confirm'},scroll:true})})`);
+  const currentState=await bridge.call('state',{browser});
+  await bridge.call('input',{browser,agent:true,kind:'click',navigation:currentState.navigation,...pendingClose.point});
+  assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===1,'Close fixture had no pending dialog');
+  await trace('before-close-with-dialog');
+  await bridge.call('close',{browser});
+  await trace('after-close-with-dialog');
+  await bridge.call('create',{browser,url:location.origin+'/__browser_use_page__.html',visible:true,
+    bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});
+  assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -147,6 +228,8 @@ try {
 
 
 def main():
+    output = dev.ENV / "page-observation-result.json"
+    output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
     web = dev.SOURCE / "app/web"
     runtime = (ROOT / "page/runtime.js").read_text(encoding="utf-8")
     if runtime.count("export function browserRuntime()") != 1:
@@ -178,11 +261,11 @@ def main():
                 pass
             time.sleep(0.2)
         if not result:
+            output.write_text('{"passed":false,"error":"Native checks did not return a result"}\n', encoding="utf-8")
             raise RuntimeError("Native page checks did not return a result; inspect .mdo/server.log")
+        output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))
-        output = dev.ENV / "page-observation-result.json"
-        output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(result, indent=2))
         return 0
     finally:
