@@ -28,17 +28,28 @@ same process when the installer reports a native restart requirement:
 
 ```powershell
 python tools/contracts.py --check
+python tools/dev.py stop
+python tools/apply_host.py
+python tools/dev.py start
 python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
 node --test tests/test_client.mjs
 python tools/native_probe.py
+python tools/sdk_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
 window with local fixtures, and restores headless mode afterwards. No live model
 or external website is needed. Its latest result is `.mdo/page-observation-result.json`.
+
+`sdk_probe.py` instead opens the normal mdo interface and sends a real public C
+service call through its workbench to WebView2. Host overlays are recorded in
+`host/overlays.json` and applied only to the single `.mdo/source` checkout.
+The raw C services return UI receipts; `createBrowserUseClient(sdk).observe()`
+waits for the terminal result. C callers read `browseruse.result` and release the
+receipt after completion. Pending/accepted delivery is never page success.
 
 ## Scope
 

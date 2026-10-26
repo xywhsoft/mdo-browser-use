@@ -1,5 +1,6 @@
 #include "values.h"
 #include "tabs.c"
+#include "observe.c"
 
 typedef struct BuService {
     const char *Id,*Description,*Input,*Output;

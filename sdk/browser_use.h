@@ -4,4 +4,8 @@
 #include "mdo/sdk.h"
 static inline mdo_result mdoBrowserUseTabs(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
 {return mdoCall(C,"browseruse.tabs",P,R,E);}
+static inline mdo_result mdoBrowserUseObserve(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.observe",P,R,E);}
+static inline mdo_result mdoBrowserUseResult(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.result",P,R,E);}
 #endif

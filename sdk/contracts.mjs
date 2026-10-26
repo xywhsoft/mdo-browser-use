@@ -50,5 +50,72 @@ export const services = [
     "output": {
       "type": "object"
     }
+  },
+  {
+    "id": "browseruse.observe",
+    "description": "Queue a bounded page observation in the tab's display client. Read browseruse.result to obtain the terminal observation; pending is not success.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "readable",
+            "interactive"
+          ]
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 400
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 32768
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.result",
+    "description": "Read or release an owned Browser Use UI receipt without exposing its stored request. A failed page result stays failed even when transport delivery succeeded.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "release": {
+          "type": "boolean"
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
   }
 ];

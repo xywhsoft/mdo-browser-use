@@ -27,3 +27,31 @@ test("JavaScript client reaches the same actual C service contract", async () =>
   const description = await sdk.call("sdk.describe", { id: "browseruse.tabs" });
   assert.deepEqual(description.input_schema, services[0].input);
 });
+
+test("result cleanup cannot hide the original browser failure", async () => {
+  const client = createBrowserUseClient({ async call(method, params) {
+    if (method === "browseruse.observe") return { id: "test-receipt", state: "pending" };
+    if (params.release) throw Error("Release connection failed");
+    return { state: "failed", error: { code: "manual_control", message: "User takeover" } };
+  }});
+  await assert.rejects(client.observe({ browser: "test" }), { code: "manual_control", message: "User takeover" });
+});
+
+test("actual mdo UI journal does not persist even a small browser observation", async () => {
+  const source = await readFile(new URL("../.mdo/source/app/web/js/api/application.js", import.meta.url), "utf8");
+  const entry = source.slice(source.indexOf("export async function applyApplicationAction"));
+  const { applyApplicationAction } = await import(`data:text/javascript;base64,${Buffer.from(entry).toString("base64")}`);
+  const records = new Map();
+  const storage = { getItem: key => records.get(key) ?? null, setItem: (key, value) => records.set(key, value) };
+  let executions = 0;
+  const action = { id: "private-page-read", action: "workbench.browser" };
+  const ack = await applyApplicationAction(action, async () => {
+    executions++;
+    return { ok: true, text: "Private fixture page text" };
+  }, storage, "journal");
+  assert.equal(ack.result.text, "Private fixture page text");
+  assert.ok(!storage.getItem("journal").includes("Private fixture page text"));
+  const duplicate = await applyApplicationAction(action, () => { throw Error("Repeated an effect"); }, storage, "journal");
+  assert.equal(duplicate.result.ephemeral, true);
+  assert.equal(executions, 1);
+});

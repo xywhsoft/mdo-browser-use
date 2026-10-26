@@ -82,6 +82,40 @@ class PluginTests(unittest.TestCase):
             with self.subTest(url=url):
                 self.reject({"action": "create", "client": self.client, "url": url}, 422, "url_invalid")
 
+    def test_observation_receipts_remain_scoped_and_delivery_is_not_page_success(self):
+        browser = self.invoke({"action": "create", "client": self.client, "key": "receipt-scope"})
+        receipt = dev.call("browseruse.observe", {"browser": browser["id"]}, self.scope)
+        try:
+            pending = dev.call("browseruse.result", {"id": receipt["id"]}, self.scope)
+            self.assertEqual(pending["state"], "pending")
+            self.assertNotIn("params", pending)
+            self.assertNotIn("context", pending)
+            status, _, raw = dev.request("POST", "/api/v1/application/call", {
+                "method": "browseruse.result", "params": {"id": receipt["id"], "release": True},
+                "context": dict(self.scope, session="other-session")})
+            self.assertEqual(status, 409, json.loads(raw))
+            dev.call("client.ack", {"client": self.client, "id": receipt["id"], "success": True,
+                "result": {"ok": False, "error": {"code": "manual_control", "message": "User takeover"}}})
+            failed = dev.call("browseruse.result", {"id": receipt["id"]}, self.scope)
+            self.assertEqual(failed["state"], "failed")
+            self.assertEqual(failed["error"]["code"], "manual_control")
+        finally:
+            dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
+            self.invoke({"action": "close", "browser": browser["id"]})
+
+    def test_ephemeral_journal_placeholder_is_not_a_successful_observation(self):
+        browser = self.invoke({"action": "create", "client": self.client, "key": "ephemeral-result"})
+        receipt = dev.call("browseruse.observe", {"browser": browser["id"]}, self.scope)
+        try:
+            dev.call("client.ack", {"client": self.client, "id": receipt["id"], "success": True,
+                                    "result": {"ephemeral": True}})
+            result = dev.call("browseruse.result", {"id": receipt["id"]}, self.scope)
+            self.assertEqual(result["state"], "failed")
+            self.assertEqual(result["error"]["code"], "result_expired")
+        finally:
+            dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.scope)
+            self.invoke({"action": "close", "browser": browser["id"]})
+
 
 if __name__ == "__main__":
     unittest.main()

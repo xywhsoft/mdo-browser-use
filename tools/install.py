@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def install():
     manifest = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
     files = []
-    for directory in ("runtime", "sdk", "overlay"):
+    for directory in ("runtime", "sdk", "overlay", "page"):
         for path in sorted((ROOT / directory).rglob("*")):
             if path.is_file():
                 files.append({"path": path.relative_to(ROOT).as_posix(),

@@ -74,3 +74,22 @@ latest generated result is kept unless a failure needs investigation.
 - The page runtime is tested directly via the existing native evaluate channel.
   This is not yet the public observe service or an isolated-world/native-input
   implementation; those remain pending. Page execution results are untrusted data.
+
+## B1 — public observation service through the actual mdo UI
+
+- Added `browseruse.observe/result`, matching generated C/JS definitions and a
+  JavaScript completion helper. Results are scoped by extension/device/project/
+  session; omitted default-project identity is normalized consistently.
+- The existing workbench owns native browser creation/closing. The broker loads
+  the shared page runtime from a trusted application asset; the UI request carries
+  only the browser/options (82 bytes in the native probe), not the whole script.
+- Tracked host overlays add the typed command/description, frozen device identity
+  and small-result privacy. Even a short page result is ephemeral in the UI
+  intent journal; a replayed placeholder is explicitly `result_expired`.
+- `tools/sdk_probe.py` opens the normal mdo frontend, selects its actual client,
+  exercises the existing ready/wait path, then obtains structured page text,
+  shadow-root and frame elements through the real public C service and releases
+  its receipt. This is in addition to the direct page-engine/native test.
+- Automatic readiness inside observe, Agent tool execution, isolated worlds and
+  reliable native inputs are still pending. Manual control currently blocks the
+  underlying evaluate operation; no unrestricted evaluate tool is exposed.
