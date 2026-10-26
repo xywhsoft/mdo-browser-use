@@ -326,6 +326,16 @@
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "\"capture_cancel\"].includes(request.command)",
       "after": "\"capture_cancel\",\"drag\",\"drag_cancel\"].includes(request.command)"
+    },
+    {
+      "path": "app/web/js/features/workbench/model.js",
+      "before": "  if (!state.url || state.url === \"about:blank\" && !state.opener) return \"empty\";",
+      "after": "  if (state.initial_navigation_pending) return \"loading\";\n  if (!state.url || state.url === \"about:blank\" && !state.opener) return \"empty\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "    if (document.activeElement !== address) address.value =",
+      "after": "    if (document.activeElement !== address && !state.initial_navigation_pending) address.value ="
     }
   ],
   "files": [

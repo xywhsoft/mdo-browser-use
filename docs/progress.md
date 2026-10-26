@@ -560,3 +560,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   preparation and managed-tool drag tests are the next stage; transfers,
   complete frame support, Android and packaging remain unfinished.
 - Protocol contract: [official Chrome DevTools Input definitions](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/json/browser_protocol.json).
+
+## L3 — initial navigation remains pending through its matching completion
+
+- A real first-observation run read an initial empty document; a replacement
+  view also reached its target title/URL while retaining a mismatched loading
+  state. Requested nonblank navigation now has an explicit pending/start gate.
+  Default blank starts/completions cannot consume it, and stale completion IDs
+  cannot finish a newer navigation. Explicit blank popups remain supported.
+- The toolbar preserves the requested address while this initial navigation is
+  pending. The workbench and automation dispatcher both treat it as loading.
+  Failed native event identity reads stop the request with an explicit error.
+  Twelve bounded event metadata records aid diagnosis without URLs or content.
+- Compiled the actual native gate against default/late blank events, stale and
+  overlapping IDs and the bounded history. Dispatcher/model checks also pass.
+  Rebuilt the single host and passed the real WebView2 run (360 assertions,
+  no new exception diagnostics); the preceding public C/JS/managed run passed
+  automatic first observation, navigation, written blank popups and dragging.
+- Public drag integration and transfer/frame/platform/package work remain in
+  progress; this entry does not declare the full Browser Use goal complete.

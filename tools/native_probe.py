@@ -55,6 +55,9 @@ try {
   await bridge.call('close',{browser:raceBrowser});
   await bridge.call('create', { browser, url:location.origin+'/__browser_use_page__.html',
     visible:true, bounds:{ x:10,y:70,width:1000,height:650,scale:devicePixelRatio } });
+  const initialState=await bridge.call('state',{browser});
+  assert(typeof initialState.initial_navigation_pending==='boolean','Initial navigation intent is not observable');
+  assert(!initialState.initial_navigation_pending||initialState.loading,'Initial blank completion cleared the requested navigation readiness');
   let ready = false;
   for (let i=0;i<100;i++) {
     const snapshot = await bridge.call('snapshot', {browser});

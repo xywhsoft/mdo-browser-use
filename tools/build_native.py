@@ -39,7 +39,7 @@ def main():
         ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_view{'),
         ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
         ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
-        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\nstatic void xb_receive('),
+        ('static void xb_receive(', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\n#include "xs_browser_navigation.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
         ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(host,view);\n            std::weak_ptr<xb_view> weak=view;'),
         ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
@@ -87,6 +87,27 @@ def main():
         if base.count(before) != 1:
             raise RuntimeError("Native drag hook no longer unique: " + before)
         base = base.replace(before, after, 1)
+    initial_navigation_hooks = [
+        ('int automationContext=0;', 'int automationContext=0;bool initialNavigationPending=false,initialNavigationStarted=false;std::vector<std::string> navigationEvents;'),
+        ('auto view=std::make_shared<xb_view>();view->bounds=xb_bounds(json);', 'auto view=std::make_shared<xb_view>();view->initialNavigationPending=url!="about:blank";view->bounds=xb_bounds(json);'),
+        ('args->get_NavigationId(&active->navigation);', 'xs_wv_text first;UINT64 incoming=0;if(FAILED(args->get_NavigationId(&incoming))||FAILED(args->get_Uri(&first.p))){args->put_Cancel(TRUE);active->initialNavigationPending=false;active->loading=false;active->error="Cannot identify browser navigation";return S_OK;}if(!xb_navigation_start(active,incoming,webview::detail::narrow_string(first.p?first.p:L"")=="about:blank"))return S_OK;'),
+        ('view->loading?"true":"false"', '(view->loading||view->initialNavigationPending)?"true":"false"'),
+        ('+viewport+",\\"capture_capability\\":', '+viewport+",\\"initial_navigation_pending\\":"+(view->initialNavigationPending?"true":"false")+",\\"capture_capability\\":'),
+        ('if(FAILED(navigationResult)){view->loading=false;', 'if(FAILED(navigationResult)){view->initialNavigationPending=false;view->loading=false;'),
+        ('else if(command=="stop")code=core->Stop();', 'else if(command=="stop"){view->initialNavigationPending=false;view->loading=false;code=core->Stop();}'),
+    ]
+    for before, after in initial_navigation_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native initial navigation hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
+    navigation_completion_hooks = [
+        ('UINT64 navigation=0;args->get_NavigationId(&navigation);if(navigation!=active->navigation)return S_OK;', 'UINT64 navigation=0;if(FAILED(args->get_NavigationId(&navigation))){active->initialNavigationPending=false;active->loading=false;active->error="Cannot identify browser navigation completion";return S_OK;}if(!xb_navigation_complete(active,navigation))return S_OK;'),
+        ('+viewport+",\\"initial_navigation_pending\\":', '+viewport+",\\"navigation_events\\":"+xb_navigation_events(view)+",\\"initial_navigation_pending\\":'),
+    ]
+    for before, after in navigation_completion_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native navigation completion hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
     popup_start = base.index('            auto* popup=xb_cb<ICoreWebView2NewWindowRequestedEventHandler')
     popup_end = base.index('            if(!xb_place(view,visible))', popup_start)
     base = base[:popup_start] + '            xb_install_popups(host,view,browser);\n' + base[popup_end:]
@@ -121,13 +142,20 @@ def main():
         current = drag_path.read_text(encoding="utf-8")
         if current != drag and hashlib.sha256(current.encode()).hexdigest() != record.get("drag"):
             raise RuntimeError("Unreviewed native drag helper edit preserved")
+    navigation_helper = (dev.ROOT / "host/native-navigation.inc.hpp").read_text(encoding="utf-8")
+    navigation_path = target.with_name("xs_browser_navigation.inc.hpp")
+    if navigation_path.exists():
+        current = navigation_path.read_text(encoding="utf-8")
+        if current != navigation_helper and hashlib.sha256(current.encode()).hexdigest() != record.get("navigation"):
+            raise RuntimeError("Unreviewed native navigation helper edit preserved")
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
     capture_path.write_text(capture, encoding="utf-8", newline="\n")
     drag_path.write_text(drag, encoding="utf-8", newline="\n")
+    navigation_path.write_text(navigation_helper, encoding="utf-8", newline="\n")
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
-              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest()}
+              "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest(),"navigation":hashlib.sha256(navigation_helper.encode()).hexdigest()}
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

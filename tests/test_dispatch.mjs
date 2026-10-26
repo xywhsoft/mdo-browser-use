@@ -26,6 +26,8 @@ test("observe waits for readiness and reports bounded timeout", async () => {
   assert.equal(result.result.error.code, "timed_out");
   assert.equal(result.evaluations, 0);
   assert.equal((await observe({ loading: false, automation: true })).result.text, "fixture");
+  const initial=await observe({loading:false,automation:true,initial_navigation_pending:true});
+  assert.equal(initial.result.error.code,"timed_out");assert.equal(initial.evaluations,0);
 });
 
 test("manual takeover, cancellation and stopped renderer prevent page evaluation", async () => {
