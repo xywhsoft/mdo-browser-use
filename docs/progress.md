@@ -379,3 +379,28 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Three actual broker regressions cover identity, ownership, URL policy,
   volatile descriptors, settlement and repeat admission. This stage supplies
   the race-safe broker boundary; normal-workbench automatic adoption is next.
+
+## D4 — automatic popup tabs in the normal workbench
+
+- The workbench now reconciles native notifications and periodically checks
+  hidden/visible browser views. It admits the child in the opener's frozen
+  scope, adopts one fresh target, settles the volatile ticket and opens an
+  ordinary browser panel. User gestures activate it; other windows stay in the
+  background. Page close requests remove the exact browser and its panels.
+- UI mounts and Agent dispatch share native creation. Concurrent identical
+  calls share one promise, so a later reader cannot hide/reset a displayed
+  viewport. A close detaches its old creation promise; the existing real
+  create/close/recreate regression caught and verified this bridge correction.
+  Confirmed repeated popup adoption can only attach to the same ticket/opener.
+- About-blank popups with written content remain real visible pages, distinct
+  from the new-browser landing state. Device/window changes stop subsequent
+  settlement, and a ticket from another display client cannot be instantiated.
+  Lost effects retain their child receipt; the coordinator never substitutes
+  another native target or erases an uncertain child.
+- Passed 21 actual broker/C checks, 20 JS checks, the native 169-check run with
+  no new exception diagnostics, the actual normal UI C/JS probe and eight
+  managed tools. Verified independent child content/postMessage, panel display,
+  page-close cleanup, a real action in a written blank popup, and managed-task
+  isolation of the child. Existing ten actions/four navigations/five waits pass.
+- File transfers, complete frame/observation coverage, richer actions/screenshot
+  services, Android and the final lifecycle/package gates remain unfinished.

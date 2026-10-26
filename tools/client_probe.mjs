@@ -9,7 +9,7 @@ const env = JSON.parse(await readFile(new URL("../.mdo/environment.json", import
 const origin = `http://127.0.0.1:${env.port}`;
 const response = await fetch(`${origin}/api/v1/bootstrap`);
 const token = response.headers.get("x-mdo-write-token"); await response.arrayBuffer();
-const client = createBrowserUseClient({ async call(method, params) {
+const sdk = { async call(method, params) {
   const response = await fetch(`${origin}/api/v1/application/call`, {
     method: "POST", signal: AbortSignal.timeout(20000),
     headers: { "Content-Type": "application/json", "X-Mdo-Write-Token": token },
@@ -18,7 +18,8 @@ const client = createBrowserUseClient({ async call(method, params) {
   const reply = await response.json();
   if (!response.ok) throw Object.assign(new Error(reply.error?.message || "SDK call failed"), { code: reply.error?.code });
   return reply.data;
-}});
+}};
+const client = createBrowserUseClient(sdk);
 let browser;
 try {
   const { clients } = await client.tabs({ action: "clients" }); assert.equal(clients.length, 1);
@@ -52,14 +53,54 @@ try {
   assert.deepEqual(repeatedResponse, answered);
   await client.operation({ action: "release", operation: dialogOperation });
   assert.equal((await client.waitFor({ browser: browser.id, until: "text", text: "prompt:JS 回复 🦉" })).matched, true);
+  const childIds = new Set();
+  async function openPopup(name, expectedText) {
+    const observed = await client.observe({ browser: browser.id });
+    const checkpoint = await client.act({ browser: browser.id, document: observed.document, op: "click", target: { name } });
+    assert.equal(checkpoint.outcome, "popup_open"); assert.equal(checkpoint.completed, false);
+    let child;
+    for (let i = 0; i < 100; i++) {
+      child = (await client.tabs({ action: "list" })).tabs.find(tab => tab.opener === browser.id && !childIds.has(tab.id));
+      if (child) break; await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert.ok(child?.id, "The actual workbench did not admit a child tab");childIds.add(child.id);
+    assert.equal(child.owner, browser.owner);assert.deepEqual(child.context, browser.context);
+    const page = await client.observe({ browser: child.id });assert.ok(page.text.includes(expectedText));
+    let mounted = false;
+    for (let i = 0; i < 100; i++) {
+      const panels = await sdk.call("panel.list", { client: child.client });
+      if (panels.some(panel => panel.type === "mdo.browser" && panel.resource?.id === child.id)) { mounted = true;break; }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    assert.ok(mounted, "The workbench did not display the popup panel");
+    return { child, page };
+  }
+  const popup = await openPopup("Open popup", "Independent popup");
+  assert.ok((await client.observe({ browser: browser.id })).text.includes("Popup connected"));
+  const closing = await client.act({ browser: popup.child.id, document: popup.page.document, op: "click", target: { name: "Close popup" } });
+  assert.equal(closing.outcome, "closed");
+  let closed = false;
+  for (let i = 0; i < 100; i++) {
+    if (!(await client.tabs({ action: "list" })).tabs.some(tab => tab.id === popup.child.id)) { closed = true;break; }
+    await new Promise(resolve => setTimeout(resolve, 50));
+  }
+  assert.ok(closed, "window.close did not remove the scoped tab");
+  const blank = await openPopup("Open blank popup", "Written blank popup");
+  const blankClick = await client.act({ browser: blank.child.id, document: blank.page.document, op: "click", target: { name: "Blank action" } });
+  assert.ok(blankClick.observation.text.includes("Blank action verified"));
+  await client.tabs({ action: "close", browser: blank.child.id });
   const report = { passed: true, backend: "actual-js-client-mdo-webview2", duplicate_native_clicks: 0,
     released_identity_not_replayed: true, navigation_completed: true, native_dialog_checkpoint_and_response: true,
-    duplicate_dialog_responses: 0 };
+    duplicate_dialog_responses: 0, scoped_popup_adoption: true, page_close_cleanup: true, written_blank_popup_action: true };
   await writeFile(output, JSON.stringify(report, null, 2) + "\n");
   process.stdout.write(JSON.stringify(report) + "\n");
 } catch (error) {
   await writeFile(output, JSON.stringify({ passed: false, code: error.code || "probe_failed", message: error.message }) + "\n");
   throw error;
 } finally {
-  if (browser) await client.tabs({ action: "close", browser: browser.id });
+  if (browser) {
+    for (const child of (await client.tabs({ action: "list" })).tabs)
+      if (child.opener === browser.id) await client.tabs({ action: "close", browser: child.id });
+    await client.tabs({ action: "close", browser: browser.id });
+  }
 }

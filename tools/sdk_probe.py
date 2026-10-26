@@ -26,6 +26,7 @@ def main():
     report_path.write_text(json.dumps({"passed": False, "state": "running"}) + "\n", encoding="utf-8")
     fixture = dev.SOURCE / "app/web/__browser_use_page__.html"
     fixture.write_bytes((dev.ROOT / "tests/fixtures/page.html").read_bytes())
+    (dev.SOURCE / "app/web/__browser_use_popup__.html").write_bytes((dev.ROOT / "tests/fixtures/popup.html").read_bytes())
     dev.stop()
     browser = None
     try:

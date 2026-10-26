@@ -43,6 +43,7 @@ def main():
         if created["data"]["permission_profile"] != permission:
             raise RuntimeError("The persistent QA session permission changed; refusing to overwrite it")
     (dev.SOURCE / "app/web/__browser_use_page__.html").write_bytes((dev.ROOT / "tests/fixtures/page.html").read_bytes())
+    (dev.SOURCE / "app/web/__browser_use_popup__.html").write_bytes((dev.ROOT / "tests/fixtures/popup.html").read_bytes())
     dev.stop()
     browser = None
     owner = {"extension": "plugin.mdo.browser-use", "project": "default", "session": FULL}
@@ -92,13 +93,29 @@ def main():
                         "dialog": pending[0]["id"], "accept": False})
         assert answered["success"]
         assert tool("browser_wait", {"browser": browser, "until": "text", "text": "confirm:false"})["success"]
+        popup = tool("browser_act", {"browser": browser, "document": value(resumed)["document"],
+                     "op": "click", "target": {"name": "Open popup"}})
+        assert popup["success"] and value(popup)["outcome"] == "popup_open"
+        child = None
+        for _ in range(100):
+            child = next((row for row in value(tool("browser_tabs", {"action": "list"}))["tabs"]
+                          if row.get("opener") == browser), None)
+            if child:
+                break
+            time.sleep(0.05)
+        assert child is not None, "Managed tool did not receive its scoped child tab"
+        assert "Independent popup" in value(tool("browser_observe", {"browser": child["id"]}))["text"]
+        foreign = value(tool("browser_tabs", {"action": "list"}, READ_ONLY))["tabs"]
+        assert not any(row["id"] == child["id"] for row in foreign), "A different managed task could see the popup"
+        assert tool("browser_open", {"action": "close", "browser": child["id"]})["success"]
         assert tool("browser_navigate", {"browser": browser, "action": "reload"})["success"]
         assert tool("browser_open", {"action": "close", "browser": browser})["success"]
         browser = None
         report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": 8,
                   "readonly_read_allowed": True, "readonly_write_denied": True,
                   "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
-                  "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True}
+                  "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,
+                  "managed_popup_ownership": True}
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:
@@ -107,6 +124,9 @@ def main():
     finally:
         if browser:
             try:
+                for child in dev.call("browseruse.tabs", {"action": "list"}, owner)["tabs"]:
+                    if child.get("opener") == browser:
+                        dev.call("browseruse.tabs", {"action": "close", "browser": child["id"]}, owner)
                 dev.call("browseruse.tabs", {"action": "close", "browser": browser}, owner)
             except (OSError, RuntimeError):
                 pass

@@ -41,7 +41,7 @@ class PopupAdmissionTests(unittest.TestCase):
         self.assertEqual(first["owner"], self.scope["extension"])
         self.assertEqual(self.admit(url="https://example.com/popup")["id"], first["id"])
         row = dev.call("browser.get", {"id": first["id"]}, self.scope)
-        self.assertEqual(row["runtime"]["popup_request"], {"id": self.ticket, "opener": self.source["id"]})
+        self.assertEqual(row["runtime"]["popup_request"], {"id": self.ticket, "opener": self.source["id"], "client": self.client})
         saved = json.loads((dev.HOME / "data/workbench.json").read_text(encoding="utf-8"))
         stored = next(row for row in saved["browsers"] if row["id"] == first["id"])
         self.assertNotIn("runtime", stored)

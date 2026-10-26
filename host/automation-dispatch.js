@@ -41,6 +41,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (receipt.state === "cancelled") return fail("cancelled", "The originating browser call was cancelled");
     }
     const state = await view.execute("state");
+    if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(command === "dialog" && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");

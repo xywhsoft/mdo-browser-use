@@ -533,7 +533,7 @@
       "id": "browser_act",
       "service": "browseruse.act",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
-      "description": "Click, fill, type, hover, key, check or scroll a browser using a fresh observed document and exact target. Waits for actionability. If an effect may have occurred, observe its result instead of repeating it."
+      "description": "Click, fill, type, hover, key, check or scroll a browser using a fresh observed document and exact target. Waits for actionability. If an effect may have occurred, observe its result instead of repeating it. Dialog/new-window checkpoints are not completion: inspect the dialog or child tab instead of repeating the click."
     },
     {
       "id": "browser_navigate",

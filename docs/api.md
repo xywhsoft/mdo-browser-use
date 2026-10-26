@@ -1,7 +1,8 @@
 # Browser Use API
 
 The Windows WebView2 path, including native JavaScript dialogs, is currently
-verified. Android, transfers and complete cross-origin frame support remain in progress. No additional
+verified. New windows are adopted into visible scoped tabs. Android, transfers
+and complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
 ## Shared C/JavaScript boundary
@@ -126,3 +127,32 @@ control and leaves it with the user until the user explicitly returns it.
 Read-only dialog inspection remains available during takeover; Agent responses
 are blocked. A pending dialog expires after 120 seconds and is dismissed on
 view closure. The long-duration expiry gate remains unverified at this stage.
+
+## New windows and scoped tabs
+
+The workbench automatically admits a page's HTTP(S)/blank new-window request
+under the original owner/device/project/session and display client. A child
+appears in `tabs(action:"list")` with `opener` set to the source browser ID.
+Read a fresh child observation before operating it; never identify it by URL.
+`opener` in the saved record is historical origin metadata, not a guarantee
+that a live window.opener relationship survived a process restart.
+
+An action interrupted by window creation returns
+`{ok:true,outcome:"popup_open",completed:false,dispatched}`. List tabs and choose
+the appropriate child. Do not repeat the original click. Page close requests
+likewise yield `outcome:"closed",completed:false`; confirm removal in the tab
+list rather than trying to read or click the closed page again.
+
+The trusted UI uses host `browser.popup.admit/settle` (generated shared C/JS
+helpers) to coordinate one broker record with one native target. The native
+request descriptor exists only in runtime state, checks its original client,
+and is removed after adoption. Concurrent mounts share one creation without
+resetting a displayed viewport. Repeated confirmed native adoption attaches to
+the same view; a different opener or ticket cannot replace it. Uncertain
+effects retain their admitted record instead of creating a replacement.
+
+User-initiated popups activate their tab; other popups open in the background.
+The source keeps its document and named windows can be reused. Written
+about:blank documents display and accept native input. Native page-close events
+remove their corresponding browser and panels. Pending popups expire after
+20 seconds; a full native-view budget blocks further windows explicitly.

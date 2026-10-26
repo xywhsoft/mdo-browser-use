@@ -191,6 +191,7 @@ try {
   assert(popup?.id&&popup.user_initiated,'New-window request did not preserve its trusted user gesture');
   const child='browser-use-native-child';
   await bridge.call('create',{browser:child,popup:popup.id,opener:browser,visible:false});
+  assert((await bridge.call('create',{browser:child,popup:popup.id,opener:browser,visible:false})).attached,'Repeating the same native adoption did not attach to its original view');
   const popupBoundary=await popupInput;assert(popupBoundary.popup_open,'Native input did not yield at the new-window boundary');
   assert((await bridge.call('state',{browser})).url===first.url,'A popup navigated its opener');
   let childState;

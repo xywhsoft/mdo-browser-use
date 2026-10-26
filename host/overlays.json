@@ -166,6 +166,76 @@
       "path": "tools/workbench_contracts.py",
       "before": "    add('browser.update'",
       "after": "    add('browser.popup.admit','Admit one native popup under its exact opener; pending native tickets are ephemeral',{'opener':s,'client':s,'popup':s,'url':s},('opener','client','popup'))\n    add('browser.popup.settle','Acknowledge native adoption without recreating a released popup',{'id':s,'client':s,'popup':s},('id','client','popup'))\n    add('browser.update'"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "import { executeBrowserAutomation } from \"./automation-dispatch.js\";",
+      "after": "import { createBrowserPopups } from \"./popup-manager.js\";\nimport { ensureNativeBrowser } from \"./native-view.js\";\nimport { executeBrowserAutomation } from \"./automation-dispatch.js\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  const browserViews = new Map();",
+      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"新窗口\",resource:{id:browser.id},reveal},sdk),\n    closePanels:async browser=>{for(const [id,row] of [...entries])if(row.resource?.id===browser)await close(id);},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "    if (!signal.aborted) browserViews.set(view.id, { execute: view.execute, row });",
+      "after": "    if (!signal.aborted) { browserViews.set(view.id, { execute: view.execute, row }); void popupManager.reconcile(view.id); }"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "      selectRemaining();\n      render();\n    } catch {",
+      "after": "      await popupManager.scan();\n      selectRemaining();\n      render();\n    } catch {"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "await bridge.call(\"create\", { browser: id, url: browser.url || \"about:blank\", visible: false, bounds: { x:0,y:0,width:1024,height:768,scale:1 } });",
+      "after": "await ensureNativeBrowser({bridge,sdk:client,browser,clientId,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),bounds:{x:0,y:0,width:1024,height:768,scale:1}});"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "destroy() { stopped = true; menu.dispose();",
+      "after": "destroy() { stopped = true; popupManager.dispose(); window.removeEventListener(\"mdo-browser-popup\",nativePopup); menu.dispose();"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "import { createBrowserDialogs } from \"./dialog-ui.js\";",
+      "after": "import { ensureNativeBrowser } from \"./native-view.js\";\nimport { createBrowserDialogs } from \"./dialog-ui.js\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "    await execute(\"create\", { url: browser.url || \"about:blank\", bounds: rect(surface), visible: false });",
+      "after": "    await ensureNativeBrowser({bridge,sdk,browser,clientId,bounds:rect(surface),alive:()=>!signal.aborted});"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "  const pending = new Map(); let closed = false;",
+      "after": "  const pending = new Map(), creating = new Map(); let closed = false;"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "    if (message?.channel === \"mdo-browser-shortcut\")",
+      "after": "    if (message?.channel === \"mdo-browser-popup\") { window.dispatchEvent(new CustomEvent(\"mdo-browser-popup\", {detail:message})); return; }\n    if (message?.channel === \"mdo-browser-shortcut\")"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "      return new Promise((resolve, reject) => {",
+      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"原生浏览器正在为另一个弹出请求创建\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "      });\n    },\n    busy:",
+      "after": "      });\n      if (command !== \"create\") return result;\n      const promise = result.finally(()=>{if(creating.get(params.browser)?.promise===promise)creating.delete(params.browser);});\n      creating.set(params.browser,{promise,popup:params.popup||\"\",opener:params.opener||\"\"});\n      return promise;\n    },\n    busy:"
+    },
+    {
+      "path": "app/web/js/features/workbench/model.js",
+      "before": "  if (!state.url || state.url === \"about:blank\") return \"empty\";",
+      "after": "  if (!state.url || state.url === \"about:blank\" && !state.opener) return \"empty\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "      if (command === \"create\" && creating.has(params.browser)) {",
+      "after": "      if (command === \"close\") creating.delete(params.browser);\n      if (command === \"create\" && creating.has(params.browser)) {"
     }
   ],
   "files": [
@@ -192,6 +262,14 @@
     {
       "source": "host/popup-admission.inc.c",
       "target": "app/src/application/browser_popup_admission.inc.c"
+    },
+    {
+      "source": "host/native-view.js",
+      "target": "app/web/js/features/workbench/native-view.js"
+    },
+    {
+      "source": "host/popup-manager.js",
+      "target": "app/web/js/features/workbench/popup-manager.js"
     }
   ]
 }

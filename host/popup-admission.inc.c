@@ -58,7 +58,7 @@ static bool WbPopupCall(const mdo_sdk_context_v1* C,cstr Method,const xvalue* P,
     xrtValueArrayAppendNew(WbArray(Next,"browsers"),Row);WbBump(Next);
     if(!WbSave(Next)){WbFail(E,"workbench_save_failed","Popup record could not be saved; no native adoption was requested",503);goto done;}
     xrtValueRelease(Workbench.State);Workbench.State=Next;Next=NULL;
-    xvalue* Runtime=xrtValueObject(),*Pending=xrtValueObject();SdkPut(Pending,"id",Request);SdkPut(Pending,"opener",Opener);
+    xvalue* Runtime=xrtValueObject(),*Pending=xrtValueObject();SdkPut(Pending,"id",Request);SdkPut(Pending,"opener",Opener);SdkPut(Pending,"client",Client);
     xrtValueObjectSetNew(Runtime,XRT_STR_LITERAL("popup_request"),Pending);xrtValueObjectSetNew(Workbench.Runtime,xrtStrView(NewId),Runtime);
     *R=WbPopupRecord(Row);Ok=true;Changed=true;
 done:
