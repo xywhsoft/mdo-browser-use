@@ -1,0 +1,18 @@
+{
+  "format": "mdo.plugin.v1",
+  "id": "mdo.browser-use",
+  "name": "Browser Use",
+  "version": "0.1.0",
+  "description": "Browser automation tools and shared C/JavaScript services for mdo.",
+  "author": "mdo",
+  "license": "MIT",
+  "entry": {
+    "native": "runtime/plugin.c"
+  },
+  "overrides": [
+    {
+      "source": "overlay/default-home/skills/browser-use/SKILL.md",
+      "target": "default-home/skills/browser-use/SKILL.md"
+    }
+  ]
+}

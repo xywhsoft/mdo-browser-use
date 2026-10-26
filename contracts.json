@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "services": [
+    {
+      "id": "browseruse.tabs",
+      "description": "List, inspect, create, reveal or close browser tabs owned by the calling extension and task. Creating a record does not prove a native page has loaded.",
+      "callback": "BuTabs",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action"],
+        "properties": {
+          "action": {"type": "string", "enum": ["list", "get", "create", "reveal", "close"]},
+          "browser": {"type": "string", "minLength": 1, "maxLength": 100},
+          "client": {"type": "string", "minLength": 1, "maxLength": 128},
+          "url": {"type": "string", "minLength": 1, "maxLength": 8192},
+          "key": {"type": "string", "minLength": 1, "maxLength": 200},
+          "title": {"type": "string", "maxLength": 256}
+        }
+      },
+      "output": {"type": "object"}
+    }
+  ]
+}

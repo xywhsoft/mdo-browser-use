@@ -6,7 +6,7 @@ development stream and the single deployment inside this project.
 | Stage | Work | State |
 | --- | --- | --- |
 | A0 | Pin mdo, bootstrap reusable development environment, real startup | Complete |
-| A1 | Shared contracts and actual C plugin/SDK registration | Pending |
+| A1 | Shared contracts and actual C plugin/SDK registration | Complete |
 | B | Windows observation, element references and native input | Pending |
 | C | Waiting, action identity, ownership, cancellation and recovery | Pending |
 | D | Frames, tabs, dialogs, upload/download and visible UI | Pending |
@@ -38,3 +38,22 @@ latest generated result is kept unless a failure needs investigation.
   configuration into the single source app directory so `/app/default-home`
   resolves correctly; readiness now also requires a nonempty application root
   and a working plugin manager. The first shallow readiness check was insufficient.
+
+## A1 — native plugin and shared tab service
+
+- Added an installable `mdo.plugin.v1` package, Skill and C entry using the public
+  Application SDK. Real plugin apply/plan/commit and a process restart compile
+  and register `browseruse.tabs` through TCC.
+- One JSON definition generates the native service description, C convenience
+  header and JavaScript declaration. The C boundary validates the used schema
+  subset and rejects unknown/incorrect arguments before side effects.
+- Implemented owned list/get/create/reveal/close. Explicit display-client
+  selection is required. The wrapper additionally checks task/extension scope
+  when listing with a client filter, and rejects cross-task access and embedded
+  URL credentials. A created tab record is honestly reported as suspended.
+- Seven Python tests cover the actual SDK/deployment and installed C plugin;
+  one Node test calls the same service over HTTP and compares the discovered
+  contract. The headless display-client fixture tests records and ownership;
+  actual native pixels, page observation and inputs are not yet validated.
+- The tab `reveal` probe requires the standard browser type normally registered
+  by the real UI, so the headless fixture explicitly supplies that contribution.

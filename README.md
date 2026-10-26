@@ -23,6 +23,18 @@ The default service is headless for SDK checks. Native browser verification will
 use the same deployment in window mode, not a second application installation.
 Running `setup` again reuses the same files. Stop the service before rebuilding.
 
+Install the current development plugin into this deployment, then restart the
+same process when the installer reports a native restart requirement:
+
+```powershell
+python tools/contracts.py --check
+python tools/install.py
+python tools/dev.py stop
+python tools/dev.py start
+python -m unittest discover -s tests -v
+node --test tests/test_client.mjs
+```
+
 ## Scope
 
 - Plugin and SDK entry points in C; page observation/UI in JavaScript.
