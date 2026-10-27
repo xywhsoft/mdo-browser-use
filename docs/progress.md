@@ -10,11 +10,12 @@ development stream and the single deployment inside this project.
 | B | Windows observation, element references and native input | In progress |
 | C | Waiting, action identity, ownership, cancellation and recovery | In progress |
 | D | Frames, tabs, dialogs, upload/download and visible UI | In progress |
-| E | Android implementation and explicit platform limits | Pending |
+| E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestone: V3 enables shared C/JS/Agent visual pointer input in the Windows
-workbench. Android, visual keyboard/drag and final
+Latest verified milestones: V3 enables shared C/JS/Agent visual pointer input;
+E0 verifies the dependency-free Android world boundary contract. Android native
+integration/device validation, visual keyboard/drag and final
 lifecycle/performance/package gates remain active; this is not a release.
 
 ## Working boundaries
@@ -2025,3 +2026,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Same project deployment/Home/source/object cache. No release/publication.
   Visual keyboard/drag, directory upload coverage, Android, lifecycle/OOM and
   final network/performance/package checks remain active.
+
+## E0 — dependency-free Android isolated-world boundary foundation
+
+- Inspect the actual Android browser source and the installed phone's metadata.
+  Its existing manual browser uses page-world click/type and has no typed native
+  Browser Use state/input/transfer pipeline. ADB now sees one authorized API 36
+  phone with system WebView 138.0.7204.179; installed mdo apps/data are unchanged.
+  Do not infer execution-world support from that version; probe provider features.
+- Implement an own-code adapter to the installed WebView's published support
+  boundary. Resolve methods in the provider's actual class loader, without an
+  AndroidX AAR or hidden framework call. Pin the consulted Chromium interface
+  revision/URLs/hashes. Non-default world creation and isolated message listeners
+  require the explicit feature; a separate profile feature gates profile setup.
+- Admit only the exact view/main frame and canonical original reply peer.
+  Navigation/destroyed frames retire peers and jobs; no late message can rebind
+  a retired document. Enforce message/script/result/job/deadline limits, one
+  completion, monotonic time and possible-effect uncertainty after dispatch.
+  Failed timer admission sends no script. Partial registration and failed cleanup
+  remain unconfirmed; cleanup can retry only its owned listener/script.
+- Contract gate passes 29 checks using a genuinely separate provider class
+  loader. The actual production adapter also compiles with Java 8, matching the
+  APK builder target, using the existing WSL JDK. Reuse one small QA classes
+  directory; add only the Java source to the reviewed source overlay.
+- This is a protocol/lifetime foundation, not an APK/framework/device pass and
+  not Android automation activation. SDK/NDK paths remain unresolved (the old
+  documented cache is absent); no toolchain/browser was downloaded. Native UI
+  integration, trusted input, capture/privacy, dialogs/pickers/transfers and
+  real provider capability checks are next. Windows product source is unchanged:
+  last JS 158 pass, Python 104 pass/two skips and public visual gate still apply.

@@ -731,6 +731,10 @@
     {
       "source": "host/visual-dispatch.js",
       "target": "app/web/js/features/workbench/visual-dispatch.js"
+    },
+    {
+      "source": "host/android/MdoBrowserWorld.java",
+      "target": "tools/android/MdoBrowserWorld.java"
     }
   ]
 }

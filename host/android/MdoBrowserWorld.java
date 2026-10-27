@@ -1,0 +1,156 @@
+package org.xserver.android;
+
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.concurrent.Callable;
+
+/** Small adapter to the installed WebView's published support-library boundary.
+ * No AndroidX/AAR, hidden framework API or page-world evaluation is used.
+ * Protocol signatures/revision: host/android/protocol.json. UI-thread confined.
+ */
+final class MdoBrowserWorld implements AutoCloseable {
+    static final String WORLD="mdo.browser-use.v1", LISTENER="__mdoBrowserWorld";
+    private static final String PREFIX="org.chromium.support_lib_boundary.";
+    interface Scheduler { long now(); void post(Runnable task,long milliseconds); void remove(Runnable task); }
+    interface Receiver { void message(Peer peer,String text); void fault(String code); }
+    interface Completion { void complete(Result result); }
+    static final class Result {
+        final boolean ok,evaluationMayHaveOccurred;final String value,code;
+        Result(boolean ok,String value,String code,boolean sent){this.ok=ok;this.value=value;this.code=code;this.evaluationMayHaveOccurred=sent;}
+    }
+    static final class Failure extends Exception {
+        final String code;Failure(String code){super(code);this.code=code;}
+    }
+    private final Object view;private final ClassLoader loader;private final InvocationHandler provider;
+    private final Scheduler scheduler;private final Receiver receiver;private final Thread owner=Thread.currentThread();
+    private final Set<Pending> pending=new HashSet<>();private final boolean profiles;
+    private InvocationHandler script;private Peer current;private boolean listening,closed,scriptUncertain;
+
+    static MdoBrowserWorld open(Object view,ClassLoader loader,Scheduler scheduler,Receiver receiver) throws Failure {
+        if(view==null||loader==null||scheduler==null||receiver==null)throw new Failure("world_arguments_invalid");
+        try{
+            Class<?> glue=Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil",false,loader);
+            Object raw=glue.getDeclaredMethod("createWebViewProviderFactory").invoke(null);
+            if(!(raw instanceof InvocationHandler))throw new Failure("world_provider_unavailable");
+            InvocationHandler factory=(InvocationHandler)raw;
+            Object featureList=invoke(loader,factory,"WebViewProviderFactoryBoundaryInterface","getSupportedFeatures");
+            if(!(featureList instanceof String[])||((String[])featureList).length>512)throw new Failure("world_features_invalid");
+            Set<String> features=new HashSet<>();for(String name:(String[])featureList)if(name!=null&&name.length()<=256)features.add(name);
+            if(!features.contains("JS_INJECTION_IN_FRAME_AND_WORLD"))throw new Failure("isolated_world_unsupported");
+            Object result=invoke(loader,factory,"WebViewProviderFactoryBoundaryInterface","createWebView",view);
+            if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");
+            return new MdoBrowserWorld(view,loader,(InvocationHandler)result,scheduler,receiver,features.contains("MULTI_PROFILE"));
+        }catch(Failure failure){throw failure;}catch(ReflectiveOperationException|RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
+    }
+    private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,boolean profiles){
+        this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;this.profiles=profiles;
+    }
+    private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("World operations require their owning UI thread");}
+    private static boolean compatible(Class<?> type,Object value){
+        if(value==null)return!type.isPrimitive();if(type.isInstance(value))return true;
+        return type==int.class&&value instanceof Integer||type==boolean.class&&value instanceof Boolean||type==long.class&&value instanceof Long;
+    }
+    private static Object invoke(ClassLoader loader,InvocationHandler handler,String name,String operation,Object... values) throws Failure {
+        try{
+            Class<?> boundary=Class.forName(PREFIX+name,false,loader);Method selected=null;
+            for(Method method:boundary.getMethods()){
+                if(!method.getName().equals(operation)||method.getParameterCount()!=values.length)continue;
+                Class<?>[] types=method.getParameterTypes();boolean matches=true;
+                for(int i=0;i<types.length;i++)matches&=compatible(types[i],values[i]);
+                if(matches){if(selected!=null)throw new Failure("world_method_ambiguous");selected=method;}
+            }
+            if(selected==null)throw new Failure("world_method_unavailable");
+            return handler.invoke(null,selected,values);
+        }catch(VirtualMachineError|ThreadDeath fatal){throw fatal;}catch(Failure failure){throw failure;}catch(Throwable error){throw new Failure("world_boundary_failed");}
+    }
+    boolean supportsProfile(){return profiles;}
+    void profile(String name) throws Failure {
+        thread();if(closed||listening||script!=null)throw new Failure("world_profile_order");
+        if(!profiles)throw new Failure("browser_profile_unsupported");
+        if(name==null||!name.matches("[A-Za-z0-9._-]{1,80}"))throw new Failure("world_profile_invalid");
+        invoke(loader,provider,"WebViewProviderBoundaryInterface","setProfile",name);
+    }
+    void install(String bootstrap) throws Failure {
+        thread();if(closed||listening||script!=null)throw new Failure("world_install_order");
+        if(!bounded(bootstrap,131072))throw new Failure("world_script_limit");
+        Object world=invoke(loader,provider,"WebViewProviderBoundaryInterface","getJavaScriptWorld",WORLD);
+        if(!(world instanceof Integer)||((Integer)world)<=0)throw new Failure("isolated_world_unsupported");
+        InvocationHandler listener=(proxy,method,args)->{
+            if("getSupportedFeatures".equals(method.getName()))return new String[]{"WEB_MESSAGE_LISTENER"};
+            if(!"onPostMessage".equals(method.getName()))return null;
+            thread();if(closed)return null;
+            if(args==null||args.length!=5||args[0]!=view||!Boolean.TRUE.equals(args[3]))return null;
+            if(!(args[1] instanceof InvocationHandler)||!(args[4] instanceof InvocationHandler)){receiver.fault("world_message_invalid");return null;}
+            try{
+                Object text=invoke(loader,(InvocationHandler)args[1],"WebMessageBoundaryInterface","getData");
+                if(!(text instanceof String)||!bounded((String)text,16384)){receiver.fault("world_message_limit");return null;}
+                InvocationHandler reply=(InvocationHandler)args[4];
+                Object peer=invoke(loader,reply,"JsReplyProxyBoundaryInterface","getOrCreatePeer",(Callable<Object>)()->new Peer(reply));
+                if(!(peer instanceof MdoBrowserWorld.Peer)||((Peer)peer).world()!=this){receiver.fault("world_peer_mismatch");return null;}
+                Peer active=(Peer)peer;if(active.retired)return null;
+                if(current!=null&&current!=active)retire(current,"frame_changed");current=active;
+                receiver.message(active,(String)text);
+            }catch(Failure failure){receiver.fault(failure.code);}return null;
+        };
+        try{
+            listening=true;
+            invoke(loader,provider,"WebViewProviderBoundaryInterface","addWebMessageListener",LISTENER,new String[]{"*"},listener,WORLD);
+            scriptUncertain=true;
+            Object handle=invoke(loader,provider,"WebViewProviderBoundaryInterface","addJavaScriptOnEvent",bootstrap,new String[]{"*"},0,WORLD);
+            if(!(handle instanceof InvocationHandler))throw new Failure("world_script_unavailable");script=(InvocationHandler)handle;scriptUncertain=false;
+        }catch(Failure failure){close();throw failure;}
+    }
+    private static boolean bounded(String value,int maximum){return value!=null&&value.length()<=maximum&&value.getBytes(StandardCharsets.UTF_8).length<=maximum;}
+    private void retire(Peer peer,String reason){
+        peer.retired=true;for(Pending job:new ArrayList<>(pending))if(job.peer==peer)job.finish(null,reason);
+    }
+    void invalidate(){thread();if(current!=null){retire(current,"frame_changed");current=null;}}
+    final class Peer {
+        private final InvocationHandler reply;private boolean retired;
+        Peer(InvocationHandler reply){this.reply=reply;}private MdoBrowserWorld world(){return MdoBrowserWorld.this;}
+        void post(String text) throws Failure {
+            thread();if(closed||retired||current!=this)throw new Failure("frame_changed");
+            if(!bounded(text,16384))throw new Failure("world_message_limit");
+            invoke(loader,reply,"JsReplyProxyBoundaryInterface","postMessage",text);
+        }
+        void evaluate(String expression,long timeout,Completion complete) throws Failure {
+            thread();if(closed||retired||current!=this)throw new Failure("frame_changed");
+            if(!bounded(expression,131072)||timeout<1||timeout>10000||complete==null)throw new Failure("world_evaluation_invalid");
+            if(pending.size()>=16)throw new Failure("world_job_limit");
+            Pending job=new Pending(this,complete,scheduler.now()+timeout);pending.add(job);
+            try{scheduler.post(job.timer,timeout);}catch(RuntimeException error){pending.remove(job);scheduler.remove(job.timer);throw new Failure("world_timer_unavailable");}
+            InvocationHandler callback=(proxy,method,args)->{
+                thread();if(job.done)return null;
+                if("onSuccess".equals(method.getName())&&args!=null&&args.length==1&&args[0] instanceof String){
+                    String value=(String)args[0];boolean valid=bounded(value,262144);job.finish(valid?value:null,valid?null:"world_result_limit");
+                }else if("onFailure".equals(method.getName())&&args!=null&&args.length==2){
+                    boolean destroyed=Integer.valueOf(1).equals(args[0]);if(destroyed)retire(this,"frame_changed");
+                    job.finish(null,destroyed?"frame_changed":"world_evaluation_failed");
+                }else job.finish(null,"world_callback_invalid");return null;
+            };
+            job.sent=true;
+            try{invoke(loader,reply,"JsReplyProxyBoundaryInterface","executeJavaScript",expression,callback);}
+            catch(Failure failure){job.finish(null,failure.code);}
+        }
+    }
+    private final class Pending {
+        final Peer peer;final Completion complete;final long deadline;final Runnable timer;boolean sent,done;
+        Pending(Peer peer,Completion complete,long deadline){this.peer=peer;this.complete=complete;this.deadline=deadline;timer=()->finish(null,"world_timed_out");}
+        void finish(String value,String code){
+            if(done)return;done=true;pending.remove(this);scheduler.remove(timer);
+            if(scheduler.now()>=deadline){value=null;code="world_timed_out";}
+            try{complete.complete(new Result(code==null,value,code,sent));}catch(RuntimeException error){receiver.fault("world_callback_failed");}
+        }
+    }
+    int pending(){thread();return pending.size();}
+    @Override public void close(){
+        thread();if(!closed){closed=true;invalidate();for(Pending job:new ArrayList<>(pending))job.finish(null,"world_closed");}
+        if(script!=null)try{invoke(loader,script,"ScriptHandlerBoundaryInterface","remove");script=null;}catch(Failure failure){receiver.fault("world_script_cleanup_failed");}
+        if(listening)try{invoke(loader,provider,"WebViewProviderBoundaryInterface","removeWebMessageListener",LISTENER,WORLD);listening=false;}catch(Failure failure){receiver.fault("world_listener_cleanup_failed");}
+    }
+    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&!listening&&pending.isEmpty();}
+}

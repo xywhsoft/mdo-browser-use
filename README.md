@@ -51,6 +51,7 @@ python tools/native_frames_probe.py
 python tools/public_frames_probe.py
 python tools/frame_scroll_probe.py
 python tools/visual_probe.py
+python tools/android_world_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
@@ -136,6 +137,8 @@ admission prevents re-execution after an ephemeral result is lost.
 - Every tested development milestone is committed on `master`.
 
 The plugin is not yet advertised as a finished browser automation implementation.
+Android adapter status and verification boundaries are tracked in
+[the Android notes](docs/android.md).
 
 ## License
 
