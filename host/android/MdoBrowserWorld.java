@@ -25,13 +25,21 @@ final class MdoBrowserWorld implements AutoCloseable {
     static final class Failure extends Exception {
         final String code;Failure(String code){super(code);this.code=code;}
     }
+    static final class Features {
+        final boolean isolatedWorld,profiles,messageListener;final int count;
+        private final ClassLoader loader;private final InvocationHandler factory;
+        Features(ClassLoader loader,InvocationHandler factory,Set<String> names,int count){
+            this.loader=loader;this.factory=factory;this.count=count;
+            isolatedWorld=names.contains("JS_INJECTION_IN_FRAME_AND_WORLD");profiles=names.contains("MULTI_PROFILE");messageListener=names.contains("WEB_MESSAGE_LISTENER");
+        }
+    }
     private final Object view;private final ClassLoader loader;private final InvocationHandler provider;
     private final Scheduler scheduler;private final Receiver receiver;private final Thread owner=Thread.currentThread();
     private final Set<Pending> pending=new HashSet<>();private final boolean profiles;
     private InvocationHandler script;private Peer current;private boolean listening,closed,scriptUncertain;
 
-    static MdoBrowserWorld open(Object view,ClassLoader loader,Scheduler scheduler,Receiver receiver) throws Failure {
-        if(view==null||loader==null||scheduler==null||receiver==null)throw new Failure("world_arguments_invalid");
+    static Features inspect(ClassLoader loader) throws Failure {
+        if(loader==null)throw new Failure("world_provider_unavailable");
         try{
             Class<?> glue=Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil",false,loader);
             Object raw=glue.getDeclaredMethod("createWebViewProviderFactory").invoke(null);
@@ -40,11 +48,18 @@ final class MdoBrowserWorld implements AutoCloseable {
             Object featureList=invoke(loader,factory,"WebViewProviderFactoryBoundaryInterface","getSupportedFeatures");
             if(!(featureList instanceof String[])||((String[])featureList).length>512)throw new Failure("world_features_invalid");
             Set<String> features=new HashSet<>();for(String name:(String[])featureList)if(name!=null&&name.length()<=256)features.add(name);
-            if(!features.contains("JS_INJECTION_IN_FRAME_AND_WORLD"))throw new Failure("isolated_world_unsupported");
-            Object result=invoke(loader,factory,"WebViewProviderFactoryBoundaryInterface","createWebView",view);
-            if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");
-            return new MdoBrowserWorld(view,loader,(InvocationHandler)result,scheduler,receiver,features.contains("MULTI_PROFILE"));
+            return new Features(loader,factory,features,((String[])featureList).length);
         }catch(Failure failure){throw failure;}catch(ReflectiveOperationException|RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
+    }
+    static MdoBrowserWorld open(Object view,ClassLoader loader,Scheduler scheduler,Receiver receiver) throws Failure {
+        if(view==null||loader==null||scheduler==null||receiver==null)throw new Failure("world_arguments_invalid");
+        Features features=inspect(loader);
+        if(!features.isolatedWorld)throw new Failure("isolated_world_unsupported");
+        try{
+            Object result=invoke(loader,features.factory,"WebViewProviderFactoryBoundaryInterface","createWebView",view);
+            if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");
+            return new MdoBrowserWorld(view,features.loader,(InvocationHandler)result,scheduler,receiver,features.profiles);
+        }catch(Failure failure){throw failure;}catch(RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
     }
     private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,boolean profiles){
         this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;this.profiles=profiles;

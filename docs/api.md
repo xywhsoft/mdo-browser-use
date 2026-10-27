@@ -6,6 +6,16 @@ downloads, task-workspace saves, nested cross-origin frame routing and explicit
 recovery controls. Android and the remaining vision/lifecycle gates are in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
+Android's native capability descriptor separately reports provider features and
+Browser Use readiness. The connected WebView 138 lacks isolated execution worlds;
+the current Android adapter also remains incomplete on providers that have them.
+C/JS automation preflight returns `unsupported_capability`, a stable
+`capability_reason` and `effect_may_have_occurred:false` before sending the URL or
+creating a native automated page. Existing manual pages cannot fall back to
+page-world Agent execution. Manual browsing/cleanup remain available. See the
+[Android verification boundaries](android.md); this is not Android automation
+support being declared complete.
+
 Page document identities use cryptographic random bytes rather than relying on
 secure-context-only `randomUUID`; see the [Crypto interface](https://w3c.github.io/webcrypto/#Crypto-interface).
 Associated labels omit embedded controls/values, and focus verification follows

@@ -2084,3 +2084,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   unchanged; their previous gates remain applicable. Full Android integration,
   visual keyboard/drag, directory uploads and final lifecycle/performance/package
   gates remain active.
+
+## E2 — product Android capability admission and no page-world fallback
+
+- Separate bounded installed-provider feature inspection from content-provider
+  creation. Unsupported inspection/open creates no content adapter. Keep stable
+  feature guards (development aliases do not enable production contracts) and
+  add malformed/oversized feature-list coverage. JVM contract gate: 34 pass.
+- Apply reviewed Android capability/admission fragments to the actual pinned
+  `MdoBrowser.java`, and copy the world helper in the existing APK overlay. Native
+  capabilities report readiness separately from world/profile support; manual
+  state explicitly advertises `automation:false`. Supporting providers still
+  remain unavailable until the full native adapter is implemented and verified.
+- Shared workbench preflight rejects unsupported automation before sending a
+  URL, creating a native view or revealing an action panel. Preserve a structured
+  C/JS result, allowlisted capability reason and no-effect receipt. Existing
+  manual tabs refuse page evaluation/input, and native admission independently
+  blocks automated/intercepted creation and legacy Agent page-world operations.
+  Manual browsing/takeover/stop/close/cleanup retain their normal path.
+- Build and verify the 45,459-byte dev APK with the actual product browser source
+  and adapter. Require deployed-overlay checks and source/APK receipts. The real
+  phone confirms the product's unavailable descriptor, all three admission
+  rejections and allowed manual/cleanup admission. This is an actual framework
+  capability/admission gate, not complete Android UI transport/automation passing.
+- The user elects to keep system WebView 138. Do not upgrade it or keep prompting
+  for an update. Its unsupported result remains explicit while independent work
+  continues. Existing mdo apps and data remain unchanged; only the same tiny
+  development client is updated, inspected and stopped.
+- Sequential JS regressions: 161 pass plus the new shared preflight test (162
+  unique checks total). Windows actual public C/JS SDK gate passes 19 actions,
+  four navigations, five wait conditions, DOM/frame routing, screenshot modes,
+  drag, dialogs, popups, cancellation and duplicate-operation recovery. Native
+  binaries and C are unchanged; previous Python 104 pass/two privilege skips
+  remain applicable. Overlays match; same Home is restored to headless mode.
+- Full Android native input/capture/frames/transfers, visual keyboard/drag,
+  directory uploads and final lifecycle/performance/package gates remain active.

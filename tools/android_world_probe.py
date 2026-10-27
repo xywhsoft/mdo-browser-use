@@ -115,7 +115,15 @@ public final class AndroidWorldContractTest {
    check(remote.getClassLoader()!=AndroidWorldContractTest.class.getClassLoader(),"Provider was not in a foreign loader");
    Object view=invoke("newView",new Class<?>[]{});Clock clock=new Clock();Sink sink=new Sink();
    invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE"});
+   int creates=calls("create");MdoBrowserWorld.Features support=MdoBrowserWorld.inspect(loader);
+   check(!support.isolatedWorld&&support.profiles&&!support.messageListener&&support.count==1,"Independent installed-provider features");
+   check(calls("create")==creates,"Feature inspection created a content adapter");
    try{MdoBrowserWorld.open(view,loader,clock,sink);throw new AssertionError();}catch(MdoBrowserWorld.Failure failure){check(failure.code.equals("isolated_world_unsupported"),"Feature detection");}
+   check(calls("create")==creates,"Unsupported world created a content adapter");
+   invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"JS_INJECTION_IN_FRAME_AND_WORLD:dev","WEB_MESSAGE_LISTENER"});
+   support=MdoBrowserWorld.inspect(loader);check(!support.isolatedWorld&&!support.profiles&&support.messageListener,"Development aliases must not enable a stable contract");
+   invoke("features",new Class<?>[]{String[].class},(Object)new String[513]);
+   try{MdoBrowserWorld.inspect(loader);throw new AssertionError();}catch(MdoBrowserWorld.Failure failure){check(failure.code.equals("world_features_invalid"),"Oversize feature list");}
    invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"JS_INJECTION_IN_FRAME_AND_WORLD","MULTI_PROFILE"});
    MdoBrowserWorld world=MdoBrowserWorld.open(view,loader,clock,sink);check(world.supportsProfile(),"Profile capability");world.profile("qa.content");world.install("private fixture bootstrap");
    int first=peer();emit(view,false,"hello",first);emit(invoke("newView",new Class<?>[]{}),true,"hello",first);check(sink.messages==0,"Subframe/foreign view admission");

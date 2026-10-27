@@ -609,6 +609,32 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });",
       "after": "      const routedCommand=[\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"capture\",\"upload\"].includes(command);\n      const frameState=routedCommand?await view.execute(\"state\"):null;\n      const pageDriver=frameState?.frame_automation===true?createFrameDriver({execute:(operation,parameters)=>view.execute(operation,parameters)}):null;\n      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private void request(JSONObject request) throws Exception {",
+      "after_file": "host/android/browser-capabilities.inc.java",
+      "suffix": "    private void request(JSONObject request) throws Exception {"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "reply(id,new JSONObject().put(\"native\",true).put(\"snapshot\",true).put(\"screenshot\",true).put(\"input\",true).put(\"profile_isolation\",false),null);return;",
+      "after": "reply(id,capabilities(),null);return;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            WebView web=views.get(key);",
+      "after": "            automationAdmission(request);\n            WebView web=views.get(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"platform\",\"android-webview\").put(\"error_code\",",
+      "after": ".put(\"platform\",\"android-webview\").put(\"automation\",false).put(\"browser_use\",browserUseSupport()).put(\"error_code\","
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))",
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))"
     }
   ],
   "files": [

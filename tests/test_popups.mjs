@@ -130,6 +130,24 @@ test('required initial interception rejects an old host before sending its URL',
   assert.deepEqual(calls,['capabilities']);
 });
 
+test('unsupported Android automation sends no URL and preserves manual browsing',async()=>{
+  for(const reason of ['isolated_world_unsupported','android_adapter_incomplete','unknown-private-provider-error']){
+    const calls=[];const bridge={async call(command,params){calls.push(command);if(command==='capabilities')return{browser_use:{available:false,reason}};
+      assert.equal(params.automation,undefined);return{created:true};}};
+    await assert.rejects(ensureNativeBrowser({browser:{id:'android',url:'https://example.com'},bridge,requireAutomation:true,requireDownloads:true}),error=>{
+      assert.equal(error.code,'unsupported_capability');assert(!error.message.includes('unknown-private'));return true;
+    });assert.deepEqual(calls,['capabilities']);
+    await ensureNativeBrowser({browser:{id:'manual',url:'https://example.com'},bridge});assert.deepEqual(calls,['capabilities','create']);
+  }
+});
+
+test('automation admission retains download acknowledgement on supported existing hosts',async()=>{
+  const calls=[];await ensureNativeBrowser({browser:{id:'windows'},requireAutomation:true,requireDownloads:true,bridge:{async call(command,params){
+    calls.push(command);if(command==='capabilities')return{initial_download_interception:true};
+    assert.equal(params.automation,true);assert.equal(params.intercept_downloads,true);return{created:true,downloads_intercepted:true};
+  }}});assert.deepEqual(calls,['capabilities','create']);
+});
+
 test('creation acknowledgement and popup settlement preserve the required policy',async()=>{
   const calls=[];
   const browser={id:'child',opener:'source',client:'display',url:'https://example.com/file',download_policy:'intercept',runtime:{popup_request:descriptor}};

@@ -13,18 +13,25 @@ import zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
 INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActivity.java',
-        'host/android/dev/AndroidManifest.xml','tools/build_android_client.py')
+        'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java')
+HOST_INPUTS=('tools/android/MdoBrowser.java',)
 PACKAGE='org.xleaves.mdo.browseruse.dev'
 
 
 def source_hash():
     digest=hashlib.sha256()
     for name in INPUTS:digest.update(name.encode()+b'\0'+(ROOT/name).read_bytes()+b'\0')
+    deployed=json.loads((ROOT/'.mdo/host-overlays.json').read_text(encoding='utf-8'))
+    for name in HOST_INPUTS:
+        data=(ROOT/'.mdo/source'/name).read_bytes()
+        if deployed['files'].get(name)!=hashlib.sha256(data).hexdigest():raise RuntimeError('Reviewed Android source needs applying before building the dev client')
+        digest.update(name.encode()+b'\0'+data+b'\0')
     return digest.hexdigest()
 
 
 def main():
     if os.name=='nt':
+        subprocess.run([sys.executable,str(ROOT/'tools/apply_host.py'),'--check'],cwd=ROOT,check=True)
         path=Path(__file__).resolve().as_posix();path='/mnt/'+path[0].lower()+path[2:]
         subprocess.run(['wsl.exe','--exec','python3',path],cwd=ROOT,check=True);return
     environment=(ROOT/'.mdo').resolve();output=(environment/'host/android-client').resolve()
@@ -48,7 +55,7 @@ def main():
     def run(*args):
         result=subprocess.run(list(map(str,args)),cwd=ROOT,text=True,capture_output=True,timeout=120)
         if result.returncode:raise RuntimeError(f'{Path(str(args[0])).name} failed: '+(result.stderr or result.stdout)[-1800:])
-    sources=[ROOT/INPUTS[0],ROOT/INPUTS[1]]
+    sources=[ROOT/INPUTS[0],ROOT/INPUTS[1],*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
     run(java/'javac','-encoding','UTF-8','-source','8','-target','8','-classpath',platform,'-d',classes,*sources)
     jar=build/'classes.jar'
     with zipfile.ZipFile(jar,'w') as archive:

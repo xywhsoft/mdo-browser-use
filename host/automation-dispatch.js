@@ -119,7 +119,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(params.action==='cancel'&&state.popup_open)return popupBoundary();
       return {state};
     }
-    if (typeof state.loading !== "boolean" || !state.automation) return fail("unsupported_capability", "This host does not provide isolated Browser Use execution and readiness");
+    if (typeof state.loading !== "boolean" || !state.automation) {
+      const reason=state.browser_use?.reason;
+      return fail("unsupported_capability",reason==='isolated_world_unsupported'?"This device's installed WebView lacks isolated execution worlds; Browser Use automation is unavailable. Use manual browsing; repeating the tool will not add this capability.":
+        reason==='android_adapter_incomplete'?"This Android client has not completed the Browser Use native adapter. Use manual browsing; repeating the tool will not add this capability.":"This host does not provide isolated Browser Use execution and readiness");
+    }
     if (state.dialog_open) return dialogBoundary();
     if (state.popup_open) return popupBoundary();
     if (state.chooser_cleanup_failed && writing && !(command==='upload'&&params.action==='release')) return fail("chooser_cleanup_failed","File-picker cleanup was not confirmed; end this browser before further input");

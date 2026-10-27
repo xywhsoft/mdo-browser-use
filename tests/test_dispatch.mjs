@@ -55,6 +55,17 @@ test('unsupported interception refuses Agent input before page preparation',asyn
     if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:false};evaluations++;throw Error('Unsafe host received input');
   }}});assert.equal(result.result.error.code,'unsupported_capability');assert.equal(evaluations,0);
 });
+
+test('an existing Android tab refuses automation without page evaluation or input',async()=>{
+  for(const reason of ['isolated_world_unsupported','android_adapter_incomplete']){
+    const result=await executeBrowserAutomation({command:'act',params:{op:'click',target:{ref:'e1'}},action:{id:'android-existing'},
+      api:{async call(){return{state:'pending'};}},view:{async execute(command){
+        assert.equal(command,'state');return{loading:false,automation:false,browser_use:{available:false,reason}};
+      }}});
+    assert.equal(result.result.error.code,'unsupported_capability');assert.equal(result.result.error.effect_may_have_occurred,false);
+    assert.match(result.result.error.message,/repeating the tool/);
+  }
+});
 test('a modal checkpoint is resolved before cancelling a still-pending picker',async()=>{
   let cancelled=0;const result=await executeBrowserAutomation({command:'chooser',params:{action:'cancel',chooser:'picker'},action:{id:'modal-picker'},
     api:{async call(){return{state:'pending'};}},view:{async execute(command){

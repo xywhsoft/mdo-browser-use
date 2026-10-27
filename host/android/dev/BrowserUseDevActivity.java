@@ -12,8 +12,8 @@ import android.view.ViewGroup;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.TextView;
-import java.lang.reflect.InvocationHandler;
 import org.json.JSONObject;
 
 /** Reusable, network-free device gate. Never uses another app's files/profile. */
@@ -60,19 +60,25 @@ public final class BrowserUseDevActivity extends Activity {
             view.loadDataWithBaseURL("http://127.0.0.1/",html,"text/html","UTF-8",null);
         }catch(MdoBrowserWorld.Failure error){
             finishProbe(error.code.equals("isolated_world_unsupported"),error.code);
-        }catch(ReflectiveOperationException|RuntimeException|LinkageError error){finishProbe(false,"device_provider_probe_failed");}
+        }catch(org.json.JSONException|RuntimeException|LinkageError error){finishProbe(false,"device_provider_probe_failed");}
     }
-    private void features(ClassLoader loader)throws ReflectiveOperationException{
-        Class<?> glue=Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil",false,loader);
-        InvocationHandler factory=(InvocationHandler)glue.getDeclaredMethod("createWebViewProviderFactory").invoke(null);
-        Class<?> boundary=Class.forName("org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface",false,loader);
-        Object value;
-        try{value=factory.invoke(null,boundary.getMethod("getSupportedFeatures"),new Object[]{});}
-        catch(Throwable error){throw new ReflectiveOperationException("Feature query failed");}
-        if(!(value instanceof String[])||((String[])value).length>512)throw new ReflectiveOperationException("Feature query invalid");
-        String[] names=(String[])value;boolean isolated=false,profile=false,listener=false;
-        for(String name:names){isolated|="JS_INJECTION_IN_FRAME_AND_WORLD".equals(name);profile|="MULTI_PROFILE".equals(name);listener|="WEB_MESSAGE_LISTENER".equals(name);}
-        put("provider_feature_count",names.length);put("isolated_world_feature",isolated);put("profile_feature",profile);put("message_listener_feature",listener);
+    private void features(ClassLoader loader)throws MdoBrowserWorld.Failure,org.json.JSONException{
+        MdoBrowserWorld.Features support=MdoBrowserWorld.inspect(loader);
+        put("provider_feature_count",support.count);put("isolated_world_feature",support.isolatedWorld);put("profile_feature",support.profiles);put("message_listener_feature",support.messageListener);
+        MdoBrowser browser=new MdoBrowser(this,new FrameLayout(this),view);
+        try{
+            JSONObject descriptor=browser.capabilities().getJSONObject("browser_use");put("product_browser_use",descriptor);
+            int denied=0;
+            for(JSONObject request:new JSONObject[]{new JSONObject().put("command","create").put("automation",true),
+                new JSONObject().put("command","create").put("intercept_downloads",true),new JSONObject().put("command","click").put("agent",true)}){
+                try{browser.automationAdmission(request);}
+                catch(UnsupportedOperationException error){if(descriptor.getString("reason").equals(error.getMessage()))denied++;}
+            }
+            if(denied!=3||descriptor.getBoolean("available"))throw new IllegalStateException("Unsafe product admission");
+            browser.automationAdmission(new JSONObject().put("command","create"));
+            browser.automationAdmission(new JSONObject().put("command","close").put("agent",true));
+            put("product_admission_denied_before_create",denied);put("manual_and_cleanup_admission",true);
+        }finally{browser.destroy();}
     }
     private void maybeEvaluate(){
         if(finished||!loaded||peer==null||started)return;started=true;

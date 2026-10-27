@@ -38,10 +38,11 @@ all required provider capabilities and native adapters are ready.
   unconfirmed cleanup. An uncertain script-registration acknowledgement requires
   destruction of the owned view; it is not silently reported as clean.
 
-This foundation does not yet replace `MdoBrowser.java` or expose its commands
-to models. Native trusted pointer/key input, navigation epochs, capture/privacy,
-dialogs/pickers/transfers and capability negotiation must be integrated and
-verified before enabling Android automation.
+The reviewed Android overlay now connects provider feature inspection and
+automation admission to the actual `MdoBrowser.java`. It does not enable its
+automation commands. Native trusted pointer/key input, navigation epochs,
+capture/privacy and dialogs/pickers/transfers must be integrated and verified
+before enabling Android automation.
 
 ## Verification
 
@@ -53,7 +54,7 @@ The existing WSL JDK compiles the actual adapter with a Java 8 production target
 A foreign provider class loader exercises the boundary signatures, scopes,
 resource limits, deadlines, destroyed/retired frames, lost/duplicate/late replies,
 cleanup retry and partial registration. All outputs reuse `.mdo/qa/android-world`.
-This is a 29-check protocol/lifetime contract gate, not an Android framework,
+This is a 34-check protocol/lifetime contract gate, not an Android framework,
 APK or real-device pass. No extra application/Home is created.
 
 ## Minimal APK and actual provider gate
@@ -71,8 +72,8 @@ installation archives and requires no NDK or downloaded browser. A 10 GiB free
 disk margin and explicit owned-directory/lock receipts prevent accidental cache
 expansion or replacement. No runtime dependency is added.
 
-The reusable 33,171-byte Java device client contains the actual world adapter,
-one tiny Activity and a no-network-permission manifest. It is built with Java 8,
+The reusable 45,459-byte Java device client contains the actual world adapter,
+reviewed `MdoBrowser.java`, one tiny Activity and a no-network-permission manifest. It is built with Java 8,
 dexed, aligned and signed with a persistent private development key under
 `.mdo/host/android-client`. The app ID is `org.xleaves.mdo.browseruse.dev`;
 it does not contain a second mdo service, Home, account or session database.
@@ -98,6 +99,33 @@ This is a verified **unsupported-provider outcome**, not an Android automation
 pass. The supported-device path contains a local HTML isolation fixture, but
 it has not run on this phone. Full Android Browser Use and supported-provider
 regression remain outstanding. Latest receipt: `.mdo/android-device-result.json`.
+
+## Product capability and safe degradation
+
+Native `capabilities` includes `browser_use:{available,reason,
+isolated_world_feature,profile_feature}`. Installed-provider support and product
+readiness remain separate. A missing execution-world feature reports
+`isolated_world_unsupported`; a supporting provider still reports
+`android_adapter_incomplete` until the native adapter is integrated. A manual
+view's state explicitly advertises `automation:false`. Legacy manual browsing
+capabilities are not a claim of safe Agent automation.
+
+The shared workbench checks this descriptor before sending an automation URL,
+creating its native view or revealing an action panel. C/JS callers receive a
+structured `unsupported_capability` result with an allowlisted capability reason
+and `effect_may_have_occurred:false`. An existing manual tab also refuses page
+evaluation/input, with guidance that repeating the tool cannot add the missing
+capability. Native admission independently rejects automation/intercepted-download
+creation and legacy Agent page-world operations. Manual browsing, user takeover,
+stop/close and cleanup remain available. There is no page-world fallback.
+
+The current device also runs the actual product capability/admission methods:
+three automation requests are rejected before creation, while manual and cleanup
+admission remain available. This does not exercise Android's complete Browser Use
+transport or automation. A single dedicated workbench test verifies structured
+preflight results for observe/action/navigation/capture/upload without a create
+or reveal command. The user elected to retain the current system WebView; no
+provider-update request is pending.
 
 References: [execution worlds and message listeners](https://developer.android.com/reference/androidx/webkit/WebViewCompat),
 [per-frame reply execution](https://chromium.googlesource.com/chromium/src.git/+/HEAD/android_webview/java/src/org/chromium/android_webview/JsReplyProxy.java),
