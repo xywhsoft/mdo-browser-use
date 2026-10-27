@@ -67,10 +67,27 @@ static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared
   });
 }
 
-struct xb_input_step{const wchar_t* method;std::string params;bool release=false;};
+// BROWSER_FRAME_INPUT_GUARD_BEGIN
+using xb_input_frame_guard=std::vector<std::pair<std::string,std::string>>;
+static bool xb_input_frames_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_guard& guard){
+  if(guard.empty())return true;
+  auto state=view->frames;if(!state||state->closed||!state->error.empty()||guard.size()>32)return false;
+  const xb_frame_node* child=nullptr;
+  for(const auto& pin:guard){
+    const xb_frame_node* node=nullptr;for(const auto& item:state->nodes)if(item.second.id==pin.first){node=&item.second;break;}
+    if(!node||node->document!=pin.second||node->loading||(child&&child->parent!=node->raw))return false;
+    if(!node->session.empty()){
+      auto session=state->sessions.find(node->session);
+      if(session==state->sessions.end()||!session->second.ready||!session->second.error.empty())return false;
+    }
+    child=node;
+  }
+  return child&&child->id=="f0"&&child->raw==state->root&&child->parent.empty();
+}
+struct xb_input_step{const wchar_t* method;std::string params;bool release=false,press=false;};
 struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::string id,error;
-  UINT64 navigation;std::vector<xb_input_step> steps;size_t index=0;bool replied=false;
+  UINT64 navigation;std::vector<xb_input_step> steps;xb_input_frame_guard frameGuard;size_t index=0;bool replied=false,pressed=false;
   void boundary(const char* kind){
     if(replied)return;replied=true;
     error="A browser interaction checkpoint interrupted input; inspect the page before continuing";
@@ -82,14 +99,36 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
     if(index==steps.size()){if(!replied)host->reply(id,error.empty()?"{\"accepted\":true,\"trusted_input\":true}":"",error);return;}
     const auto step=steps[index++];
     if(!xb_automation_live(host,view,navigation)&&error.empty())error="Browser control or document changed; verify the action result";
-    // Releases must run even if a navigation/takeover interrupted a press.
+    if(!xb_input_frames_live(view,frameGuard)&&error.empty())error="A frame document changed; inspect the page before further input";
+    // Release an admitted press even after navigation/takeover, but never send
+    // an unpaired up event for a press that the interruption already skipped.
     if(!error.empty()&&!step.release){run();return;}
+    if(step.release&&!pressed){run();return;}
+    if(step.release)pressed=false;
+    if(step.press)pressed=true; // A lost press acknowledgement still needs cleanup.
     auto self=shared_from_this();
     xb_cdp(view,step.method,step.params,[self](bool ok,const std::string&){
       if(!ok&&self->error.empty())self->error="Native input failed; verify the action result";self->run();
     });
   }
 };
+// BROWSER_FRAME_INPUT_GUARD_END
+static bool xb_input_pin_frames(const std::shared_ptr<xb_view>& view,const std::string& json,xb_input_frame_guard& guard){
+  const char* raw=nullptr;size_t size=0;
+  webview::detail::json_parse_c(json.c_str(),json.size(),"frame_chain",11,&raw,&size);
+  if(!raw)return true;
+  if(size<2||size>8192||raw[0]!='['||raw[size-1]!=']')return false;
+  const std::string chain(raw,size);
+  for(size_t index=0;index<33;index++){
+    const char* row=nullptr;size_t length=0;
+    webview::detail::json_parse_c(chain.c_str(),chain.size(),nullptr,index,&row,&length);
+    if(!row)break;if(index==32||!length||row[0]!='{')return false;
+    const std::string item(row,length);const auto frame=xb_get(item,"frame"),document=xb_get(item,"document");
+    if(frame.empty()||frame.size()>64||document.empty()||document.size()>64)return false;
+    guard.emplace_back(frame,document);
+  }
+  return !guard.empty()&&xb_input_frames_live(view,guard);
+}
 static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                      const std::string& id,const std::string& json){
   if(xb_get(json,"navigation")!=std::to_string(view->navigation)||view->manual||view->closed){host->reply(id,"","Stale document or manual control");return;}
@@ -97,6 +136,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
   if(xb_popup_blocked(view)){host->reply(id,"","A new-window request is still being adopted");return;}
   if(!view->input.expired()||view->drag||view->uploadBusy||xb_chooser_blocked(view)){host->reply(id,"","A native input or file picker is still completing; inspect the page before another action");return;}
   auto sequence=std::make_shared<xb_input_sequence>();sequence->host=host;sequence->view=view;sequence->id=id;sequence->navigation=view->navigation;
+  if(!xb_input_pin_frames(view,json,sequence->frameGuard)){host->reply(id,"","Invalid or stale frame document chain; observe the page before input");return;}
   const auto kind=xb_get(json,"kind");
   if(kind=="click"||kind=="move"||kind=="wheel"){
     double x=-1,y=-1;try{x=std::stod(xb_get(json,"x"));y=std::stod(xb_get(json,"y"));}catch(...){}
@@ -115,7 +155,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
         const int buttons=button=="left"?1:button=="right"?2:4,clicks=count=="2"?2:1;
         for(int n=1;n<=clicks;n++){
           const auto fields=",\"button\":"+xb_quote(button)+",\"clickCount\":"+std::to_string(n)+point;
-          sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mousePressed\",\"buttons\":"+std::to_string(buttons)+fields+"}"});
+          sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mousePressed\",\"buttons\":"+std::to_string(buttons)+fields+"}",false,true});
           sequence->steps.push_back({L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"buttons\":0"+fields+"}",true});
         }
       }
@@ -139,7 +179,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
     else if(key=="Home")vk=36;else if(key=="End")vk=35;else if(key=="PageUp")vk=33;else if(key=="PageDown")vk=34;
     if(!vk){host->reply(id,"","Unsupported key; use text for character input");return;}
     const auto fields=",\"key\":"+xb_quote(actual)+",\"code\":"+xb_quote(code)+",\"windowsVirtualKeyCode\":"+std::to_string(vk)+",\"modifiers\":"+std::to_string(modifiers);
-    sequence->steps.push_back({L"Input.dispatchKeyEvent","{\"type\":\"keyDown\""+fields+(key=="Enter"?",\"text\":\"\\r\"":"")+"}"});
+    sequence->steps.push_back({L"Input.dispatchKeyEvent","{\"type\":\"keyDown\""+fields+(key=="Enter"?",\"text\":\"\\r\"":"")+"}",false,true});
     sequence->steps.push_back({L"Input.dispatchKeyEvent","{\"type\":\"keyUp\""+fields+"}",true});
   }else{host->reply(id,"","Unsupported native input kind");return;}
   view->input=sequence;sequence->run();

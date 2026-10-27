@@ -1577,3 +1577,34 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   geometry primitive does not alone make cross-origin actions production-ready.
   Full goal remains active, with earlier timing/lifetime/OOM/transport/Android/
   vision/upload/capture/performance/package work still outstanding.
+
+## D13d — native input pins and cleanup ownership across frame changes
+
+- Add a bounded, typed private `frame_chain` from the exact target through its
+  original parents/root. Validate shape, live aliases/documents, adjacency,
+  loading/session/error state at admission and each native sequence step.
+  Malformed, incomplete, reordered, foreign and over-budget chains fail before
+  input. Child-only navigation rejects old input without relying on a changed
+  top-level navigation token. Existing unpinned trusted-native callers remain
+  compatible until the public frame adapter is connected.
+- Fix existing cleanup ownership: an interrupted/skipped press previously
+  still emitted its up event. Track the press actually admitted by this
+  sequence, release it after interruption, and skip cleanup for presses never
+  sent (including a skipped second click). A failed/lost press acknowledgement
+  remains conservatively owned and receives one cleanup attempt.
+- A compiled test executes the actual C++ guard/sequence with document/control
+  changes between steps: no later press/text, cleanup of admitted keys/buttons,
+  no unpaired up events, double-click interruption and uncertain press receipt.
+  Full Python gate finishes 103 cases (101 pass, two Windows privilege skips).
+- Actual frame gate passes 82 checks, including valid nested input, malformed
+  chain refusal and child-only replacement with a stable top navigation token;
+  the replacement document receives zero old-input clicks. Full native baseline
+  passes 1,354 poll-inclusive assertions with no new exceptions or retained
+  transfer reservations. Actual public C/JS UI passes 19 actions, four
+  navigations and five wait conditions. Last complete unchanged JS gate: 110.
+- Next connect fixed-operation frame prepare/verify/options/selection and
+  parent geometry to public dispatch, supplying these pins on every input.
+  Preserve root upload/capture behavior while adapting their local worlds;
+  verify ancestor focus before keyboard input. Complete the remaining input
+  cancellation/lifetime/OOM, remote transport, Android, vision and package/
+  performance gates. This is active development, not the completed full goal.

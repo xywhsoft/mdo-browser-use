@@ -61,6 +61,16 @@ cross-site frames with a trusted click. A complete public adapter still needs
 fresh geometry checks and a native per-frame document fence during input;
 these reads alone are not a transactional click guarantee.
 
+Native `input` now accepts a private `frame_chain` of `{frame,document}` pins
+from the target frame through every parent to `f0` (maximum 32). It validates
+the complete chain at admission and before every subsequent input step, and
+refuses missing/reordered/loading/replaced/error-state frames. A child-only
+navigation invalidates the chain even when the top navigation token is stable.
+An interrupted sequence releases only a press it actually admitted; skipped
+presses cause no extra up events, while a lost press acknowledgement still
+requires its cleanup. The existing trusted-native calls may omit the field;
+the forthcoming public multi-frame adapter must supply it for routed input.
+
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and

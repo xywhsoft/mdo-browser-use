@@ -104,7 +104,8 @@ try{
   assert(outerMapping.ok&&outerMapping.value.ok&&outerMapping.parent==='f0'&&outerMapping.parent_document===geometryRoot.document,'Outer frame owner did not map to the main viewport');
   const expected=await call('evaluate',{script:`(()=>{const frame=document.querySelector('#outer'),box=frame.getBoundingClientRect(),style=getComputedStyle(frame);return{x:box.x+parseFloat(style.borderLeftWidth)+parseFloat(style.paddingLeft),y:box.y+parseFloat(style.borderTopWidth)+parseFloat(style.paddingTop)}})()`});
   assert(expected.ok&&Math.abs(expected.value.x-outerMapping.value.content.x)<.01&&Math.abs(expected.value.y-outerMapping.value.content.y)<.01,'Fractional iframe borders/padding lost coordinate precision');
-  const state=await call('state'),clicked=await call('input',{agent:true,kind:'click',navigation:state.navigation,...outerMapping.value.point});
+  const chain=[leaf,outer,geometryRoot].map(frame=>({frame:frame.id,document:frame.document}));
+  const state=await call('state'),clicked=await call('input',{agent:true,kind:'click',navigation:state.navigation,frame_chain:chain,...outerMapping.value.point});
   assert(clicked.accepted&&clicked.trusted_input,'Mapped nested point did not dispatch native input');
   geometryEvidence={prepared,innerMapping,outerMapping,clicked};let effect;
   for(let index=0;index<75;index++){
@@ -127,9 +128,24 @@ try{
   await call('evaluate',{script:`(()=>{const frame=document.querySelector('#outer');frame.style.visibility='visible';frame.style.marginLeft='110px';return true})()`});
   const moved=await owner(outer,innerMapping.value.point);assert(moved.ok&&moved.value.ok&&moved.value.geometry[0]!==outerMapping.value.geometry[0],'Owner geometry reused a stale layout snapshot');
   assert((await evaluate(leaf,'Number(document.body.dataset.geometryClicks)')).value===1,'Read-only owner failures repeated the target click');
+  stage='frame-input-guard';
+  const rejectInput=async(frame_chain)=>{
+    let denied=false;try{await call('input',{agent:true,kind:'click',navigation:state.navigation,frame_chain,...outerMapping.value.point});}catch{denied=true;}
+    assert(denied,'Invalid or stale native frame chain accepted input');
+  };
+  for(const invalid of [[],null,[null],'raw-protocol-id',chain.slice(0,2),[chain[1],chain[0],chain[2]],
+      [{...chain[0],document:'fd-foreign'},...chain.slice(1)],Array.from({length:33},()=>chain[2])])await rejectInput(invalid);
+  assert((await evaluate(leaf,'Number(document.body.dataset.geometryClicks)')).value===1,'Rejected native frame chains dispatched an extra click');
+  await call('evaluate',{script:`(()=>{document.querySelector('#outer').style.marginLeft='80px';return true})()`});
+  await evaluate(outer,`document.querySelector('#inner').src=${JSON.stringify(origin+'/geometry-leaf?next=1')};true`);
+  let replacementLeaf;
+  await until(async()=>{const tree=await frames();replacementLeaf=tree.frames?.find(row=>row.url===origin+'/geometry-leaf?next=1');return tree.ok&&replacementLeaf&&!replacementLeaf.loading;},'Child-only input guard fixture did not navigate');
+  assert((await call('state')).navigation===state.navigation,'Child-only navigation changed the top-level token and masked the frame guard');
+  await rejectInput(chain);
+  assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
-    combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true};
+    combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;
