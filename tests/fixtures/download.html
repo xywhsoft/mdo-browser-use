@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>Browser Use download fixture</title>
+<h1>Browser Use download fixture</h1>
+<p>These are synthetic local responses.</p>
+<div style="display:flex;flex-wrap:wrap;gap:16px;max-width:800px">
+<a id="binary" href="/binary?fixture-query=private" download>Binary</a>
+<a id="empty" href="/empty" download>Empty</a>
+<a id="unknown" href="/unknown" download>Unknown length</a>
+<a id="large" href="/large" download>Declared too large</a>
+<a id="slow" href="/slow" download>Slow</a>
+<a id="interrupt" href="/interrupt" download>Interrupted</a>
+<a id="truncated" href="/truncated" download>Truncated</a>
+<button id="blob">Blob file</button>
+<form method="POST" action="/post"><input name="order" value="fixture" hidden><button id="post">POST file</button></form>
+</div>
+<script>
+document.querySelector('#blob').onclick=()=>{
+  const bytes=Uint8Array.from({length:131075},(_,i)=>i%251),url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));
+  const a=document.createElement('a');a.href=url;a.download='blob-fixture.bin';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+};
+globalThis.fixtureReady=true;
+</script>

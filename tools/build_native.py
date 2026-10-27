@@ -36,10 +36,10 @@ def main():
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>\n#include <cstdint>\n#include <wincrypt.h>\n#include <sddl.h>'),
-        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-chooser-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_upload_store;\nstruct xb_upload_assignment;\nstruct xb_view{'),
+        ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-chooser-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-download-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_upload_store;\nstruct xb_upload_assignment;\nstruct xb_view{'),
         ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
         ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
-        ('static void xb_receive(', 'static void xb_upload_boundary(const std::shared_ptr<xb_view>&,bool);\nstatic void xb_upload_abort_view(const std::shared_ptr<xb_view>&);\nstatic bool xb_chooser_blocked(const std::shared_ptr<xb_view>&);\nstatic bool xb_chooser_upload_ready(const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::string&);\nstatic bool xb_chooser_upload_consume(const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::string&);\nstatic void xb_chooser_boundary(const std::shared_ptr<xb_view>&,bool);\n#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\n#include "xs_browser_navigation.inc.hpp"\n#include "xs_browser_upload.inc.hpp"\n#include "xs_browser_upload_assign.inc.hpp"\n#include "xs_browser_chooser.inc.hpp"\nstatic void xb_receive('),
+        ('static void xb_receive(', 'static void xb_upload_boundary(const std::shared_ptr<xb_view>&,bool);\nstatic void xb_upload_abort_view(const std::shared_ptr<xb_view>&);\nstatic bool xb_chooser_blocked(const std::shared_ptr<xb_view>&);\nstatic bool xb_chooser_upload_ready(const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::string&);\nstatic bool xb_chooser_upload_consume(const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::string&);\nstatic void xb_chooser_boundary(const std::shared_ptr<xb_view>&,bool);\n#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\n#include "xs_browser_navigation.inc.hpp"\n#include "xs_browser_upload.inc.hpp"\n#include "xs_browser_upload_assign.inc.hpp"\n#include "xs_browser_chooser.inc.hpp"\n#include "xs_browser_download.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
         ('std::weak_ptr<xb_view> weak=view;', 'xb_install_dialogs(host,view);\n            std::weak_ptr<xb_view> weak=view;'),
         ('if(!host->alive)return S_OK;', 'if(!host->alive||view->closed||host->views.find(browser)==host->views.end()||host->views.at(browser)!=view||(popup&&popup->completed)){if(host->views.count(browser)&&host->views.at(browser)==view)host->views.erase(browser);view->closed=true;host->reply(id,"","Browser creation was cancelled");return S_OK;}'),
@@ -116,6 +116,24 @@ def main():
     for before, after in chooser_hooks:
         if base.count(before) != 1:
             raise RuntimeError("Native chooser hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
+    download_hooks = [
+        ('std::shared_ptr<xb_chooser_state> chooser;', 'std::shared_ptr<xb_chooser_state> chooser;std::shared_ptr<xb_download_state> downloads;'),
+        ('std::shared_ptr<xb_upload_store> uploads;', 'std::shared_ptr<xb_upload_store> uploads;std::shared_ptr<xb_download_store> downloads;'),
+        ('xb_install_chooser(host,view);', 'xb_install_chooser(host,view);xb_install_downloads(host,view);'),
+        ('if(command=="chooser"){', 'if(command=="downloads"){xb_download_request(host,view,id,json);return;}\n  if(command=="chooser"){'),
+        ('const bool mutation=command!="chooser"', 'const bool mutation=command!="downloads"&&command!="chooser"'),
+        ('if(view->manual)xb_chooser_takeover(host,view);', 'if(view->manual){xb_chooser_takeover(host,view);xb_download_takeover(host,view);}'),
+        ('found->second->closed=true;xb_chooser_close', 'found->second->closed=true;xb_download_close_view(host,found->second);xb_chooser_close'),
+        ('entry.second->closed=true;xb_chooser_close', 'entry.second->closed=true;xb_download_close_view(host,entry.second);xb_chooser_close'),
+        ('xb_upload_close_view(host,found->second);', 'xb_download_drain_closed_view(host,found->second);xb_upload_close_view(host,found->second);'),
+        ('xb_upload_close_view(host,entry.second);', 'xb_download_drain_closed_view(host,entry.second);xb_upload_close_view(host,entry.second);'),
+        ('xb_upload_shutdown(host);', 'xb_download_shutdown(host);xb_upload_shutdown(host);'),
+        ('\\"chooser_upload_capability\\":true,', '\\"chooser_upload_capability\\":true,\\"download_capability\\":"+std::string(view->downloads&&view->downloads->supported?"true":"false")+",\\"downloads_armed\\":"+(view->downloads&&view->downloads->armed?"true":"false")+",\\"download_sequence\\":"+std::to_string(view->downloads?view->downloads->sequence:0)+",\\"download_error\\":"+xb_quote(view->downloads?view->downloads->error:"")+",'),
+    ]
+    for before, after in download_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native download hook no longer unique: " + before)
         base = base.replace(before, after, 1)
     initial_navigation_hooks = [
         ('int automationContext=0;', 'int automationContext=0;bool initialNavigationPending=false,initialNavigationStarted=false;std::vector<std::string> navigationEvents;'),
@@ -196,6 +214,12 @@ def main():
         current = chooser_path.read_text(encoding="utf-8")
         if current != chooser and hashlib.sha256(current.encode()).hexdigest() != record.get("chooser"):
             raise RuntimeError("Unreviewed native chooser helper edit preserved")
+    download = (dev.ROOT / "host/native-download.inc.hpp").read_text(encoding="utf-8")
+    download_path = target.with_name("xs_browser_download.inc.hpp")
+    if download_path.exists():
+        current = download_path.read_text(encoding="utf-8")
+        if current != download and hashlib.sha256(current.encode()).hexdigest() != record.get("download"):
+            raise RuntimeError("Unreviewed native download helper edit preserved")
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
@@ -205,10 +229,12 @@ def main():
     upload_path.write_text(upload, encoding="utf-8", newline="\n")
     upload_assign_path.write_text(upload_assign, encoding="utf-8", newline="\n")
     chooser_path.write_text(chooser, encoding="utf-8", newline="\n")
+    download_path.write_text(download, encoding="utf-8", newline="\n")
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
               "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest(),"navigation":hashlib.sha256(navigation_helper.encode()).hexdigest(),"upload":hashlib.sha256(upload.encode()).hexdigest()}
     hashes["upload_assign"] = hashlib.sha256(upload_assign.encode()).hexdigest()
     hashes["chooser"] = hashlib.sha256(chooser.encode()).hexdigest()
+    hashes["download"] = hashlib.sha256(download.encode()).hexdigest()
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

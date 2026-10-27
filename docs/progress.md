@@ -911,3 +911,42 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   lifecycle/performance/packaging validation remain open. The separate earlier
   isolated startup lookup failure still lacks a captured cause; this chooser
   work does not claim to resolve it.
+
+
+## D12a — native response downloads and verified private bytes
+
+- Added private, explicitly armed WebView2 download interception, bounded opaque
+  tickets, pending/receive/verify/cancel/release lifecycle and 64 KiB reads of
+  completed SHA-256-verified bytes. Native browser responses retain POST/blob
+  semantics; there is no refetch with copied cookies. The public C/JS/Agent
+  download/save workflow is the next stage and is not claimed complete here.
+- A real truncated response exposed WebView2 auto-resumption: a second native
+  starting callback could retain an obsolete in-progress COM wrapper. Fresh
+  scoped Page download GUIDs now gate admission; the authoritative terminal page
+  progress closes a stale wrapper without publishing another ticket. HTTP EOF
+  can still cause a browser-internal retry; the plugin does not repeat a click.
+  Forced reset and authenticated POST each execute once in the fixture.
+- Actual unknown-length responses report total zero on this runtime. Zero is
+  treated as unknown, while completed physical size, received bytes and SHA-256
+  remain exact. Close drains confirmed native cancellations after controller
+  closure, fixing the captured last-download lease leak. Takeover rejects new
+  identity admission and processes only existing owned progress events.
+- Cache directories use private user/SYSTEM ACLs, exclusive leases, validated
+  cleanup inventory and fixed filenames. Unknown/reparse layouts are preserved.
+  Limits: sixteen tickets/view, thirty-two/host, 64 MiB/file, 128 MiB reservations;
+  deadlines and a 256 MiB free-space margin apply. Progress cancellation is not
+  a hard filesystem quota: an unknown-length response may overshoot before its
+  callback. Only within-limit verified bytes are readable. Adversarial lifecycle,
+  quota overshoot and cleanup backoff remain final audit items.
+- The focused real download gate passed 218 assertions, including equal-URL
+  independent identities, foreign-view denial, exact binary/empty/blob/POST and
+  unknown-length bytes, ranges, oversize denial, cancellation, expiry, reset,
+  truncated resumption, navigation, takeover and close/recreate. Final full
+  WebView2 gate passed 1248 assertions, with no new native diagnostics, private
+  upload/download ACLs and zero remaining reservations in either cache.
+- Rebuilt the existing host and reused the same deployment/Home/object tree.
+  Local checks pass: 48 Python cases (47 passed, one Windows symlink-privilege
+  skip), 52 JS cases and generated/deployed host checks. Remaining public
+  downloads/safe save, directory/
+  OOPIF frames/uploads, vision coordinates, offscreen drag, Android and final
+  stability/performance/package gates keep the original goal active.

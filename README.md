@@ -59,6 +59,8 @@ window with local fixtures, and restores headless mode afterwards. No live model
 or external website is needed. Its latest result is `.mdo/page-observation-result.json`.
 Use `python tools/native_probe.py --dialog-expiry` for the longer lifecycle gate
 that also waits for the real 120-second native dialog lease.
+Use `python tools/native_probe.py --download-only` for native download identity,
+response bytes, cancellation and cache lifecycle checks in the same Home.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
