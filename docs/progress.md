@@ -1293,3 +1293,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   workspace-write save API/tool, then visible download/recovery controls. This
   host primitive does not by itself complete user-facing download saving or the
   remaining frame/vision/drag/Android/lifecycle/performance/package goal stages.
+
+
+## D12o — shared download-save API and managed workspace-write tool
+
+- Add C `mdoBrowserUseSave`, JS `browser.save`, service `browseruse.save`, and
+  managed `browser_save_download`. The C boundary validates the relative target,
+  requires the tab's original workspace/private subtask, captures its physical
+  root and queues one save action. The displaying UI transfers only that native
+  response's existing verified bytes, then requests a separate no-overwrite
+  publication. Native response queries, cookies and cache paths are never used
+  as a model-visible file or a replacement URL request.
+- The producer feeds bounded 64 KiB ranges into the scoped receiver and retries
+  only explicit zero-write backpressure. Lost write/EOF acknowledgements abort;
+  uncertain publication retains staging and cancels the exact publisher without
+  claiming cancellation erased its effects. Child identities derive from the
+  immutable UI action. Normal completion cleans staging and preserves the native
+  response until explicit release. Confirmed saved files stay successful when
+  cleanup needs attention; late cancellation still reports an already saved file.
+- A real startup check rejected the initial tool descriptor: two mutating effect
+  kinds require permission discovery. Add the SDK permission callback declaring
+  the exact resolved destination path plus browser-use access. The plugin now
+  registers all 16 tools; full access saves without another prompt, and the real
+  read-only managed gate denies saving before browser execution. Ask-profile UI
+  approval still needs its own final-stage interaction regression.
+- Actual public C/JS and managed WebView2 save gates pass binary, blob, original
+  POST, unknown-length and download-only POST popup delivery. All five public
+  files match exact fixture bytes and full hashes. Same operation identity does
+  not save twice; existing targets remain unchanged; original responses remain
+  completed; foreign namespace/workspace access fails. Fixture POST and popup
+  POST endpoints each execute once. Managed saving also writes exact bytes.
+  The final native cache and scoped receiver inventory contain zero reservations.
+- Final local checks pass 85 Python cases (83 pass, two Windows symlink skips),
+  85 JS cases, generated C/JS contracts and deployed overlays. The JS suite covers
+  lost acknowledgements, malformed ranges, manual/display-target cancellation,
+  conflicts, cleanup failure and source closure without a false retention claim.
+  Real transport-loss/crash injection into this new save orchestration remains
+  a stronger final lifecycle gate; unit fault cases are not claimed as that gate.
+  Same single deployment is restored headless; no extra environment/native build.
+- Update Skill/API/README instructions for actual file saving and separate it
+  from native download completion. Next implement visible download/recovery
+  controls, including original destination intent across reload and legacy-root
+  handling. Cross-device save transport, ask-profile interaction, remaining
+  frame/vision/drag/Android work and final lifecycle/performance/package gates
+  remain part of the active full goal.

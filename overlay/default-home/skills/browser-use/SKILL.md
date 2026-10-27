@@ -122,9 +122,18 @@ Acceptance only starts receiving. Use `browser_downloads(action="wait",download=
 pending/receiving. POST/blob responses stay in their original browser request.
 Use `browser_download(action="cancel",download=<same id>)` to stop it, and
 `browser_download(action="release",download=<terminal id>)` to discard retained
-bytes. Keep a completed response until saved. This development stage cannot
-save browser bytes to the original task workspace yet; explain that limit,
-never claim a file was delivered or invent a browser-device cache path. Initial
+bytes. Keep a completed response until saved. Use
+`browser_save_download(browser=<same browser>,download=<exact completed id>,
+path=<new relative workspace path>)` to save verified bytes into the original
+task workspace. Parent directories must already exist; saving never overwrites
+an existing entry or refetches a URL. Only `saved:true` with file metadata proves
+delivery. The original response remains retained until explicit release.
+For an uncertain save, inspect its publication/receiver identities and the
+destination before retrying; never repeat the download click. A cleanup warning
+does not invalidate a confirmed saved file. Never invent a browser cache path.
+Saving requires workspace-write and browser permissions; read-only tasks cannot
+save. Unsupported platform or missing original-workspace errors are actionable
+tool feedback, not a reason to end the task. Initial
 URL and popup responses are intercepted before navigation/adoption. A download-
 only popup may request page closure; `download_retained` with `page_closed:true`
 means inspect/finish/release its downloads instead of sending further page input.

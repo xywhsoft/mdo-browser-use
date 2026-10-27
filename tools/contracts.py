@@ -22,7 +22,7 @@ def outputs():
     for row in rows:
         if not row["id"].startswith("browseruse.") or not row["callback"].isidentifier():
             raise ValueError("Invalid service identity/callback")
-        if row["effects"] not in ("MDO_TOOL_EFFECT_READ", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"):
+        if row["effects"] not in ("MDO_TOOL_EFFECT_READ", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_WORKSPACE_WRITE | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"):
             raise ValueError("Review the service effect mapping")
         stringify = lambda value: json.dumps(value, separators=(",", ":"), ensure_ascii=True)
         lines.append("    {%s, %s, %s, %s, %s, %s}," % (
@@ -42,7 +42,7 @@ def outputs():
         raise ValueError("Duplicate tool identity")
     for tool in tools:
         index = next(i for i, row in enumerate(rows) if row["id"] == tool["service"])
-        if not tool["id"].isidentifier() or tool["effects"] not in ("MDO_TOOL_EFFECT_READ", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"):
+        if not tool["id"].isidentifier() or tool["effects"] not in ("MDO_TOOL_EFFECT_READ", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE", "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_WORKSPACE_WRITE | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"):
             raise ValueError("Invalid tool identity/effects")
         schema = copy.deepcopy(rows[index]["input"])
         if "actions" in tool:

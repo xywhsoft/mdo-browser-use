@@ -1,5 +1,26 @@
 /* Managed Agent tools use exactly the same public service contracts. They run
  * on mdo's existing tool worker, with its live permissions and cancellation. */
+static mdo_result BuSavePermissions(void* User,const mdo_tool_context_v1* Tool,const char* Json,
+                                     mdo_permission_writer_v1* Writer,char* Error,size_t Capacity){
+    const BuToolSpec* Spec=User;const mdo_sdk_context_v1* C=Tool?Tool->Application:NULL;
+    if(!C||!C->Api||!Writer||!Writer->Add){snprintf(Error,Capacity,"save_permissions_missing: Original task permission context is required");return MDO_RESULT_ERROR;}
+    const mdo_values_v1* V=C->Api->Values;xvalue* Params=V->Parse(Json),*Schema=V->Parse(Spec->Input),*Query=NULL,*Resolved=NULL;
+    mdo_error_v1 E={0};mdo_result Code=MDO_RESULT_ERROR;
+    if(!Params||!Schema||!BuValidate(C,Schema,Params,0)||!BuSavePath(BuText(C,Params,"path"))){
+        snprintf(Error,Capacity,"save_path_invalid: Select a new relative path inside the original workspace");goto done;
+    }
+    Query=V->Object();if(!Query||!BuPut(C,Query,"space","workspace")||!BuPut(C,Query,"path",BuText(C,Params,"path"))){snprintf(Error,Capacity,"allocation_failed: Cannot describe the save destination");goto done;}
+    Code=mdoCall(C,"fs.resolve",Query,&Resolved,&E);
+    const char* Path=Resolved?BuText(C,Resolved,"path"):NULL;
+    if(Code!=MDO_RESULT_OK||!Path||!Path[0]){snprintf(Error,Capacity,"save_permissions_failed: Cannot resolve the original destination");Code=MDO_RESULT_ERROR;goto done;}
+    if(!Writer->Add(Writer->Context,MDO_RESOURCE_PATH,MDO_RESOURCE_ACCESS_WRITE,Path)||
+       !Writer->Add(Writer->Context,MDO_RESOURCE_EXTERNAL_SERVICE,MDO_RESOURCE_ACCESS_USE,"browser-use")){
+        snprintf(Error,Capacity,"save_permissions_failed: Cannot publish destination and browser permission resources");Code=MDO_RESULT_ERROR;goto done;
+    }
+    Code=MDO_RESULT_OK;
+done:
+    V->Release(Params);V->Release(Schema);V->Release(Query);V->Release(Resolved);return Code;
+}
 static mdo_result BuToolWrite(const mdo_sdk_context_v1* C,const xvalue* Value,bool Success,
                                mdo_result Code,mdo_result_writer_v1* Writer,char* Error,size_t Capacity,bool Image){
     if(Image&&Success&&C->Api->Values->Get(Value,"image"))return BuToolImage(C,Value,Writer,Error,Capacity);
@@ -18,7 +39,7 @@ static mdo_result BuToolExecute(void* User,const mdo_tool_context_v1* Tool,const
     bool Valid=Params&&Schema&&BuValidate(C,Schema,Params,0);V->Release(Schema);
     mdo_error_v1 E={0};mdo_result Code=MDO_RESULT_ERROR;char Receipt[65]={0};
     if(!Valid){BuFail(&E,"arguments_invalid","Tool arguments do not match the Browser Use contract",422);goto failed;}
-    uint64_t Timeout=10000;V->Unsigned(V->Get(Params,"timeout_ms"),&Timeout);
+    uint64_t Timeout=BuEqual(Spec->Id,"browser_save_download")?60000:10000;V->Unsigned(V->Get(Params,"timeout_ms"),&Timeout);
     uint64_t Deadline=C->Api->MonotonicMicroseconds()+(Timeout+5000)*1000;
     if(!Bound.Deadline||Bound.Deadline>Deadline)Bound.Deadline=Deadline;
     Code=BuDispatch((void*)&BuServices[Spec->Service],C,Params,&Value,&E);

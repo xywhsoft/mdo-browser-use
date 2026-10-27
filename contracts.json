@@ -584,7 +584,8 @@
               "browseruse.dialog",
               "browseruse.upload",
               "browseruse.chooser",
-              "browseruse.download"
+              "browseruse.download",
+              "browseruse.save"
             ]
           },
           "arguments": {
@@ -954,6 +955,46 @@
       }
     },
     {
+      "id": "browseruse.save",
+      "description": "Save a verified completed original browser response into its frozen task workspace. Exact size/hash, no URL refetch, no overwrite. Retain the original download; inspect uncertain publication instead of retrying.",
+      "callback": "BuSave",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_WORKSPACE_WRITE | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser",
+          "download",
+          "path"
+        ],
+        "properties": {
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "download": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 60000
+          }
+        }
+      },
+      "output": {
+        "type": "object"
+      }
+    },
+    {
       "id": "browseruse.chooser",
       "description": "List intercepted native file pickers or cancel an exact pending picker. Cancellation preserves existing selected files and emits an untrusted cancel event. Only the user can return manual control.",
       "callback": "BuChooser",
@@ -1125,6 +1166,12 @@
       ],
       "description": "Accept an intercepted browser response within byte/time limits, cancel it or release a terminal download. Uses its existing browser response, including POST/blob; never refetch or repeat a click. Saving verified bytes to the task is a separate operation.",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"
+    },
+    {
+      "id": "browser_save_download",
+      "service": "browseruse.save",
+      "description": "Save a completed verified download to a new relative path in the original task workspace. Existing parents required; never overwrite/refetch. Returns file metadata and recovery identities. Original response remains until explicit release.",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_WORKSPACE_WRITE | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"
     }
   ]
 }

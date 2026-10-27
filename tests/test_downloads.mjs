@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
 import {executeBrowserDownload} from '../host/download-dispatch.js';
 const source=(await readFile(new URL('../host/automation-dispatch.js',import.meta.url),'utf8'))
+  .replace('import { executeDownloadSave } from "./download-save.js";',`import {executeDownloadSave} from ${JSON.stringify(new URL('../host/download-save.js',import.meta.url).href)};`)
   .replace('import { browserRuntime } from "./automation-runtime.js";','function browserRuntime(){}')
   .replace('import { prepareScreenshot } from "./capture-image.js";','function prepareScreenshot(){}')
   .replace('import { executeFileUpload } from "./upload-dispatch.js";',`import {executeFileUpload} from ${JSON.stringify(new URL('../host/upload-dispatch.js',import.meta.url).href)};`)
@@ -33,6 +34,15 @@ test('download metadata remains readable during takeover and mutation is denied'
   }}};
   assert.deepEqual((await executeBrowserAutomation({...base,command:'download',params:{action:'list'}})).result.downloads,[]);
   assert.equal((await executeBrowserAutomation({...base,command:'download',params:{action:'accept',download:'owned'}})).result.error.code,'manual_control');assert.equal(mutations,0);
+});
+
+test('workspace saves obey manual control and display-target cancellation before file access',async()=>{
+  let files=0,native=0;
+  const base={command:'save_download',params:{download:'owned',path:'new.bin'},action:{id:'save-policy'},
+    api:{async call(method){if(method!=='ui.result'){files++;throw Error('File service reached');}return{state:'pending'};}},
+    view:{async execute(command){native++;assert.equal(command,'state');return{manual:true,download_capability:true};}}};
+  assert.equal((await executeBrowserAutomation(base)).result.error.code,'manual_control');assert.equal(files,0);
+  native=0;assert.equal((await executeBrowserAutomation({...base,alive:()=>false})).result.error.code,'context_changed');assert.equal(native,0);assert.equal(files,0);
 });
 
 test('a download-only popup keeps receipts while refusing further page operations',async()=>{

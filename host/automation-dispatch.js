@@ -2,6 +2,7 @@ import { browserRuntime } from "./automation-runtime.js";
 import { prepareScreenshot } from "./capture-image.js";
 import { executeFileUpload } from "./upload-dispatch.js";
 import { executeBrowserDownload } from "./download-dispatch.js";
+import { executeDownloadSave } from "./download-save.js";
 
 const writers = new Set();
 let capturing = false;
@@ -11,8 +12,8 @@ const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
 export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
-  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload", "download"].includes(command)) return { handled: false };
-  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status" || command === "download" && !["list","get","wait"].includes(params.action);
+  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload", "download", "save_download"].includes(command)) return { handled: false };
+  const writing = command === "save_download" || command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status" || command === "download" && !["list","get","wait"].includes(params.action);
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
@@ -62,7 +63,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     const snapshot = await view.execute("state");
     const state = { ...snapshot, loading: snapshot.initial_navigation_pending && typeof snapshot.loading === "boolean" ? true : snapshot.loading };
     if(command==='upload'&&params.action==='status')return{state};
-    if(command==='download'){
+    if(command==='download'||command==='save_download'){
       if(state.manual&&writing)return fail('manual_control','The user currently controls the browser');
       return{state};
     }
@@ -122,6 +123,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   try {
+    if(command==='save_download')return await executeDownloadSave({params,view,api,action,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='download')return await executeBrowserDownload({params,view,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='upload')return await executeFileUpload({params,view,api,action,guard,read,deadline,
       setDispatched:value=>{dispatched=value;},fail});

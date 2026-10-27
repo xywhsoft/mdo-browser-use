@@ -570,7 +570,8 @@ export const services = [
             "browseruse.dialog",
             "browseruse.upload",
             "browseruse.chooser",
-            "browseruse.download"
+            "browseruse.download",
+            "browseruse.save"
           ]
         },
         "arguments": {
@@ -923,6 +924,44 @@ export const services = [
         "timeout_ms": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.save",
+    "description": "Save a verified completed original browser response into its frozen task workspace. Exact size/hash, no URL refetch, no overwrite. Retain the original download; inspect uncertain publication instead of retrying.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "download",
+        "path"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "download": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
           "maximum": 60000
         }
       }

@@ -484,9 +484,9 @@ adds no extra confirmation. Takeover cancels unfinished owned responses; only
 the user returns control. Waiting-call cancellation does not delete a download;
 use explicit `cancel`, wait for terminal state, then `release`.
 
-This stage retains verified bytes in the browser's private cache. Saving into
-the original task workspace is still pending. Do not claim the user has received
-an installed/exported file. No private cache path, response URL query, cookies
+This operation retains verified bytes in the browser's private cache. Use the
+separate `save` operation below to deliver a file into the original workspace;
+download completion alone does not prove file delivery. No private cache path, response URL query, cookies
 or raw bytes are part of this public contract. Closing a browser reclaims its
 owned native bytes. A terminal release that loses confirmation requires receipt/
 list inspection rather than replaying a download.
@@ -553,7 +553,8 @@ caller still owns its private staging entry; both names refer to the same bytes.
 The later file consumer must safely discard its own staging name after durable
 receipt/recovery checks. This primitive alone provides neither a download-save
 UI nor a crash recovery ledger, and does not promise power-loss durability.
-Managed download tools do not expose this operation yet.
+Managed tools use the separate save adapter below, rather than exposing this
+low-level staging method directly.
 
 ## Bounded task-file reception
 
@@ -616,5 +617,50 @@ file, creates a new entry without replacing an existing one, and retains staging
 After confirmed publication, release the receiver; this removes its staging
 link while preserving the published file. An uncertain publication requires
 inspection, not replay. The tested recovery scope is process termination and
-restart, not a universal power-loss guarantee. Official download-save tools and
-visible controls are still being connected to this host primitive.
+restart, not a universal power-loss guarantee. The official save API/tool below
+uses this primitive; visible controls are still in development.
+
+## Save a completed response into its original task
+
+Use C `mdoBrowserUseSave`, service `browseruse.save`, JS `browser.save`, or the
+managed `browser_save_download` tool with `browser`, `download`, `path` and an
+optional `timeout_ms` (1000 through 60000; default 60000). `path` must be a new
+relative entry beneath the original task workspace with existing parent
+directories. No traversal, absolute path, alternate stream or ambiguous trailing
+dot/space is accepted. Saving is a separate write gate from download inspection.
+
+```javascript
+const saved = await browser.save({browser:tab.id, download:completed.download.id,
+  path:"exports/report.bin"});
+// saved.saved === true, saved.file = {size,sha256,revision}, saved.path.
+// Original response remains retained; release only after confirmed delivery.
+```
+
+The C boundary captures the original physical workspace root and private subtask
+before queueing the UI action. Missing legacy roots are rejected instead of
+using the selected chat. The UI producer verifies the bound task context, reads
+at most 64 KiB from the retained native response, and feeds its scoped receiver
+with backpressure. It never refetches a URL or exports bytes to a model result.
+After exact EOF/hash verification, a separate SDK publication operation creates
+the destination without replacement. Receiver and publisher identities derive
+from the immutable UI action identity; expired/interrupted admissions are never
+replayed. Normal completion releases staging while preserving the original
+native download for explicit release.
+
+Managed registration declares workspace-write plus external-browser effects and
+discovers both the exact destination path and browser-use permission resources.
+Full access adds no extra prompt; read-only tasks fail before browser execution.
+Manual takeover, task cancellation and displaying-target changes stop saving.
+Only an explicit zero-write backpressure result is retried. Lost byte/EOF
+acknowledgements abort reception; lost publication confirmation retains staging
+and requests cancellation of that exact publisher, while preserving uncertainty.
+
+Success returns `saved:true`, relative `path`, verified `file` metadata,
+`source_retained:true` and `transfer` recovery identities. It contains no raw
+bytes, private staging/cache path, cookies or URL query. A confirmed saved file
+stays successful if cleanup fails; `transfer.cleanup_pending` identifies the
+remaining work. A cancellation arriving after confirmed publication reports the
+existing `saved:true` file even though the action is cancelled. Uncertain
+publication requires inspection of its identity and destination before another
+save; it never deletes an existing target or repeats the opening download click.
+Windows is verified; unsupported receiver platforms report their explicit limit.

@@ -98,3 +98,14 @@ test("expired operation recovery never creates a replacement action", async () =
   await assert.rejects(client.recover(operation), { operation, code: "result_expired" });
   assert.deepEqual(actions, ["get", "release"]);
 });
+
+test("save uses a durable write identity and a consistent one-minute default",async()=>{
+  const calls=[];const client=createBrowserUseClient({async call(method,params){
+    calls.push({method,params});return{state:"succeeded",result:{ok:true,saved:true}};
+  }});
+  const input={browser:"tab",download:"response",path:"new.bin",timeout_ms:undefined};
+  assert.equal((await client.save(input)).saved,true);
+  assert.equal(calls[0].params.action,"submit");assert.equal(calls[0].params.method,"browseruse.save");
+  assert.equal(calls[0].params.arguments.timeout_ms,60000);assert.equal(input.timeout_ms,undefined);
+  assert.deepEqual(calls.map(row=>row.params.action),["submit","get","release"]);
+});

@@ -8,6 +8,7 @@
 #include "screenshot.c"
 #include "upload.c"
 #include "downloads.c"
+#include "save.c"
 
 typedef struct BuService {
     const char *Id,*Description,*Input,*Output;
@@ -46,7 +47,8 @@ static mdo_result BuRegister(const mdo_host_services_v1* Host,
         const BuToolSpec* Spec=&BuTools[I];
         mdo_tool_v1 Tool={sizeof(Tool),MDO_MODULE_ABI_VERSION,Spec->Id,Spec->Id,Spec->Description,
             Spec->Input,Spec->Effects,0,"browser-use",
-            Spec->Effects==MDO_TOOL_EFFECT_READ?NULL:"browser-use",524288,(void*)Spec,NULL,BuToolExecute,NULL};
+            Spec->Effects==MDO_TOOL_EFFECT_READ||BuEqual(Spec->Id,"browser_save_download")?NULL:"browser-use",524288,(void*)Spec,
+            BuEqual(Spec->Id,"browser_save_download")?BuSavePermissions:NULL,BuToolExecute,NULL};
         mdo_result Code=Registrar->AddTool(Registrar->Context,&Tool,Error,Capacity);
         if(Code!=MDO_RESULT_OK)return Code;
     }

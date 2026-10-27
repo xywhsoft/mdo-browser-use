@@ -24,6 +24,8 @@ static inline mdo_result mdoBrowserUseUpload(const mdo_sdk_context_v1* C,const x
 {return mdoCall(C,"browseruse.upload",P,R,E);}
 static inline mdo_result mdoBrowserUseDownload(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
 {return mdoCall(C,"browseruse.download",P,R,E);}
+static inline mdo_result mdoBrowserUseSave(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.save",P,R,E);}
 static inline mdo_result mdoBrowserUseChooser(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
 {return mdoCall(C,"browseruse.chooser",P,R,E);}
 #endif

@@ -6,7 +6,7 @@ static bool BuOperationId(const char* Id){
     return true;
 }
 static const BuService* BuOperationTarget(const char* Method){
-    if(!Method||(!BuEqual(Method,"browseruse.act")&&!BuEqual(Method,"browseruse.navigate")&&!BuEqual(Method,"browseruse.tabs")&&!BuEqual(Method,"browseruse.dialog")&&!BuEqual(Method,"browseruse.chooser")&&!BuEqual(Method,"browseruse.upload")&&!BuEqual(Method,"browseruse.download")))return NULL;
+    if(!Method||(!BuEqual(Method,"browseruse.act")&&!BuEqual(Method,"browseruse.navigate")&&!BuEqual(Method,"browseruse.tabs")&&!BuEqual(Method,"browseruse.dialog")&&!BuEqual(Method,"browseruse.chooser")&&!BuEqual(Method,"browseruse.upload")&&!BuEqual(Method,"browseruse.download")&&!BuEqual(Method,"browseruse.save")))return NULL;
     for(size_t I=0;I<sizeof(BuServices)/sizeof(*BuServices);I++)if(BuEqual(Method,BuServices[I].Id))return &BuServices[I];
     return NULL;
 }

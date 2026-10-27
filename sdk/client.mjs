@@ -80,6 +80,7 @@ export function createBrowserUseClient(sdk) {
     screenshot: complete("screenshot"),
     upload: (params, options) => params.action === "status" ? complete("upload")(params, options) : perform("upload")(params, options),
     download: (params, options) => ["accept","cancel","release"].includes(params.action) ? perform("download")(params, options) : complete("download")(params, options),
+    save: (params, options) => perform("save")({...params,timeout_ms:params.timeout_ms===undefined?60000:params.timeout_ms}, options),
     result: params => invoke("result", params),
     act: perform("act"),
     navigate: perform("navigate"),

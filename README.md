@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
@@ -53,6 +53,7 @@ python tools/restart_probe.py
 python tools/upload_restart_probe.py
 python tools/upload_probe.py
 python tools/download_probe.py
+python tools/save_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -113,5 +114,9 @@ verified hashes, durable acceptance/cancellation, direct navigation checkpoints,
 foreign-scope denial and read-only permissions. It performs no live model calls.
 Initial URL, automatic page-script and original POST-popup downloads are also
 intercepted before navigation/adoption. `--initial-only` focuses on these paths.
-The completed response still stays in private browser cache; safe task-workspace
-saving and visible download controls remain in development.
+The completed response stays in private browser cache until explicit release.
+`browser_save_download` / shared C/JS `browseruse.save` saves its existing bytes
+to a new path in the frozen task workspace, with size/hash verification and no
+overwrite. `save_probe.py` verifies actual binary/blob/POST/unknown-length/popup
+saves, exact file bytes, duplicate identities, conflicts and managed permissions.
+Visible download/recovery controls remain in development.
