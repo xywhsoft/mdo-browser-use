@@ -1251,3 +1251,45 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   The same Home is restored headless; no additional deployment was created.
 - Safe reception with durable partial-file ownership/recovery and quota remains
   the next step before exposing workspace saves. The full goal remains active.
+
+
+## D12n — receive exact scoped streams into recoverable, bounded task staging
+
+- Add generated C/JS `files.receive.start/get/list/release` host SDK services.
+  Start is admitted through an explicit SDK operation identity; the receiver
+  consumes task-owned 16 KiB ranges until explicit EOF, enforces exact size and
+  SHA-256, flushes bytes, and persists a ready source revision for publication.
+  No download URL is fetched and no file bytes enter the returned receipt.
+- A small Home intent precedes exclusive workspace staging creation. The opened
+  file identity is saved before nonempty writes. Root identity and task scope
+  remain frozen, including namespace/member. Eight retained receipts and 128 MiB
+  of expected-size reservations bound active, ready and unresolved staging.
+  Cancel, wrong hash/size and idle/deadline failures clean only proven ownership.
+- Process restart preserves ready files and reports partial receivers as
+  interrupted. New admission collects only identified, inactive partial files;
+  unknown/replaced files or roots are preserved. Windows cleanup uses XRT's
+  delete-open primitive so it deletes the checked object rather than reopening
+  an unverified pathname. Preparatory zero-byte entries without a durable inode
+  remain for review. Non-Windows reception explicitly fails unsupported until
+  its cleanup namespace guarantees have an implemented and tested adaptation.
+- Twelve actual SDK tests cover binary/text/empty ranges, publish then release,
+  hash/size/EOF, cancel/idle, live release fencing, foreign tasks and workspace,
+  physical file/root replacement, unknown inventory, both quota gates and a hard
+  stop/restart of this same Home. Ready bytes survive; identified partial bytes
+  are collected; the old operation identity stays interrupted without replay.
+  Test fixtures leave no retained receiver ledger or staging bytes behind.
+- The first SDK generation attempt exposed its method/namespace collision rule;
+  `files.receive` was changed to `files.receive.start` before successful
+  generation and testing. No generator workaround or parallel namespace API was
+  introduced. Source overlays were checked before recovering the failed prepare
+  receipt; no unreviewed host edits were overwritten.
+- Final checks pass 83 Python cases (81 pass, two Windows symlink skips), 70 JS
+  cases, shared contracts and deployed overlays. Real public C/JS WebView2
+  regression again passes 19 actions, four navigations, five waits, screenshots,
+  exact-once selection/drag/dialog handling and popup cleanup. Same deployment
+  restored headless, about 835 MiB; no extra Home or native build was created.
+- Next connect the retained native response to this sink, preserve byte-write
+  uncertainty and the displaying window's frozen target, add the dedicated
+  workspace-write save API/tool, then visible download/recovery controls. This
+  host primitive does not by itself complete user-facing download saving or the
+  remaining frame/vision/drag/Android/lifecycle/performance/package goal stages.

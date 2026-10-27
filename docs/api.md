@@ -554,3 +554,67 @@ The later file consumer must safely discard its own staging name after durable
 receipt/recovery checks. This primitive alone provides neither a download-save
 UI nor a crash recovery ledger, and does not promise power-loss durability.
 Managed download tools do not expose this operation yet.
+
+## Bounded task-file reception
+
+The generated C/JS host SDK exposes `files.receive.start/get/list/release`
+(`mdoFilesReceiveStart`, etc.; JS `api.files.receive.start`, etc.). This is the
+receiving half of workspace saving, currently implemented and verified on
+Windows. It consumes an existing task-owned stream, not a URL. Start it through
+`operation.start` with an explicit `sdk-` identity; a direct synchronous call is
+rejected before creating staging. Operation admission receipts prevent replay
+of the same request after a process crash or release.
+
+```javascript
+const original = api.bind(frozenTaskContext);
+const root = await original.call("files.stat", {path:"."});
+const {handle} = await original.call("stream.open", {capacity:65536});
+const operation = `sdk-${crypto.randomUUID().replaceAll("-", "")}`;
+await original.start("files.receive.start", {
+  handle, root_snapshot:root.revision, size:verifiedSize, sha256:verifiedSha256,
+  timeout_ms:120000, idle_timeout_ms:30000
+}, operation);
+// Feed bounded original response chunks with stream.write; inspect confirmed
+// backpressure only. Lost write acknowledgements are not safe retries.
+// Explicitly close the stream after all bytes and fresh ownership/cancel checks.
+await original.call("stream.close", {handle});
+await original.wait(operation, 1000); // Wait until the same operation is terminal.
+const staging = await original.result(operation); // No raw file bytes.
+```
+
+`start` requires exact `size` (0 through 64 MiB), lowercase `sha256`, the frozen
+physical `root_snapshot`, and a stream in the same extension/device/project/
+session/namespace/member. Its total timeout is 100 through 600000 ms and idle
+timeout is 100 through 60000 ms. It reads and decodes at most 16 KiB per range,
+requires explicit EOF at exactly the selected size, verifies the full SHA-256,
+flushes the staging file and stores a `ready` receipt with `source_revision`.
+The receipt records relative staging name, expected metadata, original workspace
+and scope; it never persists file bytes, response headers, cookies or a stream
+credential. These are private host SDK results, not model tool results.
+
+There are at most eight retained receivers with 128 MiB of total expected-size
+reservations, including active, ready and unresolved records. A small Home intent
+precedes exclusive staging creation; its physical file identity is persisted
+before any nonempty write. Incomplete records from a previous process are
+reported as `interrupted`, never resumed. A subsequent receive admission can
+collect them only when the original root and staging identity are still known.
+Completed `ready` records survive restart until explicit release. A preparatory
+crash with no recorded inode may leave a zero-byte entry; preserve it for review
+instead of deleting an unproven owner. Unknown inventory entries block admission.
+
+`get/list` read metadata only. They require the original task and workspace;
+`release` also refuses active operations. Cancel and wait before release. Cleanup
+uses XRT's verified opened-file deletion on Windows. Replaced files/roots and
+unreadable ownership records are preserved and reported as cleanup failures.
+Non-Windows start currently returns `sdk_file_receive_unsupported`; its safe
+namespace cleanup still needs platform implementation and verification.
+
+Publication remains a separate explicit workspace write: pass the ready
+receipt's `source`, `source_revision`, expected size/hash and original root
+snapshot to `files.publish` with the selected destination. It rechecks the full
+file, creates a new entry without replacing an existing one, and retains staging.
+After confirmed publication, release the receiver; this removes its staging
+link while preserving the published file. An uncertain publication requires
+inspection, not replay. The tested recovery scope is process termination and
+restart, not a universal power-loss guarantee. Official download-save tools and
+visible controls are still being connected to this host primitive.
