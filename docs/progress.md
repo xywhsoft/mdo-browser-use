@@ -1151,3 +1151,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   failure for the tested paths. Unexpected-layout/OOM/quota audits, the earlier
   intermittent hidden startup evidence, safe task-workspace saving, visible
   download controls and the remaining full Browser Use stages stay open.
+
+
+## D12j — retain task identity through UI/RPC context reconstruction
+
+- Preparing the download sink exposed a confirmed continuation defect: the
+  local SDK HTTP route discarded namespace/member fields, and workbench records
+  omitted the original workspace and subtask identity. Native UI actions already
+  carried those fields, but reconstructing a caller could silently broaden it.
+- Preserve validated namespace/member strings for local continuations; malformed,
+  NUL/control-containing or oversized values fail instead of becoming global.
+  Existing server-bound ApplicationContext authority remains unchanged. New
+  workbench records retain workspace/namespace/member; task ownership rules are
+  not changed. Legacy records lacking a frozen root still need explicit handling
+  before exposing save controls; no default-root reconstruction is claimed here.
+- Actual SDK checks cover a custom workspace and subtask through tab creation,
+  queued UI action and reconstructed file digest context. Operation read/cancel/
+  release/list scope checks now exercise foreign namespaces and members too.
+  Targeted tests and TCC startup pass; the accompanying local run passes 61
+  Python cases (one Windows symlink skip), 70 JS cases and public upload/picker
+  regression. No file-save API is advertised yet. The full goal continues.

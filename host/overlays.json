@@ -467,6 +467,17 @@
       "path": "app/src/application/tools.c",
       "before": "MdoSession* Session=MdoSessionOpen(Project,SessionId,&Options,&Error);MdoAgentSession* Agent=Session?MdoSessionAgentRef(Session):NULL;",
       "after": "MdoSession* Session=BuToolSessionOpen(C,Project,SessionId,&Options,&Error);\n    if(!Session)return MdoApplicationError(E,Error.eCode==XWORK_ERROR_CANCELLED?\"sdk_cancelled\":Error.eCode==XWORK_ERROR_TIMEOUT?\"sdk_deadline_expired\":Error.eCode==XWORK_ERROR_CONTEXT&&!strcmp(Error.sMessage,\"session already has an active runtime\")?\"sdk_tool_busy\":\"sdk_tool_execution_failed\",Error.sMessage,\"tool_admission\",Error.eCode==XWORK_ERROR_CANCELLED?499:Error.eCode==XWORK_ERROR_TIMEOUT?504:409,false);\n    MdoAgentSession* Agent=MdoSessionAgentRef(Session);"
+    },
+    {
+      "path": "app/src/api/application.c",
+      "before": "    xvalue* R=NULL;mdo_error_v1 E={0};mdo_result Code=MdoApplicationCall(",
+      "after_file": "host/frozen-task-fields.inc.c",
+      "suffix": "    xvalue* R=NULL;mdo_error_v1 E={0};mdo_result Code=MdoApplicationCall("
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "    SdkPut(V,\"session\",C->SessionId);SdkPut(V,\"run\",C->RunId);return V;",
+      "after": "    SdkPut(V,\"session\",C->SessionId);SdkPut(V,\"run\",C->RunId);SdkPut(V,\"workspace\",C->Workspace);SdkPut(V,\"namespace\",C->Namespace);SdkPut(V,\"member\",C->MemberId);return V;"
     }
   ],
   "files": [

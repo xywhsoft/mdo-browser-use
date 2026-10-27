@@ -30,7 +30,8 @@ class OperationTests(unittest.TestCase):
         self.assertEqual(json.loads(raw)["error"]["code"], "context_mismatch")
 
     def test_foreign_context_cannot_read_cancel_release_or_list_live_receipt(self):
-        for foreign in [dict(self.scope, extension="other-extension"), dict(self.scope, session="other-session")]:
+        for foreign in [dict(self.scope, extension="other-extension"), dict(self.scope, session="other-session"),
+                        dict(self.scope,namespace="other-namespace"),dict(self.scope,member="other-member")]:
             for method in ("operation.get", "operation.result", "operation.cancel", "operation.release"):
                 with self.subTest(method=method, scope=foreign):
                     self.reject(method, {"id": self.identity}, foreign)
