@@ -402,6 +402,15 @@ The operation journal retains identity/scope metadata instead of private results
 
 ## Bounded screenshots
 
+After page readiness, the newly revealed pane may still finish resizing. A
+viewport-only mismatch can be retried inside the same read-only screenshot call
+with at most three native captures, the original deadline/cancellation/control
+checks and the first document pin. Discard invalidated native bytes; render,
+publish and issue an image lease only after one attempt's complete proof matches.
+Continuous resizing stops at the bound. Navigation, document/frame identity,
+privacy coverage, scroll or DPR changes do not use this settling exception.
+No browser input or business action is replayed.
+
 Supported Windows captures also return `visual_reference` with an opaque ID,
 the exact output image width/height, `coordinates:"image_pixels"` and a 60-second
 lease. The same allowlisted descriptor reaches C/JS receipts and managed Agent

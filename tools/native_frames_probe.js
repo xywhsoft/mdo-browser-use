@@ -159,9 +159,10 @@ try{
   await rejectInput(chain);
   await rejectSnapshot(snapshot);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
-  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,captureRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
   const routedView={execute:async(command,params)=>{
     if(command==='input')inputRequests++;
+    if(command==='capture')captureRequests++;
     const result=await call(command,params);
     if(command==='capture'&&afterCapture){const next=afterCapture;afterCapture=null;await next();}
     if(cancelDispatch&&command==='frames'&&params.script?.includes('({local_frame:true}).prepare('))cancelDispatch='cancelled';
@@ -453,6 +454,18 @@ try{
   const changedImage=await dispatch('capture',{document:page.result.document,max_width:500,max_height:400,timeout_ms:15000});
   geometryEvidence.changedImage={ok:changedImage.result.ok,error:changedImage.result.error,hasImage:!!changedImage.result.image};
   assert(!changedImage.result.ok&&changedImage.result.error.code==='capture_changed'&&!changedImage.result.image,'Child navigation between screenshot privacy scans returned an image with mismatched document masks');
+  stage='capture-viewport-settling';await navigate(origin+'/foreign');
+  await call('bounds',{visible:true,bounds:{x:0,y:50,width:1000,height:650,scale:1}});
+  await until(async()=>{const current=await driver.read('observe',{limit:5,max_bytes:256});return current.ok&&current.viewport.width===1000;},'The initial capture viewport did not settle');
+  const capturePage=await dispatch('observe',{limit:5,max_bytes:256}),beforeResizeCapture=captureRequests;
+  afterCapture=async()=>{
+    await call('bounds',{visible:true,bounds:{x:0,y:50,width:900,height:650,scale:1}});
+    await until(async()=>{const current=await driver.read('observe',{limit:5,max_bytes:256});return current.ok&&current.viewport.width===900;},'The forced native viewport change did not arrive');
+  };
+  const settledImage=await dispatch('capture',{document:capturePage.result.document,max_width:500,max_height:400,timeout_ms:15000});
+  assert(settledImage.result.ok&&settledImage.result.visual_reference&&settledImage.result.region.width===900,'A bounded native viewport retry did not return the new stable image');
+  assert(captureRequests-beforeResizeCapture===2,'Viewport settling did not use exactly two native captures in its original operation');
+  assert(settledImage.result.document===capturePage.result.document&&!(await call('state')).capture_busy,'Viewport settling changed document or retained a native capture slot');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
@@ -464,7 +477,8 @@ try{
     child_navigation_stops_drag:true,input_recovers_after_interrupted_frame_drag:true,
     exact_iframe_mask_bindings:true,local_capture_does_not_enter_children:true,capture_owner_fractional_geometry:true,inert_capture_owner_preserved:true,
     cross_frame_capture_pixels:true,nested_input_pixels_masked:true,nested_element_image_crop:true,changed_frame_image_withheld:true,
-    internal_visual_pointer_once:true,consumed_image_rejected:true,changed_visual_tile_rejected:true,masked_visual_point_denied:true};
+    internal_visual_pointer_once:true,consumed_image_rejected:true,changed_visual_tile_rejected:true,masked_visual_point_denied:true,
+    viewport_capture_retries_in_same_operation:true,only_stable_viewport_image_published:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

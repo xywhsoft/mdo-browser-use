@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: V7 removes DOM input's duplicate activation clicks;
+Latest verified milestones: V8 bounds read-only viewport settling during capture;
+V7 removes DOM input's duplicate activation clicks;
 V6 adds shared C/JS/Agent focus-bound image keys;
 V4/V5 cover image dragging and retained-document cleanup. E2 provides actual
 Android unsupported-provider admission. Directory uploads, full Android native
@@ -2296,3 +2297,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   current explicitly unsupported WebView 138. Directory uploads, Android native
   integration, adversarial lifetime/OOM/network/performance and final packaging
   remain active; this is not completion of the long-term goal.
+
+## V8 — bounded read-only capture settling
+
+- Preserve the real first-opening image-key failure from V7: the initial
+  screenshot was rejected with `capture_changed (viewport)` before any input.
+  Page readiness could complete while the newly revealed native pane was still
+  resizing. Do not weaken screenshot/scene validation or count an external
+  second screenshot as a successful first request.
+- Retry only a viewport-only mismatch, at most three native captures within the
+  same read-only operation, original deadline/receipt and first document pin.
+  Discard invalidated bytes before any raster/publication/image-lease step.
+  Recheck cancellation, takeover and navigation before the next attempt. Frame/
+  document identity, mask coverage, scroll, DPR or mixed changes remain failures;
+  continuous resizing stops at the bound. No browser input or business effect
+  is replayed. Native binaries and focus/input behavior are unchanged.
+- Add five deterministic dispatcher gates for one settling resize, continuous
+  resizing, protected context changes, cancellation/deadline/takeover/navigation
+  and attempted document rebinding. Actual native frame testing forces a resize
+  between privacy scans and confirms exactly two native captures under one
+  original operation, one stable image reference, the same document and an empty
+  native capture slot. The earlier child-document-change image-withholding gate
+  also remains passing.
+- The normal public C/JS/Agent image-key gate now passes all five root/child/
+  shadow/selection/button cases, focus hijack/dialog checks, durable recovery and
+  owned read-only denial. Three normal-workbench first public screenshot calls
+  succeed with zero initial failures; the existing collector continues to mark
+  a failed first public receipt as failure even if a later caller recovery works.
+- Sequential final checks: JS 180 pass; Python 109 total, 107 pass/two Windows
+  symlink privilege skips. Native frame gate 220 poll-inclusive assertions;
+  actual image-key and first-capture gates pass, without model/external-site
+  calls or new native diagnostics. Transfer reservations return to zero. Preserve
+  the initial failed receipt separately from the passing results. Same single
+  deployment/Home/source/object tree; restore headless service mode.
+- Directory uploads, full Android integration with explicit current-provider
+  limits, adversarial lifetime/OOM/network/performance and final packaging remain
+  open. This is an additional bug fix, not completion of the long-term goal.

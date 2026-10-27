@@ -24,6 +24,9 @@ and focus still match. Choose a visible focusable control, not a masked field or
 page background. Focus handlers can change the page or open dialogs; inspect the
 checkpoint/result rather than repeating focus or sending the key somewhere else.
 Responding to a focus-opened dialog does not resume the original key operation.
+Minor viewport-only resizing may settle within the same screenshot request.
+If capture still reports a changed scene, let the layout settle and request a
+fresh image. Never repeat an input action to repair a failed screenshot.
 Visual drag uses two points from the same delivered image: `target={image:id,
 x:...,y:...}` and `destination={image:id,x:...,y:...}`. Both points must be visible,
 unmasked and at least four CSS pixels apart. Do not mix image and DOM targets.

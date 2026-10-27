@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_android_support.mjs tests/test_capture_image.mjs tests/test_frame_capture.mjs tests/test_visual_snapshot.mjs tests/test_visual_dispatch.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_capture_settling.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_android_support.mjs tests/test_capture_image.mjs tests/test_frame_capture.mjs tests/test_visual_snapshot.mjs tests/test_visual_dispatch.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
 python tools/native_probe.py
 python tools/native_frames_probe.py
 python tools/drag_lifetime_probe.py
@@ -53,6 +53,7 @@ python tools/public_frames_probe.py
 python tools/frame_scroll_probe.py
 python tools/visual_probe.py
 python tools/keyboard_probe.py
+python tools/capture_readiness_probe.py
 python tools/dom_keyboard_probe.py
 python tools/android_world_probe.py
 python tools/sdk_probe.py
@@ -124,6 +125,14 @@ OOPIF targets, lost/replaced/selection-hijacked focus, dialogs and original POST
 downloads without input replay/refetch. It also checks unrelated sibling updates,
 explicit new-action recovery and read-only denial before focus. The same Home,
 synthetic loopback fixture and native transfer cache are reused.
+
+`capture_readiness_probe.py` checks three first public screenshot receipts after
+opening the normal workbench. A failed first public call remains a failure even
+if a later recovery succeeds. The native frame gate separately forces a viewport
+resize between privacy scans and verifies two native captures in one original
+operation, one stable image and an empty native capture slot. Unit gates bound
+continuous resizing and check cancellation, takeover, navigation, privacy and DPR
+changes without image publication.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

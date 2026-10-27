@@ -1,4 +1,4 @@
-"""Measure first public screenshots in the same normal UI, without a passing retry."""
+"""Measure first public receipts without retrying a failed public screenshot call."""
 import json
 import sys
 import time

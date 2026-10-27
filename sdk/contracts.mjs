@@ -661,7 +661,7 @@ export const services = [
   },
   {
     "id": "browseruse.screenshot",
-    "description": "Capture an owned document as a bounded in-memory image. Known form controls and opaque content are masked; read browseruse.result for completion.",
+    "description": "Capture an owned document as a bounded in-memory image. Known form controls and opaque content are masked; minor viewport-only resizing may settle within this request. Read browseruse.result for completion.",
     "input": {
       "type": "object",
       "additionalProperties": false,

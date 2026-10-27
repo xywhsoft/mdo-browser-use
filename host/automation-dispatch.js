@@ -191,35 +191,50 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       checked = await guard(true);if (checked.handled) return checked;
       navigation = checked.state.navigation;
       const mode = params.mode || (params.target ? "element" : "viewport");
-      const options = { mode, document: params.document, target: params.target };
-      const area = await read("captureArea",options);if (!area.ok) return { handled:true,result:area };
-      checked = await guard(true);if (checked.handled) return checked;
-      const dpr=area.device_pixel_ratio||1;
-      const scale = Math.min(1,(params.max_width||1280)/(area.region.width*dpr),(params.max_height||960)/(area.region.height*dpr));
-      let settled = false,native,failure;
-      const pending = view.execute("capture",{agent:true,navigation,capture_key:action.id,clip:{...area.region,scale},
-        format:params.format||"png",max_bytes:params.max_bytes||131072,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
-        .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
-      while (!settled) {
-        await Promise.race([pending,pause(50)]);checked = await guard();
-        if (checked.handled) {
-          try { await view.execute("capture_cancel",{capture_key:action.id}); } catch {}
-          return checked;
+      let options = { mode, document: params.document, target: params.target };
+      // A newly revealed native pane can finish resizing after page readiness.
+      // Only read-only viewport settling may retry, within the original receipt,
+      // deadline and document. Never reuse or publish an invalidated capture.
+      for(let attempt=0;attempt<3;attempt++){
+        if(attempt){checked=await guard(true);if(checked.handled)return checked;}
+        const area = await read("captureArea",options);if (!area.ok) return { handled:true,result:area };
+        if(options.document&&area.document!==options.document)return fail('stale_document','The original screenshot document changed while settling');
+        options={...options,document:area.document};
+        checked = await guard(true);if (checked.handled) return checked;
+        const dpr=area.device_pixel_ratio||1;
+        const scale = Math.min(1,(params.max_width||1280)/(area.region.width*dpr),(params.max_height||960)/(area.region.height*dpr));
+        let settled = false,native,failure;
+        const pending = view.execute("capture",{agent:true,navigation,capture_key:action.id,clip:{...area.region,scale},
+          format:params.format||"png",max_bytes:params.max_bytes||131072,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
+          .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
+        while (!settled) {
+          await Promise.race([pending,pause(50)]);checked = await guard();
+          if (checked.handled) {
+            try { await view.execute("capture_cancel",{capture_key:action.id}); } catch {}
+            return checked;
+          }
         }
+        if (failure) return fail("capture_failed",String(failure.message||failure).slice(0,512));
+        const after = await read("captureArea",{...options,document:area.document});
+        if (!after.ok) return {handled:true,result:after};
+        if(area.frame_stamp!==after.frame_stamp){
+          const changes=captureChanges(area.frame_stamp,after.frame_stamp);
+          if(changes==='viewport'&&attempt<2&&area.document===after.document&&area.device_pixel_ratio===after.device_pixel_ratio){
+            native=null;await pause(60);continue;
+          }
+          return fail('capture_changed',`Screenshot validation changed (${changes}); request a fresh image`);
+        }
+        if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
+        let raster;
+        const image = await prepareScreenshot(native,area,after,params,pageDriver?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
+        checked = await guard(true);if (checked.handled) return checked;
+        const visual=raster?visualSnapshots.issue(writer,{document:area.document,navigation,frame_stamp:area.frame_stamp,
+          region:area.region,options,redactions:[...area.redactions,...after.redactions],device_pixel_ratio:area.device_pixel_ratio,
+          capture:{format:params.format||'png',max_width:params.max_width||1280,max_height:params.max_height||960,max_bytes:params.max_bytes||131072}},raster):null;
+        return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image,
+          ...(visual?{visual_reference:visual}:{})}};
       }
-      if (failure) return fail("capture_failed",String(failure.message||failure).slice(0,512));
-      const after = await read("captureArea",{...options,document:area.document});
-      if (!after.ok) return {handled:true,result:after};
-      if(area.frame_stamp!==after.frame_stamp)return fail('capture_changed',`Screenshot validation changed (${captureChanges(area.frame_stamp,after.frame_stamp)}); request a fresh image`);
-      if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
-      let raster;
-      const image = await prepareScreenshot(native,area,after,params,pageDriver?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
-      checked = await guard(true);if (checked.handled) return checked;
-      const visual=raster?visualSnapshots.issue(writer,{document:area.document,navigation,frame_stamp:area.frame_stamp,
-        region:area.region,options,redactions:[...area.redactions,...after.redactions],device_pixel_ratio:area.device_pixel_ratio,
-        capture:{format:params.format||'png',max_width:params.max_width||1280,max_height:params.max_height||960,max_bytes:params.max_bytes||131072}},raster):null;
-      return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image,
-        ...(visual?{visual_reference:visual}:{})}};
+      return fail('capture_changed','The screenshot viewport did not settle within its bounded attempts');
     }
     if (command === "chooser") {
       const checked=await guard(true);if(checked.handled)return checked;
