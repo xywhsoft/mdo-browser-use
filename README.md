@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs
 python tools/native_probe.py
 python tools/native_frames_probe.py
 python tools/sdk_probe.py
@@ -73,8 +73,10 @@ that exceeded the default readiness bound into a passing measurement.
 `native_frames_probe.py` verifies the private native frame/session foundation:
 two loopback sites, real cross-process iframes, nested ancestry, isolated reads,
 stale document/view rejection and resource-limit recovery. It uses the same
-Home and one HTTP worker, and restores headless mode. This foundation is not yet
-wired into public model-facing observation, input, upload or screenshot routing.
+Home and one HTTP worker, and restores headless mode. It also checks the internal
+combined observer/locator with globally qualified references and ambiguity.
+These helpers are not yet wired into public model-facing observation, input,
+upload or screenshot routing.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

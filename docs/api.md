@@ -33,6 +33,18 @@ Public multi-frame observations, element/coordinate routing, frame uploads and
 cross-origin screenshot privacy remain in development. Existing public callers
 still use the documented same-origin path below.
 
+The internal `frame-reader.js` now combines one isolated local-frame runtime
+per document. It prevents duplicate same-origin traversal, namespaces element
+references by native frame/document and local runtime identity, and detects
+semantic ambiguity across frames. A loading/unavailable searched frame cannot
+produce a falsely unique match; a narrowed frame may still be read. Combined
+results revalidate the original root and relevant frame tree before delivery.
+Limits apply across the operation: 32 frames, 6,000 visited elements, 400
+returned elements, 32 KiB readable text and 256 KiB serialized metadata. The
+deadline and originating-action checkpoint are checked between bounded native
+calls. Coordinates remain frame-local; no public input should use them without
+the forthcoming parent geometry/hit-test and native frame-document guard.
+
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and

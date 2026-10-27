@@ -1521,3 +1521,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   these frame contexts is the next stage. Android and remaining full-goal
   lifecycle/OOM/transport/performance/package gates remain open. The single
   approximately 835 MiB deployment is restored headless; nothing is published.
+
+## D13b — combined isolated frame observations and exact reference resolution
+
+- Add an internal read-only coordinator over the native frame registry. Each
+  document runs a local-only DOM runtime, so same-origin descendants are not
+  copied again from their parent. Qualified references bind native frame/doc
+  and local runtime/element identities; child navigation cannot redirect one
+  frame's `e1` to another document's `e1`.
+- Semantic lookup proves uniqueness across searched frames, reports globally
+  distinct ambiguity candidates and supports narrowing by exact frame. Loading
+  or inaccessible frames prevent a false unique match. Revalidate root and
+  relevant tree identities before delivering a combined observation/location.
+- Apply aggregate limits for frames, nodes, elements, UTF-8 text and serialized
+  metadata; check one operation deadline and caller checkpoint between native
+  calls. Partial observations report their unavailable/budgeted frames. Strip
+  URL credentials and preserve the existing omission of form values.
+- Twelve adversarial coordinator cases pass; the complete sequential JS gate
+  now passes 110 cases. The actual WebView2 frame gate passes 54 assertions,
+  including unique combined traversal, cross-frame ambiguity, exact qualified
+  references, child/root invalidation, local node budgets and form privacy.
+- Strengthen hostile-page tests with the current runtime version and
+  nonconfigurable markers for both runtime modes. The native baseline passes
+  1,373 assertions; actual public C/JS UI passes 19 actions, four navigations and
+  five wait conditions. No new exception diagnostics or retained transfer
+  reservations. Contracts/deployed overlays match; same Home is headless.
+- These helpers are deliberately internal until native parent geometry, hit
+  testing and per-frame input guards are connected. Public observations/actions,
+  option/selection, upload and capture adapters still need that integration.
+  Earlier intermittent startup/download timing issues and the remaining full
+  platform/lifecycle/OOM/transport/performance/package gates remain open.

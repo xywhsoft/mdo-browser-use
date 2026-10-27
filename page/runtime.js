@@ -1,8 +1,9 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
-export function browserRuntime() {
-  const version = 8;
-  const marker = "__mdo_browser_use_runtime_v1";
+export function browserRuntime(configuration = {}) {
+  const version = 9;
+  const localFrame = configuration.local_frame === true;
+  const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
   const documentId = `d-${crypto.randomUUID()}`;
@@ -112,7 +113,8 @@ export function browserRuntime() {
     return item;
   }
   function scan(options = {}) {
-    const limit = Math.min(400, Math.max(1, Number(options.limit) || 200));
+    const limit = localFrame && options.limit === 0 ? 0 : Math.min(400, Math.max(1, Number(options.limit) || 200));
+    const nodeLimit = Math.min(6000, Math.max(1, Number(options._max_nodes) || 6000));
     const frames = [{ id: "f0", url: location.href, parent: null, dom: true }];
     const elements = [], text = [];
     let visited = 0, incomplete = false;
@@ -122,7 +124,8 @@ export function browserRuntime() {
       const walker = doc.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
       let element;
       while ((element = walker.nextNode())) {
-        if (++visited > 6000 || performance.now() - started > 100) { incomplete = true; return; }
+        if (visited >= nodeLimit || performance.now() - started > 100) { incomplete = true; return; }
+        visited++;
         if (["script", "style", "noscript", "template"].includes(element.localName)) continue;
         const shown = visible(element);
         if (shown && includeText && !element.children.length && !["input", "textarea", "select", "option"].includes(element.localName)) {
@@ -136,7 +139,7 @@ export function browserRuntime() {
           if (item.ref) elements.push(item); else incomplete = true;
         } else if (matched) incomplete = true;
         if ((shown || options._upload) && element.shadowRoot) walk(element.shadowRoot, frame, includeText);
-        if (shown && ["iframe", "frame"].includes(element.localName)) {
+        if (!localFrame && shown && ["iframe", "frame"].includes(element.localName)) {
           if (frames.length >= maxFrames) { incomplete = true; continue; }
           const id = frameIdentity(element);
           let child = null;
@@ -150,21 +153,24 @@ export function browserRuntime() {
     }
     // Locator scans need matching metadata, not a second readable-page copy.
     // Text clipping must not make an otherwise complete exact search fail.
-    walk(document, "f0", typeof options._match !== "function");
+    walk(document, "f0", typeof options._match !== "function" && options._include_text !== false);
     const readable = clip(text.join("\n"), Math.min(32768, Math.max(256, Number(options.max_bytes) || 16384)));
     return {
-      ok: true, document: documentId, url: location.href, title: document.title,
-      ready: document.readyState, text: readable.text, elements, frames,
+      ...describe(), text: readable.text, elements, frames,
       truncated: incomplete || readable.truncated, visited,
-      semantics: "dom-subset-v1",
-      viewport: { width: innerWidth, height: innerHeight, scroll_x: scrollX, scroll_y: scrollY,
-                  scale: visualViewport?.scale || 1, device_pixel_ratio: devicePixelRatio }
+      semantics: "dom-subset-v1"
     };
+  }
+  function describe() {
+    return {ok:true,document:documentId,url:location.href,title:document.title,ready:document.readyState,
+      viewport:{width:innerWidth,height:innerHeight,scroll_x:scrollX,scroll_y:scrollY,
+        scale:visualViewport?.scale||1,device_pixel_ratio:devicePixelRatio}};
   }
   function locate(options = {}) {
     if (options.document !== documentId) return fail("stale_document", "Observe the current document before acting");
     const target = options.target || {};
-    let candidates = [];
+    let candidates = [], visited = 0;
+    const measured = result => localFrame ? {...result,visited} : result;
     if (target.ref) {
       const row = refs.get(target.ref);
       if (!row || !row.element.isConnected || row.element.ownerDocument !== row.documentNode) {
@@ -193,17 +199,18 @@ export function browserRuntime() {
         if (target.text !== undefined && (normalize(element.textContent) !== target.text ||
           [...element.children].some(child => normalize(child.textContent) === target.text))) return false;
         return ["role", "name", "label", "placeholder", "testid", "css", "text"].some(key => target[key] !== undefined);
-      }, _upload: Boolean(options._upload) }); } catch { return fail("locator_invalid", "The target contains an invalid CSS selector"); }
-      if (snapshot.truncated) return fail("observation_incomplete", "Narrow the search in a fresh observation");
+      }, _upload: Boolean(options._upload), _max_nodes: options._max_nodes }); } catch { return fail("locator_invalid", "The target contains an invalid CSS selector"); }
+      visited = snapshot.visited;
+      if (snapshot.truncated) return measured(fail("observation_incomplete", "Narrow the search in a fresh observation"));
       candidates = snapshot.elements.map(item => refs.get(item.ref));
     }
     candidates = candidates.filter(row => visible(row.element) || options._upload && row.element.localName === "input" && row.element.type === "file");
-    if (!candidates.length) return fail("element_not_found", "No visible element matches the target");
-    if (candidates.length > 1) return fail("element_ambiguous", "More than one element matches", {
+    if (!candidates.length) return measured(fail("element_not_found", "No visible element matches the target"));
+    if (candidates.length > 1) return measured(fail("element_ambiguous", "More than one element matches", {
       candidates: candidates.slice(0, 8).map(row => inspect(row.element, row.frame))
-    });
+    }));
     const row = candidates[0], item = inspect(row.element, row.frame);
-    return { ok: true, document: documentId, element: item };
+    return measured({ ok: true, document: documentId, element: item });
   }
   function deepHit(doc, x, y) {
     let hit = doc.elementFromPoint(x, y);
@@ -461,7 +468,7 @@ export function browserRuntime() {
       return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode, pinUploadNode, clearFiles });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode, pinUploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

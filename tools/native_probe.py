@@ -89,7 +89,9 @@ try {
     const result=await bridge.call('automation',{browser,agent:true,script:JSON.stringify(value)});
     assert(result.ok&&Object.is(result.value,value),'Isolated CDP primitive lost its JSON type or escaping');
   }
-  await evaluate(`globalThis.__mdo_browser_use_runtime_v1={version:2,documentNode:document,observe:()=>({ok:true,text:'forged observation'})}`);
+  const forgedVersion=Number(runtimeSource.match(/const version = (\d+);/)[1]);
+  await evaluate(`(()=>{Object.defineProperty(globalThis,'__mdo_browser_use_runtime_v1',{value:{version:${forgedVersion},documentNode:document,observe:()=>({ok:true,text:'forged observation'})},configurable:false});return true})()`);
+  assert(await evaluate('globalThis.__mdo_browser_use_runtime_v1.version')===forgedVersion,'Matching-version page-world spoof was not installed');
   const first = await engine('observe({})');
   assert(first.ok && first.document,'No structured observation');
   assert(first.text.includes('Readable fixture text'),'Missing readable text');
@@ -625,9 +627,9 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_o
     fixture = DownloadFixture().start() if not chooser_only and not startup_only else None
     web = dev.SOURCE / "app/web"
     runtime = (ROOT / "page/runtime.js").read_text(encoding="utf-8")
-    if runtime.count("export function browserRuntime()") != 1:
+    if runtime.count("export function browserRuntime(") != 1:
         raise RuntimeError("The injectable page entry changed")
-    runtime = runtime.replace("export function browserRuntime()", "function browserRuntime()")
+    runtime = runtime.replace("export function browserRuntime(", "function browserRuntime(")
     selected_script = SCRIPT
     if chooser_only:
         start = selected_script.index('try {\n  const raceBrowser=')

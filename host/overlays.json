@@ -696,6 +696,10 @@
     {
       "source": "host/browser-workspace.inc.c",
       "target": "app/src/application/browser_use_workspace.inc.c"
+    },
+    {
+      "source": "host/frame-reader.js",
+      "target": "app/web/js/features/workbench/frame-reader.js"
     }
   ]
 }

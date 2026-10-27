@@ -13,8 +13,10 @@ def main():
     before={p.name:(p.stat().st_size,p.stat().st_mtime_ns) for p in (dev.ENV/'host').glob('crash_*')}
     try:
         runtime=(dev.ROOT/'page/runtime.js').read_text(encoding='utf-8')
+        if runtime.count('export function browserRuntime(')!=1:raise RuntimeError('Frame runtime export changed')
+        runtime=runtime.replace('export function browserRuntime(','function browserRuntime(')
         script=(dev.ROOT/'tools/native_frames_probe.js').read_text(encoding='utf-8')
-        for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime.replace('export function browserRuntime()','function browserRuntime()')}.items():
+        for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime}.items():
             if script.count(marker)!=1:raise RuntimeError('Frame probe placeholder changed')
             script=script.replace(marker,json.dumps(value).replace('<','\\u003c'))
         subprocess.run(['node','--input-type=module','--check'],input=script,text=True,capture_output=True,check=True,cwd=dev.ROOT)

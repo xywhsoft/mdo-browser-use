@@ -1,12 +1,17 @@
 """Loopback-only two-site frame fixture; synthetic content, one HTTP worker."""
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import threading
+import re
+from pathlib import Path
 from urllib.parse import urlsplit
 
 
 class FrameFixture:
     def __init__(self):
         fixture=self;self.counts={}
+        version=re.search(r'const version = (\d+);',(Path(__file__).resolve().parents[1]/'page/runtime.js').read_text(encoding='utf-8'))
+        if not version:raise RuntimeError('Cannot pin the fixture spoof to the current runtime version')
+        runtime_version=version.group(1)
         class Handler(BaseHTTPRequestHandler):
             def log_message(self,*args):pass
             def setup(self):
@@ -19,11 +24,11 @@ class FrameFixture:
                 except (BrokenPipeError,ConnectionResetError):pass
             def do_GET(self):
                 path=urlsplit(self.path).path;fixture.counts[path]=fixture.counts.get(path,0)+1
-                fake="<script>Object.defineProperty(window,'__mdo_browser_use_runtime_v1',{value:{version:8,documentNode:document,observe:()=>({forged:'forged-frame-observation'})}})</script>"
+                fake="<script>for(const marker of ['__mdo_browser_use_runtime_v1','__mdo_browser_use_local_frame_v1'])Object.defineProperty(window,marker,{value:{version:"+runtime_version+",documentNode:document,observe:()=>({forged:'forged-frame-observation'})},configurable:false})</script>"
                 if path=='/root':
-                    body=f'<h1>Root site A</h1><button>Root action</button><iframe id="same" name="same" src="/same"></iframe><iframe id="cross" name="cross" src="{fixture.other}/cross"></iframe>'
+                    body=f'<h1>Root site A</h1><button>Root action</button><button>Shared action</button><iframe id="same" name="same" src="/same"></iframe><iframe id="cross" name="cross" src="{fixture.other}/cross"></iframe>'
                 elif path=='/cross':
-                    body=f'<h1>Cross site B</h1><label>Cross field<input id="cross-input"></label><button>Cross action</button><iframe id="nested" name="nested" src="{fixture.origin}/nested"></iframe>'
+                    body=f'<h1>Cross site B</h1><label>Cross field<input id="cross-input" value="synthetic-private-value"></label><button>Cross action</button><button>Shared action</button><iframe id="nested" name="nested" src="{fixture.origin}/nested"></iframe>'
                 elif path=='/same':body='<h1>Same site child</h1><button>Same action</button>'
                 elif path=='/nested':body='<h1>Nested site A</h1><button>Nested action</button>'
                 elif path=='/cross-next':body='<h1>Cross site next document</h1><button>Next action</button>'
