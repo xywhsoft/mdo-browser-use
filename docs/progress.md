@@ -1629,3 +1629,17 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   regressions. Existing public C/JS UI passes 19 actions, four navigations and
   five waits. No new native diagnostics or retained transfer reservations;
   same Home restored headless. Multi-frame driver integration is separate work.
+
+## D13e2 — omit editable DOM values from observations
+
+- Exclude editable-region text from readable observations and fallback labels,
+  including noneditable chips nested inside an editing ancestor. Retain control
+  roles/references and explicit labels/placeholders. Bound composed-ancestry
+  inspection and fail closed on excessive depth; do not copy or clone editor
+  subtrees while extracting labels.
+- A real page fixture includes private editor text and a nested noneditable
+  span. The complete native gate passes 1,361 poll-inclusive assertions and
+  confirms neither value appears in the structured/readable result. The 122
+  sequential JS checks also pass; no new native exceptions or retained transfer
+  reservations. This does not claim arbitrary website content is private or
+  replace the documented screenshot masking policy.

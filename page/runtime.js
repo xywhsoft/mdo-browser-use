@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 11;
+  const version = 12;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -57,11 +57,20 @@ export function browserRuntime(configuration = {}) {
     return "";
   }
   const labelExcluded=new Set(['input','textarea','select','option','button','meter','output','progress','script','style','noscript','template']);
+  function editableText(element) {
+    let node=element;
+    for(let depth=0;node&&depth<256;depth++){
+      if(node.isContentEditable)return true;
+      node=node.assignedSlot||node.parentElement||node.getRootNode()?.host;
+    }
+    return Boolean(node); // An unbounded ancestry must not expose editor text.
+  }
   function labelText(element) {
     if(!element)return '';
+    if(editableText(element))return '';
     if(['input','textarea','select','option','meter','output','progress'].includes(element.localName))return '';
     const walker=element.ownerDocument.createTreeWalker(element,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT,
-      {acceptNode:node=>node.nodeType===1&&labelExcluded.has(node.localName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+      {acceptNode:node=>node.nodeType===1&&(labelExcluded.has(node.localName)||node.isContentEditable)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
     let node,text='',visited=0;
     while((node=walker.nextNode())&&visited++<512&&text.length<4096)if(node.nodeType===3)text+=node.nodeValue.slice(0,4096-text.length);
     return normalize(text);
@@ -82,7 +91,7 @@ export function browserRuntime(configuration = {}) {
       if (["submit", "reset", "button"].includes(element.type)) return normalize(element.value).slice(0, 512);
       return normalize(element.getAttribute("placeholder") || element.getAttribute("title") || "").slice(0, 512);
     }
-    if(['select','textarea'].includes(element.localName))return normalize(element.getAttribute('placeholder')||element.getAttribute('title')||'').slice(0,512);
+    if(['select','textarea'].includes(element.localName)||element.isContentEditable)return normalize(element.getAttribute('aria-placeholder')||element.getAttribute('placeholder')||element.getAttribute('title')||'').slice(0,512);
     return normalize(element.getAttribute("alt") || labelText(element) || element.getAttribute("title") || "").slice(0, 512);
   }
   function reference(element, frame) {
@@ -146,7 +155,7 @@ export function browserRuntime(configuration = {}) {
         visited++;
         if (["script", "style", "noscript", "template"].includes(element.localName)) continue;
         const shown = visible(element);
-        if (shown && includeText && !element.children.length && !["input", "textarea", "select", "option"].includes(element.localName)) {
+        if (shown && includeText && !element.children.length && !editableText(element) && !["input", "textarea", "select", "option"].includes(element.localName)) {
           const value = normalize(element.textContent); if (value) text.push(value.slice(0, 2048));
         }
         const fileInput = element.localName === "input" && element.type === "file";

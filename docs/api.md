@@ -11,6 +11,9 @@ secure-context-only `randomUUID`; see the [Crypto interface](https://w3c.github.
 Associated labels omit embedded controls/values, and focus verification follows
 same-origin/shadow ancestors. These remain bounded DOM-subset semantics, not a
 claim of complete browser accessibility-tree equivalence.
+Readable observations and fallback labels also omit editable DOM text,
+including noneditable descendants within an editing ancestor. Explicit control
+labels, roles and references remain available.
 
 ### Native frame routing foundation (private, not a public SDK operation)
 

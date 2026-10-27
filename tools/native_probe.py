@@ -98,6 +98,7 @@ try {
   assert(!first.text.includes('forged observation'),'Page-world runtime spoofed isolated observations');
   assert(!JSON.stringify(first).includes('fixture-private-value'),'Password value was exposed');
   assert(!JSON.stringify(first).includes('fixture-private-initial-note'),'A form value entered a label or readable observation');
+  assert(!JSON.stringify(first).includes('fixture-private-editable')&&!JSON.stringify(first).includes('fixture-private-chip'),'Editable values or nested noneditable chips entered page observations');
   assert(first.elements.some(e=>e.role==='combobox'&&e.name==='Wrapped choice'),'Wrapped select options polluted its accessible label');
   assert((await engine(`locate(${JSON.stringify({document:first.document,target:{label:'Wrapped choice'}})})`)).ok,'Wrapped select could not be located by its human label');
   assert(!JSON.stringify(first).includes('Hidden action'),'Hidden action was exposed');
