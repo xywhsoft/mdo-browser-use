@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_frame_capture.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
 python tools/native_probe.py
 python tools/native_frames_probe.py
 python tools/sdk_probe.py
@@ -85,8 +85,10 @@ Picker interception, target resolution and cancel are also verified in their
 own process, including takeover, child navigation and newly attached OOPIFs.
 It verifies nested pointer/HTML5 drags, root/OOPIF delivery in both directions,
 receipt cancellation and child navigation while a mouse button is held.
-The regular workbench keeps its current adapter until cross-frame capture
-privacy is migrated. The routed gate supplies controlled
+It also checks composed mask pixels, exact nested screenshot crops and image
+withholding when a child document changes between capture/privacy scans.
+The regular workbench keeps its current adapter pending public integration.
+The routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C

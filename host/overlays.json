@@ -709,6 +709,10 @@
     {
       "source": "host/frame-driver.js",
       "target": "app/web/js/features/workbench/frame-driver.js"
+    },
+    {
+      "source": "host/frame-capture.js",
+      "target": "app/web/js/features/workbench/frame-capture.js"
     }
   ]
 }

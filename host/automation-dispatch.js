@@ -162,6 +162,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (failure) return fail("capture_failed",String(failure.message||failure).slice(0,512));
       const after = await read("captureArea",{...options,document:area.document});
       if (!after.ok) return {handled:true,result:after};
+      if(area.frame_stamp!==after.frame_stamp)return fail('capture_changed','Frame documents or layout changed during screenshot capture; request a fresh image');
       if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
       const image = await prepareScreenshot(native,area,after,params);
       checked = await guard(true);if (checked.handled) return checked;

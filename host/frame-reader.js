@@ -144,7 +144,7 @@ export function createFrameReader({execute,checkpoint=async()=>{}}){
     return{ok:true,document:context.meta.document,...matches[0],visited};
   });
   const describe=guarded(async(options,scope)=>{
-    const context=await begin(options.document,scope);await revalidate(context,[context.root]);return context.meta;
+    const context=await begin(options.document,scope);await revalidate(context);return{...context.meta,frames:context.frames};
   });
   return Object.freeze({describe,observe,locate});
 }

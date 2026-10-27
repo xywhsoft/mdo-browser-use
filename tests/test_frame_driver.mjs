@@ -7,6 +7,7 @@ const reader=(await readFile(new URL('../host/frame-reader.js',import.meta.url),
   .replace("import {browserRuntime} from './automation-runtime.js';",'function browserRuntime(){}');
 const driver=(await readFile(new URL('../host/frame-driver.js',import.meta.url),'utf8'))
   .replace("import {browserRuntime} from './automation-runtime.js';",'function browserRuntime(){}')
+  .replace("import {prepareFrameCapture} from './frame-capture.js';",`import {prepareFrameCapture} from ${JSON.stringify(url(await readFile(new URL('../host/frame-capture.js',import.meta.url),'utf8')))};`)
   .replace("import {createFrameReader} from './frame-reader.js';",`import {createFrameReader} from ${JSON.stringify(url(reader))};`);
 const {createFrameDriver}=await import(url(driver));
 const guid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
@@ -30,6 +31,8 @@ function fixture(){
       await state.onRead?.({method:'upload_policy',rows});
       return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,value:state.parentInert?{ok:false,error:{code:'element_disabled'}}:{ok:true}};
     }
+    if(params.action==='capture_owner')return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,
+      value:{ok:true,owner:{document:doc,ref:'e9'},painted:true,content:{x:100,y:200,width:300,height:200},box:{x:100,y:200,width:300,height:200},scroll:{x:0,y:0},viewport:{width:800,height:600}}};
     if(params.action==='owner'){
       await state.onRead?.({method:'owner',rows});
       return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,
@@ -44,7 +47,9 @@ function fixture(){
     if(method==='optionList')value={ok:true,document,ref:'e1',frame:'f0',options:[{index:0,label:'First'}]};
     if(method==='uploadInfo')value={ok:true,document,element:{...element,role:'fileinput',hidden:true}};
     if(method==='selectOptions'){state.effect++;value={ok:true,document,dispatched:true,verified:true};}
-    if(method==='captureArea')value={ok:true,document,redactions:[{x:1,y:1,width:10,height:10}],region:{x:0,y:0,width:800,height:600}};
+    if(method==='captureArea')value={ok:true,document,visited:1,scroll:{x:0,y:0},viewport:{width:params.frame==='f0'?800:300,height:params.frame==='f0'?600:200},device_pixel_ratio:1,
+      redactions:params.frame==='f0'?[{x:1,y:1,width:10,height:10},{x:100,y:200,width:300,height:200,frame_ref:'e9'}]:[{x:30,y:30,width:10,height:10}],
+      region:options.mode==='element'?{x:20,y:20,width:50,height:40}:{x:0,y:0,width:params.frame==='f0'?800:300,height:params.frame==='f0'?600:200}};
     const custom=await state.onRead?.({method,options,value,rows});
     return custom||{ok:true,frame:params.frame,frame_document:params.document,value};
   }});
@@ -145,9 +150,9 @@ test('a native failure packet still checks authoritative cancellation before ret
   assert.equal(state.effect,1);
 });
 
-test('the driver rejects arbitrary methods and keeps cross-frame capture masking explicit',async()=>{
+test('the driver accepts only fixed methods and composes exact frame capture masks',async()=>{
   const {api,state}=fixture();assert.equal((await api.read('evaluate',{script:'forged'})).error.code,'frame_method_invalid');assert.equal(state.calls.length,0);
   assert.equal((await api.read('clearFiles',{})).error.code,'frame_method_invalid');assert.equal(state.effect,0);
-  assert.equal((await api.read('captureArea',{document:doc,target:{name:'Child'},mode:'element'})).error.code,'frame_capture_pending');
-  const root=await api.read('captureArea',{document:doc,mode:'viewport'});assert(root.ok);assert.equal(root.redactions.length,1);
+  const element=await api.read('captureArea',{document:doc,target:{name:'Child'},mode:'element'});assert(element.ok);assert.deepEqual(element.region,{x:120,y:220,width:50,height:40});assert.equal(element.redactions.length,1);
+  const root=await api.read('captureArea',{document:doc,mode:'viewport'});assert(root.ok);assert.equal(root.redactions.length,2);assert.equal(root.frame_masks.readable,2);
 });

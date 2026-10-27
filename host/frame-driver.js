@@ -1,5 +1,6 @@
 import {browserRuntime} from './automation-runtime.js';
 import {createFrameReader} from './frame-reader.js';
+import {prepareFrameCapture} from './frame-capture.js';
 
 const permitted=new Set(['observe','locate','prepare','verify','optionList','selectOptions','uploadInfo','chooserInfo','captureArea']);
 const mutations=new Set(['selectOptions']);
@@ -101,16 +102,11 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
         return{...target,document:options.document,element:{...target.element,frame:route.frame,ref:`r1|${route.frame}|${route.frame_document}|${meta.document}|${target.element.ref}`},
           native_target:{document:meta.document,ref:target.element.ref,frame_chain:chain}};
       }
-      if(method==='captureArea'&&!options.target){
-        const tree=await native('frames',{action:'list',agent:true}),root=tree.frames?.find(row=>row.id==='f0');
-        if(!tree.ok||!root||root.loading||!root.isolated)throw issue('frame_not_ready','The original root is not ready for capture preparation');
-        const route={frame:'f0',frame_document:root.document};
-        return await evaluate(route,'captureArea',options);
-      }
+      if(method==='captureArea')return await prepareFrameCapture({options,native,evaluate,
+        describe:args=>fromReader('describe',args),locate:args=>fromReader('locate',args)});
       const found=await fromReader('locate',{document:options.document,target:options.target,_upload:method==='uploadInfo'});
       if(!found.ok)return found;
       const route=found.route,localOptions={...options,document:route.document,target:{ref:route.ref}};
-      if(method==='captureArea'&&route.frame!=='f0')throw issue('frame_capture_pending','Cross-frame screenshot mask aggregation is not ready; retain the whole-view privacy mask');
       const local=await evaluate(route,method,localOptions);
       if(!local.ok)return local;
       if(local.document!==route.document||local.element&&local.element.ref!==route.ref||local.ref&&local.ref!==route.ref)

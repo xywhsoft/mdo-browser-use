@@ -149,10 +149,11 @@ try{
   assert((await call('state')).navigation===state.navigation,'Child-only navigation changed the top-level token and masked the frame guard');
   await rejectInput(chain);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
-  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null;
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
   const routedView={execute:async(command,params)=>{
     if(command==='input')inputRequests++;
     const result=await call(command,params);
+    if(command==='capture'&&afterCapture){const next=afterCapture;afterCapture=null;await next();}
     if(cancelDispatch&&command==='frames'&&params.script?.includes('({local_frame:true}).prepare('))cancelDispatch='cancelled';
     return result;
   }};
@@ -191,8 +192,29 @@ try{
   assert(waited.result.ok&&waited.result.matched&&waited.result.element.ref.startsWith('r1|'),'Routed wait did not resolve a qualified frame reference');
   const uploadTarget=await driver.read('uploadInfo',{document:page.result.document,target:{name:'Hidden nested upload'}});
   assert(uploadTarget.ok&&uploadTarget.element.hidden&&uploadTarget.native_target.frame_chain.length===3,'Hidden cross-frame upload preparation lost its native pins');
+  const captureProof=await evaluate(replacementLeaf,`(()=>{
+    document.querySelector('#field').style.background='rgb(250,20,150)';
+    const proof=document.createElement('div');proof.id='capture-proof';proof.role='img';proof.setAttribute('aria-label','Frame screenshot proof');proof.style.cssText='position:absolute;left:280px;top:10px;width:40px;height:30px;background:rgb(20,180,70)';document.body.append(proof);return true;
+  })()`);assert(captureProof.ok&&captureProof.value,'Nested screenshot pixel fixture did not initialize');
+  const fieldPoint=await driver.read('prepare',{document:page.result.document,target:{name:'Nested field'},op:'click',scroll:false});
+  const proofPoint=await driver.read('prepare',{document:page.result.document,target:{css:'#capture-proof'},op:'click',scroll:false});
+  assert(fieldPoint.ok&&proofPoint.ok,'Nested screenshot sample coordinates could not be pinned');
   const capture=await dispatch('capture',{document:page.result.document,max_width:600,max_height:400});
   assert(capture.result.ok&&capture.result.image.media_type==='image/png'&&capture.result.redaction==='form-controls-and-opaque-content','Root capture lost its existing privacy mask');
+  const sampleImage=async(result,points)=>{
+    const bitmap=await createImageBitmap(new Blob([Uint8Array.from(atob(result.image.base64),c=>c.charCodeAt(0))],{type:'image/png'}));
+    try{const canvas=document.createElement('canvas');canvas.width=bitmap.width;canvas.height=bitmap.height;const context=canvas.getContext('2d');context.drawImage(bitmap,0,0);
+      return points.map(point=>{const x=Math.floor((point.x-result.region.x)*canvas.width/result.region.width),y=Math.floor((point.y-result.region.y)*canvas.height/result.region.height);return[...context.getImageData(x,y,1,1).data].slice(0,3);});
+    }finally{bitmap.close();}
+  };
+  const screenshotPixels=await sampleImage(capture.result,[proofPoint.point,fieldPoint.point]);
+  geometryEvidence.capturePixels=screenshotPixels;
+  assert(screenshotPixels[0].every((value,index)=>value===[20,180,70][index]),'Readable nested frame pixels remained under the whole-iframe opaque mask');
+  assert(screenshotPixels[1].every(value=>value===32),'Nested private input pixels were exposed after frame composition');
+  const nestedImage=await dispatch('capture',{mode:'element',document:page.result.document,target:{css:'#capture-proof'},max_width:100,max_height:100});
+  geometryEvidence.nestedCapture={ok:nestedImage.result.ok,error:nestedImage.result.error,region:nestedImage.result.region};
+  assert(nestedImage.result.ok&&nestedImage.result.region.width>=40&&nestedImage.result.region.width<=42&&nestedImage.result.region.height>=30&&nestedImage.result.region.height<=32,'Nested element screenshot was not cropped through its original ancestors');
+  assert((await sampleImage(nestedImage.result,[proofPoint.point]))[0].every((value,index)=>value===[20,180,70][index]),'Nested element crop sampled the wrong frame pixels');
   const beforeCancelledInput=inputRequests;cancelDispatch=true;
   const cancelled=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'}});
   assert(!cancelled.result.ok&&cancelled.result.error.code==='cancelled'&&!cancelled.result.error.effect_may_have_occurred&&inputRequests===beforeCancelledInput,'An internal frame checkpoint was swallowed and allowed input');
@@ -374,6 +396,10 @@ try{
   assert(unsupportedCapture.ok&&!unsupportedCapture.value.ok&&unsupportedCapture.value.error.code==='unsupported_geometry'&&unsupportedCapture.value.owner.ref===rootMasks[0].frame_ref,'Unsupported capture geometry lost the exact opaque-mask identity');
   await call('evaluate',{script:`(()=>{document.querySelector('#outer').style.transform='none';return true})()`});
   const oldCapture=await captureOwner(newLeaf);assert(!oldCapture.ok&&oldCapture.error.code==='stale_frame','A capture owner accepted an earlier child document');
+  stage='capture-document-change';afterCapture=()=>advanceLeaf('after-screenshot');
+  const changedImage=await dispatch('capture',{document:page.result.document,max_width:500,max_height:400,timeout_ms:15000});
+  geometryEvidence.changedImage={ok:changedImage.result.ok,error:changedImage.result.error,hasImage:!!changedImage.result.image};
+  assert(!changedImage.result.ok&&changedImage.result.error.code==='capture_changed'&&!changedImage.result.image,'Child navigation between screenshot privacy scans returned an image with mismatched document masks');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
@@ -383,7 +409,8 @@ try{
     inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true,
     nested_pointer_drag:true,nested_html5_drag:true,cross_document_html5_drag_both_directions:true,frame_drag_cancellation_releases_mouse:true,frame_drag_pre_dispatch_guard:true,
     child_navigation_stops_drag:true,input_recovers_after_interrupted_frame_drag:true,
-    exact_iframe_mask_bindings:true,local_capture_does_not_enter_children:true,capture_owner_fractional_geometry:true,inert_capture_owner_preserved:true};
+    exact_iframe_mask_bindings:true,local_capture_does_not_enter_children:true,capture_owner_fractional_geometry:true,inert_capture_owner_preserved:true,
+    cross_frame_capture_pixels:true,nested_input_pixels_masked:true,nested_element_image_crop:true,changed_frame_image_withheld:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

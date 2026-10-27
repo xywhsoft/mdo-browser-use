@@ -1828,3 +1828,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   mask or enable element screenshots through child frames. Next aggregate
   readable-frame masks with clipping, unchanged-document/layout checks and
   opaque fallback, then enable and verify the normal public C/JS/managed path.
+
+## S3 — compose exact cross-frame privacy masks and element images
+
+- Add a bounded frame capture coordinator. Resolve masks in each local world,
+  replace only the opaque mask bearing its real native owner reference/document,
+  clip at each child viewport/content box and translate fractional CSS coordinates
+  into the root document. Share a 6,000-node scan budget and a 256-mask result
+  limit; unreadable/budget-limited/unsupported child content stays opaque.
+- Crop nested element images through the same ancestry. Compare owner boxes with
+  their original masks, validate scroll/viewport/DPR, and revalidate the frame
+  tree. Before/after capture stamps include documents and layout; a child change
+  withholds the image even when top-level navigation/region are unchanged. Caller
+  cancellation still wins over an unreadable-frame fallback. No scripts or
+  protocol IDs are accepted from the model.
+- Seven coordinator regressions cover fractional nested clipping, element crops,
+  wrong/missing owner identity despite identical rectangles, opaque transforms,
+  unreadable/budget fallback, cancellation, changed scroll/documents, DPR and
+  aggregate mask limits. Full sequential JS gate: 143 pass. Python: 103 total,
+  101 pass/two Windows privilege skips.
+- The actual frame gate passes 181 checks, including visible unmasked green
+  pixels in a nested OOPIF, its private input pixels still covered, an exact
+  nested element crop, and a child navigation deliberately inserted between
+  native capture and the final mask scan returning no image. No new native
+  diagnostics or retained transfer reservations. Last unchanged native baseline:
+  1,383 poll-inclusive checks; normal public frame activation is next.
+- The normal workbench still uses the legacy adapter in this commit. Strict
+  inventory/readiness is retained; incomplete process attachment can return a
+  bounded readiness error. Public C/JS/managed frame integration, Android,
+  vision, lifecycle/OOM, network/performance and final packaging remain active.

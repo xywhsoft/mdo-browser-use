@@ -100,7 +100,11 @@ be queried without replay and retain website bytes until confirmed release.
 Hidden uploads also check real parent iframe owners for composed `inert`
 ancestry before source reads and on post-seal target revalidation. Visibility
 alone does not disable a hidden file input. The normal workbench still uses its
-existing adapter: cross-frame screenshot masking remains before activation.
+existing adapter pending its normal public integration gate. The internal
+capture coordinator now composes exact local masks through native owners and
+clips nested element screenshots; unsupported/unreadable frames remain opaque.
+Before/after frame/layout stamps withhold a captured image if its child
+documents changed while the top-level navigation stayed the same.
 The internal drag adapter already sends source and destination document chains,
 fences both throughout the native gesture, and drains mouse/interception state
 on cancellation or child navigation. Actual tests cover nested pointer/HTML5
@@ -335,8 +339,10 @@ Internal local-frame capture now labels opaque iframe masks with an exact local
 element reference and reports node/viewport/scroll usage. Native `capture_owner`
 resolves that same node in its parent isolated world and returns fractional
 content geometry plus the owner document/reference, including unsupported
-geometry responses. This infrastructure does not itself unmask a child frame;
-the normal adapter still waits for mask composition and its public regression.
+geometry responses. The internal coordinator uses those bindings for safe mask
+composition. Its real pixel gate covers readable nested content, hidden input
+values, exact nested crops and child-navigation withholding; the normal adapter
+still waits for its public C/JS/managed integration regression.
 
 ## JavaScript dialogs and human control
 
