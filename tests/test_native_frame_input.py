@@ -20,6 +20,12 @@ class NativeFrameInputTests(unittest.TestCase):
 #include <string>
 #include <functional>
 #include <utility>
+#include <new>
+#include <cstdlib>
+static bool refuseAlloc=false;
+void* operator new(std::size_t size){if(refuseAlloc)throw std::bad_alloc();if(auto value=std::malloc(size))return value;throw std::bad_alloc();}
+void operator delete(void* value)noexcept{std::free(value);}
+void operator delete(void* value,std::size_t)noexcept{std::free(value);}
 using UINT64=unsigned long long;
 struct xb_frame_node{std::string raw,parent,id,document,session;bool loading=false;};
 struct xb_frame_session{bool ready=true;std::string error;};
@@ -45,9 +51,9 @@ int main(){
  state->nodes["parent"].loading=true;if(xb_input_frames_live(view,pins))return 3;state->nodes["parent"].loading=false;
  state->sessions["child-session"].ready=false;if(xb_input_frames_live(view,pins))return 4;state->sessions["child-session"].ready=true;
  state->error="frame_limit";if(xb_input_frames_live(view,pins))return 9;state->error.clear();
- auto run=[&](std::vector<xb_input_step> steps,xb_input_frame_guard guard){
+ auto run=[&](std::vector<xb_input_step> steps,xb_input_frame_guard guard,xb_input_frame_snapshot snapshot={}){
    auto host=std::make_shared<xb_host>();auto sequence=std::make_shared<xb_input_sequence>();sequence->host=host;sequence->view=view;
-   sequence->id="fixture";sequence->navigation=1;sequence->frameGuard=guard;sequence->steps=steps;sent.clear();sequence->run();return host;
+   sequence->id="fixture";sequence->navigation=1;sequence->frameGuard=guard;sequence->frameSnapshot=snapshot;sequence->steps=steps;sent.clear();sequence->run();return host;
  };
  between=[&](const std::string& step){if(step=="move")state->nodes["child"].document="new-child";};
  auto rejected=run({{L"mouse","move"},{L"mouse","press",false,true},{L"mouse","release",true}},pins);
@@ -71,6 +77,28 @@ int main(){
  state->nodes["child"].document="d2";between={};failPress=true;
  auto unknown=run({{L"mouse","press",false,true},{L"mouse","release",true}},pins);
  if(sent!=std::vector<std::string>{"press","release"}||unknown->error.empty())return 12;
+ failPress=false;between={};
+ xb_input_frame_snapshot snapshot={{"f2","d2","f1"},{"f1","d1","f0"},{"f0","d0",""}};
+ if(!xb_input_snapshot_live(view,snapshot))return 13;
+ refuseAlloc=true;bool noAllocation=false;try{noAllocation=xb_input_snapshot_live(view,snapshot);}catch(...){refuseAlloc=false;return 22;}refuseAlloc=false;
+ if(!noAllocation)return 23;
+ auto duplicate=snapshot;duplicate[1]=duplicate[0];if(xb_input_snapshot_live(view,duplicate))return 14;
+ auto reparent=snapshot;reparent[0].parent="f0";if(xb_input_snapshot_live(view,reparent))return 15;
+ auto missing=snapshot;missing.pop_back();if(xb_input_snapshot_live(view,missing))return 16;
+ state->nodes["child"].document="changed";if(xb_input_snapshot_live(view,snapshot))return 17;state->nodes["child"].document="d2";
+ between=[&](const std::string& step){if(step=="move")state->nodes["child"].document="changed";};
+ auto visualBefore=run({{L"mouse","move"},{L"mouse","press",false,true},{L"mouse","release",true}},{{"f0","d0"}},snapshot);
+ if(sent!=std::vector<std::string>{"move"}||visualBefore->error.empty()||visualBefore->replies!=1)return 18;
+ state->nodes["child"].document="d2";
+ between=[&](const std::string& step){if(step=="press")state->nodes["parent"].document="changed";};
+ auto visualHeld=run({{L"mouse","press",false,true},{L"mouse","release",true},{L"mouse","press",false,true},{L"mouse","release",true}},{{"f0","d0"}},snapshot);
+ if(sent!=std::vector<std::string>{"press","release"}||visualHeld->error.empty()||visualHeld->replies!=1)return 19;
+ state->nodes["parent"].document="d1";
+ between=[&](const std::string& step){if(step=="move")state->nodes["extra"]={"extra","root","extra","extra-doc","",false};};
+ auto extra=run({{L"mouse","move"},{L"mouse","press",false,true},{L"mouse","release",true}},{{"f0","d0"}},snapshot);
+ if(sent!=std::vector<std::string>{"move"}||extra->error.empty())return 20;state->nodes.erase("extra");between={};
+ auto visualLive=run({{L"mouse","move"},{L"mouse","press",false,true},{L"mouse","release",true}},{{"f0","d0"}},snapshot);
+ if(sent.size()!=3||!visualLive->error.empty())return 21;
  return 0;
 }
 '''

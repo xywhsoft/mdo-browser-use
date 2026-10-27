@@ -69,6 +69,34 @@ static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared
 
 // BROWSER_FRAME_INPUT_GUARD_BEGIN
 using xb_input_frame_guard=std::vector<std::pair<std::string,std::string>>;
+struct xb_input_frame_pin{std::string frame,document,parent;};
+using xb_input_frame_snapshot=std::vector<xb_input_frame_pin>;
+static bool xb_input_snapshot_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_snapshot& snapshot){
+  if(snapshot.empty())return true;
+  auto state=view->frames;if(!state||state->closed||!state->error.empty()||snapshot.size()>32||state->nodes.size()!=snapshot.size())return false;
+  bool root=false;
+  for(size_t index=0;index<snapshot.size();index++){
+    const auto& pin=snapshot[index];
+    for(size_t previous=0;previous<index;previous++)if(snapshot[previous].frame==pin.frame)return false;
+    const xb_frame_node* node=nullptr;for(const auto& item:state->nodes)if(item.second.id==pin.frame){node=&item.second;break;}
+    if(!node||node->document!=pin.document||node->loading)return false;
+    if(!node->session.empty()){
+      auto session=state->sessions.find(node->session);
+      if(session==state->sessions.end()||!session->second.ready||!session->second.error.empty())return false;
+    }
+    if(pin.frame=="f0"){
+      if(node->raw!=state->root||!node->parent.empty()||!pin.parent.empty())return false;root=true;
+    }else{
+      auto parent=state->nodes.find(node->parent);if(parent==state->nodes.end()||parent->second.id!=pin.parent)return false;
+    }
+    const auto* ancestor=node;unsigned depth=0;
+    for(;ancestor->id!="f0"&&depth<32;depth++){
+      auto parent=state->nodes.find(ancestor->parent);if(parent==state->nodes.end())return false;ancestor=&parent->second;
+    }
+    if(ancestor->id!="f0"||depth>=32)return false;
+  }
+  return root;
+}
 static bool xb_input_frames_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_guard& guard){
   if(guard.empty())return true;
   auto state=view->frames;if(!state||state->closed||!state->error.empty()||guard.size()>32)return false;
@@ -87,7 +115,7 @@ static bool xb_input_frames_live(const std::shared_ptr<xb_view>& view,const xb_i
 struct xb_input_step{const wchar_t* method;std::string params;bool release=false,press=false;};
 struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::string id,error;
-  UINT64 navigation;std::vector<xb_input_step> steps;xb_input_frame_guard frameGuard;size_t index=0;bool replied=false,pressed=false;
+  UINT64 navigation;std::vector<xb_input_step> steps;xb_input_frame_guard frameGuard;xb_input_frame_snapshot frameSnapshot;size_t index=0;bool replied=false,pressed=false;
   void boundary(const char* kind){
     if(replied)return;replied=true;
     error="A browser interaction checkpoint interrupted input; inspect the page before continuing";
@@ -100,6 +128,7 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
     const auto step=steps[index++];
     if(!xb_automation_live(host,view,navigation)&&error.empty())error="Browser control or document changed; verify the action result";
     if(!xb_input_frames_live(view,frameGuard)&&error.empty())error="A frame document changed; inspect the page before further input";
+    if(!xb_input_snapshot_live(view,frameSnapshot)&&error.empty())error="The visual frame snapshot changed; inspect a fresh image before further input";
     // Release an admitted press even after navigation/takeover, but never send
     // an unpaired up event for a press that the interruption already skipped.
     if(!error.empty()&&!step.release){run();return;}
@@ -136,6 +165,20 @@ static std::string xb_input_frame_key(const xb_input_frame_guard& guard){
 static bool xb_input_pin_frames(const std::shared_ptr<xb_view>& view,const std::string& json,xb_input_frame_guard& guard){
   return xb_input_read_frames(json,guard)&&xb_input_frames_live(view,guard);
 }
+static bool xb_input_read_snapshot(const std::string& json,xb_input_frame_snapshot& snapshot){
+  const char* raw=nullptr;size_t size=0;snapshot.clear();
+  webview::detail::json_parse_c(json.c_str(),json.size(),"frame_snapshot",14,&raw,&size);
+  if(!raw)return true;if(size<2||size>12288||raw[0]!='['||raw[size-1]!=']')return false;
+  const std::string array(raw,size);
+  for(size_t index=0;index<33;index++){
+    const char* row=nullptr;size_t length=0;webview::detail::json_parse_c(array.c_str(),array.size(),nullptr,index,&row,&length);
+    if(!row)break;if(index==32||!length||row[0]!='{')return false;
+    const std::string item(row,length);const auto frame=xb_get(item,"frame"),document=xb_get(item,"document"),parent=xb_get(item,"parent");
+    if(frame.empty()||frame.size()>64||document.empty()||document.size()>64||parent.size()>64)return false;
+    snapshot.push_back({frame,document,parent});
+  }
+  return !snapshot.empty();
+}
 static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                      const std::string& id,const std::string& json){
   if(xb_get(json,"navigation")!=std::to_string(view->navigation)||view->manual||view->closed){host->reply(id,"","Stale document or manual control");return;}
@@ -144,6 +187,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
   if(!view->input.expired()||view->drag||view->uploadBusy||xb_chooser_blocked(view)){host->reply(id,"","A native input or file picker is still completing; inspect the page before another action");return;}
   auto sequence=std::make_shared<xb_input_sequence>();sequence->host=host;sequence->view=view;sequence->id=id;sequence->navigation=view->navigation;
   if(!xb_input_pin_frames(view,json,sequence->frameGuard)){host->reply(id,"","Invalid or stale frame document chain; observe the page before input");return;}
+  if(!xb_input_read_snapshot(json,sequence->frameSnapshot)||!xb_input_snapshot_live(view,sequence->frameSnapshot)){host->reply(id,"","Invalid or stale visual frame snapshot; capture a fresh image before input");return;}
   const auto kind=xb_get(json,"kind");
   if(kind=="click"||kind=="move"||kind=="wheel"){
     double x=-1,y=-1;try{x=std::stod(xb_get(json,"x"));y=std::stod(xb_get(json,"y"));}catch(...){}

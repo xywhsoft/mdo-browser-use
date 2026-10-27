@@ -22,6 +22,7 @@ try{
   await call('create',{url:origin+'/root',visible:true,bounds:{x:0,y:50,width:1000,height:650,scale:1}});
   await until(async()=>!(await call('state')).loading,'Root page did not load');
   assert((await call('state')).frame_automation===true,'The native view did not advertise its runtime-supported frame automation');
+  assert((await call('state')).frame_snapshot_input===true,'The native view did not advertise visual frame-snapshot input fences');
   stage='inventory';let tree;
   await until(async()=>{tree=await frames();return tree.ok&&tree.complete&&tree.frames.length===4&&!tree.frames.some(row=>row.loading);},'Frame inventory did not become complete');
   const root=tree.frames.find(row=>row.id==='f0'),same=tree.frames.find(row=>row.url===origin+'/same'),cross=tree.frames.find(row=>row.url.endsWith('/cross')),nested=tree.frames.find(row=>row.url.endsWith('/nested'));
@@ -112,7 +113,8 @@ try{
   const expected=await call('evaluate',{script:`(()=>{const frame=document.querySelector('#outer'),box=frame.getBoundingClientRect(),style=getComputedStyle(frame);return{x:box.x+parseFloat(style.borderLeftWidth)+parseFloat(style.paddingLeft),y:box.y+parseFloat(style.borderTopWidth)+parseFloat(style.paddingTop)}})()`});
   assert(expected.ok&&Math.abs(expected.value.x-outerMapping.value.content.x)<.01&&Math.abs(expected.value.y-outerMapping.value.content.y)<.01,'Fractional iframe borders/padding lost coordinate precision');
   const chain=[leaf,outer,geometryRoot].map(frame=>({frame:frame.id,document:frame.document}));
-  const state=await call('state'),clicked=await call('input',{agent:true,kind:'click',navigation:state.navigation,frame_chain:chain,...outerMapping.value.point});
+  const snapshot=geometryTree.frames.map(frame=>({frame:frame.id,document:frame.document,parent:frame.parent||''}));
+  const state=await call('state'),clicked=await call('input',{agent:true,kind:'click',navigation:state.navigation,frame_chain:chain,frame_snapshot:snapshot,...outerMapping.value.point});
   assert(clicked.accepted&&clicked.trusted_input,'Mapped nested point did not dispatch native input');
   geometryEvidence={prepared,innerMapping,outerMapping,clicked};let effect;
   for(let index=0;index<75;index++){
@@ -142,6 +144,12 @@ try{
   };
   for(const invalid of [[],null,[null],'raw-protocol-id',chain.slice(0,2),[chain[1],chain[0],chain[2]],
       [{...chain[0],document:'fd-foreign'},...chain.slice(1)],Array.from({length:33},()=>chain[2])])await rejectInput(invalid);
+  const rejectSnapshot=async(frame_snapshot)=>{
+    let denied=false;try{await call('input',{agent:true,kind:'move',navigation:state.navigation,frame_snapshot,...outerMapping.value.point});}catch{denied=true;}
+    assert(denied,'Invalid or stale visual frame snapshot accepted input');
+  };
+  for(const invalid of [[],snapshot.slice(1),[snapshot[0],snapshot[0],snapshot[2]],snapshot.map(row=>row.frame===leaf.id?{...row,document:'fd-foreign'}:row),
+    snapshot.map(row=>row.frame===leaf.id?{...row,parent:'f0'}:row),'invalid'])await rejectSnapshot(invalid);
   assert((await evaluate(leaf,'Number(document.body.dataset.geometryClicks)')).value===1,'Rejected native frame chains dispatched an extra click');
   await call('evaluate',{script:`(()=>{document.querySelector('#outer').style.marginLeft='80px';return true})()`});
   await evaluate(outer,`document.querySelector('#inner').src=${JSON.stringify(origin+'/geometry-leaf?next=1')};true`);
@@ -149,6 +157,7 @@ try{
   await until(async()=>{const tree=await frames();replacementLeaf=tree.frames?.find(row=>row.url===origin+'/geometry-leaf?next=1');return tree.ok&&replacementLeaf&&!replacementLeaf.loading;},'Child-only input guard fixture did not navigate');
   assert((await call('state')).navigation===state.navigation,'Child-only navigation changed the top-level token and masked the frame guard');
   await rejectInput(chain);
+  await rejectSnapshot(snapshot);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
   stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
   const routedView={execute:async(command,params)=>{
@@ -404,7 +413,7 @@ try{
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
-    routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,
+    routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,visual_frame_snapshot_guard:true,
     framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true,
     frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true,
     inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true,

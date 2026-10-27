@@ -13,7 +13,7 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestone: V0 adds bounded completed-image references in the normal Windows
+Latest verified milestone: V1 adds native complete-frame input fences in the normal Windows
 workbench. Android, vision coordinate input and final
 lifecycle/performance/package gates remain active; this is not a release.
 
@@ -1942,3 +1942,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Contracts and deployed overlays match. The same Home/deployment is reused;
   no native rebuild, new runtime dependency or model call. Next add exact native
   frame-snapshot input fences and scene/point validation before coordinate input.
+
+## V1 — fence native input against the complete captured frame tree
+
+- Add the private `frame_snapshot` input proof and explicit native capability.
+  Admission and every input step require the exact bounded set of native
+  documents, original parents, ready sessions and ancestry reaching `f0`.
+  Duplicates, missing/new frames, foreign documents, reparenting, loading or
+  detachment refuse delivery. Legacy trusted-native and DOM calls without this
+  field keep their existing chain behavior; no public coordinate API yet.
+- Between steps the snapshot guard performs no allocation. Compile the actual
+  guard with allocation deliberately refused to verify this path. Further
+  actual-source tests change a child after mouse move, a parent after press,
+  and add another frame mid-sequence: subsequent presses stop, admitted release
+  still runs once, and an interrupted double-click never sends its second press.
+- The real native frame gate passes 190 checks, adding valid snapshot input,
+  malformed/duplicate/missing/foreign/reparented snapshots and rejection after
+  child-only navigation while the root navigation token stays unchanged.
+  The unchanged browser baseline passes 1,368 poll-inclusive checks, with no
+  native exception diagnostics and zero remaining upload/download reservations.
+- Python: 105 total, 103 pass/two Windows symlink privilege skips. Last unchanged
+  JS baseline: 151 pass. Deployed overlays, native input fragment and final
+  binary hash receipts match. One native source/object tree and Home are reused;
+  no model calls. Next wire scene/coordinate validation to the shared action API.
