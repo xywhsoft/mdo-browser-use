@@ -54,4 +54,20 @@ class StreamScopeTests(unittest.TestCase):
         eof=dev.call('stream.read',{'handle':self.handle,'limit':64},self.owner)
         self.assertTrue(eof['eof']);self.assertEqual(eof['bytes'],0)
 
+    def test_wrapped_ring_and_acknowledgements_match_exact_committed_bytes(self):
+        dev.call('stream.read',{'handle':self.handle,'limit':64},self.owner)
+        first=bytes(range(64));second=bytes(range(255,239,-1))
+        written=dev.call('stream.write',{'handle':self.handle,'base64':base64.b64encode(first).decode()},self.owner)
+        self.assertEqual(written['written'],64);self.assertEqual(written['buffered'],64)
+        read=dev.call('stream.read',{'handle':self.handle,'limit':16},self.owner)
+        self.assertEqual(base64.b64decode(read['base64']),first[:16]);self.assertEqual(read['buffered'],48)
+        dev.call('stream.write',{'handle':self.handle,'base64':base64.b64encode(second).decode()},self.owner)
+        closed=dev.call('stream.close',{'handle':self.handle},self.owner)
+        self.assertTrue(closed['closed']);self.assertFalse(closed['eof'])
+        drained=dev.call('stream.read',{'handle':self.handle,'limit':64},self.owner)
+        self.assertEqual(base64.b64decode(drained['base64']),first[16:]+second)
+        self.assertEqual(drained['bytes'],64);self.assertEqual(drained['buffered'],0);self.assertTrue(drained['eof'])
+        empty=dev.call('stream.read',{'handle':self.handle,'limit':64},self.owner)
+        self.assertEqual(empty['base64'],'');self.assertEqual(empty['bytes'],0);self.assertTrue(empty['eof'])
+
 if __name__=='__main__':unittest.main()

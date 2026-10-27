@@ -515,6 +515,14 @@ subtask returns `context_mismatch` before reading, writing, closing or releasing
 Handles remain ephemeral across application restart. Capacity, backpressure and
 explicit EOF behavior are unchanged; bytes are not model results.
 
+Inside the stream service, read/write/close/release acknowledgements are fully
+prepared before committing byte/EOF/storage changes. A result-allocation
+failure returns `sdk_stream_result_failed` without consuming or appending
+bytes. A failed open acknowledgement also frees its newly allocated slot.
+This does not make a lost HTTP reply safe to replay: a producer that loses its
+write acknowledgement must stop/cancel that receive operation and retain the
+original download instead of blindly resending a chunk.
+
 Local UI/RPC context reconstruction preserves validated `namespace` and `member`
 strings (at most 512 UTF-8 bytes, without control characters). New workbench
 records also retain the original `workspace`. A context supplied by the host

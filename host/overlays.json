@@ -503,6 +503,16 @@
       "path": "app/src/application/workbench.c",
       "before": "    SdkPut(V,\"session\",C->SessionId);SdkPut(V,\"run\",C->RunId);return V;",
       "after": "    SdkPut(V,\"session\",C->SessionId);SdkPut(V,\"run\",C->RunId);SdkPut(V,\"workspace\",C->Workspace);SdkPut(V,\"namespace\",C->Namespace);SdkPut(V,\"member\",C->MemberId);return V;"
+    },
+    {
+      "path": "app/src/application/streams.c",
+      "before": "static xvalue* SdkStreamInfo(const SdkStream* S){xvalue* R=xrtValueObject();SdkPut(R,\"handle\",S->Id);SdkPutUInt(R,\"buffered\",S->Size);SdkPutUInt(R,\"capacity\",S->Capacity);xrtValueObjectSetNew(R,XRT_STR_LITERAL(\"closed\"),xrtValueBool(S->Closed));xrtValueObjectSetNew(R,XRT_STR_LITERAL(\"eof\"),xrtValueBool(S->Closed&&!S->Size));return R;}\n",
+      "after": "#include \"browser_use_stream_exchange.inc.c\"\n"
+    },
+    {
+      "path": "app/src/application/streams.c",
+      "before": "        if(Ready){\n            if(Read){size_t Count=S->Size<(size_t)Limit?S->Size:(size_t)Limit;unsigned char Chunk[16384];\n                for(size_t i=0;i<Count;i++){size_t At=(S->Start+i)%S->Capacity;Chunk[i]=S->Bytes[At];S->Bytes[At]=0;}S->Start=(S->Start+Count)%S->Capacity;S->Size-=Count;\n                *R=SdkStreamInfo(S);SdkByteValue(*R,Chunk,Count);xrtSecureZero(Chunk,Count);\n            }else if(Write){for(size_t i=0;i<Bytes;i++)S->Bytes[(S->Start+S->Size+i)%S->Capacity]=Input[i];S->Size+=Bytes;*R=SdkStreamInfo(S);SdkPutUInt(*R,\"written\",Bytes);}\n            else if(!strcmp(Method,\"stream.release\")){SdkStreamFree(S);*R=xrtValueObject();}\n            else {if(!strcmp(Method,\"stream.close\"))S->Closed=true;*R=SdkStreamInfo(S);}\n            Ok=*R!=NULL;xrtMutexUnlock(SdkStreams.Lock);break;\n        }\n",
+      "after": "        if(Ready){\n            Ok=BuStreamExchange(S,Method,Read,Write,Input,Bytes,(size_t)Limit,R,E);\n            if(!Ok&&Open)SdkStreamFree(S);\n            xrtMutexUnlock(SdkStreams.Lock);break;\n        }\n"
     }
   ],
   "files": [
@@ -577,6 +587,10 @@
     {
       "source": "host/stream-scope.inc.c",
       "target": "app/src/application/browser_use_stream_scope.inc.c"
+    },
+    {
+      "source": "host/stream-exchange.inc.c",
+      "target": "app/src/application/browser_use_stream_exchange.inc.c"
     }
   ]
 }

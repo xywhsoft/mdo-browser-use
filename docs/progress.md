@@ -1224,3 +1224,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   scoped streaming consumer, durable partial-file manifest and recovery/quota
   handling, shared save tool/API, visible controls and the remaining Browser Use
   goal stages still require implementation and verification.
+
+
+## D12m — prepare stream acknowledgements before committing byte changes
+
+- Reviewing the consumer path found a concrete failure order in the existing
+  stream implementation: read consumed/zeroed its range and write appended
+  input before allocating their reply. The read path also ignored byte-result
+  construction failure. A caller could therefore receive failure or incomplete
+  metadata after its byte state had changed, undermining safe file reception.
+- Build checked metadata and byte acknowledgement first, then perform a
+  non-allocating commit under the existing stream lock. Failed result creation
+  does not read, append, close or release. Failed open acknowledgements unwind
+  their new slot. A transport-level lost reply remains uncertain; the upcoming
+  file producer must abort that receiver rather than blindly resend chunks.
+- A compiled harness executes the actual reviewed exchange fragment while
+  faulting result-builder allocations. All 52 failure positions preserve exact
+  ring/EOF/release state and free their allocations; all five successful paths
+  commit the expected state. These are result-builder fault simulations, not a
+  claim that every XRT/TCC application allocation has been audited.
+- Actual SDK regression verifies wraparound, exact binary bytes, committed
+  metadata, EOF, scope and backpressure. The local gate passes 71 Python cases
+  (69 pass, two Windows symlink skips), 70 JS cases, contracts and overlays.
+  Real public C/JS WebView2 regression passes 19 actions, four navigations, five
+  waits, screenshots, exact-once selection/drag/dialog handling and popup cleanup.
+  The same Home is restored headless; no additional deployment was created.
+- Safe reception with durable partial-file ownership/recovery and quota remains
+  the next step before exposing workspace saves. The full goal remains active.
