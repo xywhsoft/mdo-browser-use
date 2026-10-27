@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 12;
+  const version = 13;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -490,7 +490,10 @@ export function browserRuntime(configuration = {}) {
         const walker=root.ownerDocument?.createTreeWalker(root,1)||document.createTreeWalker(root,1);
         for(let element=walker.nextNode();element;element=walker.nextNode()){
           if(++nodes>6000||performance.now()-started>100)throw Error("Screenshot masking scan exceeded its budget");
-          if(!visible(element))continue;
+          // Semantic/action visibility is not pixel privacy. Inert and
+          // aria-hidden controls still paint; author CSS can override hidden.
+          const style=element.ownerDocument.defaultView.getComputedStyle(element);
+          if(style.display==='none'||style.visibility==='hidden'||style.visibility==='collapse'||Number(style.opacity)===0||!element.getClientRects().length)continue;
           const tag=element.localName;
           if(tag==="textarea"||tag==="select"||element.isContentEditable||element.hasAttribute("data-mdo-private")||
             ["textbox","combobox","spinbutton"].includes(element.getAttribute("role"))||

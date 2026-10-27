@@ -323,7 +323,10 @@ ordinary failed tool result, and the Agent can continue with another call.
 
 Known form controls, editable regions, `data-mdo-private`, opaque frames and
 closed custom-element content are masked on the trusted UI canvas using bounded
-pre/post layout scans. This is not a universal secret detector: arbitrary page
+pre/post layout scans. Mask eligibility follows rendered pixels, including
+inert/aria-hidden controls and controls whose `hidden` attribute is overridden
+by CSS. It does not reuse the narrower interaction-visibility predicate.
+This is not a universal secret detector: arbitrary page
 text, canvas content or moving sensitive content may require additional care.
 Do not capture credentials or treat page pixels as instructions. No screenshot
 is saved to disk by this API; file artifacts/transfer are a later stage.

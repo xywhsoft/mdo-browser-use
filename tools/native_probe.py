@@ -321,9 +321,26 @@ try {
     return bridge.call('capture',{browser,agent:true,navigation:live.navigation,capture_key:key,format,max_bytes:limit,
       clip:{...area.region,scale:Math.min(1,1280/(area.region.width*dpr),960/(area.region.height*dpr))}});
   };
+  const semanticPrivateBoxes=await evaluate(`(()=>{
+    const boxes=[];
+    for(const [index,kind]of ['inert','aria-hidden','hidden-override'].entries()){
+      const parent=document.createElement('div'),input=document.createElement('input');input.value='mask-qa-'+index;
+      input.style.cssText='display:block;position:fixed;left:700px;top:'+(20+index*45)+'px;width:100px;height:24px;background:rgb(250,20,150);z-index:99999';
+      if(kind==='inert')parent.inert=true;else if(kind==='aria-hidden')parent.setAttribute('aria-hidden','true');else input.hidden=true;
+      parent.append(input);document.body.append(parent);const r=input.getBoundingClientRect();boxes.push({x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height});
+    }return boxes;
+  })()`);
   const captureArea=await engine('captureArea({mode:"viewport"})');
   assert(captureArea.ok&&captureArea.redactions.length>=3,'Known form controls and opaque frames were not masked');
   const rawCapture=await capture(captureArea);
+  const rawPixels=await createImageBitmap(new Blob([Uint8Array.from(atob(rawCapture.data),c=>c.charCodeAt(0))],{type:'image/png'}));
+  const rawCanvas=document.createElement('canvas');rawCanvas.width=rawPixels.width;rawCanvas.height=rawPixels.height;const rawDrawing=rawCanvas.getContext('2d');rawDrawing.drawImage(rawPixels,0,0);rawPixels.close();
+  for(const box of semanticPrivateBoxes){
+    assert(box.width>0&&box.height>0,'The semantic-hidden privacy fixture did not render');
+    const x=Math.floor((box.x+box.width-8-captureArea.region.x)*rawCanvas.width/captureArea.region.width),y=Math.floor((box.y+box.height/2-captureArea.region.y)*rawCanvas.height/captureArea.region.height),pixel=rawDrawing.getImageData(x,y,1,1).data;
+    assert(pixel[0]>=235&&pixel[1]<=30&&pixel[2]>=140&&pixel[2]<=160,'The inert/aria-hidden/CSS-hidden control was not actually visible before masking');
+    assert(captureArea.redactions.some(mask=>mask.x<=box.x&&mask.y<=box.y&&mask.x+mask.width>=box.x+box.width&&mask.y+mask.height>=box.y+box.height),'A rendered semantically hidden private control was omitted from masking');
+  }
   const masked=await prepareScreenshot(rawCapture,captureArea,captureArea,{format:'png'});
   assert(masked.image.media_type==='image/png'&&masked.image.bytes<=131072&&masked.image.width<=1280&&masked.image.height<=960,'Typed screenshot budgets or format were incorrect');
   const pixels=await createImageBitmap(new Blob([Uint8Array.from(atob(masked.image.base64),c=>c.charCodeAt(0))],{type:'image/png'}));
@@ -331,6 +348,10 @@ try {
   const drawing=canvas.getContext('2d');drawing.drawImage(pixels,0,0);pixels.close();
   const field=captureArea.redactions[0],mx=Math.floor((field.x+field.width/2-captureArea.region.x)*canvas.width/captureArea.region.width),my=Math.floor((field.y+field.height/2-captureArea.region.y)*canvas.height/captureArea.region.height);
   assert([...drawing.getImageData(mx,my,1,1).data].slice(0,3).every(value=>value===32),'Screenshot field masking did not change the actual pixels');
+  for(const box of semanticPrivateBoxes){
+    const x=Math.floor((box.x+box.width/2-captureArea.region.x)*canvas.width/captureArea.region.width),y=Math.floor((box.y+box.height/2-captureArea.region.y)*canvas.height/captureArea.region.height);
+    assert([...drawing.getImageData(x,y,1,1).data].slice(0,3).every(value=>value===32),'Rendered inert/aria-hidden/CSS-hidden input pixels were exposed');
+  }
   assert(drawing.getImageData(1,1,1,1).data[0]>200,'Screenshot was empty or entirely masked');
   const imageBootstrap=await fetch('/api/v1/bootstrap'),imageToken=imageBootstrap.headers.get('x-mdo-write-token');await imageBootstrap.arrayBuffer();
   const savedImage=await fetch('/api/v1/application/call',{method:'POST',headers:{'Content-Type':'application/json','X-Mdo-Write-Token':imageToken},

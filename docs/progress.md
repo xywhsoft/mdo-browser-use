@@ -1787,3 +1787,20 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remnants. Cross-frame screenshot mask aggregation remains before activating
   the normal workbench; public managed frame checks and the remaining Android,
   vision, lifecycle/OOM, network/performance and package gates are still pending.
+
+## S1 — mask rendered controls independently of semantic visibility
+
+- Screenshot masking reused the interaction predicate, which intentionally
+  excludes inert/aria-hidden/hidden elements from Agent locators. That omitted
+  private controls which still painted, including a CSS override of `hidden`.
+  A regression against the real self-contained runtime reproduced zero masks
+  for three rendered controls before the fix.
+- Mask traversal now checks computed painting visibility and client rectangles,
+  independently of semantic/action availability. Keep the existing locator
+  behavior and increment the isolated runtime version so old instances refresh.
+- Actual native baseline passes 1,369 poll-inclusive assertions, checking that
+  each new fixture control is visible in raw pixels and fully covered in the
+  returned masked PNG. The full 164-check frame gate and 135 sequential JS
+  checks pass, with no new native diagnostics or retained native reservations.
+  Previous unchanged Python baseline remains 101 pass/two privilege skips; no
+  unrelated rerun was needed. Cross-frame mask aggregation is still pending.
