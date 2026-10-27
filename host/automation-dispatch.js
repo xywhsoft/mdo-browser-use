@@ -11,14 +11,15 @@ const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
 
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
-export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
+export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true, pageDriver = null }) {
   if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload", "download", "save_download"].includes(command)) return { handled: false };
   const writing = command === "save_download" || command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status" || command === "download" && !["list","get","wait"].includes(params.action);
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0;
+  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,inputFrameChain=null;
+  const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
@@ -45,6 +46,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   const read = async (method, options) => {
+    if(pageDriver)return pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{checkpoint:async()=>{
+      const checked=await guard(true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
+    }});
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
     if (!result.ok || typeof result.value?.ok !== "boolean") throw Error("The browser returned an invalid automation result");
@@ -108,7 +112,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     let stopped = await guard(true); if (stopped.handled) return stopped;
     while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
     dispatched = true;
-    const delivered = await view.execute("input", { ...parameters, agent: true, navigation });
+    const delivered = await view.execute("input", { ...parameters,...(inputFrameChain?{frame_chain:inputFrameChain}:{}), agent: true, navigation });
     if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
     if(canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     if (delivered.dialog_open) return dialogBoundary();
@@ -197,11 +201,13 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         const current = await guard(); if (current.handled) return current;
         if (!current.state.loading) {
           const observation = await read("observe", { limit: 20, max_bytes: params.until === "text" ? 32768 : 1024 });
+          if(!observation.ok){if(framePending(observation.error?.code)){await pause(60);continue;}return{handled:true,result:observation};}
           if (params.document && params.document !== observation.document) return fail("stale_document", "The document changed while waiting");
           if (params.until === "ready" && observation.ready === "complete" ||
               params.until === "text" && observation.text.includes(params.text)) return { handled: true, result: { ok: true, matched: true, observation } };
           if (params.target) {
             const located = await read("locate", { document: observation.document, target: params.target });
+            if(!located.ok&&framePending(located.error?.code)){await pause(60);continue;}
             const absent = ["element_not_found", "element_detached"].includes(located.error?.code);
             if (params.until === "hidden" && absent || params.until === "visible" && located.ok ||
                 params.until === "enabled" && located.ok && !located.element.disabled) return { handled: true, result: { ok: true, matched: true, document: observation.document, ...(located.ok ? { element: located.element } : {}) } };
@@ -224,7 +230,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         }
         const options = { mode: params.mode, limit: params.limit, max_bytes: params.max_bytes,document:params.document,target:params.target,offset:params.offset };
         const result = await read(params.mode === "options" ? "optionList" : "observe", options);
-        if (!result.ok) return { handled: true, result };
+        if (!result.ok) {if(framePending(result.error?.code)){await pause(50);continue;}return { handled: true, result };}
         if (params.mode === "options") return { handled:true,result };
         if (["interactive", "complete"].includes(result.ready)) {
           const checked=await guard(true);if(checked.handled)return checked;
@@ -246,6 +252,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(!armed.ok||!armed.armed)return fail('chooser_unavailable','Native file-picker interception was not confirmed; no input was sent');
     }
     if (params.op === "drag") {
+      if(pageDriver)return fail('frame_drag_pending','Frame-aware drag cancellation is not yet connected; no drag input was sent');
       const samePair=(a,b)=>a&&b&&sameGeometry(a.source,b.source)&&sameGeometry(a.destination,b.destination);
       const preparePair=async(source=params.target,destination=params.destination,scroll=true)=>{
         const first=await read("prepare",{document:params.document,op:"drag",target:source,scroll});
@@ -293,6 +300,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (params.op === "scroll" && !params.target) {
       const snapshot = await read("observe", { limit: 1, max_bytes: 256 });
       if (snapshot.document !== params.document) return fail("stale_document", "Observe the current document before scrolling");
+      if(pageDriver){const root=snapshot.frames?.find(row=>row.id==='f0');if(!root?.document)return fail('frame_response_invalid','The root frame pin is missing');inputFrameChain=[{frame:'f0',document:root.document}];}
       const error = await send({ kind: "wheel", x: snapshot.viewport.width / 2, y: snapshot.viewport.height / 2, dx: params.dx || 0, dy: params.dy || 0 });
       if (error) return error;
     } else {
@@ -301,7 +309,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         const stopped = await guard(); if (stopped.handled) return stopped;
         prepared = await read("prepare", { ...params, scroll: true });
         if (prepared.ok && sameGeometry(prepared, previous)) break;
-        if (!prepared.ok && !["element_not_found", "element_disabled", "element_not_editable", "element_obscured", "element_outside_viewport"].includes(prepared.error?.code)) return { handled: true, result: prepared };
+        if (!prepared.ok && !["element_not_found", "element_disabled", "element_not_editable", "element_obscured", "element_outside_viewport","frame_owner_hidden","frame_owner_obscured","frame_point_outside_viewport","frame_not_ready","frame_tree_changed"].includes(prepared.error?.code)) return { handled: true, result: prepared };
         previous = prepared.ok ? prepared : null;
         await pause(Math.min(60, Math.max(0, deadline - performance.now())));
       }
@@ -310,6 +318,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const pinned = { ...params, target: { ref: prepared.element.ref } };
       const fresh = await read("prepare", pinned);
       if (!fresh.ok || !sameGeometry(fresh, prepared)) return fail("target_changed", "The target moved or changed immediately before input");
+      if(pageDriver){if(!Array.isArray(fresh.frame_chain)||!fresh.frame_chain.length||fresh.frame_chain.length>32)return fail('frame_response_invalid','The prepared target has no complete frame document chain');inputFrameChain=fresh.frame_chain;}
       if (params.op === "select") {
         const checked = await guard(true);if(checked.handled)return checked;
         dispatched = true;
@@ -330,6 +339,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         if (!focus.ok || !focus.focused) return fail("focus_changed", "The intended element lost focus before keyboard input");
         if (params.op === "fill") {
           error = await send({ kind: "key", key: "Control+A" }); if (error) return error;
+          const selectedFocus=await read('verify',pinned);
+          if(!selectedFocus.ok||!selectedFocus.focused)return fail('focus_changed','The intended element lost focus during selection; no replacement text was sent');
         }
         error = await send(params.op === "key" ? { kind: "key", key: params.key } :
           params.op === "fill" && !params.text ? { kind: "key", key: "Backspace" } : { kind: "text", text: params.text });
@@ -350,6 +361,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       verification: ["fill", "check"].includes(params.op) ? "field_state" : "native_delivery",
       observation } };
   } catch (error) {
+    if(error.browserBoundary)return error.browserBoundary;
     if (error.dialog) return dialogBoundary();
     if (error.popup) return popupBoundary();
     if(dispatched&&downloadCheckpointUntil){

@@ -1,6 +1,8 @@
 import {createNativeBrowserBridge} from '/js/features/workbench/native-browser.js';
 import {createLocalApplicationClient} from '/js/api/application.js';
 import {createFrameReader} from '/js/features/workbench/frame-reader.js';
+import {createFrameDriver} from '/js/features/workbench/frame-driver.js';
+import {executeBrowserAutomation} from '/js/features/workbench/automation-dispatch.js';
 const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE;
 const bridge=createNativeBrowserBridge(),api=createLocalApplicationClient(()=>({extension:'browser-frame-qa'})),browser='browser-frame-native-qa',foreign='browser-frame-foreign-qa';
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence;
@@ -57,6 +59,9 @@ try{
   assert(nodeBound.ok&&nodeBound.value.truncated&&nodeBound.value.visited===2&&nodeBound.value.frames.length===1,'The local runtime exceeded its assigned traversal budget');
   stage='foreign-view';await call('create',{url:origin+'/foreign',visible:false},foreign);
   await until(async()=>!(await call('state',{},foreign)).loading,'Foreign fixture did not load');
+  const foreignTree=await frames(foreign),foreignRoot=foreignTree.frames.find(row=>row.id==='f0');
+  const noUuid=await evaluate(foreignRoot,`(()=>{Object.defineProperty(globalThis.crypto,'randomUUID',{value:undefined,configurable:true});const r=(${runtime})({local_frame:true});return{ok:true,document:r.document,no_random_uuid:typeof crypto.randomUUID==='undefined'}})()`,foreign);
+  assert(noUuid.ok&&noUuid.value.ok&&noUuid.value.no_random_uuid&&/^d-[a-f0-9-]{36}$/i.test(noUuid.value.document),'A frame without randomUUID could not initialize its document identity');
   const rejected=await evaluate(cross,'true',foreign);assert(!rejected.ok&&rejected.error.code==='stale_frame','Frame identity crossed browser views');
   stage='frame-navigation';
   const changed=await call('automation',{agent:true,script:`document.querySelector('#cross').src=${JSON.stringify(origin.replace('127.0.0.1','localhost')+'/cross-next')};true`});assert(changed.ok,'Fixture navigation was not sent');
@@ -143,9 +148,48 @@ try{
   assert((await call('state')).navigation===state.navigation,'Child-only navigation changed the top-level token and masked the frame guard');
   await rejectInput(chain);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0;
+  const routedView={execute:async(command,params)=>{
+    if(command==='input')inputRequests++;
+    const result=await call(command,params);
+    if(cancelDispatch&&command==='frames'&&params.script?.includes('({local_frame:true}).prepare('))cancelDispatch='cancelled';
+    return result;
+  }};
+  const driver=createFrameDriver({execute:(command,params)=>routedView.execute(command,params)});
+  const dispatch=(command,params)=>executeBrowserAutomation({command,params,browser,view:routedView,pageDriver:driver,
+    action:{id:'frame-dispatch-'+(++dispatchCounter)},api:{call:async method=>{if(method!=='ui.result')throw Error('Unexpected fixture SDK method');return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};}}});
+  const page=await dispatch('observe',{limit:100,max_bytes:4096});
+  assert(page.result.ok&&page.result.frames.length===3&&page.result.elements.some(row=>row.name==='Nested field'&&row.ref.startsWith('r1|')),'Dispatcher did not use combined frame observations');
+  const filled=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text:'Frame 🦉 input'});
+  assert(filled.result.ok&&filled.result.verification==='field_state','Routed nested fill did not complete');
+  assert((await evaluate(replacementLeaf,`document.querySelector('#field').value`)).value==='Frame 🦉 input','Routed native Unicode text did not reach its exact nested input');
+  await call('evaluate',{script:`(()=>{document.querySelector('#root-focus').focus();return true})()`});
+  const blurred=await driver.read('verify',{document:page.result.document,target:{name:'Nested field'},op:'fill',text:'Frame 🦉 input'});
+  assert(blurred.ok&&blurred.verified&&!blurred.focused,'An unfocused ancestor still authorized keyboard input');
+  await evaluate(replacementLeaf,`(()=>{document.querySelector('#field').addEventListener('keydown',e=>{if(e.ctrlKey&&e.key.toLowerCase()==='a')document.querySelector('#field').blur()},{once:true});return true})()`);
+  const focusChanged=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text:'must-not-be-written'});
+  assert(!focusChanged.result.ok&&focusChanged.result.error.code==='focus_changed','Selection-time focus change did not stop replacement text');
+  assert((await evaluate(replacementLeaf,`document.querySelector('#field').value`)).value==='Frame 🦉 input','Replacement text was sent after selection changed focus');
+  const optionPage=await dispatch('observe',{mode:'options',document:page.result.document,target:{label:'Nested choice'}});
+  geometryEvidence.optionPage=optionPage;
+  assert(optionPage.result.ok&&optionPage.result.options.length===2&&optionPage.result.ref.startsWith('r1|'),'Routed option page lost its frame identity');
+  const selected=await dispatch('act',{op:'select',document:page.result.document,target:{label:'Nested choice'},choices:[{index:1}]});
+  assert(selected.result.ok&&selected.result.verified&&selected.result.input_method==='dom_select','Routed selection transaction failed');
+  assert((await evaluate(replacementLeaf,`document.querySelector('#choice').selectedIndex`)).value===1,'Routed selection changed the wrong frame');
+  const waited=await dispatch('wait_for',{until:'visible',document:page.result.document,target:{name:'Nested field'},timeout_ms:2000});
+  assert(waited.result.ok&&waited.result.matched&&waited.result.element.ref.startsWith('r1|'),'Routed wait did not resolve a qualified frame reference');
+  const uploadTarget=await driver.read('uploadInfo',{document:page.result.document,target:{name:'Hidden nested upload'}});
+  assert(uploadTarget.ok&&uploadTarget.element.hidden&&uploadTarget.native_target.frame_chain.length===3,'Hidden cross-frame upload preparation lost its native pins');
+  const capture=await dispatch('capture',{document:page.result.document,max_width:600,max_height:400});
+  assert(capture.result.ok&&capture.result.image.media_type==='image/png'&&capture.result.redaction==='form-controls-and-opaque-content','Root capture lost its existing privacy mask');
+  const beforeCancelledInput=inputRequests;cancelDispatch=true;
+  const cancelled=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'}});
+  assert(!cancelled.result.ok&&cancelled.result.error.code==='cancelled'&&!cancelled.result.error.effect_may_have_occurred&&inputRequests===beforeCancelledInput,'An internal frame checkpoint was swallowed and allowed input');
+  cancelDispatch=false;
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
-    combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true};
+    combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
+    routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

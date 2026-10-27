@@ -19,7 +19,7 @@ def main():
         for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime}.items():
             if script.count(marker)!=1:raise RuntimeError('Frame probe placeholder changed')
             script=script.replace(marker,json.dumps(value).replace('<','\\u003c'))
-        subprocess.run(['node','--input-type=module','--check'],input=script,text=True,capture_output=True,check=True,cwd=dev.ROOT)
+        subprocess.run(['node','--input-type=module','--check'],input=script,text=True,encoding='utf-8',capture_output=True,check=True,cwd=dev.ROOT)
         page.write_text('<!doctype html><meta charset="utf-8"><h1 id="status">Native frame checks</h1><script type="module">'+script+'</script>',encoding='utf-8')
         dev.call('storage.write',{'path':'qa/native-frames.json','text':'null'},scope);dev.stop()
         dev.start(window=True,page='/__browser_use_native_frames__.html');end=time.monotonic()+120;report=None

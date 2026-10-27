@@ -1643,3 +1643,36 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   sequential JS checks also pass; no new native exceptions or retained transfer
   reservations. This does not claim arbitrary website content is private or
   replace the documented screenshot masking policy.
+
+## D13f — fixed frame operations through the actual dispatcher
+
+- Add `frame-driver.js` over the bounded reader/native registry. Resolve each
+  operation into its exact local world, map fresh prepared geometry through
+  parent owners, revalidate ancestry and supply the complete input document
+  chain. Support verify, option pages/selection, hidden-file input metadata and
+  the existing root capture mask. No model-supplied script or raw protocol ID.
+- Extend native owner metadata with deep active-element focus. Keyboard checks
+  require the intended child and every parent iframe to remain focused. The
+  dispatcher now rechecks focus after Select All before sending replacement
+  text, and forwards pins on mouse, key and text steps. Transient frame readiness
+  remains a bounded wait; cancellation/dialog checkpoints are preserved across
+  both success and failure packets. Mutations retain uncertainty without replay.
+- Nine targeted driver cases and the full 123-case JS gate pass. Actual
+  WebView2 frame gate passes 96 checks using the real dispatcher with a
+  controlled UI-receipt status: nested trusted Unicode fill, ancestor/selection
+  focus fences, option pages/exact selection, wait, hidden upload pins, root
+  screenshot masking and cancellation before input. It also proves runtime
+  initialization when `randomUUID` is absent. Preflight now uses explicit UTF-8
+  for the astral Unicode fixture rather than the Windows default code page.
+- Full Python gate: 103 cases (101 pass, two privilege skips). Existing normal
+  public C/JS UI gate passes 19 actions, four navigations and five waits after
+  the page fixes; native baseline passes 1,361 poll-inclusive checks. No new
+  native exceptions or retained transfer reservations. Source/contracts match
+  the one headless deployment, approximately 840 MiB.
+- Normal workbench activation is intentionally still pending migration of all
+  dependent operations. Next route ticketed upload/clear into pinned frame
+  contexts/sessions, adapt picker target/event ownership, then add frame-aware
+  drag guards and aggregate screenshot privacy. Do not silently switch upload
+  targets into the old root world or bypass their operation receipts. The
+  managed cross-frame C/JS path, Android, vision, lifecycle/OOM/network/performance
+  and final package gates still belong to the unchanged full objective.

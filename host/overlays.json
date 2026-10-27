@@ -594,6 +594,11 @@
       "path": "tools/workbench_contracts.py",
       "before": "    add('browser.update'",
       "after": "    add('browser.workspace.lookup','Read the original persisted task directory for a legacy tab; no model, default fallback or file creation',identity,('id',))\n    add('browser.workspace.adopt','Explicitly fill an empty legacy workspace after reviewing task, browser and physical-root revisions',\n        {**revision,'workspace':s,'root_snapshot':s,'session_revision':{'type':'integer','minimum':1},'confirmed':{'type':'boolean'}},('id','revision','workspace','root_snapshot','session_revision','confirmed'))\n    add('browser.update'"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "\"upload\",\"chooser\",\"downloads\"].includes(request.command)",
+      "after": "\"upload\",\"chooser\",\"downloads\",\"frames\"].includes(request.command)"
     }
   ],
   "files": [
@@ -700,6 +705,10 @@
     {
       "source": "host/frame-reader.js",
       "target": "app/web/js/features/workbench/frame-reader.js"
+    },
+    {
+      "source": "host/frame-driver.js",
+      "target": "app/web/js/features/workbench/frame-driver.js"
     }
   ]
 }

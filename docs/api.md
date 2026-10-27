@@ -51,8 +51,9 @@ results revalidate the original root and relevant frame tree before delivery.
 Limits apply across the operation: 32 frames, 6,000 visited elements, 400
 returned elements, 32 KiB readable text and 256 KiB serialized metadata. The
 deadline and originating-action checkpoint are checked between bounded native
-calls. Coordinates remain frame-local; no public input should use them without
-the forthcoming parent geometry/hit-test and native frame-document guard.
+calls. Reader coordinates remain frame-local. The internal fixed-operation
+driver maps them through the native owner checks and supplies document chains
+to the input dispatcher.
 
 The private native `frames` action `owner` now pins a child document and resolves
 its actual iframe owner in the parent session/isolated world. It returns the
@@ -66,9 +67,9 @@ This uses the official [DOM protocol](https://github.com/ChromeDevTools/devtools
 frame-owner/isolated-object operations; final input coordinates follow the
 [Input protocol](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Input.pdl)
 main-viewport convention. The same installed WebView2 was tested against nested
-cross-site frames with a trusted click. A complete public adapter still needs
-fresh geometry checks and a native per-frame document fence during input;
-these reads alone are not a transactional click guarantee.
+cross-site frames with a trusted click. The internal driver performs fresh
+geometry checks and supplies per-frame input fences. These checks are not a
+transactional click guarantee about arbitrary website handlers.
 
 Native `input` now accepts a private `frame_chain` of `{frame,document}` pins
 from the target frame through every parent to `f0` (maximum 32). It validates
@@ -78,7 +79,23 @@ navigation invalidates the chain even when the top navigation token is stable.
 An interrupted sequence releases only a press it actually admitted; skipped
 presses cause no extra up events, while a lost press acknowledgement still
 requires its cleanup. The existing trusted-native calls may omit the field;
-the forthcoming public multi-frame adapter must supply it for routed input.
+the public multi-frame adapter must supply it for routed input.
+
+`frame-driver.js` now provides fixed observe/locate/prepare/verify, option
+discovery/selection, hidden-upload target preparation and root capture-area
+operations. It maps qualified references back into their pinned local worlds,
+checks ancestor focus and carries cancellation checkpoints through failed
+native replies as well as successful ones. Selection mutations are never
+replayed after uncertainty. File clearing stays in its ticketed upload path.
+
+The dispatcher accepts this driver internally and forwards its chain on every
+mouse/key/text input. It rechecks focus after Select All before replacement text.
+Its actual WebView2 gate exercises nested fill, global references, waits,
+option transactions, root masking and cancellation with controlled UI-receipt
+status. The normal workbench still uses its existing adapter: routed upload/
+picker assignment, drag cancellation and cross-frame screenshot masking must
+be migrated before enabling the driver there. Cross-frame managed C/JS service
+registration and permissions have not yet been verified through that normal UI.
 
 ## Shared C/JavaScript boundary
 

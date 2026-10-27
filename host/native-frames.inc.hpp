@@ -35,7 +35,9 @@ static const char* xb_frame_owner_geometry=R"js(function(point){
     const child=hit.shadowRoot.elementFromPoint?.(mapped.x,mapped.y);if(!child||child===hit)break;hit=child;
   }
   if(hit!==frame)return fail('frame_owner_obscured');
-  return{ok:true,point:mapped,content,viewport:{width:view.innerWidth,height:view.innerHeight},
+  let active=doc.activeElement;
+  for(let depth=0;depth<16&&active?.shadowRoot?.activeElement;depth++)active=active.shadowRoot.activeElement;
+  return{ok:true,point:mapped,content,focused:active===frame,viewport:{width:view.innerWidth,height:view.innerHeight},
     geometry:[box.x,box.y,box.width,box.height,content.x,content.y,content.width,content.height]};
 })js";
 static std::string xb_frame_id(const char* prefix){

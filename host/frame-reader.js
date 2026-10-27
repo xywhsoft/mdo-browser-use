@@ -125,10 +125,10 @@ export function createFrameReader({execute,checkpoint=async()=>{}}){
       if(visited>=6000)throw problem('observation_incomplete','Narrow the locator to one frame before acting');
       const localTarget={...target};delete localTarget.frame;
       if(ref)localTarget.ref=ref.ref;
-      const local=await evaluate(frame,ref?'locate':'describe',ref?{document:ref.document,target:localTarget}:{},scope);
+      const local=await evaluate(frame,ref?'locate':'describe',ref?{document:ref.document,target:localTarget,_upload:options._upload===true}:{},scope);
       const document=ref?ref.document:local.document;
       if(!ref&&(!local.ok||!localDocument.test(document)))throw problem('frame_response_invalid','The searched document identity is invalid');
-      const found=ref?local:await evaluate(frame,'locate',{document,target:localTarget,_max_nodes:6000-visited},scope);
+      const found=ref?local:await evaluate(frame,'locate',{document,target:localTarget,_max_nodes:6000-visited,_upload:options._upload===true},scope);
       if(!found.ok&&!['element_not_found','element_ambiguous'].includes(found.error?.code))return found;
       if(!Number.isInteger(found.visited)||found.visited<0||found.visited>6000-visited)
         throw problem('frame_response_invalid','The locator did not return bounded traversal usage');

@@ -76,6 +76,33 @@ async function observe(state, receipt = "pending", timeout_ms = 50) {
   return { ...result, evaluations };
 }
 
+test('fill rechecks focus after selection before sending replacement text',async()=>{
+  let focused=true;const inputs=[];
+  const result=await executeBrowserAutomation({command:'act',params:{op:'fill',document:'d1',target:{name:'Fixture'},text:'synthetic'},action:{id:'selection-focus'},api:{async call(){return{state:'pending'};}},
+    view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params);if(params.kind==='key')focused=false;return{accepted:true,trusted_input:true};}
+      if(params.script.includes('.verify('))return{ok:true,value:{ok:true,focused,verified:true}};
+      return{ok:true,value:{ok:true,element:{ref:'e1'},point:{x:10,y:10},geometry:[10,10,20,20]}};
+    }}});
+  assert.equal(result.result.error.code,'focus_changed');assert.equal(result.result.error.effect_may_have_occurred,true);
+  assert.deepEqual(inputs.map(row=>row.kind),['click','key']);
+});
+
+test('frame driver pins reach every native mouse/key/text step',async()=>{
+  const pins=[{frame:'f1',document:'fd1'},{frame:'f0',document:'fd0'}],inputs=[];
+  const pageDriver={async read(method,options,control){await control.checkpoint();
+    if(method==='prepare')return{ok:true,element:{ref:'qualified'},point:{x:15,y:25},geometry:[15,25,10,20],frame_chain:pins};
+    if(method==='verify')return{ok:true,focused:true,verified:true};return{ok:true,document:'doc',ready:'complete',text:'Fixture'};
+  }};
+  const result=await executeBrowserAutomation({command:'act',params:{op:'fill',document:'doc',target:{name:'Fixture'},text:'synthetic'},pageDriver,action:{id:'frame-pin-forwarding'},api:{async call(){return{state:'pending'};}},
+    view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params);return{accepted:true,trusted_input:true};}throw Error('Unexpected legacy page evaluation');
+    }}});
+  assert(result.result.ok);assert.deepEqual(inputs.map(row=>row.kind),['click','key','text']);assert(inputs.every(row=>JSON.stringify(row.frame_chain)===JSON.stringify(pins)));
+});
+
 test("observe waits for readiness and reports bounded timeout", async () => {
   const result = await observe({ loading: true, automation: true });
   assert.equal(result.result.error.code, "timed_out");
