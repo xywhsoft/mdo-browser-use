@@ -1551,3 +1551,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   option/selection, upload and capture adapters still need that integration.
   Earlier intermittent startup/download timing issues and the remaining full
   platform/lifecycle/OOM/transport/performance/package gates remain open.
+
+## D13c — resolve and hit-test real iframe owners in parent processes
+
+- Add private native `frames.owner`, pinning child and parent documents while
+  resolving the browser's actual owner node into the parent isolated world.
+  Read content-box geometry with fractional borders/padding, map a child point,
+  and require it to hit that owner through the visible parent/shadow path.
+  Hidden/inert/covered/clipped owners, excessive ancestry and unsupported CSS
+  transforms/zoom fail explicitly. No model/node/protocol IDs are substituted.
+- Temporary remote objects use a per-job object group released at terminal
+  success/failure. Child/parent navigation or session/control changes reject
+  pending geometry. Existing frame/job/copy/time quotas remain in force.
+- Actual native frame gate passes 70 assertions. A new two-level OOPIF fixture
+  proves exact parent routing, fractional coordinates and one trusted target
+  click. Invalid/root points, overlay/hidden/transform refusal and fresh moved
+  geometry pass without repeating the target effect. An initial test read a
+  page-world JavaScript counter from an isolated world; the trusted DOM result
+  proved the click arrived. The fixture now exposes its synthetic count in the
+  DOM, and only bounded read polling is used after the single click.
+- Complete native baseline passes 1,345 assertions with no new exceptions and
+  no retained upload/download reservations. Counts include bounded poll checks
+  and vary with timing. Single approximately 835 MiB deployment is headless.
+- Public dispatch and native per-frame input fencing are still pending; this
+  geometry primitive does not alone make cross-origin actions production-ready.
+  Full goal remains active, with earlier timing/lifetime/OOM/transport/Android/
+  vision/upload/capture/performance/package work still outstanding.

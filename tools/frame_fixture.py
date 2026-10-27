@@ -36,6 +36,12 @@ class FrameFixture:
                 elif path=='/many':body='<h1>Bounded frame fixture</h1>'+''.join('<iframe srcdoc="<button>bounded</button>"></iframe>' for _ in range(70))
                 elif path=='/many-cross':body='<h1>Bounded OOPIF fixture</h1>'+''.join(f'<iframe src="{fixture.other}/leaf?frame={index}"></iframe>' for index in range(70))
                 elif path=='/leaf':body='<h1>Bounded cross-site child</h1>'
+                elif path=='/geometry':
+                    body=f'<style>body{{margin:0}}iframe{{display:block;margin:150px 0 0 80px;width:520px;height:340px;border:3.5px solid;padding:5.25px}}#cover{{position:fixed;inset:0;z-index:9999;background:#555}}</style><iframe id="outer" src="{fixture.other}/geometry-cross"></iframe><div id="cover" hidden></div>'
+                elif path=='/geometry-cross':
+                    body=f'<style>body{{margin:0}}iframe{{display:block;margin:20px;width:360px;height:200px;border:2.5px solid;padding:4.25px}}</style><iframe id="inner" src="{fixture.origin}/geometry-leaf"></iframe>'
+                elif path=='/geometry-leaf':
+                    body='<style>body{margin:0}button{margin:20px}</style><button id="target">Nested geometry action</button><output id="result"></output><script>document.body.dataset.geometryClicks="0";document.querySelector("#target").onclick=e=>{document.body.dataset.geometryClicks=String(Number(document.body.dataset.geometryClicks)+1);document.querySelector("#result").textContent=e.isTrusted?"trusted":"synthetic"}</script>'
                 else:self.send_error(404);return
                 payload=('<!doctype html><meta charset="utf-8"><title>Frame fixture</title>'+body+fake).encode()
                 self.send_response(200);self.send_header('Content-Type','text/html;charset=utf-8');self.send_header('Content-Length',str(len(payload)));self.send_header('Connection','close');self.end_headers();self.wfile.write(payload)

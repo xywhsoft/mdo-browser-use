@@ -75,6 +75,8 @@ two loopback sites, real cross-process iframes, nested ancestry, isolated reads,
 stale document/view rejection and resource-limit recovery. It uses the same
 Home and one HTTP worker, and restores headless mode. It also checks the internal
 combined observer/locator with globally qualified references and ambiguity.
+Nested OOPIF owner geometry is checked against real trusted input, including
+fractional border/padding, overlays, hidden/moved and unsupported transformed owners.
 These helpers are not yet wired into public model-facing observation, input,
 upload or screenshot routing.
 

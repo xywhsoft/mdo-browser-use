@@ -3,6 +3,41 @@
  * aliases never accept a caller-supplied raw frame/session/context identity. */
 static constexpr UINT_PTR xb_frames_timer=0xBADD8;
 static std::map<HWND,std::weak_ptr<xb_view>> xb_frame_views;
+static const char* xb_frame_owner_geometry=R"js(function(point){
+  const fail=code=>({ok:false,error:{code}}),frame=this,doc=frame.ownerDocument,view=doc?.defaultView;
+  if(!frame.isConnected||!view||!['iframe','frame'].includes(frame.localName))return fail('frame_owner_unavailable');
+  if(Math.abs((view.visualViewport?.scale||1)-1)>.001)return fail('unsupported_geometry');
+  let node=frame,depth=0;
+  for(;node&&depth<256;depth++){
+    const style=view.getComputedStyle(node);
+    if(node.inert||node.hidden||node.getAttribute('aria-hidden')==='true'||style.display==='none'||
+       style.visibility==='hidden'||style.visibility==='collapse'||Number(style.opacity)===0)return fail('frame_owner_hidden');
+    if(style.transform!=='none'||style.perspective!=='none'||style.rotate&&style.rotate!=='none'||
+       style.scale&&style.scale!=='none'||style.translate&&style.translate!=='none'||
+       style.zoom&&Number(style.zoom)!==1)return fail('unsupported_geometry');
+    node=node.assignedSlot||node.parentElement||node.getRootNode()?.host;
+  }
+  if(node)return fail('frame_ancestry_limit');
+  const box=frame.getBoundingClientRect(),style=view.getComputedStyle(frame);
+  const left=parseFloat(style.paddingLeft)||0,top=parseFloat(style.paddingTop)||0,
+    right=parseFloat(style.paddingRight)||0,bottom=parseFloat(style.paddingBottom)||0;
+  const borderLeft=parseFloat(style.borderLeftWidth)||0,borderTop=parseFloat(style.borderTopWidth)||0,
+    borderRight=parseFloat(style.borderRightWidth)||0,borderBottom=parseFloat(style.borderBottomWidth)||0;
+  const content={x:box.x+borderLeft+left,y:box.y+borderTop+top,
+    width:box.width-borderLeft-borderRight-left-right,height:box.height-borderTop-borderBottom-top-bottom};
+  if(![content.x,content.y,content.width,content.height].every(Number.isFinite)||content.width<=0||content.height<=0)
+    return fail('frame_owner_hidden');
+  if(point.x<0||point.y<0||point.x>=content.width||point.y>=content.height)return fail('frame_point_outside_viewport');
+  const mapped={x:content.x+point.x,y:content.y+point.y};
+  if(mapped.x<0||mapped.y<0||mapped.x>=view.innerWidth||mapped.y>=view.innerHeight)return fail('frame_point_outside_viewport');
+  let hit=doc.elementFromPoint(mapped.x,mapped.y);
+  for(let depth=0;depth<16&&hit?.shadowRoot;depth++){
+    const child=hit.shadowRoot.elementFromPoint?.(mapped.x,mapped.y);if(!child||child===hit)break;hit=child;
+  }
+  if(hit!==frame)return fail('frame_owner_obscured');
+  return{ok:true,point:mapped,content,viewport:{width:view.innerWidth,height:view.innerHeight},
+    geometry:[box.x,box.y,box.width,box.height,content.x,content.y,content.width,content.height]};
+})js";
 static std::string xb_frame_id(const char* prefix){
   GUID value{};wchar_t text[40]{};if(FAILED(CoCreateGuid(&value))||!StringFromGUID2(value,text,40))return{};
   return std::string(prefix)+webview::detail::narrow_string(std::wstring(text+1,36));
@@ -142,12 +177,16 @@ static bool xb_frames_install(const std::shared_ptr<xb_view>& view){
 }
 struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
   std::weak_ptr<xb_host> host;std::weak_ptr<xb_view> view;std::weak_ptr<xb_frame_state> state;
-  std::string id,action,alias,expected,script,selected,document,session;UINT64 navigation=0;uint64_t generation=0;
+  std::string id,action,alias,expected,script,selected,document,session,parentRaw,parentAlias,parentDocument,parentSession,objectGroup;
+  double pointX=0,pointY=0;UINT64 navigation=0;uint64_t generation=0;
   ULONGLONG deadline=0;bool done=false,started=false,complete=true,evaluationSent=false;size_t next=0;
   std::vector<std::string> sources;std::map<std::string,bool> seen;
   void finish(const std::string& result,const char* code=nullptr){
     if(done)return;done=true;auto owner=host.lock();auto current=state.lock();
     if(current)current->jobs.erase(id);
+    auto active=view.lock();if(active&&current&&active->frames==current&&!objectGroup.empty()){
+      const auto group=std::move(objectGroup);xb_frame_cdp(active,parentSession,L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",[](bool,const std::string&){});
+    }
     if(owner&&owner->alive)owner->reply(id,code?"{\"ok\":false,\"error\":{\"code\":"+xb_quote(code)+",\"evaluation_may_have_occurred\":"+(evaluationSent?"true":"false")+",\"message\":\"Frame state changed or could not be established; inspect before another action\"},\"usage\":{\"frames\":"+
       std::to_string(current?current->nodes.size():0)+",\"sessions\":"+std::to_string(current?current->sessions.size():0)+",\"pending\":"+std::to_string(current?current->jobs.size():0)+"}}":result);
   }
@@ -178,7 +217,7 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
     if(next==sources.size()){
       for(auto item=current->nodes.begin();item!=current->nodes.end();)if(!seen.count(item->first))item=current->nodes.erase(item);else ++item;
       for(const auto& item:current->sessions)if(!item.second.ready||std::find(sources.begin(),sources.end(),item.first)==sources.end())complete=false;
-      if(action=="evaluate"){evaluate();return;}std::string rows;
+      if(action=="evaluate"||action=="owner"){evaluate();return;}std::string rows;
       for(const auto& item:current->nodes){const auto& node=item.second;if(!xb_frame_attached(current,node))continue;
         bool ready=node.session.empty()||current->sessions.count(node.session)&&current->sessions.at(node.session).ready;
         if(!rows.empty())rows+=",";const auto parent=current->nodes.find(node.parent);
@@ -197,11 +236,48 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
     if(!live())return false;auto current=state.lock();auto node=xb_frame_alias(current,alias);
     if(!node||node->raw!=selected||node->document!=document||node->session!=session||node->loading){finish("","stale_frame");return false;}return true;
   }
+  bool owner_live(){
+    if(!selected_live())return false;auto current=state.lock();auto child=current->nodes.find(selected),parent=current->nodes.find(parentRaw);
+    if(child==current->nodes.end()||child->second.parent!=parentRaw||parent==current->nodes.end()||parent->second.document!=parentDocument||
+       parent->second.session!=parentSession||parent->second.loading){finish("","stale_frame");return false;}return true;
+  }
+  void owner_geometry(){
+    auto current=state.lock();auto child=current->nodes.find(selected);auto parent=current->nodes.find(child->second.parent);
+    if(parent==current->nodes.end()){finish("","root_has_no_frame_owner");return;}
+    parentRaw=parent->second.raw;parentAlias=parent->second.id;parentDocument=parent->second.document;parentSession=parent->second.session;
+    if(!parentSession.empty()&&(!current->sessions.count(parentSession)||!current->sessions.at(parentSession).ready)){finish("","frame_session_unavailable");return;}
+    if(!owner_live())return;std::weak_ptr<xb_frame_job> weak=shared_from_this();
+    call(parentSession,L"DOM.getFrameOwner","{\"frameId\":"+xb_quote(selected)+"}",[weak](bool ok,const std::string& result){
+      auto self=weak.lock();if(!self||!self->owner_live())return;int backend=0;try{backend=std::stoi(xb_get(result,"backendNodeId"));}catch(...){}
+      if(!ok||backend<=0){self->finish("","frame_owner_unavailable");return;}
+      self->call(self->parentSession,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(self->parentRaw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
+        [weak,backend](bool ready,const std::string& result){
+          auto self=weak.lock();if(!self||!self->owner_live())return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
+          if(!ready||context<=0){self->finish("","frame_world_unavailable");return;}
+          self->objectGroup="mdo-frame-owner-"+self->id;
+          self->call(self->parentSession,L"DOM.resolveNode","{\"backendNodeId\":"+std::to_string(backend)+",\"executionContextId\":"+std::to_string(context)+",\"objectGroup\":"+xb_quote(self->objectGroup)+"}",
+            [weak](bool ready,const std::string& result){
+              auto self=weak.lock();if(!self||!self->owner_live())return;const auto object=xb_get(xb_get(result,"object"),"objectId");
+              if(!ready||object.empty()||object.size()>1024){self->finish("","frame_owner_unavailable");return;}
+              self->evaluationSent=true;
+              self->call(self->parentSession,L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(xb_frame_owner_geometry)+
+                ",\"arguments\":[{\"value\":{\"x\":"+std::to_string(self->pointX)+",\"y\":"+std::to_string(self->pointY)+"}}],\"returnByValue\":true,\"awaitPromise\":false}",
+                [weak](bool ok,const std::string& result){
+                  auto self=weak.lock();if(!self||!self->owner_live())return;const auto value=xb_cdp_value(xb_get(result,"result"));
+                  if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty()){self->finish("","frame_owner_unavailable");return;}
+                  self->finish("{\"ok\":true,\"frame\":"+xb_quote(self->alias)+",\"frame_document\":"+xb_quote(self->document)+",\"parent\":"+xb_quote(self->parentAlias)+
+                    ",\"parent_document\":"+xb_quote(self->parentDocument)+",\"value\":"+value+"}");
+                });
+            });
+        });
+    });
+  }
   void evaluate(){
     auto current=state.lock();auto node=xb_frame_alias(current,alias);
     if(!node||(!expected.empty()&&node->document!=expected)||node->loading){finish("","stale_frame");return;}
     selected=node->raw;document=node->document;session=node->session;
     if(!session.empty()&&(!current->sessions.count(session)||!current->sessions.at(session).ready)){finish("","frame_session_unavailable");return;}
+    if(action=="owner"){owner_geometry();return;}
     std::weak_ptr<xb_frame_job> weak=shared_from_this();
     call(session,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(selected)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",[weak](bool ok,const std::string& result){
       auto self=weak.lock();if(!self||!self->selected_live())return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
@@ -231,10 +307,15 @@ static void xb_frames_request(const std::shared_ptr<xb_host>& host,const std::sh
   try{
     if(!xb_frames_install(view)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"unsupported_frame_sessions\"}}");return;}
     auto state=view->frames;const auto action=xb_get(json,"action");
-    if((action!="list"&&action!="evaluate")||state->jobs.size()>=16||state->jobs.count(id)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
+    if((action!="list"&&action!="evaluate"&&action!="owner")||id.empty()||id.size()>128||state->jobs.size()>=16||state->jobs.count(id)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
     auto job=std::make_shared<xb_frame_job>();job->host=host;job->view=view;job->state=state;job->id=id;job->action=action;
     job->alias=xb_get(json,"frame");job->expected=xb_get(json,"document");job->script=xb_get(json,"script");
     if(action=="evaluate"&&(job->alias.empty()||job->alias.size()>64||job->expected.size()>64||job->script.empty()||job->script.size()>131072)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
+    if(action=="owner"){
+      try{const auto point=xb_get(json,"point");job->pointX=std::stod(xb_get(point,"x"));job->pointY=std::stod(xb_get(point,"y"));}catch(...){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_point_invalid\"}}");return;}
+      if(job->alias.empty()||job->alias.size()>64||job->expected.empty()||job->expected.size()>64||!std::isfinite(job->pointX)||!std::isfinite(job->pointY)||
+         job->pointX<0||job->pointY<0||job->pointX>32768||job->pointY>32768){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_point_invalid\"}}");return;}
+    }
     job->navigation=view->navigation;job->generation=state->generation;job->deadline=GetTickCount64()+10000;state->jobs.emplace(id,job);xb_frame_views[view->window]=view;
     if(!SetTimer(view->window,xb_frames_timer,20,xb_frames_expire)){job->finish("","frame_timer_unavailable");return;}job->start();
   }catch(...){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_allocation_failed\"}}");}

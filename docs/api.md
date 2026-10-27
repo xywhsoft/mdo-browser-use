@@ -45,6 +45,22 @@ deadline and originating-action checkpoint are checked between bounded native
 calls. Coordinates remain frame-local; no public input should use them without
 the forthcoming parent geometry/hit-test and native frame-document guard.
 
+The private native `frames` action `owner` now pins a child document and resolves
+its actual iframe owner in the parent session/isolated world. It returns the
+parent identity, content box and mapped frame-local point after checking
+visibility, clipping/occlusion and current ancestry. Fractional borders/padding
+are retained. Unsupported transforms/zoom and points outside the parent viewport
+fail explicitly. Temporary remote DOM objects are released as a group on every
+terminal path. No DOM object or backend node identity is returned to callers.
+
+This uses the official [DOM protocol](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/DOM.pdl)
+frame-owner/isolated-object operations; final input coordinates follow the
+[Input protocol](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Input.pdl)
+main-viewport convention. The same installed WebView2 was tested against nested
+cross-site frames with a trusted click. A complete public adapter still needs
+fresh geometry checks and a native per-frame document fence during input;
+these reads alone are not a transactional click guarantee.
+
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and

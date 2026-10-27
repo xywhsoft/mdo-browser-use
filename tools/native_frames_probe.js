@@ -3,7 +3,7 @@ import {createLocalApplicationClient} from '/js/api/application.js';
 import {createFrameReader} from '/js/features/workbench/frame-reader.js';
 const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE;
 const bridge=createNativeBrowserBridge(),api=createLocalApplicationClient(()=>({extension:'browser-frame-qa'})),browser='browser-frame-native-qa',foreign='browser-frame-foreign-qa';
-const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory;
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence;
 const assert=(value,text)=>{checks++;if(!value)throw Error(text);};
 async function until(fn,text,ms=15000){const end=performance.now()+ms;while(performance.now()<end){if(await fn())return;await pause(40);}throw Error(text);}
 const call=(command,params={},target=browser)=>bridge.call(command,{browser:target,...params});
@@ -91,9 +91,45 @@ try{
   await navigate(origin+'/root');await until(async()=>{const tree=await frames();return tree.ok&&tree.complete&&tree.frames.length===4;},'OOPIF session resource error poisoned the following document');
   const staleRoot=await reader.locate({document:combined.document,target:{name:'Root action'}});
   assert(!staleRoot.ok&&staleRoot.error.code==='stale_document','Combined root identity survived top-level navigation');
+  stage='owner-geometry';await navigate(origin+'/geometry');let geometryTree;
+  await until(async()=>{geometryTree=await frames();return geometryTree.ok&&geometryTree.complete&&geometryTree.frames.length===3&&!geometryTree.frames.some(row=>row.loading);},'Nested geometry fixture did not settle');
+  const geometryRoot=geometryTree.frames.find(row=>row.id==='f0'),outer=geometryTree.frames.find(row=>row.url.endsWith('/geometry-cross')),leaf=geometryTree.frames.find(row=>row.url.endsWith('/geometry-leaf'));
+  assert(outer.separate_process&&leaf.separate_process,'Geometry fixture did not create nested cross-site processes');
+  const leafObservation=await evaluate(leaf,`(${runtime})({local_frame:true}).observe({})`);
+  const prepared=await evaluate(leaf,`(${runtime})({local_frame:true}).prepare(${JSON.stringify({document:leafObservation.value.document,op:'click',target:{name:'Nested geometry action'},scroll:true})})`);
+  assert(prepared.ok&&prepared.value.ok,'Nested target was not locally actionable');
+  const owner=(frame,point)=>call('frames',{action:'owner',agent:true,frame:frame.id,document:frame.document,point});
+  const innerMapping=await owner(leaf,prepared.value.point),outerMapping=await owner(outer,innerMapping.value?.point);
+  assert(innerMapping.ok&&innerMapping.value.ok&&innerMapping.parent===outer.id&&innerMapping.parent_document===outer.document,'Nested iframe owner did not resolve in its parent process');
+  assert(outerMapping.ok&&outerMapping.value.ok&&outerMapping.parent==='f0'&&outerMapping.parent_document===geometryRoot.document,'Outer frame owner did not map to the main viewport');
+  const expected=await call('evaluate',{script:`(()=>{const frame=document.querySelector('#outer'),box=frame.getBoundingClientRect(),style=getComputedStyle(frame);return{x:box.x+parseFloat(style.borderLeftWidth)+parseFloat(style.paddingLeft),y:box.y+parseFloat(style.borderTopWidth)+parseFloat(style.paddingTop)}})()`});
+  assert(expected.ok&&Math.abs(expected.value.x-outerMapping.value.content.x)<.01&&Math.abs(expected.value.y-outerMapping.value.content.y)<.01,'Fractional iframe borders/padding lost coordinate precision');
+  const state=await call('state'),clicked=await call('input',{agent:true,kind:'click',navigation:state.navigation,...outerMapping.value.point});
+  assert(clicked.accepted&&clicked.trusted_input,'Mapped nested point did not dispatch native input');
+  geometryEvidence={prepared,innerMapping,outerMapping,clicked};let effect;
+  for(let index=0;index<75;index++){
+    effect=await evaluate(leaf,`({clicks:Number(document.body.dataset.geometryClicks),result:document.querySelector('#result').textContent})`);
+    if(effect.value?.clicks===1)break;await pause(40);
+  }
+  geometryEvidence.effect=effect;
+  geometryEvidence.rootHit=await call('evaluate',{script:`document.elementFromPoint(${outerMapping.value.point.x},${outerMapping.value.point.y})?.id`});
+  assert(effect.ok&&effect.value.clicks===1&&effect.value.result==='trusted','Mapped point did not reach the exact nested target with a trusted event');
+  const rootOwner=await owner(geometryRoot,{x:10,y:10});assert(!rootOwner.ok&&rootOwner.error.code==='root_has_no_frame_owner','The root frame invented a parent owner');
+  for(const point of [{x:-1,y:0},{x:1e9,y:0},{x:null,y:0}]){
+    const invalid=await owner(outer,point);assert(!invalid.ok&&invalid.error.code==='frame_point_invalid','Invalid frame coordinates were accepted');
+  }
+  await call('evaluate',{script:`(()=>{document.querySelector('#cover').hidden=false;return true})()`});
+  const obscured=await owner(outer,innerMapping.value.point);assert(obscured.ok&&!obscured.value.ok&&obscured.value.error.code==='frame_owner_obscured','A parent overlay did not block the frame point');
+  await call('evaluate',{script:`(()=>{document.querySelector('#cover').hidden=true;document.querySelector('#outer').style.transform='scale(.95)';return true})()`});
+  const transformed=await owner(outer,innerMapping.value.point);assert(transformed.ok&&!transformed.value.ok&&transformed.value.error.code==='unsupported_geometry','Unsupported transformed coordinates were silently approximated');
+  await call('evaluate',{script:`(()=>{const frame=document.querySelector('#outer');frame.style.transform='none';frame.style.visibility='hidden';return true})()`});
+  const hidden=await owner(outer,innerMapping.value.point);assert(hidden.ok&&!hidden.value.ok&&hidden.value.error.code==='frame_owner_hidden','Hidden parent frame remained actionable');
+  await call('evaluate',{script:`(()=>{const frame=document.querySelector('#outer');frame.style.visibility='visible';frame.style.marginLeft='110px';return true})()`});
+  const moved=await owner(outer,innerMapping.value.point);assert(moved.ok&&moved.value.ok&&moved.value.geometry[0]!==outerMapping.value.geometry[0],'Owner geometry reused a stale layout snapshot');
+  assert((await evaluate(leaf,'Number(document.body.dataset.geometryClicks)')).value===1,'Read-only owner failures repeated the target click');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
-    combined_observation:true,global_ambiguity:true,qualified_references:true};
-}catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory};}
+    combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true};
+}catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;
