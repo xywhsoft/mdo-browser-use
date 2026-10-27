@@ -17,11 +17,18 @@ class DownloadFixture:
         class Handler(BaseHTTPRequestHandler):
             protocol_version='HTTP/1.1'
             def log_message(self,*args): pass
+            def handle(self):
+                try: super().handle()
+                except (ConnectionResetError,BrokenPipeError): pass
             def do_GET(self): self.reply()
             def do_POST(self): self.reply()
             def reply(self):
                 path=urlsplit(self.path).path
                 fixture.counts[path]=fixture.counts.get(path,0)+1
+                if path=='/broken-navigation':
+                    self.close_connection=True
+                    self.connection.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('HH' if os.name=='nt' else 'ii',1,0))
+                    socket.close(self.connection.detach());return
                 if path=='/page':
                     body=(Path(__file__).resolve().parents[1]/'tests/fixtures/download.html').read_bytes()
                     self.send_response(200);self.send_header('Content-Type','text/html;charset=utf-8');self.send_header('Set-Cookie','browser_download_fixture=1; SameSite=Lax; Path=/')

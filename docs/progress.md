@@ -950,3 +950,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   downloads/safe save, directory/
   OOPIF frames/uploads, vision coordinates, offscreen drag, Android and final
   stability/performance/package gates keep the original goal active.
+
+
+## D12b — a file response must not poison its source page
+
+- The actual public POST workflow exposed WebView2 navigation error 9 after the
+  response had become an intercepted download. The prior UI treated that as a
+  broken webpage and hid its viewport. A bounded failing native report is kept
+  privately at `.mdo/evidence/download-navigation-aborted-before-fix.json`.
+- Track the current navigation ID and URI privately and mark only its matching
+  native DownloadStarting response. Only CONNECTION_ABORTED for that confirmed
+  navigation is classified as a download transition. Keep the raw error code;
+  DNS/TLS/reset/disconnect and later navigations still report their errors.
+- The focused real download gate passes 242 assertions. It now asserts that
+  POST leaves the source page usable and that an unrelated connection reset
+  still fails while an older completed download is retained. Cache ACL remains
+  private, no new native diagnostics were created and no reservations remain.
+- The broader native gate is not green yet: it reproduced intermittent hidden
+  fixture startup waiting for a child frame, before reaching downloads. State
+  and DOM/load timing evidence are retained; a separate focused hidden/visible
+  run completes normally (218–690 ms). This does not establish a cause or a fix
+  for that earlier startup issue. Public download integration remains in progress.

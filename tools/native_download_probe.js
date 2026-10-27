@@ -35,6 +35,7 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
     for(const css of ['#binary','#empty','#blob','#post','#unknown']){
       const pending=await offer(css);assert(pending.state==='pending'&&pending.id.startsWith('d-'),'Download was not intercepted before acceptance');
       if(css==='#binary'){const observed=await call('list');assert(observed.protocol_ready&&observed.protocol_begin_count>0,'Page download identities were not observable before acceptance: '+JSON.stringify(observed));}
+      await pause(100);const navigationState=await bridge.call('state',{browser});assert(!navigationState.error,'Intercepted response poisoned page navigation: '+JSON.stringify({css,error:navigationState.error,error_code:navigationState.error_code,navigation:navigationState.navigation,navigation_events:navigationState.navigation_events}));
       const encoded=JSON.stringify(pending);assert(!encoded.includes('fixture-query')&&!encoded.includes('127.0.0.1')&&!/[A-Z]:\\/.test(encoded),'Download metadata leaked URI or cache path');
       await reject(call('read',{download:pending.id,offset:0}),'Pending download bytes could be read');
       const accepted=await call('accept',{download:pending.id});assert(['receiving','verifying','completed'].includes(accepted.state),'Native download did not start: '+JSON.stringify(accepted));
@@ -43,6 +44,12 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
       assert((await call('accept',{download:saved.id})).sha256===saved.sha256,'Repeated native acceptance did not retain its original result');
       await release(saved.id);await reject(call('get',{download:saved.id}),'Released download remained accessible');
     }
+    const retained=await offer('#binary');await call('accept',{download:retained.id});await consume(await terminal(retained.id));
+    await bridge.call('navigate',{browser,url:origin+'/broken-navigation'});
+    let disconnected;for(let i=0;i<250;i++){disconnected=await bridge.call('state',{browser});if(!disconnected.loading&&disconnected.error)break;await pause(20);}
+    assert(Boolean(disconnected.error)&&disconnected.error_code!==14,'A retained older download masked a real failed navigation: '+JSON.stringify(disconnected));
+    assert((await call('get',{download:retained.id})).state==='completed','Network failure invalidated a completed response');await release(retained.id);
+    await bridge.call('navigate',{browser,url});await ready();
     const pairA=await offer('#binary'),pairB=await offer('#binary');assert(pairA.id!==pairB.id,'Identical URLs reused an opaque download identity');
     const foreign='browser-use-download-foreign';
     await bridge.call('create',{browser:foreign,url,visible:false});

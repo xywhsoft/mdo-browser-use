@@ -156,6 +156,16 @@ def main():
         if base.count(before) != 1:
             raise RuntimeError("Native navigation completion hook no longer unique: " + before)
         base = base.replace(before, after, 1)
+    download_navigation_hooks = [
+        ('if(!xb_navigation_start(active,incoming,webview::detail::narrow_string(first.p?first.p:L"")=="about:blank"))return S_OK;',
+         'if(!xb_navigation_start(active,incoming,webview::detail::narrow_string(first.p?first.p:L"")=="about:blank"))return S_OK;if(active->downloads){active->downloads->navigation=incoming;active->downloads->navigationUrl=webview::detail::narrow_string(first.p?first.p:L"");active->downloads->navigationDownload=false;}'),
+        ('if(error!=COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED)active->error=xb_navigation_error(error);',
+         'if(error!=COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED&&!xb_download_navigation_abort(active,navigation,error))active->error=xb_navigation_error(error);'),
+    ]
+    for before, after in download_navigation_hooks:
+        if base.count(before) != 1:
+            raise RuntimeError("Native download navigation hook no longer unique: " + before)
+        base = base.replace(before, after, 1)
     popup_start = base.index('            auto* popup=xb_cb<ICoreWebView2NewWindowRequestedEventHandler')
     popup_end = base.index('            if(!xb_place(view,visible))', popup_start)
     base = base[:popup_start] + '            xb_install_popups(host,view,browser);\n' + base[popup_end:]

@@ -2,6 +2,11 @@
  * operation. Only opaque scoped identities, bounded metadata/ranges leave it. */
 static constexpr UINT_PTR xb_download_timer=0xBADD7;
 static constexpr uint64_t xb_download_file_limit=64ull*1024*1024,xb_download_total_limit=128ull*1024*1024;
+static bool xb_download_navigation_abort(const std::shared_ptr<xb_view>& view,UINT64 navigation,COREWEBVIEW2_WEB_ERROR_STATUS error){
+  // Only this navigation's own native response can explain an aborted load.
+  // Retained older downloads never mask DNS/TLS/reset or another navigation.
+  return error==COREWEBVIEW2_WEB_ERROR_STATUS_CONNECTION_ABORTED&&view->downloads&&view->downloads->navigation==navigation&&view->downloads->navigationDownload;
+}
 static std::wstring xb_download_text(LPCWSTR value,size_t maximum){if(!value)return {};size_t length=0;while(length<=maximum&&value[length])length++;return length<=maximum?std::wstring(value,length):std::wstring{};}
 static bool xb_download_guid(const std::wstring& name){
   if(name.size()!=38||name.rfind(L"d-",0)!=0)return false;
@@ -183,7 +188,11 @@ static void xb_install_downloads(const std::shared_ptr<xb_host>& host,const std:
       if(job->uri.empty()){state->error="Cannot identify this native response";return S_OK;}
       const auto proposed=xb_download_text(path.p,32768);unsigned owned=0;for(const auto& item:store->jobs)owned+=item.second->view.lock()==view;
       if(owned>=16||store->jobs.size()>=32){state->error="Download receipt limit reached; release completed downloads";return S_OK;}
-      job->navigation=view->navigation;job->identifyDeadline=GetTickCount64()+1000;
+      job->navigation=view->navigation;
+      if(state->navigation==view->navigation&&state->navigationUrl==job->uri){
+        state->navigationDownload=true;if(view->errorCode==COREWEBVIEW2_WEB_ERROR_STATUS_CONNECTION_ABORTED)view->error.clear();
+      }
+      job->identifyDeadline=GetTickCount64()+1000;
       GUID guid{};wchar_t identifier[40]{};
       if(FAILED(CoCreateGuid(&guid))||!StringFromGUID2(guid,identifier,40)||FAILED(args->GetDeferral(&job->deferral))){state->error="Cannot retain a native download";return S_OK;}
       args->AddRef();job->args=args;job->id="d-"+webview::detail::narrow_string(std::wstring(identifier+1,36));
