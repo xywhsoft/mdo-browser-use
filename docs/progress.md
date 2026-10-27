@@ -2333,3 +2333,40 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Directory uploads, full Android integration with explicit current-provider
   limits, adversarial lifetime/OOM/network/performance and final packaging remain
   open. This is an additional bug fix, not completion of the long-term goal.
+
+## W1 — anchored directory-source manifests
+
+- Add the shared read-only `files.tree` C service, generated `mdoFilesTree` and
+  JS `files.tree` helper/discovery contract. Return a complete deterministic
+  manifest with relative paths, regular-file SHA-256/revisions, empty-directory
+  metadata, totals and a composite tree revision. Do not return contents or
+  absolute source paths; do not expose browser directory assignment yet.
+- Bound files/subdirectories to 128 each, depth to 16, individual files to
+  32 MiB and total bytes to 64 MiB; bound UTF-8 components/relative paths too.
+  Pin the selected physical root, every scanned directory and regular file;
+  enumerate by anchored handles and recheck named entries/handles before
+  returning. Reject links/reparse/special entries, unavailable metadata,
+  changed identity/metadata and incomplete scans instead of omitting entries.
+  An expected tree revision performs a new complete scan/rehash. This is an
+  observed consistency check, not an atomic snapshot or retained source lease.
+- Actual C/XRT gates cover deterministic Unicode/empty directory manifests,
+  content changes with restored size/mtime, add/remove/rename changes, caps and
+  exact count/depth boundaries, oversized source files, name-byte bounds,
+  unprivileged Windows directory junction rejection and active-writer denial.
+  Every failure has no partial manifest; subsequent calls/renames still work.
+- Compile the production fragment against deterministic fault seams: all 111
+  allocation failure positions and 15 identity/replacement/cancellation/cleanup
+  scenarios release every file/directory/value owner with no partial result.
+  This caught and fixed a missing specific error on path allocation failure.
+  Separate fake filesystem/hash seams from the actual XRT/OS test evidence.
+- Sequential final checks: JS 180 pass; Python 120 total, 118 pass/two existing
+  Windows symlink privilege skips. The first full run stopped only because the
+  new long-name fixture hit Python's legacy Win32 path limit; preserve that log
+  separately, use the extended native path for fixture creation/cleanup, and
+  rerun the full gate successfully. No native binary change/rebuild was needed.
+- Keep the same single deployment/Home/source/object tree and the user's
+  existing Android WebView 138. Browser directory upload still needs native
+  hierarchy staging, cleanup inventories, exact relative-path assignment and
+  chooser/C/JS/Agent end-to-end gates. Android integration, broader lifetime/
+  OOM/network/performance and final packaging remain active; this is a tested
+  foundation milestone, not completion of the long-term goal.

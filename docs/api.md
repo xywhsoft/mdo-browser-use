@@ -586,6 +586,42 @@ and complete lowercase SHA-256, without contents. The default byte budget is
 32 MiB and the maximum is 64 MiB. Directories/links, changed identities and
 oversized/growing files do not produce a partial digest.
 
+`files.tree({path,space?,revision?,max_files?,max_directories?,max_depth?,
+max_file_bytes?,max_bytes?})` is the directory-source foundation. It shares the
+same C/JS service registry: C `mdoFilesTree(Context, Params, &Result, &Error)` and
+JS `applicationSdk.files.tree(params)` / `call("files.tree",params)`. Release C
+results through the context values table. This read-only service creates no
+browser effect, staging directory or retained source lease.
+
+It returns `format:"mdo.file-tree.v1"`, a `t1-<64 lowercase hex>` tree revision,
+`root` metadata, sorted `files` and `directories`, file/directory counts and
+`total_bytes`. Paths use `/` relative to the selected root; root is `"."` and
+empty subdirectories are included. Files carry their usual `f-...` revision,
+size and complete SHA-256. No file contents or absolute native paths are in the
+result. Limits default to their maximum: 128 files, 128 subdirectories (root
+excluded), depth 16, 32 MiB per file and 64 MiB total. Smaller explicit budgets
+are supported. Each component must be valid UTF-8, at most 240 bytes, without
+controls, separators or colons; relative paths are at most 1024 UTF-8 bytes.
+These are source-manifest bounds, not a claim that every receiving platform
+accepts all of those names/path lengths. Native staging must validate its own
+platform constraints before copying or assignment.
+
+The root must be a real directory. File and directory handles remain pinned
+through hashing and final checks against their parent entries; enumeration
+uses anchored directory handles. Links/reparse points and special entries fail
+the entire request rather than being followed or omitted. Unsupported identity
+metadata, resource limits, cancellation, filesystem errors and allocation
+failure return no partial manifest. Observed identity/metadata changes return
+`sdk_tree_conflict` (412). A supplied tree revision causes a complete new scan
+and rehash; changes to contents (even with restored size/mtime), names or empty
+directories invalidate it. This is a bounded consistency check, not an atomic
+filesystem snapshot or protection against every concurrent/adversarial writer.
+The original path's existing ancestor resolution remains the filesystem SDK's
+semantics; the selected physical root is pinned and rechecked during the call.
+The consumer must revalidate the full tree and its staged hashes before native
+assignment. Browser directory upload is not exposed until native staging,
+relative-path assignment and picker verification are implemented and tested.
+
 `files.read` and `fs.read` accept an optional `revision` precondition. With it,
 the host checks the named entry and opened handle before/after the bounded
 range, and returns no bytes on mismatch. EOF is explicit; an offset beyond the
