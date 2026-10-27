@@ -1,7 +1,7 @@
 import {browserRuntime} from './automation-runtime.js';
 import {createFrameReader} from './frame-reader.js';
 
-const permitted=new Set(['observe','locate','prepare','verify','optionList','selectOptions','uploadInfo','captureArea']);
+const permitted=new Set(['observe','locate','prepare','verify','optionList','selectOptions','uploadInfo','chooserInfo','captureArea']);
 const mutations=new Set(['selectOptions']);
 const issue=(code,message)=>Object.assign(new Error(message),{code});
 const pointValid=point=>point&&[point.x,point.y].every(number=>Number.isFinite(number)&&number>=0&&number<=32768);
@@ -75,6 +75,21 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
     try{
       if(!permitted.has(method))throw issue('frame_method_invalid','Only fixed Browser Use operations are allowed');
       if(method==='observe'||method==='locate')return await fromReader(method,options);
+      if(method==='chooserInfo'){
+        const page=await fromReader('describe',{document:options.document});
+        if(!page.ok)return page;
+        if(!options.document||page.document!==options.document)throw issue('stale_document','Observe the current root before resolving its file picker');
+        const pickers=await native('chooser',{action:'list',agent:true}),picker=pickers.choosers?.find(row=>row.id===options.chooser);
+        if(!pickers.ok||!picker?.supported||!picker.frame||!picker.frame_document)throw issue('chooser_changed','The exact frame-owned file picker is no longer available');
+        const route={frame:picker.frame,frame_document:picker.frame_document},chain=await pinChain(route),meta=await evaluate(route,'describe',{});
+        if(!meta.ok||!/^d-[a-f0-9-]{36}$/i.test(meta.document))throw issue('frame_response_invalid','The picker document identity is invalid');
+        const target=await native('chooser',{action:'target',agent:true,chooser:picker.id,document:meta.document,frame_chain:chain});
+        if(!target.ok)return target;
+        if(target.document!==meta.document||!/^e[1-9][0-9]{0,12}$/.test(target.element?.ref)||JSON.stringify(await pinChain(route))!==JSON.stringify(chain))
+          throw issue('target_changed','The picker no longer belongs to its original input and document');
+        return{...target,document:options.document,element:{...target.element,frame:route.frame,ref:`r1|${route.frame}|${route.frame_document}|${meta.document}|${target.element.ref}`},
+          native_target:{document:meta.document,ref:target.element.ref,frame_chain:chain}};
+      }
       if(method==='captureArea'&&!options.target){
         const tree=await native('frames',{action:'list',agent:true}),root=tree.frames?.find(row=>row.id==='f0');
         if(!tree.ok||!root||root.loading||!root.isolated)throw issue('frame_not_ready','The original root is not ready for capture preparation');

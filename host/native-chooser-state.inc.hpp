@@ -1,6 +1,7 @@
 struct xb_chooser_operation;
 struct xb_chooser_pending{
-  std::string id,frame,document,ref;int backend=0;bool multiple=false;UINT64 navigation=0;ULONGLONG expires=0;
+  std::string id,frame,session,document,ref,bindingKey;std::vector<std::pair<std::string,std::string>> frameGuard;
+  int backend=0;bool multiple=false;UINT64 navigation=0;ULONGLONG expires=0;
 };
 struct xb_chooser_state{
   ICoreWebView2DevToolsProtocolEventReceiver* receiver=nullptr;EventRegistrationToken token{};

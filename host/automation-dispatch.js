@@ -49,6 +49,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(pageDriver)return pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{checkpoint:async()=>{
       const checked=await guard(true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
     }});
+    if(method==='chooserInfo')return view.execute('chooser',{action:'target',chooser:options.chooser,document:options.document,agent:true});
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
     if (!result.ok || typeof result.value?.ok !== "boolean") throw Error("The browser returned an invalid automation result");

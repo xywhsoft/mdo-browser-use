@@ -143,5 +143,8 @@ export function createFrameReader({execute,checkpoint=async()=>{}}){
     if(matches.length>1)return{ok:false,error:{code:'element_ambiguous',message:'More than one element matches; choose an exact frame or reference',candidates:matches.slice(0,8).map(row=>row.element)}};
     return{ok:true,document:context.meta.document,...matches[0],visited};
   });
-  return Object.freeze({observe,locate});
+  const describe=guarded(async(options,scope)=>{
+    const context=await begin(options.document,scope);await revalidate(context,[context.root]);return context.meta;
+  });
+  return Object.freeze({describe,observe,locate});
 }

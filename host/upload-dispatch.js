@@ -56,7 +56,7 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     navigation=checked.state.navigation;
     if(params.chooser&&!checked.state.chooser_upload_capability)return fail('unsupported_capability','This browser cannot accept intercepted file pickers; no source files were read');
     stage='target_resolution';
-    let pinned=params.chooser?await view.execute('chooser',{action:'target',chooser:params.chooser,document:params.document,agent:true}):await read('uploadInfo',{document:params.document,target:params.target});
+    let pinned=params.chooser?await read('chooserInfo',{chooser:params.chooser,document:params.document}):await read('uploadInfo',{document:params.document,target:params.target});
     if(!pinned.ok)return{handled:true,result:pinned};
     targetIdentity=targetOf(pinned);
     if(params.action==='clear'){

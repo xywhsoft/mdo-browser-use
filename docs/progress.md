@@ -1707,3 +1707,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Parent-frame inert policy for hidden file inputs must also be covered before
   activation. These checks exercise the real frame driver/dispatcher with a
   controlled UI-operation status; they are not the final managed frame gate.
+
+## D13h — frame-owned picker interception, acceptance and cancellation
+
+- Arm/disarm the root and its bounded attached iframe sessions sequentially.
+  New OOPIFs inherit Agent picker suppression before becoming input-ready.
+  Session-aware events retain only the owning frame/document chain and opaque
+  picker identity; raw backend nodes, session IDs and device paths stay native.
+- Pin the real intercepted input in that frame's local isolated world, then
+  reuse the ticketed upload pipeline with the exact native chain. A different
+  document or world cannot claim an already resolved picker. Readiness, byte
+  staging and assignment also compare the picker binding key. Cancellation
+  resolves the original backend node through its own session and isolated
+  context. Child/ancestor navigation expires the picker without sending cancel
+  events to its replacement document. Manual takeover disarms all known
+  sessions and cancels the pending original input exactly once.
+- The real frame gate passes 138 checks, adding trusted nested picker opening,
+  repeat-click blocking, full SHA-256 upload/consumption, explicit and takeover
+  cancellation, child-navigation expiry and inheritance by a newly attached
+  OOPIF. All native reservations drain; no new crash diagnostics. Native
+  baseline passes 1,371 poll-inclusive checks. Normal public C/JS/managed upload,
+  legacy pickers and owned-tab read-only denial also pass.
+- Sequential JS gate: 130 pass. Python: 103 total, 101 pass and two symlink
+  privilege skips. Shared contracts, reviewed overlays and binary/source receipt
+  checks remain required. The normal workbench is still pending parent-inert
+  upload policy, frame drag and screenshot privacy aggregation before activation;
+  this milestone does not claim the managed frame path or Android is complete.

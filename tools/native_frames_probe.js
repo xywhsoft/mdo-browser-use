@@ -236,11 +236,51 @@ try{
   const staleAssignment=await call('upload',{action:'assign',ticket:staged.ticket,navigation:state.navigation,...newTarget.native_target});
   assert(!staleAssignment.accepted&&!staleAssignment.dispatched&&['upload_not_ready','upload_ticket_missing'].includes(staleAssignment.error.code),'Staged upload crossed its original child document boundary');
   assert((await evaluate(afterStaging,'document.querySelector("#files").files.length+JSON.parse(document.body.dataset.uploadEvents).length')).value===0,'Rejected staged upload reached a replacement child');
+  stage='framed-picker';
+  const openPicker=async()=>{
+    const opened=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Choose nested file'}});
+    geometryEvidence.pickerOpened=opened;
+    assert(opened.result.ok&&opened.result.outcome==='file_chooser_open'&&!opened.result.completed,'Nested trusted click did not intercept its file picker');
+    const listed=await dispatch('chooser',{action:'list'});assert(listed.result.ok&&listed.result.choosers.length===1,'Nested picker was not retained exactly once');
+    return listed.result.choosers[0];
+  };
+  let picker=await openPicker();
+  assert(picker.frame===afterStaging.id&&picker.frame_document===afterStaging.document,'Native picker metadata lost its original child frame document');
+  const beforeRepeat=inputRequests,blocked=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Choose nested file'}});
+  assert(blocked.result.outcome==='file_chooser_open'&&inputRequests===beforeRepeat,'A pending picker repeated its opening click');
+  const picked=await dispatch('upload',{action:'set',document:page.result.document,chooser:picker.id,files:[{path:sourcePath,space:'workspace',name:'picker-中文.bin'}],timeout_ms:15000});
+  geometryEvidence.picked=picked;
+  assert(picked.result.ok&&picked.result.verified&&picked.result.transfer.retained,'The actual nested picker did not accept its frame-owned upload');
+  await until(async()=>{const result=await evaluate(afterStaging,'document.body.dataset.uploadHash');return result.value===expectedHash;},'Nested picker did not consume the complete verified file bytes');
+  assert(exactEvents((await evaluate(afterStaging,'JSON.parse(document.body.dataset.uploadEvents)')).value,[true,true]),'Nested picker upload duplicated or synthesized its event pair');
+  assert((await call('chooser',{action:'list',agent:true})).choosers.length===0,'Consumed nested picker remained pending');
+  assert((await call('upload',{action:'release',ticket:picked.result.transfer.ticket,confirmed:true})).released,'Consumed picker transfer was not released');
+  picker=await openPicker();
+  const pickerCancelled=await dispatch('chooser',{action:'cancel',chooser:picker.id});
+  assert(pickerCancelled.result.ok&&pickerCancelled.result.cancel_event_sent&&pickerCancelled.result.events_trusted===false,'Nested picker cancel did not reach its original process');
+  assert(JSON.stringify((await evaluate(afterStaging,'JSON.parse(document.body.dataset.cancelEvents)')).value)==='[false]','Nested picker cancellation did not emit exactly its documented synthetic cancel event');
+  picker=await openPicker();await call('takeover');
+  await until(async()=>{const result=await call('chooser',{action:'list'});return result.ok&&!result.changing&&!result.armed&&!result.choosers.length;},'Manual control did not disarm all nested picker sessions');
+  assert(JSON.stringify((await call('evaluate',{script:'true'})).value)==='true','Manual browser stopped being inspectable by the trusted host');
+  await call('release');
+  assert(JSON.stringify((await evaluate(afterStaging,'JSON.parse(document.body.dataset.cancelEvents)')).value)==='[false,false]','Manual control lost or duplicated cancellation of the pending nested picker');
+  picker=await openPicker();const afterPicker=await advanceLeaf('pending-picker-navigation');
+  assert((await call('chooser',{action:'list',agent:true})).choosers.length===0,'Navigated nested picker remained usable');
+  const obsolete=await driver.read('chooserInfo',{document:page.result.document,chooser:picker.id});
+  assert(!obsolete.ok&&obsolete.error.code==='chooser_changed','An old picker resolved in a replacement child document');
+  assert((await evaluate(afterPicker,'JSON.parse(document.body.dataset.cancelEvents).length+document.querySelector("#files").files.length')).value===0,'Picker cleanup sent an old cancel or file assignment into the replacement document');
+  stage='new-oopif-picker-policy';const newFrameUrl=origin+'/geometry-leaf?upload=new-oopif';
+  await evaluate(outer,`(()=>{const old=document.querySelector('#inner'),next=old.cloneNode(false);next.src=${JSON.stringify(newFrameUrl)};old.replaceWith(next);return true})()`);
+  let newLeaf;await until(async()=>{const current=await frames();newLeaf=current.frames?.find(row=>row.url===newFrameUrl);return current.ok&&newLeaf&&!newLeaf.loading&&newLeaf.isolated;},'Replacement OOPIF session did not become ready');
+  assert(newLeaf.id!==afterPicker.id&&newLeaf.separate_process,'New picker fixture did not attach a new cross-process frame');
+  picker=await openPicker();assert(picker.frame===newLeaf.id&&picker.frame_document===newLeaf.document,'A newly attached OOPIF did not inherit file-picker suppression');
+  assert((await dispatch('chooser',{action:'cancel',chooser:picker.id})).result.cancel_event_sent,'New OOPIF picker could not be cancelled in its original process');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
     routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,
-    framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true};
+    framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true,
+    frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

@@ -81,7 +81,9 @@ The native gate now uses the real dispatcher with the internal frame driver for
 observe/wait, nested fill, option discovery/selection, focus and cancellation.
 It also verifies ticketed hidden OOPIF uploads and clears with exact byte hashes,
 event counts, document-chain cancellation and completed receipts without replay.
-The regular workbench keeps its current adapter until picker routing, drag and
+Picker interception, target resolution and cancel are also verified in their
+own process, including takeover, child navigation and newly attached OOPIFs.
+The regular workbench keeps its current adapter until parent upload policy, drag and
 cross-frame capture privacy are migrated. The routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
 

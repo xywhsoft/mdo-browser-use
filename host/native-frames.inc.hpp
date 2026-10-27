@@ -80,7 +80,18 @@ static void xb_frame_session_start(const std::shared_ptr<xb_view>& view,const st
       [weak,held,session](bool attached,const std::string&){
         auto view=weak.lock();auto state=held.lock();if(!view||!state||view->closed||state->closed)return;
         if(session.empty()){state->starting=false;state->ready=attached;if(!attached)state->error="frame_sessions_unavailable";}
-        else if(state->sessions.count(session)){state->sessions.at(session).ready=attached;if(!attached)state->sessions.at(session).error="frame_sessions_unavailable";}
+        else if(state->sessions.count(session)){
+          if(!attached){state->sessions.at(session).error="frame_sessions_unavailable";return;}
+          // An attached OOPIF must inherit Agent picker suppression before it
+          // becomes an input-ready frame. No process-global interception.
+          if(view->chooser&&view->chooser->wanted){
+            xb_frame_cdp(view,session,L"Page.setInterceptFileChooserDialog","{\"enabled\":true}",[weak,held,session](bool armed,const std::string&){
+              auto view=weak.lock();auto state=held.lock();if(!view||!state||view->closed||state->closed||!state->sessions.count(session))return;
+              auto& child=state->sessions.at(session);child.ready=armed;child.chooserEnabled=armed;
+              if(!armed){child.error="frame_chooser_unavailable";if(view->chooser)view->chooser->policyFailed=true;}
+            });
+          }else state->sessions.at(session).ready=true;
+        }
       });
   });
 }
@@ -114,6 +125,14 @@ static bool xb_frame_attached(const std::shared_ptr<xb_frame_state>& state,const
 }
 static xb_frame_node* xb_frame_alias(const std::shared_ptr<xb_frame_state>& state,const std::string& id){
   for(auto& item:state->nodes)if(item.second.id==id&&xb_frame_attached(state,item.second))return &item.second;return nullptr;
+}
+static bool xb_frame_chain(const std::shared_ptr<xb_view>& view,const std::string& raw,xb_input_frame_guard& guard){
+  guard.clear();auto state=view->frames;if(!state)return false;auto at=state->nodes.find(raw);
+  for(unsigned depth=0;at!=state->nodes.end()&&depth<32;depth++){
+    guard.emplace_back(at->second.id,at->second.document);
+    if(at->second.id=="f0")return xb_input_frames_live(view,guard);
+    at=state->nodes.find(at->second.parent);
+  }guard.clear();return false;
 }
 static void xb_frame_event(const std::shared_ptr<xb_view>& view,const std::string& method,const std::string& source,const std::string& data){
   auto state=view->frames;if(!state||state->closed||!xb_frame_source(state,source))return;

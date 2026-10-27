@@ -15,9 +15,16 @@ const doc='d-'+guid(1),local='d-'+guid(2),child='f-'+guid(2),fd='fd-'+guid(2),ro
 function fixture(){
   const rows=[{id:'f0',document:rootFd,parent:null,isolated:true,loading:false,url:'https://root.test'},
     {id:child,document:fd,parent:'f0',isolated:true,loading:false,url:'https://child.test'}];
-  const state={calls:[],effect:0,parentFocused:true,onRead:null,checkpoint:null};
+  const state={calls:[],effect:0,parentFocused:true,onRead:null,checkpoint:null,pickers:[{id:'chooser-fixture',supported:true,frame:child,frame_document:fd}]};
   const api=createFrameDriver({checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
-    assert.equal(command,'frames');state.calls.push(params);
+    state.calls.push({...params,command});
+    if(command==='chooser'){
+      if(params.action==='list')return{ok:true,choosers:structuredClone(state.pickers)};
+      assert.equal(params.action,'target');assert.equal(params.document,local);
+      const value={ok:true,document:local,element:{ref:'e7',hidden:true,multiple:true}};
+      return await state.onRead?.({method:'chooserTarget',options:params,value,rows})||value;
+    }
+    assert.equal(command,'frames');
     if(params.action==='list')return{ok:true,complete:true,frames:structuredClone(rows)};
     if(params.action==='owner'){
       await state.onRead?.({method:'owner',rows});
@@ -60,6 +67,30 @@ test('option pages use public references while hidden file targets retain native
   const file=await api.read('uploadInfo',{document:doc,target:{name:'Child'}});assert(file.ok&&file.element.hidden);
   assert.deepEqual(file.native_target,{document:local,ref:'e1',frame_chain:[{frame:child,document:fd},{frame:'f0',document:rootFd}]});
   assert(state.calls.some(call=>call.script?.includes('"_upload":true')));
+});
+
+test('the exact picker pins its real input in its owning local frame world',async()=>{
+  const {api,state}=fixture(),out=await api.read('chooserInfo',{document:doc,chooser:'chooser-fixture'});
+  assert(out.ok);assert.equal(out.document,doc);assert.equal(out.element.frame,child);assert(out.element.ref.endsWith('|'+local+'|e7'));
+  const expected=[{frame:child,document:fd},{frame:'f0',document:rootFd}];
+  assert.deepEqual(out.native_target,{document:local,ref:'e7',frame_chain:expected});
+  assert.deepEqual(state.calls.find(row=>row.command==='chooser'&&row.action==='target').frame_chain,expected);
+});
+
+test('a missing, stale or wrong-root picker never reaches native target resolution',async()=>{
+  for(const mode of ['missing','stale','wrong-root']){
+    const {api,state}=fixture();
+    if(mode==='missing')state.pickers=[];if(mode==='stale')state.pickers[0].frame_document='fd-'+guid(9);
+    const out=await api.read('chooserInfo',{document:mode==='wrong-root'?'d-'+guid(9):doc,chooser:'chooser-fixture'});
+    assert.equal(out.error.code,mode==='missing'?'chooser_changed':mode==='stale'?'stale_frame':'stale_document');
+    assert(!out.error.effect_may_have_occurred);assert(!state.calls.some(row=>row.command==='chooser'&&row.action==='target'));
+  }
+});
+
+test('picker binding is rejected when its ancestor changes during native resolution',async()=>{
+  const {api,state}=fixture();state.onRead=({method,rows})=>{if(method==='chooserTarget')rows[0].document='fd-'+guid(9);};
+  const out=await api.read('chooserInfo',{document:doc,chooser:'chooser-fixture'});
+  assert.equal(out.error.code,'target_changed');assert(!out.error.effect_may_have_occurred);
 });
 
 test('a sent mutation retains uncertainty on native error and is never replayed',async()=>{

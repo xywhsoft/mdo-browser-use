@@ -7,7 +7,7 @@ struct xb_frame_node{
   std::string raw,parent,id,document,loader,url,name,session;bool loading=false;
 };
 struct xb_frame_session{
-  std::string target,parent,error;bool ready=false;
+  std::string target,parent,error;bool ready=false,chooserEnabled=false;
 };
 struct xb_frame_state{
   ICoreWebView2_11* source=nullptr;bool ready=false,starting=false,closed=false;std::string root,error;

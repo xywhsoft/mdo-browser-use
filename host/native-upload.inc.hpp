@@ -167,7 +167,7 @@ struct xb_upload_store{
     auto owner=host.lock();bool watching=false;
     for(auto at=jobs.begin();at!=jobs.end();){auto job=at->second;auto view=job->view.lock();
       if(job->assigning)xb_upload_assignment_tick(job);
-      if(!job->prepared||!owner||!view||view->closed||(!job->retained&&!job->assigning&&(!xb_automation_live(owner,view,job->navigation)||!xb_input_frames_live(view,job->frameGuard)||GetTickCount64()>=job->expires||!job->chooser.empty()&&!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef))))job->closing=true;
+      if(!job->prepared||!owner||!view||view->closed||(!job->retained&&!job->assigning&&(!xb_automation_live(owner,view,job->navigation)||!xb_input_frames_live(view,job->frameGuard)||GetTickCount64()>=job->expires||!job->chooser.empty()&&!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef,job->assignFrameKey))))job->closing=true;
       if(job->closing&&!job->assigning&&job->cleanup())at=jobs.erase(at);else{watching|=!job->retained||job->assigning||job->closing;++at;}
     }
     if(!watching&&owner)KillTimer(owner->window,xb_upload_timer);
@@ -215,10 +215,11 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
   }
   if(action=="begin"){
     const auto key=xb_get(json,"upload_key"),manifest=xb_get(json,"files");uint64_t timeout=60000;
-    if(view->uploadCleanupFailed||!xb_chooser_upload_ready(view,xb_get(json,"chooser"),xb_get(json,"document"),xb_get(json,"ref"))||key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||manifest.empty()||manifest.front()!='['||
+    xb_input_frame_guard frameGuard;if(!xb_input_pin_frames(view,json,frameGuard)){fail("Upload frame documents changed before byte admission");return;}
+    if(view->uploadCleanupFailed||!xb_chooser_upload_ready(view,xb_get(json,"chooser"),xb_get(json,"document"),xb_get(json,"ref"),xb_input_frame_key(frameGuard))||key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||manifest.empty()||manifest.front()!='['||
        xb_get(json,"navigation")!=std::to_string(view->navigation)||view->loading||view->initialNavigationPending||!xb_automation_live(host,view,view->navigation)){fail("Upload needs a live document, exact key and bounded file manifest");return;}
     auto job=std::make_shared<xb_upload_job>();job->view=view;job->key=key;job->navigation=view->navigation;job->expires=GetTickCount64()+timeout;
-    if(!xb_input_pin_frames(view,json,job->frameGuard)){fail("Upload frame documents changed before byte admission");return;}
+    job->frameGuard=std::move(frameGuard);
     if(!job->frameGuard.empty()){
       job->assignDocument=xb_get(json,"document");job->assignRef=xb_get(json,"ref");job->assignFrameKey=xb_input_frame_key(job->frameGuard);
       if(job->assignDocument.empty()||job->assignDocument.size()>100||job->assignRef.empty()||job->assignRef.size()>100){fail("Framed uploads require their exact local document and reference");return;}
@@ -267,7 +268,7 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     job->closing=true;store->collect();host->reply(id,"{\"released\":true,\"cleanup_pending\":"+std::string(store->jobs.count(job->ticket)?"true":"false")+"}");return;
   }
   if(action=="status"){host->reply(id,xb_upload_status(job));return;}
-  if(job->closing||!xb_input_frames_live(view,job->frameGuard)||!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef)||xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){fail("Upload document, picker or control changed; inspect before retrying");return;}
+  if(job->closing||!xb_input_frames_live(view,job->frameGuard)||!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef,job->assignFrameKey)||xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){fail("Upload document, picker or control changed; inspect before retrying");return;}
   if(action=="seal"){
     if(job->sealed){host->reply(id,xb_upload_status(job));return;}
     for(const auto& file:job->files)if(file->received!=file->size){fail("Upload is incomplete; no file was assigned");return;}

@@ -16,7 +16,7 @@ function fixture(){
   const fail=(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:dispatched}}});
   const guard=async()=>cancelled?fail('cancelled','Original operation cancelled'):{state};
   const params={action:'set',document:'doc',target:{css:'#file'},files:[{path:'C:\\task-host\\source.bin'}]};
-  const read=async(method,options)=>{inspections++;assert.equal(method,'uploadInfo');const result={ok:true,document:'doc',element:{ref:options.target?.ref||'e1',multiple:true}};return state.pinned?state.pinned(inspections,options,result):result;};
+  const read=async(method,options)=>{if(method==='chooserInfo')return view.execute('chooser',{action:'target',...options,agent:true});inspections++;assert.equal(method,'uploadInfo');const result={ok:true,document:'doc',element:{ref:options.target?.ref||'e1',multiple:true}};return state.pinned?state.pinned(inspections,options,result):result;};
   const run=()=>executeFileUpload({params,view,api,action:{id:'frozen-action'},guard,read,deadline:performance.now()+2000,setDispatched:value=>{dispatched=value;},fail});
   return{ticket,calls,native,state,params,api,view,run,get inspections(){return inspections;},cancel(){cancelled=true;}};
 }

@@ -92,9 +92,14 @@ The dispatcher accepts this driver internally and forwards its chain on every
 mouse/key/text input. It rechecks focus after Select All before replacement text.
 Its actual WebView2 gate exercises nested fill, global references, waits,
 option transactions, root masking and cancellation with controlled UI-receipt
-status. The normal workbench still uses its existing adapter: routed upload/
-picker assignment, drag cancellation and cross-frame screenshot masking must
-be migrated before enabling the driver there. Cross-frame managed C/JS service
+status. Ticketed upload/clear and picker acceptance/cancel now route through the
+exact isolated frame world/session and original ancestor document chain.
+New OOPIFs inherit picker interception while Agent control is active. Child
+navigation expires unresolved pickers/staging; completed upload receipts can
+be queried without replay and retain website bytes until confirmed release.
+The normal workbench still uses its existing adapter: parent-inert upload policy,
+drag cancellation and cross-frame screenshot masking remain before activation.
+Cross-frame managed C/JS service
 registration and permissions have not yet been verified through that normal UI.
 
 ## Shared C/JavaScript boundary
