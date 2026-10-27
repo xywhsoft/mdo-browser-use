@@ -17,6 +17,17 @@ const executeBrowserAutomation=options=>dispatch({...options,browser:options.bro
   return command==='state'?{download_capability:true,downloads_armed:true,...result}:result;
 }}});
 
+const keyboardDoc='d-00000000-0000-4000-8000-000000000001',keyboardFd='fd-00000000-0000-4000-8000-000000000001';
+const keyboardPins=[{frame:'f0',document:keyboardFd}],keyboardRef=`r1|f0|${keyboardFd}|${keyboardDoc}|e1`;
+function keyboardDriver({prepare=()=>({}),verify=()=>({ok:true,focused:true,verified:true})}={}){
+  return{async read(method,options,control){await control.checkpoint();
+    if(method==='prepare')return{ok:true,element:{ref:keyboardRef},point:{x:10,y:10},geometry:[10,10,20,20],frame_chain:keyboardPins,
+      native_target:{document:keyboardDoc,ref:'e1'},...prepare(options)};
+    if(method==='verify')return verify(options);
+    return{ok:true,document:options.document,ready:'complete',text:'Fixture'};
+  }};
+}
+
 test('interception is acknowledged before input and a late picker event is a checkpoint',async()=>{
   let armed=false,open=false;const commands=[];
   const result=await executeBrowserAutomation({command:'act',params:{op:'click',document:'d1',target:{ref:'e1'}},action:{id:'late-picker'},
@@ -92,28 +103,77 @@ async function observe(state, receipt = "pending", timeout_ms = 50) {
 test('fill rechecks focus after selection before sending replacement text',async()=>{
   let focused=true;const inputs=[];
   const result=await executeBrowserAutomation({command:'act',params:{op:'fill',document:'d1',target:{name:'Fixture'},text:'synthetic'},action:{id:'selection-focus'},api:{async call(){return{state:'pending'};}},
+    pageDriver:keyboardDriver({verify:()=>({ok:true,focused,verified:true})}),
     view:{async execute(command,params){
-      if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
-      if(command==='input'){inputs.push(params);if(params.kind==='key')focused=false;return{accepted:true,trusted_input:true};}
-      if(params.script.includes('.verify('))return{ok:true,value:{ok:true,focused,verified:true}};
-      return{ok:true,value:{ok:true,element:{ref:'e1'},point:{x:10,y:10},geometry:[10,10,20,20]}};
+      if(command==='state')return{loading:false,automation:true,frame_target_keyboard:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params);if(params.kind==='key')focused=false;return{accepted:true,trusted_input:true,target_focused:params.kind==='focus'};}
+      throw Error('Unexpected legacy evaluation');
     }}});
   assert.equal(result.result.error.code,'focus_changed');assert.equal(result.result.error.effect_may_have_occurred,true);
-  assert.deepEqual(inputs.map(row=>row.kind),['click','key']);
+  assert.deepEqual(inputs.map(row=>row.kind),['focus','key']);
 });
 
-test('frame driver pins reach every native mouse/key/text step',async()=>{
+test('frame driver target pins reach every focus/key/text step without a global image snapshot',async()=>{
   const pins=[{frame:'f1',document:'fd1'},{frame:'f0',document:'fd0'}],inputs=[];
   const pageDriver={async read(method,options,control){await control.checkpoint();
-    if(method==='prepare')return{ok:true,element:{ref:'qualified'},point:{x:15,y:25},geometry:[15,25,10,20],frame_chain:pins};
+    if(method==='prepare')return{ok:true,element:{ref:`r1|f1|fd1|${keyboardDoc}|e1`},point:{x:15,y:25},geometry:[15,25,10,20],frame_chain:pins,native_target:{document:keyboardDoc,ref:'e1'}};
     if(method==='verify')return{ok:true,focused:true,verified:true};return{ok:true,document:'doc',ready:'complete',text:'Fixture'};
   }};
   const result=await executeBrowserAutomation({command:'act',params:{op:'fill',document:'doc',target:{name:'Fixture'},text:'synthetic'},pageDriver,action:{id:'frame-pin-forwarding'},api:{async call(){return{state:'pending'};}},
     view:{async execute(command,params){
-      if(command==='state')return{loading:false,automation:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
-      if(command==='input'){inputs.push(params);return{accepted:true,trusted_input:true};}throw Error('Unexpected legacy page evaluation');
+      if(command==='state')return{loading:false,automation:true,frame_target_keyboard:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params);return{accepted:true,trusted_input:true,target_focused:params.kind==='focus'};}throw Error('Unexpected legacy page evaluation');
     }}});
-  assert(result.result.ok);assert.deepEqual(inputs.map(row=>row.kind),['click','key','text']);assert(inputs.every(row=>JSON.stringify(row.frame_chain)===JSON.stringify(pins)));
+  assert(result.result.ok);assert.deepEqual(inputs.map(row=>row.kind),['focus','key','text']);assert(inputs.every(row=>JSON.stringify(row.frame_chain)===JSON.stringify(pins)));
+  assert(inputs.every(row=>row.focus_document===keyboardDoc&&row.focus_ref==='e1'&&!Object.hasOwn(row,'frame_snapshot')));
+});
+
+test('keyboard capabilities and isolated target proof are required before any focus effect',async()=>{
+  for(const mode of ['old-host','no-driver','wrong-ref','wrong-document','missing-chain']){
+    const inputs=[];let reads=0;const driver=keyboardDriver({prepare:()=>{reads++;return mode==='wrong-ref'?{native_target:{document:keyboardDoc,ref:'e9'}}:
+      mode==='wrong-document'?{native_target:{document:'d-replaced',ref:'e1'}}:mode==='missing-chain'?{frame_chain:[]}:{};}});
+    const result=await executeBrowserAutomation({command:'act',params:{op:'key',document:'doc',target:{name:'Fixture'},key:'Enter'},pageDriver:mode==='no-driver'?null:driver,
+      action:{id:'keyboard-proof-'+mode},api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+        if(command==='state')return{loading:false,automation:true,frame_target_keyboard:mode!=='old-host',navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+        inputs.push(params);throw Error('Unproven keyboard target received native work');
+      }}});
+    assert.equal(result.result.ok,false,mode);assert.equal(result.result.error.effect_may_have_occurred,false,mode);assert.equal(inputs.length,0,mode);
+    if(['old-host','no-driver'].includes(mode)){assert.equal(result.result.error.code,'unsupported_capability');assert.equal(reads,0);}
+    else assert.equal(result.result.error.code,'frame_response_invalid');
+  }
+});
+
+test('focus alone cannot turn a key action into a click or skip its exact target verification',async()=>{
+  const inputs=[];let focused=false;
+  const result=await executeBrowserAutomation({command:'act',params:{op:'key',document:'doc',target:{name:'Button'},key:'Enter'},
+    pageDriver:keyboardDriver({verify:()=>({ok:true,focused,verified:true})}),action:{id:'keyboard-focus-loss'},api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,frame_target_keyboard:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params);return{accepted:true,target_focused:true};}throw Error('Unexpected native read');
+    }}});
+  assert.equal(result.result.error.code,'focus_changed');assert.equal(result.result.error.effect_may_have_occurred,true);
+  assert.deepEqual(inputs.map(row=>row.kind),['focus']);
+});
+
+test('focus-opened dialogs stop the original key without a synthetic activation',async()=>{
+  const inputs=[];const result=await executeBrowserAutomation({command:'act',params:{op:'key',document:'doc',target:{name:'Button'},key:'Enter'},pageDriver:keyboardDriver(),
+    action:{id:'keyboard-focus-dialog'},api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,frame_target_keyboard:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params);return{accepted:true,dialog_open:true};}
+      if(command==='dialog')return{dialogs:[{id:'focus-dialog'}]};throw Error('Unexpected native work');
+    }}});
+  assert.equal(result.result.outcome,'dialog_open');assert.equal(result.result.completed,false);assert.deepEqual(inputs.map(row=>row.kind),['focus']);
+});
+
+test('a lost focus reply waits for its original response download without another focus or text',async()=>{
+  const inputs=[];let navigation='1';
+  const result=await dispatch({command:'act',browser:'focus-original-response',params:{op:'fill',document:'doc',target:{name:'Field'},text:'synthetic'},pageDriver:keyboardDriver(),
+    action:{id:'focus-original-response'},api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,frame_target_keyboard:true,navigation,download_capability:true,downloads_armed:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='downloads')return{ok:true,downloads:navigation==='2'?[{id:'original-response',state:'pending'}]:[]};
+      if(command==='input'){inputs.push(params);navigation='2';throw Error('Lost original focus acknowledgement');}
+      throw Error('Unexpected native work');
+    }}});
+  assert.equal(result.result.outcome,'download_pending');assert.equal(result.result.completed,false);assert.deepEqual(inputs.map(row=>row.kind),['focus']);
 });
 
 test("observe waits for readiness and reports bounded timeout", async () => {
@@ -141,8 +201,8 @@ function actionFixture() {
   let cancelled = false, moving = false, focus = true, samples = 0;
   const inputs = [];
   const view = { async execute(command, params) {
-    if (command === "state") return { loading: false, automation: true, chooser_capability:true,chooser_upload_capability:true,chooser_armed:true, navigation: "1" };
-    if (command === "input") { inputs.push(params); cancelled = true; return { accepted: true, trusted_input: true }; }
+    if (command === "state") return { loading: false, automation: true, frame_target_keyboard:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true, navigation: "1" };
+    if (command === "input") { inputs.push(params); cancelled = true; return { accepted: true, trusted_input: true,target_focused:params.kind==='focus' }; }
     if (params.script.includes(".prepare(")) {
       samples++;
       return { ok: true, value: { ok: true, element: { ref: "e1" }, point: { x: 10, y: 10 },
@@ -152,15 +212,16 @@ function actionFixture() {
   } };
   return { view, inputs, setMoving() { moving = true; }, setBlurred() { focus = false; },
     execute: () => executeBrowserAutomation({ command: "act", params: { op: "fill", document: "d1", target: { ref: "e1" }, text: "fixture", timeout_ms: 250 },
+      pageDriver:keyboardDriver({prepare:()=>({geometry:[moving?++samples*10:10,10,20,20,10,10]}),verify:()=>({ok:true,focused:focus,verified:true})}),
       view, action: { id: "action-fixture" }, api: { async call() { return { state: cancelled ? "cancelled" : "pending" }; } } }) };
 }
 
-test("cancellation after click prevents subsequent keyboard input", async () => {
+test("cancellation after focus prevents subsequent keyboard input", async () => {
   const fixture = actionFixture();
   const result = await fixture.execute();
   assert.equal(result.result.error.code, "cancelled");
   assert.equal(result.result.error.effect_may_have_occurred, true);
-  assert.deepEqual(fixture.inputs.map(input => input.kind), ["click"]);
+  assert.deepEqual(fixture.inputs.map(input => input.kind), ["focus"]);
 });
 
 test("moving targets time out without input and concurrent writers are refused", async () => {

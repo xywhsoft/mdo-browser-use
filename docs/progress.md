@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: V6 adds shared C/JS/Agent focus-bound image keys;
+Latest verified milestones: V7 removes DOM input's duplicate activation clicks;
+V6 adds shared C/JS/Agent focus-bound image keys;
 V4/V5 cover image dragging and retained-document cleanup. E2 provides actual
 Android unsupported-provider admission. Directory uploads, full Android native
 integration, adversarial lifecycle and final OOM/performance/package gates
@@ -2253,3 +2254,45 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Directory uploads, full Android integration (the current phone retains its
   explicitly unsupported WebView 138), BFCache/adversarial lifetime, OOM/network/
   performance and final packaging remain open. This is a development milestone.
+
+## V7 — ordinary DOM input without activation clicks
+
+- Reproduce the older ordinary DOM path's actual bug before changing it: one
+  public `key Enter` call produced `Activations 2 trusted`. Preserve that private
+  receipt separately from later test-harness failures. The dispatcher clicked the
+  target before sending Enter; this also added unnecessary clicks to fill/type.
+- Route DOM fill/type/key through the same nonactivating native focus primitive.
+  Isolated preparation supplies an exact qualified target/local document, which
+  is validated before effects and pinned on every key/text request. A distinct
+  `frame_target_keyboard` capability refuses old backends without fallback clicks.
+  Keep the target's original leaf-to-root chain; DOM input must not inherit an
+  unrelated complete screenshot tree. Image keys retain their full snapshot fence.
+- Preserve cancellation, takeover, admitted-key release and post-selection focus
+  checks. Focus can itself start a download: retain its original input/checkpoint
+  window even if the native acknowledgement is lost, without re-focusing or
+  sending the remaining key/text sequence.
+- Actual normal C/JS/Agent regression passes root and OOPIF Enter with exactly
+  one activation; Unicode fill/append/clear; open-shadow and contenteditable
+  fields; zero activation clicks; focus hijack, replacement and Control+A focus
+  loss with no text reaching another control. A focus-opened dialog does not
+  resume text after responding. Unrelated sibling replacement does not invalidate
+  the original root field. An original POST is sent once, its exact size/hash
+  verifies and its download is released; the retained original DOM accepts an
+  explicit new fill. Owned read-only denial leaves focus/input counters at zero.
+- Correct two harness assumptions without misreporting them as product defects:
+  precheck the generated fixture scripts after a quoting error prevented event
+  installation; assert the published `verification:field_state` receipt rather
+  than an undocumented fill boolean. Keep these separate from the original real
+  double-activation evidence. Include a bounded current observation in failures.
+- Sequential checks: JS 175 pass; Python 109 total, 107 pass/two Windows symlink
+  privilege skips. Compiled actual-source focus checks confirm DOM input is not
+  blocked by unrelated snapshot changes. Native frame gate passes 217
+  poll-inclusive checks; normal DOM C/JS/Agent gate passes with no new native
+  diagnostics and zero transfer reservations. The image-key recheck stopped
+  before input on a first-opening `capture_changed (viewport)` receipt. Preserve
+  that failure and address read-only viewport settling as the next separate fix;
+  do not count the failed image-key recheck as passed here.
+- Same single deployment/Home/source/object tree. Android keeps the user's
+  current explicitly unsupported WebView 138. Directory uploads, Android native
+  integration, adversarial lifetime/OOM/network/performance and final packaging
+  remain active; this is not completion of the long-term goal.

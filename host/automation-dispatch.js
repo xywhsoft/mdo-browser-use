@@ -31,9 +31,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null;
+  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null,inputFocus=null;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
-  const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key','drag'].includes(params.op);
+  const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','fill','type','key','drag'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
   const exclusive = writing || command === "capture";
@@ -136,7 +136,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(inputFrameSnapshot&&stopped.state.input_busy)return fail('browser_busy','Native input started after visual validation; request a fresh image before another attempt');
     while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
     dispatched = true;
+    if(parameters.kind==='focus'&&canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     const delivered = await view.execute("input", { ...parameters,...(inputFrameChain?{frame_chain:inputFrameChain}:{}),
+      ...(inputFocus&&['key','text'].includes(parameters.kind)?inputFocus:{}),
       ...(inputFrameSnapshot?{frame_snapshot:inputFrameSnapshot}:{}),agent: true, navigation });
     if(parameters.kind==='focus'&&delivered.accepted){
       if(delivered.dialog_open)return dialogBoundary();
@@ -276,6 +278,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const { state } = checked;
       if (!state.loading) {
         if (command === "act") {
+          if(!params.target?.image&&['fill','type','key'].includes(params.op)&&(!pageDriver||state.frame_target_keyboard!==true))
+            return fail('unsupported_capability','This host cannot safely focus and fence an exact keyboard target; update the host or use manual control');
           if (params.op === "drag" && !state.drag_capability) return fail("unsupported_capability", "This browser backend cannot deliver bounded native dragging");
           if (["double_click", "right_click", "middle_click"].includes(params.op) && !state.advanced_mouse)
             return fail("unsupported_capability", "This browser backend cannot deliver the requested mouse gesture");
@@ -381,7 +385,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       }
       if (params.op === "check" && fresh.element.checked === params.checked) return { handled: true, result: { ok: true, changed: false, action: action.id, verified: true } };
       if (params.op === "check" && fresh.element.role === "radio" && !params.checked) return fail("unsupported_action", "A radio input cannot be unchecked by clicking it; select another radio in the group");
-      let error = await send({ kind: params.op === "hover" ? "move" : params.op === "scroll" ? "wheel" : "click", ...fresh.point,
+      const keyboard=['fill','type','key'].includes(params.op);
+      if(keyboard){
+        const target=fresh.native_target,parts=typeof fresh.element.ref==='string'?fresh.element.ref.split('|'):[],leaf=inputFrameChain[0];
+        if(!/^d-[a-f0-9-]{36}$/i.test(target?.document)||!/^e[1-9][0-9]{0,12}$/.test(target?.ref)||parts.length!==5||parts[0]!=='r1'||
+           parts[1]!==leaf.frame||parts[2]!==leaf.document||parts[3]!==target.document||parts[4]!==target.ref)
+          return fail('frame_response_invalid','The keyboard target is not bound to its original isolated frame');
+        inputFocus={focus_document:target.document,focus_ref:target.ref};
+      }
+      let error = await send(keyboard?{kind:'focus',...inputFocus}:{ kind: params.op === "hover" ? "move" : params.op === "scroll" ? "wheel" : "click", ...fresh.point,
         button: params.op === "right_click" ? "right" : params.op === "middle_click" ? "middle" : "left",
         click_count: params.op === "double_click" ? 2 : 1, dx: params.dx || 0, dy: params.dy || 0 });
       if (error) return error;

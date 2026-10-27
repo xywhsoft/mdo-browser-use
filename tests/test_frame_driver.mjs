@@ -62,6 +62,7 @@ test('prepare maps a qualified target and pins the complete document chain',asyn
   assert(out.ok);assert.equal(out.document,doc);assert.equal(out.element.frame,child);assert(out.element.ref.startsWith('r1|'));
   assert.deepEqual(out.point,{x:120,y:210});assert.equal(out.geometry.length,16);
   assert.deepEqual(out.frame_chain,[{frame:child,document:fd},{frame:'f0',document:rootFd}]);
+  assert.deepEqual(out.native_target,{document:local,ref:'e1'});
 });
 
 test('visual points bind the exact root or child owner without DOM selector guesses',async()=>{

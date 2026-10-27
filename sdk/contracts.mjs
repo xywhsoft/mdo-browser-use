@@ -186,7 +186,7 @@ export const services = [
   },
   {
     "id": "browseruse.act",
-    "description": "Queue one native browser action against an observed DOM target or a completed screenshot image-pixel target. Visual targets support pointer gestures, wheel, dragging (two points from one image) and focus-bound keys without a focus click. They require native frame/scene validation and consume their image lease once. Text fields require observed DOM targets. Wait for browseruse.result; never repeat an uncertain effect. No arbitrary script is accepted.",
+    "description": "Queue one native browser action against an observed DOM target or a completed screenshot image-pixel target. Visual targets support pointer gestures, wheel, dragging (two points from one image) and focus-bound keys without a focus click. They require native frame/scene validation and consume their image lease once. Text fields require observed DOM targets. DOM fill/type/key focus the exact original control without a click and require native target-focus fences. Wait for browseruse.result; never repeat an uncertain effect. No arbitrary script is accepted.",
     "input": {
       "type": "object",
       "additionalProperties": false,

@@ -101,11 +101,34 @@ matching documents/parents, ready sessions and ancestry reaching the original
 root. Missing/new/detached/reparented/loading/replaced frames refuse delivery.
 Validate again before every mouse/key/text step; an admitted press is released
 even when its snapshot changes, without emitting an unmatched release or the
-second click of an interrupted double-click. These checks allocate no memory
-between input steps. Absence preserves existing trusted-native/DOM callers;
+second click of an interrupted double-click. The in-memory snapshot/chain
+comparisons allocate no memory between input steps. Absence preserves existing
+trusted-native/DOM callers;
 public visual coordinates require this capability and the preflight below.
 Image-point dragging additionally requires `frame_snapshot_drag`; older native
 hosts reject it before gesture preparation.
+
+Ordinary DOM `fill`, `type` and `key` additionally require
+`frame_target_keyboard`. The dispatcher gets a private exact local document/ref
+from isolated preparation, focuses that original control without a click, and
+sends its private focus pin with every key/text request. The native backend
+checks deep active-element focus, document focus and the original leaf-to-root
+frame chain immediately before press/text delivery. These focus checks use
+bounded isolated CDP calls; they are separate from the allocation-free in-memory
+comparisons. Form focus can run website handlers and is a possible effect. A
+detected stolen focus, detached control, source navigation, cancellation or takeover stops
+the remaining sequence, with release of an already admitted key.
+
+DOM target input does not require a complete screenshot snapshot: an unrelated
+sibling update must not invalidate the original control's chain. Image-key input
+still requires its complete frame snapshot and image/scene/privacy proof. Older
+hosts lacking the respective native capability return an explicit unsupported
+result before focus/preparation instead of falling back to click-to-focus.
+For `fill`, the published success field is `verification:"field_state"`; key and
+append-only `type` report native delivery, which still needs a business-result
+check. Dialogs and original-response downloads triggered by focus are incomplete
+checkpoints. Responding/accepting does not resume the old key or text sequence;
+recover its retained identity, then inspect before an explicit new action.
 
 The visual dispatcher validates the completed image's
 document/navigation, full frame/layout stamp, root scroll/viewport, crop and

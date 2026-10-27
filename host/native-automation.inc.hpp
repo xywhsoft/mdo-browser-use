@@ -132,7 +132,7 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
     if(!xb_input_snapshot_live(view,frameSnapshot)&&error.empty())error="The visual frame snapshot changed; inspect a fresh image before further input";
     if(error.empty()&&!step.release&&focusCheck&&!focusReady){
       auto self=shared_from_this();focusCheck([self](bool focused){
-        self->focusReady=true;if(!focused&&self->error.empty())self->error="The original visual target lost keyboard focus; inspect before further input";self->run();
+        self->focusReady=true;if(!focused&&self->error.empty())self->error="The original keyboard target lost focus; inspect before further input";self->run();
       });return;
     }
     focusReady=false;index++;
@@ -220,8 +220,8 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
   const bool focusRequested=!focusDocument.empty()||!focusRef.empty();
   if(focusRequested||!sequence->frameSnapshot.empty()&&(kind=="key"||kind=="text")){
     if((kind!="key"&&kind!="text"&&kind!="focus")||focusDocument.size()!=38||focusDocument.substr(0,2)!="d-"||focusRef.size()<2||focusRef.size()>14||focusRef[0]!='e'||
-       focusRef.find_first_not_of("0123456789",1)!=std::string::npos||sequence->frameGuard.empty()||sequence->frameSnapshot.empty()){
-      host->reply(id,"","Visual keyboard input requires its original isolated target and complete frame snapshot");return;
+       focusRef.find_first_not_of("0123456789",1)!=std::string::npos||sequence->frameGuard.empty()){
+      host->reply(id,"","Keyboard input requires its original isolated target and frame document chain");return;
     }
     std::weak_ptr<xb_input_sequence> weak=sequence;
     sequence->focusCheck=[weak,focusDocument,focusRef](std::function<void(bool)> complete){
@@ -237,7 +237,7 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
     if(!view->controller||FAILED(view->controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC))){host->reply(id,"","Cannot focus the original browser view");return;}
     xb_input_focus(host,view,sequence->navigation,sequence->frameGuard,sequence->frameSnapshot,focusDocument,focusRef,
       [sequence](bool focused){if(sequence->replied)return;sequence->replied=true;
-        sequence->host->reply(sequence->id,focused?"{\"accepted\":true,\"target_focused\":true,\"focus_method\":\"isolated_focus\"}":"",focused?"":"The original visual control did not retain focus");},true);
+        sequence->host->reply(sequence->id,focused?"{\"accepted\":true,\"target_focused\":true,\"focus_method\":\"isolated_focus\"}":"",focused?"":"The original control did not retain focus");},true);
     return;
   }
   if(kind=="click"||kind=="move"||kind=="wheel"){

@@ -35,6 +35,15 @@ never a second visual click. Native delivery still needs business-result checks.
 native gestures. Select the real target from a fresh page observation. Do not
 replace an unsupported gesture with repeated ordinary clicks or guessed input.
 
+DOM `fill`, `type` and `key` focus the exact original control without clicking
+it. They require a host with native target-focus fencing. An Enter key on a
+button therefore does not add an extra activation click. Focus itself can run
+website handlers; if it moves elsewhere, replaces the control, opens a dialog or
+starts a download, inspect the checkpoint instead of repeating focus or text.
+Responding does not resume the original input. A successful fill reports
+`verification:"field_state"`; append-only type and keys still require checking
+the website result. Do not retry an unsupported old host unchanged.
+
 For an HTML select, use `browser_observe(mode="options",document=<fresh id>,
 target=<exact select>)` to read labels/indices/disabled states. Follow its
 `next_offset`; a clipped label should be selected by observed index. Then use

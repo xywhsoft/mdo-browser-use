@@ -53,6 +53,7 @@ python tools/public_frames_probe.py
 python tools/frame_scroll_probe.py
 python tools/visual_probe.py
 python tools/keyboard_probe.py
+python tools/dom_keyboard_probe.py
 python tools/android_world_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
@@ -116,6 +117,13 @@ one Enter activation, focus-hijack and dialog checkpoints without key delivery,
 durable recovery without replay, privacy masks and owned read-only denial before
 focus. The same native view/controller and isolated runtime provide focus and
 the immediate pre-key focus/document checks; no extra browser engine is used.
+
+`dom_keyboard_probe.py` verifies ordinary C/JS/Agent input without click-to-focus:
+one Enter activation, Unicode fill/append/clear, open-shadow/contenteditable and
+OOPIF targets, lost/replaced/selection-hijacked focus, dialogs and original POST
+downloads without input replay/refetch. It also checks unrelated sibling updates,
+explicit new-action recovery and read-only denial before focus. The same Home,
+synthetic loopback fixture and native transfer cache are reused.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

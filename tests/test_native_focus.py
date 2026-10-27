@@ -29,7 +29,7 @@ using xb_input_frame_guard=std::vector<std::pair<std::string,std::string>>;
 using xb_input_frame_snapshot=std::vector<std::string>;
 static bool xb_automation_live(const std::shared_ptr<xb_host>&,const std::shared_ptr<xb_view>& view,UINT64){return view->live;}
 static bool xb_input_frames_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_guard&){return view->framesLive;}
-static bool xb_input_snapshot_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_snapshot&){return view->snapshotLive;}
+static bool xb_input_snapshot_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_snapshot& snapshot){return snapshot.empty()||view->snapshotLive;}
 static std::string xb_quote(const std::string& text){return "\""+text+"\"";}
 static std::string xb_get(const std::string& text,const std::string& key){
  if(key=="executionContextId")return text=="context"?"77":"";
@@ -69,6 +69,8 @@ int main(){
  view=fixture();xb_input_focus(host,view,1,{},snapshot,"d-original","e7",done);if(accepted||!commands.empty())return 11;
  view=fixture();xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done,true);
  if(!accepted||commands.size()!=2||commands[1].params.find("r.focus(")==std::string::npos)return 12;
+ view=fixture();view->snapshotLive=false;xb_input_focus(host,view,1,guard,{},"d-original","e7",done);
+ if(!accepted||commands.size()!=2)return 13; // DOM targets do not pin unrelated siblings.
  return 0;
 }
 '''

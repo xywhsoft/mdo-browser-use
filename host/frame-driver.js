@@ -158,7 +158,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
       if(local.element)out.element={...local.element,ref:found.element.ref,frame:route.frame};
       if(local.ref)out.ref=found.element.ref;
       if(Object.hasOwn(local,'frame'))out.frame=route.frame;
-      if(method==='prepare')return{...out,...await mapPoint(route,local)};
+      if(method==='prepare')return{...out,...await mapPoint(route,local),native_target:{document:route.document,ref:route.ref}};
       if(method==='uploadInfo'){
         const chain=await pinChain(route);await uploadParents(route,chain);
         return{...out,native_target:{document:route.document,ref:route.ref,frame_chain:chain}};
