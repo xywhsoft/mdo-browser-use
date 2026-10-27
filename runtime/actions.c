@@ -3,7 +3,13 @@ static mdo_result BuAct(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
     (void)User;const mdo_values_v1* V=C->Api->Values;const char* Op=BuText(C,P,"op");
     const xvalue* Target=V->Get(P,"target");
     if(!BuEqual(Op,"scroll")&&(!Target||!V->Count(Target)))return BuFail(E,"target_required","Select one observed target before acting",422);
-    if(Target){
+    if(Target&&V->Get(Target,"image")){
+        if(V->Count(Target)!=3||!BuVisualId(BuText(C,Target,"image"))||!V->Get(Target,"x")||!V->Get(Target,"y"))
+            return BuFail(E,"target_invalid","Visual targets require only the completed screenshot ID and integer image-pixel x/y",422);
+        if(!BuEqual(Op,"click")&&!BuEqual(Op,"double_click")&&!BuEqual(Op,"right_click")&&!BuEqual(Op,"middle_click")&&!BuEqual(Op,"hover")&&!BuEqual(Op,"scroll"))
+            return BuFail(E,"unsupported_action","Use an observed DOM target for fields, keyboard or drag; image targets support pointer gestures and wheel only",422);
+    }else if(Target){
+        if(V->Get(Target,"x")||V->Get(Target,"y"))return BuFail(E,"target_invalid","Pixel coordinates require their completed screenshot identity",422);
         bool Selector=false;const char* Keys[]={"role","name","label","placeholder","text","testid","css","ref"};
         for(size_t I=0;I<8;I++)if(V->Get(Target,Keys[I]))Selector=true;
         if(!Selector)return BuFail(E,"target_required","A frame alone is not an element target",422);

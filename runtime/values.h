@@ -4,6 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 
+static bool BuVisualId(const char* Id){
+    if(!Id||strlen(Id)!=51||strncmp(Id,"vs-",3))return false;
+    for(size_t I=3;I<51;I++)if(!((Id[I]>='0'&&Id[I]<='9')||(Id[I]>='a'&&Id[I]<='f')))return false;
+    return true;
+}
+
 static const char* BuText(const mdo_sdk_context_v1* C,const xvalue* P,const char* Key) {
     return C->Api->Values->Text(C->Api->Values->Get(P,Key));
 }

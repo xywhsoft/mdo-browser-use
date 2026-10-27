@@ -11,6 +11,17 @@ completed observations/conditions, not pending UI receipts.
 Choose the explicit display client and tab; do not guess a browser by its URL.
 Read a fresh page observation before acting. Prefer element references or precise
 semantic locators. A stale document or ambiguous match requires a fresh observation.
+For canvas or other visual-only controls, capture a fresh screenshot and use its
+`visual_reference.id` with `browser_act(target={image:<id>,x:<integer>,y:<integer>})`.
+Coordinates are pixels of that exact delivered image, including its resizing
+and crop, never desktop/CSS coordinates or a manually resized image. The
+reference belongs to one browser, expires after 60 seconds and permits one
+gesture. Supported visual operations are click, double/right/middle click,
+hover and wheel scroll; use DOM targets for fields, keyboard and drag.
+Masked regions and points outside the current viewport cannot be clicked this
+way. If the scene/reference changed, capture a fresh image instead of repeating
+an unchanged failed call. A lost mutation reply requires operation recovery,
+never a second visual click. Native delivery still needs business-result checks.
 `browser_act` supports `double_click`, `right_click` and `middle_click` as exact
 native gestures. Select the real target from a fresh page observation. Do not
 replace an unsupported gesture with repeated ordinary clicks or guessed input.

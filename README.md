@@ -50,6 +50,7 @@ python tools/native_probe.py
 python tools/native_frames_probe.py
 python tools/public_frames_probe.py
 python tools/frame_scroll_probe.py
+python tools/visual_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py

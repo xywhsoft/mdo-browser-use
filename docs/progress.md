@@ -13,8 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestone: V2 verifies internal visual-pointer preflight in the Windows
-workbench. Android, vision coordinate input and final
+Latest verified milestone: V3 enables shared C/JS/Agent visual pointer input in the Windows
+workbench. Android, visual keyboard/drag and final
 lifecycle/performance/package gates remain active; this is not a release.
 
 ## Working boundaries
@@ -1998,3 +1998,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - This preflight is not an atomic website transaction. Public pointer contracts,
   visual keyboard/drag, Android and final lifecycle/performance/package gates
   remain active.
+
+## V3 — public C/JS/Agent visual pointer actions
+
+- Extend the existing shared action target with a completed-image ID and integer
+  image-pixel x/y, without adding a separate service or permission bypass. C
+  rejects missing/mixed selectors, malformed IDs, noninteger/out-of-range points
+  and unsupported field/keyboard/drag operations before browser lookup. Generate
+  the matching C registration and JS schema from the same contract; reuse the
+  screenshot formatter's strict ID helper. Update the Agent skill/description.
+- Add a loopback Canvas fixture in the root and a true cross-process child.
+  Normal public C/JS tests pass a scaled canvas click, nested canvas click,
+  double/right/middle click, hover and wheel with trusted website events.
+  A retained operation ID recovers the original result without another click;
+  a new operation cannot reuse the consumed image. Foreign-browser images and
+  changed selected pixels refuse input; a fresh image recovers the changed scene.
+- Actual Agent tools pass the same canvas image/point path. An owned read-only
+  browser permits screenshots but rejects the point action, and its click count
+  remains zero. Full-access actions add no extra prompt. Test credentials remain
+  in memory; no external website or model request is used.
+- Sequential checks: 158 JS pass; Python 106 total, 104 pass/two Windows symlink
+  privilege skips. Public normal workbench canvas gate passes all six pointer/
+  wheel operations, C/JS recovery and managed permissions. Native binary is
+  unchanged from V1 (last native baseline 1,368 and frame gate 197); contracts
+  and deployed overlays match after applying the final comment-only host edit.
+- Same project deployment/Home/source/object cache. No release/publication.
+  Visual keyboard/drag, directory upload coverage, Android, lifecycle/OOM and
+  final network/performance/package checks remain active.

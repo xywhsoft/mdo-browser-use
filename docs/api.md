@@ -93,9 +93,9 @@ Validate again before every mouse/key/text step; an admitted press is released
 even when its snapshot changes, without emitting an unmatched release or the
 second click of an interrupted double-click. These checks allocate no memory
 between input steps. Absence preserves existing trusted-native/DOM callers;
-public visual coordinates remain unavailable until their preflight is wired.
+public visual coordinates require this capability and the preflight below.
 
-An internal visual-pointer dispatcher now validates the completed image's
+The visual-pointer dispatcher validates the completed image's
 document/navigation, full frame/layout stamp, root scroll/viewport, crop and
 device scale. It refuses points outside the current viewport or inside either
 privacy scan's masks. Before input it captures the same bounded region, applies
@@ -107,8 +107,8 @@ Validation shares the global screenshot budget, respects the original cancel/
 deadline, cancels its own native capture on exit and consumes its image lease
 before one native gesture. Complete frame pins accompany every native step.
 Actual nested-OOPIF tests cover one trusted point click, used-reference denial,
-changed-tile denial and masked-field denial. This is still an internal gate:
-the public C/JS/Agent action contract does not yet accept image coordinates.
+changed-tile denial and masked-field denial. The shared C/JS/Agent action
+contract accepts these fixed image targets after its own shape/operation checks.
 Scene validation is a pre-gesture check, not an atomic website transaction.
 
 `frame-driver.js` now provides fixed observe/locate/prepare/verify, option
@@ -145,8 +145,9 @@ and owned read-only inspection/images versus denied mutation through that UI.
 The existing scroll-into-view path is verified through three offscreen document
 levels and two OOPIFs: the browser scrolls its ancestors before final owner/
 document-chain validation and one trusted input. Drag still requires both
-endpoints visible together. Model-supplied vision coordinates are not yet
-implemented; unsupported geometry remains an explicit bounded failure.
+endpoints visible together. Visual pointer coordinates use completed-image
+references below; visual keyboard/drag remain pending. Unsupported geometry
+remains an explicit bounded failure.
 
 Native top-level navigation invalidates pending operations immediately. A file
 response can leave the original DOM alive: a fresh native inventory may preserve
@@ -247,7 +248,7 @@ stable geometry. Double-click performs two left clicks with native click counts;
 right/middle use their actual buttons. A backend must advertise `advanced_mouse`
 for these gestures; otherwise it fails before scrolling/evaluating/input rather
 than substituting a left click. Page event delivery does not prove the website's
-business operation succeeded. Vision-coordinate input is a later stage.
+business operation succeeded. Visual pointer targets use the screenshot rules below.
 
 ## Native dragging through the shared action service
 
@@ -344,8 +345,21 @@ The operation journal retains identity/scope metadata instead of private results
 Supported Windows captures also return `visual_reference` with an opaque ID,
 the exact output image width/height, `coordinates:"image_pixels"` and a 60-second
 lease. The same allowlisted descriptor reaches C/JS receipts and managed Agent
-image metadata. It is a visual-input foundation: coordinate actions are not yet
-accepted by the public action contract; continue using observed DOM targets.
+image metadata. Prefer observed DOM targets when available. For canvas or other
+visual-only controls, the same `browseruse.act` / `mdoBrowserUseAct` / JS `act` /
+Agent `browser_act` accepts `target:{image:<reference id>,x:<integer>,y:<integer>}`.
+Coordinates belong to the exact delivered image pixels, including its scaling
+and crop; each must be inside that image (public integer range 0–2047). Do not
+mix an image point with a DOM/frame selector. Supported operations are `click`,
+`double_click`, `right_click`, `middle_click`, `hover` and `scroll` (with wheel
+deltas). Keyboard, fill, selection, check and drag still require DOM targets.
+
+One gesture consumes the image lease. Lost replies require durable operation
+recovery, not a new click with a reused or fresh image. Expired/foreign images,
+changed document/layout/scroll/DPR or selected pixels, masked regions and points
+outside the current viewport fail before visual input. Capture a fresh image to
+correct a stale scene. Read-only sessions can inspect images but cannot send
+visual input; the existing browser owner and originating-context checks remain.
 
 The trusted UI stores only the newest completed image's document/frame/layout
 proof and padded 64-pixel tile SHA-256 hashes for each browser, never raster
@@ -360,6 +374,10 @@ const shot = await browser.screenshot({ browser: tab.id,
   document: page.document, mode: "element", target: { ref: page.elements[0].ref },
   format: "jpeg", max_width: 1280, max_height: 960, max_bytes: 131072 });
 // shot.image: { media_type, base64, width, height, bytes }
+// Choose coordinates from this exact image; this example assumes that point
+// lies inside the delivered image and outside its privacy masks.
+await browser.act({ browser: tab.id, document: shot.document, op: "click",
+  target: { image: shot.visual_reference.id, x: 20, y: 20 } });
 ```
 
 `mode` is `viewport` (default), `element` or `full_page`. A target implies

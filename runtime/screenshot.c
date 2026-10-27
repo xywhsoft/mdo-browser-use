@@ -62,10 +62,9 @@ static mdo_result BuToolImage(const mdo_sdk_context_v1* C,const xvalue* Value,md
         V->Unsigned(V->Get(Image,"width"),&W)&&V->Unsigned(V->Get(Image,"height"),&H)&&BuImageSize(Bytes,Size,Mime,&Width,&Height)&&W==Width&&H==Height;
     if(Visual){
         const char* Id=BuText(C,Visual,"id");uint64_t VW=0,VH=0,Lease=0;
-        Valid=Valid&&Id&&strlen(Id)==51&&!strncmp(Id,"vs-",3)&&BuEqual(BuText(C,Visual,"coordinates"),"image_pixels")&&
+        Valid=Valid&&BuVisualId(Id)&&BuEqual(BuText(C,Visual,"coordinates"),"image_pixels")&&
             V->Unsigned(V->Get(Visual,"width"),&VW)&&V->Unsigned(V->Get(Visual,"height"),&VH)&&VW==W&&VH==H&&
             V->Unsigned(V->Get(Visual,"expires_in_ms"),&Lease)&&Lease>0&&Lease<=60000;
-        if(Valid)for(size_t I=3;I<51;I++)if(!((Id[I]>='0'&&Id[I]<='9')||(Id[I]>='a'&&Id[I]<='f')))Valid=false;
     }
     if(!Valid){free(Bytes);snprintf(Error,Capacity,"screenshot_invalid: Invalid screenshot image envelope");
         Writer->WriteText(Writer->Context,"{\"ok\":false,\"error\":{\"code\":\"screenshot_invalid\",\"message\":\"Invalid screenshot image envelope\"}}");Writer->SetSuccess(Writer->Context,false);return MDO_RESULT_ERROR;}

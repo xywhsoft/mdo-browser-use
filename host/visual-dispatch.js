@@ -5,8 +5,8 @@ const supported=new Set(['click','double_click','right_click','middle_click','ho
 const regionMatches=(a,b)=>a&&b&&['x','y','width','height'].every(key=>Number.isFinite(a[key])&&Number.isFinite(b[key])&&Math.abs(a[key]-b[key])<=.01);
 const frame=/^(?:f0|f-[a-f0-9-]{36})$/i,document=/^fd-[a-f0-9-]{36}$/i;
 
-// Internal fixed operation: public C admission is added only after this path's
-// native/image checks pass. Neither scripts nor native frame pins are inputs.
+// Fixed operation after shared C admission. Neither scripts nor native frame
+// pins can be supplied by the model; proofs come from a completed image only.
 export async function executeVisualAction({browser,params,view,read,guard,send,fail,deadline,action,setSnapshot,
   store=visualSnapshots,render=prepareScreenshot}){
   let key=null;
