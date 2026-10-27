@@ -56,10 +56,48 @@ cleanup retry and partial registration. All outputs reuse `.mdo/qa/android-world
 This is a 29-check protocol/lifetime contract gate, not an Android framework,
 APK or real-device pass. No extra application/Home is created.
 
-On 2026-10-28, ADB reported one authorized API 36 device with system WebView
-138.0.7204.179. Its installed `org.xleaves.mdo` and knowledge QA app were left
-unchanged. The JDK is available; the existing SDK/NDK location still needs to be
-resolved before an APK build. Device capability support will be probed directly.
+## Minimal APK and actual provider gate
+
+```powershell
+python tools/setup_android_client.py
+python tools/build_android_client.py
+python tools/android_device_probe.py
+```
+
+The setup reuses the existing WSL JDK 17 and installs only the checksum-pinned
+API 36 platform and Linux build-tools 36.0.0 into the single `.mdo/` deployment.
+It downloads 129,615,669 bytes, occupies approximately 247.3 MiB, discards verified
+installation archives and requires no NDK or downloaded browser. A 10 GiB free
+disk margin and explicit owned-directory/lock receipts prevent accidental cache
+expansion or replacement. No runtime dependency is added.
+
+The reusable 33,171-byte Java device client contains the actual world adapter,
+one tiny Activity and a no-network-permission manifest. It is built with Java 8,
+dexed, aligned and signed with a persistent private development key under
+`.mdo/host/android-client`. The app ID is `org.xleaves.mdo.browseruse.dev`;
+it does not contain a second mdo service, Home, account or session database.
+The APK and source/toolchain hash receipts remain untracked. It is not a release
+client or a replacement for the user's mdo installation.
+
+The runner requires one authorized device. It reads only its own PID/tag's
+nonce-bound terminal log, never clears global logs, and stops only this dev app
+afterward. System installation confirmation can outlive an ADB wait; rerunning
+verifies the installed APK bytes before reusing it, rather than requesting a
+second installation. Unknown existing packages are preserved. No provider is
+automatically installed, selected or upgraded.
+
+On 2026-10-28 the user confirmed this client installation. The actual API 36
+phone's `com.google.android.webview` 138.0.7204.179 reported 72 provider features:
+`MULTI_PROFILE` and `WEB_MESSAGE_LISTENER` are present, but
+`JS_INJECTION_IN_FRAME_AND_WORLD` is absent. The production adapter returns
+`isolated_world_unsupported` before registering a world or evaluating a page.
+The owned view is destroyed and the runner stops the dev app. The existing
+`org.xleaves.mdo` and knowledge QA app/data remain unchanged.
+
+This is a verified **unsupported-provider outcome**, not an Android automation
+pass. The supported-device path contains a local HTML isolation fixture, but
+it has not run on this phone. Full Android Browser Use and supported-provider
+regression remain outstanding. Latest receipt: `.mdo/android-device-result.json`.
 
 References: [execution worlds and message listeners](https://developer.android.com/reference/androidx/webkit/WebViewCompat),
 [per-frame reply execution](https://chromium.googlesource.com/chromium/src.git/+/HEAD/android_webview/java/src/org/chromium/android_webview/JsReplyProxy.java),

@@ -139,6 +139,11 @@ admission prevents re-execution after an ephemeral result is lost.
 The plugin is not yet advertised as a finished browser automation implementation.
 Android adapter status and verification boundaries are tracked in
 [the Android notes](docs/android.md).
+The minimal Java device gate uses `python tools/setup_android_client.py`,
+`python tools/build_android_client.py` and `python tools/android_device_probe.py`.
+It reuses the existing WSL JDK, requires no NDK, and preserves installed mdo apps.
+The connected phone currently reports no isolated-world feature; this is an
+explicit unsupported-provider receipt, not an Android automation pass.
 
 ## License
 

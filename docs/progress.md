@@ -2055,3 +2055,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   integration, trusted input, capture/privacy, dialogs/pickers/transfers and
   real provider capability checks are next. Windows product source is unchanged:
   last JS 158 pass, Python 104 pass/two skips and public visual gate still apply.
+
+## E1 — minimal Android APK and real unsupported-provider receipt
+
+- Reuse the existing WSL JDK and the pinned SDK archive installer. Download only
+  API 36 and Linux build-tools 36.0.0: 129,615,669 bytes; 247.3 MiB installed,
+  approximately 60 GiB free disk remains. Verify archive hashes and ownership,
+  discard completed archives, retain one tool cache and no NDK/browser/runtime.
+- Build/dex/align/sign a 33,171-byte Java dev client containing the actual world
+  adapter. One stable package/output/signing key is reused; it contains no mdo
+  Home/service/account data. Its manifest has no network permission. Source/APK
+  and toolchain hash receipts gate device execution. No release signer is used.
+- The phone required the OS installation confirmation; after the user completed
+  it, verify the actual installed APK bytes and reuse it without a second install.
+  Collect only a fresh nonce-bound log from the dev app's own PID/tag, destroy
+  its owned view and force-stop only this dev app afterward. Preserve installed
+  production mdo and knowledge QA apps/data. Never clear global device logs.
+- Actual API 36 / system WebView 138.0.7204.179 reports 72 features. Profile and
+  message-listener features are present; isolated frame/world injection is absent.
+  The real production adapter correctly returns `isolated_world_unsupported`
+  before page execution. This is a verified unsupported-provider outcome, **not**
+  Android automation passing. Supported-world isolation remains unverified on a
+  device; the user has been offered an optional system-provider update and the
+  rest of development continues. No system component is automatically replaced.
+- Re-run 29 JVM protocol/lifetime checks successfully; compile the actual Java
+  adapter and Activity with Java 8/API 36, verify the signed APK, and execute the
+  actual device feature gate. Windows/product C and JS sources/binaries remain
+  unchanged; their previous gates remain applicable. Full Android integration,
+  visual keyboard/drag, directory uploads and final lifecycle/performance/package
+  gates remain active.
