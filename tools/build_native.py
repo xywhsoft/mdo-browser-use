@@ -182,6 +182,18 @@ def main():
     if base.count(before) != 1:
         raise RuntimeError("Native initial interception capability hook changed")
     base = base.replace(before, r'\"profile_isolation\":true,\"initial_download_interception\":true}')
+    frame_hooks = [
+        ('struct xb_view{', (dev.ROOT/'host/native-frames-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
+        ('int automationContext=0;', 'int automationContext=0;std::shared_ptr<xb_frame_state> frames;'),
+        ('#include "xs_browser_automation.inc.hpp"', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_frames.inc.hpp"'),
+        ('active->automationContext=0;', 'active->automationContext=0;xb_frames_navigation(active);'),
+        ('found->second->closed=true;', 'found->second->closed=true;xb_frames_close(found->second);'),
+        ('entry.second->closed=true;', 'entry.second->closed=true;xb_frames_close(entry.second);'),
+        ('  if(command=="automation"){', '  if(command=="frames"){xb_frames_request(host,view,id,json);return;}\n  if(command=="automation"){'),
+    ]
+    for before,after in frame_hooks:
+        if base.count(before)!=1:raise RuntimeError('Native frame hook no longer unique: '+before)
+        base=base.replace(before,after,1)
     target = NATIVE / "src/webview/xs_browser.inc.hpp"
     record_path = dev.ENV / "native-overlay.json"
     record = json.loads(record_path.read_text(encoding="utf-8")) if record_path.exists() else {}
@@ -246,6 +258,12 @@ def main():
         current = download_path.read_text(encoding="utf-8")
         if current != download and hashlib.sha256(current.encode()).hexdigest() != record.get("download"):
             raise RuntimeError("Unreviewed native download helper edit preserved")
+    frames=(dev.ROOT/'host/native-frames.inc.hpp').read_text(encoding='utf-8')
+    frames_path=target.with_name('xs_browser_frames.inc.hpp')
+    if frames_path.exists():
+        current=frames_path.read_text(encoding='utf-8')
+        if current!=frames and hashlib.sha256(current.encode()).hexdigest()!=record.get('frames'):
+            raise RuntimeError('Unreviewed native frame helper edit preserved')
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
@@ -256,11 +274,13 @@ def main():
     upload_assign_path.write_text(upload_assign, encoding="utf-8", newline="\n")
     chooser_path.write_text(chooser, encoding="utf-8", newline="\n")
     download_path.write_text(download, encoding="utf-8", newline="\n")
+    frames_path.write_text(frames,encoding='utf-8',newline='\n')
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
               "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest(),"navigation":hashlib.sha256(navigation_helper.encode()).hexdigest(),"upload":hashlib.sha256(upload.encode()).hexdigest()}
     hashes["upload_assign"] = hashlib.sha256(upload_assign.encode()).hexdigest()
     hashes["chooser"] = hashlib.sha256(chooser.encode()).hexdigest()
     hashes["download"] = hashlib.sha256(download.encode()).hexdigest()
+    hashes['frames']=hashlib.sha256(frames.encode()).hexdigest()
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

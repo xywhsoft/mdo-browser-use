@@ -6,6 +6,33 @@ downloads, task-workspace saves and explicit recovery controls. Android and
 complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
+### Native frame routing foundation (private, not a public SDK operation)
+
+The Windows host now has a trusted-main-document `frames` command. `list`
+returns a bounded frame tree with per-view aliases, per-document identities,
+ancestry and loading/process-route state. `evaluate` requires one of those
+aliases and can pin its document identity. It creates an isolated world in the
+owning frame/session, including OOPIFs; raw CDP session, execution context and
+target identifiers are never exposed by this inventory. Models cannot submit
+script or CDP through the public C/JS services.
+
+The backend auto-attaches only iframe targets related to this content view,
+without global target discovery, universal-origin access or disabled site
+isolation. Frame/session records are capped at 64 each, pending frame jobs at
+16, tree depth at 32, script size at 128 KiB and job lifetime at 10 seconds.
+Limits fail explicitly; navigation resets resource errors. Navigation,
+detachment, manual takeover and close invalidate affected pending evaluations.
+After `Runtime.evaluate` was sent, a failed receipt conservatively retains
+`evaluation_may_have_occurred:true`; it must not be used to replay a mutation.
+This is not a transactional guarantee about JavaScript handlers.
+
+The actual WebView2 frame gate covers cross-site/nested contexts, hostile
+page-world runtime markers, primitive return encoding, foreign view aliases,
+child navigation, close/recreation and frame/session saturation/recovery.
+Public multi-frame observations, element/coordinate routing, frame uploads and
+cross-origin screenshot privacy remain in development. Existing public callers
+still use the documented same-origin path below.
+
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and

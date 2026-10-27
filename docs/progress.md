@@ -1489,3 +1489,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Cross-site frame routing has separate development changes awaiting its own
   review/commit. This bug fix does not claim public cross-origin frame support
   or completion of the full Browser Use goal.
+
+## D13a — private native cross-site frame/session foundation
+
+- Add a per-view native registry and isolated execution for same-site frames,
+  cross-site OOPIFs and nested frame processes. Attach only related iframe
+  targets, route session events explicitly and validate ancestry against the
+  original view. No global target enumeration, universal-origin worlds, new
+  browser dependency or weakened site isolation is used.
+- Give each frame/view lifetime and document fresh public aliases; reject
+  foreign/recreated-view identities and old child-document tokens before script.
+  Close/navigation/manual takeover terminate pending jobs. Sent evaluations
+  retain uncertainty on errors. New callback captures are weak and replies are
+  one-shot; a full native allocation/lifetime adversarial audit is still open.
+- Bound frames/sessions at 64 each, pending jobs at 16, tree depth at 32,
+  scripts at 128 KiB, protocol copies and job time. Explicit quota errors report
+  bounded usage and recover on later navigation. Detach over-quota sessions.
+- The actual WebView2 gate passes 41 assertions: four document contexts with a
+  confirmed OOPIF and nested ancestry, forged page-world runtime rejection,
+  primitives, navigation/foreign-view/manual/close/recreate checks, mutation
+  uncertainty and both 70-frame saturation fixtures followed by recovery.
+  One HTTP worker bounds idle preconnect sockets so the fixture itself cannot
+  block the remaining requests. No model/external-site calls or crash artifacts.
+- Full Python gate: 102 cases (100 pass, two Windows symlink privilege skips).
+  Full JS gate: 98 pass. Actual existing public C/JS UI gate passes 19 actions,
+  four navigations and five wait conditions. Native baseline passes 1,371
+  assertions; the earlier intermittent download timeout remains unroot-caused
+  as recorded in D12u. Contracts and deployed overlays match.
+- This commit adds private native primitives and their build wiring only.
+  Public observation/reference/geometry/input/upload/privacy routing across
+  these frame contexts is the next stage. Android and remaining full-goal
+  lifecycle/OOM/transport/performance/package gates remain open. The single
+  approximately 835 MiB deployment is restored headless; nothing is published.
