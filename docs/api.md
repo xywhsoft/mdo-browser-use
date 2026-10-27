@@ -95,6 +95,22 @@ second click of an interrupted double-click. These checks allocate no memory
 between input steps. Absence preserves existing trusted-native/DOM callers;
 public visual coordinates remain unavailable until their preflight is wired.
 
+An internal visual-pointer dispatcher now validates the completed image's
+document/navigation, full frame/layout stamp, root scroll/viewport, crop and
+device scale. It refuses points outside the current viewport or inside either
+privacy scan's masks. Before input it captures the same bounded region, applies
+the same masks/output sizing and compares the chosen padded tile to its saved
+hash. Unrelated distant animation need not reject the point. This retains the
+original screenshot coordinate system and checks only one current tile.
+
+Validation shares the global screenshot budget, respects the original cancel/
+deadline, cancels its own native capture on exit and consumes its image lease
+before one native gesture. Complete frame pins accompany every native step.
+Actual nested-OOPIF tests cover one trusted point click, used-reference denial,
+changed-tile denial and masked-field denial. This is still an internal gate:
+the public C/JS/Agent action contract does not yet accept image coordinates.
+Scene validation is a pre-gesture check, not an atomic website transaction.
+
 `frame-driver.js` now provides fixed observe/locate/prepare/verify, option
 discovery/selection, hidden-upload target preparation and root capture-area
 operations. It maps qualified references back into their pinned local worlds,

@@ -727,6 +727,10 @@
     {
       "source": "host/visual-snapshot.js",
       "target": "app/web/js/features/workbench/visual-snapshot.js"
+    },
+    {
+      "source": "host/visual-dispatch.js",
+      "target": "app/web/js/features/workbench/visual-dispatch.js"
     }
   ]
 }

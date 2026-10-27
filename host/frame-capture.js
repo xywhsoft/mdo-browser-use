@@ -123,7 +123,7 @@ export async function prepareFrameCapture({options,describe,locate,evaluate,nati
     const record=records.get(row.id);return[row.id,row.document,row.parent,row.loading,row.isolated,record.status,
       record.area?.document,record.area?.scroll,record.area?.viewport,record.edge];
   }));
-  return{ok:true,document:meta.document,region,redactions,device_pixel_ratio:base.device_pixel_ratio,
+  return{ok:true,document:meta.document,region,redactions,device_pixel_ratio:base.device_pixel_ratio,scroll:base.scroll,viewport:base.viewport,
     redaction:'form-controls-and-opaque-content',frame_stamp,visited:usedNodes,
     frame_masks:{readable:[...records.values()].filter(record=>record.area).length,opaque:[...records.values()].filter(record=>!record.area&&record.status!=='outside_capture'&&record.status!=='not_painted').length}};
 }

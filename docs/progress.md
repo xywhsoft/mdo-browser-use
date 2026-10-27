@@ -13,7 +13,7 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestone: V1 adds native complete-frame input fences in the normal Windows
+Latest verified milestone: V2 verifies internal visual-pointer preflight in the Windows
 workbench. Android, vision coordinate input and final
 lifecycle/performance/package gates remain active; this is not a release.
 
@@ -1965,3 +1965,36 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   JS baseline: 151 pass. Deployed overlays, native input fragment and final
   binary hash receipts match. One native source/object tree and Home are reused;
   no model calls. Next wire scene/coordinate validation to the shared action API.
+
+## V2 — internal screenshot-point preflight and one native gesture
+
+- Add a fixed internal visual pointer path for click/double/right/middle click,
+  hover and wheel. It binds integer image pixels to the actual crop/output
+  dimensions, root scroll and viewport; checks document/navigation/frame/layout/
+  DPR; rejects masked or off-viewport points; and prepares complete native pins.
+  Public C/JS/Agent coordinate admission is still the next milestone.
+- Before input, recapture that same bounded scene with the same privacy masks
+  and sizing. Compare only the chosen padded tile with the saved SHA-256, so a
+  distant animation need not stop the gesture. Current point verification reads
+  one small tile rather than hashing another full image. Consume the exact image
+  lease before one gesture, share the global screenshot budget, obey cancellation
+  and the original deadline, and drain only this validation capture on exit.
+- The first real integration safely rejected before input because composed
+  captures did not carry their root scroll/viewport metadata. Add those fields
+  and a root-versus-child-offset regression. No coordinate fallback or guessed
+  frame geometry was introduced. Final privacy checks remain in document space
+  even when the root is scrolled.
+- Six preflight regressions cover coordinate mapping, one-shot leases, foreign/
+  expired/wrong-document references, unsupported input, bounds, crop/DPR/layout,
+  masking, changed child context, local versus distant pixel changes and cancel.
+  Another check fences overlapping visual validation and normal screenshots
+  across browsers before native work. Full sequential JS gate: 158 pass.
+- Actual native frame gate: 197 pass, including a trusted click into an exact
+  cropped nested OOPIF image, used-image rejection, changed pixels rejected and
+  private field mask denial without extra input. No new native diagnostics or
+  retained transfer reservations. The native binary is unchanged from V1;
+  previous 103 Python pass/two privilege skips and 1,368-check native baseline
+  remain applicable. Same deployment/Home, no model calls or added dependency.
+- This preflight is not an atomic website transaction. Public pointer contracts,
+  visual keyboard/drag, Android and final lifecycle/performance/package gates
+  remain active.

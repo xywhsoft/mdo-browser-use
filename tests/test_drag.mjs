@@ -5,6 +5,7 @@ import { test } from "node:test";
 const source=(await readFile(new URL("../host/automation-dispatch.js",import.meta.url),"utf8"))
   .replace('import { executeDownloadSave, downloadSaveState } from "./download-save.js";',`import {executeDownloadSave,downloadSaveState} from ${JSON.stringify(new URL('../host/download-save.js',import.meta.url).href)};`)
   .replace('import { visualSnapshots, hashVisualRaster } from "./visual-snapshot.js";',`import {visualSnapshots,hashVisualRaster} from ${JSON.stringify(new URL('../host/visual-snapshot.js',import.meta.url).href)};`)
+  .replace('import { executeVisualAction } from "./visual-dispatch.js";',`import {executeVisualAction} from ${JSON.stringify(new URL('../host/visual-dispatch.js',import.meta.url).href)};`)
   .replace('import { browserRuntime } from "./automation-runtime.js";','function browserRuntime() {}')
   .replace('import { prepareScreenshot } from "./capture-image.js";','async function prepareScreenshot() {}')
   .replace('import { executeBrowserDownload } from "./download-dispatch.js";', 'async function executeBrowserDownload(){throw Error("Unexpected download path")}')

@@ -204,7 +204,7 @@ try{
   assert(uploadTarget.ok&&uploadTarget.element.hidden&&uploadTarget.native_target.frame_chain.length===3,'Hidden cross-frame upload preparation lost its native pins');
   const captureProof=await evaluate(replacementLeaf,`(()=>{
     document.querySelector('#field').style.background='rgb(250,20,150)';
-    const proof=document.createElement('div');proof.id='capture-proof';proof.role='img';proof.setAttribute('aria-label','Frame screenshot proof');proof.style.cssText='position:absolute;left:280px;top:10px;width:40px;height:30px;background:rgb(20,180,70)';document.body.append(proof);return true;
+    const proof=document.createElement('div');proof.id='capture-proof';proof.role='img';proof.setAttribute('aria-label','Frame screenshot proof');proof.style.cssText='position:absolute;left:280px;top:10px;width:40px;height:30px;background:rgb(20,180,70)';proof.dataset.visionClicks='0';proof.onclick=e=>{proof.dataset.visionClicks=String(Number(proof.dataset.visionClicks)+1);proof.dataset.visionTrusted=String(e.isTrusted)};document.body.append(proof);return true;
   })()`);assert(captureProof.ok&&captureProof.value,'Nested screenshot pixel fixture did not initialize');
   const fieldPoint=await driver.read('prepare',{document:page.result.document,target:{name:'Nested field'},op:'click',scroll:false});
   const proofPoint=await driver.read('prepare',{document:page.result.document,target:{css:'#capture-proof'},op:'click',scroll:false});
@@ -225,6 +225,26 @@ try{
   geometryEvidence.nestedCapture={ok:nestedImage.result.ok,error:nestedImage.result.error,region:nestedImage.result.region};
   assert(nestedImage.result.ok&&nestedImage.result.region.width>=40&&nestedImage.result.region.width<=42&&nestedImage.result.region.height>=30&&nestedImage.result.region.height<=32,'Nested element screenshot was not cropped through its original ancestors');
   assert((await sampleImage(nestedImage.result,[proofPoint.point]))[0].every((value,index)=>value===[20,180,70][index]),'Nested element crop sampled the wrong frame pixels');
+  stage='visual-pointer';const beforeVisualInput=inputRequests;
+  const visualArgs={op:'click',document:page.result.document,target:{image:nestedImage.result.visual_reference.id,x:10,y:8},timeout_ms:15000};
+  const visualClick=await dispatch('act',visualArgs);
+  geometryEvidence.visualClick={ok:visualClick.result.ok,error:visualClick.result.error};
+  assert(visualClick.result.ok&&visualClick.result.scene_validated&&inputRequests===beforeVisualInput+1,'A fresh nested visual image did not deliver one native input');
+  const visualEffect=await evaluate(replacementLeaf,`({count:document.querySelector('#capture-proof').dataset.visionClicks,trusted:document.querySelector('#capture-proof').dataset.visionTrusted})`);
+  assert(visualEffect.value.count==='1'&&visualEffect.value.trusted==='true','Visual coordinates did not reach the exact nested proof with one trusted click');
+  const repeatedVisual=await dispatch('act',visualArgs);
+  assert(!repeatedVisual.result.ok&&repeatedVisual.result.error.code==='visual_reference_expired'&&inputRequests===beforeVisualInput+1,'A consumed screenshot reference repeated visual input');
+  const changedScene=await dispatch('capture',{mode:'element',document:page.result.document,target:{css:'#capture-proof'},max_width:100,max_height:100});
+  assert(changedScene.result.ok,'The visual scene-change fixture could not capture its original pixels');
+  await evaluate(replacementLeaf,`document.querySelector('#capture-proof').style.background='rgb(30,50,200)';true`);
+  const rejectedScene=await dispatch('act',{...visualArgs,target:{image:changedScene.result.visual_reference.id,x:10,y:8}});
+  geometryEvidence.visualScene={ok:rejectedScene.result.ok,error:rejectedScene.result.error};
+  assert(!rejectedScene.result.ok&&rejectedScene.result.error.code==='visual_scene_changed'&&inputRequests===beforeVisualInput+1,'A changed visual neighborhood still dispatched input');
+  await evaluate(replacementLeaf,`document.querySelector('#capture-proof').style.background='rgb(20,180,70)';true`);
+  const maskedScene=await dispatch('capture',{mode:'element',document:page.result.document,target:{name:'Nested field'},max_width:300,max_height:100});
+  assert(maskedScene.result.ok,'The visual privacy fixture could not capture its masked field');
+  const maskedVisual=await dispatch('act',{...visualArgs,target:{image:maskedScene.result.visual_reference.id,x:5,y:5}});
+  assert(!maskedVisual.result.ok&&maskedVisual.result.error.code==='visual_region_masked'&&inputRequests===beforeVisualInput+1,'A masked private field admitted visual point input');
   const beforeCancelledInput=inputRequests;cancelDispatch=true;
   const cancelled=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'}});
   assert(!cancelled.result.ok&&cancelled.result.error.code==='cancelled'&&!cancelled.result.error.effect_may_have_occurred&&inputRequests===beforeCancelledInput,'An internal frame checkpoint was swallowed and allowed input');
@@ -420,7 +440,8 @@ try{
     nested_pointer_drag:true,nested_html5_drag:true,cross_document_html5_drag_both_directions:true,frame_drag_cancellation_releases_mouse:true,frame_drag_pre_dispatch_guard:true,
     child_navigation_stops_drag:true,input_recovers_after_interrupted_frame_drag:true,
     exact_iframe_mask_bindings:true,local_capture_does_not_enter_children:true,capture_owner_fractional_geometry:true,inert_capture_owner_preserved:true,
-    cross_frame_capture_pixels:true,nested_input_pixels_masked:true,nested_element_image_crop:true,changed_frame_image_withheld:true};
+    cross_frame_capture_pixels:true,nested_input_pixels_masked:true,nested_element_image_crop:true,changed_frame_image_withheld:true,
+    internal_visual_pointer_once:true,consumed_image_rejected:true,changed_visual_tile_rejected:true,masked_visual_point_denied:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

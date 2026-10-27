@@ -5,6 +5,7 @@ import { test } from "node:test";
 const source = (await readFile(new URL("../host/automation-dispatch.js", import.meta.url), "utf8"))
   .replace('import { executeDownloadSave, downloadSaveState } from "./download-save.js";',`import {executeDownloadSave,downloadSaveState} from ${JSON.stringify(new URL('../host/download-save.js',import.meta.url).href)};`)
   .replace('import { visualSnapshots, hashVisualRaster } from "./visual-snapshot.js";',`import {visualSnapshots,hashVisualRaster} from ${JSON.stringify(new URL('../host/visual-snapshot.js',import.meta.url).href)};`)
+  .replace('import { executeVisualAction } from "./visual-dispatch.js";',`import {executeVisualAction} from ${JSON.stringify(new URL('../host/visual-dispatch.js',import.meta.url).href)};`)
   .replace('import { browserRuntime } from "./automation-runtime.js";', 'function browserRuntime() {}')
   .replace('import { prepareScreenshot } from "./capture-image.js";', 'async function prepareScreenshot(){throw Error("An unapproved image path was reached")}')
   .replace('import { executeBrowserDownload } from "./download-dispatch.js";', 'async function executeBrowserDownload(){throw Error("Unexpected download path")}')
@@ -324,4 +325,21 @@ test('changed capture scope reports only structural causes and withholds the ima
     view:{async execute(command){if(command==='state')return{loading:false,automation:true,capture_capability:true,navigation:'1'};if(command==='capture')return{data:'private-raw-image'};throw Error('Unexpected capture command');}}});
   assert.equal(result.result.error.code,'capture_changed');assert(result.result.error.message.includes('isolated-document'));
   assert(!JSON.stringify(result).includes('private'));assert.equal(result.result.image,undefined);assert.equal(reads,2);
+});
+
+test('visual validation shares the global screenshot budget across different browsers',async()=>{
+  let began,release;const started=new Promise(resolve=>{began=resolve;});let visualCalls=0;
+  const pending=executeBrowserAutomation({command:'capture',params:{timeout_ms:2000},browser:'global-capture-budget',action:{id:'held-capture-budget'},
+    api:{async call(){return{state:'pending'};}},
+    view:{async execute(command){
+      if(command==='state')return{loading:false,automation:true,capture_capability:true,navigation:'1'};
+      if(command==='automation')return{ok:true,value:{ok:true,document:'d1',region:{x:0,y:0,width:100,height:100},redactions:[],device_pixel_ratio:1}};
+      if(command==='capture'){began();return new Promise(resolve=>{release=resolve;});}
+      return{};
+    }}});
+  await started;
+  const blocked=await executeBrowserAutomation({command:'act',params:{op:'click',target:{image:'untrusted',x:1,y:1}},browser:'another-browser',action:{id:'visual-budget'},
+    api:{async call(){throw Error('Admission was not fenced');}},view:{async execute(){visualCalls++;throw Error('Visual validation reached native capture');}}});
+  assert.equal(blocked.result.error.code,'browser_busy');assert.equal(visualCalls,0);
+  release({});await pending;
 });

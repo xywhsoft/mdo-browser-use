@@ -1,6 +1,7 @@
 import { browserRuntime } from "./automation-runtime.js";
 import { prepareScreenshot } from "./capture-image.js";
 import { visualSnapshots, hashVisualRaster } from "./visual-snapshot.js";
+import { executeVisualAction } from "./visual-dispatch.js";
 import { executeFileUpload } from "./upload-dispatch.js";
 import { executeBrowserDownload } from "./download-dispatch.js";
 import { executeDownloadSave, downloadSaveState } from "./download-save.js";
@@ -30,15 +31,16 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null;
+  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
   const exclusive = writing || command === "capture";
-  if (exclusive && (writers.has(writer) || downloadSaveState(writer)) || command === "capture" && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
+  const captures=command==='capture'||command==='act'&&Boolean(params.target?.image);
+  if (exclusive && (writers.has(writer) || downloadSaveState(writer)) || captures && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
   if (exclusive) writers.add(writer);
-  if (command === "capture") capturing = true;
+  if (captures) capturing = true;
   let lastReceipt = -Infinity, navigation;
   const dialogBoundary = async () => ({ handled: true, result: { ok: true,
     outcome: "dialog_open", completed: false, dispatched, action: action.id,
@@ -127,9 +129,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   };
   const send = async parameters => {
     let stopped = await guard(true); if (stopped.handled) return stopped;
+    if(inputFrameSnapshot&&stopped.state.input_busy)return fail('browser_busy','Native input started after visual validation; request a fresh image before another attempt');
     while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
     dispatched = true;
-    const delivered = await view.execute("input", { ...parameters,...(inputFrameChain?{frame_chain:inputFrameChain}:{}), agent: true, navigation });
+    const delivered = await view.execute("input", { ...parameters,...(inputFrameChain?{frame_chain:inputFrameChain}:{}),
+      ...(inputFrameSnapshot?{frame_snapshot:inputFrameSnapshot}:{}),agent: true, navigation });
     if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
     if(canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     if (delivered.dialog_open) return dialogBoundary();
@@ -184,7 +188,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const image = await prepareScreenshot(native,area,after,params,pageDriver?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
       checked = await guard(true);if (checked.handled) return checked;
       const visual=raster?visualSnapshots.issue(writer,{document:area.document,navigation,frame_stamp:area.frame_stamp,
-        region:area.region,options,redactions:[...area.redactions,...after.redactions]},raster):null;
+        region:area.region,options,redactions:[...area.redactions,...after.redactions],device_pixel_ratio:area.device_pixel_ratio,
+        capture:{format:params.format||'png',max_width:params.max_width||1280,max_height:params.max_height||960,max_bytes:params.max_bytes||131072}},raster):null;
       return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image,
         ...(visual?{visual_reference:visual}:{})}};
     }
@@ -272,6 +277,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(!policy.state.chooser_armed){
       const armed=await view.execute('chooser',{action:'arm',agent:true});
       if(!armed.ok||!armed.armed)return fail('chooser_unavailable','Native file-picker interception was not confirmed; no input was sent');
+    }
+    if(params.target?.image){
+      if(!pageDriver)return fail('unsupported_capability','This browser lacks isolated frame routing for visual input');
+      return await executeVisualAction({browser:writer,params,view,read,guard,send,fail,deadline,action,
+        setSnapshot:(snapshot,root)=>{inputFrameSnapshot=snapshot;inputFrameChain=[{frame:root.frame,document:root.document}];}});
     }
     if (params.op === "drag") {
       const samePair=(a,b)=>a&&b&&sameGeometry(a.source,b.source)&&sameGeometry(a.destination,b.destination);
@@ -400,6 +410,6 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   } finally {
     if(dragRequested)try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}
     if (exclusive) writers.delete(writer);
-    if (command === "capture") capturing = false;
+    if (captures) capturing = false;
   }
 }

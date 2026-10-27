@@ -34,6 +34,16 @@ export function visualTileMatches(before,after,x,y){
   return /^[a-f0-9]{64}$/.test(before.hashes?.[index]||'')&&before.hashes[index]===after.hashes?.[index];
 }
 
+export async function visualPointUnchanged(canvas,before,x,y){
+  if(!validRaster(before)||canvas.width!==before.width||canvas.height!==before.height||
+     !Number.isFinite(x)||!Number.isFinite(y)||x<0||y<0||x>=before.width||y>=before.height)return false;
+  const column=Math.floor(x/size),row=Math.floor(y/size),left=Math.max(0,column*size-padding),top=Math.max(0,row*size-padding),
+    right=Math.min(canvas.width,(column+1)*size+padding),bottom=Math.min(canvas.height,(row+1)*size+padding);
+  const pixels=canvas.getContext('2d')?.getImageData(left,top,right-left,bottom-top)?.data;
+  if(!pixels||pixels.length!==(right-left)*(bottom-top)*4)throw issue('visual_raster_invalid','The current masked tile cannot be inspected');
+  return hex(await crypto.subtle.digest('SHA-256',pixels))===before.hashes[row*before.columns+column];
+}
+
 export function createVisualSnapshotStore({now=()=>performance.now(),random=token,ttl=60000,limit=32,byteLimit=2097152}={}){
   const records=new Map();let retained=0;
   const remove=key=>{const row=records.get(key);if(row){retained-=row.bytes;records.delete(key);}};
@@ -49,7 +59,8 @@ export function createVisualSnapshotStore({now=()=>performance.now(),random=toke
       if(!browser||!context?.document||typeof context.frame_stamp!=='string'||context.frame_stamp.length>65536||
          !validRaster(raster))throw issue('visual_snapshot_invalid','The completed image has no bounded document and raster proof');
       const proof={document:context.document,navigation:context.navigation,frame_stamp:context.frame_stamp,
-        region:context.region,options:context.options,redactions:context.redactions};
+        region:context.region,options:context.options,redactions:context.redactions,capture:context.capture,
+        device_pixel_ratio:context.device_pixel_ratio};
       const encoded=JSON.stringify({context:proof,raster}),bytes=new TextEncoder().encode(encoded).length;
       if(bytes>196608||bytes>byteLimit)throw issue('visual_snapshot_limit','The completed image exceeds its visual metadata budget');
       const id=random();if(!/^vs-[a-f0-9]{48}$/.test(id))throw issue('visual_identity_unavailable','A secure visual reference could not be created');

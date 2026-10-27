@@ -46,6 +46,7 @@ test('nested element capture crops through every ancestor while retaining privat
   const f=fixture(),out=await f.run({mode:'element',target:{ref:'qualified'}});assert(out.ok);
   assert.deepEqual(out.region,rect(175,348,31,21));assert.deepEqual(out.redactions,[rect(180.25,353.25,10,8)]);
   assert.equal(f.state.calls.at(-1).document,doc(3));assert.equal(f.state.calls.at(-1).target.ref,'e1');
+  assert.deepEqual(out.scroll,{x:0,y:100});assert.deepEqual(out.viewport,{width:800,height:600});
 });
 
 test('same rectangles cannot authorize a missing or wrong-document owner binding',async()=>{
