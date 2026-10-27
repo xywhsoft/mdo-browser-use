@@ -49,6 +49,7 @@ node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs t
 python tools/native_probe.py
 python tools/native_frames_probe.py
 python tools/public_frames_probe.py
+python tools/frame_scroll_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
@@ -94,6 +95,9 @@ advertises `frame_automation`. Older backends retain their existing adapter.
 normal workbench against nested OOPIFs, including uploads/pickers, exact hashes,
 private element images and owned read-only permission denial. The private routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
+`frame_scroll_probe.py` verifies the existing browser scroll-into-view traversal
+through three offscreen document levels and two OOPIFs, with one trusted click
+and stable element references. Drag still requires both endpoints visible together.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

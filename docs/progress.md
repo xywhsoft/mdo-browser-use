@@ -13,8 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestone: S4 enables native frame routing in the normal Windows
-workbench. Android, vision coordinates, offscreen-parent scrolling and final
+Latest verified milestone: S5 verifies offscreen frame scrolling in the normal Windows
+workbench. Android, vision coordinates and final
 lifecycle/performance/package gates remain active; this is not a release.
 
 ## Working boundaries
@@ -1898,3 +1898,19 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   runtime dependency installation, extra checkout or publication. Next implement
   offscreen parent scrolling, vision input and Android with explicit capability
   limits, followed by lifecycle/OOM, network/performance and packaging gates.
+
+## S5 — verify offscreen scrolling before adding another input path
+
+- A focused normal-workbench C SDK test places the root iframe, nested iframe
+  and target button below three separate document viewports, across two real
+  OOPIFs. Read-only observation leaves the initial root scroll at zero.
+- Existing `scrollIntoView` already traverses these browser ancestors. The real
+  action passes final geometry/document-chain checks, emits one trusted click,
+  reports the exact count of one and preserves the qualified element reference.
+  Root scroll is measured at 1,690 CSS pixels in the 1,024×768 fixture view.
+  No extra native scroll command or duplicate implementation was introduced.
+- Add the reusable sequential probe and correct the previously unverified
+  offscreen-parent limitation. This is a bounded layout regression, not a claim
+  about all transforms, smooth scripts or offscreen drag endpoints. No model
+  calls or additional deployment/Home. The S4 product source is unchanged;
+  its 145 JS, 102 Python pass/two skips and native gates remain applicable.

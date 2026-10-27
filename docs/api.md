@@ -114,7 +114,10 @@ and root/OOPIF HTML5 delivery in both directions without repeating a drop.
 Public C SDK and managed Agent tests cover nested Unicode fill/selection,
 private element images, complete upload SHA-256, exact picker delivery/cancel,
 and owned read-only inspection/images versus denied mutation through that UI.
-Offscreen parent scrolling and model-supplied vision coordinates are not yet
+The existing scroll-into-view path is verified through three offscreen document
+levels and two OOPIFs: the browser scrolls its ancestors before final owner/
+document-chain validation and one trusted input. Drag still requires both
+endpoints visible together. Model-supplied vision coordinates are not yet
 implemented; unsupported geometry remains an explicit bounded failure.
 
 Native top-level navigation invalidates pending operations immediately. A file
