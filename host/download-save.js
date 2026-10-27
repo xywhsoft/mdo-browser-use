@@ -50,7 +50,7 @@ export async function executeDownloadSave({params,view,api,action,guard,deadline
     if(!/^str-[a-f0-9]{32}$/.test(stream||''))throw Object.assign(Error('Invalid stream'),{code:'stream_invalid'});
     stage='receiver_admission';setDispatched(true);
     await api.call('operation.start',{id:receive,method:'files.receive.start',params:{handle:stream,root_snapshot:params.root_snapshot,
-      size:metadata.size,sha256:metadata.sha256,timeout_ms:Math.max(100,Math.min(600000,Math.ceil(deadline-performance.now())+1000)),idle_timeout_ms:30000}});
+      size:metadata.size,sha256:metadata.sha256,destination:params.path,timeout_ms:Math.max(100,Math.min(600000,Math.ceil(deadline-performance.now())+1000)),idle_timeout_ms:30000}});
     let offset=0;
     while(offset<metadata.size){
       checked=await check();if(checked.handled)return checked;
@@ -81,7 +81,7 @@ export async function executeDownloadSave({params,view,api,action,guard,deadline
     stage='stream_eof';await api.call('stream.close',{handle:stream});
     stage='receiver_result';const staging=await operation(receive);
     if(staging.id!==receive||staging.state!=='ready'||staging.source!==`.mdo-receive-${receive.slice(4)}.part`||
-       staging.workspace!==action.context.workspace||staging.root_snapshot!==params.root_snapshot||staging.size!==metadata.size||staging.sha256!==metadata.sha256||typeof staging.source_revision!=='string'||!staging.source_revision)
+       staging.workspace!==action.context.workspace||staging.root_snapshot!==params.root_snapshot||staging.destination!==params.path||staging.size!==metadata.size||staging.sha256!==metadata.sha256||typeof staging.source_revision!=='string'||!staging.source_revision)
       throw Object.assign(Error('Invalid staging receipt'),{code:'receiver_snapshot_invalid'});
     stage='publication_guard';checked=await check(true);if(checked.handled)return checked;
     const fresh=await native('get');
@@ -89,8 +89,7 @@ export async function executeDownloadSave({params,view,api,action,guard,deadline
       throw Object.assign(Error('Download ownership changed'),{code:'download_snapshot_changed'});
     checked=await check(true);if(checked.handled)return checked;
     stage='publication_admission';publicationRequested=true;
-    await api.call('operation.start',{id:publish,method:'files.publish',params:{source:staging.source,path:params.path,
-      source_revision:staging.source_revision,root_snapshot:params.root_snapshot,size:metadata.size,sha256:metadata.sha256}});
+    await api.call('operation.start',{id:publish,method:'files.receive.publish',params:{id:receive,path:params.path}});
     stage='publication_result';const file=await operation(publish);
     if(file.published!==true||file.path!==params.path||file.size!==metadata.size||file.sha256!==metadata.sha256||typeof file.revision!=='string'||!file.revision)
       throw Object.assign(Error('Unconfirmed publication'),{code:'file_publication_uncertain'});

@@ -1337,3 +1337,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   handling. Cross-device save transport, ask-profile interaction, remaining
   frame/vision/drag/Android work and final lifecycle/performance/package gates
   remain part of the active full goal.
+
+## D12p — retain publication intent and reconcile uncertain saves
+
+- Record the optional destination at receiver admission. The new shared C/JS
+  `files.receive.publish` adapter durably records destination and original SDK
+  publication identity before file effects, then records the verified receipt.
+  Complete ready/publishing/published staging survives restart and quota reaping.
+  The official save producer now uses this journaled adapter.
+- Add explicit `files.receive.reconcile`: pin the original root, compare opened
+  file identity and full hash, and inspect existing target/source bytes. It never
+  creates/replaces a target or replays the previous operation. Missing/different
+  targets require explicit review and a new publication; edited files survive.
+- Six new actual SDK regressions cover intent, conflicts, missing/changed files,
+  reconciliation, non-replay and foreign scope. The full local gates pass 91
+  Python cases (89 pass, two Windows symlink privilege skips), 85 JS cases,
+  contracts, deployed overlays and whitespace checks.
+- Actual public C/JS and managed save probes again pass all five response types,
+  exact hashes, original-response retention, duplicate identity, conflict and
+  read-only denial. POST/popup POST execute once. Cache/staging inventory is zero.
+- A real 32 MiB fault probe blocks only final ledger replacement after the file
+  is published. The SDK reports uncertain completion; after hard stop/restart,
+  destination/publication identity and complete bytes survive new admission.
+  Reconciliation verifies the existing inode and full hash without recreation;
+  the original failed identity is not replayed. Releasing staging preserves the
+  saved file. Fixtures are removed after success in this single deployment.
+- This gate does not prove crash-before-link or real network-loss behavior.
+  Visible download/recovery controls, legacy-root handling, ask-profile UI,
+  cross-device save, frame/vision/drag/Android and final lifecycle/performance/
+  packaging checks remain open. The full goal remains active.

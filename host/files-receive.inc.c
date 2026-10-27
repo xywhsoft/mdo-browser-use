@@ -26,6 +26,7 @@ static bool BuReceiveHash(cstr Hash){
     if(!Hash||strlen(Hash)!=64)return false;
     for(size_t I=0;I<64;I++)if(!((Hash[I]>='0'&&Hash[I]<='9')||(Hash[I]>='a'&&Hash[I]<='f')))return false;return true;
 }
+static bool BuReceiveRetained(cstr State){return State&&(!strcmp(State,"ready")||!strcmp(State,"publishing")||!strcmp(State,"published"));}
 static bool BuReceiveSave(const xvalue* Row){
     char Ledger[128],Source[64];BuReceivePaths(SdkField(Row,"id"),Ledger,Source);
     char* Json=SdkJson(Row);bool Ok=Json&&strlen(Json)<=32768&&MdoHomeAtomicWrite(Ledger,Json,strlen(Json),false);xrtFree(Json);return Ok;
@@ -35,14 +36,24 @@ static bool BuReceiveValid(const xvalue* Row,cstr Id){
     cstr Actual=SdkField(Row,"id"),Workspace=SdkField(Row,"workspace"),State=SdkField(Row,"state"),Name=SdkField(Row,"source");
     bool Valid=SdkUInt(SdkGet(Row,"version"),&Version)&&Version==1&&Actual&&!strcmp(Actual,Id)&&
         Workspace&&strlen(Workspace)<=4096&&xrtPathIsAbs(Workspace)&&State&&
-        (!strcmp(State,"preparing")||!strcmp(State,"receiving")||!strcmp(State,"ready"))&&
+        (!strcmp(State,"preparing")||!strcmp(State,"receiving")||BuReceiveRetained(State))&&
         Name&&!strcmp(Name,Source)&&SdkField(Row,"root_snapshot")&&BuReceiveHash(SdkField(Row,"sha256"))&&
         SdkUInt(SdkGet(Row,"size"),&Size)&&Size<=67108864&&xrtValueType(SdkGet(Row,"scope"))==XVALUE_OBJECT;
     if(!Valid)return false;
+    if(SdkGet(Row,"destination")&&!BuPublishPath(SdkField(Row,"destination")))return false;
     if(strcmp(State,"preparing")){
         uint64 Device=0,Identity=0;if(!SdkUInt(SdkGet(Row,"stage_device"),&Device)||!SdkUInt(SdkGet(Row,"stage_identity"),&Identity))return false;
     }
-    if(!strcmp(State,"ready")){cstr Revision=SdkField(Row,"source_revision");if(!Revision||!Revision[0]||strlen(Revision)>160)return false;}
+    if(BuReceiveRetained(State)){cstr Revision=SdkField(Row,"source_revision");if(!Revision||!Revision[0]||strlen(Revision)>160)return false;}
+    if(!strcmp(State,"publishing")||!strcmp(State,"published")){
+        if(!BuReceiveId(SdkField(Row,"publication"))||!SdkField(Row,"destination"))return false;
+    }
+    if(!strcmp(State,"published")){
+        const xvalue* File=SdkGet(Row,"publication_file");uint64 PublishedSize=0;
+        cstr Path=SdkField(File,"path"),Hash=SdkField(File,"sha256"),Revision=SdkField(File,"revision");
+        if(!Path||strcmp(Path,SdkField(Row,"destination"))||!Hash||strcmp(Hash,SdkField(Row,"sha256"))||!Revision||!Revision[0]||
+           !SdkUInt(SdkGet(File,"size"),&PublishedSize)||PublishedSize!=Size)return false;
+    }
     return true;
 }
 static xvalue* BuReceiveLoad(cstr Id,bool* Missing){
@@ -90,7 +101,7 @@ static xvalue* BuReceiveInventory(bool Reap,mdo_error_v1* E){
         if(++Count>32||Entry.Name.Size!=41||Entry.Info.Type!=XFILE_TYPE_FILE||memcmp(Entry.Name.Data+36,".json",5))goto invalid;
         char Id[37];memcpy(Id,Entry.Name.Data,36);Id[36]=0;if(!BuReceiveId(Id))goto invalid;
         bool Missing=false;xvalue* Row=BuReceiveLoad(Id,&Missing);if(!Row)goto invalid;
-        bool Active=BuReceiveActive(Id),Ready=!strcmp(SdkField(Row,"state"),"ready");
+        bool Active=BuReceiveActive(Id),Ready=BuReceiveRetained(SdkField(Row,"state"));
         if(Reap&&!Active&&!Ready){
             xroot Root=xrtRootOpen(SdkField(Row,"workspace"));bool Removed=Root&&BuReceiveDrop(Root,Row);
             if(Root)xrtRootClose(Root);if(Removed){xrtValueRelease(Row);continue;}
@@ -109,7 +120,7 @@ static bool BuReceiveScope(const mdo_sdk_context_v1* C,const xvalue* Row,mdo_err
 }
 static xvalue* BuReceiveInfo(const xvalue* Row){
     xvalue* Info=xrtValueClone(Row);if(!Info)return NULL;
-    bool Active=BuReceiveActive(SdkField(Row,"id")),Ready=!strcmp(SdkField(Row,"state"),"ready");
+    bool Active=BuReceiveActive(SdkField(Row,"id")),Ready=BuReceiveRetained(SdkField(Row,"state"));
     if((!Active&&!Ready&&!SdkPut(Info,"state","interrupted"))||
        !xrtValueObjectSetNew(Info,XRT_STR_LITERAL("active"),xrtValueBool(Active))){xrtValueRelease(Info);return NULL;}return Info;
 }
@@ -144,7 +155,7 @@ static bool BuFileReceive(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R
 #if !defined(_WIN32) && !defined(_WIN64)
     return MdoApplicationError(E,"sdk_file_receive_unsupported","Safe opened-file staging cleanup is not available on this platform","file_receive",501,false);
 #else
-    cstr Id=C->InvocationId,Handle=SdkField(P,"handle"),Hash=SdkField(P,"sha256"),RootSnapshot=SdkField(P,"root_snapshot");
+    cstr Id=C->InvocationId,Handle=SdkField(P,"handle"),Hash=SdkField(P,"sha256"),RootSnapshot=SdkField(P,"root_snapshot"),Destination=SdkField(P,"destination");
     uint64 Size=0,Timeout=120000,Idle=30000,Total=0;
     if(!BuReceiveId(Id)||!Handle||strlen(Handle)!=36||strncmp(Handle,"str-",4)||!BuReceiveHash(Hash)||!RootSnapshot||
        !SdkUInt(SdkGet(P,"size"),&Size)||Size>67108864||
@@ -153,6 +164,8 @@ static bool BuFileReceive(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R
         return MdoApplicationError(E,"sdk_arguments_invalid","Start files.receive through operation.start with a scoped stream, root snapshot, exact size/hash and bounded timeouts","file_receive",422,false);
     if(!C->Workspace||!xrtPathIsAbs(C->Workspace)||strlen(C->Workspace)>4096)
         return MdoApplicationError(E,"sdk_workspace_required","Receive requires the frozen absolute task workspace","file_receive",422,false);
+    if(SdkGet(P,"destination")&&!BuPublishPath(Destination))
+        return MdoApplicationError(E,"sdk_arguments_invalid","Destination intent must be a relative path in the original workspace","file_receive",422,false);
     xroot Root=NULL,Storage=NULL;xfile File=NULL;xvalue *Row=NULL,*Query=NULL,*Reply=NULL,*Result=NULL;unsigned char* Bytes=NULL;
     bool Ok=false,Admitted=false,Recorded=false,Ready=false,CleanupUncertain=false;size_t Slot=BU_RECEIVE_LIMIT,Buffered=0;char Ledger[128],Source[64];BuReceivePaths(Id,Ledger,Source);
     xfileinfo Directory={0},Created={0},After={0},Named={0};uint64 End=MdoDeadlineAfterUs(Timeout*1000),IdleEnd=MdoDeadlineAfterUs(Idle*1000);
@@ -166,7 +179,7 @@ static bool BuFileReceive(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R
     Row=xrtValueObject();xvalue* Scope=BuStreamScopeCapture(C);
     bool Built=Row&&Scope&&xrtValueObjectSet(Row,XRT_STR_LITERAL("scope"),Scope)&&SdkPutUInt(Row,"version",1)&&
         SdkPut(Row,"id",Id)&&SdkPut(Row,"workspace",C->Workspace)&&SdkPut(Row,"root_snapshot",RootSnapshot)&&
-        SdkPut(Row,"source",Source)&&SdkPut(Row,"state","preparing")&&SdkPutUInt(Row,"size",Size)&&SdkPut(Row,"sha256",Hash);
+        SdkPut(Row,"source",Source)&&SdkPut(Row,"state","preparing")&&SdkPutUInt(Row,"size",Size)&&SdkPut(Row,"sha256",Hash)&&(!Destination||SdkPut(Row,"destination",Destination));
     xrtValueRelease(Scope);if(!Built)goto done;
     Storage=MdoHomeOpenStorageDirectory(BU_RECEIVE_DIRECTORY);if(!Storage){SdkNativeFailure(E,"file_receive");goto done;}
     if(!xrtRootClose(Storage)){Storage=NULL;SdkNativeFailure(E,"file_receive");goto done;}Storage=NULL;

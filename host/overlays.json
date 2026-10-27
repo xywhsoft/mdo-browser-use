@@ -345,22 +345,22 @@
     {
       "path": "app/src/application/runtime.c",
       "before": "    {\"files.read\",\"Read a bounded file workbench byte range\"},",
-      "after": "    {\"files.digest\",\"Hash a bounded regular file and return its stable revision and SHA-256\"},\n    {\"files.publish\",\"Publish verified staging bytes as a new hard link under the original task root; retain source\"},\n    {\"files.receive.start\",\"Receive a scoped byte stream into bounded verified task staging\"},\n    {\"files.receive.get\",\"Inspect an owned staged receiver receipt\"},\n    {\"files.receive.list\",\"List owned retained staging receipts\"},\n    {\"files.receive.release\",\"Discard one inactive, identity-verified staging file\"},\n    {\"files.read\",\"Read a bounded file workbench byte range\"},"
+      "after": "    {\"files.digest\",\"Hash a bounded regular file and return its stable revision and SHA-256\"},\n    {\"files.publish\",\"Publish verified staging bytes as a new hard link under the original task root; retain source\"},\n    {\"files.receive.start\",\"Receive a scoped byte stream into bounded verified task staging\"},\n    {\"files.receive.publish\",\"Publish owned staging with a durable destination intent\"},\n    {\"files.receive.reconcile\",\"Inspect an interrupted publication without replaying file effects\"},\n    {\"files.receive.get\",\"Inspect an owned staged receiver receipt\"},\n    {\"files.receive.list\",\"List owned retained staging receipts\"},\n    {\"files.receive.release\",\"Discard one inactive, identity-verified staging file\"},\n    {\"files.read\",\"Read a bounded file workbench byte range\"},"
     },
     {
       "path": "app/src/application/runtime.c",
       "before": "static bool SdkFileCall(",
-      "after": "#include \"browser_use_files_digest.inc.c\"\n#include \"browser_use_files_publish.inc.c\"\n#include \"browser_use_files_receive.inc.c\"\nstatic bool SdkFileCall("
+      "after": "#include \"browser_use_files_digest.inc.c\"\n#include \"browser_use_files_publish.inc.c\"\n#include \"browser_use_files_receive.inc.c\"\n#include \"browser_use_files_receive_publish.inc.c\"\nstatic bool SdkFileCall("
     },
     {
       "path": "app/src/application/runtime.c",
       "before": "    if(!strncmp(Method,\"files.\",6))",
-      "after": "    if(!strcmp(Method,\"files.digest\"))return BuFileDigest(C,P,R,E);\n    if(!strcmp(Method,\"files.publish\"))return BuFilePublish(C,P,R,E);\n    if(!strcmp(Method,\"files.receive.start\"))return BuFileReceive(C,P,R,E);\n    if(!strncmp(Method,\"files.receive.\",14))return BuReceiveControl(C,Method,P,R,E);\n    if(!strncmp(Method,\"files.\",6))"
+      "after": "    if(!strcmp(Method,\"files.digest\"))return BuFileDigest(C,P,R,E);\n    if(!strcmp(Method,\"files.publish\"))return BuFilePublish(C,P,R,E);\n    if(!strcmp(Method,\"files.receive.start\"))return BuFileReceive(C,P,R,E);\n    if(!strcmp(Method,\"files.receive.publish\"))return BuReceivePublish(C,P,R,E);\n    if(!strcmp(Method,\"files.receive.reconcile\"))return BuReceiveReconcile(C,P,R,E);\n    if(!strncmp(Method,\"files.receive.\",14))return BuReceiveControl(C,Method,P,R,E);\n    if(!strncmp(Method,\"files.\",6))"
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "    add('files.search'",
-      "after": "    add('files.digest','Hash one stable regular file; complete SHA-256 with a bounded read and optional revision precondition',\n        {**file_path,'revision':s,'max_bytes':{'type':'integer','minimum':1,'maximum':67108864}},('path',))\n    add('files.publish','Publish verified staging bytes as a new hard link in the frozen workspace; no overwrite, source retained',\n        {'path':s,'source':s,'source_revision':s,'root_snapshot':s,'size':{'type':'integer','minimum':0,'maximum':67108864},'sha256':s},('path','source','source_revision','root_snapshot','size','sha256'))\n    add('files.receive.start','Receive an explicit EOF stream through operation.start; bounded verified staging in the frozen workspace',\n        {'handle':s,'root_snapshot':s,'size':{'type':'integer','minimum':0,'maximum':67108864},'sha256':s,\n         'timeout_ms':{'type':'integer','minimum':100,'maximum':600000},'idle_timeout_ms':{'type':'integer','minimum':100,'maximum':60000}},('handle','root_snapshot','size','sha256'))\n    add('files.receive.get','Read an owned receiver receipt; no stream or file bytes',identity,('id',))\n    add('files.receive.list','List retained receivers only in the original task/workspace',output={'type':'array'})\n    add('files.receive.release','Discard only the identity-verified inactive staging entry; preserve unknown/replaced files',identity,('id',))\n    add('files.search'"
+      "after": "    add('files.digest','Hash one stable regular file; complete SHA-256 with a bounded read and optional revision precondition',\n        {**file_path,'revision':s,'max_bytes':{'type':'integer','minimum':1,'maximum':67108864}},('path',))\n    add('files.publish','Publish verified staging bytes as a new hard link in the frozen workspace; no overwrite, source retained',\n        {'path':s,'source':s,'source_revision':s,'root_snapshot':s,'size':{'type':'integer','minimum':0,'maximum':67108864},'sha256':s},('path','source','source_revision','root_snapshot','size','sha256'))\n    add('files.receive.start','Receive an explicit EOF stream through operation.start; bounded verified staging in the frozen workspace',\n        {'handle':s,'root_snapshot':s,'destination':s,'size':{'type':'integer','minimum':0,'maximum':67108864},'sha256':s,\n         'timeout_ms':{'type':'integer','minimum':100,'maximum':600000},'idle_timeout_ms':{'type':'integer','minimum':100,'maximum':60000}},('handle','root_snapshot','size','sha256'))\n    add('files.receive.publish','Publish a ready receiver once through operation.start; persist destination and original publication identity',{'id':s,'path':s},('id','path'))\n    add('files.receive.reconcile','Explicitly verify existing target or staging bytes through operation.start; never create a destination',identity,('id',))\n    add('files.receive.get','Read an owned receiver receipt; no stream or file bytes',identity,('id',))\n    add('files.receive.list','List retained receivers only in the original task/workspace',output={'type':'array'})\n    add('files.receive.release','Discard only the identity-verified inactive staging entry; preserve unknown/replaced files',identity,('id',))\n    add('files.search'"
     },
     {
       "path": "tools/application_sdk.py",
@@ -619,6 +619,10 @@
     {
       "source": "host/download-save.js",
       "target": "app/web/js/features/workbench/download-save.js"
+    },
+    {
+      "source": "host/files-receive-publish.inc.c",
+      "target": "app/src/application/browser_use_files_receive_publish.inc.c"
     }
   ]
 }

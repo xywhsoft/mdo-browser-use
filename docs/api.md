@@ -558,7 +558,7 @@ low-level staging method directly.
 
 ## Bounded task-file reception
 
-The generated C/JS host SDK exposes `files.receive.start/get/list/release`
+The generated C/JS host SDK exposes `files.receive.start/publish/reconcile/get/list/release`
 (`mdoFilesReceiveStart`, etc.; JS `api.files.receive.start`, etc.). This is the
 receiving half of workspace saving, currently implemented and verified on
 Windows. It consumes an existing task-owned stream, not a URL. Start it through
@@ -572,7 +572,8 @@ const root = await original.call("files.stat", {path:"."});
 const {handle} = await original.call("stream.open", {capacity:65536});
 const operation = `sdk-${crypto.randomUUID().replaceAll("-", "")}`;
 await original.start("files.receive.start", {
-  handle, root_snapshot:root.revision, size:verifiedSize, sha256:verifiedSha256,
+  handle, root_snapshot:root.revision, destination:"exports/report.bin",
+  size:verifiedSize, sha256:verifiedSha256,
   timeout_ms:120000, idle_timeout_ms:30000
 }, operation);
 // Feed bounded original response chunks with stream.write; inspect confirmed
@@ -589,7 +590,8 @@ session/namespace/member. Its total timeout is 100 through 600000 ms and idle
 timeout is 100 through 60000 ms. It reads and decodes at most 16 KiB per range,
 requires explicit EOF at exactly the selected size, verifies the full SHA-256,
 flushes the staging file and stores a `ready` receipt with `source_revision`.
-The receipt records relative staging name, expected metadata, original workspace
+The optional `destination` records a validated relative destination before any
+staging bytes are written. The receipt records relative staging name, expected metadata, original workspace
 and scope; it never persists file bytes, response headers, cookies or a stream
 credential. These are private host SDK results, not model tool results.
 
@@ -599,7 +601,8 @@ precedes exclusive staging creation; its physical file identity is persisted
 before any nonempty write. Incomplete records from a previous process are
 reported as `interrupted`, never resumed. A subsequent receive admission can
 collect them only when the original root and staging identity are still known.
-Completed `ready` records survive restart until explicit release. A preparatory
+Complete `ready`, `publishing` and `published` records survive restart until
+explicit release; admission never reaps complete uncertain publications. A preparatory
 crash with no recorded inode may leave a zero-byte entry; preserve it for review
 instead of deleting an unproven owner. Unknown inventory entries block admission.
 
@@ -610,15 +613,31 @@ unreadable ownership records are preserved and reported as cleanup failures.
 Non-Windows start currently returns `sdk_file_receive_unsupported`; its safe
 namespace cleanup still needs platform implementation and verification.
 
-Publication remains a separate explicit workspace write: pass the ready
-receipt's `source`, `source_revision`, expected size/hash and original root
-snapshot to `files.publish` with the selected destination. It rechecks the full
-file, creates a new entry without replacing an existing one, and retains staging.
+Publication remains a separate explicit workspace write. Start
+`files.receive.publish({id:receiverId,path:relativeDestination})` through a new
+SDK operation. It persists `publishing`, the destination and original publication
+operation identity before calling the verified no-overwrite publisher, then
+records `published` and verified `publication_file` metadata before reporting
+success. The staging source remains available. A failed final receipt write
+reports `may_have_completed:true`, retaining the earlier intent and bytes.
+
+For review, start `files.receive.reconcile({id:receiverId})` through a new SDK
+operation. This inspects the original physical root and checks complete bytes
+and file identity; it never creates or replaces a destination. A verified same
+inode becomes `published` with verdict `verified`. A missing or different target
+requires a verified original staging source and becomes `ready` with verdict
+`missing` or `different_file`. Only an explicit new publication operation may
+then create a new destination. The previous publication identity always returns
+its retained outcome and is never replayed. Changed files or roots are preserved
+and inspection fails; historical success is not proof of current unchanged bytes.
+
 After confirmed publication, release the receiver; this removes its staging
-link while preserving the published file. An uncertain publication requires
-inspection, not replay. The tested recovery scope is process termination and
-restart, not a universal power-loss guarantee. The official save API/tool below
-uses this primitive; visible controls are still in development.
+link while preserving the published file. The actual recovery gate injects a
+failed final ledger replacement after a 32 MiB publication, restarts this same
+Home, and verifies destination intent, retained bytes, no-effect reconciliation
+and original-identity non-replay. It does not establish power-loss durability,
+a crash before the atomic link or arbitrary network-loss behavior. The official
+save API/tool below uses this journaled adapter; visible controls remain in development.
 
 ## Save a completed response into its original task
 
@@ -641,8 +660,8 @@ before queueing the UI action. Missing legacy roots are rejected instead of
 using the selected chat. The UI producer verifies the bound task context, reads
 at most 64 KiB from the retained native response, and feeds its scoped receiver
 with backpressure. It never refetches a URL or exports bytes to a model result.
-After exact EOF/hash verification, a separate SDK publication operation creates
-the destination without replacement. Receiver and publisher identities derive
+After exact EOF/hash verification, a separate `files.receive.publish` SDK
+operation journals the destination and creates it without replacement. Receiver and publisher identities derive
 from the immutable UI action identity; expired/interrupted admissions are never
 replayed. Normal completion releases staging while preserving the original
 native download for explicit release.

@@ -54,6 +54,7 @@ python tools/upload_restart_probe.py
 python tools/upload_probe.py
 python tools/download_probe.py
 python tools/save_probe.py
+python tools/publication_recovery_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -120,3 +121,8 @@ to a new path in the frozen task workspace, with size/hash verification and no
 overwrite. `save_probe.py` verifies actual binary/blob/POST/unknown-length/popup
 saves, exact file bytes, duplicate identities, conflicts and managed permissions.
 Visible download/recovery controls remain in development.
+
+`publication_recovery_probe.py` injects a final receipt replacement failure after
+publishing 32 MiB, hard-stops and restarts this same Home, then verifies retained
+destination/operation intent, exact bytes and reconciliation without recreating
+the file. Test data is removed after success; no extra deployment is created.

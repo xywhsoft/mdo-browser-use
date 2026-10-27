@@ -16,7 +16,7 @@ function fixture(options={}){
     if(method==='stream.open')return{handle:'str-'+'1'.repeat(32)};
     if(method==='operation.start'){
       if(p.method==='files.receive.start')receive=p.id;
-      else if(p.method==='files.publish'){publish=p.id;if(options.publishAckLost){published=true;throw Object.assign(Error('private/cache/secret'),{code:'network_error'});}if(!options.exists)published=true;}
+      else if(p.method==='files.receive.publish'){publish=p.id;if(options.publishAckLost){published=true;throw Object.assign(Error('private/cache/secret'),{code:'network_error'});}if(!options.exists)published=true;}
       else throw Error('Unexpected operation');
       return{id:p.id};
     }
@@ -35,7 +35,7 @@ function fixture(options={}){
     }
     if(method==='operation.cancel'){if(p.id===receive)cancelled=true;return{};}
     if(method==='operation.result'){
-      if(p.id===receive)return{id:receive,state:'ready',source:'.mdo-receive-'+receive.slice(4)+'.part',source_revision:'file-revision',workspace:context.workspace,root_snapshot:'root',size:bytes.length,sha256:sha};
+      if(p.id===receive)return{id:receive,state:'ready',source:'.mdo-receive-'+receive.slice(4)+'.part',source_revision:'file-revision',workspace:context.workspace,root_snapshot:'root',destination:'saved.bin',size:bytes.length,sha256:sha};
       if(p.id===publish)return{published:true,path:'saved.bin',source:'private staging name',size:bytes.length,sha256:sha,revision:'published-revision'};
     }
     if(method==='files.receive.release'&&options.cleanupFails)throw Object.assign(Error('private/cache/secret'),{code:'sdk_file_receive_cleanup'});
@@ -62,7 +62,7 @@ test('save streams exact existing response chunks and publishes once without ref
   assert.equal(out.ok,true);assert.equal(out.saved,true);assert.equal(out.source_retained,true);assert.equal(out.path,'saved.bin');
   assert.deepEqual(Buffer.concat(f.chunks),Buffer.alloc(131075,251));assert.equal(f.state.writes,3);
   assert.equal(f.calls.filter(c=>c.method==='operation.start').length,2);
-  assert.equal(f.calls.filter(c=>c.target_method==='files.publish').length,1);
+  assert.equal(f.calls.filter(c=>c.target_method==='files.receive.publish').length,1);
   assert.equal(f.calls.filter(c=>c.native==='read').length,3);assert(f.calls.filter(c=>c.native==='read').every(c=>c.limit<=65536));
   assert.equal(f.calls.filter(c=>c.native==='get').length,2);assert(!f.calls.some(c=>['accept','release'].includes(c.native)));
   assert.equal(out.transfer.cleanup_pending,false);assert(!JSON.stringify(out).includes('base64'));assert(!JSON.stringify(out).includes('private staging'));
