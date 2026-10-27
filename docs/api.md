@@ -716,3 +716,32 @@ manual-save bytes, acceptance without takeover, focus retention, actual native
 viewport bounds and recovery publication/reconciliation. A normal-main-window
 desktop screenshot check was attempted but failed with `failed to activate
 captured window` and `FrameArrived timed out`; it is not recorded as passed.
+
+## Recover a legacy tab's original task directory
+
+The shared host C/JS SDK now provides `browser.workspace.lookup` and
+`browser.workspace.adopt` (`mdoBrowserWorkspaceLookup/Adopt` and
+`api.browser.workspace.lookup/adopt`). They are trusted extension/UI services,
+not an Agent tool for changing another task's directory.
+
+Lookup takes `{id}` and reads the exact original project/session from the
+persisted session catalog without opening an Agent/model. The caller must match
+the original owner, device, task, namespace and member. Only a missing/empty tab
+workspace can be recovered. It returns browser `revision`, `session_revision`,
+`workspace` and physical `root_snapshot`. No current-chat/project-default fallback,
+directory creation or browser navigation occurs. Missing/trash tasks, missing or
+replaced/reparse roots and malformed context fail explicitly.
+
+After reviewing the returned directory, call adopt with `{id,revision,
+session_revision,workspace,root_snapshot,confirmed:true}`. The host re-derives
+the original task/root, checks both revisions and physical identity, then
+atomically fills only `context.workspace` and `context.workspace_snapshot`.
+It cannot replace a nonempty binding. Private scope, tab URL and retained browser
+response stay unchanged. A lost reply requires reading `browser.get`; the next
+call must not blindly repeat adoption.
+
+The physical pin persists with the browser. The C save boundary rejects a later
+root replacement before reading any response bytes or queueing browser actions;
+ordinary directory size/time changes do not invalidate its identity. The
+trusted UI adoption controls and corresponding manual-save pin check are the
+next integration stage.

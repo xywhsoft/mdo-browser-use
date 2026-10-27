@@ -1413,3 +1413,28 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   cross-device save transport, additional crash/transport faults, frame/vision/
   drag/Android adaptation and final lifecycle/performance/package gates. The
   full long-term goal remains active; this is not a product release.
+
+## D12s — recover a legacy tab root from its original persisted task
+
+- Add generated shared C/JS host `browser.workspace.lookup/adopt`. Lookup reads
+  the original session catalog without Agent/model startup and creates nothing.
+  Adoption requires explicit confirmation, current browser/session revisions,
+  the reviewed path and the same physical root; it only fills an empty binding.
+  Strict owner/device/task/namespace/member matching prevents scope substitution.
+  Existing bindings, missing/trash tasks and unavailable/reparse roots fail.
+- Persist the adopted physical root pin. The C save boundary rejects its later
+  replacement before response reads or browser dispatch, while normal directory
+  timestamp/size changes remain valid. No navigation, POST replay or response
+  recreation is involved in recovery.
+- Ten actual SDK tests prepare only their own pre-upgrade browser rows while
+  the single host is stopped, then verify original-versus-current task roots,
+  fill-only persistence, scope, all confirmation/revision/path preconditions,
+  missing root/task, physical replacement and the C save fence. Test restart
+  client leases are explicitly renewed. All ten cases pass.
+- The real public C/JS and managed five-response save gate passes again with
+  the updated plugin and host, including exact hashes, original-response
+  retention, duplicate identity, conflicts and read-only denial. POST/popup POST
+  each execute once; final cache/receiver inventory is empty. Same Home restored
+  headless, without another native build or environment.
+- Next integrate visible review/adoption and manual-save pin validation, then
+  complete the remaining full-goal platform/lifecycle/performance/package gates.

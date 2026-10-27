@@ -10,6 +10,15 @@ static bool BuSavePath(const char* Path){
         if(Path[I])I++;
     }return true;
 }
+static bool BuSaveRootMatches(const char* Pin,const char* Revision){
+    if(!Pin||!Revision||strncmp(Pin,"f-",2)||strncmp(Revision,"f-",2))return false;
+    const char* End=Pin+2;
+    for(unsigned Part=0;Part<2;Part++){
+        const char* Start=End;while(*End>='0'&&*End<='9')End++;
+        if(Start==End||*End!='-')return false;End++;
+    }
+    return strlen(Revision)>=(size_t)(End-Pin)&&!strncmp(Pin,Revision,(size_t)(End-Pin));
+}
 static mdo_result BuSave(void* User,const mdo_sdk_context_v1* C,const xvalue* P,xvalue** Result,mdo_error_v1* E){
     (void)User;const mdo_values_v1* V=C->Api->Values;
     if(!BuSavePath(BuText(C,P,"path")))return BuFail(E,"save_path_invalid","Choose a relative destination inside the original workspace without traversal, controls or ambiguous names",422);
@@ -25,6 +34,9 @@ static mdo_result BuSave(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
     Code=mdoCall(C,"files.stat",Query,&Snapshot,E);if(Code!=MDO_RESULT_OK)goto done;
     const char* Revision=BuText(C,Snapshot,"revision");
     if(!Revision||!Revision[0]||strlen(Revision)>160){Code=BuFail(E,"workspace_snapshot_invalid","The original workspace has no usable physical snapshot",409);goto done;}
+    if(V->Get(Scope,"workspace_snapshot")&&!BuSaveRootMatches(BuText(C,Scope,"workspace_snapshot"),Revision)){
+        Code=BuFail(E,"workspace_snapshot_changed","The confirmed original directory was replaced; no download bytes were read",412);goto done;
+    }
     Args=V->Clone(P);if(!Args||!BuPut(C,Args,"root_snapshot",Revision)){Code=BuFail(E,"allocation_failed","Cannot retain the original workspace snapshot",500);goto done;}
     if(!V->Get(Args,"timeout_ms")){
         xvalue* Timeout=V->Int(60000);bool Stored=Timeout&&V->Set(Args,"timeout_ms",Timeout);V->Release(Timeout);

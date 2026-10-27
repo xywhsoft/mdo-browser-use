@@ -574,6 +574,26 @@
       "before": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }",
       "after_file": "host/download-ui.css",
       "suffix": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\",\"browser.popup.admit\",\"browser.popup.settle\"",
+      "after": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\",\"browser.popup.admit\",\"browser.popup.settle\",\n    \"browser.workspace.lookup\",\"browser.workspace.adopt\""
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "bool MdoApplicationWorkbenchCall(",
+      "after": "#include \"browser_use_workspace.inc.c\"\nbool MdoApplicationWorkbenchCall("
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "    if(!strcmp(Method,\"browser.command\")){",
+      "after": "    if(!strcmp(Method,\"browser.workspace.lookup\")||!strcmp(Method,\"browser.workspace.adopt\"))return BuBrowserWorkspace(C,Method,P,R,E);\n    if(!strcmp(Method,\"browser.command\")){"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "    add('browser.update'",
+      "after": "    add('browser.workspace.lookup','Read the original persisted task directory for a legacy tab; no model, default fallback or file creation',identity,('id',))\n    add('browser.workspace.adopt','Explicitly fill an empty legacy workspace after reviewing task, browser and physical-root revisions',\n        {**revision,'workspace':s,'root_snapshot':s,'session_revision':{'type':'integer','minimum':1},'confirmed':{'type':'boolean'}},('id','revision','workspace','root_snapshot','session_revision','confirmed'))\n    add('browser.update'"
     }
   ],
   "files": [
@@ -672,6 +692,10 @@
     {
       "source": "host/download-ui.js",
       "target": "app/web/js/features/workbench/download-ui.js"
+    },
+    {
+      "source": "host/browser-workspace.inc.c",
+      "target": "app/src/application/browser_use_workspace.inc.c"
     }
   ]
 }
