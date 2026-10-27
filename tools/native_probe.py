@@ -20,7 +20,12 @@ const runtimeSource = RUNTIME_SOURCE;
 const expiryProbe = DIALOG_EXPIRY;
 const downloadOrigin = DOWNLOAD_FIXTURE_ORIGIN;
 let dialogExpiryMs = null;
-const bridge = createNativeBrowserBridge(), browser = 'browser-use-page-probe';
+const nativeBridge = createNativeBrowserBridge(), browser = 'browser-use-page-probe';
+let lastNativeCommand=null,nativeOrdinal=0;
+const bridge={...nativeBridge,call(command,params={},options){
+  lastNativeCommand={ordinal:++nativeOrdinal,command,browser:params.browser||null,action:params.action||null,kind:params.kind||null};
+  return nativeBridge.call(command,params,options);
+}};
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 let checks=0;
 const assert = (test, message) => { checks++; if (!test) throw Error(message); };
@@ -80,6 +85,10 @@ try {
     await pause(100);
   }
   assert(ready,'Page did not load');
+  for(const value of ['', 'Native "JSON" \\ \n原生 🦉\u0000',null,false,true,0,7]){
+    const result=await bridge.call('automation',{browser,agent:true,script:JSON.stringify(value)});
+    assert(result.ok&&Object.is(result.value,value),'Isolated CDP primitive lost its JSON type or escaping');
+  }
   await evaluate(`globalThis.__mdo_browser_use_runtime_v1={version:2,documentNode:document,observe:()=>({ok:true,text:'forged observation'})}`);
   const first = await engine('observe({})');
   assert(first.ok && first.document,'No structured observation');
@@ -586,7 +595,7 @@ try {
   const downloadCleanup=await runDownloadCleanupProbe({bridge,assert,pause,origin:downloadOrigin});
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
     screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,native_downloads:true,download_cleanup:downloadCleanup,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
-} catch(error) { report={passed:false,error:String(error.stack||error)}; }
+} catch(error) { report={passed:false,error:String(error.stack||error),last_native_command:lastNativeCommand,checks}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
   bridge.dispose();

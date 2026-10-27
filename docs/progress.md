@@ -1468,3 +1468,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Remaining full-goal work includes ask-profile interaction, remote transport,
   additional crash/network faults, complete frames/vision/drag/Android support
   and final lifetime/OOM/performance/package checks. Goal remains active.
+
+## D12u — preserve primitive JSON values in isolated native replies
+
+- Fix the private CDP return-value extraction shared by trusted automation.
+  The previous helper decoded string tokens before embedding them in a JSON
+  reply: empty strings became missing values and other strings lost their
+  quoting/escaping. Retain the raw JSON token instead; absent/unserializable
+  values still fail explicitly.
+- Add seven actual WebView2 root-world cases for empty/escaped Unicode strings,
+  null, booleans and numbers. The complete native gate passes 1,371 assertions,
+  including existing input/dialog/popup/upload/download/capture checks, with no
+  new exception diagnostics and empty final transfer caches. The focused
+  download gate also passes all 308 assertions. Same Home restored headless.
+- An earlier complete run timed out during the download phase; it did not pass.
+  Its exact native command was not retained, and the cause is not established.
+  Failed probes now include bounded command/action/kind metadata and an ordinal,
+  without scripts, form data or credentials. The successful later runs do not
+  establish that the intermittent timeout is permanently resolved.
+- Cross-site frame routing has separate development changes awaiting its own
+  review/commit. This bug fix does not claim public cross-origin frame support
+  or completion of the full Browser Use goal.

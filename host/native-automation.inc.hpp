@@ -1,6 +1,13 @@
 /* Included in the native browser namespace. CDP remains private to the trusted
  * application document. Models receive typed operations, never CDP/script. */
 using xb_cdp_result = std::function<void(bool,const std::string&)>;
+// json_parse() decodes JSON strings. Replies must retain the raw value token:
+// an empty string is a value, and quotes/escapes must survive the outer packet.
+static std::string xb_cdp_value(const std::string& remote){
+  const char* value=nullptr;size_t size=0;
+  webview::detail::json_parse_c(remote.c_str(),remote.size(),"value",5,&value,&size);
+  return value?std::string(value,size):std::string{};
+}
 static bool xb_popup_blocked(const std::shared_ptr<xb_view>& view){
   for(const auto& item:view->popups)if(!item.second->completed)return true;return false;
 }
@@ -39,7 +46,7 @@ static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared
       ",\"returnByValue\":true,\"awaitPromise\":false,\"timeout\":3000}";
     xb_cdp(view,L"Runtime.evaluate",params,[host,view,id,navigation](bool ok,const std::string& result){
       if(!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Browser control or document changed during evaluation");return;}
-      const auto value=xb_get(xb_get(result,"result"),"value");
+      const auto value=xb_cdp_value(xb_get(result,"result"));
       if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty())xb_automation_reply(host,view,id,"","Isolated page evaluation failed");
       else xb_automation_reply(host,view,id,"{\"ok\":true,\"value\":"+value+"}");
     });
