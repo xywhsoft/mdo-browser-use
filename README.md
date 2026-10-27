@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
@@ -55,6 +55,7 @@ python tools/upload_probe.py
 python tools/download_probe.py
 python tools/save_probe.py
 python tools/publication_recovery_probe.py
+python tools/download_ui_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -120,7 +121,15 @@ The completed response stays in private browser cache until explicit release.
 to a new path in the frozen task workspace, with size/hash verification and no
 overwrite. `save_probe.py` verifies actual binary/blob/POST/unknown-length/popup
 saves, exact file bytes, duplicate identities, conflicts and managed permissions.
-Visible download/recovery controls remain in development.
+The browser toolbar's download button opens a compact tray for accepting,
+cancelling and saving retained responses. The tray also lists the original task's
+recoverable staging records for explicit verification, publication and cleanup.
+It does not switch to the currently selected chat's directory or refetch URLs.
+
+`download_ui_probe.py` mounts the actual browser view in the same WebView2 host
+and checks manual save bytes, focus retention, native viewport resizing,
+recovery controls and empty final cache inventory. Normal-main-window screenshot
+inspection remains unverified because the desktop capture helper timed out.
 
 `publication_recovery_probe.py` injects a final receipt replacement failure after
 publishing 32 MiB, hard-stops and restarts this same Home, then verifies retained

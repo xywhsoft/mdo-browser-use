@@ -533,6 +533,47 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "'capture','upload','download'].includes(command)",
       "after": "'capture','upload','download','save_download'].includes(command)"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "import { createBrowserChoosers } from \"./chooser-ui.js\";",
+      "after": "import { createBrowserDownloads } from \"./download-ui.js\";\nimport { createBrowserChoosers } from \"./chooser-ui.js\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "clientId, shown, updateTitle,",
+      "after": "clientId, shown, alive = () => !signal.aborted, updateTitle,"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "  toolbar.append(back, forward, reload, address, manual, preview, more);",
+      "after": "  const downloadButton=action(\"download\",\"下载\",()=>{downloadButton.setAttribute(\"aria-expanded\",String(downloads.toggle()));});\n  downloadButton.classList.add(\"wb-browser-download-toggle\");downloadButton.setAttribute(\"aria-expanded\",\"false\");\n  toolbar.append(back, forward, reload, address, downloadButton, manual, preview, more);"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "  region.append(surface, message); root.append(toolbar, dialogs.element, choosers.element, viewport, status, region);",
+      "after": "  const downloads=createBrowserDownloads({browser,sdk,execute,signal,alive,onChange:()=>{void mount.visible?.(shown());},\n    onBadge:(native,recovery)=>{const count=native+recovery;downloadButton.dataset.count=String(count);downloadButton.title=count?`下载与待处理记录（${count}）`:\"下载\";downloadButton.setAttribute(\"aria-label\",downloadButton.title);}});\n  region.append(surface, message); root.append(toolbar, dialogs.element, choosers.element, downloads.element, viewport, status, region);"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "clearTimeout(timer); choosers.dispose(); dialogs.dispose(); menu.dispose();",
+      "after": "clearTimeout(timer); downloads.dispose(); choosers.dispose(); dialogs.dispose(); menu.dispose();"
+    },
+    {
+      "path": "app/web/js/features/workbench/browser-view.js",
+      "before": "await choosers.refresh(state); if (signal.aborted) return; paint();",
+      "after": "await choosers.refresh(state); if (signal.aborted) return; await downloads.refresh(state); if (signal.aborted) return; paint();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "      shown: () => !root.hidden && layout.open",
+      "after": "      alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n      shown: () => !root.hidden && layout.open"
+    },
+    {
+      "path": "app/web/css/workbench.css",
+      "before": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }",
+      "after_file": "host/download-ui.css",
+      "suffix": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }"
     }
   ],
   "files": [
@@ -623,6 +664,14 @@
     {
       "source": "host/files-receive-publish.inc.c",
       "target": "app/src/application/browser_use_files_receive_publish.inc.c"
+    },
+    {
+      "source": "host/download-user.js",
+      "target": "app/web/js/features/workbench/download-user.js"
+    },
+    {
+      "source": "host/download-ui.js",
+      "target": "app/web/js/features/workbench/download-ui.js"
     }
   ]
 }

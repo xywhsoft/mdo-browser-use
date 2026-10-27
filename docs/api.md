@@ -637,7 +637,7 @@ failed final ledger replacement after a 32 MiB publication, restarts this same
 Home, and verifies destination intent, retained bytes, no-effect reconciliation
 and original-identity non-replay. It does not establish power-loss durability,
 a crash before the atomic link or arbitrary network-loss behavior. The official
-save API/tool below uses this journaled adapter; visible controls remain in development.
+save API/tool below and trusted browser download tray use this journaled adapter.
 
 ## Save a completed response into its original task
 
@@ -683,3 +683,36 @@ existing `saved:true` file even though the action is cancelled. Uncertain
 publication requires inspection of its identity and destination before another
 save; it never deletes an existing target or repeats the opening download click.
 Windows is verified; unsupported receiver platforms report their explicit limit.
+
+## Trusted download and recovery controls
+
+The browser toolbar includes a download SVG button with a bounded record count.
+Its tray stays collapsed until opened. It occupies layout space above the native
+surface, updating the real native viewport bounds; it does not float over or
+obscure the separate WebView window. Polling retains path inputs and focused
+controls. Collapsing the tray preserves responses and records.
+
+Pending responses can be accepted or cancelled without taking over the browser.
+Verified completed responses can be saved to an explicit new path in the tab's
+original task directory. Trusted user saving also works during manual control;
+the Agent's manual-control and managed permission gates remain unchanged. Both
+producers share one per-browser save fence, progress and exact child cancellation.
+Closing this panel stops its own manual attempt; it does not attach the panel's
+AbortSignal to independent Agent actions. Cancel does not remove a committed file.
+
+The recovery group lists only the original extension/device/project/session/
+namespace/member/workspace. It distinguishes active, interrupted, ready and
+uncertain/published records. `核对结果` performs no file creation; a ready record
+can be explicitly saved with a new operation identity and no overwrite. Cleanup
+requires an inline second confirmation for retained staging or an unsaved native
+response. Saved files are preserved. Errors expose bounded cause codes with
+actionable text; raw internal paths or transport messages are not displayed.
+
+Legacy tabs without an original workspace show an explicit limitation and cannot
+save by substituting the current task. Root adoption, nonexistent default-root
+preparation, remote save transport and Android transfers still need their own
+implementation or final verification. The mounted WebView2 UI gate proves exact
+manual-save bytes, acceptance without takeover, focus retention, actual native
+viewport bounds and recovery publication/reconciliation. A normal-main-window
+desktop screenshot check was attempted but failed with `failed to activate
+captured window` and `FrameArrived timed out`; it is not recorded as passed.

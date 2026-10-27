@@ -1383,3 +1383,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   restored headless and the final cache/receiver inventory is empty.
 - These helpers are the download panel's backend wiring, not the visible panel.
   Visible controls and the full remaining goal stages are still open.
+
+## D12r — visible browser download and original-task recovery tray
+
+- Add a compact SVG toolbar button with record badge and a collapsible in-flow
+  tray. Show offer/progress/verification/error, accept/cancel/save/clear, inline
+  relative paths, shared save progress/cancel and original-task staging recovery.
+  Polling preserves edited path values and focused controls; collapse preserves
+  responses. Native bounds follow the tray rather than overlapping its content.
+- Trusted UI accepts without takeover and saves verified original bytes even
+  under manual control, using frozen owner/task/private scope. Missing legacy
+  roots fail explicitly. Recovery requires deliberate inspection/new publication;
+  cleanup of staging or unsaved responses needs inline second confirmation.
+  Confirmed files survive cleanup. Common error codes have actionable text.
+- Five new JS cases cover frozen context/manual actor, missing root/changed
+  device, fresh no-replay review identities, lost admission cancellation and
+  disposed views. All 93 JS cases pass; all 91 Python cases finish (89 pass,
+  two Windows symlink privilege skips). Contracts and applied overlays match.
+- The actual mounted browser-view/WebView2 gate passes 13 checks: one original
+  response request, accept without takeover, exact manual-save bytes/hash,
+  retained input/button focus, real native bounds/controller height, explicit
+  staging publication/reconciliation, saved-file retention and collapse. Native
+  cache and receiver inventory end empty. The first probe assertion checked an
+  asynchronous button too early; it now waits for the observed collapsed state.
+- A normal-main-window visual check could not run: the desktop helper returned
+  `failed to activate captured window`, then `FrameArrived timed out`. No visual
+  screenshot pass is claimed. The single 835 MiB deployment is restored headless.
+- Remaining work includes legacy-root handling, ask-profile interaction,
+  cross-device save transport, additional crash/transport faults, frame/vision/
+  drag/Android adaptation and final lifecycle/performance/package gates. The
+  full long-term goal remains active; this is not a product release.
