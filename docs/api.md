@@ -426,3 +426,59 @@ Takeover disables interception after in-flight input releases drain and
 cancels the old picker without clearing files. Busy state includes both
 deferred phases. To use the OS picker, the user clicks the website again after
 takeover. Returning control never replays that click or reopens the picker.
+
+
+## Intercepted downloads
+
+`browseruse.download` / `mdoBrowserUseDownload` share six actions:
+`list`, `get`, `accept`, `wait`, `cancel`, `release`. Except `list`, each requires
+an exact opaque `download` ID from this owned tab. Only `accept` takes
+`max_bytes` (1..64 MiB; default 32 MiB) and `transfer_timeout_ms` (1000..600000;
+default 60000). `timeout_ms` instead bounds this UI call/wait, up to 60000.
+
+Agent input and explicit navigation acknowledge native interception first.
+A response can return `outcome:"download_pending",completed:false,downloads`.
+It is an existing browser response, including POST/blob; never re-click or
+refetch its URL. Pending offers fence subsequent input/navigation, while fresh
+observation includes download metadata. Immediate post-input callbacks are
+coalesced for at most 150 ms; arbitrary later website activity is inspected by
+later calls. Native input delivery is never claimed as file completion.
+
+```javascript
+const checkpoint = await browser.act({browser:tab.id,document:page.document,
+  op:"click",target:{role:"button",name:"Export"}});
+const response = (await browser.download({browser:tab.id,action:"list"}))
+  .downloads.find(row => row.state === "pending");
+await browser.download({browser:tab.id,action:"accept",download:response.id,
+  max_bytes:8*1024*1024,transfer_timeout_ms:60000});
+const completed = await browser.download({browser:tab.id,action:"wait",
+  download:response.id,timeout_ms:10000});
+// completed:false means the same response is still pending/receiving.
+// A completed result carries exact size and SHA-256, without raw bytes/paths.
+// Keep it until it can be saved; release discards its retained bytes.
+```
+
+`wait` never accepts, replays or cancels a response. Its bounded poll can return
+`completed:false` and `download_pending`/`download_in_progress`. A failed/cancelled
+response returns a tool error with its native receipt/reason/source. `accept`
+returns current state; it does not wait for all bytes. Native completion is
+verified against physical size and SHA-256 before `verified:true`. Progress byte
+limits are cancellation thresholds, not hard filesystem quotas; unknown-length
+responses can overshoot before callback delivery and are not exposed if over limit.
+
+C calls return scoped UI receipts read through `browseruse.result`. The JS
+`download` helper uses durable identities for accept/cancel/release and read
+completion receipts for list/get/wait. Managed tools are `browser_downloads`
+(read: list/get/wait) and `browser_download` (external effect: accept/cancel/release).
+Read-only tasks may inspect their tabs but cannot change downloads. Full access
+adds no extra confirmation. Takeover cancels unfinished owned responses; only
+the user returns control. Waiting-call cancellation does not delete a download;
+use explicit `cancel`, wait for terminal state, then `release`.
+
+This stage retains verified bytes in the browser's private cache. Saving into
+the original task workspace is still pending, as is initial-tab/popup-navigation
+interception before the first Agent action. Do not claim the user has received
+an installed/exported file. No private cache path, response URL query, cookies
+or raw bytes are part of this public contract. Closing a browser reclaims its
+owned native bytes. A terminal release that loses confirmation requires receipt/
+list inspection rather than replaying a download.

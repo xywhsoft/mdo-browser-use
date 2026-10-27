@@ -5,8 +5,14 @@ import { test } from "node:test";
 const source = (await readFile(new URL("../host/automation-dispatch.js", import.meta.url), "utf8"))
   .replace('import { browserRuntime } from "./automation-runtime.js";', 'function browserRuntime() {}')
   .replace('import { prepareScreenshot } from "./capture-image.js";', 'async function prepareScreenshot(){throw Error("An unapproved image path was reached")}')
+  .replace('import { executeBrowserDownload } from "./download-dispatch.js";', 'async function executeBrowserDownload(){throw Error("Unexpected download path")}')
   .replace('import { executeFileUpload } from "./upload-dispatch.js";', 'async function executeFileUpload(){throw Error("Unexpected upload path")}');
-const { executeBrowserAutomation } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const {executeBrowserAutomation:dispatch}=await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const executeBrowserAutomation=options=>dispatch({...options,browser:options.browser||options.view,view:{async execute(command,params){
+  if(command==='downloads')return{ok:true,armed:true,downloads:[]};
+  const result=await options.view.execute(command,params);
+  return command==='state'?{download_capability:true,downloads_armed:true,...result}:result;
+}}});
 
 test('interception is acknowledged before input and a late picker event is a checkpoint',async()=>{
   let armed=false,open=false;const commands=[];

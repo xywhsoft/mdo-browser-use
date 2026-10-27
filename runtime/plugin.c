@@ -7,6 +7,7 @@
 #include "choosers.c"
 #include "screenshot.c"
 #include "upload.c"
+#include "downloads.c"
 
 typedef struct BuService {
     const char *Id,*Description,*Input,*Output;

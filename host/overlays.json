@@ -380,17 +380,17 @@
     {
       "path": "app/src/application/workbench.c",
       "before": "\"wait_for\",\"dialog\",\"capture\",\"screenshot\"",
-      "after": "\"wait_for\",\"dialog\",\"chooser\",\"upload\",\"capture\",\"screenshot\""
+      "after": "\"wait_for\",\"dialog\",\"chooser\",\"upload\",\"download\",\"capture\",\"screenshot\""
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "'wait_for','dialog','capture','screenshot'",
-      "after": "'wait_for','dialog','chooser','upload','capture','screenshot'"
+      "after": "'wait_for','dialog','chooser','upload','download','capture','screenshot'"
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "'dialog':s,'accept':{'type':'boolean'},",
-      "after": "'dialog':s,'chooser':s,'ticket':s,'confirmed':{'type':'boolean'},'files':{'type':'array','maxItems':16,'items':{'type':'object'}},'accept':{'type':'boolean'},"
+      "after": "'dialog':s,'chooser':s,'download':s,'transfer_timeout_ms':{'type':'integer','minimum':1000,'maximum':600000},'download_max_bytes':{'type':'integer','minimum':1,'maximum':67108864},'ticket':s,'confirmed':{'type':'boolean'},'files':{'type':'array','maxItems':16,'items':{'type':'object'}},'accept':{'type':'boolean'},"
     },
     {
       "path": "app/src/application/ui.c",
@@ -481,6 +481,10 @@
     {
       "source": "host/chooser-ui.js",
       "target": "app/web/js/features/workbench/chooser-ui.js"
+    },
+    {
+      "source": "host/download-dispatch.js",
+      "target": "app/web/js/features/workbench/download-dispatch.js"
     }
   ]
 }

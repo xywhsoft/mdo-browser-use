@@ -37,15 +37,17 @@ class DownloadFixture:
                     size=int(self.headers.get('Content-Length','0'))
                     if self.command!='POST' or size>4096 or self.rfile.read(size)!=b'order=fixture' or 'browser_download_fixture=1' not in self.headers.get('Cookie',''):
                         self.send_error(403);return
-                if path not in ('/binary','/empty','/unknown','/large','/slow','/interrupt','/truncated','/post'):
+                if path not in ('/binary','/empty','/unknown','/large','/slow','/slow-public','/interrupt','/truncated','/post'):
                     self.send_error(404);return
                 self.send_response(200);self.send_header('Content-Type','application/octet-stream');self.send_header('Content-Disposition','attachment; filename="fixture-'+path[1:]+'.bin"')
                 self.send_header('Cache-Control','no-store');self.send_header('Connection','close')
-                size=0 if path=='/empty' else 3*1024*1024 if path=='/slow' else 65*1024*1024 if path=='/large' else 524288 if path in ('/interrupt','/truncated') else len(BODY)
+                size=0 if path=='/empty' else 8*1024*1024 if path=='/slow-public' else 3*1024*1024 if path=='/slow' else 65*1024*1024 if path=='/large' else 524288 if path in ('/interrupt','/truncated') else len(BODY)
                 if path!='/unknown':self.send_header('Content-Length',str(size))
                 self.end_headers()
                 try:
-                    if path=='/slow':
+                    if path=='/slow-public':
+                        for _ in range(128):self.wfile.write(BODY[:65536]);self.wfile.flush();time.sleep(.1)
+                    elif path=='/slow':
                         for _ in range(48):self.wfile.write(BODY[:65536]);self.wfile.flush();time.sleep(.05)
                     elif path=='/unknown':
                         for offset in range(0,len(BODY),32768):self.wfile.write(BODY[offset:offset+32768]);self.wfile.flush();time.sleep(.05)

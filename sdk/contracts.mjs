@@ -569,7 +569,8 @@ export const services = [
             "browseruse.navigate",
             "browseruse.dialog",
             "browseruse.upload",
-            "browseruse.chooser"
+            "browseruse.chooser",
+            "browseruse.download"
           ]
         },
         "arguments": {
@@ -870,6 +871,59 @@ export const services = [
           "type": "string",
           "minLength": 1,
           "maxLength": 100
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.download",
+    "description": "Inspect or accept an intercepted browser response, wait for verified completion, cancel or release it. Opaque downloads stay scoped to their browser/task. No URL refetch, raw bytes or destination save in this operation.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "action"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "list",
+            "get",
+            "accept",
+            "wait",
+            "cancel",
+            "release"
+          ]
+        },
+        "download": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "transfer_timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 600000
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
         }
       }
     },

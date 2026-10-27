@@ -1,6 +1,7 @@
 import { browserRuntime } from "./automation-runtime.js";
 import { prepareScreenshot } from "./capture-image.js";
 import { executeFileUpload } from "./upload-dispatch.js";
+import { executeBrowserDownload } from "./download-dispatch.js";
 
 const writers = new Set();
 let capturing = false;
@@ -10,8 +11,8 @@ const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
 export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true }) {
-  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload"].includes(command)) return { handled: false };
-  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status";
+  if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload", "download"].includes(command)) return { handled: false };
+  const writing = command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status" || command === "download" && !["list","get","wait"].includes(params.action);
   const writer = browser || view;
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
@@ -31,6 +32,16 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     outcome: "popup_open", completed: false, dispatched, action: action.id } });
   const chooserBoundary = async () => ({handled:true,result:{ok:true,outcome:"file_chooser_open",completed:false,dispatched,action:action.id,
     choosers:(await view.execute("chooser",{action:"list",agent:true})).choosers||[]}});
+  const downloadBoundary = downloads => ({handled:true,result:{ok:true,outcome:"download_pending",completed:false,dispatched,action:action.id,downloads}});
+  const armDownloads = async () => {
+    const checked=await guard(true);if(checked.handled)return checked;
+    if(!checked.state.download_capability)return fail('unsupported_capability','This host cannot intercept native downloads safely; no browser input was sent');
+    if(!checked.state.downloads_armed){
+      const armed=await view.execute('downloads',{action:'arm',agent:true});
+      if(!armed.ok||!armed.armed)return fail('download_unavailable','Native response interception was not confirmed; no browser input was sent');
+    }
+    return null;
+  };
   const read = async (method, options) => {
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
@@ -50,6 +61,14 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     const snapshot = await view.execute("state");
     const state = { ...snapshot, loading: snapshot.initial_navigation_pending && typeof snapshot.loading === "boolean" ? true : snapshot.loading };
     if(command==='upload'&&params.action==='status')return{state};
+    if(command==='download'){
+      if(state.manual&&writing)return fail('manual_control','The user currently controls the browser');
+      return{state};
+    }
+    if(state.downloads_armed&&['act','navigate_to','wait_for'].includes(command)){
+      const downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
+      if(downloads.some(row=>row.state==='pending'))return downloadBoundary(downloads);
+    }
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
@@ -78,10 +97,16 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (delivered.dialog_open) return dialogBoundary();
     if (delivered.popup_open) return popupBoundary();
     if (delivered.file_chooser_open) return chooserBoundary();
+    if(delivered.download_open){
+      const until=Math.min(deadline,performance.now()+1100);
+      do{const checked=await guard(true);if(checked.handled)return checked;await pause(20);}while(performance.now()<until);
+      return fail('download_identity_unavailable','The native download started without a retained response identity; do not repeat the input');
+    }
     const checked=await guard(true);if(checked.handled)return checked;
     return null;
   };
   try {
+    if(command==='download')return await executeBrowserDownload({params,view,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='upload')return await executeFileUpload({params,view,api,action,guard,read,deadline,
       setDispatched:value=>{dispatched=value;},fail});
     if (command === "capture") {
@@ -131,6 +156,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       return { handled: true, result: await view.execute("dialog", { ...params, has_text: Object.hasOwn(params, "text"), agent: true }) };
     }
     if (command === "navigate_to") {
+      const boundary=await armDownloads();if(boundary)return boundary;
       const checked = await guard(true); if (checked.handled) return checked;
       const oldNavigation = checked.state.navigation;
       if (params.action === "back" && !checked.state.can_go_back || params.action === "forward" && !checked.state.can_go_forward) return fail("history_unavailable", "There is no matching browser history entry");
@@ -184,6 +210,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         if (params.mode === "options") return { handled:true,result };
         if (["interactive", "complete"].includes(result.ready)) {
           const checked=await guard(true);if(checked.handled)return checked;
+          if(checked.state.download_capability)result.downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
           if(checked.state.chooser_open)result.choosers=(await view.execute('chooser',{action:'list',agent:true})).choosers||[];
           return { handled: true, result };
         }
@@ -193,6 +220,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (command === "observe" || navigation === undefined) return fail("timed_out", "The page was not ready before the deadline");
     let policy=await guard(true);if(policy.handled)return policy;
     while(policy.state.input_busy){await pause(20);policy=await guard(true);if(policy.handled)return policy;}
+    const downloadPolicy=await armDownloads();if(downloadPolicy)return downloadPolicy;
     if(!policy.state.chooser_capability||!policy.state.chooser_upload_capability)
       return fail('unsupported_capability','This host cannot safely intercept Agent file pickers; update the host or use manual control');
     if(!policy.state.chooser_armed){
@@ -296,6 +324,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     const stopped = await guard(true); if (stopped.handled) return stopped;
     const observation=await read("observe",{limit:100,max_bytes:4096});
+    // Native input can precede response/picker callbacks. Coalesce the immediate
+    // event turn; arbitrary later website activity is observed on the next call.
+    if(dispatched&&['click','double_click','middle_click','key'].includes(params.op))await pause(Math.min(150,Math.max(0,deadline-performance.now()-25)));
     const after=await guard(true);if(after.handled)return after;
     return { handled: true, result: { ok: true, action: action.id, dispatched,
       verification: ["fill", "check"].includes(params.op) ? "field_state" : "native_delivery",

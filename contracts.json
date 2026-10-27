@@ -583,7 +583,8 @@
               "browseruse.navigate",
               "browseruse.dialog",
               "browseruse.upload",
-              "browseruse.chooser"
+              "browseruse.chooser",
+              "browseruse.download"
             ]
           },
           "arguments": {
@@ -898,6 +899,61 @@
       }
     },
     {
+      "id": "browseruse.download",
+      "description": "Inspect or accept an intercepted browser response, wait for verified completion, cancel or release it. Opaque downloads stay scoped to their browser/task. No URL refetch, raw bytes or destination save in this operation.",
+      "callback": "BuDownload",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser",
+          "action"
+        ],
+        "properties": {
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "list",
+              "get",
+              "accept",
+              "wait",
+              "cancel",
+              "release"
+            ]
+          },
+          "download": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 67108864
+          },
+          "transfer_timeout_ms": {
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 600000
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60000
+          }
+        }
+      },
+      "output": {
+        "type": "object"
+      }
+    },
+    {
       "id": "browseruse.chooser",
       "description": "List intercepted native file pickers or cancel an exact pending picker. Cancellation preserves existing selected files and emits an untrusted cancel event. Only the user can return manual control.",
       "callback": "BuChooser",
@@ -1047,6 +1103,28 @@
         "cancel"
       ],
       "description": "Cancel an exact intercepted file picker without clearing previously selected files. An untrusted cancel event can trigger page handlers; inspect dialog/new-window checkpoints instead of repeating the cancellation."
+    },
+    {
+      "id": "browser_downloads",
+      "service": "browseruse.download",
+      "actions": [
+        "list",
+        "get",
+        "wait"
+      ],
+      "description": "Inspect scoped pending downloads or wait for verified native completion. A pending or interrupted response is not successful file delivery. Use its exact identity; do not repeat the opening click.",
+      "effects": "MDO_TOOL_EFFECT_READ"
+    },
+    {
+      "id": "browser_download",
+      "service": "browseruse.download",
+      "actions": [
+        "accept",
+        "cancel",
+        "release"
+      ],
+      "description": "Accept an intercepted browser response within byte/time limits, cancel it or release a terminal download. Uses its existing browser response, including POST/blob; never refetch or repeat a click. Saving verified bytes to the task is a separate operation.",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"
     }
   ]
 }

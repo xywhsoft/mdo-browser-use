@@ -45,13 +45,14 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs
+node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs
 python tools/native_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
 python tools/upload_restart_probe.py
 python tools/upload_probe.py
+python tools/download_probe.py
 ```
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
@@ -65,9 +66,10 @@ response bytes, cancellation and cache lifecycle checks in the same Home.
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
 `host/overlays.json` and applied only to the single `.mdo/source` checkout.
-The raw C services return UI receipts; JavaScript `observe/act/navigate/waitFor/screenshot/upload`
-helpers wait for terminal results. C callers read `browseruse.result` and release the
-receipt after completion. Pending/accepted delivery is never page success.
+Raw C services return UI receipts; C callers read `browseruse.result` and release
+the receipt after completion. JavaScript completion helpers wait for the same
+execution results. Download acceptance starts receiving and remains distinct
+from verified file completion. Pending/accepted delivery is never page success.
 
 `managed_probe.py` exercises the actual Agent tool executor and live read-only/
 full-access permissions, without requesting model output. It reuses named QA
@@ -100,3 +102,11 @@ The plugin is not yet advertised as a finished browser automation implementation
 ## License
 
 MIT. The separately checked-out mdo source retains its own license and notices.
+
+
+`download_probe.py` verifies the actual C/JS/managed download APIs against one
+local HTTP fixture in this deployment: POST/blob/binary/unknown-length responses,
+verified hashes, durable acceptance/cancellation, direct navigation checkpoints,
+foreign-scope denial and read-only permissions. It performs no live model calls.
+The completed response still stays in private browser cache; safe task-workspace
+saving and pre-action initial navigation interception remain in development.

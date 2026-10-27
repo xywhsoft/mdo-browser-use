@@ -79,6 +79,7 @@ export function createBrowserUseClient(sdk) {
     observe: complete("observe"),
     screenshot: complete("screenshot"),
     upload: (params, options) => params.action === "status" ? complete("upload")(params, options) : perform("upload")(params, options),
+    download: (params, options) => ["accept","cancel","release"].includes(params.action) ? perform("download")(params, options) : complete("download")(params, options),
     result: params => invoke("result", params),
     act: perform("act"),
     navigate: perform("navigate"),

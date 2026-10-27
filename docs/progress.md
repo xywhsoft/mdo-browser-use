@@ -971,3 +971,46 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and DOM/load timing evidence are retained; a separate focused hidden/visible
   run completes normally (218–690 ms). This does not establish a cause or a fix
   for that earlier startup issue. Public download integration remains in progress.
+
+
+## D12c — shared download receipt and Agent workflows
+
+- Added generated `browseruse.download` / `mdoBrowserUseDownload`, JS `download`,
+  and managed `browser_downloads` (list/get/wait, read) / `browser_download`
+  (accept/cancel/release, external effect). All use the original extension/task
+  scope, native browser identity and existing live permissions. There are now
+  fifteen managed tools. No response URL refetch or raw bytes enter this API.
+- Acceptance/cancel/release use durable operation identities. Acceptance starts
+  the existing response within separate byte/transfer-time budgets. Waiting is
+  read-only and can return still pending/receiving; verified completion includes
+  exact size/SHA-256. Native failures retain their receipt/reason/source. Read-only
+  tasks inspect their owned tabs but cannot mutate transfers; full access adds
+  no extra prompt. Terminal release discards bytes rather than saving a file.
+- Agent input and explicit navigation acknowledge interception first. Pending
+  offers fence repeat input/navigation and appear in fresh observations. A real
+  POST callback after the final page read exposed an immediate event-order gap;
+  native download checkpoints drain their identity, and the dispatcher coalesces
+  immediate post-input events for at most 150 ms. Arbitrary later website activity
+  still belongs to the next observation. Delivery is not claimed as completion.
+- Integration caught two new admission mismatches: the durable-method enum and
+  a shared workbench byte-limit field. Both now match the public contract; the
+  internal download byte budget has a separate field from observation/image
+  limits. An explicit budget mapping allocation failure stops before admission.
+- Actual public C/JS/WebView2 and managed tests pass for binary/blob/POST/unknown
+  responses, exact verified hashes, repeated accept/cancel identities, raw C
+  receipts, original scope, pending-repeat fencing, direct navigation, managed
+  accept/wait/release and read-only denial. POST is requested once; native cache
+  ACL is private and no reservations remain. A longer bounded local cancellation
+  fixture tests a genuinely in-progress transfer instead of a file already done.
+- Local checks pass: 50 Python cases (49 passed, one Windows symlink-privilege
+  skip), 60 JS cases, matching generated/deployed contracts. Existing public SDK
+  (19 actions, four navigations, five waits), JS client and managed tools including
+  exact selection/drag pass again. Public upload/clear/picker acceptance/cancel,
+  scope/permission and cache-release regression also passes in the same Home.
+- Updated plugin and Skill are installed in this project deployment. Still open:
+  safe save into the original task workspace, visible download controls and safe
+  interception of initial/popup navigation before Agent input. Downloads are not
+  yet advertised as user-delivered files. The broad native startup failure above
+  also remains an unresolved final stability gate; successful focused/API checks
+  do not replace it. Remaining frame/directory/vision/drag/Android/lifecycle and
+  final packaging work keeps the original full goal active.
