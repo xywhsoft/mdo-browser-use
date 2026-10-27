@@ -5,11 +5,19 @@ import {createDownloadUserActions} from '../host/download-user.js';
 function fixture(options={}){
   const calls=[],context={extension:'owner',device:'local',project:'original',session:'original-session',workspace:'D:\\original',namespace:'subtask',member:'worker'};
   const hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-  let bound,receive,publish,destination;const controller=new AbortController();
+  let bound,receive,publish,destination,serverContext={...context,...options.serverContext};const controller=new AbortController();
+  const revision=options.rootSnapshot||'root',candidate={id:'manual-ui-qa',revision:1,session_revision:4,workspace:context.workspace,root_snapshot:revision};
   const api={async call(method,p={}){
     calls.push({...p,method,target_method:p.method});
-    if(method==='files.stat')return{revision:'root'};
-    if(method==='sdk.context')return context;
+    if(method==='files.stat')return{revision};
+    if(method==='sdk.context')return bound;
+    if(method==='browser.get')return{id:'manual-ui-qa',owner:context.extension,context:serverContext};
+    if(method==='browser.workspace.lookup')return candidate;
+    if(method==='browser.workspace.adopt'){
+      serverContext={...serverContext,workspace:candidate.workspace,workspace_snapshot:revision};
+      if(options.lostAdopt)throw Object.assign(Error('Lost binding reply'),{code:'connection_lost'});
+      return{id:'manual-ui-qa',owner:context.extension,context:serverContext};
+    }
     if(method==='stream.open')return{handle:'str-'+'1'.repeat(32)};
     if(method==='operation.start'){
       if(p.method==='files.receive.start'){receive=p.id;destination=p.params.destination;}
@@ -19,7 +27,7 @@ function fixture(options={}){
     }
     if(method==='operation.get')return{terminal:true,state:'succeeded'};
     if(method==='operation.result')return p.id===receive?{id:receive,state:'ready',source:'.mdo-receive-'+receive.slice(4)+'.part',
-      workspace:context.workspace,root_snapshot:'root',destination,source_revision:'source',size:0,sha256:hash}:
+      workspace:bound.workspace,root_snapshot:revision,destination,source_revision:'source',size:0,sha256:hash}:
       {published:true,path:destination,size:0,sha256:hash,revision:'file',verdict:'verified'};
     if(method==='files.receive.list')return[];
     return{};
@@ -68,4 +76,44 @@ test('lost recovery admission is cancelled by exact identity without retry or le
 test('disposed panels cannot inspect or publish retained task data',async()=>{
   const f=fixture();f.actions.dispose();await assert.rejects(f.actions.inspect(),{code:'context_changed'});
   await assert.rejects(f.actions.publish('sdk-'+'a'.repeat(32),'new.bin'),{code:'context_changed'});assert.equal(f.calls.length,0);
+});
+
+test('legacy review only binds the original server task after explicit adoption',async()=>{
+  const f=fixture({context:{workspace:''},serverContext:{workspace:''},rootSnapshot:'f-3-4-0-0'});try{
+    const candidate=await f.actions.workspaceCandidate();assert.equal(f.actions.context.workspace,'');
+    assert(!f.calls.some(c=>c.method==='browser.workspace.adopt'));
+    await f.actions.adoptWorkspace(candidate);assert.equal(f.actions.context.workspace,f.context.workspace);
+    assert.equal(f.actions.context.namespace,f.context.namespace);assert.equal(f.actions.context.workspace_snapshot,'f-3-4-0-0');
+    assert.equal((await f.actions.save('download','empty.bin')).saved,true);
+  }finally{f.actions.dispose();}
+});
+
+test('a lost binding reply is recovered by reading the server without repeated adoption',async()=>{
+  const f=fixture({context:{workspace:''},serverContext:{workspace:''},rootSnapshot:'f-3-4-0-0',lostAdopt:true});try{
+    const candidate=await f.actions.workspaceCandidate();await assert.rejects(f.actions.adoptWorkspace(candidate),{code:'connection_lost'});
+    assert.equal(f.actions.context.workspace,'');assert.equal((await f.actions.workspaceCandidate()).bound,true);
+    assert.equal(f.actions.context.workspace,f.context.workspace);assert.equal(f.calls.filter(c=>c.method==='browser.workspace.adopt').length,1);
+  }finally{f.actions.dispose();}
+});
+
+test('foreign or malformed browser context cannot replace the bound original task',async()=>{
+  for(const serverContext of [{namespace:'foreign'},{member:'foreign'},{session:'foreign'},{workspace:123}]){
+    const f=fixture({context:{workspace:''},serverContext});try{
+      await assert.rejects(f.actions.workspaceCandidate());assert.equal(f.actions.context.workspace,'');
+      assert(!f.calls.some(c=>c.method==='browser.workspace.lookup'||c.method==='browser.workspace.adopt'));
+    }finally{f.actions.dispose();}
+  }
+});
+
+test('manual saving checks an adopted physical pin before opening any byte stream',async()=>{
+  const f=fixture({context:{workspace_snapshot:'f-3-4-0-0'},rootSnapshot:'f-3-9-0-0'});try{
+    await assert.rejects(f.actions.save('download','empty.bin'),{code:'workspace_snapshot_changed'});
+    assert(!f.calls.some(c=>c.method==='stream.open'||c.native==='downloads'));
+  }finally{f.actions.dispose();}
+});
+
+test('ordinary directory metadata changes do not invalidate an adopted manual save',async()=>{
+  const f=fixture({context:{workspace_snapshot:'f-3-4-0-0'},rootSnapshot:'f-3-4-80-999'});try{
+    assert.equal((await f.actions.save('download','empty.bin')).saved,true);
+  }finally{f.actions.dispose();}
 });

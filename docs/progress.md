@@ -1438,3 +1438,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   headless, without another native build or environment.
 - Next integrate visible review/adoption and manual-save pin validation, then
   complete the remaining full-goal platform/lifecycle/performance/package gates.
+
+## D12t — review and confirm legacy task directories in the download tray
+
+- Add `读取原任务目录` and explicit `确认使用此目录` to legacy download trays.
+  Display only the server-derived original task directory. Saving remains
+  disabled before confirmation. Rebind the trusted file SDK to the confirmed
+  original context while preserving owner/device/project/session/private member.
+  An already committed binding is recovered by reading it after a lost reply;
+  the UI never repeats adoption or switches to the selected chat's directory.
+- Manual saves verify the persisted physical root pin before creating a byte
+  stream. Replacement fails without a native download read; ordinary directory
+  size/time changes remain valid. Missing original task/root remains an explicit
+  limitation with the response retained, rather than an invented association.
+- Five new JS cases cover review-before-adoption, lost binding reply, foreign or
+  malformed context, replaced root and legitimate directory metadata changes.
+  The full JS gate passes all 98 cases. An added actual SDK restart case proves
+  binding/private scope/pin persistence without replay or rebinding. Full Python
+  gate finishes 102 cases (100 pass, two Windows symlink privilege skips).
+- The actual mounted WebView2 gate passes 17 checks using a real owned legacy
+  row and persistent QA task: accept an original response, review/confirm its
+  original directory, save exact bytes/hash under manual control, maintain
+  focused controls/path, update native bounds and reconcile staging. Download
+  URL executes once; cache and receiver inventory end empty. The generated QA
+  module now has non-overlapping markers and a syntax preflight; its owned tab
+  is cleaned even if the test page never starts.
+- Contracts and deployed overlays match. Same single deployment restored
+  headless, about 836 MiB; no extra native build/Home or published release.
+  Remaining full-goal work includes ask-profile interaction, remote transport,
+  additional crash/network faults, complete frames/vision/drag/Android support
+  and final lifetime/OOM/performance/package checks. Goal remains active.

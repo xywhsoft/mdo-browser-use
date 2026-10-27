@@ -1,15 +1,15 @@
 # Browser Use API
 
-The Windows WebView2 path, including native JavaScript dialogs, is currently
-verified. New windows are adopted into visible scoped tabs, and regular HTML
-file inputs and intercepted pickers receive verified task-host snapshots. Android,
-downloads and complete cross-origin frame support remain in progress. No additional
+The Windows WebView2 path includes verified native JavaScript dialogs, visible
+scoped popup tabs, regular file-input/picker uploads, intercepted response
+downloads, task-workspace saves and explicit recovery controls. Android and
+complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
 ## Shared C/JavaScript boundary
 
 `contracts.json` generates registration, `sdk/browser_use.h` and
-`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Chooser/Screenshot/Upload/Result/Operation`
+`sdk/contracts.mjs`. C functions `mdoBrowserUseTabs/Observe/Act/Navigate/Wait/Dialog/Chooser/Screenshot/Upload/Download/Save/Result/Operation`
 accept the same JSON objects as the corresponding `browseruse.*` SDK service.
 Parameters are borrowed; release returned values using
 `Context->Api->Values->Release`. The public values table handles allocation;
@@ -18,7 +18,7 @@ C callers need no XRT/OS headers or private host structures.
 | Service | Result |
 | --- | --- |
 | `tabs` | Owned tabs, explicit display clients, or the changed tab/panel record |
-| `observe/act/navigate/wait/dialog/screenshot/upload` | Sanitized asynchronous UI receipt; pending is not success |
+| `observe/act/navigate/wait/dialog/chooser/screenshot/upload/download/save` | Sanitized asynchronous UI receipt; pending is not success |
 | `result` | Scoped UI status/result; optional `cancel` or terminal `release` |
 | `operation` | Durable submit/get/cancel/release for tabs, actions, navigation and dialog responses |
 
@@ -708,10 +708,12 @@ requires an inline second confirmation for retained staging or an unsaved native
 response. Saved files are preserved. Errors expose bounded cause codes with
 actionable text; raw internal paths or transport messages are not displayed.
 
-Legacy tabs without an original workspace show an explicit limitation and cannot
-save by substituting the current task. Root adoption, nonexistent default-root
-preparation, remote save transport and Android transfers still need their own
-implementation or final verification. The mounted WebView2 UI gate proves exact
+Legacy tabs without an original workspace offer `读取原任务目录`, followed by
+`确认使用此目录` after review. Saving stays disabled until the binding is confirmed.
+If the original task or directory cannot be established, the response is retained
+and an explicit error is shown; the current task is never substituted. Nonexistent
+default-root preparation, remote save transport and Android transfers still need
+their own implementation or final verification. The mounted WebView2 UI gate proves exact
 manual-save bytes, acceptance without takeover, focus retention, actual native
 viewport bounds and recovery publication/reconciliation. A normal-main-window
 desktop screenshot check was attempted but failed with `failed to activate
@@ -742,6 +744,11 @@ call must not blindly repeat adoption.
 
 The physical pin persists with the browser. The C save boundary rejects a later
 root replacement before reading any response bytes or queueing browser actions;
-ordinary directory size/time changes do not invalidate its identity. The
-trusted UI adoption controls and corresponding manual-save pin check are the
-next integration stage.
+ordinary directory size/time changes do not invalidate its identity. The trusted
+UI uses the same pin before starting a manual byte stream. A lost binding reply
+is recovered with a strict original-scope `browser.get`, then a new bound SDK
+client; adoption is not retried. Model/context selection in the chat is unrelated
+to this frozen binding. The actual UI gate confirms one retained response is
+accepted, bound to its original task and saved without another download request.
+The binding, private scope and physical pin survive restart; the tab returns
+suspended and requires normal explicit browser reattachment.

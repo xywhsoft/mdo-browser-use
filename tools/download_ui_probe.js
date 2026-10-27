@@ -1,8 +1,8 @@
 import {createNativeBrowserBridge} from '/js/features/workbench/native-browser.js';
 import {createLocalApplicationClient} from '/js/api/application.js';
 import {mountBrowserView} from '/js/features/workbench/browser-view.js';
-const context=PROBE_CONTEXT,origin=PROBE_ORIGIN,client='download-ui-qa',output='qa/download-ui.json';
-const api=createLocalApplicationClient(()=>context),bridge=createNativeBrowserBridge(),abort=new AbortController(),mount={};
+const context=PROBE_CONTEXT,origin=PROBE_HTTP_ORIGIN,originalWorkspace=PROBE_DIRECTORY,client='download-ui-qa',output='qa/download-ui.json';
+let api=createLocalApplicationClient(()=>context);const bridge=createNativeBrowserBridge(),abort=new AbortController(),mount={};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let browser,view,checks=0,stage='startup',receiver;
 const assert=(value,text)=>{checks++;if(!value)throw Error(text);};
 const root=document.querySelector('#browser');
@@ -13,7 +13,7 @@ async function operation(method,params){const id='sdk-'+crypto.randomUUID().repl
 let report;
 try{
   await api.call('client.hello',{client,context:{}});
-  browser=await api.call('browser.create',{client,url:origin+'/auto-download',download_policy:'intercept',key:'download-ui-qa'});
+  browser=await api.call('browser.get',{id:PROBE_BROWSER});
   view=await mountBrowserView(root,{row:{resource:{id:browser.id},owner:browser.owner,context:browser.context,title:'Download QA'},sdk:api,signal:abort.signal,mount,bridge,clientId:client,
     shown:()=>true,alive:()=>!abort.signal.aborted,updateTitle:()=>{},openExternal:()=>{},onEnd:()=>{},addContext:()=>{}});
   stage='offer';await until(()=>button('接受下载')||root.querySelector('.wb-browser-download-toggle')?.dataset.count==='1','No download badge');
@@ -27,8 +27,15 @@ try{
   assert(after>before&&after>=tray.getBoundingClientRect().bottom-1,'Tray overlaps native surface');
   await until(async()=>Math.abs((await view.execute('state')).bounds.y-Math.round(surface.getBoundingClientRect().top)*devicePixelRatio)<=2,'Native viewport did not follow tray bounds');
   const native=await view.execute('state');assert(native.viewport_attached&&native.controller_bounds.height===native.bounds.height,'Native controller viewport not resized');
-  stage='accept';pending.click();await until(()=>button('保存到任务'),'Accept did not complete');
+  stage='accept';pending.click();await until(()=>root.querySelector('[data-kind="download"] .wb-download-state')?.textContent.includes('已校验'),'Accept did not complete');
   assert(!(await view.execute('state')).manual,'Accept unexpectedly took manual control');
+  assert(!button('保存到任务')&&!(await api.call('browser.get',{id:browser.id})).context.workspace,'Legacy save was enabled before root confirmation');
+  stage='legacy-workspace';button('读取原任务目录').click();await until(()=>button('确认使用此目录'),'Original task review not visible');
+  assert(root.querySelector('.wb-download-binding').textContent.includes(originalWorkspace),'Review substituted a current/default workspace');
+  assert(!(await api.call('browser.get',{id:browser.id})).context.workspace,'Lookup changed the original binding without confirmation');
+  button('确认使用此目录').click();await until(()=>button('保存到任务'),'Confirmation did not enable saving');
+  browser=await api.call('browser.get',{id:browser.id});assert(browser.context.workspace===originalWorkspace&&browser.context.workspace_snapshot,'Confirmed binding was not persisted');
+  api=api.bind({...browser.context,extension:browser.owner});
   await view.execute('takeover');assert((await view.execute('state')).manual,'Manual control fixture not established');
   stage='save';button('保存到任务').click();const form=root.querySelector('[data-kind="download"] .wb-download-save'),path=form.querySelector('input');
   path.value='ui-saved.bin';path.focus();await pause(1700);assert(path.value==='ui-saved.bin'&&document.activeElement===path,'Polling lost the edited path or focus');
@@ -52,7 +59,7 @@ try{
   root.querySelector('.wb-browser-download-toggle').click();await until(()=>tray.hidden,'Toggle did not collapse tray');
   assert(root.querySelector('.wb-browser-download-toggle').dataset.count===count,'Collapse cleared retained metadata');
   report={passed:true,checks,backend:'actual-mounted-browser-view-webview2',accept_without_takeover:true,manual_save_exact_bytes:true,
-    frozen_workspace:true,focused_controls_stable:true,tray_resizes_native_surface:true,recovery_publish_and_reconcile:true,collapse_retains_download:true};
+    frozen_workspace:true,legacy_original_task_review:true,adoption_without_response_recreation:true,focused_controls_stable:true,tray_resizes_native_surface:true,recovery_publish_and_reconcile:true,collapse_retains_download:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512)};}
 finally{
   abort.abort();mount.dispose?.();mount.observer?.disconnect();

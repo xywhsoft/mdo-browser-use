@@ -2,6 +2,7 @@
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 import unittest
 
@@ -45,7 +46,7 @@ class BrowserWorkspaceTests(unittest.TestCase):
             receipt={'fixture_browsers':sorted(ids),'before_sha256':hashlib.sha256(before).hexdigest()}
             (dev.ENV/'legacy-root-fixture.json').write_text(json.dumps(receipt)+'\n',encoding='utf-8')
             temporary=path.with_suffix('.legacy-qa.tmp');temporary.write_text(json.dumps(state,ensure_ascii=False)+'\n',encoding='utf-8');temporary.replace(path)
-        finally:dev.start()
+        finally:subprocess.run([sys.executable,'tools/dev.py','start'],cwd=dev.ROOT,check=True,capture_output=True)
         dev.call('client.hello',{'client':cls.client})
 
     @classmethod
@@ -122,6 +123,16 @@ class BrowserWorkspaceTests(unittest.TestCase):
             status,result=self.raw('browser.workspace.adopt',{**candidate,'confirmed':True});self.assertEqual(status,412,result)
             self.assertEqual(result['error']['code'],'browser_workspace_conflict');self.assertNotIn('workspace',self.get()['context'])
         finally:self.original.rmdir();held.rename(self.original)
+
+    def test_recovered_binding_survives_restart_without_rebinding(self):
+        status,result=self.adopt();self.assertEqual(status,200,result);bound=result['data']
+        dev.stop();subprocess.run([sys.executable,'tools/dev.py','start'],cwd=dev.ROOT,check=True,capture_output=True)
+        dev.call('client.hello',{'client':self.client})
+        restored=self.get();self.assertEqual(restored['context'],bound['context']);self.assertEqual(restored['revision'],bound['revision'])
+        self.assertEqual(restored['state'],'suspended')
+        status,result=self.raw('browser.workspace.lookup',{'id':self.identity})
+        self.assertEqual(status,409,result);self.assertEqual(result['error']['code'],'browser_workspace_bound')
+        self.assertEqual(dev.call('client.poll',{'client':self.client}),[])
 
     def test_directory_content_changes_preserve_identity_and_adoption(self):
         candidate=self.lookup();file=self.original/'directory-time-fixture.bin'

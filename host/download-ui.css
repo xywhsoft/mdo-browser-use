@@ -1,6 +1,8 @@
 .wb-downloads { flex:none;max-height:min(45%,300px);overflow:auto;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface);font-size:12px; }
 .wb-downloads[hidden],.wb-downloads [hidden] { display:none; }
 .wb-download-heading { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+.wb-download-binding { display:flex;align-items:center;flex-wrap:wrap;gap:5px;padding:3px 0; }
+.wb-download-binding p { flex-basis:100%; }
 .wb-download-info,.wb-download-empty,.wb-download-notice { margin:6px 0;font-size:11px;overflow-wrap:anywhere;color:var(--muted); }
 .wb-download-notice:empty,.wb-download-detail:empty { display:none; }
 .wb-download-notice { color:var(--warning,var(--ink)); }

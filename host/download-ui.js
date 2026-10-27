@@ -8,7 +8,12 @@ const filename=value=>(String(value||'download.bin').replace(/[\\/:*?"<>|\u0000-
 const message=error=>{
   const code=String(error?.code||'browser_download_failed').slice(0,128);
   const hints={sdk_file_exists:'目标文件已存在，请输入新的文件名；已有文件会保留。',sdk_workspace_conflict:'原任务目录已变化，请检查目录后再操作。',
-    workspace_context_missing:'此标签没有原任务目录，请回到所属任务重新创建浏览器。',save_path_invalid:'请输入原任务目录内的新文件相对路径。',
+    workspace_context_missing:'请先读取并确认此标签的原任务目录。',save_path_invalid:'请输入原任务目录内的新文件相对路径。',
+    browser_workspace_task_missing:'原任务已不可用，无法恢复目录。下载响应仍会保留，请先恢复原任务。',
+    browser_workspace_unavailable:'原任务目录不存在或无法确认，请恢复原目录后重新读取。',
+    browser_workspace_conflict:'任务或目录已变化，请重新读取原任务目录并确认。',
+    revision_conflict:'标签状态已更新，请重新读取原任务目录后再确认。',
+    workspace_snapshot_changed:'已确认的原任务目录被替换，请先恢复原目录；下载响应仍会保留。',
     sdk_arguments_invalid:'请检查文件相对路径，目录必须已存在。',sdk_file_receive_limit:'暂存空间已满，请核对并清理待处理记录后继续。',
     browser_busy:'当前浏览器仍在保存，请等待或取消当前保存。',cancelled:'操作已停止；已经保存的文件会保留，请核对恢复记录。',
     context_changed:'显示设备或窗口已改变，操作已停止，请回到原任务核对。',sdk_file_receive_receipt:'保存收据未确认，请先核对恢复记录，避免重复保存。'};
@@ -21,12 +26,14 @@ export function createBrowserDownloads({browser,sdk,execute,signal,alive,onChang
   const make=(tag,cls,text)=>{const node=document.createElement(tag);node.className=cls;if(text!==undefined)node.textContent=text;return node;};
   const actions=createDownloadUserActions({browser,sdk,execute,signal,alive}),root=make('section','wb-downloads'),
     heading=make('div','wb-download-heading'),title=make('strong','','下载'),refreshButton=make('button','wb-button','刷新'),cancelButton=make('button','wb-button','取消操作'),
-    info=make('p','wb-download-info',actions.context.workspace?`保存到原任务目录：${actions.context.workspace}`:'此标签没有原任务目录。可接收响应；保存请从所属任务重新创建浏览器。'),
+    info=make('p','wb-download-info'),binding=make('div','wb-download-binding'),candidateText=make('p','wb-download-info'),
+    lookupButton=make('button','wb-button','读取原任务目录'),adoptButton=make('button','wb-button','确认使用此目录'),
     notice=make('p','wb-download-notice'),list=make('div','wb-download-list'),recoverTitle=make('strong','wb-download-recovery-title','原任务的待处理记录'),
     recovery=make('div','wb-download-list'),empty=make('p','wb-download-empty','暂无下载。网页提供文件后，会在这里显示。');
   root.hidden=true;root.setAttribute('role','region');root.setAttribute('aria-label','浏览器下载');notice.setAttribute('role','status');
-  refreshButton.type=cancelButton.type='button';cancelButton.hidden=true;cancelButton.onclick=()=>{void actions.cancel();};heading.append(title,cancelButton,refreshButton);root.append(heading,info,notice,list,empty,recoverTitle,recovery);
-  const nativeRows=new Map(),recoveryRows=new Map();let disposed=false,busy=false,refreshing=false,latest={},nativeError=false,recoveryError=false,serial=0;
+  refreshButton.type=cancelButton.type=lookupButton.type=adoptButton.type='button';cancelButton.hidden=true;cancelButton.onclick=()=>{void actions.cancel();};heading.append(title,cancelButton,refreshButton);
+  adoptButton.hidden=true;binding.append(candidateText,lookupButton,adoptButton);root.append(heading,info,binding,notice,list,empty,recoverTitle,recovery);
+  const nativeRows=new Map(),recoveryRows=new Map();let disposed=false,busy=false,refreshing=false,latest={},nativeError=false,recoveryError=false,serial=0,workspaceReview=null;
   const changed=()=>onChange?.();
   const button=(label,fn,local=false)=>{const node=make('button','wb-button',label);node.type='button';node.onclick=()=>{if(local)fn();else void run(fn);};return node;};
   const describe=(row,text,isError=false)=>{row.status.textContent=text;row.status.classList.toggle('wb-error',isError);};
@@ -43,6 +50,15 @@ export function createBrowserDownloads({browser,sdk,execute,signal,alive,onChang
     try{await fn();}catch(error){if(!disposed)notice.textContent=message(error);}
     finally{busy=false;if(!disposed){await refresh(latest,true);paint();}}
   };
+  lookupButton.onclick=()=>{void run(async()=>{
+    workspaceReview=null;adoptButton.hidden=true;candidateText.textContent='';
+    const candidate=await actions.workspaceCandidate();if(candidate.bound){notice.textContent='已读取原任务的目录绑定。';return;}
+    workspaceReview=candidate;candidateText.textContent=`原任务目录：${candidate.workspace}。确认后将用于此标签的文件保存。`;adoptButton.hidden=false;
+  });};
+  adoptButton.onclick=()=>{void run(async()=>{
+    if(!workspaceReview)return;const reviewed=workspaceReview;workspaceReview=null;adoptButton.hidden=true;
+    await actions.adoptWorkspace(reviewed);candidateText.textContent='';notice.textContent='原任务目录已确认；可直接保存已接收的响应。';
+  });};
   function rowNode(id,kind){
     const node=make('article','wb-download-row'),name=make('strong','wb-download-name'),status=make('span','wb-download-state'),
       progress=make('progress','wb-download-progress'),controls=make('div','wb-download-actions'),form=make('form','wb-download-save'),
@@ -55,6 +71,8 @@ export function createBrowserDownloads({browser,sdk,execute,signal,alive,onChang
   const newPath=(row,value)=>{if(!row.path.value)row.path.value=value;row.form.hidden=false;row.path.focus();changed();};
   function paint(){
     const saving=downloadSaveState(browser.id),locked=busy||Boolean(saving),disabled=disposed||nativeError;
+    info.textContent=actions.context.workspace?`保存到原任务目录：${actions.context.workspace}`:'此标签尚未记录原任务目录。可先接收下载，再读取原任务目录并确认保存位置。';
+    binding.hidden=Boolean(actions.context.workspace);lookupButton.disabled=adoptButton.disabled=locked;
     for(const [id,row]of nativeRows){
       const previous=row.controls;row.controls=previous.cloneNode(false);
       const value=row.data,active=saving?.download===id;row.name.textContent=String(value.name||'下载文件');row.name.title=row.name.textContent;
@@ -129,6 +147,6 @@ export function createBrowserDownloads({browser,sdk,execute,signal,alive,onChang
   refreshButton.onclick=()=>{void refresh(latest,true);};
   return Object.freeze({element:root,refresh,
     toggle(){if(disposed)return;root.hidden=!root.hidden;if(!root.hidden)void refresh(latest,true);changed();return!root.hidden;},
-    dispose(){disposed=true;serial++;actions.dispose();root.hidden=true;refreshButton.onclick=cancelButton.onclick=null;for(const row of [...nativeRows.values(),...recoveryRows.values()]){row.form.onsubmit=null;row.controls.replaceChildren();}nativeRows.clear();recoveryRows.clear();}
+    dispose(){disposed=true;serial++;actions.dispose();root.hidden=true;refreshButton.onclick=cancelButton.onclick=lookupButton.onclick=adoptButton.onclick=null;for(const row of [...nativeRows.values(),...recoveryRows.values()]){row.form.onsubmit=null;row.controls.replaceChildren();}nativeRows.clear();recoveryRows.clear();}
   });
 }

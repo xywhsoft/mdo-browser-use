@@ -128,7 +128,9 @@ It does not switch to the currently selected chat's directory or refetch URLs.
 
 `download_ui_probe.py` mounts the actual browser view in the same WebView2 host
 and checks manual save bytes, focus retention, native viewport resizing,
-recovery controls and empty final cache inventory. Normal-main-window screenshot
+original-task legacy-root review/adoption, recovery controls and empty final
+cache inventory. Binding does not reopen or refetch the retained response.
+Normal-main-window screenshot
 inspection remains unverified because the desktop capture helper timed out.
 
 `publication_recovery_probe.py` injects a final receipt replacement failure after
