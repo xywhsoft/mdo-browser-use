@@ -427,6 +427,21 @@
       "path": "app/web/js/features/workbench/browser-view.js",
       "before": "await dialogs.refresh(state); if (signal.aborted) return; paint();",
       "after": "await dialogs.refresh(state); if (signal.aborted) return; await choosers.refresh(state); if (signal.aborted) return; paint();"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "#include \"browser_use_operation_scope.inc.c\"",
+      "after": "#include \"browser_use_operation_scope.inc.c\"\n#include \"browser_use_operation_snapshot.inc.c\""
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "xrtValueClone(SdkJobs.Jobs[i].Info)",
+      "after": "BuOperationSnapshot(&SdkJobs.Jobs[i])"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "bool Terminal=J->Terminal;*R=xrtValueClone(J->Info);",
+      "after": "bool Terminal=J->Terminal;*R=BuOperationSnapshot(J);"
     }
   ],
   "files": [
@@ -485,6 +500,10 @@
     {
       "source": "host/download-dispatch.js",
       "target": "app/web/js/features/workbench/download-dispatch.js"
+    },
+    {
+      "source": "host/operation-snapshot.inc.c",
+      "target": "app/src/application/browser_use_operation_snapshot.inc.c"
     }
   ]
 }

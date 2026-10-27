@@ -48,6 +48,23 @@ class OperationTests(unittest.TestCase):
             "method": "operation.result", "params": {"id": self.identity}, "context": self.scope})
         self.assertEqual(status, 410, json.loads(raw))
 
+    def test_serial_fast_operations_never_advertise_a_pending_result_as_ready(self):
+        for _ in range(12):
+            identity=dev.call('operation.start',dict(self.request,id='sdk-'+uuid.uuid4().hex),self.scope)['id']
+            try:
+                for attempt in range(100):
+                    info=dev.call('operation.get',{'id':identity},self.scope)
+                    if info.get('terminal'):break
+                    self.assertEqual(info['state'],'running')
+                    self.assertFalse(info.get('result_available'))
+                    time.sleep(.001)
+                self.assertTrue(info.get('terminal'))
+                dev.call('operation.result',{'id':identity},self.scope)
+                listed=next(row for row in dev.call('operation.list',{},self.scope) if row['id']==identity)
+                self.assertTrue(listed['terminal'])
+            finally:
+                dev.call('operation.release',{'id':identity},self.scope)
+
 
 if __name__ == "__main__":
     unittest.main()

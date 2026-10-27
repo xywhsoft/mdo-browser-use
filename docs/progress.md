@@ -1032,3 +1032,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   evidence shows interactive top documents before native completion, but does
   not isolate whether visibility, frame scheduling or another timing condition
   caused the delay. This diagnostic stage makes no product startup-fix claim.
+
+
+## D12e — operation queries must use the worker readiness gate
+
+- A real Browser Use tab creation exposed `sdk_operation_pending` after the
+  prior operation query had advertised terminal success. The SDK persists final
+  metadata before event delivery and project-lease teardown, then marks its
+  worker releasable later. Queries cloned the former flag while result/release
+  checked the latter. Private failure evidence is retained at
+  `.mdo/evidence/operation-terminal-result-race-before-fix.json`.
+- Runtime start/get/wait/list snapshots now use the same worker gate as result
+  admission. While teardown is pending they report running, nonterminal and no
+  available result; final outcome/error/byte metadata stays hidden. The durable
+  ledger and existing event/teardown ordering are preserved, so recovery still
+  cannot re-execute an admitted identity.
+- The actual helper is exercised with final persisted metadata and an unfinished
+  worker, completed snapshots and allocation denials. Actual host tests pass
+  for twelve sequential fast operations (terminal query followed immediately by
+  result), scope denial and released-identity non-replay. TCC startup and applied
+  host checks pass in the same deployment. This is a separate SDK defect fix;
+  the wider download/Browser Use goal and final stability gates remain active.
