@@ -1804,3 +1804,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   checks pass, with no new native diagnostics or retained native reservations.
   Previous unchanged Python baseline remains 101 pass/two privilege skips; no
   unrelated rerun was needed. Cross-frame mask aggregation is still pending.
+
+## S2 — exact local mask/iframe-owner identities for capture composition
+
+- Local-frame capture scans only its own document and open shadow roots. Each
+  iframe stays an opaque mask carrying that exact local element reference;
+  capture never accesses its `contentDocument`. Report bounded node usage,
+  viewport and scroll metadata so a coordinator can share one global budget.
+  Exceeding the assigned node budget fails without returning partial masks.
+- A fixed native `capture_owner` operation resolves the real iframe node in
+  its parent isolated world and pins the same local reference/document. Return
+  fractional content/border boxes, scroll and viewport, with composed-ancestor
+  transform checks. Inert/aria-hidden state does not suppress rendered pixels.
+  Unsupported geometry retains the owner identity so its opaque mask can stay
+  intact. No root/global protocol IDs or arbitrary selectors are exposed.
+- Actual frame gate: 173 pass, adding exact outer/nested mask identity, local
+  scan boundaries, fractional coordinate precision, painted inert owners,
+  unsupported-geometry identity and stale-child rejection. Native baseline:
+  1,383 poll-inclusive assertions, including actual private pixel masking. All
+  reservations drain and no native diagnostics are generated. Sequential JS:
+  136 pass. Previous unchanged Python baseline remains 101 pass/two skips.
+- This is composition infrastructure only: it does not yet remove any iframe
+  mask or enable element screenshots through child frames. Next aggregate
+  readable-frame masks with clipping, unchanged-document/layout checks and
+  opaque fallback, then enable and verify the normal public C/JS/managed path.

@@ -29,3 +29,22 @@ test('rendered private controls remain masked when inert, aria-hidden or CSS ove
   assert(result.ok);assert.equal(result.redactions.length,3);
   for(let index=0;index<3;index++)assert.equal(result.redactions[index].y,20+index*40);
 });
+
+test('local capture masks bind exact iframe nodes without entering child documents',async()=>{
+  const source=(await readFile(new URL('../page/runtime.js',import.meta.url),'utf8')).replace('export function browserRuntime(','function browserRuntime(');
+  const document={defaultView:{getComputedStyle:()=>({display:'block',visibility:'visible',opacity:'1'})}},frames=[];let childReads=0;
+  for(let index=0;index<2;index++)frames.push({ownerDocument:document,isConnected:true,localName:'iframe',
+    getAttribute:()=>null,hasAttribute:()=>false,getClientRects:()=>[{}],getBoundingClientRect:()=>({x:20+index*340,y:30,width:300,height:150}),
+    get contentDocument(){childReads++;throw Error('Local capture must not inspect a child document');}});
+  document.createTreeWalker=()=>{let index=0;return{nextNode:()=>frames[index++]||null};};
+  const context=vm.createContext({document,crypto:{getRandomValues:webcrypto.getRandomValues.bind(webcrypto)},performance,
+    visualViewport:{scale:1},innerWidth:800,innerHeight:600,scrollX:0,scrollY:0,devicePixelRatio:1});
+  const factory=vm.runInContext('('+source+')',context),runtime=factory({local_frame:true}),area=runtime.captureArea({mode:'viewport'});
+  assert(area.ok);assert.equal(childReads,0);assert.equal(area.visited,2);assert.equal(area.redactions.length,2);
+  const first=runtime.pinCaptureFrame(frames[0]),second=runtime.pinCaptureFrame(frames[1]);
+  assert(first.ok&&second.ok);assert.equal(first.document,area.document);assert.notEqual(first.ref,second.ref);
+  assert.equal(area.redactions[0].frame_ref,first.ref);assert.equal(area.redactions[1].frame_ref,second.ref);
+  assert.equal(runtime.pinCaptureFrame({isConnected:true,localName:'iframe',ownerDocument:{}}).error.code,'frame_owner_unavailable');
+  assert.equal(factory().pinCaptureFrame(frames[0]).error.code,'frame_owner_unavailable');
+  const bounded=runtime.captureArea({mode:'viewport',_max_nodes:1});assert(!bounded.ok);assert.equal(bounded.error.code,'capture_preparation_failed');
+});

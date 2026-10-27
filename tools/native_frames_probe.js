@@ -354,6 +354,26 @@ try{
   assert((await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===0,'Drag cleanup issued a new click into the replacement document');
   const afterDrag=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'},timeout_ms:5000});
   assert(afterDrag.result.ok&&(await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===1,'Native input did not recover after the child-navigation drag interruption');
+  stage='capture-owner-bindings';
+  const rootArea=await evaluate(geometryRoot,`(${runtime})({local_frame:true}).captureArea({mode:'viewport'})`),outerArea=await evaluate(outer,`(${runtime})({local_frame:true}).captureArea({mode:'viewport'})`);
+  assert(rootArea.ok&&rootArea.value.ok&&outerArea.ok&&outerArea.value.ok,'Local frame privacy masks could not be prepared');
+  const rootMasks=rootArea.value.redactions.filter(row=>row.frame_ref),outerMasks=outerArea.value.redactions.filter(row=>row.frame_ref);
+  assert(rootMasks.length===1&&outerMasks.length===1,'Local capture traversed or omitted an iframe instead of making one opaque node mask');
+  const captureOwner=frame=>call('frames',{action:'capture_owner',agent:true,frame:frame.id,document:frame.document});
+  const outerCapture=await captureOwner(outer),innerCapture=await captureOwner(dragReplacement);
+  geometryEvidence.captureOwners={outerCapture,innerCapture};
+  assert(outerCapture.ok&&outerCapture.value.ok&&outerCapture.value.owner.document===rootArea.value.document&&outerCapture.value.owner.ref===rootMasks[0].frame_ref,'Native outer owner did not bind the exact root-world iframe mask');
+  assert(innerCapture.ok&&innerCapture.value.ok&&innerCapture.value.owner.document===outerArea.value.document&&innerCapture.value.owner.ref===outerMasks[0].frame_ref,'Native nested owner did not bind the exact parent-world iframe mask');
+  assert(outerCapture.parent==='f0'&&innerCapture.parent===outer.id&&outerCapture.value.painted&&innerCapture.value.painted,'Capture ownership or painting metadata changed processes');
+  assert(Math.abs(outerCapture.value.content.x-expected.value.x)<.01&&Math.abs(outerCapture.value.content.y-expected.value.y)<.01,'Capture owner mapping lost fractional border/padding precision');
+  await call('evaluate',{script:`(()=>{document.querySelector('#outer').inert=true;return true})()`});
+  const inertCapture=await captureOwner(outer),inertArea=await evaluate(geometryRoot,`(${runtime})({local_frame:true}).captureArea({mode:'viewport'})`);
+  assert(inertCapture.ok&&inertCapture.value.ok&&inertCapture.value.painted&&inertArea.value.redactions.some(row=>row.frame_ref===inertCapture.value.owner.ref),'An inert painted iframe lost its privacy mask/owner mapping');
+  await call('evaluate',{script:`(()=>{document.querySelector('#outer').inert=false;document.querySelector('#outer').style.transform='scale(.95)';return true})()`});
+  const unsupportedCapture=await captureOwner(outer);
+  assert(unsupportedCapture.ok&&!unsupportedCapture.value.ok&&unsupportedCapture.value.error.code==='unsupported_geometry'&&unsupportedCapture.value.owner.ref===rootMasks[0].frame_ref,'Unsupported capture geometry lost the exact opaque-mask identity');
+  await call('evaluate',{script:`(()=>{document.querySelector('#outer').style.transform='none';return true})()`});
+  const oldCapture=await captureOwner(newLeaf);assert(!oldCapture.ok&&oldCapture.error.code==='stale_frame','A capture owner accepted an earlier child document');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
@@ -362,7 +382,8 @@ try{
     frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true,
     inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true,
     nested_pointer_drag:true,nested_html5_drag:true,cross_document_html5_drag_both_directions:true,frame_drag_cancellation_releases_mouse:true,frame_drag_pre_dispatch_guard:true,
-    child_navigation_stops_drag:true,input_recovers_after_interrupted_frame_drag:true};
+    child_navigation_stops_drag:true,input_recovers_after_interrupted_frame_drag:true,
+    exact_iframe_mask_bindings:true,local_capture_does_not_enter_children:true,capture_owner_fractional_geometry:true,inert_capture_owner_preserved:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 13;
+  const version = 14;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -452,6 +452,14 @@ export function browserRuntime(configuration = {}) {
       return {ok:true,document:documentId,changed:true,dispatched:true,verified:true,input_method:"dom_select",events_trusted:false};
     }catch{return fail("action_uncertain","The selection or its event handlers did not finish; inspect before repeating",{effect_may_have_occurred:true});}
   }
+  // Only the native owner resolver supplies an actual node. No selector or
+  // page-provided ID can bind another frame's privacy mask to this reference.
+  function pinCaptureFrame(element) {
+    if(!localFrame||!element?.isConnected||element.ownerDocument!==document||!['iframe','frame'].includes(element.localName))
+      return fail('frame_owner_unavailable','The capture owner is outside this isolated document');
+    const ref=reference(element,'f0');
+    return ref?{ok:true,document:documentId,ref}:fail('reference_limit','Too many retained element references');
+  }
   function captureArea(options = {}) {
     if (options.document && options.document !== documentId) return fail("stale_document", "Observe the current document before capturing it");
     if (Math.abs((visualViewport?.scale || 1) - 1) > 0.001) return fail("unsupported_geometry", "Pinch-zoomed screenshots require a supported viewport scale");
@@ -484,12 +492,12 @@ export function browserRuntime(configuration = {}) {
       if(region.width<=0||region.height<=0)return fail("element_outside_viewport", "The screenshot target has no visible area");
       if(region.width>32768||region.height>32768||region.width*region.height>16777216||region.width*region.height*dpr*dpr>33554432)
         return fail("capture_area_limit", "The page area exceeds the screenshot raster budget; capture a smaller region");
-      const redactions=[];let nodes=0,frames=0;const started=performance.now();
-      function mask(element){const area=intersect(rootRect(element),region);if(area.width&&area.height){if(redactions.length>=256)throw Error("Screenshot masking budget exceeded");redactions.push(area);}}
+      const redactions=[];let nodes=0,frames=0;const started=performance.now(),maximumNodes=Math.min(6000,Math.max(1,Number(options._max_nodes)||6000));
+      function mask(element,metadata={}){const area=intersect(rootRect(element),region);if(area.width&&area.height){if(redactions.length>=256)throw Error("Screenshot masking budget exceeded");redactions.push({...area,...metadata});}}
       function walk(root){
         const walker=root.ownerDocument?.createTreeWalker(root,1)||document.createTreeWalker(root,1);
         for(let element=walker.nextNode();element;element=walker.nextNode()){
-          if(++nodes>6000||performance.now()-started>100)throw Error("Screenshot masking scan exceeded its budget");
+          if(++nodes>maximumNodes||performance.now()-started>100)throw Error("Screenshot masking scan exceeded its budget");
           // Semantic/action visibility is not pixel privacy. Inert and
           // aria-hidden controls still paint; author CSS can override hidden.
           const style=element.ownerDocument.defaultView.getComputedStyle(element);
@@ -501,16 +509,18 @@ export function browserRuntime(configuration = {}) {
           if(element.shadowRoot)walk(element.shadowRoot);
           else if(tag.includes("-"))mask(element); // Closed custom-element internals cannot be inspected here.
           if(["iframe","frame"].includes(tag)){
-            if(++frames>32)throw Error("Screenshot frame budget exceeded");let child=null;try{child=element.contentDocument;}catch{}
+            if(++frames>32)throw Error("Screenshot frame budget exceeded");
+            if(localFrame){const owner=pinCaptureFrame(element);if(!owner.ok)throw Error('Screenshot frame reference budget exceeded');mask(element,{frame_ref:owner.ref});continue;}
+            let child=null;try{child=element.contentDocument;}catch{}
             if(child)walk(child);else mask(element);
           }
         }
       }
       walk(document);
-      return {ok:true,document:documentId,region,redactions,device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
+      return {ok:true,document:documentId,region,redactions,visited:nodes,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight},device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, uploadInfo, uploadNode, pinUploadNode, clearFiles });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }
