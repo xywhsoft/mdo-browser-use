@@ -1608,3 +1608,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   verify ancestor focus before keyboard input. Complete the remaining input
   cancellation/lifetime/OOM, remote transport, Android, vision and package/
   performance gates. This is active development, not the completed full goal.
+
+## D13e — correct page identities, labels and inherited focus
+
+- Generate document UUIDs from cryptographic `getRandomValues` bytes with v4
+  version/variant bits. Initialization no longer depends on secure-context-only
+  `randomUUID`. Two tests execute the actual self-contained runtime without
+  that API, check stable/current and distinct/replaced document identities,
+  and reject missing cryptographic randomness rather than using a weak fallback.
+- Extract associated/referenced label text with bounded traversal, pruning
+  embedded controls and their values. Wrapped selects keep their human labels
+  without concatenated option text. Unlabelled textareas and control-valued
+  label references do not expose initial form contents. Option display labels
+  remain available through their normal metadata/discovery paths.
+- Verify active elements through open shadow roots and same-origin frame
+  ancestors. A child document remembering its last active input no longer
+  authorizes typing after its parent has focused something else.
+- The complete actual native gate passes 1,350 poll-inclusive assertions,
+  including wrapped-label selection, initial-text privacy and ancestor focus
+  regressions. Existing public C/JS UI passes 19 actions, four navigations and
+  five waits. No new native diagnostics or retained transfer reservations;
+  same Home restored headless. Multi-frame driver integration is separate work.

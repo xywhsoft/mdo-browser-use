@@ -6,6 +6,12 @@ downloads, task-workspace saves and explicit recovery controls. Android and
 complete cross-origin frame support remain in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
+Page document identities use cryptographic random bytes rather than relying on
+secure-context-only `randomUUID`; see the [Crypto interface](https://w3c.github.io/webcrypto/#Crypto-interface).
+Associated labels omit embedded controls/values, and focus verification follows
+same-origin/shadow ancestors. These remain bounded DOM-subset semantics, not a
+claim of complete browser accessibility-tree equivalence.
+
 ### Native frame routing foundation (private, not a public SDK operation)
 
 The Windows host now has a trusted-main-document `frames` command. `list`

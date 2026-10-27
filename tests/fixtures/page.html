@@ -22,6 +22,9 @@
 <button id="mouse-gestures">Mouse gestures</button><output id="mouse-result"></output>
 <label for="shipping">Delivery method</label><select id="shipping"><option value="standard">Standard</option><option value="disabled" disabled>Unavailable</option><optgroup label="Paused" disabled><option value="group-disabled">Paused delivery</option></optgroup><option value="express">Express</option><option value="overnight">Overnight</option></select>
 <label for="colors">Colors</label><select id="colors" multiple size="4"><option value="red">Red</option><option disabled value="disabled">Unavailable</option><option value="green">Green</option><option value="blue">Blue</option></select><output id="selection-result"></output><output id="selection-counts"></output>
+<label>Wrapped choice<select id="wrapped-choice"><option>One</option><option>Two</option></select></label>
+<label>Wrapped notes<textarea id="private-notes">fixture-private-initial-note</textarea></label>
+<div role="button" aria-labelledby="private-notes">Notes label fallback</div>
 <script>document.querySelector('#shadow').attachShadow({mode:'open'}).innerHTML='<button>Shadow action</button>';</script>
 <script>
 document.querySelector('#search').addEventListener('click',e=>{document.body.dataset.clicked=e.isTrusted?'trusted':'untrusted';document.body.dataset.clicks=String(Number(document.body.dataset.clicks||0)+1);document.querySelector('#events').textContent=(e.isTrusted?'Trusted click ':'Untrusted click ')+document.body.dataset.clicks});

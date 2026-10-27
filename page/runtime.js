@@ -1,12 +1,18 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 9;
+  const version = 11;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
   if (previous?.version === version && previous.documentNode === document) return previous;
-  const documentId = `d-${crypto.randomUUID()}`;
+  // randomUUID is secure-context-only. getRandomValues also supports ordinary
+  // HTTP documents, while retaining a full random v4 document identity.
+  const identityBytes=new Uint8Array(16);
+  globalThis.crypto.getRandomValues(identityBytes);
+  identityBytes[6]=(identityBytes[6]&15)|64;identityBytes[8]=(identityBytes[8]&63)|128;
+  const identityHex=Array.from(identityBytes,byte=>byte.toString(16).padStart(2,'0')).join('');
+  const documentId=`d-${identityHex.slice(0,8)}-${identityHex.slice(8,12)}-${identityHex.slice(12,16)}-${identityHex.slice(16,20)}-${identityHex.slice(20)}`;
   const refs = new Map(), identities = new WeakMap(), frameIds = new WeakMap();
   let nextRef = 1, nextFrame = 1;
   const maxRefs = 2000, maxFrames = 32;
@@ -50,22 +56,34 @@ export function browserRuntime(configuration = {}) {
     if (/^h[1-6]$/.test(tag)) return "heading";
     return "";
   }
+  const labelExcluded=new Set(['input','textarea','select','option','button','meter','output','progress','script','style','noscript','template']);
+  function labelText(element) {
+    if(!element)return '';
+    if(['input','textarea','select','option','meter','output','progress'].includes(element.localName))return '';
+    const walker=element.ownerDocument.createTreeWalker(element,NodeFilter.SHOW_ELEMENT|NodeFilter.SHOW_TEXT,
+      {acceptNode:node=>node.nodeType===1&&labelExcluded.has(node.localName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+    let node,text='',visited=0;
+    while((node=walker.nextNode())&&visited++<512&&text.length<4096)if(node.nodeType===3)text+=node.nodeValue.slice(0,4096-text.length);
+    return normalize(text);
+  }
   function name(element) {
     const labelled = normalize(element.getAttribute("aria-labelledby"));
     if (labelled) {
       const root = element.getRootNode();
       const text = labelled.split(" ").slice(0, 16)
-        .map(id => root.getElementById?.(id)?.textContent || "").join(" ");
+        .map(id => labelText(root.getElementById?.(id))).join(" ");
       if (normalize(text)) return normalize(text).slice(0, 512);
     }
     const aria = element.getAttribute("aria-label");
     if (aria) return normalize(aria).slice(0, 512);
-    if (element.labels?.length) return normalize([...element.labels].map(label => label.textContent).join(" ")).slice(0, 512);
+    if(element.localName==='option')return normalize(element.label).slice(0,512);
+    if (element.labels?.length) return normalize([...element.labels].map(labelText).join(" ")).slice(0, 512);
     if (element.localName === "input") {
       if (["submit", "reset", "button"].includes(element.type)) return normalize(element.value).slice(0, 512);
       return normalize(element.getAttribute("placeholder") || element.getAttribute("title") || "").slice(0, 512);
     }
-    return normalize(element.getAttribute("alt") || element.textContent || element.getAttribute("title") || "").slice(0, 512);
+    if(['select','textarea'].includes(element.localName))return normalize(element.getAttribute('placeholder')||element.getAttribute('title')||'').slice(0,512);
+    return normalize(element.getAttribute("alt") || labelText(element) || element.getAttribute("title") || "").slice(0, 512);
   }
   function reference(element, frame) {
     let id = identities.get(element);
@@ -192,7 +210,7 @@ export function browserRuntime(configuration = {}) {
         if (target.name !== undefined && !role(element)) return false;
         if (target.role && role(element) !== target.role) return false;
         if (target.name !== undefined && name(element) !== target.name) return false;
-        if (target.label !== undefined && normalize([...element.labels || []].map(label => label.textContent).join(" ")) !== target.label) return false;
+        if (target.label !== undefined && normalize([...element.labels || []].map(labelText).join(" ")) !== target.label) return false;
         if (target.placeholder !== undefined && element.getAttribute("placeholder") !== target.placeholder) return false;
         if (target.testid !== undefined && element.getAttribute("data-testid") !== target.testid) return false;
         if (target.css && !element.matches(target.css)) return false;
@@ -336,8 +354,20 @@ export function browserRuntime(configuration = {}) {
     let matches = true;
     if (options.op === "fill") matches = (element.isContentEditable ? element.textContent : element.value) === options.text;
     if (options.op === "check") matches = element.checked === options.checked;
+    const focusedIn = doc => {
+      let active=doc.activeElement;
+      for(let depth=0;depth<16&&active?.shadowRoot?.activeElement;depth++)active=active.shadowRoot.activeElement;
+      return active;
+    };
+    let focused=focusedIn(element.ownerDocument)===element,doc=element.ownerDocument;
+    for(let depth=0;focused&&doc!==document&&depth<16;depth++){
+      const frame=doc.defaultView?.frameElement;
+      if(!frame?.isConnected){focused=false;break;}
+      doc=frame.ownerDocument;focused=focusedIn(doc)===frame;
+    }
+    if(doc!==document)focused=false;
     return { ok: true, verified: matches, document: documentId,
-      focused: element.getRootNode().activeElement === element,
+      focused,
       sensitive: element.localName === "input" && element.type === "password" };
   }
   const optionDisabled = option => option.disabled || option.parentElement?.localName === "optgroup" && option.parentElement.disabled;
