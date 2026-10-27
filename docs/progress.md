@@ -1757,3 +1757,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Next migrate frame drag and screenshot privacy aggregation, activate the
   normal workbench adapter, then verify managed C/JS frame workflows and the
   remaining platform/lifecycle/network/vision/package scope of the full goal.
+
+## D13j — pin native frame drags and preserve intercepted HTML5 payloads
+
+- Route stable source/destination preparation through the frame driver and
+  submit both original native document chains with one drag identity. Native
+  admission rejects malformed, partial or replaced chains before input. Every
+  later phase checks both chains; cancellation/navigation preserves effect
+  uncertainty and drains the mouse release independently of frame liveness.
+- Enable bounded drag interception for the main view and selected source
+  session. Accept payloads only from that view-level input handler or the
+  selected source session, never a different OOPIF. Release both interception
+  policies separately; vanished sessions have no remaining controller to reset.
+  Native calls now use the exactly-once CDP completion wrapper.
+- An actual regression initially showed a child `dragstart`/`dragend` with no
+  `drop` and a misleading pointer-only delivery result when interception was
+  limited to the selected session. The combined view/source policy and routing
+  fixes this observed path. The bounded failure receipt is retained privately at
+  `.mdo/native-frames-html5-failure.json`; no payload or source file is logged.
+- Actual WebView2 frame gate: 164 pass. It verifies trusted nested pointer and
+  HTML5 gestures, one drop/end, exact payload, OOPIF-to-root and root-to-OOPIF
+  delivery, receipt cancellation after mouse-down, stale admission, child-only
+  navigation during a held drag, no replacement-page click and subsequent input
+  recovery. All prior frame upload/picker/owner tests pass, with no new native
+  diagnostics and no retained transfer reservations.
+- Sequential JS gate: 134 pass. Python: 103 total (101 pass, two privilege
+  skips). Native baseline: 1,362 poll-inclusive checks, including existing drag
+  rejection/cleanup, root uploads/pickers/downloads, no diagnostics or cache
+  remnants. Cross-frame screenshot mask aggregation remains before activating
+  the normal workbench; public managed frame checks and the remaining Android,
+  vision, lifecycle/OOM, network/performance and package gates are still pending.

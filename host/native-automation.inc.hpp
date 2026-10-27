@@ -113,9 +113,9 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   }
 };
 // BROWSER_FRAME_INPUT_GUARD_END
-static bool xb_input_read_frames(const std::string& json,xb_input_frame_guard& guard){
+static bool xb_input_read_frames(const std::string& json,xb_input_frame_guard& guard,const std::string& key="frame_chain"){
   const char* raw=nullptr;size_t size=0;
-  webview::detail::json_parse_c(json.c_str(),json.size(),"frame_chain",11,&raw,&size);
+  guard.clear();webview::detail::json_parse_c(json.c_str(),json.size(),key.c_str(),key.size(),&raw,&size);
   if(!raw)return true;
   if(size<2||size>8192||raw[0]!='['||raw[size-1]!=']')return false;
   const std::string chain(raw,size);

@@ -149,7 +149,7 @@ try{
   assert((await call('state')).navigation===state.navigation,'Child-only navigation changed the top-level token and masked the frame guard');
   await rejectInput(chain);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
-  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0;
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null;
   const routedView={execute:async(command,params)=>{
     if(command==='input')inputRequests++;
     const result=await call(command,params);
@@ -159,7 +159,13 @@ try{
   const driver=createFrameDriver({execute:(command,params)=>routedView.execute(command,params)});
   const dispatch=(command,params)=>executeBrowserAutomation({command,params,browser,view:routedView,pageDriver:driver,
     action:{id:'frame-dispatch-'+(++dispatchCounter)},api:{call:async(method,params)=>{
-      if(method==='ui.result')return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};
+      if(method==='ui.result'){
+        if(cancelHeldFrame&&(await evaluate(cancelHeldFrame,'document.body.dataset.dragHeld')).value==='true'){cancelHeldFrame=null;cancelDispatch='cancelled';}
+        if(navigateHeldFrame&&(await evaluate(navigateHeldFrame,'document.body.dataset.dragHeld')).value==='true'){
+          navigateHeldFrame=null;dragReplacement=await advanceLeaf('during-native-drag');
+        }
+        return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};
+      }
       if(method==='files.digest'||method==='files.read'){fileRequests++;return filesApi.call(method,params);}
       throw Error('Unexpected fixture SDK method');
     }}});
@@ -288,13 +294,75 @@ try{
   const hiddenOwner=await driver.read('uploadInfo',uploadOptions);
   assert(hiddenOwner.ok&&hiddenOwner.native_target.frame_chain.length===3,'A hidden but enabled iframe was confused with an inert upload ancestor');
   await evaluate(outer,`(()=>{document.querySelector('#inner').hidden=false;return true})()`);
+  stage='framed-drag';
+  const installDrag=async(html=false)=>{
+    const setup=await evaluate(newLeaf,`(()=>{
+      document.body.innerHTML='<style>body{margin:0}.drag-item{position:absolute;width:90px;height:50px;background:#ddd;user-select:none}#drag-source{left:20px;top:20px}#drag-drop{left:230px;top:120px}</style><div id="drag-source" class="drag-item" role="button" aria-label="Nested drag source" draggable="${html}">Source</div><div id="drag-drop" class="drag-item" role="button" aria-label="Nested drag destination">Drop</div>';
+      Object.assign(document.body.dataset,{dragHeld:'false',dragReleases:'0',dragTrusted:'true',dragDx:'0',dragDrops:'0',dragStarts:'0',dragEnds:'0',dragText:''});
+      const source=document.querySelector('#drag-source'),drop=document.querySelector('#drag-drop');let start=0;
+      source.addEventListener('pointerdown',e=>{if(${html})return;e.preventDefault();start=e.clientX;document.body.dataset.dragHeld='true';document.body.dataset.dragTrusted=String(e.isTrusted);source.setPointerCapture(e.pointerId)});
+      source.addEventListener('pointermove',e=>{if(document.body.dataset.dragHeld!=='true')return;document.body.dataset.dragDx=String(e.clientX-start);document.body.dataset.dragTrusted=String(document.body.dataset.dragTrusted==='true'&&e.isTrusted)});
+      for(const type of ['pointerup','pointercancel'])source.addEventListener(type,e=>{if(document.body.dataset.dragHeld!=='true')return;document.body.dataset.dragHeld='false';document.body.dataset.dragReleases=String(Number(document.body.dataset.dragReleases)+1);document.body.dataset.dragTrusted=String(document.body.dataset.dragTrusted==='true'&&e.isTrusted)});
+      source.addEventListener('dragstart',e=>{document.body.dataset.dragStarts=String(Number(document.body.dataset.dragStarts)+1);document.body.dataset.dragTrusted=String(e.isTrusted);e.dataTransfer.effectAllowed='copyMove';e.dataTransfer.setData('text/plain','frame-drag-qa')});
+      source.addEventListener('dragend',()=>{document.body.dataset.dragEnds=String(Number(document.body.dataset.dragEnds)+1)});
+      drop.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move'});
+      drop.addEventListener('drop',e=>{e.preventDefault();document.body.dataset.dragDrops=String(Number(document.body.dataset.dragDrops)+1);document.body.dataset.dragTrusted=String(document.body.dataset.dragTrusted==='true'&&e.isTrusted);document.body.dataset.dragText=e.dataTransfer.getData('text/plain')});return true;
+    })()`);assert(setup.ok&&setup.value,'Nested drag fixture could not initialize');
+  };
+  const dragEffect=async()=>evaluate(newLeaf,'({...document.body.dataset})');
+  const dragParams={op:'drag',document:page.result.document,target:{name:'Nested drag source'},destination:{name:'Nested drag destination'},timeout_ms:5000};
+  await installDrag();const pointerDragged=await dispatch('act',dragParams);geometryEvidence.pointerDragged=pointerDragged;
+  assert(pointerDragged.result.ok&&pointerDragged.result.drag_kind==='pointer','Nested pointer drag was not delivered');
+  let dragged=await dragEffect();geometryEvidence.pointerEffect=dragged;
+  assert(dragged.value.dragHeld==='false'&&dragged.value.dragReleases==='1'&&dragged.value.dragTrusted==='true'&&Number(dragged.value.dragDx)>100&&dragged.value.dragDrops==='0','Nested pointer drag lost its trusted stream or exact release');
+  await installDrag(true);const htmlDragged=await dispatch('act',dragParams);geometryEvidence.htmlDragged=htmlDragged;
+  dragged=await dragEffect();geometryEvidence.htmlEffect=dragged;
+  assert(htmlDragged.result.ok&&htmlDragged.result.drag_kind==='html5','Nested HTML5 drag did not retain its intercepted browser payload');
+  assert(dragged.value.dragStarts==='1'&&dragged.value.dragEnds==='1'&&dragged.value.dragDrops==='1'&&dragged.value.dragText==='frame-drag-qa'&&dragged.value.dragTrusted==='true','Nested HTML5 drag did not reach its exact target once with trusted events');
+  stage='cross-document-drag';
+  const rootDragSetup=await call('evaluate',{script:`(()=>{
+    document.querySelectorAll('.root-drag-qa').forEach(node=>node.remove());
+    const target=document.createElement('div');target.className='root-drag-qa';target.id='root-drop';target.role='button';target.setAttribute('aria-label','Root drag destination');
+    target.style.cssText='position:absolute;left:700px;top:100px;width:120px;height:60px;background:#ddd';target.textContent='Root drop';document.body.append(target);
+    Object.assign(document.body.dataset,{rootDragDrops:'0',rootDragText:'',rootDragTrusted:'false',rootDragStarts:'0',rootDragEnds:'0'});
+    target.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move'});target.addEventListener('drop',e=>{e.preventDefault();document.body.dataset.rootDragDrops=String(Number(document.body.dataset.rootDragDrops)+1);document.body.dataset.rootDragText=e.dataTransfer.getData('text/plain');document.body.dataset.rootDragTrusted=String(e.isTrusted)});
+    const source=target.cloneNode(true);source.id='root-source';source.setAttribute('aria-label','Root drag source');source.style.top='240px';source.draggable=true;source.textContent='Root source';document.body.append(source);
+    source.addEventListener('dragstart',e=>{document.body.dataset.rootDragStarts=String(Number(document.body.dataset.rootDragStarts)+1);e.dataTransfer.effectAllowed='copyMove';e.dataTransfer.setData('text/plain','frame-drag-qa')});source.addEventListener('dragend',()=>{document.body.dataset.rootDragEnds=String(Number(document.body.dataset.rootDragEnds)+1)});return true;
+  })()`});assert(rootDragSetup.ok&&rootDragSetup.value,'Cross-document drag fixture could not initialize');
+  await installDrag(true);const toRoot=await dispatch('act',{...dragParams,destination:{name:'Root drag destination'}});geometryEvidence.dragToRoot=toRoot;
+  const rootDrop=await call('evaluate',{script:'({...document.body.dataset})'});geometryEvidence.rootDrop=rootDrop;
+  assert(toRoot.result.ok&&toRoot.result.drag_kind==='html5'&&rootDrop.value.rootDragDrops==='1'&&rootDrop.value.rootDragText==='frame-drag-qa'&&rootDrop.value.rootDragTrusted==='true','OOPIF-to-root HTML5 drag did not deliver exactly one trusted drop');
+  assert((await dragEffect()).value.dragEnds==='1','OOPIF-to-root drag did not terminate its source');
+  await installDrag(true);const fromRoot=await dispatch('act',{...dragParams,target:{name:'Root drag source'}});geometryEvidence.dragFromRoot=fromRoot;
+  dragged=await dragEffect();geometryEvidence.dragFromRootEffect=dragged;
+  const rootSource=await call('evaluate',{script:'({starts:document.body.dataset.rootDragStarts,ends:document.body.dataset.rootDragEnds})'});
+  assert(fromRoot.result.ok&&fromRoot.result.drag_kind==='html5'&&dragged.value.dragDrops==='1'&&dragged.value.dragText==='frame-drag-qa'&&dragged.value.dragTrusted==='true'&&rootSource.value.starts==='1'&&rootSource.value.ends==='1','Root-to-OOPIF drag lost its trusted payload or source termination');
+  stage='frame-drag-cancel-and-navigation';
+  await installDrag();cancelHeldFrame=newLeaf;
+  const cancelledDrag=await dispatch('act',dragParams);geometryEvidence.cancelledDrag=cancelledDrag;
+  assert(!cancelledDrag.result.ok&&cancelledDrag.result.error.code==='cancelled'&&cancelledDrag.result.error.effect_may_have_occurred,'The original receipt did not cancel an admitted nested drag');cancelDispatch=false;
+  await until(async()=>!(await call('state')).input_busy,'Cancelled nested drag did not release the native input slot');
+  dragged=await dragEffect();geometryEvidence.cancelledDragEffect=dragged;
+  assert(dragged.value.dragHeld==='false'&&dragged.value.dragReleases==='1'&&dragged.value.dragDrops==='0','Cancelled nested drag left a button down or issued a drop');
+  const invalidDrag=await call('drag',{agent:true,drag_key:'stale-frame-drag',navigation:state.navigation,x:100,y:100,to_x:200,to_y:200,
+    source_frame_chain:[{frame:newLeaf.id,document:'fd-foreign'}],destination_frame_chain:[{frame:'f0',document:geometryRoot.document}]});
+  assert(!invalidDrag.accepted&&invalidDrag.dispatched===false,'A stale native drag frame chain was not rejected before input');
+  await installDrag();navigateHeldFrame=newLeaf;
+  const navigatedDrag=await dispatch('act',dragParams);geometryEvidence.navigatedDrag=navigatedDrag;
+  assert(dragReplacement&&!navigatedDrag.result.ok&&navigatedDrag.result.error.effect_may_have_occurred,'Child navigation during an admitted drag lost effect uncertainty');
+  await until(async()=>!(await call('state')).input_busy,'Child navigation left the native drag input slot occupied');
+  assert((await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===0,'Drag cleanup issued a new click into the replacement document');
+  const afterDrag=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'},timeout_ms:5000});
+  assert(afterDrag.result.ok&&(await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===1,'Native input did not recover after the child-navigation drag interruption');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
     routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,
     framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true,
     frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true,
-    inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true};
+    inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true,
+    nested_pointer_drag:true,nested_html5_drag:true,cross_document_html5_drag_both_directions:true,frame_drag_cancellation_releases_mouse:true,frame_drag_pre_dispatch_guard:true,
+    child_navigation_stops_drag:true,input_recovers_after_interrupted_frame_drag:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

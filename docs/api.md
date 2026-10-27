@@ -100,8 +100,11 @@ be queried without replay and retain website bytes until confirmed release.
 Hidden uploads also check real parent iframe owners for composed `inert`
 ancestry before source reads and on post-seal target revalidation. Visibility
 alone does not disable a hidden file input. The normal workbench still uses its
-existing adapter: drag cancellation and cross-frame screenshot masking remain
-before activation.
+existing adapter: cross-frame screenshot masking remains before activation.
+The internal drag adapter already sends source and destination document chains,
+fences both throughout the native gesture, and drains mouse/interception state
+on cancellation or child navigation. Actual tests cover nested pointer/HTML5
+and root/OOPIF HTML5 delivery in both directions without repeating a drop.
 Cross-frame managed C/JS service
 registration and permissions have not yet been verified through that normal UI.
 

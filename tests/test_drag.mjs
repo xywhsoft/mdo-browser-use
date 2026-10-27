@@ -35,7 +35,7 @@ function fixture(){
     if(command==="state")return{loading:false,automation:true,drag_capability:true,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,navigation:"1"};
     const destination=params.script.includes('"name":"Destination"')||params.script.includes('"ref":"destination"'),x=destination?200:20;
     return{ok:true,value:{ok:true,element:{ref:destination?"destination":"source"},point:{x,y:20},geometry:[x,0,20,40,x,20]}};
-  };cancelled=true;},execute:()=>executeBrowserAutomation({command:"act",params:{op:"drag",document:"d1",target:{name:"Source"},destination:{name:"Destination"},timeout_ms:300},
+  };cancelled=true;},execute:(pageDriver=null)=>executeBrowserAutomation({command:"act",params:{op:"drag",document:"d1",target:{name:"Source"},destination:{name:"Destination"},timeout_ms:300},pageDriver,
     view,browser:"test-browser",action:{id:"drag-receipt"},api:{async call(){return{state:cancelled&&active?"cancelled":"pending"};}}})};
 }
 
@@ -65,4 +65,26 @@ test("unsupported dragging fails before reading or scrolling page targets",async
   const f=fixture();let reads=0;
   f.view.execute=async command=>{if(command==="state")return{loading:false,automation:true};reads++;throw Error("Unsupported drag touched its page");};
   const result=await f.execute();assert.equal(result.result.error.code,"unsupported_capability");assert.equal(reads,0);
+});
+
+function framed({missing=false}={}){
+  const source=[{frame:'f-source',document:'fd-source'},{frame:'f0',document:'fd-root'}],destination=[{frame:'f-target',document:'fd-target'},{frame:'f0',document:'fd-root'}];
+  return{source,destination,async read(method,options){
+    if(method==='observe')return{ok:true,document:'d1',elements:[]};
+    assert.equal(method,'prepare');const drop=options.target.name==='Destination'||options.target.ref==='qualified-target',x=drop?200:20;
+    return{ok:true,document:'d1',element:{ref:drop?'qualified-target':'qualified-source'},point:{x,y:20},geometry:[x,0,20,40,x,20],frame_chain:missing?[]:drop?destination:source};
+  }};
+}
+
+test('framed drag carries both original document chains to one native gesture',async()=>{
+  const f=fixture(),driver=framed(),out=await f.execute(driver);assert(out.result.ok);
+  const sent=f.commands.filter(row=>row.command==='drag');assert.equal(sent.length,1);
+  assert.deepEqual(sent[0].params.source_frame_chain,driver.source);assert.deepEqual(sent[0].params.destination_frame_chain,driver.destination);
+});
+
+test('an unpinned framed drag fails before input and receipt cancellation still releases it',async()=>{
+  const f=fixture(),invalid=await f.execute(framed({missing:true}));assert.equal(invalid.result.error.code,'frame_response_invalid');
+  assert(!invalid.result.error.effect_may_have_occurred);assert(!f.commands.some(row=>row.command==='drag'));
+  f.pending();const cancelled=await f.execute(framed());assert.equal(cancelled.result.error.code,'cancelled');
+  assert(f.commands.some(row=>row.command==='drag_cancel'&&row.params.drag_key==='drag-receipt'));
 });

@@ -21,12 +21,12 @@ static bool xb_drag_uri_list(const std::string& data){
 struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;
   ICoreWebView2DevToolsProtocolEventReceiver* receiver=nullptr;EventRegistrationToken token{};
-  std::string id,key,error,dragData;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
+  std::string id,key,error,dragData,sourceSession,eventSession;xb_input_frame_guard sourceGuard,destinationGuard;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
   double x=0,y=0,toX=0,toY=0,currentX=0,currentY=0;unsigned phase=0,moved=0,cleanup=0;
   LONG width=0,height=0;
-  bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
+  bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,sourceIntercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
   ~xb_drag_job(){if(receiver){if(subscribed)receiver->remove_DevToolsProtocolEventReceived(token);receiver->Release();}}
-  bool live()const{return xb_automation_live(host,view,navigation)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
+  bool live()const{return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,sourceGuard)&&xb_input_frames_live(view,destinationGuard)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
   void reply(){
     if(replied)return;replied=true;
     host->reply(id,"{\"accepted\":"+std::string(error.empty()?"true":"false")+",\"trusted_input\":true,\"dispatched\":"+
@@ -41,9 +41,12 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   void close(){if(error.empty())error="Browser was closed during drag; inspect any delivered effects";reply();detach();}
   void stop(const std::string& reason){if(error.empty())error=reason;reply();nextAt=0;}
   std::string point()const{return ",\"x\":"+std::to_string(currentX)+",\"y\":"+std::to_string(currentY);}
-  void call(const wchar_t* method,const std::string& params){
+  void call(const wchar_t* method,const std::string& params,const std::string& session=""){
+    // A destroyed source session has no drag controller/interception to release.
+    // The root mouse-release step still drains independently of frame liveness.
+    if(cleanup&&!session.empty()&&(!view->frames||!view->frames->sessions.count(session))){nextAt=0;return;}
     inFlight=true;auto self=shared_from_this();
-    xb_cdp(view,method,params,[self](bool ok,const std::string& result){
+    xb_frame_cdp(view,session,method,params,[self](bool ok,const std::string& result){
       self->inFlight=false;if(self->done)return;
       if(!ok||!xb_get(result,"error").empty()){
         if(self->cleanup)self->cleanupFailed=true;
@@ -83,12 +86,17 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     if(!error.empty()||phase>=8){
       // Cleanup is attempted once per step; it cannot issue another drop.
       if(cleanup==0){cleanup++;if(!error.empty()||!dropped){call(L"Input.cancelDragging","{}");return;}}
-      if(cleanup==1){cleanup++;if(intercepted&&!dropped){call(L"Input.dispatchDragEvent","{\"type\":\"dragCancel\",\"x\":"+std::to_string(x)+",\"y\":"+std::to_string(y)+",\"data\":{\"items\":[],\"dragOperationsMask\":0}}");return;}}
+      if(cleanup==1){cleanup++;if(intercepted&&!dropped){call(L"Input.dispatchDragEvent","{\"type\":\"dragCancel\",\"x\":0,\"y\":0,\"data\":{\"items\":[],\"dragOperationsMask\":0}}",eventSession);return;}}
       if(cleanup==2){cleanup++;if(pressed){pressed=false;call(L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"button\":\"left\",\"buttons\":0,\"clickCount\":1"+point()+"}");return;}}
-      if(cleanup==3){cleanup++;if(intercepting){intercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}");return;}}
+      if(cleanup==3){cleanup++;if(sourceIntercepting){sourceIntercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}",sourceSession);return;}}
+      if(cleanup==4){cleanup++;if(intercepting){intercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}");return;}}
       reply();detach(cleanupFailed);return;
     }
-    if(phase==0){phase=1;intercepting=true;call(L"Input.setInterceptDrags","{\"enabled\":true}");return;}
+    if(phase==0){
+      if(!intercepting){intercepting=true;call(L"Input.setInterceptDrags","{\"enabled\":true}");return;}
+      if(!sourceSession.empty()&&!sourceIntercepting){sourceIntercepting=true;call(L"Input.setInterceptDrags","{\"enabled\":true}",sourceSession);return;}
+      phase=1;
+    }
     if(phase==1){phase=2;dispatched=true;currentX=x;currentY=y;call(L"Input.dispatchMouseEvent","{\"type\":\"mouseMoved\""+point()+"}");return;}
     if(phase==2){phase=3;pressed=true;call(L"Input.dispatchMouseEvent","{\"type\":\"mousePressed\",\"button\":\"left\",\"buttons\":1,\"clickCount\":1"+point()+"}");return;}
     if(phase==3){
@@ -122,6 +130,13 @@ static void xb_drag(const std::shared_ptr<xb_host>& host,const std::shared_ptr<x
     host->reply(id,"","Invalid drag target, document, control or resource budget");return;
   }
   auto job=std::make_shared<xb_drag_job>();job->host=host;job->view=view;job->id=id;job->key=key;job->navigation=view->navigation;
+  if(!xb_input_read_frames(json,job->sourceGuard,"source_frame_chain")||!xb_input_read_frames(json,job->destinationGuard,"destination_frame_chain")||
+     job->sourceGuard.empty()!=job->destinationGuard.empty()||!xb_input_frames_live(view,job->sourceGuard)||!xb_input_frames_live(view,job->destinationGuard)){
+    host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The original drag source or destination frame document changed\"}");return;
+  }
+  if(!job->sourceGuard.empty()){
+    auto source=xb_frame_alias(view->frames,job->sourceGuard.front().first);if(!source){host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The source frame is no longer attached\"}");return;}job->sourceSession=source->session;
+  }
   job->width=view->bounds.right-view->bounds.left;job->height=view->bounds.bottom-view->bounds.top;
   job->x=x;job->y=y;job->toX=toX;job->toY=toY;job->expires=GetTickCount64()+static_cast<ULONGLONG>(timeout);
   HRESULT received=view->core->GetDevToolsProtocolEventReceiver(L"Input.dragIntercepted",&job->receiver);
@@ -130,6 +145,16 @@ static void xb_drag(const std::shared_ptr<xb_host>& host,const std::shared_ptr<x
   auto* handler=xb_cb<ICoreWebView2DevToolsProtocolEventReceivedEventHandler,ICoreWebView2*,ICoreWebView2DevToolsProtocolEventReceivedEventArgs*>(
     IID_ICoreWebView2DevToolsProtocolEventReceivedEventHandler,[weak](ICoreWebView2*,ICoreWebView2DevToolsProtocolEventReceivedEventArgs* args){
       if(auto active=weak.lock()){
+        xs_wv_text session;xs_wv_com<ICoreWebView2DevToolsProtocolEventReceivedEventArgs2> routed;
+        if(SUCCEEDED(args->QueryInterface(IID_ICoreWebView2DevToolsProtocolEventReceivedEventArgs2,reinterpret_cast<void**>(routed.out())))){
+          if(FAILED(routed->get_SessionId(&session.p))){active->stop("Cannot identify the native drag source");return S_OK;}
+        }else if(!active->sourceSession.empty()){active->stop("Native drag source session is unavailable");return S_OK;}
+        const auto source=webview::detail::narrow_string(session.p?session.p:L"");
+        // Chromium may report a child-origin drag through the main view's
+        // browser-level input handler. Only that root or the selected frame
+        // session can supply this gesture's payload, never another OOPIF.
+        if(!source.empty()&&source!=active->sourceSession)return S_OK;
+        if(!active->intercepted)active->eventSession=source;
         xs_wv_text text;if(FAILED(args->get_ParameterObjectAsJson(&text.p))||!text.p){active->stop("Cannot inspect native drag data");return S_OK;}
         size_t size=0;while(size<=65536&&text.p[size])size++;if(size>65536){active->stop("Native drag data exceeds 64 KiB");return S_OK;}
         active->receive(webview::detail::narrow_string(text.p));

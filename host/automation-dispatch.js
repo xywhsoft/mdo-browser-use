@@ -253,7 +253,6 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(!armed.ok||!armed.armed)return fail('chooser_unavailable','Native file-picker interception was not confirmed; no input was sent');
     }
     if (params.op === "drag") {
-      if(pageDriver)return fail('frame_drag_pending','Frame-aware drag cancellation is not yet connected; no drag input was sent');
       const samePair=(a,b)=>a&&b&&sameGeometry(a.source,b.source)&&sameGeometry(a.destination,b.destination);
       const preparePair=async(source=params.target,destination=params.destination,scroll=true)=>{
         const first=await read("prepare",{document:params.document,op:"drag",target:source,scroll});
@@ -282,9 +281,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(fresh.source.element.ref===fresh.destination.element.ref)return fail("drag_same_target","Choose distinct source and destination elements");
       const from=fresh.source.point,to=fresh.destination.point;
       if(Math.hypot(to.x-from.x,to.y-from.y)<4)return fail("drag_distance_too_small","Choose distinct drag points at least four CSS pixels apart");
+      const pins={};
+      if(pageDriver){
+        const valid=chain=>Array.isArray(chain)&&chain.length>0&&chain.length<=32&&chain.every(row=>typeof row?.frame==='string'&&typeof row?.document==='string')&&chain.at(-1).frame==='f0';
+        if(!valid(fresh.source.frame_chain)||!valid(fresh.destination.frame_chain))return fail('frame_response_invalid','Both drag targets need complete original frame document chains');
+        pins.source_frame_chain=fresh.source.frame_chain;pins.destination_frame_chain=fresh.destination.frame_chain;
+      }
       const stopped=await guard(true);if(stopped.handled)return stopped;
       let settled=false,native,failure;dispatched=true;dragRequested=true;
-      const pending=view.execute("drag",{agent:true,navigation,drag_key:action.id,...from,to_x:to.x,to_y:to.y,
+      const pending=view.execute("drag",{agent:true,navigation,drag_key:action.id,...from,to_x:to.x,to_y:to.y,...pins,
         timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
         .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
       while(!settled){

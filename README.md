@@ -83,8 +83,10 @@ It also verifies ticketed hidden OOPIF uploads and clears with exact byte hashes
 event counts, document-chain cancellation and completed receipts without replay.
 Picker interception, target resolution and cancel are also verified in their
 own process, including takeover, child navigation and newly attached OOPIFs.
-The regular workbench keeps its current adapter until drag and
-cross-frame capture privacy are migrated. The routed gate supplies controlled
+It verifies nested pointer/HTML5 drags, root/OOPIF delivery in both directions,
+receipt cancellation and child navigation while a mouse button is held.
+The regular workbench keeps its current adapter until cross-frame capture
+privacy is migrated. The routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
