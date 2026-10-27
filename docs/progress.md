@@ -1197,3 +1197,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   XRT supplies pinned directory roots and root-relative hard-link publication;
   unsupported filesystems must fail explicitly rather than fall back to unsafe
   path append/rename. Actual filesystem validation remains work to do.
+
+
+## D12l — verify and publish a staging file without replacing destinations
+
+- Add the shared C/JS host SDK `files.publish` primitive. It pins the original
+  absolute workspace directory identity, validates a source revision and exact
+  size/SHA-256 with bounded reads, then uses XRT's root-relative, no-replace hard
+  link. It checks the published entry against the held file before success.
+  Source bytes remain owned by the caller; the primitive never unlinks either
+  path, so an alias or uncertain cleanup cannot delete another entry. A hard
+  link is explicitly not an independent copy or a power-loss durability claim.
+- Existing targets, root replacement, size/hash/revision mismatches, invalid
+  paths and active Windows writers fail before publication. Missing native
+  identity information fails closed. Unsupported hard-link filesystems have no
+  unsafe rename/copy fallback. Failures after a possible publication are marked
+  uncertain; the caller must inspect instead of blindly replaying effects.
+- Actual SDK coverage passes binary/empty/Unicode files, identical-inode/case
+  aliases, physical root replacement and all tested precondition failures.
+  Initial test expectations for schema-layer validation (400 rather than 422)
+  were corrected. The final local gate passes 69 Python cases (67 pass, two
+  Windows symlink-privilege skips); the existing 70 JS cases and deployed overlay/
+  shared contract checks pass. No extra application/Home or native rebuild was
+  needed; the single development deployment remains about 832 MiB.
+- This is the publication building block, not the complete save feature. The
+  scoped streaming consumer, durable partial-file manifest and recovery/quota
+  handling, shared save tool/API, visible controls and the remaining Browser Use
+  goal stages still require implementation and verification.

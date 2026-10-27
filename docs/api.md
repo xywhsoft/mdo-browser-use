@@ -520,3 +520,29 @@ strings (at most 512 UTF-8 bytes, without control characters). New workbench
 records also retain the original `workspace`. A context supplied by the host
 server remains authoritative. Missing fields in legacy records do not prove a
 custom task workspace; future save controls must resolve that case explicitly.
+
+## Verified staging publication primitive
+
+The host SDK `files.publish` (C `mdoFilesPublish`, JS `api.files.publish`) is a
+workspace-write primitive for the upcoming file consumer. It accepts `source`
+and `path` as relative paths in the original task's absolute workspace,
+`source_revision` from the staging file's metadata, `root_snapshot` from
+`files.stat({path:"."})`, exact `size` (0 through 64 MiB), and lowercase `sha256`.
+The root snapshot pins directory device/identity, so adding staging entries may
+change its directory time without invalidating the selected physical root.
+
+It holds an XRT root handle, rejects non-regular sources, reads at most 64 KiB
+at a time, verifies the complete size/hash and source revision, then creates an
+anchored hard link only if the destination does not exist. It verifies the new
+entry's identity before reporting `published:true`. Existing destinations,
+including source aliases, are never replaced. Unsupported filesystems return an
+explicit error; no path-based rename/copy fallback is used. A post-publication
+failure returns `may_have_completed:true`; inspect both entries before retrying.
+The primitive never deletes either path on failure.
+
+**This is a hard link, not a copy.** `source_retained:true` means the trusted
+caller still owns its private staging entry; both names refer to the same bytes.
+The later file consumer must safely discard its own staging name after durable
+receipt/recovery checks. This primitive alone provides neither a download-save
+UI nor a crash recovery ledger, and does not promise power-loss durability.
+Managed download tools do not expose this operation yet.
