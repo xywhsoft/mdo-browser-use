@@ -2171,3 +2171,40 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   the source-observer cleanup readiness check needs a dedicated lifetime gate
   before any claim of full lifecycle completion. Android's retained WebView 138
   remains explicitly unsupported, as chosen by the user.
+
+## V5 — retained-document drag observer cleanup
+
+- Confirm a real lifecycle defect in the V4 source observer: a drag starting an
+  original POST download advances native navigation readiness but keeps its DOM
+  and isolated execution context. Cleanup previously skipped that context; the
+  following drag failed before input with `Cannot arm the original drag source
+  observer`. Before the fix, the retained document had one press/release and a
+  stale observer. This was an actual native fixture failure, not a speculative
+  provider/browser explanation.
+- Separate own-resource removal from input authority. Cleanup reuses the exact
+  captured context/session and operation key even when navigation readiness or
+  frame inventory changes. It never creates a replacement world or sends input.
+  Native source-end events still require the original document. Missing inventory
+  and changed aliases are not proof of a replaced source; failed cleanup without
+  positive loader replacement evidence retains a blocked view. A lost arm reply
+  followed by confirmed removal no longer incorrectly leaves a permanent block.
+  Dispose the owned listeners on trusted `pagehide` as well.
+- Add a compiled actual-source regression for retained/absent/replaced contexts,
+  lost replies, delayed cleanup, malformed responses, closed views and active
+  intercepted sources. Add a real original-response/navigation/history gate.
+  After the fix, the original DOM is retained, the original response is requested
+  exactly once and its size/SHA-256 matches. A following drag succeeds with two
+  presses/two releases and no observer. Real navigation/back also recovers with
+  one additional gesture. The reported BFCache document comparison is false:
+  this does not prove BFCache restoration handling.
+- Sequential verification: Python 108 total, 106 pass/two Windows symlink
+  privilege skips; JS 166 pass. Actual native frame gate 217 pass (poll-inclusive,
+  not performance evidence). Full normal public C/JS visual gate passes seven
+  operations and six root/child/cross-process drag combinations, plus managed
+  click/drag and owned read-only denial. Lifetime gate passes 16 assertions with
+  no new native diagnostics and zero remaining transfer reservations. Reuse the
+  same native object variant, deployment and Home; no model/external-site calls.
+- Android keeps the user's current WebView 138 with its explicit unsupported
+  automation result. Visual keyboard, directory uploads, full Android transport,
+  BFCache/adversarial lifecycle, OOM/network/performance and final packaging
+  remain open. This fix does not complete the long-term goal.

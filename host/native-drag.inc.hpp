@@ -21,7 +21,7 @@ static bool xb_drag_uri_list(const std::string& data){
 struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;
   ICoreWebView2DevToolsProtocolEventReceiver* receiver=nullptr;EventRegistrationToken token{};
-  std::string id,key,error,dragData,sourceSession,eventSession;xb_input_frame_guard sourceGuard,destinationGuard;xb_input_frame_snapshot frameSnapshot;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
+  std::string id,key,error,dragData,sourceSession,eventSession,sourceRaw,sourceLoader;xb_input_frame_guard sourceGuard,destinationGuard;xb_input_frame_snapshot frameSnapshot;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
   double x=0,y=0,toX=0,toY=0,currentX=0,currentY=0;unsigned phase=0,moved=0,cleanup=0;
   LONG width=0,height=0;
   bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,sourceIntercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
@@ -57,22 +57,32 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     });
   }
   bool sourceLive()const{return host->alive&&!view->closed&&view->core&&view->navigation==navigation&&xb_input_frames_live(view,sourceGuard);}
+  bool watchHostAlive()const{return host->alive&&!view->closed&&view->core;}
+  bool sourceReplaced()const{
+    if(!watchHostAlive())return true;
+    if(sourceGuard.empty()||!view->frames||sourceRaw.empty())return false;
+    const auto node=view->frames->nodes.find(sourceRaw);
+    // An absent inventory or rotated alias can accompany a surviving DOM.
+    // A changed nonempty native loader positively identifies a replacement.
+    return node!=view->frames->nodes.end()&&!sourceLoader.empty()&&!node->second.loader.empty()&&node->second.loader!=sourceLoader;
+  }
   // This private observer is created in the exact source document/world, never
   // the page world. Missing/blocked event evidence is unconfirmed, not inactive.
-  void watch(const std::string& expression,std::function<void(bool,const std::string&)> complete){
-    if(!sourceLive()||sourceGuard.empty()){complete(false,"");return;}
-    auto node=xb_frame_alias(view->frames,sourceGuard.front().first);if(!node){complete(false,"");return;}
+  void watch(const std::string& expression,std::function<void(bool,const std::string&)> complete,bool retainedContext=false){
+    if(retainedContext){if(!watchHostAlive()||watchContext<=0){complete(false,"");return;}}
+    else if(!sourceLive()||sourceGuard.empty()){complete(false,"");return;}
     inFlight=true;auto self=shared_from_this();
-    auto evaluate=[self,expression,complete](int context){
-      if(self->done)return;if(!self->sourceLive()){self->inFlight=false;complete(false,"");return;}
+    auto evaluate=[self,expression,complete,retainedContext](int context){
+      if(self->done)return;if(!(retainedContext?self->watchHostAlive():self->sourceLive())){self->inFlight=false;complete(false,"");return;}
       self->watchContext=context;
       xb_frame_cdp(self->view,self->sourceSession,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(context)+",\"returnByValue\":true,\"timeout\":1000}",
-        [self,complete](bool ok,const std::string& result){
+        [self,complete,retainedContext](bool ok,const std::string& result){
           self->inFlight=false;if(self->done)return;self->nextAt=GetTickCount64()+20;
-          const auto value=xb_get(result,"result");complete(ok&&self->sourceLive()&&xb_get(value,"type")=="number"&&xb_get(result,"exceptionDetails").empty(),xb_get(value,"value"));
+          const auto value=xb_get(result,"result");complete(ok&&(retainedContext?self->watchHostAlive():self->sourceLive())&&xb_get(value,"type")=="number"&&xb_get(result,"exceptionDetails").empty(),xb_get(value,"value"));
         });
     };
     if(watchContext){evaluate(watchContext);return;}
+    auto node=xb_frame_alias(view->frames,sourceGuard.front().first);if(!node){inFlight=false;complete(false,"");return;}
     xb_frame_cdp(view,sourceSession,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(node->raw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
       [self,evaluate,complete](bool ok,const std::string& result){
         if(self->done)return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
@@ -85,9 +95,9 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     watch("(()=>{const old="+watchLookup()+";if(old)throw Error('Previous drag observer was not released');const s={key:"+xb_quote(key)+",active:false,seen:false,target:null};"
       "const start=e=>{if(!e.isTrusted||s.seen)return;s.seen=true;s.active=true;s.target=e.target};"
       "const end=e=>{if(e.isTrusted&&s.seen&&e.target===s.target){s.active=false;s.target=null}};"
-      "s.dispose=()=>{document.removeEventListener('dragstart',start,true);document.removeEventListener('dragend',end,true);if("+watchLookup()+"===s)delete globalThis.__mdo_native_drag_watch_v1};"
-      "Object.defineProperty(globalThis,'__mdo_native_drag_watch_v1',{value:s,configurable:true});document.addEventListener('dragstart',start,true);document.addEventListener('dragend',end,true);return 1})()",
-      [self](bool ok,const std::string& value){if(!ok||value!="1"){self->cleanupFailed=true;self->stop("Cannot arm the original drag source observer");}});
+      "const hide=e=>{if(e.isTrusted)s.dispose()};s.dispose=()=>{document.removeEventListener('dragstart',start,true);document.removeEventListener('dragend',end,true);removeEventListener('pagehide',hide,true);if("+watchLookup()+"===s)delete globalThis.__mdo_native_drag_watch_v1};"
+      "Object.defineProperty(globalThis,'__mdo_native_drag_watch_v1',{value:s,configurable:true});document.addEventListener('dragstart',start,true);document.addEventListener('dragend',end,true);addEventListener('pagehide',hide,true);return 1})()",
+      [self](bool ok,const std::string& value){if(!ok||value!="1")self->stop("Cannot arm the original drag source observer");});
   }
   void checkWatch(){
     watchChecked=true;auto self=shared_from_this();
@@ -99,9 +109,12 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
       });
   }
   void clearWatch(){
-    watchCleared=true;if(!sourceLive())return;auto self=shared_from_this();
+    watchCleared=true;if(!watchHostAlive()||watchContext<=0)return;auto self=shared_from_this();
+    // Pure removal may run in the retained original context after its navigation
+    // token changes (including original-response downloads). It must never create
+    // a new world or send input, and only removes this job's exact keyed record.
     watch("(()=>{const s="+watchLookup()+";if(!s||s.key!=="+xb_quote(key)+")return 0;const active=s.active;s.dispose();return active?2:1})()",
-      [self](bool ok,const std::string& value){if(self->sourceLive()&&(!ok||(self->intercepted&&value!="1"))){self->cleanupFailed=true;self->stop("Native drag source cleanup was not confirmed");}});
+      [self](bool ok,const std::string& value){if(!self->sourceReplaced()&&(!ok||(value!="0"&&value!="1"&&value!="2")||(self->intercepted&&value=="2"))){self->cleanupFailed=true;self->stop("Native drag source cleanup was not confirmed");}},true);
   }
   void receive(const std::string& json){
     if(done||intercepted)return;
@@ -198,7 +211,7 @@ static void xb_drag(const std::shared_ptr<xb_host>& host,const std::shared_ptr<x
     host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The original drag source or destination frame document changed\"}");return;
   }
   if(!job->sourceGuard.empty()){
-    auto source=xb_frame_alias(view->frames,job->sourceGuard.front().first);if(!source){host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The source frame is no longer attached\"}");return;}job->sourceSession=source->session;
+    auto source=xb_frame_alias(view->frames,job->sourceGuard.front().first);if(!source){host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The source frame is no longer attached\"}");return;}job->sourceSession=source->session;job->sourceRaw=source->raw;job->sourceLoader=source->loader;
   }
   job->width=view->bounds.right-view->bounds.left;job->height=view->bounds.bottom-view->bounds.top;
   job->x=x;job->y=y;job->toX=toX;job->toY=toY;job->expires=GetTickCount64()+static_cast<ULONGLONG>(timeout);

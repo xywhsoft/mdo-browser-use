@@ -304,6 +304,15 @@ state are removed before normal admission of the next gesture; missing or
 unconfirmed event/cleanup evidence retains a blocked view until it is ended.
 Extra source-end cleanup requires the original source document. An admitted
 mouse press still receives its one native release during interruption cleanup.
+Removing the observer is separate from sending input: an original-response
+download may rotate the navigation token while preserving the original DOM.
+Pure cleanup reuses its captured isolated context/session and exact operation
+key, without creating another world or relaxing input admission. A missing frame
+inventory or rotated document alias alone cannot establish that the old context
+was destroyed. Cleanup failure without positive native replacement evidence
+blocks the view. A trusted `pagehide` also disposes the owned observer before
+ordinary history suspension; the current actual history gate did not confirm a
+BFCache restoration and must not be treated as that separate lifecycle pass.
 This adapter behavior was checked against the installed engine; the consulted
 [Chromium input implementation](https://raw.githubusercontent.com/chromium/chromium/main/content/browser/devtools/protocol/input_handler.cc)
 also routes drag events through the widget under the specified point.

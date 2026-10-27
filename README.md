@@ -48,6 +48,7 @@ python -m unittest discover -s tests -v
 node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_android_support.mjs tests/test_capture_image.mjs tests/test_frame_capture.mjs tests/test_visual_snapshot.mjs tests/test_visual_dispatch.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
 python tools/native_probe.py
 python tools/native_frames_probe.py
+python tools/drag_lifetime_probe.py
 python tools/public_frames_probe.py
 python tools/frame_scroll_probe.py
 python tools/visual_probe.py
@@ -151,6 +152,13 @@ The minimal Java device gate uses `python tools/setup_android_client.py`,
 It reuses the existing WSL JDK, requires no NDK, and preserves installed mdo apps.
 The connected phone currently reports no isolated-world feature; this is an
 explicit unsupported-provider receipt, not an Android automation pass.
+
+`drag_lifetime_probe.py` exercises an original POST download during a held
+pointer, preserving the source DOM, then verifies observer removal and the next
+trusted gesture. It checks exact response bytes/hash, one POST, one release per
+press, real navigation/history recovery and empty native transfer reservations.
+It uses the same loopback fixture and Home; BFCache restoration is reported
+separately and was not confirmed by the current run.
 
 ## License
 

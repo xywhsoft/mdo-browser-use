@@ -2,6 +2,7 @@
 from http.server import BaseHTTPRequestHandler,HTTPServer
 import threading
 import re
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -21,6 +22,16 @@ class FrameFixture:
                 self.connection.settimeout(.5)
             def handle(self):
                 try:super().handle()
+                except (BrokenPipeError,ConnectionResetError):pass
+            def do_POST(self):
+                if urlsplit(self.path).path!='/drag-download':self.send_error(404);return
+                fixture.counts['POST /drag-download']=fixture.counts.get('POST /drag-download',0)+1
+                length=int(self.headers.get('Content-Length','0'))
+                if length>4096:self.send_error(413);return
+                self.rfile.read(length);time.sleep(.15)
+                data=b'browser-use-original-drag-response\x00\xff'
+                self.send_response(200);self.send_header('Content-Type','application/octet-stream');self.send_header('Content-Disposition','attachment; filename="drag-lifetime.bin"');self.send_header('Content-Length',str(len(data)));self.send_header('Connection','close');self.end_headers()
+                try:self.wfile.write(data)
                 except (BrokenPipeError,ConnectionResetError):pass
             def do_GET(self):
                 path=urlsplit(self.path).path;fixture.counts[path]=fixture.counts.get(path,0)+1
@@ -73,6 +84,10 @@ class FrameFixture:
                     body+='};for(const type of ["pointerup","pointercancel"])pointer.addEventListener(type,e=>{if(!held)return;held=false;document.body.dataset.held="false";document.querySelector("#pointer-result").textContent=name+" pointer releases "+(++releases)+(e.isTrusted?" trusted":" synthetic")});'
                     body+='html.ondragstart=e=>{starts++;e.dataTransfer.effectAllowed="copyMove";e.dataTransfer.setData("text/plain","visual-drag-fixture");document.querySelector("#source-result").textContent=name+" HTML starts "+starts+" ends "+ends};html.ondragend=()=>{ends++;document.querySelector("#source-result").textContent=name+" HTML starts "+starts+" ends "+ends};'
                     body+='drop.ondragover=e=>{e.preventDefault();e.dataTransfer.dropEffect="move"};drop.ondrop=e=>{e.preventDefault();document.querySelector("#drop-result").textContent=name+" drops "+(++drops)+(e.isTrusted?" trusted ":" synthetic ")+e.dataTransfer.getData("text/plain")};</script>'
+                elif path in ('/drag-download-root','/drag-navigation-root'):
+                    body='<style>body{margin:0}#source,#destination{position:absolute;top:30px;width:120px;height:60px;background:#ddd}#source{left:20px}#destination{left:230px}</style><div id="source" role="button" aria-label="Lifetime drag source">Source</div><div id="destination" role="button" aria-label="Lifetime drag destination">Destination</div><form id="download" method="post" action="/drag-download"><input name="fixture" value="original" type="hidden"></form><script>document.body.dataset.lifetime="original";document.body.dataset.downs="0";document.body.dataset.ups="0";let once=true,held=false;const source=document.querySelector("#source");source.onpointerdown=e=>{e.preventDefault();held=true;source.setPointerCapture(e.pointerId);document.body.dataset.downs=String(Number(document.body.dataset.downs)+1);if(once){once=false;document.querySelector("#download").submit()}};for(const type of ["pointerup","pointercancel"])source.addEventListener(type,e=>{if(!held)return;held=false;document.body.dataset.ups=String(Number(document.body.dataset.ups)+1)});</script>'
+                    if path=='/drag-navigation-root':
+                        body=body.replace('let once=true,held=false','let once=window.name!=="mdo-drag-lifetime-once",held=false').replace('document.querySelector("#download").submit()','window.name="mdo-drag-lifetime-once";location.href="/foreign"')
                 elif path=='/geometry-leaf':
                     body='<style>body{margin:0}button{margin:20px}</style><button id="target">Nested geometry action</button><output id="result"></output><label>Nested field<input id="field"></label><label>Nested choice<select id="choice"><option>First</option><option>Second</option></select></label><input type="file" id="files" hidden aria-label="Hidden nested upload"><script>document.body.dataset.geometryClicks="0";document.querySelector("#target").onclick=e=>{document.body.dataset.geometryClicks=String(Number(document.body.dataset.geometryClicks)+1);document.querySelector("#result").textContent=e.isTrusted?"trusted":"synthetic"};document.body.dataset.uploadEvents="[]";for(const type of ["input","change"])document.querySelector("#files").addEventListener(type,async e=>{const events=JSON.parse(document.body.dataset.uploadEvents);events.push({type,trusted:e.isTrusted});document.body.dataset.uploadEvents=JSON.stringify(events);if(type!=="change")return;const file=e.target.files[0];document.body.dataset.uploadHash=file?Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",await file.arrayBuffer())),n=>n.toString(16).padStart(2,"0")).join(""):""})</script>'
                     body+='<button id="choose-file" onclick="document.querySelector(\'#files\').click()">Choose nested file</button><script>document.body.dataset.cancelEvents="[]";document.querySelector("#files").addEventListener("cancel",e=>{const events=JSON.parse(document.body.dataset.cancelEvents);events.push(e.isTrusted);document.body.dataset.cancelEvents=JSON.stringify(events)})</script>'
