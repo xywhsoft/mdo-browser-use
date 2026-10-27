@@ -13,10 +13,14 @@ BODY=bytes(index%251 for index in range(131075))
 class DownloadFixture:
     def __init__(self):
         self.counts={}
+        self.responses=[]
         fixture=self
         class Handler(BaseHTTPRequestHandler):
             protocol_version='HTTP/1.1'
             def log_message(self,*args): pass
+            def send_response(self,code,message=None):
+                fixture.responses.append({'path':urlsplit(self.path).path,'method':self.command,'status':code,'at':round(time.monotonic(),3)})
+                super().send_response(code,message)
             def handle(self):
                 try: super().handle()
                 except (ConnectionResetError,BrokenPipeError): pass
@@ -40,6 +44,7 @@ class DownloadFixture:
                     size=int(self.headers.get('Content-Length','0'))
                     if self.command!='POST' or size>4096 or self.rfile.read(size)!=b'order=fixture' or 'browser_download_fixture=1' not in self.headers.get('Cookie',''):
                         self.send_error(403);return
+                    if path=='/post':time.sleep(1.4)
                 if path not in ('/binary','/empty','/unknown','/large','/slow','/slow-public','/interrupt','/truncated','/post','/post-popup'):
                     self.send_error(404);return
                 self.send_response(200);self.send_header('Content-Type','application/octet-stream');self.send_header('Content-Disposition','attachment; filename="fixture-'+path[1:]+'.bin"')

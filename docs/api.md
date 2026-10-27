@@ -2,8 +2,8 @@
 
 The Windows WebView2 path includes verified native JavaScript dialogs, visible
 scoped popup tabs, regular file-input/picker uploads, intercepted response
-downloads, task-workspace saves and explicit recovery controls. Android and
-complete cross-origin frame support remain in progress. No additional
+downloads, task-workspace saves, nested cross-origin frame routing and explicit
+recovery controls. Android and the remaining vision/lifecycle gates are in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
 Page document identities use cryptographic random bytes rather than relying on
@@ -38,9 +38,11 @@ This is not a transactional guarantee about JavaScript handlers.
 The actual WebView2 frame gate covers cross-site/nested contexts, hostile
 page-world runtime markers, primitive return encoding, foreign view aliases,
 child navigation, close/recreation and frame/session saturation/recovery.
-Public multi-frame observations, element/coordinate routing, frame uploads and
-cross-origin screenshot privacy remain in development. Existing public callers
-still use the documented same-origin path below.
+The normal Windows workbench enables this fixed frame driver when its content
+view advertises `frame_automation:true`. Public observations, qualified element
+actions, frame uploads/pickers and composed screenshot privacy use the same
+private routing. Existing backends without this flag keep their original path.
+Models still cannot request raw script, sessions or protocol operations.
 
 The internal `frame-reader.js` now combines one isolated local-frame runtime
 per document. It prevents duplicate same-origin traversal, namespaces element
@@ -99,8 +101,8 @@ navigation expires unresolved pickers/staging; completed upload receipts can
 be queried without replay and retain website bytes until confirmed release.
 Hidden uploads also check real parent iframe owners for composed `inert`
 ancestry before source reads and on post-seal target revalidation. Visibility
-alone does not disable a hidden file input. The normal workbench still uses its
-existing adapter pending its normal public integration gate. The internal
+alone does not disable a hidden file input. The normal workbench now uses this
+driver for its supported Windows content views. The
 capture coordinator now composes exact local masks through native owners and
 clips nested element screenshots; unsupported/unreadable frames remain opaque.
 Before/after frame/layout stamps withhold a captured image if its child
@@ -109,8 +111,18 @@ The internal drag adapter already sends source and destination document chains,
 fences both throughout the native gesture, and drains mouse/interception state
 on cancellation or child navigation. Actual tests cover nested pointer/HTML5
 and root/OOPIF HTML5 delivery in both directions without repeating a drop.
-Cross-frame managed C/JS service
-registration and permissions have not yet been verified through that normal UI.
+Public C SDK and managed Agent tests cover nested Unicode fill/selection,
+private element images, complete upload SHA-256, exact picker delivery/cancel,
+and owned read-only inspection/images versus denied mutation through that UI.
+Offscreen parent scrolling and model-supplied vision coordinates are not yet
+implemented; unsupported geometry remains an explicit bounded failure.
+
+Native top-level navigation invalidates pending operations immediately. A file
+response can leave the original DOM alive: a fresh native inventory may preserve
+its frame/document reference only when the exact frame, parent and nonempty
+loader identity match. A URL match alone is never sufficient. Slow submitted
+responses remain fenced until native navigation settles, bounded by the original
+action deadline and cancellation. The original POST/input is never replayed.
 
 ## Shared C/JavaScript boundary
 
@@ -468,7 +480,8 @@ effect) and `browser_upload_status` (read). They use the existing live permissio
 full access needs no additional prompt and read-only tools cannot assign files.
 
 FileList verification confirms exact names/sizes/count, not website acceptance.
-Hidden inputs, open Shadow DOM and accessible same-origin frame inputs work.
+Hidden inputs, open Shadow DOM and native-routed cross-origin frame inputs work
+on the enhanced Windows backend.
 Disabled/inert, stale, non-file, directory and single-file capacity mismatches
 fail before assignment. Assigned bytes survive cancellation, navigation and
 staging expiry because a website can submit its File objects later. Retain the
@@ -489,7 +502,8 @@ the independent file-staging ticket/byte budget. Clearing never releases a
 previous upload: the site can retain old File objects. Status is historical
 transfer state; a fresh observation provides the current `selected_count`.
 
-Directory/OOPIF uploads, downloads and Android transfer support remain unfinished.
+Directory uploads and Android transfer support remain unfinished. Windows
+OOPIF uploads and intercepted downloads have separate real-browser gates.
 Unsupported devices fail before source reads; there is no browser-device path fallback.
 
 ## Intercepted file pickers
@@ -529,7 +543,7 @@ and pinned before source reads; its document, picker and reference are checked
 through native staging/assignment. Cancelled, expired or replaced tickets
 cannot deliver files. Successful assignment consumes that picker once without
 also emitting cancel. The same file-operation receipt cannot select another
-input. Hidden/shadow/same-origin frame inputs work; other frame/picker kinds
+input. Hidden/shadow/native-routed frame inputs work; unsupported frame/picker kinds
 fail before source reads and require manual control.
 
 Cancelling preserves the preexisting FileList and retained website File bytes.

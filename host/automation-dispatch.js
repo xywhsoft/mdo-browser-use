@@ -8,6 +8,17 @@ const writers = new Set();
 let capturing = false;
 const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
   a.geometry?.every((number, index) => Math.abs(number - b.geometry[index]) <= 0.5);
+const captureChanges=(before,after)=>{
+  try{
+    if(typeof before!=='string'||typeof after!=='string'||before.length>65536||after.length>65536)return'context';
+    const a=JSON.parse(before),b=JSON.parse(after);if(!Array.isArray(a)||!Array.isArray(b)||a.length>32||b.length>32)return'context';
+    const old=new Map(a.map(row=>[row[0],row])),changes=new Set(),fields=['frame-tree','frame-document','frame-tree','frame-readiness','frame-readiness','mask-coverage','isolated-document','scroll','viewport','iframe-layout'];
+    if(a.length!==b.length)changes.add('frame-tree');
+    for(const row of b){const previous=old.get(row[0]);if(!previous){changes.add('frame-tree');continue;}
+      for(let index=1;index<10;index++)if(JSON.stringify(previous[index])!==JSON.stringify(row[index]))changes.add(fields[index]);}
+    return[...changes].sort().join(', ')||'context';
+  }catch{return'context';}
+};
 
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
@@ -18,7 +29,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,inputFrameChain=null;
+  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
@@ -85,11 +96,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     // A submitted response can start navigation before DownloadStarting/its
-    // scoped identity callback. Drain only this bounded post-input event turn;
+    // scoped identity callback. Keep the original navigation until it settles,
+    // then drain one bounded event turn. The caller's deadline/cancel still wins;
     // never evaluate the changed document or send another input in between.
-    if(dispatched&&performance.now()<downloadCheckpointUntil&&!state.manual&&!state.process_failed&&!state.dialog_open&&!state.popup_open&&
+    if(dispatched&&canOpenDownload&&!state.manual&&!state.process_failed&&!state.dialog_open&&!state.popup_open&&
        (state.error||navigation!==undefined&&state.navigation!==navigation)){
-      await pause(20);return guard(true);
+      if(checkpointNavigation!==state.navigation||state.loading){
+        checkpointNavigation=state.navigation;downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
+      }
+      if(performance.now()<downloadCheckpointUntil){await pause(20);return guard(true);}
     }
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
@@ -162,7 +177,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (failure) return fail("capture_failed",String(failure.message||failure).slice(0,512));
       const after = await read("captureArea",{...options,document:area.document});
       if (!after.ok) return {handled:true,result:after};
-      if(area.frame_stamp!==after.frame_stamp)return fail('capture_changed','Frame documents or layout changed during screenshot capture; request a fresh image');
+      if(area.frame_stamp!==after.frame_stamp)return fail('capture_changed',`Screenshot validation changed (${captureChanges(area.frame_stamp,after.frame_stamp)}); request a fresh image`);
       if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
       const image = await prepareScreenshot(native,area,after,params);
       checked = await guard(true);if (checked.handled) return checked;

@@ -313,3 +313,14 @@ test("screenshot cancellation stops the native request and releases its UI write
   const next=await executeBrowserAutomation({command:"capture",params:{},view,browser:"capture-browser",action:{id:"next-capture"},api:{async call(){return{state:"pending"};}}});
   assert.equal(next.result.error.code,"unsupported_capability");
 });
+
+test('changed capture scope reports only structural causes and withholds the image',async()=>{
+  let reads=0;
+  const stamp=value=>JSON.stringify([['f0','fd-root',null,false,true,'readable',value,{x:0,y:0},{width:100,height:100},null]]);
+  const result=await executeBrowserAutomation({command:'capture',params:{document:'original'},browser:'capture-scope-qa',action:{id:'changed-image'},
+    api:{async call(){return{state:'pending'};}},
+    pageDriver:{async read(){return{ok:true,document:'original',device_pixel_ratio:1,region:{x:0,y:0,width:100,height:100},redactions:[],frame_stamp:stamp(reads++?'new-private-identity':'old-private-identity')};}},
+    view:{async execute(command){if(command==='state')return{loading:false,automation:true,capture_capability:true,navigation:'1'};if(command==='capture')return{data:'private-raw-image'};throw Error('Unexpected capture command');}}});
+  assert.equal(result.result.error.code,'capture_changed');assert(result.result.error.message.includes('isolated-document'));
+  assert(!JSON.stringify(result).includes('private'));assert.equal(result.result.image,undefined);assert.equal(reads,2);
+});

@@ -599,6 +599,16 @@
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "\"upload\",\"chooser\",\"downloads\"].includes(request.command)",
       "after": "\"upload\",\"chooser\",\"downloads\",\"frames\"].includes(request.command)"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "import { executeBrowserAutomation } from \"./automation-dispatch.js\";",
+      "after": "import { createFrameDriver } from \"./frame-driver.js\";\nimport { executeBrowserAutomation } from \"./automation-dispatch.js\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });",
+      "after": "      const routedCommand=[\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"capture\",\"upload\"].includes(command);\n      const frameState=routedCommand?await view.execute(\"state\"):null;\n      const pageDriver=frameState?.frame_automation===true?createFrameDriver({execute:(operation,parameters)=>view.execute(operation,parameters)}):null;\n      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });"
     }
   ],
   "files": [

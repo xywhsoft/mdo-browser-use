@@ -27,6 +27,12 @@ try {
     url: `${origin}/__browser_use_page__.html`, key: "js-native-client" });
   const page = await client.observe({ browser: browser.id });
   assert.ok(page.text.includes("Readable fixture text"));
+  assert.equal(page.frame_routing,'native-isolated-v1');assert(page.elements.every(row=>row.ref.startsWith('r1|')));
+  const frameInput=page.elements.find(row=>row.name==='Frame input');assert(frameInput&&frameInput.frame!=='f0');
+  const frameFilled=await client.act({browser:browser.id,document:page.document,op:'fill',target:{ref:frameInput.ref},text:'JS iframe 🦉'});
+  assert.equal(frameFilled.verification,'field_state');
+  const frameImage=await client.screenshot({browser:browser.id,document:page.document,mode:'element',target:{ref:frameInput.ref},format:'png',max_width:400,max_height:200});
+  assert.equal(frameImage.image.media_type,'image/png');assert(frameImage.redacted_regions>0);
   const choices=await client.observe({browser:browser.id,mode:"options",document:page.document,target:{label:"Delivery method"}});
   assert.equal(choices.options[3].label,"Express");assert.equal(choices.values_exposed,false);
   const selectionOperation=`sdk-${crypto.randomUUID().replaceAll("-","")}`;

@@ -67,7 +67,7 @@ def main(initial_only=False,managed_only=False):
         result={**js,'managed_accept_wait_release':True,'managed_initial_url_intercepted':True,'read_only_list_allowed_mutations_denied':True,'full_access_no_extra_prompt':True,'native_cache':cache,'download_requests':dict(fixture.counts)}
         output.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
     except Exception as error:
-        output.write_text(json.dumps({'passed':False,'stage':stage,'error':str(error)[:512],'detail':getattr(error,'detail',{}),'download_requests':dict(fixture.counts)})+'\n',encoding='utf-8')
+        output.write_text(json.dumps({'passed':False,'stage':stage,'error':str(error)[:512],'detail':getattr(error,'detail',{}),'download_requests':dict(fixture.counts),'response_events':fixture.responses})+'\n',encoding='utf-8')
         if isinstance(error,subprocess.CalledProcessError):print((error.stderr or '')[-2800:],file=sys.stderr)
         raise
     finally:

@@ -134,7 +134,15 @@ static xb_frame_node* xb_frame_upsert(const std::shared_ptr<xb_frame_state>& sta
   auto at=state->nodes.find(raw);
   if(at==state->nodes.end()){
     if(state->nodes.size()>=64){state->error="frame_limit";return nullptr;}
-    xb_frame_node node;node.raw=raw;node.id=raw==state->root?"f0":xb_frame_id("f-");node.document=xb_frame_id("fd-");
+    xb_frame_node node;node.raw=raw;
+    // NavigationStarting can lead to a file response without replacing any DOM.
+    // Reuse identity only after the fresh native inventory proves the same
+    // nonempty loader, raw frame and parent. Never infer this from a URL.
+    auto previous=state->previousNodes.find(raw);
+    if(previous!=state->previousNodes.end()&&!loader.empty()&&previous->second.loader==loader&&previous->second.parent==parent){
+      node.id=previous->second.id;node.document=previous->second.document;node.loader=loader;
+    }else{node.id=raw==state->root?"f0":xb_frame_id("f-");node.document=xb_frame_id("fd-");}
+    if(previous!=state->previousNodes.end())state->previousNodes.erase(previous);
     if(node.id.empty()||node.document.empty()){state->error="frame_identity_unavailable";return nullptr;}
     at=state->nodes.emplace(raw,std::move(node)).first;
   }
@@ -147,7 +155,7 @@ static xb_frame_node* xb_frame_upsert(const std::shared_ptr<xb_frame_state>& sta
 static void xb_frame_detach(const std::shared_ptr<xb_frame_state>& state,const std::string& raw){
   std::vector<std::string> remove{raw};
   for(size_t index=0;index<remove.size()&&index<64;index++)for(const auto& item:state->nodes)if(item.second.parent==remove[index])remove.push_back(item.first);
-  for(const auto& key:remove){state->nodes.erase(key);state->loading.erase(key);}
+  for(const auto& key:remove){state->nodes.erase(key);state->previousNodes.erase(key);state->loading.erase(key);}
 }
 static bool xb_frame_attached(const std::shared_ptr<xb_frame_state>& state,const xb_frame_node& node){
   const xb_frame_node* current=&node;
@@ -379,7 +387,7 @@ static void xb_frames_request(const std::shared_ptr<xb_host>& host,const std::sh
 }
 static void xb_frames_navigation(const std::shared_ptr<xb_view>& view){
   if(!view->frames)return;auto state=view->frames;state->generation++;auto jobs=state->jobs;
-  for(auto& item:jobs)item.second->finish("","stale_frame");state->nodes.clear();state->loading.clear();state->root.clear();
+  for(auto& item:jobs)item.second->finish("","stale_frame");state->previousNodes=std::move(state->nodes);state->nodes.clear();state->loading.clear();state->root.clear();
   if(state->error=="frame_limit"||state->error=="frame_session_limit"||state->error=="frame_event_limit"||state->error=="frame_identity_unavailable")state->error.clear();
 }
 static void xb_frames_close(const std::shared_ptr<xb_view>& view){

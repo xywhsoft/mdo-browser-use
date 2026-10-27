@@ -13,6 +13,10 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
+Latest verified milestone: S4 enables native frame routing in the normal Windows
+workbench. Android, vision coordinates, offscreen-parent scrolling and final
+lifecycle/performance/package gates remain active; this is not a release.
+
 ## Working boundaries
 
 `D:\GIT\mdo-browser-use` is the development root. `D:\GIT\mdo` is read-only
@@ -1857,3 +1861,40 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   inventory/readiness is retained; incomplete process attachment can return a
   bounded readiness error. Public C/JS/managed frame integration, Android,
   vision, lifecycle/OOM, network/performance and final packaging remain active.
+
+## S4 — enable the frame driver in the normal workbench
+
+- Advertise a per-content-view native `frame_automation` flag and enable the
+  fixed driver for supported ordinary workbench operations. Older backends keep
+  their prior adapter. Public SDK/Agent calls use real UI receipts and original
+  ownership/permission scopes; no controlled receipt shortcut is used there.
+- Add the normal nested-OOPIF C SDK gate: 17 operations, Unicode fill, selection,
+  private element screenshot, workspace and picker uploads with complete SHA-256,
+  clear/release and picker cancel. Managed nested fill/images pass; an owned
+  read-only browser allows observations/images and rejects fill.
+- Integration found two download defects. The fixed post-input 1.1-second window
+  expired during an original slow POST navigation. Wait only on native metadata
+  until that navigation settles, then drain a bounded callback turn, obeying the
+  original deadline/cancellation and never resending input. A deterministic
+  slow-response regression failed before the fix; real delayed POST passes with
+  exactly one server request, as does POST popup/download cancellation.
+- NavigationStarting also discarded frame identities when a file response left
+  the source DOM unchanged. Retain at most one bounded previous inventory and
+  reuse identities only on a fresh matching raw frame, parent and nonempty
+  native loader. Real loader changes, empty proof, reparenting and detachment
+  invalidate them. Compiled actual-source rules and a real direct-download test
+  verify this without relying on URL equality. Pending jobs still expire at
+  navigation start; no old evaluation survives it.
+- One earlier first public image returned `capture_changed`; its exact cause was
+  not captured. Add structural-only mismatch categories, excluding page text or
+  identity values. Three independent first-image measurements and later SDK/
+  OOPIF images passed. This does not establish a root cause for that transient.
+- Sequential checks: 145 JS pass; Python 104 total, 102 pass/two Windows symlink
+  privilege skips; private frame gate 182 pass; native baseline 1,369
+  poll-inclusive checks. Normal C/JS SDK, managed root and OOPIF, uploads, all
+  downloads, five exact-byte saves and 17 mounted download-UI checks pass.
+  Native upload/download reservations drain, with no new native diagnostics.
+- Source and binary stay in the single existing deployment/Home. No model calls,
+  runtime dependency installation, extra checkout or publication. Next implement
+  offscreen parent scrolling, vision input and Android with explicit capability
+  limits, followed by lifecycle/OOM, network/performance and packaging gates.

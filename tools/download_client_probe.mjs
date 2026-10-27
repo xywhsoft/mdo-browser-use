@@ -35,7 +35,10 @@ try{
     stage='offer:'+selector;let clicked;
     try{clicked=await client.act({browser:browser.id,document:page.document,op:'click',target:{css:selector}});}
     catch(error){
-      await writeFile(new URL('.mdo/evidence/public-download-action-failure.json',root),JSON.stringify({selector,code:error.code,details:error.details,after:await client.download({browser:browser.id,action:'list'})},null,2)+'\n');throw error;
+      const checkpoints=[],started=performance.now();
+      do{const after=await client.download({browser:browser.id,action:'list'});checkpoints.push({after_ms:Math.round(performance.now()-started),after});
+        if(after.downloads.some(row=>row.state==='pending'))break;await new Promise(r=>setTimeout(r,100));}while(performance.now()-started<3000);
+      await writeFile(new URL('.mdo/evidence/public-download-action-failure.json',root),JSON.stringify({selector,code:error.code,details:error.details,checkpoints},null,2)+'\n');throw error;
     }
     if(clicked.outcome!=='download_pending')await writeFile(new URL('.mdo/evidence/public-download-checkpoint-failure.json',root),JSON.stringify({selector,clicked,after:await client.download({browser:browser.id,action:'list'})},null,2)+'\n');
     assert.equal(clicked.outcome,'download_pending',selector);assert.equal(clicked.completed,false);assert.equal(clicked.dispatched,true);
@@ -91,8 +94,13 @@ try{
   assert.equal(navigated.outcome,'download_pending');assert.equal(navigated.dispatched,true);
   const direct=(await client.download({browser:browser.id,action:'list'})).downloads.find(row=>row.state==='pending');assert(direct);
   await client.download({browser:browser.id,action:'cancel',download:direct.id});await client.download({browser:browser.id,action:'release',download:direct.id});
+  stage='source:reference-preservation';
+  const afterResponse=await client.observe({browser:browser.id});
+  assert.equal(afterResponse.document,page.document,'A file response replaced the source document identity');
+  assert.equal(afterResponse.elements.find(row=>row.name==='Binary').ref,page.elements.find(row=>row.name==='Binary').ref,
+    'A non-document file response invalidated a still-connected source element reference');
   }
   stage='complete';await writeFile(new URL('.mdo/download-client-result.json',root),JSON.stringify({passed:true,test_scope:initialOnly?'initial-and-popup':'all-downloads',backend:'actual-c-js-webview2',automatic_interception:true,download_checkpoint:true,
     pending_blocks_repeated_click:!initialOnly,observation_metadata:!initialOnly,verified_post_blob_unknown_binary:!initialOnly,durable_accept_and_cancel_once:!initialOnly,foreign_scope_denied:!initialOnly,
-    raw_c_service:!initialOnly,direct_navigation_checkpoint:!initialOnly,initial_url_and_script_intercepted:true,original_post_popup_intercepted:true})+'\n');
+    raw_c_service:!initialOnly,direct_navigation_checkpoint:!initialOnly,non_document_download_keeps_references:!initialOnly,initial_url_and_script_intercepted:true,original_post_popup_intercepted:true})+'\n');
 }catch(error){await writeFile(new URL('.mdo/evidence/public-initial-download-failure.json',root),JSON.stringify({passed:false,stage,code:error.code,message:String(error.message||error).slice(0,512)},null,2)+'\n');throw error;}finally{if(initial)await client.tabs({action:'close',browser:initial.id});if(browser)await client.tabs({action:'close',browser:browser.id});}

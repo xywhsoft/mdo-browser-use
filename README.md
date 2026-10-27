@@ -48,6 +48,7 @@ python -m unittest discover -s tests -v
 node --test --test-concurrency=1 tests/test_client.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_capture_image.mjs tests/test_frame_capture.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
 python tools/native_probe.py
 python tools/native_frames_probe.py
+python tools/public_frames_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
@@ -87,8 +88,11 @@ It verifies nested pointer/HTML5 drags, root/OOPIF delivery in both directions,
 receipt cancellation and child navigation while a mouse button is held.
 It also checks composed mask pixels, exact nested screenshot crops and image
 withholding when a child document changes between capture/privacy scans.
-The regular workbench keeps its current adapter pending public integration.
-The routed gate supplies controlled
+The regular workbench now enables the frame driver when its native content view
+advertises `frame_automation`. Older backends retain their existing adapter.
+`public_frames_probe.py` verifies real C SDK and managed Agent calls through the
+normal workbench against nested OOPIFs, including uploads/pickers, exact hashes,
+private element images and owned read-only permission denial. The private routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
@@ -109,8 +113,9 @@ bytes, duplicate-operation recovery, scope and read-only denial. Its sources are
 small synthetic files in the existing `.mdo/qa`; it restores headless mode and
 checks zero remaining private cache reservations. It also covers automatic
 picker interception, opaque chooser uploads, cancellation, repeat-click fencing
-and read-only picker inspection versus cancellation. Downloads, directory/OOPIF
-uploads and Android transfer support remain in development.
+and read-only picker inspection versus cancellation. Nested OOPIF uploads are
+also covered by the public frame gate. Directory uploads and Android transfer
+support remain in development.
 
 See [the shared API](docs/api.md) for C/JS calls, operation identities and
 recovery. The SDK probe also runs the actual JS client against WebView2;

@@ -184,7 +184,9 @@ def main():
     base = base.replace(before, r'\"profile_isolation\":true,\"initial_download_interception\":true}')
     frame_hooks = [
         ('struct xb_view{', (dev.ROOT/'host/native-frames-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
-        ('int automationContext=0;', 'int automationContext=0;std::shared_ptr<xb_frame_state> frames;'),
+        ('int automationContext=0;', 'int automationContext=0;bool frameAutomation=false;std::shared_ptr<xb_frame_state> frames;'),
+        ('controller->get_CoreWebView2(&view->core);', 'controller->get_CoreWebView2(&view->core);if(view->core){xs_wv_com<ICoreWebView2_11> frameSupport;view->frameAutomation=SUCCEEDED(view->core->QueryInterface(IID_ICoreWebView2_11,reinterpret_cast<void**>(frameSupport.out())));}'),
+        (r'\"automation\":true,\"viewport_attached\":', r'\"automation\":true,\"frame_automation\":"+std::string(view->frameAutomation?"true":"false")+",\"viewport_attached\":'),
         ('#include "xs_browser_automation.inc.hpp"', '#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_frames.inc.hpp"'),
         ('active->automationContext=0;', 'active->automationContext=0;xb_frames_navigation(active);'),
         ('found->second->closed=true;', 'found->second->closed=true;xb_frames_close(found->second);'),

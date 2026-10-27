@@ -98,6 +98,21 @@ test('post-input identity coalescing obeys cancellation without another input',a
     }}});
   assert.equal(result.result.error.code,'cancelled');assert.equal(result.result.error.effect_may_have_occurred,true);assert.equal(input,1);
 });
+
+test('a slow POST response stays fenced until native navigation settles, without reading the new document',async()=>{
+  let inputs=0,started=Infinity,readsAfterInput=0;
+  const row={id:'slow-original-post',state:'pending'};
+  const result=await executeBrowserAutomation({command:'act',params:{op:'click',document:'d1',target:{ref:'e1'},timeout_ms:4000},action:{id:'slow-post'},
+    api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+      if(command==='state')return{loading:inputs>0&&performance.now()-started<1350,automation:true,navigation:inputs?'2':'1',
+        chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,download_capability:true,downloads_armed:true};
+      if(command==='downloads')return{downloads:performance.now()-started>=1400?[row]:[]};
+      if(command==='input'){inputs++;started=performance.now();return{accepted:true,trusted_input:true};}
+      if(inputs)readsAfterInput++;
+      return{ok:true,value:{ok:true,element:{ref:'e1'},point:{x:10,y:10},geometry:[10,10,20,20]}};
+    }}});
+  assert.equal(result.result.outcome,'download_pending',JSON.stringify(result.result));assert.equal(inputs,1);assert.equal(readsAfterInput,0);
+});
 test('a response callback after the final page read is still returned without another click',async()=>{
   let pending=false,inputs=0;
   const result=await executeBrowserAutomation({command:'act',params:{op:'click',document:'d1',target:{ref:'e1'}},action:{id:'late-response'},

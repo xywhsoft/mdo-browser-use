@@ -98,6 +98,8 @@ def main():
         assert observed["success"]
         page = value(observed)
         assert "Readable fixture text" in page["text"]
+        assert page.get('frame_routing')=='native-isolated-v1','Managed tools did not use the normal frame driver'
+        assert all(row['ref'].startswith('r1|') for row in page['elements'])
         options=tool("browser_observe",{"browser":browser,"mode":"options","document":page["document"],"target":{"label":"Delivery method"}})
         assert options["success"] and value(options)["options"][3]["label"]=="Express"
         invalid_choice=tool("browser_act",{"browser":browser,"document":page["document"],"op":"select",

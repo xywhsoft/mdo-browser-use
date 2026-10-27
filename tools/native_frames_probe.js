@@ -21,6 +21,7 @@ async function navigate(url){
 try{
   await call('create',{url:origin+'/root',visible:true,bounds:{x:0,y:50,width:1000,height:650,scale:1}});
   await until(async()=>!(await call('state')).loading,'Root page did not load');
+  assert((await call('state')).frame_automation===true,'The native view did not advertise its runtime-supported frame automation');
   stage='inventory';let tree;
   await until(async()=>{tree=await frames();return tree.ok&&tree.complete&&tree.frames.length===4&&!tree.frames.some(row=>row.loading);},'Frame inventory did not become complete');
   const root=tree.frames.find(row=>row.id==='f0'),same=tree.frames.find(row=>row.url===origin+'/same'),cross=tree.frames.find(row=>row.url.endsWith('/cross')),nested=tree.frames.find(row=>row.url.endsWith('/nested'));

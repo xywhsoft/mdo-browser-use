@@ -58,6 +58,8 @@ def main():
                 key:page.get(key) for key in ("document","url","title","ready","error")},
                 "text_bytes":len(page.get("text","").encode()),"elements":len(page.get("elements",[]))})+"\n",encoding="utf-8")
         assert page["ok"] and "Readable fixture text" in page["text"], page.get("error")
+        assert page.get('frame_routing')=='native-isolated-v1','The public C path did not activate the normal frame driver'
+        assert all(row['ref'].startswith('r1|') for row in page['elements'])
         assert any(e["name"] == "查询" for e in page["elements"])
         assert any(e["name"] == "Shadow action" for e in page["elements"])
         screenshot = dev.call("browseruse.screenshot", {"browser": browser, "document": page["document"],
@@ -154,7 +156,7 @@ def main():
                   "public_services": ["browseruse.observe", "browseruse.act", "browseruse.navigate", "browseruse.wait", "browseruse.screenshot"],
                   "actions": actions, "navigations": 4, "wait_conditions": waits,
                   "automatic_readiness": True, "elements": len(page["elements"]),
-                  "frames": len(page["frames"]), "public_receipt_bytes": len(json.dumps(queued).encode())}
+                  "frames": len(page["frames"]), "qualified_frame_driver":True,"public_receipt_bytes": len(json.dumps(queued).encode())}
         report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
         return 0
