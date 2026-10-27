@@ -3,8 +3,9 @@ import {createLocalApplicationClient} from '/js/api/application.js';
 import {createFrameReader} from '/js/features/workbench/frame-reader.js';
 import {createFrameDriver} from '/js/features/workbench/frame-driver.js';
 import {executeBrowserAutomation} from '/js/features/workbench/automation-dispatch.js';
-const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE;
+const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE,uploadWorkspace=FRAME_UPLOAD_WORKSPACE;
 const bridge=createNativeBrowserBridge(),api=createLocalApplicationClient(()=>({extension:'browser-frame-qa'})),browser='browser-frame-native-qa',foreign='browser-frame-foreign-qa';
+const filesApi=createLocalApplicationClient(()=>({extension:'browser-frame-qa',workspace:uploadWorkspace}));
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence;
 const assert=(value,text)=>{checks++;if(!value)throw Error(text);};
 async function until(fn,text,ms=15000){const end=performance.now()+ms;while(performance.now()<end){if(await fn())return;await pause(40);}throw Error(text);}
@@ -157,7 +158,11 @@ try{
   }};
   const driver=createFrameDriver({execute:(command,params)=>routedView.execute(command,params)});
   const dispatch=(command,params)=>executeBrowserAutomation({command,params,browser,view:routedView,pageDriver:driver,
-    action:{id:'frame-dispatch-'+(++dispatchCounter)},api:{call:async method=>{if(method!=='ui.result')throw Error('Unexpected fixture SDK method');return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};}}});
+    action:{id:'frame-dispatch-'+(++dispatchCounter)},api:{call:async(method,params)=>{
+      if(method==='ui.result')return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};
+      if(method==='files.digest'||method==='files.read')return filesApi.call(method,params);
+      throw Error('Unexpected fixture SDK method');
+    }}});
   const page=await dispatch('observe',{limit:100,max_bytes:4096});
   assert(page.result.ok&&page.result.frames.length===3&&page.result.elements.some(row=>row.name==='Nested field'&&row.ref.startsWith('r1|')),'Dispatcher did not use combined frame observations');
   const filled=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text:'Frame 🦉 input'});
@@ -186,10 +191,56 @@ try{
   const cancelled=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'}});
   assert(!cancelled.result.ok&&cancelled.result.error.code==='cancelled'&&!cancelled.result.error.effect_may_have_occurred&&inputRequests===beforeCancelledInput,'An internal frame checkpoint was swallowed and allowed input');
   cancelDispatch=false;
+  stage='framed-upload';
+  const sourcePath='.mdo/qa/frame-upload-qa.bin',sourceBytes=Uint8Array.from({length:131075},(_,i)=>i%251);
+  const expectedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',sourceBytes)),n=>n.toString(16).padStart(2,'0')).join('');
+  const uploadOptions={document:page.result.document,target:{name:'Hidden nested upload'}};
+  const originalUploadTarget=await driver.read('uploadInfo',uploadOptions);
+  const upload=await dispatch('upload',{action:'set',...uploadOptions,files:[{path:sourcePath,space:'workspace',name:'frame-中文.bin'}],timeout_ms:15000});
+  geometryEvidence.upload=upload;
+  assert(upload.result.ok&&upload.result.verified&&upload.result.retained&&upload.result.input_method==='native_file_input','Routed hidden OOPIF upload was not verified');
+  await until(async()=>{const result=await evaluate(replacementLeaf,'document.body.dataset.uploadHash');return result.ok&&result.value===expectedHash;},'Nested document did not consume the exact complete file bytes');
+  const uploadEvents=await evaluate(replacementLeaf,'JSON.parse(document.body.dataset.uploadEvents)');
+  geometryEvidence.uploadEvents=uploadEvents;
+  const exactEvents=(events,trust)=>Array.isArray(events)&&events.length===trust.length&&events.every((event,i)=>event.type===(i%2?'change':'input')&&event.trusted===trust[i]);
+  assert(exactEvents(uploadEvents.value,[true,true]),'Native framed upload did not deliver exactly one trusted event pair');
+  const cleared=await dispatch('upload',{action:'clear',...uploadOptions,timeout_ms:15000});
+  geometryEvidence.cleared=cleared;
+  assert(cleared.result.ok&&cleared.result.verified&&cleared.result.cleared&&cleared.result.events_trusted===false,'Routed hidden OOPIF clear was not verified');
+  const clearEvents=await evaluate(replacementLeaf,'({count:document.querySelector("#files").files.length,events:JSON.parse(document.body.dataset.uploadEvents)})');
+  geometryEvidence.clearEvents=clearEvents;
+  assert(clearEvents.value.count===0&&exactEvents(clearEvents.value.events,[true,true,false,false]),'Framed clear did not deliver exactly its documented synthetic event pair');
+  const ticket=upload.result.transfer.ticket,oldAssignment={action:'assign',ticket,navigation:state.navigation,...originalUploadTarget.native_target};
+  const duplicate=await call('upload',oldAssignment);
+  assert(duplicate.accepted&&duplicate.verified&&duplicate.retained,'Completed assignment did not retain its original receipt');
+  assert((await evaluate(replacementLeaf,'JSON.parse(document.body.dataset.uploadEvents).length')).value===4,'Receipt lookup replayed the upload after clear');
+  const advanceLeaf=async suffix=>{
+    const url=origin+'/geometry-leaf?upload='+suffix;await evaluate(outer,`document.querySelector('#inner').src=${JSON.stringify(url)};true`);let next;
+    await until(async()=>{const current=await frames();next=current.frames?.find(row=>row.url===url);return current.ok&&next&&!next.loading;},'Upload child navigation did not settle');
+    assert((await call('state')).navigation===state.navigation,'Upload child navigation changed the top-level token');return next;
+  };
+  const afterUpload=await advanceLeaf('after-assignment');
+  const oldReceipt=await call('upload',oldAssignment);
+  assert(oldReceipt.accepted&&oldReceipt.verified&&oldReceipt.retained,'Child navigation erased an already dispatched upload receipt');
+  assert((await evaluate(afterUpload,'document.querySelector("#files").files.length+JSON.parse(document.body.dataset.uploadEvents).length')).value===0,'Old upload receipt was replayed into a replacement child');
+  const newTarget=await driver.read('uploadInfo',uploadOptions);
+  const conflict=await call('upload',{...oldAssignment,frame_chain:newTarget.native_target.frame_chain});
+  assert(!conflict.accepted&&conflict.error.code==='upload_identity_conflict','An old transfer ticket accepted a different frame document chain');
+  const released=await call('upload',{action:'release',ticket,confirmed:true});assert(released.released,'Consumed framed upload bytes were not released');
+  stage='framed-upload-navigation-before-dispatch';
+  const emptyHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array())),n=>n.toString(16).padStart(2,'0')).join('');
+  const staged=await call('upload',{action:'begin',upload_key:'framed-undispatched',navigation:state.navigation,...newTarget.native_target,
+    files:[{name:'never-assigned.bin',size:0,sha256:emptyHash}],timeout_ms:10000});
+  assert((await call('upload',{action:'seal',ticket:staged.ticket,navigation:state.navigation})).sealed,'Undispatched frame transfer did not seal');
+  const afterStaging=await advanceLeaf('after-staging');
+  const staleAssignment=await call('upload',{action:'assign',ticket:staged.ticket,navigation:state.navigation,...newTarget.native_target});
+  assert(!staleAssignment.accepted&&!staleAssignment.dispatched&&['upload_not_ready','upload_ticket_missing'].includes(staleAssignment.error.code),'Staged upload crossed its original child document boundary');
+  assert((await evaluate(afterStaging,'document.querySelector("#files").files.length+JSON.parse(document.body.dataset.uploadEvents).length')).value===0,'Rejected staged upload reached a replacement child');
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
-    routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true};
+    routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,
+    framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

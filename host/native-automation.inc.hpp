@@ -113,7 +113,7 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   }
 };
 // BROWSER_FRAME_INPUT_GUARD_END
-static bool xb_input_pin_frames(const std::shared_ptr<xb_view>& view,const std::string& json,xb_input_frame_guard& guard){
+static bool xb_input_read_frames(const std::string& json,xb_input_frame_guard& guard){
   const char* raw=nullptr;size_t size=0;
   webview::detail::json_parse_c(json.c_str(),json.size(),"frame_chain",11,&raw,&size);
   if(!raw)return true;
@@ -127,7 +127,14 @@ static bool xb_input_pin_frames(const std::shared_ptr<xb_view>& view,const std::
     if(frame.empty()||frame.size()>64||document.empty()||document.size()>64)return false;
     guard.emplace_back(frame,document);
   }
-  return !guard.empty()&&xb_input_frames_live(view,guard);
+  return !guard.empty();
+}
+static std::string xb_input_frame_key(const xb_input_frame_guard& guard){
+  if(guard.empty())return{};std::string key="[";
+  for(const auto& pin:guard){if(key.size()>1)key+=",";key+="["+xb_quote(pin.first)+","+xb_quote(pin.second)+"]";}return key+"]";
+}
+static bool xb_input_pin_frames(const std::shared_ptr<xb_view>& view,const std::string& json,xb_input_frame_guard& guard){
+  return xb_input_read_frames(json,guard)&&xb_input_frames_live(view,guard);
 }
 static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                      const std::string& id,const std::string& json){

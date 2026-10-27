@@ -79,7 +79,9 @@ Nested OOPIF owner geometry is checked against real trusted input, including
 fractional border/padding, overlays, hidden/moved and unsupported transformed owners.
 The native gate now uses the real dispatcher with the internal frame driver for
 observe/wait, nested fill, option discovery/selection, focus and cancellation.
-The regular workbench keeps its current adapter until upload/picker, drag and
+It also verifies ticketed hidden OOPIF uploads and clears with exact byte hashes,
+event counts, document-chain cancellation and completed receipts without replay.
+The regular workbench keeps its current adapter until picker routing, drag and
 cross-frame capture privacy are migrated. The routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
 

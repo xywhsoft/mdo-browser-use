@@ -16,7 +16,7 @@ function fixture(){
   const fail=(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:dispatched}}});
   const guard=async()=>cancelled?fail('cancelled','Original operation cancelled'):{state};
   const params={action:'set',document:'doc',target:{css:'#file'},files:[{path:'C:\\task-host\\source.bin'}]};
-  const read=async(method,options)=>{inspections++;assert.equal(method,'uploadInfo');return{ok:true,document:'doc',element:{ref:options.target?.ref||'e1',multiple:true}};};
+  const read=async(method,options)=>{inspections++;assert.equal(method,'uploadInfo');const result={ok:true,document:'doc',element:{ref:options.target?.ref||'e1',multiple:true}};return state.pinned?state.pinned(inspections,options,result):result;};
   const run=()=>executeFileUpload({params,view,api,action:{id:'frozen-action'},guard,read,deadline:performance.now()+2000,setDispatched:value=>{dispatched=value;},fail});
   return{ticket,calls,native,state,params,api,view,run,get inspections(){return inspections;},cancel(){cancelled=true;}};
 }
@@ -50,6 +50,36 @@ test('upload streams pinned revision ranges, seals and assigns once without send
   assert.deepEqual(f.calls.filter(x=>x.method==='files.read').map(x=>[x.params.offset,x.params.limit,x.params.revision]),[[0,65536,'f-snapshot'],[65536,3,'f-snapshot']]);
   assert.deepEqual(f.native.map(x=>x.action),['begin','chunk','chunk','seal','assign']);
   assert.equal(f.native.at(-1).ref,'e1');assert(!JSON.stringify(f.native).includes('task-host'));assert(!JSON.stringify(result).includes('base64'));
+});
+
+test('frame-local upload identities reach both admission and assignment',async()=>{
+  const f=fixture(),chain=[{frame:'f-child',document:'fd-child'},{frame:'f0',document:'fd-root'}];
+  f.state.pinned=()=>({ok:true,element:{ref:'r1|qualified',frame:'f-child',multiple:true},native_target:{document:'local-doc',ref:'e7',frame_chain:chain}});
+  assert((await f.run()).result.ok);
+  for(const row of f.native.filter(row=>['begin','assign'].includes(row.action))){assert.equal(row.document,'local-doc');assert.equal(row.ref,'e7');assert.deepEqual(row.frame_chain,chain);}
+  assert(!JSON.stringify(f.native).includes('r1|qualified'));
+});
+
+test('qualified targets cannot silently fall back into the legacy root world',async()=>{
+  for(const native_target of [undefined,{document:'local-doc',ref:'e7',frame_chain:[]}]){
+    const f=fixture();f.state.pinned=()=>({ok:true,element:{ref:'r1|qualified',frame:'f-child'},...(native_target?{native_target}:{})});
+    const result=(await f.run()).result;assert.equal(result.error.code,'upload_target_invalid');assert.equal(f.calls.length,0);assert.equal(f.native.length,0);
+  }
+});
+
+test('changed frame metadata after sealing cancels only its staged ticket',async()=>{
+  const f=fixture();f.state.pinned=count=>({ok:true,element:{ref:'r1|qualified',frame:'f-child',multiple:true},
+    native_target:{document:'local-doc',ref:'e7',frame_chain:[{frame:'f-child',document:count===1?'fd-original':'fd-new'},{frame:'f0',document:'fd-root'}]}});
+  const result=(await f.run()).result;assert.equal(result.error.code,'upload_target_changed');assert(!result.error.effect_may_have_occurred);
+  assert(!f.native.some(row=>row.action==='assign'));assert.equal(f.native.at(-1).action,'cancel');
+});
+
+test('framed clearing retains its tracked clear operation without reading source files',async()=>{
+  const f=fixture();f.params.action='clear';const chain=[{frame:'f-child',document:'fd-child'},{frame:'f0',document:'fd-root'}];
+  f.state.pinned=()=>({ok:true,element:{ref:'r1|qualified',frame:'f-child'},native_target:{document:'local-doc',ref:'e7',frame_chain:chain}});
+  const execute=f.view.execute;f.view.execute=async(command,params)=>{const result=await execute(command,params);return params.action==='clear'?{accepted:true,verified:true,cleared:true,dispatched:true}:result;};
+  assert((await f.run()).result.ok);assert.equal(f.calls.length,0);assert.equal(f.native.length,1);
+  assert.equal(f.native[0].action,'clear');assert.equal(f.native[0].upload_key,'frozen-action');assert.deepEqual(f.native[0].frame_chain,chain);
 });
 test('revision conflict cancels only staging and never assigns a file',async()=>{
   const f=fixture(),call=f.api.call;f.api.call=async(method,params)=>method==='files.read'?{revision:'replacement',bytes:params.limit,next:params.limit,base64:'eA=='}:call(method,params);

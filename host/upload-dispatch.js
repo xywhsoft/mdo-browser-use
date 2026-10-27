@@ -1,6 +1,6 @@
 // Bytes cross the original task SDK boundary; browser-device paths never do.
 export async function executeFileUpload({params,view,api,action,guard,read,deadline,setDispatched,fail}){
-  let ticket=null,navigation,stage='capability',sourceIndex=null,requested=false,cleanupRequested=false,clearStarted=false,retained=false,settled=false,completed=false;
+  let ticket=null,navigation,targetIdentity=null,stage='capability',sourceIndex=null,requested=false,cleanupRequested=false,clearStarted=false,retained=false,settled=false,completed=false;
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const remaining=()=>Math.max(1,Math.ceil(deadline-performance.now()));
   const transfer=result=>{
@@ -15,6 +15,19 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     }
     return navigation!==undefined&&checked.state.navigation!==navigation?transfer(fail('stale_document','The document changed during file transfer')):checked;};
   const native=params=>view.execute('upload',params);
+  const targetOf=pinned=>{
+    const target=pinned.native_target;
+    if(target===undefined){
+      if(pinned.element?.ref?.startsWith('r1|'))throw Object.assign(Error('The qualified upload target has no native frame binding'),{code:'upload_target_invalid'});
+      return{document:params.document,ref:pinned.element.ref};
+    }
+    const chain=target?.frame_chain,bounded=value=>typeof value==='string'&&value.length>0&&value.length<=64;
+    if(typeof target.document!=='string'||!target.document||target.document.length>100||!/^e[1-9][0-9]{0,12}$/.test(target.ref)||
+       !Array.isArray(chain)||!chain.length||chain.length>32||chain.some(pin=>!bounded(pin?.frame)||!bounded(pin?.document))||
+       chain[0].frame!==pinned.element.frame||chain.at(-1).frame!=='f0'||new Set(chain.map(pin=>pin.frame)).size!==chain.length)
+      throw Object.assign(Error('The upload target returned an incomplete frame document binding'),{code:'upload_target_invalid'});
+    return{document:target.document,ref:target.ref,frame_chain:chain.map(pin=>({frame:pin.frame,document:pin.document}))};
+  };
   const assign=async parameters=>{
     let result,error;stage=clearStarted?'native_clear':'native_assignment';requested=true;retained=!clearStarted;setDispatched(true);
     const pending=native(parameters).then(value=>{result=value;settled=true;},value=>{error=value;settled=true;});
@@ -45,10 +58,11 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     stage='target_resolution';
     let pinned=params.chooser?await view.execute('chooser',{action:'target',chooser:params.chooser,document:params.document,agent:true}):await read('uploadInfo',{document:params.document,target:params.target});
     if(!pinned.ok)return{handled:true,result:pinned};
+    targetIdentity=targetOf(pinned);
     if(params.action==='clear'){
       checked=await stopped();if(checked.handled)return checked;
       clearStarted=true;
-      return await assign({action:'clear',upload_key:action.id,navigation,document:params.document,ref:pinned.element.ref,timeout_ms:remaining()});
+      return await assign({action:'clear',upload_key:action.id,navigation,...targetIdentity,timeout_ms:remaining()});
     }
     if(pinned.element.directory||params.files.length>1&&!pinned.element.multiple)
       return fail('upload_target_invalid','Choose a regular file input with enough multiple-file capacity');
@@ -72,6 +86,7 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     sourceIndex=null;stage='native_admission';
     const admitted=await native({action:'begin',navigation,upload_key:action.id,timeout_ms:Math.min(120000,remaining()+5000),
       ...(params.chooser?{chooser:params.chooser,document:params.document,ref:pinned.element.ref}:{}),
+      ...(pinned.native_target?targetIdentity:{}),
       files:snapshots.map(file=>({name:file.name,size:file.size,sha256:file.sha256}))});
     if(typeof admitted.ticket!=='string'||!/^u-[a-f0-9-]{36}$/i.test(admitted.ticket))return fail('upload_receipt_invalid','The browser did not return a valid staging ticket');
     ticket=admitted.ticket;
@@ -95,9 +110,10 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     // Revalidate the pinned reference, never a newly matching replacement node.
     stage='target_revalidation';pinned=await read('uploadInfo',{document:params.document,target:{ref:pinned.element.ref}});
     if(!pinned.ok)return transfer({handled:true,result:pinned});
+    if(JSON.stringify(targetOf(pinned))!==JSON.stringify(targetIdentity))return transfer(fail('upload_target_changed','The sealed transfer no longer belongs to its original frame document; no file was assigned'));
     checked=await stopped();if(checked.handled)return checked;
     if(checked.state.navigation!==navigation)return transfer(fail('stale_document','The document changed before file assignment'));
-    return await assign({action:'assign',ticket,navigation,document:params.document,ref:pinned.element.ref,timeout_ms:remaining()});
+    return await assign({action:'assign',ticket,navigation,...targetIdentity,timeout_ms:remaining()});
   }catch(error){
     const result=transfer(fail(requested||cleanupRequested?'action_uncertain':error?.code||'upload_transfer_failed',requested?
       'File assignment was not confirmed; inspect the page and retained transfer before repeating':

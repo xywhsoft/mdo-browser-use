@@ -84,7 +84,7 @@ struct xb_upload_file{
 struct xb_upload_job{
   std::weak_ptr<xb_view> view;std::string ticket,key,chooser;std::wstring directory;UINT64 navigation=0;uint64_t size=0;
   ULONGLONG expires=0;HANDLE lease=INVALID_HANDLE_VALUE;bool prepared=false,sealed=false,closing=false,directoryOwned=false,leaseOwned=false,retained=false,assigning=false,verified=false,dispatched=false,clear=false;
-  std::weak_ptr<xb_upload_assignment> assignment;std::string assignDocument,assignRef,assignmentResult;
+  std::weak_ptr<xb_upload_assignment> assignment;std::string assignDocument,assignRef,assignFrameKey,assignmentResult;xb_input_frame_guard frameGuard;
   std::vector<std::shared_ptr<xb_upload_file>> files;
   bool cleanup(){
     closing=true;bool ok=true;
@@ -167,7 +167,7 @@ struct xb_upload_store{
     auto owner=host.lock();bool watching=false;
     for(auto at=jobs.begin();at!=jobs.end();){auto job=at->second;auto view=job->view.lock();
       if(job->assigning)xb_upload_assignment_tick(job);
-      if(!job->prepared||!owner||!view||view->closed||(!job->retained&&!job->assigning&&(!xb_automation_live(owner,view,job->navigation)||GetTickCount64()>=job->expires||!job->chooser.empty()&&!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef))))job->closing=true;
+      if(!job->prepared||!owner||!view||view->closed||(!job->retained&&!job->assigning&&(!xb_automation_live(owner,view,job->navigation)||!xb_input_frames_live(view,job->frameGuard)||GetTickCount64()>=job->expires||!job->chooser.empty()&&!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef))))job->closing=true;
       if(job->closing&&!job->assigning&&job->cleanup())at=jobs.erase(at);else{watching|=!job->retained||job->assigning||job->closing;++at;}
     }
     if(!watching&&owner)KillTimer(owner->window,xb_upload_timer);
@@ -218,6 +218,11 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     if(view->uploadCleanupFailed||!xb_chooser_upload_ready(view,xb_get(json,"chooser"),xb_get(json,"document"),xb_get(json,"ref"))||key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||manifest.empty()||manifest.front()!='['||
        xb_get(json,"navigation")!=std::to_string(view->navigation)||view->loading||view->initialNavigationPending||!xb_automation_live(host,view,view->navigation)){fail("Upload needs a live document, exact key and bounded file manifest");return;}
     auto job=std::make_shared<xb_upload_job>();job->view=view;job->key=key;job->navigation=view->navigation;job->expires=GetTickCount64()+timeout;
+    if(!xb_input_pin_frames(view,json,job->frameGuard)){fail("Upload frame documents changed before byte admission");return;}
+    if(!job->frameGuard.empty()){
+      job->assignDocument=xb_get(json,"document");job->assignRef=xb_get(json,"ref");job->assignFrameKey=xb_input_frame_key(job->frameGuard);
+      if(job->assignDocument.empty()||job->assignDocument.size()>100||job->assignRef.empty()||job->assignRef.size()>100){fail("Framed uploads require their exact local document and reference");return;}
+    }
     job->chooser=xb_get(json,"chooser");if(!job->chooser.empty()){job->assignDocument=xb_get(json,"document");job->assignRef=xb_get(json,"ref");}
     for(int n=0;n<17;n++){auto item=webview::detail::json_parse(manifest,"",n);if(item.empty())break;auto file=std::make_shared<xb_upload_file>();file->name=xb_get(item,"name");file->sha=xb_get(item,"sha256");
       if(n==16||!xb_upload_name(file->name)||!xb_upload_hash(file->sha)||!xb_upload_uint(xb_get(item,"size"),file->size)||file->size>32u*1024u*1024u){fail("Upload manifest needs at most sixteen safe names, complete SHA-256 and 32 MiB files");return;}
@@ -226,7 +231,7 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     if(job->files.empty()||job->size>64u*1024u*1024u){fail("Upload exceeds its file count or 64 MiB byte budget");return;}
     unsigned owned=0;for(const auto& item:store->jobs)if(item.second->view.lock()==view){owned+=!item.second->clear;if(item.second->key==key){
       auto old=item.second;bool same=!old->closing&&old->navigation==job->navigation&&old->files.size()==job->files.size();
-      same=same&&!old->clear&&old->chooser==job->chooser&&(!job->chooser.size()||(old->assignDocument==job->assignDocument&&old->assignRef==job->assignRef));
+      same=same&&!old->clear&&old->chooser==job->chooser&&old->assignFrameKey==job->assignFrameKey&&((job->chooser.empty()&&job->frameGuard.empty())||(old->assignDocument==job->assignDocument&&old->assignRef==job->assignRef));
       for(size_t i=0;same&&i<job->files.size();i++)same=old->files[i]->name==job->files[i]->name&&old->files[i]->size==job->files[i]->size&&old->files[i]->sha==job->files[i]->sha;
       if(same)host->reply(id,xb_upload_status(old));else fail("Upload identity conflicts with its original manifest");return;
     }}
@@ -262,7 +267,7 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     job->closing=true;store->collect();host->reply(id,"{\"released\":true,\"cleanup_pending\":"+std::string(store->jobs.count(job->ticket)?"true":"false")+"}");return;
   }
   if(action=="status"){host->reply(id,xb_upload_status(job));return;}
-  if(job->closing||!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef)||xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){fail("Upload document, picker or control changed; inspect before retrying");return;}
+  if(job->closing||!xb_input_frames_live(view,job->frameGuard)||!xb_chooser_upload_ready(view,job->chooser,job->assignDocument,job->assignRef)||xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){fail("Upload document, picker or control changed; inspect before retrying");return;}
   if(action=="seal"){
     if(job->sealed){host->reply(id,xb_upload_status(job));return;}
     for(const auto& file:job->files)if(file->received!=file->size){fail("Upload is incomplete; no file was assigned");return;}

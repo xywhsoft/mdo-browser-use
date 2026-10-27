@@ -1676,3 +1676,34 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   targets into the old root world or bypass their operation receipts. The
   managed cross-frame C/JS path, Android, vision, lifecycle/OOM/network/performance
   and final package gates still belong to the unchanged full objective.
+
+## D13g — ticketed upload and clear in exact frame worlds
+
+- Bind staged transfers to the original local input reference and complete native
+  frame document chain at admission, not just the top-level navigation token.
+  Check that chain while receiving/sealing bytes and before each native step.
+  Unassigned staging expires when any ancestor document changes; dispatched
+  website bytes remain retained until confirmed release. Identity comparisons
+  use bounded parsed tuples independently of current document liveness, so
+  looking up a completed receipt never replays an assignment into a new page.
+- Resolve the input in its selected isolated frame world and route DOM delivery,
+  verification and object-group release through its owning CDP session. Clear
+  uses the same tracked operation key and frame pins, preserving its explicitly
+  synthetic input/change event receipt. Reject qualified targets without native
+  bindings before reading source files; revalidate the same tuple after sealing.
+- The actual WebView2 frame gate passes 111 checks: hidden nested OOPIF file
+  assignment, exact complete SHA-256, one trusted upload event pair, one
+  synthetic clear pair, cached receipt after clear/navigation without replay,
+  different-chain identity conflict and child navigation before delivery. Cache
+  ACLs remain private and all reservations drain on close. The test compares
+  event fields independently of JSON object member ordering.
+- Sequential gates: 127 JS checks; 103 Python cases (101 pass, two Windows
+  symlink privilege skips); native baseline 1,358 poll-inclusive assertions with
+  no new native diagnostics or retained caches. The normal public C/JS and
+  managed upload gate also passes, including original picker acceptance/cancel,
+  clear, retained-byte status/release and owned-tab read-only denial.
+- Normal workbench activation still awaits frame-owned picker interception,
+  target/cancel routing, frame-aware drag and screenshot privacy aggregation.
+  Parent-frame inert policy for hidden file inputs must also be covered before
+  activation. These checks exercise the real frame driver/dispatcher with a
+  controlled UI-operation status; they are not the final managed frame gate.
