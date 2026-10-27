@@ -442,6 +442,16 @@
       "path": "app/src/application/jobs.c",
       "before": "bool Terminal=J->Terminal;*R=xrtValueClone(J->Info);",
       "after": "bool Terminal=J->Terminal;*R=BuOperationSnapshot(J);"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "#include \"../../include/mdo/approvals.h\"",
+      "after": "#include \"../../include/mdo/approvals.h\"\n#include \"../../include/mdo/time.h\"\n#include \"browser_use_tool_admission.inc.c\""
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "MdoSession* Session=MdoSessionOpen(Project,SessionId,&Options,&Error);MdoAgentSession* Agent=Session?MdoSessionAgentRef(Session):NULL;",
+      "after": "MdoSession* Session=BuToolSessionOpen(C,Project,SessionId,&Options,&Error);\n    if(!Session)return MdoApplicationError(E,Error.eCode==XWORK_ERROR_CANCELLED?\"sdk_cancelled\":Error.eCode==XWORK_ERROR_TIMEOUT?\"sdk_deadline_expired\":Error.eCode==XWORK_ERROR_CONTEXT&&!strcmp(Error.sMessage,\"session already has an active runtime\")?\"sdk_tool_busy\":\"sdk_tool_execution_failed\",Error.sMessage,\"tool_admission\",Error.eCode==XWORK_ERROR_CANCELLED?499:Error.eCode==XWORK_ERROR_TIMEOUT?504:409,false);\n    MdoAgentSession* Agent=MdoSessionAgentRef(Session);"
     }
   ],
   "files": [
@@ -504,6 +514,10 @@
     {
       "source": "host/operation-snapshot.inc.c",
       "target": "app/src/application/browser_use_operation_snapshot.inc.c"
+    },
+    {
+      "source": "host/tool-admission.inc.c",
+      "target": "app/src/application/browser_use_tool_admission.inc.c"
     }
   ]
 }

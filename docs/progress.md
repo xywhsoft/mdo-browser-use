@@ -1066,3 +1066,20 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   additional job identity, retry or mutable ownership state is introduced.
 - The actual host scope, released-admission and twelve sequential fast-result
   checks pass again; deployed overlays match. The original full goal continues.
+
+
+## D12g — bounded, effect-free managed tool session admission
+
+- The expanded managed regression captured `session already has an active
+  runtime` before `browser_open` execution. The existing SDK returned it as
+  a generic transport failure. Runtime exclusivity can cover transient readers
+  and event retirement; the particular competing owner is not proven here.
+- The SDK tool utility now waits at most 500 ms at that exact session-open
+  conflict. No executor/tool invocation is repeated. Other context changes, IO
+  errors, cancellation and deadlines stop admission; a genuinely busy session
+  remains `sdk_tool_busy`, with `tool_admission` stage and no possible effect.
+- The actual helper's controlled-clock tests cover immediate/retiring/busy
+  runtimes, nonretryable errors, cancellation and deadlines. Real TCC startup
+  and the complete fifteen-tool managed WebView2 regression pass afterwards,
+  including permissions, popup ownership, dialogs, screenshots and gestures.
+  No claim is made that concurrent model runs can share a session runtime.
