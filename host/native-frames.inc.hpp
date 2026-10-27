@@ -3,6 +3,16 @@
  * aliases never accept a caller-supplied raw frame/session/context identity. */
 static constexpr UINT_PTR xb_frames_timer=0xBADD8;
 static std::map<HWND,std::weak_ptr<xb_view>> xb_frame_views;
+static const char* xb_frame_owner_upload_policy=R"js(function(){
+  const fail=code=>({ok:false,error:{code}}),frame=this;
+  if(!frame.isConnected||!frame.ownerDocument?.defaultView||!['iframe','frame'].includes(frame.localName))return fail('frame_owner_unavailable');
+  let node=frame;
+  for(let depth=0;node&&depth<256;depth++){
+    if(node.inert)return fail('element_disabled');
+    node=node.assignedSlot||node.parentElement||node.getRootNode()?.host;
+  }
+  return node?fail('frame_ancestry_limit'):{ok:true};
+})js";
 static const char* xb_frame_owner_geometry=R"js(function(point){
   const fail=code=>({ok:false,error:{code}}),frame=this,doc=frame.ownerDocument,view=doc?.defaultView;
   if(!frame.isConnected||!view||!['iframe','frame'].includes(frame.localName))return fail('frame_owner_unavailable');
@@ -238,7 +248,7 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
     if(next==sources.size()){
       for(auto item=current->nodes.begin();item!=current->nodes.end();)if(!seen.count(item->first))item=current->nodes.erase(item);else ++item;
       for(const auto& item:current->sessions)if(!item.second.ready||std::find(sources.begin(),sources.end(),item.first)==sources.end())complete=false;
-      if(action=="evaluate"||action=="owner"){evaluate();return;}std::string rows;
+      if(action=="evaluate"||action=="owner"||action=="upload_policy"){evaluate();return;}std::string rows;
       for(const auto& item:current->nodes){const auto& node=item.second;if(!xb_frame_attached(current,node))continue;
         bool ready=node.session.empty()||current->sessions.count(node.session)&&current->sessions.at(node.session).ready;
         if(!rows.empty())rows+=",";const auto parent=current->nodes.find(node.parent);
@@ -281,8 +291,9 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
               auto self=weak.lock();if(!self||!self->owner_live())return;const auto object=xb_get(xb_get(result,"object"),"objectId");
               if(!ready||object.empty()||object.size()>1024){self->finish("","frame_owner_unavailable");return;}
               self->evaluationSent=true;
-              self->call(self->parentSession,L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(xb_frame_owner_geometry)+
-                ",\"arguments\":[{\"value\":{\"x\":"+std::to_string(self->pointX)+",\"y\":"+std::to_string(self->pointY)+"}}],\"returnByValue\":true,\"awaitPromise\":false}",
+              const bool policy=self->action=="upload_policy";
+              self->call(self->parentSession,L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(policy?xb_frame_owner_upload_policy:xb_frame_owner_geometry)+
+                ",\"arguments\":"+(policy?"[]":"[{\"value\":{\"x\":"+std::to_string(self->pointX)+",\"y\":"+std::to_string(self->pointY)+"}}]")+",\"returnByValue\":true,\"awaitPromise\":false}",
                 [weak](bool ok,const std::string& result){
                   auto self=weak.lock();if(!self||!self->owner_live())return;const auto value=xb_cdp_value(xb_get(result,"result"));
                   if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty()){self->finish("","frame_owner_unavailable");return;}
@@ -298,7 +309,7 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
     if(!node||(!expected.empty()&&node->document!=expected)||node->loading){finish("","stale_frame");return;}
     selected=node->raw;document=node->document;session=node->session;
     if(!session.empty()&&(!current->sessions.count(session)||!current->sessions.at(session).ready)){finish("","frame_session_unavailable");return;}
-    if(action=="owner"){owner_geometry();return;}
+    if(action=="owner"||action=="upload_policy"){owner_geometry();return;}
     std::weak_ptr<xb_frame_job> weak=shared_from_this();
     call(session,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(selected)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",[weak](bool ok,const std::string& result){
       auto self=weak.lock();if(!self||!self->selected_live())return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
@@ -328,10 +339,11 @@ static void xb_frames_request(const std::shared_ptr<xb_host>& host,const std::sh
   try{
     if(!xb_frames_install(view)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"unsupported_frame_sessions\"}}");return;}
     auto state=view->frames;const auto action=xb_get(json,"action");
-    if((action!="list"&&action!="evaluate"&&action!="owner")||id.empty()||id.size()>128||state->jobs.size()>=16||state->jobs.count(id)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
+    if((action!="list"&&action!="evaluate"&&action!="owner"&&action!="upload_policy")||id.empty()||id.size()>128||state->jobs.size()>=16||state->jobs.count(id)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
     auto job=std::make_shared<xb_frame_job>();job->host=host;job->view=view;job->state=state;job->id=id;job->action=action;
     job->alias=xb_get(json,"frame");job->expected=xb_get(json,"document");job->script=xb_get(json,"script");
     if(action=="evaluate"&&(job->alias.empty()||job->alias.size()>64||job->expected.size()>64||job->script.empty()||job->script.size()>131072)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
+    if(action=="upload_policy"&&(job->alias.empty()||job->alias.size()>64||job->expected.empty()||job->expected.size()>64)){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_request_invalid\"}}");return;}
     if(action=="owner"){
       try{const auto point=xb_get(json,"point");job->pointX=std::stod(xb_get(point,"x"));job->pointY=std::stod(xb_get(point,"y"));}catch(...){host->reply(id,"{\"ok\":false,\"error\":{\"code\":\"frame_point_invalid\"}}");return;}
       if(job->alias.empty()||job->alias.size()>64||job->expected.empty()||job->expected.size()>64||!std::isfinite(job->pointX)||!std::isfinite(job->pointY)||

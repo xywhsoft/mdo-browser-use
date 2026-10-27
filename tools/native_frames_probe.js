@@ -149,7 +149,7 @@ try{
   assert((await call('state')).navigation===state.navigation,'Child-only navigation changed the top-level token and masked the frame guard');
   await rejectInput(chain);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
-  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0;
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0;
   const routedView={execute:async(command,params)=>{
     if(command==='input')inputRequests++;
     const result=await call(command,params);
@@ -160,7 +160,7 @@ try{
   const dispatch=(command,params)=>executeBrowserAutomation({command,params,browser,view:routedView,pageDriver:driver,
     action:{id:'frame-dispatch-'+(++dispatchCounter)},api:{call:async(method,params)=>{
       if(method==='ui.result')return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};
-      if(method==='files.digest'||method==='files.read')return filesApi.call(method,params);
+      if(method==='files.digest'||method==='files.read'){fileRequests++;return filesApi.call(method,params);}
       throw Error('Unexpected fixture SDK method');
     }}});
   const page=await dispatch('observe',{limit:100,max_bytes:4096});
@@ -275,12 +275,26 @@ try{
   assert(newLeaf.id!==afterPicker.id&&newLeaf.separate_process,'New picker fixture did not attach a new cross-process frame');
   picker=await openPicker();assert(picker.frame===newLeaf.id&&picker.frame_document===newLeaf.document,'A newly attached OOPIF did not inherit file-picker suppression');
   assert((await dispatch('chooser',{action:'cancel',chooser:picker.id})).result.cancel_event_sent,'New OOPIF picker could not be cancelled in its original process');
+  stage='parent-upload-policy';
+  for(const level of ['outer','inner']){
+    if(level==='outer')await call('evaluate',{script:`(()=>{document.querySelector('#outer').inert=true;return true})()`});
+    else await evaluate(outer,`(()=>{document.querySelector('#inner').inert=true;return true})()`);
+    const beforeFiles=fileRequests,denied=await dispatch('upload',{action:'set',...uploadOptions,files:[{path:sourcePath,space:'workspace',name:'not-read.bin'}],timeout_ms:2000});
+    assert(!denied.result.ok&&denied.result.error.code==='element_disabled'&&!denied.result.error.effect_may_have_occurred,'An inert iframe ancestor still allowed upload');
+    assert(fileRequests===beforeFiles,'An inert iframe upload read local file bytes before failing');
+    if(level==='outer')await call('evaluate',{script:`(()=>{document.querySelector('#outer').inert=false;return true})()`});
+    else await evaluate(outer,`(()=>{document.querySelector('#inner').inert=false;document.querySelector('#inner').hidden=true;return true})()`);
+  }
+  const hiddenOwner=await driver.read('uploadInfo',uploadOptions);
+  assert(hiddenOwner.ok&&hiddenOwner.native_target.frame_chain.length===3,'A hidden but enabled iframe was confused with an inert upload ancestor');
+  await evaluate(outer,`(()=>{document.querySelector('#inner').hidden=false;return true})()`);
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
     routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,
     framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true,
-    frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true};
+    frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true,
+    inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

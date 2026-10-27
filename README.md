@@ -83,7 +83,7 @@ It also verifies ticketed hidden OOPIF uploads and clears with exact byte hashes
 event counts, document-chain cancellation and completed receipts without replay.
 Picker interception, target resolution and cancel are also verified in their
 own process, including takeover, child navigation and newly attached OOPIFs.
-The regular workbench keeps its current adapter until parent upload policy, drag and
+The regular workbench keeps its current adapter until drag and
 cross-frame capture privacy are migrated. The routed gate supplies controlled
 UI-receipt status; it does not replace managed C/JS registration/permission gates.
 

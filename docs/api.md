@@ -97,8 +97,11 @@ exact isolated frame world/session and original ancestor document chain.
 New OOPIFs inherit picker interception while Agent control is active. Child
 navigation expires unresolved pickers/staging; completed upload receipts can
 be queried without replay and retain website bytes until confirmed release.
-The normal workbench still uses its existing adapter: parent-inert upload policy,
-drag cancellation and cross-frame screenshot masking remain before activation.
+Hidden uploads also check real parent iframe owners for composed `inert`
+ancestry before source reads and on post-seal target revalidation. Visibility
+alone does not disable a hidden file input. The normal workbench still uses its
+existing adapter: drag cancellation and cross-frame screenshot masking remain
+before activation.
 Cross-frame managed C/JS service
 registration and permissions have not yet been verified through that normal UI.
 

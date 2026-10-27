@@ -15,7 +15,7 @@ const doc='d-'+guid(1),local='d-'+guid(2),child='f-'+guid(2),fd='fd-'+guid(2),ro
 function fixture(){
   const rows=[{id:'f0',document:rootFd,parent:null,isolated:true,loading:false,url:'https://root.test'},
     {id:child,document:fd,parent:'f0',isolated:true,loading:false,url:'https://child.test'}];
-  const state={calls:[],effect:0,parentFocused:true,onRead:null,checkpoint:null,pickers:[{id:'chooser-fixture',supported:true,frame:child,frame_document:fd}]};
+  const state={calls:[],effect:0,parentFocused:true,parentInert:false,onRead:null,checkpoint:null,pickers:[{id:'chooser-fixture',supported:true,frame:child,frame_document:fd}]};
   const api=createFrameDriver({checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
     state.calls.push({...params,command});
     if(command==='chooser'){
@@ -26,6 +26,10 @@ function fixture(){
     }
     assert.equal(command,'frames');
     if(params.action==='list')return{ok:true,complete:true,frames:structuredClone(rows)};
+    if(params.action==='upload_policy'){
+      await state.onRead?.({method:'upload_policy',rows});
+      return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,value:state.parentInert?{ok:false,error:{code:'element_disabled'}}:{ok:true}};
+    }
     if(params.action==='owner'){
       await state.onRead?.({method:'owner',rows});
       return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,
@@ -91,6 +95,21 @@ test('picker binding is rejected when its ancestor changes during native resolut
   const {api,state}=fixture();state.onRead=({method,rows})=>{if(method==='chooserTarget')rows[0].document='fd-'+guid(9);};
   const out=await api.read('chooserInfo',{document:doc,chooser:'chooser-fixture'});
   assert.equal(out.error.code,'target_changed');assert(!out.error.effect_may_have_occurred);
+});
+
+test('inert iframe parents block hidden direct and picker input before target delivery',async()=>{
+  for(const method of ['uploadInfo','chooserInfo']){
+    const {api,state}=fixture();state.parentInert=true;
+    const out=await api.read(method,{document:doc,target:{name:'Child'},chooser:'chooser-fixture'});
+    assert.equal(out.error.code,'element_disabled');assert(!out.error.effect_may_have_occurred);
+    assert(!state.calls.some(row=>row.command==='chooser'&&row.action==='target'));
+  }
+});
+
+test('upload policy revalidates ancestor documents before returning native file pins',async()=>{
+  const {api,state}=fixture();state.onRead=({method,rows})=>{if(method==='upload_policy')rows[0].document='fd-'+guid(9);};
+  const out=await api.read('uploadInfo',{document:doc,target:{name:'Child'}});
+  assert.equal(out.error.code,'stale_frame');assert(!out.error.effect_may_have_occurred);
 });
 
 test('a sent mutation retains uncertainty on native error and is never replayed',async()=>{

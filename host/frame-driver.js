@@ -72,6 +72,16 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
       if(JSON.stringify(fresh)!==JSON.stringify(chain))throw issue('stale_frame','The frame ancestry changed during coordinate mapping');
       return{point,geometry,frame_chain:chain,parents_focused:focused};
     }
+    async function uploadParents(route,chain){
+      for(let index=0;index<chain.length-1;index++){
+        const child=chain[index],parent=chain[index+1],owner=await native('frames',{action:'upload_policy',agent:true,frame:child.frame,document:child.document});
+        if(!owner?.ok)throw issue(owner?.error?.code||'frame_unavailable','The upload frame owner could not be checked');
+        if(owner.frame!==child.frame||owner.frame_document!==child.document||owner.parent!==parent.frame||owner.parent_document!==parent.document)
+          throw issue('stale_frame','The upload frame owner changed during policy checking');
+        if(!owner.value?.ok)throw issue(owner.value?.error?.code||'frame_owner_unavailable','A parent iframe is not enabled for upload');
+      }
+      if(JSON.stringify(await pinChain(route))!==JSON.stringify(chain))throw issue('stale_frame','The upload ancestry changed during policy checking');
+    }
     try{
       if(!permitted.has(method))throw issue('frame_method_invalid','Only fixed Browser Use operations are allowed');
       if(method==='observe'||method==='locate')return await fromReader(method,options);
@@ -83,6 +93,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
         if(!pickers.ok||!picker?.supported||!picker.frame||!picker.frame_document)throw issue('chooser_changed','The exact frame-owned file picker is no longer available');
         const route={frame:picker.frame,frame_document:picker.frame_document},chain=await pinChain(route),meta=await evaluate(route,'describe',{});
         if(!meta.ok||!/^d-[a-f0-9-]{36}$/i.test(meta.document))throw issue('frame_response_invalid','The picker document identity is invalid');
+        await uploadParents(route,chain);
         const target=await native('chooser',{action:'target',agent:true,chooser:picker.id,document:meta.document,frame_chain:chain});
         if(!target.ok)return target;
         if(target.document!==meta.document||!/^e[1-9][0-9]{0,12}$/.test(target.element?.ref)||JSON.stringify(await pinChain(route))!==JSON.stringify(chain))
@@ -109,7 +120,10 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
       if(local.ref)out.ref=found.element.ref;
       if(Object.hasOwn(local,'frame'))out.frame=route.frame;
       if(method==='prepare')return{...out,...await mapPoint(route,local)};
-      if(method==='uploadInfo')return{...out,native_target:{document:route.document,ref:route.ref,frame_chain:await pinChain(route)}};
+      if(method==='uploadInfo'){
+        const chain=await pinChain(route);await uploadParents(route,chain);
+        return{...out,native_target:{document:route.document,ref:route.ref,frame_chain:chain}};
+      }
       if(method==='verify'&&local.focused){
         const prepared=await evaluate(route,'prepare',{...localOptions,scroll:false});
         if(!prepared.ok)return{...out,focused:false};

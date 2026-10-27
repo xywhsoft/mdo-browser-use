@@ -1733,3 +1733,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   checks remain required. The normal workbench is still pending parent-inert
   upload policy, frame drag and screenshot privacy aggregation before activation;
   this milestone does not claim the managed frame path or Android is complete.
+
+## D13i — enforce composed parent-frame upload policy
+
+- Add a fixed, read-only native owner policy for hidden file inputs. Resolve
+  the real iframe owner in each parent process and inspect bounded composed
+  ancestry for `inert`, including assigned slots and shadow hosts. Hidden
+  inputs/frames remain supported; pixel visibility is not an upload permission.
+  Return only policy state and pinned owner identities, not DOM values.
+- Apply the policy before resolving picker targets or exposing direct native
+  upload bindings, and revalidate the complete document chain afterwards.
+  Existing post-seal target revalidation performs it again before assignment.
+  This is fresh actionability checking, not a claim that a website cannot change
+  its DOM after the last check. Native dispatch continues to fence original
+  frame documents and local input identities independently.
+- Real WebView2 frame gate: 143 pass, including inert outer/inner parents rejected
+  before any file digest/read, and a hidden enabled iframe still accepted for
+  hidden-input preparation. All previous frame picker/upload/input cases pass;
+  no new native diagnostics or retained cache reservations. Sequential JS gate:
+  132 pass. The previous unchanged full Python (101 pass/two privilege skips),
+  native baseline (1,371 poll-inclusive checks) and normal public upload gates
+  remain the last full baseline; they were not rerun for this fixed frame policy.
+- Next migrate frame drag and screenshot privacy aggregation, activate the
+  normal workbench adapter, then verify managed C/JS frame workflows and the
+  remaining platform/lifecycle/network/vision/package scope of the full goal.
