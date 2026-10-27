@@ -583,8 +583,9 @@ try {
     bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});
   assert((await bridge.call('dialog',{browser,action:'list'})).dialogs.length===0,'A closed native view retained its dialog');
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
+  const downloadCleanup=await runDownloadCleanupProbe({bridge,assert,pause,origin:downloadOrigin});
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,native_downloads:true,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,native_downloads:true,download_cleanup:downloadCleanup,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error)}; }
 finally {
   try { await bridge.call('close',{browser}); } catch {}
@@ -626,7 +627,7 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_o
     elif download_only:
         start = selected_script.index('try {\n  const raceBrowser=')
         end = selected_script.index('} catch(error) { report=')
-        selected_script = selected_script[:start] + 'try { const lifecycle=await runDownloadProbe({bridge,assert,pause,runtimeSource,origin:downloadOrigin}); report={passed:true,checks,backend:"actual-webview2-download",native_downloads:true,download_lifecycle:lifecycle};\n' + selected_script[end:]
+        selected_script = selected_script[:start] + 'try { const lifecycle=await runDownloadProbe({bridge,assert,pause,runtimeSource,origin:downloadOrigin}); const cleanup=await runDownloadCleanupProbe({bridge,assert,pause,origin:downloadOrigin}); report={passed:true,checks,backend:"actual-webview2-download",native_downloads:true,download_lifecycle:lifecycle,download_cleanup:cleanup};\n' + selected_script[end:]
     if startup_only:
         start = selected_script.index('try {\n  const raceBrowser=')
         end = selected_script.index('} catch(error) { report=')
@@ -688,6 +689,29 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_o
             from upload_cache_probe import inspect_cache
             root=dev.HOME/'data/cache/webview2-content/mdo-browser-use-downloads'
             result['native_download_cache']=inspect_cache(root)
+            if result.get('download_cleanup'):
+                import uuid
+                identity=result['download_cleanup']['closed_download']
+                if len(identity)!=38 or not identity.startswith('d-'):raise RuntimeError('Invalid closed download fixture identity')
+                uuid.UUID(identity[2:])
+                directory=root/identity
+                if not root.resolve().is_relative_to(dev.HOME.resolve()) or directory.resolve().parent!=root.resolve() or directory.is_symlink() or directory.is_junction():
+                    raise RuntimeError('The late cleanup fixture escaped its owned private cache')
+                def drain_cache():
+                    started=time.monotonic()
+                    while result['native_download_cache']['remaining_reservations'] or directory.exists():
+                        if time.monotonic()-started>=6:break
+                        time.sleep(.1);result['native_download_cache']=inspect_cache(root)
+                    return round((time.monotonic()-started)*1000)
+                native_wait=drain_cache();recreated=False;late_wait=0
+                if not result['native_download_cache']['remaining_reservations']:
+                    # No harness deletion: first require native cleanup, then
+                    # recreate just this retired GUID's empty directory later.
+                    # Unexpected/native contents, if any, remain untouched.
+                    try:directory.mkdir();recreated=True
+                    except FileExistsError:pass
+                    late_wait=drain_cache()
+                result['late_download_directory_cleanup']={'empty_directory_recreated':recreated,'native_wait_ms':native_wait,'late_wait_ms':late_wait,'remaining_reservations':result['native_download_cache']['remaining_reservations']}
             result['download_requests']=dict(fixture.counts)
             if result['native_download_cache']['remaining_reservations']:
                 result['passed']=False;result['error']='Native download close left cache reservations behind'

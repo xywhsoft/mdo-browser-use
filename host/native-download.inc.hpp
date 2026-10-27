@@ -113,6 +113,8 @@ struct xb_download_job{
 };
 struct xb_download_store{
   std::weak_ptr<xb_host> host;std::wstring root;bool initialized=false;std::map<std::string,std::shared_ptr<xb_download_job>> jobs;
+  ULONGLONG reapUntil=0,reapNext=0;unsigned reapDelay=100;
+  void retired(){const auto now=GetTickCount64();reapUntil=now+5000;reapNext=now+100;reapDelay=100;}
   uint64_t reserved()const{uint64_t total=0;for(const auto& item:jobs)if(item.second->directoryOwned)total+=item.second->limit;return total;}
   bool initialize(const std::shared_ptr<xb_host>& owner){if(initialized)return true;host=owner;root=owner->profile+L"\\mdo-browser-use-downloads";
     if(!xb_upload_private_root(root))return false;xb_upload_guard guard(root);if(guard.handle==INVALID_HANDLE_VALUE||!xb_download_collect_stale(root))return false;initialized=true;return true;}
@@ -134,8 +136,17 @@ struct xb_download_store{
       }
       if(job->state=="pending"&&GetTickCount64()>=job->expires)job->cancel("download_offer_expired");
       job->cleanupBlocked=false;for(const auto& other:jobs)if(other.second!=job&&other.second->view.lock()==view&&other.second->state=="identifying")job->cleanupBlocked=true;
-      job->update();job->verify();if(job->closing&&job->cleanup()){retire(job);at=jobs.erase(at);}else{watching|=!job->terminal()||job->closing;++at;}
-    }if(!watching&&owner)KillTimer(owner->window,xb_download_timer);
+      job->update();job->verify();if(job->closing&&job->cleanup()){if(job->directoryOwned)retired();retire(job);at=jobs.erase(at);}else{watching|=!job->terminal()||job->closing;++at;}
+    }
+    // Cancellation/controller closure can outlive our first filesystem cleanup.
+    // Recheck the attested cache briefly after its last owner retires. Active
+    // leases and unknown/reparse layouts remain protected by the same collector.
+    const auto now=GetTickCount64();
+    if(initialized&&owner&&owner->alive&&now<reapUntil){watching=true;if(now>=reapNext){
+      xb_upload_guard guard(root);if(guard.handle!=INVALID_HANDLE_VALUE)xb_download_collect_stale(root);
+      reapNext=now+reapDelay;reapDelay=std::min(1000u,reapDelay*2);
+    }}
+    if(!watching&&owner)KillTimer(owner->window,xb_download_timer);
   }
 };
 static std::map<HWND,std::weak_ptr<xb_download_store>> xb_download_stores;
@@ -230,7 +241,7 @@ static void xb_download_request(const std::shared_ptr<xb_host>& host,const std::
   if(action=="cancel"){job->cancel("cancelled");job->update();host->reply(id,xb_download_status(job));return;}
   if(action=="release"){
     if(!job->terminal()){fail("Cancel and wait for the native operation before releasing a download");return;}
-    job->closing=true;if(!job->cleanup()){fail("Download cache cleanup is pending or its layout changed; files were preserved");return;}store->retire(job);store->jobs.erase(at);host->reply(id,"{\"ok\":true,\"released\":true}");return;
+    job->closing=true;if(!job->cleanup()){fail("Download cache cleanup is pending or its layout changed; files were preserved");return;}if(job->directoryOwned){store->retired();xb_download_watch(host);}store->retire(job);store->jobs.erase(at);host->reply(id,"{\"ok\":true,\"released\":true}");return;
   }
   if(action=="accept"){
     uint64_t limit=32ull*1024*1024,timeout=60000;

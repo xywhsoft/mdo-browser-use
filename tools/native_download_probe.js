@@ -60,7 +60,9 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
       assert((await call('get',{download:pairA.id})).state==='pending','Foreign commands changed the owned download');
     }finally{await bridge.call('close',{browser:foreign});}
     await call('accept',{download:pairA.id});await call('accept',{download:pairB.id});
-    await consume(await terminal(pairA.id));await consume(await terminal(pairB.id));await release(pairA.id);await release(pairB.id);
+    await consume(await terminal(pairA.id));await consume(await terminal(pairB.id));await release(pairA.id);
+    await pause(300);await consume(await call('get',{download:pairB.id})); // Idle reaping must preserve another live lease and its verified bytes.
+    await release(pairB.id);
     const large=await offer('#large'),denied=await call('accept',{download:large.id,max_bytes:1048576});assert(denied.state==='failed'&&denied.error==='download_limit','Known oversized download was not rejected before writing');await release(large.id);
     const unknown=await offer('#unknown');await call('accept',{download:unknown.id,max_bytes:65536});const over=await terminal(unknown.id);assert(over.state==='failed'&&over.error==='download_limit','Unknown-length download exceeded its completion limit');await reject(call('read',{download:unknown.id,offset:0}),'Unverified oversize bytes were exposed');await release(unknown.id);
     const cancelled=await offer('#slow');await call('accept',{download:cancelled.id});
@@ -112,5 +114,19 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
     const closed=await offer('#slow');await call('accept',{download:closed.id});await bridge.call('close',{browser});await pause(250);
     await bridge.call('create',{browser,url,visible:false});await ready();assert(!(await call('list')).downloads.length&&!(await call('list')).armed,'Recreated browser inherited old download state');
     return{closed_download:closed.id,truncated_download:truncated.id};
+  }finally{await bridge.call('close',{browser}).catch(()=>{});}
+}
+
+// Run last so the host's quiet cleanup window is still live when the outer
+// Python fixture simulates a delayed native empty-directory recreation.
+async function runDownloadCleanupProbe({bridge,assert,pause,origin}){
+  const browser='browser-use-download-idle-cleanup';let pending;
+  try{
+    await bridge.call('create',{browser,url:origin+'/slow?cleanup=1',visible:false,intercept_downloads:true});
+    for(let i=0;i<150;i++){pending=(await bridge.call('downloads',{browser,agent:true,action:'list'})).downloads.find(row=>row.state==='pending');if(pending)break;await pause(20);}
+    assert(Boolean(pending),'Idle cleanup fixture did not retain its original response');
+    const accepted=await bridge.call('downloads',{browser,agent:true,action:'accept',download:pending.id});
+    assert(['receiving','verifying','completed'].includes(accepted.state),'Idle cleanup response was not accepted');
+    await bridge.call('close',{browser});return{closed_download:pending.id};
   }finally{await bridge.call('close',{browser}).catch(()=>{});}
 }

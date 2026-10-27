@@ -1124,3 +1124,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android work and final lifecycle/performance/package gates still keep the
   full Browser Use goal active. Earlier intermittent hidden startup evidence
   also remains open; this stage does not invent a root cause for it.
+
+
+## D12i — collect late cache directories after the last download retires
+
+- The last cancelled native download can leave an empty GUID directory after
+  its first cleanup. The old watcher stopped as soon as no job remained, so no
+  later idle collection ran. Its fixture waited six seconds and still failed.
+  That failure is retained at
+  `.mdo/evidence/late-download-directory-before-idle-reaper.json`. The exact OS/
+  Chromium operation creating the late empty directory is still not traced.
+- Retiring an owned cache now starts a five-second maintenance window with
+  exponential backoff (100 ms to 1 second), on the existing native timer/store.
+  The existing guarded inventory collector skips live leases and preserves
+  unexpected/reparse layouts. There is no new thread, application copy or
+  unlimited background loop. Explicit release still removes its native receipt.
+- The real fixture first requires native cleanup, then recreates only that
+  retired GUID's empty directory. The harness performs no deletion. The full
+  native gate passes 1341 assertions with no new exception diagnostics, zero
+  upload/download reservations and removal of the injected directory in 110 ms.
+  A further focused gate passes 308 assertions, verifies that another live
+  lease's exact bytes/hash survive idle collection, and reaps the injected
+  directory in 203 ms. These are observed timings, not a latency guarantee.
+- The binary and composed native helper match the build receipt; ordinary
+  headless service is restored in the same Home. This clears the D12h cache
+  failure for the tested paths. Unexpected-layout/OOM/quota audits, the earlier
+  intermittent hidden startup evidence, safe task-workspace saving, visible
+  download controls and the remaining full Browser Use stages stay open.

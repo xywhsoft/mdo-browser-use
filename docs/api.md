@@ -499,3 +499,8 @@ do not evaluate or send input to that page. Download inspect/accept/wait/release
 remain available. Releasing the last response resumes automatic closure after
 the UI acknowledgement, so closure cannot cancel the release receipt. Explicit
 user/browser closure still cancels and reclaims owned responses immediately.
+
+Native cache maintenance continues for a bounded five-second quiet window
+after a transfer owner retires, using backoff. This catches late empty-directory
+creation after cancellation/closure. It reuses the exclusive-lease and validated
+inventory collector; active leases and unexpected/reparse layouts are preserved.
