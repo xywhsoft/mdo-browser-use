@@ -57,6 +57,12 @@ try {
     if(!replacement.loading&&replacement.url.includes('creation=new'))break;await pause(20);
   }
   const replacementReadyMs=Math.round(performance.now()-replacementStarted);
+  if(replacement.loading){
+    const before=replacement,documentState=await bridge.call('evaluate',{browser:raceBrowser,script:`({ready:document.readyState,frames:[...document.querySelectorAll('iframe')].map(frame=>{try{return{ready:frame.contentDocument?.readyState||'opaque'}}catch{return{ready:'opaque'}}}),timing:performance.getEntriesByType('navigation').map(entry=>({dom:entry.domContentLoadedEventEnd,load:entry.loadEventEnd,response:entry.responseEnd}))})`});
+    await bridge.call('bounds',{browser:raceBrowser,visible:true,bounds:{x:10,y:70,width:640,height:480,scale:devicePixelRatio}});
+    for(let i=0;i<100;i++){replacement=await bridge.call('state',{browser:raceBrowser});if(!replacement.loading)break;await pause(20);}
+    assert(false,'Hidden replacement navigation stayed pending: '+JSON.stringify({elapsed_ms:replacementReadyMs,before,documentState,after_show:replacement}));
+  }
   assert(!replacement.loading&&replacement.url.includes('creation=new'),'The replacement did not reach its requested document: '+JSON.stringify(replacement));
   await bridge.call('close',{browser:raceBrowser});
   await bridge.call('create', { browser, url:location.origin+'/__browser_use_page__.html',
@@ -597,7 +603,7 @@ try {
 '''
 
 
-def main(dialog_expiry=False, chooser_only=False, download_only=False):
+def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_only=False):
     output = dev.ENV / "page-observation-result.json"
     output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
     dump_root = dev.ENV / "host"
@@ -606,7 +612,7 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False):
                 for p in dump_root.glob("crash_*") if p.suffix in (".dmp", ".txt")}
     previous_dumps = dumps()
     from download_fixture import DownloadFixture
-    fixture = DownloadFixture().start() if not chooser_only else None
+    fixture = DownloadFixture().start() if not chooser_only and not startup_only else None
     web = dev.SOURCE / "app/web"
     runtime = (ROOT / "page/runtime.js").read_text(encoding="utf-8")
     if runtime.count("export function browserRuntime()") != 1:
@@ -621,6 +627,11 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False):
         start = selected_script.index('try {\n  const raceBrowser=')
         end = selected_script.index('} catch(error) { report=')
         selected_script = selected_script[:start] + 'try { const lifecycle=await runDownloadProbe({bridge,assert,pause,runtimeSource,origin:downloadOrigin}); report={passed:true,checks,backend:"actual-webview2-download",native_downloads:true,download_lifecycle:lifecycle};\n' + selected_script[end:]
+    if startup_only:
+        start = selected_script.index('try {\n  const raceBrowser=')
+        end = selected_script.index('} catch(error) { report=')
+        helper = (ROOT / 'tools/native_startup_probe.js').read_text(encoding='utf-8')
+        selected_script = selected_script[:start] + helper + '\ntry { const cases=await runStartupProbe({bridge,assert,pause});report={passed:cases.every(row=>row.elapsed_ms<=10000&&!row.after_show&&!row.error),checks,backend:"actual-webview2-startup",startup_cases:cases};if(!report.passed)report.error="Native startup exceeded the default readiness bound; inspect its retained timing and visibility evidence";\n' + selected_script[end:]
     script = selected_script.replace("RUNTIME_SOURCE", json.dumps(runtime).replace("<", "\\u003c")).replace("DIALOG_EXPIRY", json.dumps(dialog_expiry)).replace("DOWNLOAD_FIXTURE_ORIGIN",json.dumps(fixture.origin if fixture else None))
     script = script.replace("UPLOAD_PROBE_SOURCE", (ROOT / "tools/native_upload_probe.js").read_text(encoding="utf-8"))
     script = script.replace("FILE_INPUT_PROBE_SOURCE", (ROOT / "tools/native_file_input_probe.js").read_text(encoding="utf-8"))
@@ -685,7 +696,7 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False):
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))
-        if not chooser_only and not download_only:
+        if not chooser_only and not download_only and not startup_only:
             image = dev.call("storage.read", {"path": "qa/capture-fixture.png", "limit": 262144}, REPORT)
             import base64
             (dev.ENV / "capture-fixture.png").write_bytes(base64.b64decode(image["base64"], validate=True))
@@ -700,11 +711,13 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dialog-expiry", action="store_true", help="Also wait for the actual 120-second native dialog lease")
-    parser.add_argument("--chooser-only", action="store_true", help="Run the actual chooser lifecycle in the same Home")
-    parser.add_argument("--download-only", action="store_true", help="Run actual native response downloads in the same Home")
+    modes=parser.add_mutually_exclusive_group()
+    modes.add_argument("--chooser-only", action="store_true", help="Run the actual chooser lifecycle in the same Home")
+    modes.add_argument("--download-only", action="store_true", help="Run actual native response downloads in the same Home")
+    modes.add_argument("--startup-only", action="store_true", help="Measure hidden/visible native navigation readiness in the same Home")
     args = parser.parse_args()
     try:
-        raise SystemExit(main(args.dialog_expiry, args.chooser_only, args.download_only))
+        raise SystemExit(main(args.dialog_expiry, args.chooser_only, args.download_only, args.startup_only))
     except (RuntimeError, OSError, ValueError) as error:
         print(error, file=sys.stderr)
         raise SystemExit(1)

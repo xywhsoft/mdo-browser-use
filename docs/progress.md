@@ -967,8 +967,8 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   still fails while an older completed download is retained. Cache ACL remains
   private, no new native diagnostics were created and no reservations remain.
 - The broader native gate is not green yet: it reproduced intermittent hidden
-  fixture startup waiting for a child frame, before reaching downloads. State
-  and DOM/load timing evidence are retained; a separate focused hidden/visible
+  fixture startup with an interactive document and pending top-level completion,
+  before reaching downloads. State and DOM/load timing evidence are retained; a separate focused hidden/visible
   run completes normally (218–690 ms). This does not establish a cause or a fix
   for that earlier startup issue. Public download integration remains in progress.
 
@@ -1014,3 +1014,21 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   also remains an unresolved final stability gate; successful focused/API checks
   do not replace it. Remaining frame/directory/vision/drag/Android/lifecycle and
   final packaging work keeps the original full goal active.
+
+
+## D12d — bounded startup diagnostics without a passing fallback
+
+- Added `--startup-only`: four sequential hidden/visible starts in the same Home.
+  It captures a slow document's readiness/frame/load timing, waits a bounded
+  interval, then records whether showing that same controller changes readiness.
+  A late recovery/show cannot turn a start exceeding the 10-second default into
+  a passing measurement. CLI focused modes are mutually exclusive.
+- The broad upload/race startup assertions now retain full native state, elapsed
+  time and DOM/load evidence instead of the old generic capability error. They
+  still fail their original assertion when showing a delayed view is needed.
+  No reload, additional browser distribution or extra application/Home is used.
+- The latest standalone four-start check passes with no new native diagnostics.
+  Earlier broader failures are preserved privately and remain unresolved. The
+  evidence shows interactive top documents before native completion, but does
+  not isolate whether visibility, frame scheduling or another timing condition
+  caused the delay. This diagnostic stage makes no product startup-fix claim.

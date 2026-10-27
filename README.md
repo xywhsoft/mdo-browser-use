@@ -62,6 +62,9 @@ Use `python tools/native_probe.py --dialog-expiry` for the longer lifecycle gate
 that also waits for the real 120-second native dialog lease.
 Use `python tools/native_probe.py --download-only` for native download identity,
 response bytes, cancellation and cache lifecycle checks in the same Home.
+`--startup-only` measures four sequential hidden/visible native starts. It retains
+DOM/load timing when slow, and showing a delayed view cannot turn a startup
+that exceeded the default readiness bound into a passing measurement.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
