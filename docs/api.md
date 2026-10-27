@@ -104,14 +104,17 @@ even when its snapshot changes, without emitting an unmatched release or the
 second click of an interrupted double-click. These checks allocate no memory
 between input steps. Absence preserves existing trusted-native/DOM callers;
 public visual coordinates require this capability and the preflight below.
+Image-point dragging additionally requires `frame_snapshot_drag`; older native
+hosts reject it before gesture preparation.
 
-The visual-pointer dispatcher validates the completed image's
+The visual dispatcher validates the completed image's
 document/navigation, full frame/layout stamp, root scroll/viewport, crop and
 device scale. It refuses points outside the current viewport or inside either
 privacy scan's masks. Before input it captures the same bounded region, applies
-the same masks/output sizing and compares the chosen padded tile to its saved
+the same masks/output sizing and compares each chosen padded tile to its saved
 hash. Unrelated distant animation need not reject the point. This retains the
-original screenshot coordinate system and checks only one current tile.
+original screenshot coordinate system and checks one tile for pointer input,
+or both endpoint tiles for dragging.
 
 Validation shares the global screenshot budget, respects the original cancel/
 deadline, cancels its own native capture on exit and consumes its image lease
@@ -156,7 +159,7 @@ The existing scroll-into-view path is verified through three offscreen document
 levels and two OOPIFs: the browser scrolls its ancestors before final owner/
 document-chain validation and one trusted input. Drag still requires both
 endpoints visible together. Visual pointer coordinates use completed-image
-references below; visual keyboard/drag remain pending. Unsupported geometry
+references below; visual keyboard remains pending. Unsupported geometry
 remains an explicit bounded failure.
 
 Native top-level navigation invalidates pending operations immediately. A file
@@ -270,9 +273,10 @@ await browser.act({ browser: tab.id, document: page.document, op: "drag",
 
 C callers pass the same object to `mdoBrowserUseAct`; Agent calls use
 `browser_act`. Both targets must resolve precisely in the same fresh observed
-document. `destination` supports the same locator fields as `target`, requires
-a selector beyond `frame`, and is only valid for drag. There is no supplied
-JavaScript, raw drag payload, local file path or coordinate escape hatch.
+document. For DOM targets, `destination` supports the same locator fields as
+`target` and requires a selector beyond `frame`. Visual drag uses two points
+from one completed image, as described below. `destination` is valid only for
+drag. No JavaScript, raw drag payload or local file path is accepted.
 
 The source can scroll into view during preparation. Both elements must then be
 visible together, stable and hit-testable; this version does not drag across an
@@ -288,7 +292,21 @@ deliver trusted native press/move/release events. HTML5 data comes only from
 the intercepted browser event and stays in memory; it is not echoed in results
 or stored as operation arguments. File lists, local/non-HTTP or credential URI
 lists, download payloads and excessive data are refused. Files require the
-separate transfer capability, which is still under development.
+ticketed upload interface.
+
+The native backend installs one bounded source observer in the original frame's
+isolated world before input. It records trusted drag start/end state without
+retaining payloads or event history. A completed target drop can leave an
+intercepted source active across renderer widgets. Cleanup checks that original
+source first and ends only an active source, avoiding both a missing `dragend`
+and a duplicate end event. It never issues another drop. Owned listeners and
+state are removed before normal admission of the next gesture; missing or
+unconfirmed event/cleanup evidence retains a blocked view until it is ended.
+Extra source-end cleanup requires the original source document. An admitted
+mouse press still receives its one native release during interruption cleanup.
+This adapter behavior was checked against the installed engine; the consulted
+[Chromium input implementation](https://raw.githubusercontent.com/chromium/chromium/main/content/browser/devtools/protocol/input_handler.cc)
+also routes drag events through the widget under the specified point.
 
 Native delivery does not prove the website accepted the drop or saved a change.
 Verify the business result. The normal durable operation identity/recovery rules
@@ -361,8 +379,17 @@ Agent `browser_act` accepts `target:{image:<reference id>,x:<integer>,y:<integer
 Coordinates belong to the exact delivered image pixels, including its scaling
 and crop; each must be inside that image (public integer range 0–2047). Do not
 mix an image point with a DOM/frame selector. Supported operations are `click`,
-`double_click`, `right_click`, `middle_click`, `hover` and `scroll` (with wheel
-deltas). Keyboard, fill, selection, check and drag still require DOM targets.
+`double_click`, `right_click`, `middle_click`, `hover`, `scroll` (with wheel
+deltas) and `drag`. Keyboard, fill, selection and check require DOM targets.
+
+For visual dragging, supply `destination:{image:<same id>,x:<integer>,y:<integer>}`.
+Both endpoints must be visible together, unmasked, at least four CSS pixels
+apart, and use the same completed screenshot. C/JS/Agent admission rejects mixed
+DOM/image targets and different image IDs. A single validation capture checks
+both pixel neighborhoods. Fixed read-only hit testing binds each point to its
+actual frame through exact native iframe owners; model selectors or rectangle
+coincidence do not choose the process/session. The original source/destination
+chains and complete screenshot frame tree fence the one native gesture.
 
 One gesture consumes the image lease. Lost replies require durable operation
 recovery, not a new click with a reused or fresh image. Expired/foreign images,

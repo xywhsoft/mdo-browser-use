@@ -186,7 +186,7 @@ export const services = [
   },
   {
     "id": "browseruse.act",
-    "description": "Queue one native browser action against an observed DOM target or a completed screenshot image-pixel target. Visual targets support pointer gestures and wheel only, require native frame/scene validation, and consume their image lease once. Wait for browseruse.result; never repeat an uncertain effect. No arbitrary script is accepted.",
+    "description": "Queue one native browser action against an observed DOM target or a completed screenshot image-pixel target. Visual targets support pointer gestures, wheel and dragging (two points from one image), require native frame/scene validation, and consume their image lease once. Wait for browseruse.result; never repeat an uncertain effect. No arbitrary script is accepted.",
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -403,6 +403,21 @@ export const services = [
               "type": "string",
               "minLength": 1,
               "maxLength": 1024
+            },
+            "image": {
+              "type": "string",
+              "minLength": 51,
+              "maxLength": 51
+            },
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2047
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 2047
             }
           }
         }

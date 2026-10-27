@@ -365,12 +365,14 @@ try{
   const dragParams={op:'drag',document:page.result.document,target:{name:'Nested drag source'},destination:{name:'Nested drag destination'},timeout_ms:5000};
   await installDrag();const pointerDragged=await dispatch('act',dragParams);geometryEvidence.pointerDragged=pointerDragged;
   assert(pointerDragged.result.ok&&pointerDragged.result.drag_kind==='pointer','Nested pointer drag was not delivered');
+  assert((await evaluate(newLeaf,"'__mdo_native_drag_watch_v1' in globalThis")).value===false,'Completed pointer drag retained its isolated source observer');
   let dragged=await dragEffect();geometryEvidence.pointerEffect=dragged;
   assert(dragged.value.dragHeld==='false'&&dragged.value.dragReleases==='1'&&dragged.value.dragTrusted==='true'&&Number(dragged.value.dragDx)>100&&dragged.value.dragDrops==='0','Nested pointer drag lost its trusted stream or exact release');
   await installDrag(true);const htmlDragged=await dispatch('act',dragParams);geometryEvidence.htmlDragged=htmlDragged;
   dragged=await dragEffect();geometryEvidence.htmlEffect=dragged;
   assert(htmlDragged.result.ok&&htmlDragged.result.drag_kind==='html5','Nested HTML5 drag did not retain its intercepted browser payload');
   assert(dragged.value.dragStarts==='1'&&dragged.value.dragEnds==='1'&&dragged.value.dragDrops==='1'&&dragged.value.dragText==='frame-drag-qa'&&dragged.value.dragTrusted==='true','Nested HTML5 drag did not reach its exact target once with trusted events');
+  assert((await evaluate(newLeaf,"'__mdo_native_drag_watch_v1' in globalThis")).value===false,'Completed HTML drag retained its source observer');
   stage='cross-document-drag';
   const rootDragSetup=await call('evaluate',{script:`(()=>{
     document.querySelectorAll('.root-drag-qa').forEach(node=>node.remove());
@@ -388,8 +390,29 @@ try{
   await installDrag(true);const fromRoot=await dispatch('act',{...dragParams,target:{name:'Root drag source'}});geometryEvidence.dragFromRoot=fromRoot;
   dragged=await dragEffect();geometryEvidence.dragFromRootEffect=dragged;
   const rootSource=await call('evaluate',{script:'({starts:document.body.dataset.rootDragStarts,ends:document.body.dataset.rootDragEnds})'});
+  geometryEvidence.rootDragSourceTermination=rootSource;
+  assert((await evaluate(geometryRoot,"'__mdo_native_drag_watch_v1' in globalThis")).value===false,'Root source observer survived cross-document drag cleanup');
   assert(fromRoot.result.ok&&fromRoot.result.drag_kind==='html5'&&dragged.value.dragDrops==='1'&&dragged.value.dragText==='frame-drag-qa'&&dragged.value.dragTrusted==='true'&&rootSource.value.starts==='1'&&rootSource.value.ends==='1','Root-to-OOPIF drag lost its trusted payload or source termination');
   stage='frame-drag-cancel-and-navigation';
+  const visualDragArgs=async()=>{
+    const image=await dispatch('capture',{document:page.result.document,max_width:1200,max_height:1000});assert(image.result.ok,'Visual drag image was not completed');
+    const pin=async(target)=>{const located=await driver.read('prepare',{document:page.result.document,target,op:'drag',scroll:false});assert(located.ok,'Visual drag endpoint was not visible');
+      return{image:image.result.visual_reference.id,x:Math.round(located.point.x*image.result.image.width/image.result.region.width),y:Math.round(located.point.y*image.result.image.height/image.result.region.height)};};
+    return{...dragParams,target:await pin(dragParams.target),destination:await pin(dragParams.destination)};
+  };
+  await installDrag();const visualPointer=await dispatch('act',await visualDragArgs());geometryEvidence.visualPointerDrag=visualPointer;
+  assert(visualPointer.result.ok&&visualPointer.result.scene_validated&&visualPointer.result.drag_kind==='pointer','Nested image-point pointer drag failed');
+  await installDrag(true);const visualHtml=await dispatch('act',await visualDragArgs());geometryEvidence.visualHtmlDrag=visualHtml;
+  assert(visualHtml.result.ok&&visualHtml.result.drag_kind==='html5'&&(await dragEffect()).value.dragDrops==='1','Nested image-point HTML drag lost its native payload');
+  await installDrag();const visualCancelledArgs=await visualDragArgs();cancelHeldFrame=newLeaf;
+  const visualCancelled=await dispatch('act',visualCancelledArgs);geometryEvidence.visualCancelledDrag=visualCancelled;
+  assert(!visualCancelled.result.ok&&visualCancelled.result.error.code==='cancelled'&&visualCancelled.result.error.effect_may_have_occurred,'Image-point drag did not retain originating cancellation');cancelDispatch=false;
+  await until(async()=>!(await call('state')).input_busy,'Cancelled visual drag retained its native slot');
+  const visualCancelledEffect=await dragEffect();assert(visualCancelledEffect.value.dragHeld==='false'&&visualCancelledEffect.value.dragReleases==='1'&&visualCancelledEffect.value.dragDrops==='0','Cancelled image-point drag leaked its press or drop');
+  const staleVisualSnapshot=(await call('frames',{action:'list',agent:true})).frames.map(row=>({frame:row.id,document:row.document,parent:row.parent||''}));
+  staleVisualSnapshot.find(row=>row.frame!==newLeaf.id).document='fd-00000000-0000-4000-8000-000000000099';
+  const staleVisualDrag=await call('drag',{agent:true,drag_key:'stale-visual-drag',navigation:state.navigation,x:100,y:100,to_x:200,to_y:200,frame_snapshot:staleVisualSnapshot});
+  assert(!staleVisualDrag.accepted&&staleVisualDrag.dispatched===false,'A changed screenshot sibling admitted native drag input');
   await installDrag();cancelHeldFrame=newLeaf;
   const cancelledDrag=await dispatch('act',dragParams);geometryEvidence.cancelledDrag=cancelledDrag;
   assert(!cancelledDrag.result.ok&&cancelledDrag.result.error.code==='cancelled'&&cancelledDrag.result.error.effect_may_have_occurred,'The original receipt did not cancel an admitted nested drag');cancelDispatch=false;

@@ -6,8 +6,8 @@ static mdo_result BuAct(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
     if(Target&&V->Get(Target,"image")){
         if(V->Count(Target)!=3||!BuVisualId(BuText(C,Target,"image"))||!V->Get(Target,"x")||!V->Get(Target,"y"))
             return BuFail(E,"target_invalid","Visual targets require only the completed screenshot ID and integer image-pixel x/y",422);
-        if(!BuEqual(Op,"click")&&!BuEqual(Op,"double_click")&&!BuEqual(Op,"right_click")&&!BuEqual(Op,"middle_click")&&!BuEqual(Op,"hover")&&!BuEqual(Op,"scroll"))
-            return BuFail(E,"unsupported_action","Use an observed DOM target for fields, keyboard or drag; image targets support pointer gestures and wheel only",422);
+        if(!BuEqual(Op,"click")&&!BuEqual(Op,"double_click")&&!BuEqual(Op,"right_click")&&!BuEqual(Op,"middle_click")&&!BuEqual(Op,"hover")&&!BuEqual(Op,"scroll")&&!BuEqual(Op,"drag"))
+            return BuFail(E,"unsupported_action","Use an observed DOM target for fields and keyboard; image targets support pointer gestures, wheel and drag",422);
     }else if(Target){
         if(V->Get(Target,"x")||V->Get(Target,"y"))return BuFail(E,"target_invalid","Pixel coordinates require their completed screenshot identity",422);
         bool Selector=false;const char* Keys[]={"role","name","label","placeholder","text","testid","css","ref"};
@@ -27,10 +27,18 @@ static mdo_result BuAct(void* User,const mdo_sdk_context_v1* C,const xvalue* P,
     const xvalue* Destination=V->Get(P,"destination");
     if(BuEqual(Op,"drag")){
         if(!Destination||!V->Count(Destination))return BuFail(E,"destination_required","Select an exact observed destination before dragging",422);
-        bool Selector=false;const char* Keys[]={"role","name","label","placeholder","text","testid","css","ref"};
-        for(size_t I=0;I<8;I++)if(V->Get(Destination,Keys[I]))Selector=true;
-        if(!Selector)return BuFail(E,"destination_required","A frame alone is not a drop target",422);
-        if(V->Get(Destination,"ref")&&V->Count(Destination)>(V->Get(Destination,"frame")?2:1))return BuFail(E,"target_invalid","Use a destination reference or semantic selectors",422);
+        if(V->Get(Target,"image")||V->Get(Destination,"image")){
+            if(!V->Get(Target,"image")||!V->Get(Destination,"image"))return BuFail(E,"target_invalid","Use two screenshot points or two observed DOM targets for dragging",422);
+            if(V->Count(Destination)!=3||!BuVisualId(BuText(C,Destination,"image"))||!V->Get(Destination,"x")||!V->Get(Destination,"y"))
+                return BuFail(E,"target_invalid","A visual drop target requires only its completed image ID and integer image-pixel x/y",422);
+            if(!BuEqual(BuText(C,Target,"image"),BuText(C,Destination,"image")))return BuFail(E,"visual_image_mismatch","Both drag points must use the same completed screenshot",422);
+        }else{
+            if(V->Get(Destination,"x")||V->Get(Destination,"y"))return BuFail(E,"target_invalid","Drop coordinates require their completed screenshot identity",422);
+            bool Selector=false;const char* Keys[]={"role","name","label","placeholder","text","testid","css","ref"};
+            for(size_t I=0;I<8;I++)if(V->Get(Destination,Keys[I]))Selector=true;
+            if(!Selector)return BuFail(E,"destination_required","A frame alone is not a drop target",422);
+            if(V->Get(Destination,"ref")&&V->Count(Destination)>(V->Get(Destination,"frame")?2:1))return BuFail(E,"target_invalid","Use a destination reference or semantic selectors",422);
+        }
     }else if(Destination)return BuFail(E,"arguments_invalid","Destination applies only to dragging",422);
     const char* Fields[]={"op","document","target","text","key","checked","dx","dy","timeout_ms","choices","destination"};
     return BuQueue(C,P,"act",Fields,11,Result,E);

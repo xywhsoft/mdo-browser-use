@@ -16,14 +16,15 @@ async function fixture(){
   const proof={document:doc,navigation:'7',frame_stamp:area.frame_stamp,region:area.region,redactions:[],options:{mode:'viewport',document:doc},
     device_pixel_ratio:1,capture:{format:'png',max_width:128,max_height:128,max_bytes:131072}};
   const store=createVisualSnapshotStore(),reference=store.issue('browser',proof,await hashVisualRaster(canvas));
-  const state={input:[],native:[],pins:null,reads:0,area,after:null,capability:true,viewNavigation:'7'};
+  const state={input:[],drags:[],native:[],pins:null,reads:0,area,after:null,capability:true,dragCapability:true,viewNavigation:'7'};
   const args={browser:'browser',params:{op:'click',document:doc,target:{image:reference.id,x:20,y:30}},store,action:{id:'visual-fixture'},
     deadline:performance.now()+10000,
     view:{async execute(command,params){state.native.push({command,params});return{};}},
-    read:async method=>method==='captureArea'?(++state.reads>1&&state.after||state.area):{ok:true,document:doc},
-    guard:async()=>({state:{frame_snapshot_input:state.capability,navigation:state.viewNavigation}}),
+    read:async(method,options)=>method==='captureArea'?(++state.reads>1&&state.after||state.area):method==='visualPoint'?{ok:true,document:doc,point:options.point,frame_chain:[{frame:'f0',document:fd}]}:{ok:true,document:doc},
+    guard:async()=>({state:{frame_snapshot_input:state.capability,frame_snapshot_drag:state.dragCapability,navigation:state.viewNavigation}}),
     send:async params=>{state.input.push(params);return null;},
-    fail:(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:state.input.length>0}}}),
+    sendDrag:async params=>{state.drags.push(params);return{drag_kind:'pointer'};},
+    fail:(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:state.input.length+state.drags.length>0}}}),
     setSnapshot:(snapshot,root)=>{state.pins={snapshot,root};},
     render:async(_native,_area,_after,_params,inspect)=>{await inspect.raster(canvas);return{};}};
   return{args,state,store,reference,data,proof,canvas,run:overrides=>executeVisualAction({...args,...overrides})};
@@ -80,4 +81,30 @@ test('cancellation drains the original validation capture without publishing or 
   f.args.guard=async()=>capture?f.args.fail('cancelled','Synthetic originating cancellation'):{state:{frame_snapshot_input:true,navigation:'7'}};
   assert.equal((await f.run()).result.error.code,'cancelled');assert.equal(f.state.input.length,0);
   assert(f.state.native.some(row=>row.command==='capture_cancel'));assert(f.store.get('browser',f.reference.id));
+});
+
+test('visual drag validates two image neighborhoods and sends one fully pinned gesture',async()=>{
+  const f=await fixture();f.args.params.op='drag';f.args.params.destination={image:f.reference.id,x:100,y:100};
+  const result=await f.run();assert(result.result.ok&&result.result.scene_validated);assert.equal(result.result.drag_kind,'pointer');
+  assert.equal(f.state.input.length,0);assert.equal(f.state.drags.length,1);
+  assert.deepEqual(f.state.drags[0],{x:20,y:30,to_x:100,to_y:100,
+    source_frame_chain:[{frame:'f0',document:fd}],destination_frame_chain:[{frame:'f0',document:fd}],frame_snapshot:[{frame:'f0',document:fd,parent:''}]});
+  assert.equal(f.state.native.filter(row=>row.command==='capture').length,1);
+  assert.equal((await f.run()).result.error.code,'visual_reference_expired');assert.equal(f.state.drags.length,1);
+});
+
+test('invalid, masked, changed or unpinned drop points cannot start a visual drag',async()=>{
+  for(const mode of ['different-image','outside','same-point','old-host','mask','late-mask','changed-tile','wrong-chain']){
+    const f=await fixture();f.args.params.op='drag';f.args.params.destination={image:f.reference.id,x:100,y:100};
+    if(mode==='different-image')f.args.params.destination.image='vs-'+'f'.repeat(48);
+    if(mode==='outside')f.args.params.destination.x=128;
+    if(mode==='same-point')f.args.params.destination={...f.args.params.target};
+    if(mode==='old-host')f.state.dragCapability=false;
+    if(mode==='mask')f.state.area={...f.state.area,redactions:[{x:200,y:300,width:5,height:5}]};
+    if(mode==='late-mask')f.state.after={...f.state.area,redactions:[{x:200,y:300,width:5,height:5}]};
+    if(mode==='changed-tile')f.data[(100*128+100)*4]=99;
+    if(mode==='wrong-chain'){const read=f.args.read;f.args.read=async(method,options)=>method==='visualPoint'?{ok:true,document:doc,point:options.point,frame_chain:[{frame:'f0',document:'wrong'}]}:read(method,options);}
+    const result=await f.run();assert.equal(result.result.ok,false,mode);assert.equal(result.result.error.effect_may_have_occurred,false,mode);
+    assert.equal(f.state.input.length+f.state.drags.length,0,mode);
+  }
 });

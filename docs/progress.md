@@ -2119,3 +2119,55 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remain applicable. Overlays match; same Home is restored to headless mode.
 - Full Android native input/capture/frames/transfers, visual keyboard/drag,
   directory uploads and final lifecycle/performance/package gates remain active.
+
+## V4 — shared image-point dragging and original-source cleanup
+
+- Extend the shared C/JS/Agent drag target with two integer points from one
+  completed screenshot. Reject mixed selectors, malformed/out-of-range points,
+  different image IDs, masked/offscreen endpoints and short drags before input.
+  Generate C/JS declarations and tool descriptions from the same contract; keep
+  one gesture per image lease and durable operation recovery without replay.
+- Validate both padded pixel neighborhoods in one bounded native recapture.
+  Fixed isolated hit testing follows the exact native iframe owner at each
+  point, checks its document and ancestry, and returns private source/destination
+  chains. No model script, native session or frame pin is accepted. Native drag
+  admission and every step also validate the entire screenshot frame snapshot;
+  changes outside the two selected chains interrupt the gesture.
+- Reuse one drag dispatcher for DOM and image targets, including original action
+  cancellation, native delivery uncertainty, picker/download checkpoints and
+  cleanup. A distinct native `frame_snapshot_drag` feature refuses older hosts.
+  The actual public gate covers root/child Canvas pointer drags, HTML5 drags in
+  each frame and both cross-process directions, retained-result recovery and
+  consumed-image rejection. Local/network sibling replacement releases the
+  original press and preserves possible-effect uncertainty.
+- The longer sequence exposed a real native cleanup defect: the Canvas source
+  reported two trusted starts but only one end after cross-widget drops, and a
+  subsequent pointer sequence could be acknowledged without its expected page
+  effect. Blindly cancelling at the source repaired that scene but produced two
+  ends for one start in the older DIV-source regression. Add a bounded original-
+  document isolated observer and check actual trusted source state before ending
+  a still-active source. Remove its listeners/state before admitting another
+  gesture, and block unconfirmed cleanup instead of claiming success. Both
+  Canvas sources now have exactly two starts/two ends; legacy source checks and
+  explicit observer-removal checks also pass. No extra drop is sent.
+- Keep the failed evidence and distinguish it from assumptions: the first
+  network-only interruption check had no source-end/overlap evidence. Stronger
+  source counters and local `srcdoc` replacement exposed and verified the cleanup
+  issue. The test collector's 16 KiB default also truncated a larger failure
+  report; request/verify an explicit 256 KiB bounded receipt. Correct the managed
+  fixture oracle to use observed viewport dimensions, since Agent image metadata
+  intentionally omits the private capture-region fields.
+- Sequential verification: JS 166 pass; Python 107 total, 105 pass/two Windows
+  symlink privilege skips. Actual native frame gate 217 pass and native baseline
+  1,318 pass (both counts include polling, not a performance comparison). No new
+  native diagnostics; private upload/download reservations return to zero.
+  Full normal public C/JS visual gate and actual managed visual click/drag and
+  owned read-only denial pass after the final native fix. Focused gates preserve
+  their own scope; the final full public receipt is passing. No models/external
+  websites or dependencies. Same single object variant/deployment/Home.
+- Visual keyboard, directory uploads, full Android integration and final
+  lifecycle/OOM/network/performance/package checks remain active. In particular,
+  audit original-response downloads that start navigation but retain the DOM:
+  the source-observer cleanup readiness check needs a dedicated lifetime gate
+  before any claim of full lifecycle completion. Android's retained WebView 138
+  remains explicitly unsupported, as chosen by the user.

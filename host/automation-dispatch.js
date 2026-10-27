@@ -33,7 +33,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
-  const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key'].includes(params.op);
+  const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key','drag'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
   const exclusive = writing || command === "capture";
@@ -150,6 +150,24 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     const checked=await guard(true);if(checked.handled)return checked;
     return null;
+  };
+  const sendDrag=async parameters=>{
+    const before=await guard(true);if(before.handled)return before;
+    if(before.state.input_busy||before.state.capture_busy)return fail('browser_busy','Native input or capture started before dragging');
+    let settled=false,native,failure;dispatched=true;dragRequested=true;
+    const pending=view.execute('drag',{agent:true,navigation,drag_key:action.id,...parameters,
+      timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
+      .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
+    while(!settled){
+      await Promise.race([pending,pause(40)]);const boundary=await guard(true);
+      if(boundary.handled){try{await view.execute('drag_cancel',{drag_key:action.id});}catch{}return boundary;}
+    }
+    if(failure)return fail('action_uncertain',String(failure.message||failure).slice(0,512));
+    if(!native.accepted||!native.trusted_input){if(native.dispatched===false)dispatched=false;
+      return fail(dispatched?'action_uncertain':'drag_rejected',String(native.error||'Native dragging was not confirmed').slice(0,512));}
+    if(canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
+    const boundary=await guard(true);if(boundary.handled)return boundary;
+    return{drag_kind:native.drag_kind};
   };
   try {
     if(command==='save_download')return await executeDownloadSave({browser:writer,params,view,api,action,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
@@ -284,7 +302,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     if(params.target?.image){
       if(!pageDriver)return fail('unsupported_capability','This browser lacks isolated frame routing for visual input');
-      return await executeVisualAction({browser:writer,params,view,read,guard,send,fail,deadline,action,
+      return await executeVisualAction({browser:writer,params,view,read,guard,send,sendDrag,fail,deadline,action,
         setSnapshot:(snapshot,root)=>{inputFrameSnapshot=snapshot;inputFrameChain=[{frame:root.frame,document:root.document}];}});
     }
     if (params.op === "drag") {
@@ -322,21 +340,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         if(!valid(fresh.source.frame_chain)||!valid(fresh.destination.frame_chain))return fail('frame_response_invalid','Both drag targets need complete original frame document chains');
         pins.source_frame_chain=fresh.source.frame_chain;pins.destination_frame_chain=fresh.destination.frame_chain;
       }
-      const stopped=await guard(true);if(stopped.handled)return stopped;
-      let settled=false,native,failure;dispatched=true;dragRequested=true;
-      const pending=view.execute("drag",{agent:true,navigation,drag_key:action.id,...from,to_x:to.x,to_y:to.y,...pins,
-        timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
-        .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
-      while(!settled){
-        await Promise.race([pending,pause(40)]);
-        const boundary=await guard(true);
-        if(boundary.handled){try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}return boundary;}
-      }
-      if(failure)return fail("action_uncertain",String(failure.message||failure).slice(0,512));
-      if(!native.accepted||!native.trusted_input){if(native.dispatched===false)dispatched=false;return fail(dispatched?"action_uncertain":"drag_rejected",String(native.error||"Native dragging was not confirmed").slice(0,512));}
-      const boundary=await guard(true);if(boundary.handled)return boundary;
+      const delivered=await sendDrag({...from,to_x:to.x,to_y:to.y,...pins});if(delivered.handled)return delivered;
       return{handled:true,result:{ok:true,action:action.id,dispatched,verification:"native_delivery",input_method:"native_drag",
-        drag_kind:native.drag_kind,observation:await read("observe",{limit:100,max_bytes:4096})}};
+        drag_kind:delivered.drag_kind,observation:await read("observe",{limit:100,max_bytes:4096})}};
     }
     if (params.op === "scroll" && !params.target) {
       const snapshot = await read("observe", { limit: 1, max_bytes: 256 });

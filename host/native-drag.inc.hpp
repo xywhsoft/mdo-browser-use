@@ -21,12 +21,13 @@ static bool xb_drag_uri_list(const std::string& data){
 struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;
   ICoreWebView2DevToolsProtocolEventReceiver* receiver=nullptr;EventRegistrationToken token{};
-  std::string id,key,error,dragData,sourceSession,eventSession;xb_input_frame_guard sourceGuard,destinationGuard;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
+  std::string id,key,error,dragData,sourceSession,eventSession;xb_input_frame_guard sourceGuard,destinationGuard;xb_input_frame_snapshot frameSnapshot;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
   double x=0,y=0,toX=0,toY=0,currentX=0,currentY=0;unsigned phase=0,moved=0,cleanup=0;
   LONG width=0,height=0;
   bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,sourceIntercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
+  int watchContext=0;bool watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false;
   ~xb_drag_job(){if(receiver){if(subscribed)receiver->remove_DevToolsProtocolEventReceived(token);receiver->Release();}}
-  bool live()const{return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,sourceGuard)&&xb_input_frames_live(view,destinationGuard)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
+  bool live()const{return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,sourceGuard)&&xb_input_frames_live(view,destinationGuard)&&xb_input_snapshot_live(view,frameSnapshot)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
   void reply(){
     if(replied)return;replied=true;
     host->reply(id,"{\"accepted\":"+std::string(error.empty()?"true":"false")+",\"trusted_input\":true,\"dispatched\":"+
@@ -54,6 +55,53 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
       }
       self->nextAt=GetTickCount64()+20;
     });
+  }
+  bool sourceLive()const{return host->alive&&!view->closed&&view->core&&view->navigation==navigation&&xb_input_frames_live(view,sourceGuard);}
+  // This private observer is created in the exact source document/world, never
+  // the page world. Missing/blocked event evidence is unconfirmed, not inactive.
+  void watch(const std::string& expression,std::function<void(bool,const std::string&)> complete){
+    if(!sourceLive()||sourceGuard.empty()){complete(false,"");return;}
+    auto node=xb_frame_alias(view->frames,sourceGuard.front().first);if(!node){complete(false,"");return;}
+    inFlight=true;auto self=shared_from_this();
+    auto evaluate=[self,expression,complete](int context){
+      if(self->done)return;if(!self->sourceLive()){self->inFlight=false;complete(false,"");return;}
+      self->watchContext=context;
+      xb_frame_cdp(self->view,self->sourceSession,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(context)+",\"returnByValue\":true,\"timeout\":1000}",
+        [self,complete](bool ok,const std::string& result){
+          self->inFlight=false;if(self->done)return;self->nextAt=GetTickCount64()+20;
+          const auto value=xb_get(result,"result");complete(ok&&self->sourceLive()&&xb_get(value,"type")=="number"&&xb_get(result,"exceptionDetails").empty(),xb_get(value,"value"));
+        });
+    };
+    if(watchContext){evaluate(watchContext);return;}
+    xb_frame_cdp(view,sourceSession,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(node->raw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
+      [self,evaluate,complete](bool ok,const std::string& result){
+        if(self->done)return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
+        if(!ok||context<=0||!self->sourceLive()){self->inFlight=false;complete(false,"");return;}evaluate(context);
+      });
+  }
+  std::string watchLookup()const{return"globalThis.__mdo_native_drag_watch_v1";}
+  void armWatch(){
+    watchStarted=true;watchInstalled=true;auto self=shared_from_this();
+    watch("(()=>{const old="+watchLookup()+";if(old)throw Error('Previous drag observer was not released');const s={key:"+xb_quote(key)+",active:false,seen:false,target:null};"
+      "const start=e=>{if(!e.isTrusted||s.seen)return;s.seen=true;s.active=true;s.target=e.target};"
+      "const end=e=>{if(e.isTrusted&&s.seen&&e.target===s.target){s.active=false;s.target=null}};"
+      "s.dispose=()=>{document.removeEventListener('dragstart',start,true);document.removeEventListener('dragend',end,true);if("+watchLookup()+"===s)delete globalThis.__mdo_native_drag_watch_v1};"
+      "Object.defineProperty(globalThis,'__mdo_native_drag_watch_v1',{value:s,configurable:true});document.addEventListener('dragstart',start,true);document.addEventListener('dragend',end,true);return 1})()",
+      [self](bool ok,const std::string& value){if(!ok||value!="1"){self->cleanupFailed=true;self->stop("Cannot arm the original drag source observer");}});
+  }
+  void checkWatch(){
+    watchChecked=true;auto self=shared_from_this();
+    watch("(()=>{const s="+watchLookup()+";return!s||s.key!=="+xb_quote(key)+"||!s.seen?0:s.active?2:1})()",
+      [self](bool ok,const std::string& value){
+        if(!self->sourceLive()){self->watchCleared=true;return;}
+        if(!ok||(value!="1"&&value!="2")){self->cleanupFailed=true;self->stop("The original drag source state is unconfirmed");return;}
+        self->watchActive=value=="2";
+      });
+  }
+  void clearWatch(){
+    watchCleared=true;if(!sourceLive())return;auto self=shared_from_this();
+    watch("(()=>{const s="+watchLookup()+";if(!s||s.key!=="+xb_quote(key)+")return 0;const active=s.active;s.dispose();return active?2:1})()",
+      [self](bool ok,const std::string& value){if(self->sourceLive()&&(!ok||(self->intercepted&&value!="1"))){self->cleanupFailed=true;self->stop("Native drag source cleanup was not confirmed");}});
   }
   void receive(const std::string& json){
     if(done||intercepted)return;
@@ -86,13 +134,25 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     if(!error.empty()||phase>=8){
       // Cleanup is attempted once per step; it cannot issue another drop.
       if(cleanup==0){cleanup++;if(!error.empty()||!dropped){call(L"Input.cancelDragging","{}");return;}}
-      if(cleanup==1){cleanup++;if(intercepted&&!dropped){call(L"Input.dispatchDragEvent","{\"type\":\"dragCancel\",\"x\":0,\"y\":0,\"data\":{\"items\":[],\"dragOperationsMask\":0}}",eventSession);return;}}
+      if(cleanup==1){
+        // DispatchDragEvent(drop) ends the widget under the destination. An
+        // intercepted cross-widget source can still own a drag afterwards.
+        // Drain at its original source point, never send another drop, and do
+        // not deliver this cleanup into a replacement source document.
+        if(watchInstalled&&intercepted&&!watchChecked&&sourceLive()){checkWatch();return;}
+        cleanup++;
+        if(intercepted&&watchInstalled&&watchActive&&sourceLive()){
+          call(L"Input.dispatchDragEvent","{\"type\":\"dragCancel\",\"x\":"+std::to_string(x)+",\"y\":"+std::to_string(y)+",\"data\":{\"items\":[],\"dragOperationsMask\":0}}");return;
+        }
+        if(intercepted&&!watchInstalled&&!dropped){call(L"Input.dispatchDragEvent","{\"type\":\"dragCancel\",\"x\":0,\"y\":0,\"data\":{\"items\":[],\"dragOperationsMask\":0}}",eventSession);return;}
+      }
       if(cleanup==2){cleanup++;if(pressed){pressed=false;call(L"Input.dispatchMouseEvent","{\"type\":\"mouseReleased\",\"button\":\"left\",\"buttons\":0,\"clickCount\":1"+point()+"}");return;}}
-      if(cleanup==3){cleanup++;if(sourceIntercepting){sourceIntercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}",sourceSession);return;}}
+      if(cleanup==3){if(watchInstalled&&!watchCleared){clearWatch();return;}cleanup++;if(sourceIntercepting){sourceIntercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}",sourceSession);return;}}
       if(cleanup==4){cleanup++;if(intercepting){intercepting=false;call(L"Input.setInterceptDrags","{\"enabled\":false}");return;}}
       reply();detach(cleanupFailed);return;
     }
     if(phase==0){
+      if(!sourceGuard.empty()&&!watchStarted){armWatch();return;}
       if(!intercepting){intercepting=true;call(L"Input.setInterceptDrags","{\"enabled\":true}");return;}
       if(!sourceSession.empty()&&!sourceIntercepting){sourceIntercepting=true;call(L"Input.setInterceptDrags","{\"enabled\":true}",sourceSession);return;}
       phase=1;
@@ -130,6 +190,9 @@ static void xb_drag(const std::shared_ptr<xb_host>& host,const std::shared_ptr<x
     host->reply(id,"","Invalid drag target, document, control or resource budget");return;
   }
   auto job=std::make_shared<xb_drag_job>();job->host=host;job->view=view;job->id=id;job->key=key;job->navigation=view->navigation;
+  if(!xb_input_read_snapshot(json,job->frameSnapshot)||!xb_input_snapshot_live(view,job->frameSnapshot)){
+    host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The original visual drag frame snapshot changed\"}");return;
+  }
   if(!xb_input_read_frames(json,job->sourceGuard,"source_frame_chain")||!xb_input_read_frames(json,job->destinationGuard,"destination_frame_chain")||
      job->sourceGuard.empty()!=job->destinationGuard.empty()||!xb_input_frames_live(view,job->sourceGuard)||!xb_input_frames_live(view,job->destinationGuard)){
     host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":\"The original drag source or destination frame document changed\"}");return;

@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 14;
+  const version = 15;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -247,6 +247,20 @@ export function browserRuntime(configuration = {}) {
       hit = inner;
     }
     return hit;
+  }
+  function visualPoint(options = {}) {
+    if(!localFrame)return fail('frame_method_invalid','Visual point routing requires a native isolated frame');
+    if(options.document&&options.document!==documentId)return fail('stale_document','The point document changed');
+    const point=options.point;
+    if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.y<0||point.x>=innerWidth||point.y>=innerHeight)
+      return fail('visual_point_outside_viewport','The point is outside this frame viewport');
+    const hit=deepHit(document,point.x,point.y);
+    if(!hit)return fail('visual_point_unavailable','The current point has no rendered target');
+    if(['iframe','frame'].includes(hit.localName)){
+      const owner=pinCaptureFrame(hit);if(!owner.ok)return owner;
+      return{ok:true,document:documentId,frame_ref:owner.ref};
+    }
+    return{ok:true,document:documentId,frame_ref:null};
   }
   function uploadInfo(options = {}) {
     const found = locate({ ...options, _upload: true }); if (!found.ok) return found;
@@ -520,7 +534,7 @@ export function browserRuntime(configuration = {}) {
       return {ok:true,document:documentId,region,redactions,visited:nodes,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight},device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, visualPoint, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

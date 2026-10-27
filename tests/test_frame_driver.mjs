@@ -36,7 +36,7 @@ function fixture(){
     if(params.action==='owner'){
       await state.onRead?.({method:'owner',rows});
       return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,
-        value:{ok:true,focused:state.parentFocused,point:{x:120,y:210},geometry:[100,200,300,200,100,200,300,200]}};
+        value:{ok:true,focused:state.parentFocused,point:{x:100+params.point.x,y:200+params.point.y},geometry:[100,200,300,200,100,200,300,200]}};
     }
     const tail=params.script.split('({local_frame:true}).').at(-1),method=tail.slice(0,tail.indexOf('(')),options=JSON.parse(tail.slice(tail.indexOf('(')+1,-1));
     const document=params.frame==='f0'?doc:local,element={ref:'e1',frame:'f0',name:'Child',role:'textbox',editable:true};
@@ -44,6 +44,7 @@ function fixture(){
     if(method==='locate')value=params.frame===child?{ok:true,document,element,visited:1}:{ok:false,error:{code:'element_not_found'},visited:1};
     if(method==='prepare')value={ok:true,document,element,point:{x:20,y:10},geometry:[10,0,20,20,20,10]};
     if(method==='verify')value={ok:true,document,focused:true,verified:true};
+    if(method==='visualPoint')value={ok:true,document,frame_ref:params.frame==='f0'&&options.point.x>=100&&options.point.x<400&&options.point.y>=200&&options.point.y<400?'e9':null};
     if(method==='optionList')value={ok:true,document,ref:'e1',frame:'f0',options:[{index:0,label:'First'}]};
     if(method==='uploadInfo')value={ok:true,document,element:{...element,role:'fileinput',hidden:true}};
     if(method==='selectOptions'){state.effect++;value={ok:true,document,dispatched:true,verified:true};}
@@ -61,6 +62,27 @@ test('prepare maps a qualified target and pins the complete document chain',asyn
   assert(out.ok);assert.equal(out.document,doc);assert.equal(out.element.frame,child);assert(out.element.ref.startsWith('r1|'));
   assert.deepEqual(out.point,{x:120,y:210});assert.equal(out.geometry.length,16);
   assert.deepEqual(out.frame_chain,[{frame:child,document:fd},{frame:'f0',document:rootFd}]);
+});
+
+test('visual points bind the exact root or child owner without DOM selector guesses',async()=>{
+  const {api,state}=fixture();const root=await api.read('visualPoint',{document:doc,point:{x:40,y:30}});
+  assert(root.ok);assert.deepEqual(root.frame_chain,[{frame:'f0',document:rootFd}]);
+  const nested=await api.read('visualPoint',{document:doc,point:{x:120,y:210}});
+  assert(nested.ok);assert.deepEqual(nested.point,{x:120,y:210});
+  assert.deepEqual(nested.frame_chain,[{frame:child,document:fd},{frame:'f0',document:rootFd}]);
+  assert(!state.calls.some(row=>row.action==='evaluate'&&row.script.includes('.locate(')));
+});
+
+test('visual routing refuses unknown owners, replaced children and cancelled reads',async()=>{
+  for(const mode of ['owner','navigation','cancel']){
+    const {api,state}=fixture();state.onRead=({method,value,rows})=>{
+      if(mode==='owner'&&method==='visualPoint'&&value.frame_ref)value.frame_ref='e99';
+      if(mode==='navigation'&&method==='owner')rows[1].document='fd-'+guid(9);
+      if(mode==='cancel'&&method==='visualPoint')state.checkpoint=()=>{throw Error('Cancelled visual route');};
+    };
+    if(mode==='cancel')await assert.rejects(api.read('visualPoint',{document:doc,point:{x:120,y:210}}),/Cancelled/);
+    else{const result=await api.read('visualPoint',{document:doc,point:{x:120,y:210}});assert.equal(result.ok,false,mode);assert.equal(result.error.effect_may_have_occurred,false);}
+  }
 });
 
 test('parent focus participates in keyboard verification without discarding field state',async()=>{

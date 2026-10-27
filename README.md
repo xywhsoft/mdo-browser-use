@@ -100,6 +100,13 @@ UI-receipt status; it does not replace managed C/JS registration/permission gate
 `frame_scroll_probe.py` verifies the existing browser scroll-into-view traversal
 through three offscreen document levels and two OOPIFs, with one trusted click
 and stable element references. Drag still requires both endpoints visible together.
+`visual_probe.py` covers six image-point pointer/HTML5 drag combinations across
+the root and a real OOPIF, durable recovery without replay, exactly one source
+termination and document-change release. It also runs actual Agent tools with
+full-access/read-only permissions. Focused `--drag-only`,
+`--drag-navigation-only` and `--managed-only` gates explicitly label their scope;
+they reuse the same deployment/Home. The last mode writes its separate
+`.mdo/managed-visual-result.json` receipt.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

@@ -17,7 +17,10 @@ Coordinates are pixels of that exact delivered image, including its resizing
 and crop, never desktop/CSS coordinates or a manually resized image. The
 reference belongs to one browser, expires after 60 seconds and permits one
 gesture. Supported visual operations are click, double/right/middle click,
-hover and wheel scroll; use DOM targets for fields, keyboard and drag.
+hover, wheel scroll and drag; use DOM targets for fields and keyboard.
+Visual drag uses two points from the same delivered image: `target={image:id,
+x:...,y:...}` and `destination={image:id,x:...,y:...}`. Both points must be visible,
+unmasked and at least four CSS pixels apart. Do not mix image and DOM targets.
 Masked regions and points outside the current viewport cannot be clicked this
 way. If the scene/reference changed, capture a fresh image instead of repeating
 an unchanged failed call. A lost mutation reply requires operation recovery,
@@ -42,7 +45,8 @@ Read the returned observation and verify the website's actual drop result.
 `verification:"native_delivery"` does not mean the website saved the change.
 Never repeat an uncertain drag without inspecting its effects. Native cleanup
 failure requires ending the affected browser. Dragging does not upload files;
-do not pass local paths, raw data or invented coordinates as target locators.
+do not pass local paths, raw data or coordinates without a completed image as
+target locators.
 
 For an authorized file upload, observe an exact HTML file input (including a
 hidden `fileinput`) and call `browser_upload(action="set",document=<fresh id>,

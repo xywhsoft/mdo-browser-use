@@ -2,7 +2,7 @@ import {browserRuntime} from './automation-runtime.js';
 import {createFrameReader} from './frame-reader.js';
 import {prepareFrameCapture} from './frame-capture.js';
 
-const permitted=new Set(['observe','locate','prepare','verify','optionList','selectOptions','uploadInfo','chooserInfo','captureArea']);
+const permitted=new Set(['observe','locate','prepare','verify','visualPoint','optionList','selectOptions','uploadInfo','chooserInfo','captureArea']);
 const mutations=new Set(['selectOptions']);
 const issue=(code,message)=>Object.assign(new Error(message),{code});
 const pointValid=point=>point&&[point.x,point.y].every(number=>Number.isFinite(number)&&number>=0&&number<=32768);
@@ -86,6 +86,43 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
     try{
       if(!permitted.has(method))throw issue('frame_method_invalid','Only fixed Browser Use operations are allowed');
       if(method==='observe'||method==='locate')return await fromReader(method,options);
+      if(method==='visualPoint'){
+        if(!pointValid(options.point))throw issue('visual_point_invalid','Choose a bounded viewport point');
+        const meta=await fromReader('describe',{document:options.document});if(!meta.ok)return meta;
+        const rows=new Map(meta.frames.map(row=>[row.id,row]));let row=rows.get('f0'),point={...options.point};
+        for(let depth=0;row&&depth<32;depth++){
+          if(row.loading||!row.isolated)throw issue('frame_not_ready','The selected point frame is not ready');
+          const route={frame:row.id,frame_document:row.document},hit=await evaluate(route,'visualPoint',{point,...(row.id==='f0'?{document:meta.document}:{})});
+          if(!hit.ok)return hit;
+          if(!/^d-[a-f0-9-]{36}$/i.test(hit.document)||row.id==='f0'&&hit.document!==meta.document)
+            throw issue('stale_document','The visual point document changed');
+          if(hit.frame_ref===null){
+            const mapped=await mapPoint(route,{point,geometry:[]});
+            if(Math.hypot(mapped.point.x-options.point.x,mapped.point.y-options.point.y)>.5)
+              throw issue('visual_context_changed','An iframe moved during point routing');
+            return{ok:true,document:meta.document,point:mapped.point,frame_chain:mapped.frame_chain};
+          }
+          if(!/^e[1-9][0-9]{0,12}$/.test(hit.frame_ref))throw issue('frame_response_invalid','The visual point iframe identity is invalid');
+          let selected=null;
+          for(const candidate of rows.values())if(candidate.parent===row.id){
+            const owner=await native('frames',{action:'capture_owner',agent:true,frame:candidate.id,document:candidate.document});
+            if(!owner?.ok||owner.frame!==candidate.id||owner.frame_document!==candidate.document||owner.parent!==row.id||owner.parent_document!==row.document)
+              throw issue('stale_frame','A visual point iframe owner changed');
+            if(owner.value?.owner?.ref!==hit.frame_ref||owner.value.owner.document!==hit.document)continue;
+            if(selected)throw issue('frame_response_invalid','The visual point owner has multiple native frames');
+            const box=owner.value.content;
+            if(!owner.value.ok||owner.value.painted!==true||!pointValid(box)||![box.width,box.height].every(n=>Number.isFinite(n)&&n>0&&n<=32768))
+              throw issue('frame_owner_unavailable','The visual point iframe is hidden or has unsupported geometry');
+            const local={x:point.x-box.x,y:point.y-box.y};
+            if(local.x<0||local.y<0||local.x>=box.width||local.y>=box.height)
+              throw issue('visual_point_outside_viewport','The point is on an iframe border or outside its content');
+            selected={row:candidate,point:local};
+          }
+          if(!selected)throw issue('frame_not_ready','The visible iframe has no original ready native frame');
+          row=selected.row;point=selected.point;
+        }
+        throw issue('frame_limit','The visual point exceeds its native frame depth bound');
+      }
       if(method==='chooserInfo'){
         const page=await fromReader('describe',{document:options.document});
         if(!page.ok)return page;

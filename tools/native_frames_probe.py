@@ -28,7 +28,9 @@ def main():
         dev.call('storage.write',{'path':'qa/native-frames.json','text':'null'},scope);dev.stop()
         dev.start(window=True,page='/__browser_use_native_frames__.html');end=time.monotonic()+120;report=None
         while time.monotonic()<end:
-            report=json.loads(dev.call('storage.read',{'path':'qa/native-frames.json'},scope)['text'])
+            saved=dev.call('storage.read',{'path':'qa/native-frames.json','limit':262144},scope)
+            if saved.get('bytes')!=saved.get('size'):raise RuntimeError('Native frame report exceeds its explicit 256 KiB collection budget')
+            report=json.loads(saved['text'])
             if report is not None:break
             time.sleep(.2)
         if not report:report={'passed':False,'error':'Native frame checks did not return a terminal report'}

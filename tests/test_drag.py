@@ -47,5 +47,20 @@ class DragTests(unittest.TestCase):
                 dev.call("browseruse.result",{"id":receipt["id"],"release":True},self.scope)
             dev.call("browseruse.tabs",{"action":"close","browser":browser},self.scope)
 
+    def test_visual_drag_preserves_one_image_and_both_points_in_the_shared_receipt(self):
+        client='visual-drag-sdk-qa';dev.call('client.hello',{'client':client,'context':{}})
+        browser=dev.call('browseruse.tabs',{'action':'create','client':client},self.scope)['id'];receipt=None
+        try:
+            source={'image':'vs-'+'a'*48,'x':10,'y':20};destination={**source,'x':200,'y':120}
+            receipt=dev.call('browseruse.act',{'browser':browser,'document':'fresh','op':'drag','target':source,'destination':destination},self.scope)
+            queued=next(row for row in dev.call('client.poll',{'client':client}) if row['id']==receipt['id'])
+            self.assertEqual(queued['params']['target'],source);self.assertEqual(queued['params']['destination'],destination)
+            self.assertEqual(queued['context']['session'],self.scope['session'])
+        finally:
+            if receipt:
+                dev.call('browseruse.result',{'id':receipt['id'],'cancel':True},self.scope)
+                dev.call('browseruse.result',{'id':receipt['id'],'release':True},self.scope)
+            dev.call('browseruse.tabs',{'action':'close','browser':browser},self.scope)
+
 
 if __name__=="__main__":unittest.main()
