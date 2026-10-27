@@ -29,15 +29,18 @@ class DownloadFixture:
                     self.close_connection=True
                     self.connection.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('HH' if os.name=='nt' else 'ii',1,0))
                     socket.close(self.connection.detach());return
+                if path=='/auto-download':
+                    body=b'<html><title>Automatic download fixture</title><body><a href="/binary?initial-script=1" download id="auto">Synthetic automatic download</a><script>document.getElementById("auto").click()</script></body></html>'
+                    self.send_response(200);self.send_header('Content-Type','text/html');self.send_header('Content-Length',str(len(body)));self.send_header('Connection','close');self.end_headers();self.wfile.write(body);return
                 if path=='/page':
                     body=(Path(__file__).resolve().parents[1]/'tests/fixtures/download.html').read_bytes()
                     self.send_response(200);self.send_header('Content-Type','text/html;charset=utf-8');self.send_header('Set-Cookie','browser_download_fixture=1; SameSite=Lax; Path=/')
                     self.send_header('Content-Length',str(len(body)));self.send_header('Connection','close');self.end_headers();self.wfile.write(body);return
-                if path=='/post':
+                if path in ('/post','/post-popup'):
                     size=int(self.headers.get('Content-Length','0'))
                     if self.command!='POST' or size>4096 or self.rfile.read(size)!=b'order=fixture' or 'browser_download_fixture=1' not in self.headers.get('Cookie',''):
                         self.send_error(403);return
-                if path not in ('/binary','/empty','/unknown','/large','/slow','/slow-public','/interrupt','/truncated','/post'):
+                if path not in ('/binary','/empty','/unknown','/large','/slow','/slow-public','/interrupt','/truncated','/post','/post-popup'):
                     self.send_error(404);return
                 self.send_response(200);self.send_header('Content-Type','application/octet-stream');self.send_header('Content-Disposition','attachment; filename="fixture-'+path[1:]+'.bin"')
                 self.send_header('Cache-Control','no-store');self.send_header('Connection','close')

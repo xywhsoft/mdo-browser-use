@@ -17,7 +17,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false,dragRequested = false;
+  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0;
+  const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','key'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
   const exclusive = writing || command === "capture";
@@ -32,7 +33,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     outcome: "popup_open", completed: false, dispatched, action: action.id } });
   const chooserBoundary = async () => ({handled:true,result:{ok:true,outcome:"file_chooser_open",completed:false,dispatched,action:action.id,
     choosers:(await view.execute("chooser",{action:"list",agent:true})).choosers||[]}});
-  const downloadBoundary = downloads => ({handled:true,result:{ok:true,outcome:"download_pending",completed:false,dispatched,action:action.id,downloads}});
+  const downloadBoundary = (downloads,closed=false) => ({handled:true,result:{ok:true,outcome:closed?'download_retained':"download_pending",completed:false,dispatched,action:action.id,downloads,...(closed?{page_closed:true}:{})}});
   const armDownloads = async () => {
     const checked=await guard(true);if(checked.handled)return checked;
     if(!checked.state.download_capability)return fail('unsupported_capability','This host cannot intercept native downloads safely; no browser input was sent');
@@ -65,11 +66,25 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(state.manual&&writing)return fail('manual_control','The user currently controls the browser');
       return{state};
     }
+    if(state.close_requested){
+      if(state.download_capability){
+        const downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
+        if(downloads.length)return downloadBoundary(downloads,true);
+      }
+      return {handled:true,result:{ok:true,outcome:'closed',completed:false,dispatched,action:action.id}};
+    }
     if(state.downloads_armed&&['act','navigate_to','wait_for'].includes(command)){
       const downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
       if(downloads.some(row=>row.state==='pending'))return downloadBoundary(downloads);
     }
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
+    // A submitted response can start navigation before DownloadStarting/its
+    // scoped identity callback. Drain only this bounded post-input event turn;
+    // never evaluate the changed document or send another input in between.
+    if(dispatched&&performance.now()<downloadCheckpointUntil&&!state.manual&&!state.process_failed&&!state.dialog_open&&!state.popup_open&&
+       (state.error||navigation!==undefined&&state.navigation!==navigation)){
+      await pause(20);return guard(true);
+    }
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
     if (state.drag_cleanup_failed && (writing || command === "capture")) return fail("drag_cleanup_failed", "Native drag cleanup was not confirmed; inspect and end this browser before further input");
@@ -94,6 +109,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     dispatched = true;
     const delivered = await view.execute("input", { ...parameters, agent: true, navigation });
     if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
+    if(canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     if (delivered.dialog_open) return dialogBoundary();
     if (delivered.popup_open) return popupBoundary();
     if (delivered.file_chooser_open) return chooserBoundary();
@@ -334,6 +350,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   } catch (error) {
     if (error.dialog) return dialogBoundary();
     if (error.popup) return popupBoundary();
+    if(dispatched&&downloadCheckpointUntil){
+      // A navigation can invalidate an in-flight page read before its response
+      // identity is published. Keep the original input; inspect metadata only.
+      try{while(performance.now()<downloadCheckpointUntil){const checked=await guard(true);if(checked.handled)return checked;await pause(20);}}catch{}
+    }
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
     if(dragRequested)try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}

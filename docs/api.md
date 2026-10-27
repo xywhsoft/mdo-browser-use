@@ -436,13 +436,22 @@ an exact opaque `download` ID from this owned tab. Only `accept` takes
 `max_bytes` (1..64 MiB; default 32 MiB) and `transfer_timeout_ms` (1000..600000;
 default 60000). `timeout_ms` instead bounds this UI call/wait, up to 60000.
 
-Agent input and explicit navigation acknowledge native interception first.
+Browser Use tabs require native interception before their first URL or adopted
+popup response runs. The original POST/body/cookies stay in the browser; the
+host never navigates a second time to recreate a download. Older hosts reject
+the capability before sending the initial URL. Ordinary manually opened browser
+tabs keep their existing native behavior. Agent input and explicit navigation
+also acknowledge native interception first.
 A response can return `outcome:"download_pending",completed:false,downloads`.
 It is an existing browser response, including POST/blob; never re-click or
 refetch its URL. Pending offers fence subsequent input/navigation, while fresh
 observation includes download metadata. Immediate post-input callbacks are
 coalesced for at most 150 ms; arbitrary later website activity is inspected by
 later calls. Native input delivery is never claimed as file completion.
+If a submitted response starts navigation or interrupts the final page read,
+the same input's metadata checkpoint can wait up to 1100 ms for its download
+identity, within the call deadline. It performs no extra input/evaluation and
+still obeys cancellation, manual takeover and modal/window boundaries.
 
 ```javascript
 const checkpoint = await browser.act({browser:tab.id,document:page.document,
@@ -476,9 +485,17 @@ the user returns control. Waiting-call cancellation does not delete a download;
 use explicit `cancel`, wait for terminal state, then `release`.
 
 This stage retains verified bytes in the browser's private cache. Saving into
-the original task workspace is still pending, as is initial-tab/popup-navigation
-interception before the first Agent action. Do not claim the user has received
+the original task workspace is still pending. Do not claim the user has received
 an installed/exported file. No private cache path, response URL query, cookies
 or raw bytes are part of this public contract. Closing a browser reclaims its
 owned native bytes. A terminal release that loses confirmation requires receipt/
 list inspection rather than replaying a download.
+
+A download-only popup may request page closure before its response is consumed.
+The browser record remains while any response identity/bytes are owned, including
+an unpublished identity candidate. Page commands then return
+`outcome:"download_retained",page_closed:true,completed:false,downloads`; they
+do not evaluate or send input to that page. Download inspect/accept/wait/release
+remain available. Releasing the last response resumes automatic closure after
+the UI acknowledgement, so closure cannot cancel the release receipt. Explicit
+user/browser closure still cancels and reclaims owned responses immediately.

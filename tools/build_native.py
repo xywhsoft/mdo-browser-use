@@ -37,7 +37,7 @@ def main():
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>\n#include <cstdint>\n#include <wincrypt.h>\n#include <sddl.h>'),
         ('struct xb_view{', (dev.ROOT / 'host/native-dialog-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-popup-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-chooser-state.inc.hpp').read_text(encoding='utf-8')+'\n'+(dev.ROOT / 'host/native-download-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_capture_job;\nstruct xb_drag_job;\nstruct xb_upload_store;\nstruct xb_upload_assignment;\nstruct xb_view{'),
-        ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
+        ('int errorCode=0;UINT64 navigation=0;', 'int errorCode=0;UINT64 navigation=0;int automationContext=0;bool closed=false,dialogsEnabled=false,popupsEnabled=false,requestedClose=false;ULONGLONG closeRequestedAt=0;std::shared_ptr<xb_dialog> dialog;std::weak_ptr<xb_input_sequence> input;std::map<std::string,bool> automationRequests;ICoreWebView2Environment* environment=nullptr;std::shared_ptr<xb_popup> opening;std::map<std::string,std::shared_ptr<xb_popup>> popups;std::string opener,popupError,popupTicket;'),
         ('~xb_view(){if(controller)', '~xb_view(){for(auto& item:popups)item.second->complete();if(opening)opening->complete();xb_popup_cleanup(window);if(environment)environment->Release();dialog.reset();xb_dialog_cleanup(window);if(controller)'),
         ('static void xb_receive(', 'static void xb_upload_boundary(const std::shared_ptr<xb_view>&,bool);\nstatic void xb_upload_abort_view(const std::shared_ptr<xb_view>&);\nstatic bool xb_chooser_blocked(const std::shared_ptr<xb_view>&);\nstatic bool xb_chooser_upload_ready(const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::string&);\nstatic bool xb_chooser_upload_consume(const std::shared_ptr<xb_view>&,const std::string&,const std::string&,const std::string&);\nstatic void xb_chooser_boundary(const std::shared_ptr<xb_view>&,bool);\n#include "xs_browser_automation.inc.hpp"\n#include "xs_browser_popups.inc.hpp"\n#include "xs_browser_capture.inc.hpp"\n#include "xs_browser_drag.inc.hpp"\n#include "xs_browser_navigation.inc.hpp"\n#include "xs_browser_upload.inc.hpp"\n#include "xs_browser_upload_assign.inc.hpp"\n#include "xs_browser_chooser.inc.hpp"\n#include "xs_browser_download.inc.hpp"\nstatic void xb_receive('),
         ('active->loading=true;active->error.clear();', 'active->loading=true;active->automationContext=0;active->error.clear();'),
@@ -47,8 +47,8 @@ def main():
         ('      auto view=found->second;\n      if(view->controller)', '      auto view=found->second;\n      if(view->creating){host->reply(id,"","Browser creation is still in progress");return;}\n      if(view->controller)'),
         ('if(command=="close"){host->views.erase(browser);', 'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;xb_cancel_popups(found->second);xb_abort_automation(host,found->second,false);found->second->dialog.reset();xb_dialog_cleanup(found->second->window);if(found->second->controller)found->second->controller->Close();if(found->second->window)ShowWindow(found->second->window,SW_HIDE);}host->views.erase(browser);'),
         ('const auto viewport=",\\"viewport_attached\\":', 'const auto viewport=",\\"navigation\\":"+xb_quote(std::to_string(view->navigation))+",\\"automation\\":true,\\"viewport_attached\\":'),
-        ('+viewport+",\\"process_failed\\":', '+viewport+",\\"dialog_capability\\":"+(view->dialogsEnabled?"true":"false")+",\\"popup_capability\\":"+(view->popupsEnabled?"true":"false")+",\\"popup_open\\":"+(xb_popup_blocked(view)?"true":"false")+",\\"closed_by_page\\":"+(view->requestedClose?"true":"false")+",\\"opener\\":"+xb_quote(view->opener)+",\\"input_busy\\":"+(view->input.expired()?"false":"true")+",\\"dialog_open\\":"+(view->dialog?"true":"false")+",\\"process_failed\\":'),
-        ('const bool mutation=command!="snapshot"&&command!="screenshot";', 'const bool mutation=command!="snapshot"&&command!="screenshot"&&!((command=="dialog"||command=="popups")&&xb_get(json,"action")=="list");'),
+        ('+viewport+",\\"process_failed\\":', '+viewport+",\\"dialog_capability\\":"+(view->dialogsEnabled?"true":"false")+",\\"popup_capability\\":"+(view->popupsEnabled?"true":"false")+",\\"popup_open\\":"+(xb_popup_blocked(view)?"true":"false")+",\\"closed_by_page\\":"+(view->requestedClose&&!xb_download_holds_page_close(host,view)?"true":"false")+",\\\"close_requested\\\":"+(view->requestedClose?"true":"false")+",\\"opener\\":"+xb_quote(view->opener)+",\\"input_busy\\":"+(view->input.expired()?"false":"true")+",\\"dialog_open\\":"+(view->dialog?"true":"false")+",\\"process_failed\\":'),
+        ('const bool mutation=command!="snapshot"&&command!="screenshot";', 'if(view->requestedClose&&xb_get(json,"agent")=="true"&&(command=="navigate"||command=="back"||command=="forward"||command=="reload"||command=="input"||command=="automation"||command=="evaluate")){host->reply(id,"","The page requested closure; only its retained downloads remain available");return;}\n  const bool mutation=command!="snapshot"&&command!="screenshot"&&!((command=="dialog"||command=="popups")&&xb_get(json,"action")=="list");'),
         ('  HRESULT code=S_OK;', '  if(command=="popups"){xb_popup_request(host,view,id,json);return;}\n  if(command=="dialog"){xb_dialog_request(host,view,id,json);return;}\n  if(command=="automation"){if(view->dialog){host->reply(id,"","A JavaScript dialog blocks page execution");return;}xb_automation(host,view,id,xb_get(json,"script"));return;}\n  if(command=="input"){xb_input(host,view,id,json);return;}\n  HRESULT code=S_OK;'),
         ('host->alive=false;host->views.clear();', 'host->alive=false;for(auto& entry:host->views){entry.second->closed=true;xb_cancel_popups(entry.second);entry.second->dialog.reset();xb_dialog_cleanup(entry.second->window);if(entry.second->controller)entry.second->controller->Close();}host->views.clear();'),
         ('    const auto url=xb_get(json,"url");const bool visible=xb_get(json,"visible")!="false";if(!xb_url(url)){host->reply(id,"","Only HTTP(S) navigation is supported");return;}', (dev.ROOT / 'host/native-popup-create.inc.hpp').read_text(encoding='utf-8').rstrip()),
@@ -158,7 +158,7 @@ def main():
         base = base.replace(before, after, 1)
     download_navigation_hooks = [
         ('if(!xb_navigation_start(active,incoming,webview::detail::narrow_string(first.p?first.p:L"")=="about:blank"))return S_OK;',
-         'if(!xb_navigation_start(active,incoming,webview::detail::narrow_string(first.p?first.p:L"")=="about:blank"))return S_OK;if(active->downloads){active->downloads->navigation=incoming;active->downloads->navigationUrl=webview::detail::narrow_string(first.p?first.p:L"");active->downloads->navigationDownload=false;}'),
+         'if(!xb_navigation_start(active,incoming,webview::detail::narrow_string(first.p?first.p:L"")=="about:blank"))return S_OK;if(active->downloads){active->downloads->navigation=incoming;active->downloads->navigationUrl=webview::detail::narrow_string(xb_download_text(first.p,8192));active->downloads->navigationDownload=false;}'),
         ('if(error!=COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED)active->error=xb_navigation_error(error);',
          'if(error!=COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED&&!xb_download_navigation_abort(active,navigation,error))active->error=xb_navigation_error(error);'),
     ]
@@ -169,6 +169,19 @@ def main():
     popup_start = base.index('            auto* popup=xb_cb<ICoreWebView2NewWindowRequestedEventHandler')
     popup_end = base.index('            if(!xb_place(view,visible))', popup_start)
     base = base[:popup_start] + '            xb_install_popups(host,view,browser);\n' + base[popup_end:]
+    creation_start = base.index('            if(popup){view->loading=url!=')
+    creation_end = base.index('\n          });', creation_start)
+    base = base[:creation_start] + (dev.ROOT / 'host/native-download-create.inc.hpp').read_text(encoding='utf-8').rstrip() + base[creation_end:]
+    if base.count('[host,view,id,browser,url,visible,popup]') != 2:
+        raise RuntimeError("Native creation policy capture changed")
+    base = base.replace('[host,view,id,browser,url,visible,popup]', '[host,view,id,browser,url,visible,popup,interceptDownloads]')
+    if base.count('controller->get_CoreWebView2(&view->core);view->creating=false;') != 1:
+        raise RuntimeError("Native controller readiness hook changed")
+    base = base.replace('controller->get_CoreWebView2(&view->core);view->creating=false;', 'controller->get_CoreWebView2(&view->core);')
+    before = r'\"profile_isolation\":true}'
+    if base.count(before) != 1:
+        raise RuntimeError("Native initial interception capability hook changed")
+    base = base.replace(before, r'\"profile_isolation\":true,\"initial_download_interception\":true}')
     target = NATIVE / "src/webview/xs_browser.inc.hpp"
     record_path = dev.ENV / "native-overlay.json"
     record = json.loads(record_path.read_text(encoding="utf-8")) if record_path.exists() else {}
@@ -225,6 +238,9 @@ def main():
         if current != chooser and hashlib.sha256(current.encode()).hexdigest() != record.get("chooser"):
             raise RuntimeError("Unreviewed native chooser helper edit preserved")
     download = (dev.ROOT / "host/native-download.inc.hpp").read_text(encoding="utf-8")
+    if download.count('// BROWSER_DOWNLOAD_ARM_HELPER') != 1:
+        raise RuntimeError("Native download policy helper insertion changed")
+    download = download.replace('// BROWSER_DOWNLOAD_ARM_HELPER', (dev.ROOT / 'host/native-download-arm.inc.hpp').read_text(encoding='utf-8'))
     download_path = target.with_name("xs_browser_download.inc.hpp")
     if download_path.exists():
         current = download_path.read_text(encoding="utf-8")

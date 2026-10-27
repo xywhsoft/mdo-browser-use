@@ -1,6 +1,8 @@
 struct xb_download_store;
+struct xb_download_arm_job;
 struct xb_download_protocol{std::string url,frame,name,state;bool bound=false,retired=false;unsigned begins=0;ULONGLONG updated=0;};
 struct xb_download_state{
+  std::weak_ptr<xb_download_arm_job> arm;
   ICoreWebView2_4* source=nullptr;EventRegistrationToken token{};
   ICoreWebView2DevToolsProtocolEventReceiver* beginReceiver=nullptr;ICoreWebView2DevToolsProtocolEventReceiver* progressReceiver=nullptr;EventRegistrationToken beginToken{},progressToken{};
   bool subscribed=false,supported=false,armed=false,protocolReady=false,arming=false,beginSubscribed=false,progressSubscribed=false;UINT64 navigation=0;std::string navigationUrl;bool navigationDownload=false;unsigned offerTimeout=120000,activeProtocol=0;uint64_t sequence=0,protocolBegins=0,identityRejected=0;std::string error;

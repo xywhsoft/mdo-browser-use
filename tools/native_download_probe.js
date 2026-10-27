@@ -3,7 +3,7 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
   const call=(action,params={})=>bridge.call('downloads',{browser,agent:true,action,...params});
   const read=async script=>{const result=await bridge.call('evaluate',{browser,script});assert(result.ok,'Download fixture evaluation failed');return result.value;};
   const engine=async expression=>{const result=await bridge.call('automation',{browser,agent:true,script:`(${runtimeSource})().${expression}`});assert(result.ok,'Download isolated evaluation failed');return result.value;};
-  const ready=async()=>{for(let i=0;i<150;i++){state=await bridge.call('state',{browser});if(!state.loading&&await read('globalThis.fixtureReady===true'))return;await pause(20);}assert(false,'Download fixture did not load');};
+  const ready=async()=>{for(let i=0;i<150;i++){state=await bridge.call('state',{browser});if(!state.loading&&await read('globalThis.fixtureReady===true'))return;await pause(20);}assert(false,'Download fixture did not load: '+JSON.stringify({state,document:await read('({ready:document.readyState,url:location.href,fixture:globalThis.fixtureReady===true})')}));};
   const reject=async(promise,message)=>{let rejected=false;try{await promise;}catch{rejected=true;}assert(rejected,message);};
   const click=async css=>{const doc=await engine('observe({})'),prepared=await engine(`prepare(${JSON.stringify({document:doc.document,op:'click',target:{css},scroll:true})})`);
     assert(prepared.ok,'Download control is not actionable: '+css);state=await bridge.call('state',{browser});
@@ -12,21 +12,21 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
   const offer=async(css)=>{const before=new Set((await call('list')).downloads.map(row=>row.id));await click(css);
     for(let i=0;i<150;i++){const next=(await call('list')).downloads.find(row=>!before.has(row.id));if(next)return next;await pause(20);}assert(false,'No download offer for '+css);
   };
-  const terminal=async id=>{let next;for(let i=0;i<1000;i++){next=await call('get',{download:id});if(['completed','cancelled','failed'].includes(next.state))return next;await pause(20);}assert(false,'Download did not become terminal: '+JSON.stringify({current:next,all:await call('list')}));};
-  const release=async id=>{let requested=false;for(let i=0;i<150;i++){try{const done=await call('release',{download:id});assert(done.released,'Native release has no confirmation');return;}catch(error){
-    if(requested&&!(await call('list')).downloads.some(row=>row.id===id))return;requested=true;if(i===149)throw error;await pause(20);
+  const terminal=async(id,request=call)=>{let next;for(let i=0;i<1000;i++){next=await request('get',{download:id});if(['completed','cancelled','failed'].includes(next.state))return next;await pause(20);}assert(false,'Download did not become terminal: '+JSON.stringify({current:next,all:await call('list')}));};
+  const release=async(id,request=call)=>{let requested=false;for(let i=0;i<150;i++){try{const done=await request('release',{download:id});assert(done.released,'Native release has no confirmation');return;}catch(error){
+    if(requested&&!(await request('list')).downloads.some(row=>row.id===id))return;requested=true;if(i===149)throw error;await pause(20);
   }}};
   const digest=async data=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',data))].map(x=>x.toString(16).padStart(2,'0')).join('');
   const bytes=Uint8Array.from({length:131075},(_,i)=>i%251),sha=await digest(bytes);
-  const consume=async(job,expected=bytes)=>{
+  const consume=async(job,expected=bytes,request=call)=>{
     assert(job.state==='completed'&&job.size===expected.length&&job.sha256===await digest(expected),'Download size/hash was not fully verified: '+JSON.stringify(job));
     const data=new Uint8Array(job.size);let offset=0;
-    do{const chunk=await call('read',{download:job.id,offset,limit:65536});assert(chunk.offset===offset&&chunk.next===offset+chunk.bytes&&chunk.sha256===job.sha256,'Download range lost its verified identity');
+    do{const chunk=await request('read',{download:job.id,offset,limit:65536});assert(chunk.offset===offset&&chunk.next===offset+chunk.bytes&&chunk.sha256===job.sha256,'Download range lost its verified identity');
       const decoded=Uint8Array.from(atob(chunk.base64),c=>c.charCodeAt(0));assert(decoded.length===chunk.bytes,'Download byte count does not match Base64');data.set(decoded,offset);offset=chunk.next;
       if(chunk.eof)break;assert(chunk.bytes>0,'Download range made no progress');
     }while(offset<job.size);
     assert(await digest(data)===job.sha256,'Read download ranges differ from verified bytes');
-    const eof=await call('read',{download:job.id,offset:job.size});assert(eof.eof&&eof.bytes===0&&eof.base64==='','Empty EOF range is not exact');
+    const eof=await request('read',{download:job.id,offset:job.size});assert(eof.eof&&eof.bytes===0&&eof.base64==='','Empty EOF range is not exact');
   };
   try{
     await bridge.call('create',{browser,url,visible:true,bounds:{x:10,y:70,width:1000,height:650,scale:devicePixelRatio}});await ready();
@@ -78,6 +78,37 @@ async function runDownloadProbe({bridge,assert,pause,runtimeSource,origin}){
     const manual=await offer('#slow');await call('accept',{download:manual.id});await bridge.call('takeover',{browser});const taken=await terminal(manual.id);assert(taken.state==='failed'&&taken.error==='download_taken_over','Takeover did not stop its owned download');
     assert(!(await call('list')).armed,'Takeover left Agent downloads armed');await reject(call('accept',{download:manual.id}),'Agent started a download during manual control');
     await bridge.call('release',{browser});await release(manual.id);await call('arm');
+    assert((await bridge.call('capabilities')).initial_download_interception,'Host does not declare pre-navigation interception');
+    const initial='browser-use-initial-download';
+    const initialCall=(action,params={})=>bridge.call('downloads',{browser:initial,agent:true,action,...params});
+    const awaitOffer=async request=>{for(let i=0;i<200;i++){const rows=(await request('list')).downloads;const pending=rows.find(row=>row.state==='pending');if(pending)return pending;await pause(20);}assert(false,'Initial/popup response was not intercepted: '+JSON.stringify(await request('list')));};
+    for(const route of ['/binary?initial-url=1','/auto-download']){
+      try{
+        const created=await bridge.call('create',{browser:initial,url:origin+route,visible:false,intercept_downloads:true});
+        assert(created.downloads_intercepted&&!created.manual,'Initial URL ran without policy acknowledgement');
+        const pending=await awaitOffer(initialCall);assert(pending.received===0,'Initial response was accepted without a caller decision');
+        await initialCall('accept',{download:pending.id});await consume(await terminal(pending.id,initialCall),bytes,initialCall);await release(pending.id,initialCall);
+        const attached=await bridge.call('create',{browser:initial,url:origin+'/binary?must-not-replay=1',visible:false,intercept_downloads:true});assert(attached.attached,'Attaching an existing browser replayed its initial navigation');
+      }finally{await bridge.call('close',{browser:initial});}
+    }
+    await click('#post-popup');let popup;
+    for(let i=0;i<150;i++){popup=(await bridge.call('popups',{browser,action:'list'})).popups[0];if(popup)break;await pause(20);}
+    assert(Boolean(popup),'POST popup did not provide a native admission');
+    const child='browser-use-download-child',childCall=(action,params={})=>bridge.call('downloads',{browser:child,agent:true,action,...params});
+    try{
+      const adopted=await bridge.call('create',{browser:child,popup:popup.id,opener:browser,visible:false});
+      assert(adopted.popup&&adopted.downloads_intercepted,'Popup adoption did not inherit acknowledged interception');
+      const pending=await awaitOffer(childCall);await childCall('accept',{download:pending.id});await consume(await terminal(pending.id,childCall),bytes,childCall);
+      let retainedState;for(let i=0;i<100;i++){retainedState=await bridge.call('state',{browser:child});if(retainedState.close_requested)break;await pause(20);}
+      assert(retainedState.close_requested,'The native popup-close regression did not exercise a page close request');
+      assert(!retainedState.closed_by_page,'The popup requested automatic cleanup before its completed response was released: '+JSON.stringify({closed_by_page:retainedState.closed_by_page,navigation:retainedState.navigation,transfer:await childCall('get',{download:pending.id})}));
+      await reject(bridge.call('input',{browser:child,agent:true,kind:'key',key:'Enter',navigation:retainedState.navigation}),'A retained closing popup accepted another page input');
+      await reject(bridge.call('navigate',{browser:child,agent:true,url:origin+'/binary?closed-must-not-navigate=1'}),'A retained closing popup accepted another Agent navigation');
+      await release(pending.id,childCall);
+      let releasedState;for(let i=0;i<100;i++){releasedState=await bridge.call('state',{browser:child});if(releasedState.closed_by_page)break;await pause(20);}
+      assert(releasedState.closed_by_page,'Releasing the final response suppressed the original page close request');
+      assert(!(await call('list')).downloads.length,'A popup response leaked into the opener download inventory');
+    }finally{await bridge.call('close',{browser:child});}
     const closed=await offer('#slow');await call('accept',{download:closed.id});await bridge.call('close',{browser});await pause(250);
     await bridge.call('create',{browser,url,visible:false});await ready();assert(!(await call('list')).downloads.length&&!(await call('list')).armed,'Recreated browser inherited old download state');
     return{closed_download:closed.id,truncated_download:truncated.id};

@@ -13,6 +13,10 @@ export function createBrowserPopups({ bridge, api, views, clientId, alive, open,
     const state = await view.execute("state");if (!live()) return;
     const sdk = scoped(view.row);
     if (state.closed_by_page) {
+      // The final release removes native ownership before client.ack commits
+      // its UI receipt. Automatic closure must not cancel that same action.
+      const pending = await sdk.call("client.poll", { client: clientId });
+      if (!live() || pending.some(action => action.action === "workbench.browser" && action.params?.id === browser)) return;
       await sdk.call("browser.close", { id: browser });if (!live()) return;
       await bridge.call("close", { browser });views.delete(browser);
       if (live()) await closePanels(browser);return;
@@ -32,7 +36,7 @@ export function createBrowserPopups({ bridge, api, views, clientId, alive, open,
           // missing native window after a lost reply or restart.
           const existing = await bridge.call("state", { browser: child.id });
           if (existing.opener !== browser) throw new Error("弹出页的原生连接已失效，请核实标签页状态。");
-        } else await ensureNativeBrowser({ bridge, sdk, browser: child, clientId, alive: live,
+        } else await ensureNativeBrowser({ bridge, sdk, browser: child, clientId, alive: live, requireDownloads:state.downloads_armed===true,
           bounds: { x: 0, y: 0, width: 1024, height: 768, scale: 1 } });
         adopted = true;
         if (!live()) return;

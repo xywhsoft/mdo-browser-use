@@ -1083,3 +1083,44 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and the complete fifteen-tool managed WebView2 regression pass afterwards,
   including permissions, popup ownership, dialogs, screenshots and gestures.
   No claim is made that concurrent model runs can share a session runtime.
+
+
+## D12h — intercept initial/popup responses before navigation
+
+- Browser Use tabs carry the required interception policy. The native host
+  acknowledges Page identity events before its first URL or adoption of the
+  original popup response. POST/body/cookies stay with that response. Policies
+  inherit from the actual opener; manual control is never silently returned.
+  Old/unsupported hosts fail before navigation; concurrent creates cannot join
+  conflicting policies. A bounded five-second watchdog covers lost/late replies.
+- Controlled lifecycle/fault tests found and fixed shared-timer reset, identity
+  allocation and terminal-publication cleanup gaps in that policy gate. The
+  native helper releases its timer/map ownership before publishing an error.
+  This is not a claim that every native creation allocation path is audited.
+- A real completed POST-popup response was being removed by WindowCloseRequested
+  before its waiting caller got the receipt. Keep the broker while any response
+  is owned, fence further page input, and resume automatic close only after the
+  final release acknowledgement. An unpublished identity also holds closure,
+  with bounded close-event ordering grace. Explicit user close still reclaims.
+- Actual POST navigation/read callbacks could precede download identity and hide
+  a valid pending response behind stale-document/uncertain errors. A bounded
+  metadata-only post-input checkpoint now catches either order without another
+  input, page evaluation or URL request; cancellation/deadlines remain enforced.
+- Real focused native download coverage passes 295 assertions. Normal public
+  C/JS/managed download coverage passes initial URL, automatic-script, exact POST
+  popup, verified hashes, durable accept/cancel, scope/permissions, pending fences
+  and automatic close. Both POST endpoints execute once; that gate leaves zero
+  reservations. Existing public SDK, fifteen managed tools and upload/clear/
+  chooser APIs pass; local checks pass 55 Python cases (one Windows symlink skip)
+  and 70 JS cases. The single deployment is about 833 MiB.
+- The broader native run executes 1312 assertions without new exception
+  diagnostics, but its final cache gate FAILS: one empty download GUID directory
+  remains (no payload/lease). Chromium history identifies a cancelled 3 MiB
+  response with zero received bytes. Late native directory recreation is an
+  unconfirmed hypothesis. Evidence is retained privately at
+  `.mdo/evidence/empty-download-directory-after-full-gate.json`; the full gate
+  is not claimed passed. Idle cleanup is the immediate next investigation.
+- Safe task-workspace saving, visible download UI, frame/directory/vision/drag/
+  Android work and final lifecycle/performance/package gates still keep the
+  full Browser Use goal active. Earlier intermittent hidden startup evidence
+  also remains open; this stage does not invent a root cause for it.

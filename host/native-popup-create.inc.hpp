@@ -9,3 +9,4 @@
     }
     const auto url=popup?popup->url:xb_get(json,"url");const bool visible=xb_get(json,"visible")!="false";
     if(!xb_url(url)){host->reply(id,"","Only HTTP(S) navigation is supported");return;}
+    const bool interceptDownloads=xb_get(json,"intercept_downloads")=="true"||(opener&&opener->downloads&&opener->downloads->armed);

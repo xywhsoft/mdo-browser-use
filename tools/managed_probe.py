@@ -38,9 +38,12 @@ def tool(name, arguments, session=FULL):
     while time.monotonic() < end:
         current = dev.call("operation.get", {"id": job["id"]}, scope)
         if current.get("terminal"):
-            if current["state"] != "succeeded":
-                raise RuntimeError("Managed tool transport failed: " + current.get("error", {}).get("code", "unknown"))
             try:
+                if current["state"] != "succeeded":
+                    detail=current.get('error',{})
+                    error=RuntimeError('Managed tool transport failed: '+name+': '+detail.get('code','unknown')+': '+detail.get('message','')[:512])
+                    error.operation=job['id'];error.detail=detail;error.tool=name
+                    raise error
                 return read_operation_result(job["id"], scope)
             finally:
                 try:

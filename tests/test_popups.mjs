@@ -23,7 +23,7 @@ test("ephemeral native tickets require the original display client and stop on a
   assert.equal(calls.length,0);
 });
 
-function fixture({settled=false}={}){
+function fixture({settled=false,queued=[]}={}){
   const calls=[],opened=[],closed=[],errors=[];
   let pending=[{id:ticket,url:"https://example.com/popup",user_initiated:true}],closeRequested=false;
   const row={id:"child",owner:"original-extension",opener:"source",client:"display",context,
@@ -32,6 +32,7 @@ function fixture({settled=false}={}){
   const api={bind(bound){assert.deepEqual(bound,{...context,extension:"original-extension"});return{async call(method,params){
     calls.push({method,params});if(method==="browser.popup.admit")return row;
     if(method==="browser.popup.settle")return{settled:true};if(method==="browser.close")return{};
+    if(method==="client.poll"){assert.equal(params.client,"display");return queued;}
     throw Error("Unexpected SDK call "+method);
   }}}};
   const views=new Map([["source",{row:{id:"source-panel",owner:"original-extension",context},
@@ -47,6 +48,15 @@ function fixture({settled=false}={}){
     async open(child,sdk,reveal){opened.push({child,reveal});},async closePanels(id){closed.push(id);},onError:error=>errors.push(error)});
   return{manager,calls,opened,closed,errors,views,bridge,api,setClose(){closeRequested=true;},clear(){pending=[];},row};
 }
+
+test('automatic popup close waits for its final UI acknowledgement',async()=>{
+  const queued=[{action:'workbench.browser',params:{id:'source',command:'download',action:'release'}}];
+  const f=fixture({queued});f.setClose();await f.manager.reconcile('source');
+  assert(f.views.has('source'));assert.equal(f.closed.length,0);assert(!f.calls.some(call=>call.method==='browser.close'));
+  queued[0].params.id='another-browser';await f.manager.reconcile('source');
+  assert(!f.views.has('source'));assert.deepEqual(f.closed,['source']);
+  f.manager.dispose();
+});
 
 test("duplicate native notifications adopt one child in the original task",async()=>{
   const f=fixture();await Promise.all([f.manager.reconcile("source"),f.manager.reconcile("source")]);
@@ -74,7 +84,7 @@ test("uncertain native effects retain their admitted receipt without replacement
 test("page close requests remove exactly their scoped browser and panels",async()=>{
   const f=fixture();f.setClose();await f.manager.reconcile("source");
   assert.deepEqual(f.closed,["source"]);assert.ok(!f.views.has("source"));
-  assert.deepEqual(f.calls.map(c=>c.method),["browser.close","close"]);f.manager.dispose();
+  assert.deepEqual(f.calls.map(c=>c.method),["client.poll","browser.close","close"]);f.manager.dispose();
 });
 
 test("the actual native bridge serializes concurrent creation and rejects a changed popup identity",async()=>{
@@ -88,6 +98,8 @@ test("the actual native bridge serializes concurrent creation and rejects a chan
     const params={browser:"child",popup:ticket,opener:"source"};
     const first=bridge.call("create",params),second=bridge.call("create",params);
     assert.equal(sent.length,1);
+    await assert.rejects(bridge.call("create",{...params,intercept_downloads:true}),/下载拦截策略/);
+    assert.equal(sent.length,1,"A conflicting policy must not dispatch another native creation");
     await assert.rejects(bridge.call("create",{...params,opener:"another-source"}),/另一个弹出请求/);
     receive({data:{channel:"mdo-browser",id:sent[0].id,result:{created:true}}});await first;
     assert.equal((await second).created,true);
@@ -108,4 +120,36 @@ test("the actual native bridge serializes concurrent creation and rejects a chan
     receive({data:{channel:"mdo-browser",id:sent[uploadIndex].id,result:{}}});await upload;
     assert.equal(bridge.busy(),false);
   }finally{bridge.dispose();globalThis.window=savedWindow;globalThis.chrome=savedChrome;}
+});
+
+
+test('required initial interception rejects an old host before sending its URL',async()=>{
+  const calls=[];
+  await assert.rejects(ensureNativeBrowser({browser:{id:'owned',url:'https://example.com/file',download_policy:'intercept'},clientId:'display',
+    bridge:{async call(command){calls.push(command);return{};}},sdk:{call(){throw Error('No admission should be settled');}}}),/打开网址前/);
+  assert.deepEqual(calls,['capabilities']);
+});
+
+test('creation acknowledgement and popup settlement preserve the required policy',async()=>{
+  const calls=[];
+  const browser={id:'child',opener:'source',client:'display',url:'https://example.com/file',download_policy:'intercept',runtime:{popup_request:descriptor}};
+  const result=await ensureNativeBrowser({browser,clientId:'display',bridge:{async call(command,params){calls.push(command);
+    if(command==='capabilities')return{initial_download_interception:true};assert.equal(params.intercept_downloads,true);return{created:true,downloads_intercepted:true};}},
+    sdk:{async call(method){calls.push(method);return{settled:true};}}});
+  assert(result.downloads_intercepted);assert.deepEqual(calls,['capabilities','create','browser.popup.settle']);
+});
+
+test('missing policy confirmation does not settle or replay a popup',async()=>{
+  const calls=[];
+  await assert.rejects(ensureNativeBrowser({browser:{id:'child',opener:'source',client:'display',download_policy:'intercept',runtime:{popup_request:descriptor}},clientId:'display',
+    bridge:{async call(command){calls.push(command);return command==='capabilities'?{initial_download_interception:true}:{created:true};}},
+    sdk:{call(){throw Error('Unconfirmed adoption must not be settled');}}}),/未确认/);
+  assert.deepEqual(calls,['capabilities','create']);
+});
+
+test('a manual popup never returns control to the Agent while acknowledging creation',async()=>{
+  const calls=[];
+  const result=await ensureNativeBrowser({browser:{id:'child',download_policy:'intercept'},clientId:'display',bridge:{async call(command){calls.push(command);
+    return command==='capabilities'?{initial_download_interception:true}:{created:true,manual:true,downloads_intercepted:false};}},sdk:{call(){throw Error('No popup admission');}}});
+  assert.equal(result.manual,true);assert.deepEqual(calls,['capabilities','create']);
 });

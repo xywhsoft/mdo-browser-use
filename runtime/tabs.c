@@ -50,6 +50,7 @@ static mdo_result BuTabs(void* U,const mdo_sdk_context_v1* C,const xvalue* P,
         if(!Found)return BuFail(E,"client_missing","The selected display client is not online",409);
         xvalue* Args=V->Object();const char* Fields[]={"client","url","key","title"};
         for(size_t I=0;I<4;I++){const xvalue* Field=V->Get(P,Fields[I]);if(Field)V->Set(Args,Fields[I],Field);}
+        if(!BuPut(C,Args,"download_policy","intercept")){V->Release(Args);return BuFail(E,"allocation_failed","Cannot retain the required initial download policy",500);}
         Code=mdoCall(C,"browser.create",Args,Result,E);V->Release(Args);return Code;
     }
     if(!Id||!*Id)return BuFail(E,"browser_required","Supply a browser identity",422);

@@ -125,6 +125,8 @@ Use `browser_download(action="cancel",download=<same id>)` to stop it, and
 bytes. Keep a completed response until saved. This development stage cannot
 save browser bytes to the original task workspace yet; explain that limit,
 never claim a file was delivered or invent a browser-device cache path. Initial
-URL/popup downloads before the first Agent action are also not covered yet.
+URL and popup responses are intercepted before navigation/adoption. A download-
+only popup may request page closure; `download_retained` with `page_closed:true`
+means inspect/finish/release its downloads instead of sending further page input.
 Download limits/deadlines are real; an ordinary download failure is tool feedback,
 not a reason to repeat the opening click or end the entire task.

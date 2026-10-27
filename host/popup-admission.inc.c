@@ -54,6 +54,7 @@ static bool WbPopupCall(const mdo_sdk_context_v1* C,cstr Method,const xvalue* P,
     SdkPut(Row,"id",NewId);SdkPut(Row,"client",Client);SdkPut(Row,"key",Key);SdkPut(Row,"opener",Opener);
     SdkPut(Row,"owner",C->ExtensionId);SdkPut(Row,"state","suspended");SdkPut(Row,"execution","display-client");SdkPut(Row,"title","新窗口");
     if(Url&&strcmp(Url,"about:blank"))SdkPut(Row,"url",Url);
+    if(WbEqual("intercept",SdkField(Source,"download_policy")))SdkPut(Row,"download_policy","intercept");
     xrtValueObjectSetNew(Row,XRT_STR_LITERAL("context"),WbContext(C));SdkPutUInt(Row,"revision",1);
     xrtValueArrayAppendNew(WbArray(Next,"browsers"),Row);WbBump(Next);
     if(!WbSave(Next)){WbFail(E,"workbench_save_failed","Popup record could not be saved; no native adoption was requested",503);goto done;}

@@ -6,7 +6,7 @@ struct xb_capture_job:std::enable_shared_from_this<xb_capture_job>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;
   std::string id,key,format;double x=0,y=0,width=0,height=0,scale=1;size_t maximum=131072;
   UINT64 navigation=0;ULONGLONG expires=0;unsigned attempts=0;bool done=false,agent=true,inFlight=false,released=false;
-  bool live()const{return host->alive&&!view->closed&&!view->failed&&!view->dialog&&!xb_popup_blocked(view)&&
+  bool live()const{return host->alive&&!view->closed&&!view->requestedClose&&!view->failed&&!view->dialog&&!xb_popup_blocked(view)&&
     (!agent||!view->manual)&&view->navigation==navigation;}
   void release(){if(released)return;released=true;if(view->capture.get()==this)view->capture.reset();if(host->captures)host->captures--;}
   void finish(const std::string& result,const std::string& error=""){

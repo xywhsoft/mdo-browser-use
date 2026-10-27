@@ -15,7 +15,7 @@ static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
   callback->Release();if(FAILED(status))done(false,"{}");
 }
 static bool xb_automation_live(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation){
-  return host->alive&&!view->closed&&!view->failed&&!view->manual&&!view->dialog&&!xb_popup_blocked(view)&&view->navigation==navigation;
+  return host->alive&&!view->closed&&!view->requestedClose&&!view->failed&&!view->manual&&!view->dialog&&!xb_popup_blocked(view)&&view->navigation==navigation;
 }
 static void xb_automation_reply(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                                 const std::string& id,const std::string& result,const std::string& error=""){

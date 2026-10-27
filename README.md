@@ -111,5 +111,7 @@ MIT. The separately checked-out mdo source retains its own license and notices.
 local HTTP fixture in this deployment: POST/blob/binary/unknown-length responses,
 verified hashes, durable acceptance/cancellation, direct navigation checkpoints,
 foreign-scope denial and read-only permissions. It performs no live model calls.
+Initial URL, automatic page-script and original POST-popup downloads are also
+intercepted before navigation/adoption. `--initial-only` focuses on these paths.
 The completed response still stays in private browser cache; safe task-workspace
-saving and pre-action initial navigation interception remain in development.
+saving and visible download controls remain in development.

@@ -5,7 +5,7 @@ import {executeBrowserDownload} from '../host/download-dispatch.js';
 const source=(await readFile(new URL('../host/automation-dispatch.js',import.meta.url),'utf8'))
   .replace('import { browserRuntime } from "./automation-runtime.js";','function browserRuntime(){}')
   .replace('import { prepareScreenshot } from "./capture-image.js";','function prepareScreenshot(){}')
-  .replace('import { executeFileUpload } from "./upload-dispatch.js";','function executeFileUpload(){}')
+  .replace('import { executeFileUpload } from "./upload-dispatch.js";',`import {executeFileUpload} from ${JSON.stringify(new URL('../host/upload-dispatch.js',import.meta.url).href)};`)
   .replace('import { executeBrowserDownload } from "./download-dispatch.js";',`import {executeBrowserDownload} from ${JSON.stringify(new URL('../host/download-dispatch.js',import.meta.url).href)};`);
 const {executeBrowserAutomation}=await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 test('response interception must be acknowledged before navigation',async()=>{
@@ -33,6 +33,60 @@ test('download metadata remains readable during takeover and mutation is denied'
   }}};
   assert.deepEqual((await executeBrowserAutomation({...base,command:'download',params:{action:'list'}})).result.downloads,[]);
   assert.equal((await executeBrowserAutomation({...base,command:'download',params:{action:'accept',download:'owned'}})).result.error.code,'manual_control');assert.equal(mutations,0);
+});
+
+test('a download-only popup keeps receipts while refusing further page operations',async()=>{
+  const row={id:'retained-response',state:'completed',size:5,sha256:'a'.repeat(64)};
+  let pageCalls=0;
+  const base={action:{id:'closed-download-popup'},api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+    if(command==='state')return{close_requested:true,closed_by_page:false,download_capability:true,downloads_armed:true};
+    if(command==='downloads')return params.action==='list'?{downloads:[row]}:row;
+    pageCalls++;throw Error('A closing popup received page input or evaluation');
+  }}};
+  for(const command of ['observe','act','navigate_to','wait_for','capture','dialog','chooser','upload']){
+    const result=(await executeBrowserAutomation({...base,command,params:{action:'cancel'}})).result;
+    assert.equal(result.outcome,'download_retained');assert.equal(result.page_closed,true);assert.equal(result.completed,false);
+    assert.equal(result.dispatched,false);assert.deepEqual(result.downloads,[row]);
+  }
+  const completed=(await executeBrowserAutomation({...base,command:'download',params:{action:'wait'}})).result;
+  assert.equal(completed.verified,true);assert.deepEqual(completed.download,row);assert.equal(pageCalls,0);
+});
+
+test('a closing popup without retained responses is a closed checkpoint',async()=>{
+  let pageCalls=0;
+  const result=await executeBrowserAutomation({command:'act',params:{op:'click'},action:{id:'closed-empty-popup'},
+    api:{async call(){return{state:'pending'};}},view:{async execute(command){
+      if(command==='state')return{close_requested:true,closed_by_page:false,download_capability:true};
+      if(command==='downloads')return{downloads:[]};pageCalls++;throw Error('Input reached a closed page');
+    }}});
+  assert.equal(result.result.outcome,'closed');assert.equal(result.result.dispatched,false);assert.equal(pageCalls,0);
+});
+
+for(const interruption of ['navigation','evaluation'])test(`POST ${interruption} before download identity does not hide the retained response`,async()=>{
+  let input=0,navigation='1',offeredAt=Infinity;
+  const row={id:'original-post-response',state:'pending'};
+  const result=await executeBrowserAutomation({command:'act',params:{op:'click',document:'d1',target:{ref:'e1'}},action:{id:'post-'+interruption},
+    api:{async call(){return{state:'pending'};}},view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,navigation,chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,download_capability:true,downloads_armed:true};
+      if(command==='downloads')return{downloads:performance.now()>=offeredAt?[row]:[]};
+      if(command==='input'){input++;if(interruption==='navigation'){navigation='2';offeredAt=performance.now()+60;}return{accepted:true,trusted_input:true};}
+      if(params.script.includes('.observe(')){navigation='2';offeredAt=performance.now()+60;throw Error('Browser control or document changed during evaluation');}
+      return{ok:true,value:{ok:true,element:{ref:'e1'},point:{x:10,y:10},geometry:[10,10,20,20]}};
+    }}});
+  assert.equal(result.result.outcome,'download_pending',JSON.stringify(result.result));assert.equal(result.result.completed,false);assert.equal(result.result.dispatched,true);
+  assert.deepEqual(result.result.downloads,[row]);assert.equal(input,1);
+});
+
+test('post-input identity coalescing obeys cancellation without another input',async()=>{
+  let input=0,checks=0;
+  const result=await executeBrowserAutomation({command:'act',params:{op:'click',document:'d1',target:{ref:'e1'}},action:{id:'cancel-post'},
+    api:{async call(){return{state:input&&++checks>1?'cancelled':'pending'};}},view:{async execute(command,params){
+      if(command==='state')return{loading:false,automation:true,navigation:input?'2':'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,download_capability:true,downloads_armed:true};
+      if(command==='downloads')return{downloads:[]};
+      if(command==='input'){input++;return{accepted:true,trusted_input:true};}
+      return{ok:true,value:{ok:true,element:{ref:'e1'},point:{x:10,y:10},geometry:[10,10,20,20]}};
+    }}});
+  assert.equal(result.result.error.code,'cancelled');assert.equal(result.result.error.effect_may_have_occurred,true);assert.equal(input,1);
 });
 test('a response callback after the final page read is still returned without another click',async()=>{
   let pending=false,inputs=0;

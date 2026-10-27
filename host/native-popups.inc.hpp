@@ -49,7 +49,7 @@ static void xb_install_popups(const std::shared_ptr<xb_host>& host,const std::sh
     });
   EventRegistrationToken token{};view->popupsEnabled=SUCCEEDED(view->core->add_NewWindowRequested(callback,&token));callback->Release();
   auto* closed=xb_cb<ICoreWebView2WindowCloseRequestedEventHandler,ICoreWebView2*,IUnknown*>(
-    IID_ICoreWebView2WindowCloseRequestedEventHandler,[weak](ICoreWebView2*,IUnknown*){if(auto active=weak.lock())active->requestedClose=true;return S_OK;});
+    IID_ICoreWebView2WindowCloseRequestedEventHandler,[weak](ICoreWebView2*,IUnknown*){if(auto active=weak.lock()){if(!active->requestedClose)active->closeRequestedAt=GetTickCount64();active->requestedClose=true;}return S_OK;});
   EventRegistrationToken closedToken{};view->core->add_WindowCloseRequested(closed,&closedToken);closed->Release();
 }
 static void xb_popup_request(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json){

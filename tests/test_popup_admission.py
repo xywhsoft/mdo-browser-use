@@ -52,6 +52,13 @@ class PopupAdmissionTests(unittest.TestCase):
         recovered = self.admit(url="https://example.com/popup")
         self.assertNotIn("popup_request", recovered.get("runtime", {}), "Settled native admission was resurrected")
 
+    def test_child_inherits_initial_download_policy_and_original_context(self):
+        dev.call('browser.close',{'id':self.source['id']},self.scope)
+        self.source=dev.call('browser.create',{'client':self.client,'download_policy':'intercept'},self.scope)
+        child=self.admit(url='https://example.com/file')
+        self.assertEqual(child['download_policy'],'intercept')
+        self.assertEqual(child['context'],self.source['context'])
+
     def test_foreign_context_client_and_changed_opener_cannot_adopt(self):
         params = {"client": self.client, "popup": self.ticket, "opener": self.source["id"]}
         self.reject("browser.popup.admit", params, "context_mismatch", scope=dict(self.scope, session="foreign"))

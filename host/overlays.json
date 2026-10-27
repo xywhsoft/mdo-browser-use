@@ -429,6 +429,21 @@
       "after": "await dialogs.refresh(state); if (signal.aborted) return; await choosers.refresh(state); if (signal.aborted) return; paint();"
     },
     {
+      "path": "tools/workbench_contracts.py",
+      "before": "{'client':s,'key':s,'url':s,'title':s},('client',))",
+      "after": "{'client':s,'key':s,'url':s,'title':s,'download_policy':{'type':'string','enum':['intercept','native']}},('client',))"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "        if (active.popup !== (params.popup || \"\")",
+      "after": "        if(active.interception !== (params.intercept_downloads===true))return Promise.reject(new Error(\"原生浏览器正在使用不同的下载拦截策略创建，请检查已有标签。\"));\n        if (active.popup !== (params.popup || \"\")"
+    },
+    {
+      "path": "app/web/js/features/workbench/native-browser.js",
+      "before": "creating.set(params.browser,{promise,popup:params.popup||\"\",opener:params.opener||\"\"});",
+      "after": "creating.set(params.browser,{promise,popup:params.popup||\"\",opener:params.opener||\"\",interception:params.intercept_downloads===true});"
+    },
+    {
       "path": "app/src/application/jobs.c",
       "before": "#include \"browser_use_operation_scope.inc.c\"",
       "after": "#include \"browser_use_operation_scope.inc.c\"\n#include \"browser_use_operation_snapshot.inc.c\""

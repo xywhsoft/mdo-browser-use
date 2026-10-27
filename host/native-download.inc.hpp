@@ -1,5 +1,6 @@
 /* Browser responses (including POST/blob) stay in the browser's own download
  * operation. Only opaque scoped identities, bounded metadata/ranges leave it. */
+// BROWSER_DOWNLOAD_ARM_HELPER
 static constexpr UINT_PTR xb_download_timer=0xBADD7;
 static constexpr uint64_t xb_download_file_limit=64ull*1024*1024,xb_download_total_limit=128ull*1024*1024;
 static bool xb_download_navigation_abort(const std::shared_ptr<xb_view>& view,UINT64 navigation,COREWEBVIEW2_WEB_ERROR_STATUS error){
@@ -140,10 +141,17 @@ struct xb_download_store{
 static std::map<HWND,std::weak_ptr<xb_download_store>> xb_download_stores;
 static void CALLBACK xb_download_tick(HWND window,UINT,UINT_PTR,DWORD){auto at=xb_download_stores.find(window);if(at==xb_download_stores.end()){KillTimer(window,xb_download_timer);return;}if(auto store=at->second.lock())store->collect();else{KillTimer(window,xb_download_timer);xb_download_stores.erase(at);}}
 static bool xb_download_watch(const std::shared_ptr<xb_host>& host){xb_download_stores[host->window]=host->downloads;return SetTimer(host->window,xb_download_timer,100,xb_download_tick)!=0;}
+static bool xb_download_holds_page_close(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){
+  // Chromium can close a download-only popup while its original response still
+  // owns bytes/identity. Keep that broker alive until explicit release/close.
+  // Include unpublished candidates; callback ordering must not lose a response.
+  if(host->downloads)for(const auto& item:host->downloads->jobs)if(item.second->view.lock()==view)return true;
+  return view->downloads&&view->downloads->armed&&view->requestedClose&&GetTickCount64()-view->closeRequestedAt<1100;
+}
 static std::string xb_download_status(const std::shared_ptr<xb_download_job>& job){
   return "{\"id\":"+xb_quote(job->id)+",\"name\":"+xb_quote(job->name)+",\"mime\":"+xb_quote(job->mime)+",\"state\":"+xb_quote(job->state)+",\"received\":"+std::to_string(job->received)+",\"expected_size\":"+(job->expected<0?"null":std::to_string(job->expected))+",\"max_bytes\":"+std::to_string(job->limit)+",\"interrupt_reason\":"+std::to_string(job->reason)+",\"failure_source\":"+xb_quote(job->failureSource)+",\"error\":"+xb_quote(job->error)+(job->state=="completed"?",\"size\":"+std::to_string(job->size)+",\"sha256\":"+xb_quote(job->sha):"")+"}";
 }
-static void xb_download_close_view(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){if(view->downloads)view->downloads->unsubscribe();if(!host->downloads)return;
+static void xb_download_close_view(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){xb_download_abort_arm(view,"The browser closed before policy acknowledgement");if(view->downloads)view->downloads->unsubscribe();if(!host->downloads)return;
   for(auto& item:host->downloads->jobs)if(item.second->view.lock()==view){item.second->closing=true;item.second->cancel("download_closed");}if(!host->downloads->jobs.empty())xb_download_watch(host);host->downloads->collect();}
 static void xb_download_drain_closed_view(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){
   if(!view->closed||!host->downloads)return;
@@ -154,9 +162,9 @@ static void xb_download_drain_closed_view(const std::shared_ptr<xb_host>& host,c
     if(!job->operation||job->cancelConfirmed){job->finishDeferral();job->detach();if(!job->terminal())job->state="failed";}
   }host->downloads->collect();
 }
-static void xb_download_takeover(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){if(view->downloads)view->downloads->armed=false;if(!host->downloads)return;
+static void xb_download_takeover(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){xb_download_abort_arm(view,"The user took over before policy acknowledgement");if(view->downloads)view->downloads->armed=false;if(!host->downloads)return;
   for(auto& item:host->downloads->jobs)if(item.second->view.lock()==view&&!item.second->terminal())item.second->cancel("download_taken_over");host->downloads->collect();}
-static void xb_download_shutdown(const std::shared_ptr<xb_host>& host){KillTimer(host->window,xb_download_timer);xb_download_stores.erase(host->window);if(host->downloads){host->downloads->collect();host->downloads.reset();}}
+static void xb_download_shutdown(const std::shared_ptr<xb_host>& host){xb_download_policy_shutdown(host);KillTimer(host->window,xb_download_timer);xb_download_stores.erase(host->window);if(host->downloads){host->downloads->collect();host->downloads.reset();}}
 static void xb_install_downloads(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){auto state=std::make_shared<xb_download_state>();view->downloads=state;
   if(FAILED(view->core->QueryInterface(IID_ICoreWebView2_4,reinterpret_cast<void**>(&state->source)))||!state->source)return;
   std::weak_ptr<xb_view> weak=view;std::weak_ptr<xb_host> owner=host;
@@ -215,11 +223,7 @@ static void xb_download_request(const std::shared_ptr<xb_host>& host,const std::
   }
     if(view->closed||view->failed||(view->manual&&xb_get(json,"agent")=="true"&&action!="get")){fail("The browser is unavailable or controlled by the user");return;}
   if(action=="arm"){uint64_t timeout=120000;if(view->manual||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000){fail("Only Agent control may arm downloads with a 1000..120000 ms offer lease");return;}state->offerTimeout=static_cast<unsigned>(timeout);
-    if(state->protocolReady){state->armed=true;host->reply(id,"{\"ok\":true,\"armed\":true}");return;}
-    if(state->arming||!state->beginSubscribed||!state->progressSubscribed){fail("Native download protocol event delivery is unavailable or still arming");return;}state->arming=true;
-    xb_cdp(view,L"Page.enable","{}",[host,view,state,id](bool ok,const std::string& result){state->arming=false;
-      if(!ok||!xb_get(result,"error").empty()||!host->alive||view->closed||view->manual){host->reply(id,"","Cannot enable scoped page download identity events: "+xb_get(xb_get(result,"error"),"message").substr(0,256));return;}
-      state->protocolReady=state->armed=true;host->reply(id,"{\"ok\":true,\"armed\":true}");});return;}
+    xb_download_arm(host,view,[host,id](bool ok,const std::string& error){host->reply(id,ok?"{\"ok\":true,\"armed\":true}":"",error);});return;}
   auto store=host->downloads;auto at=store?store->jobs.find(xb_get(json,"download")):std::map<std::string,std::shared_ptr<xb_download_job>>::iterator{};
   if(!store||at==store->jobs.end()||at->second->view.lock()!=view){fail("The download expired or belongs to another browser");return;}auto job=at->second;
   if(action=="get"){host->reply(id,xb_download_status(job));return;}

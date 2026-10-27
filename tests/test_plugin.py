@@ -57,6 +57,7 @@ class PluginTests(unittest.TestCase):
         identity = created["id"]
         try:
             self.assertEqual(created["state"], "suspended")
+            self.assertEqual(created["download_policy"],"intercept")
             self.assertEqual(self.invoke({"action": "get", "browser": identity})["id"], identity)
             rows = self.invoke({"action": "list", "client": self.client})["tabs"]
             self.assertIn(identity, [r["id"] for r in rows])
