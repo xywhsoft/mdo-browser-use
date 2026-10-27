@@ -1053,3 +1053,16 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   result), scope denial and released-identity non-replay. TCC startup and applied
   host checks pass in the same deployment. This is a separate SDK defect fix;
   the wider download/Browser Use goal and final stability gates remain active.
+
+
+## D12f — do not inspect receipt storage during job disposal
+
+- Inspection of the completion path found another lifetime defect: release marks
+  a job disposing, drops the job-table lock, and frees its metadata before
+  reclaiming the table slot. List and the added ownership check could still read
+  that metadata. This is a code-proven race; no crash reproduction is claimed.
+- List now skips disposing slots before checking their scope. Other operations
+  reach the existing disposing/busy gate before inspecting scope storage. No
+  additional job identity, retry or mutable ownership state is introduced.
+- The actual host scope, released-admission and twelve sequential fast-result
+  checks pass again; deployed overlays match. The original full goal continues.

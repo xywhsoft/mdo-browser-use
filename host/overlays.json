@@ -84,7 +84,7 @@
     {
       "path": "app/src/application/jobs.c",
       "before": "if(SdkJobs.Jobs[i].Id[0])xrtValueArrayAppendNew(*R,xrtValueClone(SdkJobs.Jobs[i].Info));",
-      "after": "if(SdkJobs.Jobs[i].Id[0]&&BuOperationScope(C,SdkJobs.Jobs[i].Info))xrtValueArrayAppendNew(*R,xrtValueClone(SdkJobs.Jobs[i].Info));"
+      "after": "if(SdkJobs.Jobs[i].Id[0]&&!SdkJobs.Jobs[i].Disposing&&BuOperationScope(C,SdkJobs.Jobs[i].Info))xrtValueArrayAppendNew(*R,xrtValueClone(SdkJobs.Jobs[i].Info));"
     },
     {
       "path": "app/src/application/jobs.c",
@@ -94,7 +94,7 @@
     {
       "path": "app/src/application/jobs.c",
       "before": "        if(J&&J->Disposing){",
-      "after": "        if(J&&!BuOperationScope(C,J->Info)){xrtMutexUnlock(SdkJobs.Lock);return MdoApplicationError(E,\"context_mismatch\",\"Operation belongs to another task or lacks a verifiable scope\",\"operation\",409,false);}\n        if(J&&J->Disposing){"
+      "after": "        if(J&&!J->Disposing&&!BuOperationScope(C,J->Info)){xrtMutexUnlock(SdkJobs.Lock);return MdoApplicationError(E,\"context_mismatch\",\"Operation belongs to another task or lacks a verifiable scope\",\"operation\",409,false);}\n        if(J&&J->Disposing){"
     },
     {
       "path": "app/src/application/jobs.c",
