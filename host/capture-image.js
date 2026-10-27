@@ -1,6 +1,6 @@
 // Images stay in memory. Known form controls and opaque content are masked on
 // the trusted application's canvas; website DOM is never changed for capture.
-export async function prepareScreenshot(native, area, after, params) {
+export async function prepareScreenshot(native, area, after, params, inspect = {}) {
   if (typeof native.data !== "string" || native.data.length > 349528 || !/^[A-Za-z0-9+/]*={0,2}$/.test(native.data)) throw Error("Native screenshot has an invalid byte envelope");
   const bytes=Uint8Array.from(atob(native.data),char=>char.charCodeAt(0));
   const format=params.format||"png",mime=`image/${format}`;
@@ -35,8 +35,11 @@ export async function prepareScreenshot(native, area, after, params) {
     for(let attempt=0;attempt<4;attempt++){
       const encoded=canvas.toDataURL(mime,0.8).split(",")[1];
       const size=encoded.length/4*3-(encoded.endsWith("==")?2:encoded.endsWith("=")?1:0);
-      if(size<=(params.max_bytes||131072))return {image:{media_type:mime,base64:encoded,width:canvas.width,height:canvas.height,bytes:size},
-        scaled:native.scale*(area.device_pixel_ratio||1)<0.999||ratio<1||attempt>0,redacted_regions:Math.max(area.redactions.length,after.redactions.length)};
+      if(size<=(params.max_bytes||131072)){
+        await inspect.raster?.(canvas);
+        return {image:{media_type:mime,base64:encoded,width:canvas.width,height:canvas.height,bytes:size},
+          scaled:native.scale*(area.device_pixel_ratio||1)<0.999||ratio<1||attempt>0,redacted_regions:Math.max(area.redactions.length,after.redactions.length)};
+      }
       const next=document.createElement("canvas");next.width=Math.max(1,Math.floor(canvas.width*0.65));next.height=Math.max(1,Math.floor(canvas.height*0.65));
       const target=next.getContext("2d");if(!target)throw Error("Screenshot canvas is unavailable");target.drawImage(canvas,0,0,next.width,next.height);
       canvas.width=next.width;canvas.height=next.height;context.drawImage(next,0,0);

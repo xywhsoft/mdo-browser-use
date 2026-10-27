@@ -54,16 +54,30 @@ static bool BuImageSize(const unsigned char* P,size_t N,const char* Mime,uint32_
 }
 static mdo_result BuToolImage(const mdo_sdk_context_v1* C,const xvalue* Value,mdo_result_writer_v1* Writer,char* Error,size_t Capacity){
     const mdo_values_v1* V=C->Api->Values;const xvalue* Image=V->Get(Value,"image");
+    const xvalue* Visual=V->Get(Value,"visual_reference");
     const char* Mime=BuText(C,Image,"media_type"),*Document=BuText(C,Value,"document");
     uint64_t Expected=0,W=0,H=0;size_t Size=0;uint32_t Width=0,Height=0;
     unsigned char* Bytes=BuImageDecode(BuText(C,Image,"base64"),&Size);
     bool Valid=Bytes&&Document&&Document[0]&&strlen(Document)<=100&&V->Unsigned(V->Get(Image,"bytes"),&Expected)&&Expected==Size&&
         V->Unsigned(V->Get(Image,"width"),&W)&&V->Unsigned(V->Get(Image,"height"),&H)&&BuImageSize(Bytes,Size,Mime,&Width,&Height)&&W==Width&&H==Height;
+    if(Visual){
+        const char* Id=BuText(C,Visual,"id");uint64_t VW=0,VH=0,Lease=0;
+        Valid=Valid&&Id&&strlen(Id)==51&&!strncmp(Id,"vs-",3)&&BuEqual(BuText(C,Visual,"coordinates"),"image_pixels")&&
+            V->Unsigned(V->Get(Visual,"width"),&VW)&&V->Unsigned(V->Get(Visual,"height"),&VH)&&VW==W&&VH==H&&
+            V->Unsigned(V->Get(Visual,"expires_in_ms"),&Lease)&&Lease>0&&Lease<=60000;
+        if(Valid)for(size_t I=3;I<51;I++)if(!((Id[I]>='0'&&Id[I]<='9')||(Id[I]>='a'&&Id[I]<='f')))Valid=false;
+    }
     if(!Valid){free(Bytes);snprintf(Error,Capacity,"screenshot_invalid: Invalid screenshot image envelope");
         Writer->WriteText(Writer->Context,"{\"ok\":false,\"error\":{\"code\":\"screenshot_invalid\",\"message\":\"Invalid screenshot image envelope\"}}");Writer->SetSuccess(Writer->Context,false);return MDO_RESULT_ERROR;}
     xvalue* Meta=V->Object(),*Info=V->Object(),*Yes=V->Bool(true);V->Set(Meta,"ok",Yes);V->Release(Yes);BuPut(C,Meta,"document",Document);
     BuPut(C,Info,"media_type",Mime);const char* Keys[]={"width","height","bytes"};for(size_t I=0;I<3;I++)V->Set(Info,Keys[I],V->Get(Image,Keys[I]));
-    V->Set(Meta,"image",Info);V->Release(Info);char* Json=V->Json(Meta);V->Release(Meta);
+    V->Set(Meta,"image",Info);V->Release(Info);
+    if(Visual){
+        xvalue* Reference=V->Object();const char* Fields[]={"id","width","height","coordinates","expires_in_ms"};
+        for(size_t I=0;I<5;I++)V->Set(Reference,Fields[I],V->Get(Visual,Fields[I]));
+        V->Set(Meta,"visual_reference",Reference);V->Release(Reference);
+    }
+    char* Json=V->Json(Meta);V->Release(Meta);
     bool Ok=Json&&Writer->WriteText(Writer->Context,Json)&&Writer->SetImage&&Writer->SetImage(Writer->Context,Bytes,Size,Mime)&&Writer->SetSuccess(Writer->Context,true);
     free(Bytes);V->Free(Json);if(!Ok){snprintf(Error,Capacity,"browser_result_limit: Cannot publish screenshot bytes");return MDO_RESULT_LIMIT;}return MDO_RESULT_OK;
 }

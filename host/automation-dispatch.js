@@ -1,5 +1,6 @@
 import { browserRuntime } from "./automation-runtime.js";
 import { prepareScreenshot } from "./capture-image.js";
+import { visualSnapshots, hashVisualRaster } from "./visual-snapshot.js";
 import { executeFileUpload } from "./upload-dispatch.js";
 import { executeBrowserDownload } from "./download-dispatch.js";
 import { executeDownloadSave, downloadSaveState } from "./download-save.js";
@@ -179,9 +180,13 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (!after.ok) return {handled:true,result:after};
       if(area.frame_stamp!==after.frame_stamp)return fail('capture_changed',`Screenshot validation changed (${captureChanges(area.frame_stamp,after.frame_stamp)}); request a fresh image`);
       if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
-      const image = await prepareScreenshot(native,area,after,params);
+      let raster;
+      const image = await prepareScreenshot(native,area,after,params,pageDriver?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
       checked = await guard(true);if (checked.handled) return checked;
-      return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image}};
+      const visual=raster?visualSnapshots.issue(writer,{document:area.document,navigation,frame_stamp:area.frame_stamp,
+        region:area.region,options,redactions:[...area.redactions,...after.redactions]},raster):null;
+      return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image,
+        ...(visual?{visual_reference:visual}:{})}};
     }
     if (command === "chooser") {
       const checked=await guard(true);if(checked.handled)return checked;

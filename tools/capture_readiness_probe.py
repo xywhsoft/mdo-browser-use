@@ -38,6 +38,12 @@ def main():
                 row['viewport_after']=current.get('viewport')
                 row['frames_after']=[{key:frame.get(key) for key in ('id','document','dom','loading','reason')} for frame in current.get('frames',[])]
                 row['recovery_state']=wait_receipt(dev.call('browseruse.screenshot',{'browser':browser,'document':current['document'],'max_width':800,'max_height':600},SCOPE)['id'],allow_failure=True)['state']
+            else:
+                result=receipt['result'];visual=result['visual_reference']
+                assert visual['id'].startswith('vs-') and visual['coordinates']=='image_pixels'
+                assert (visual['width'],visual['height'])==(result['image']['width'],result['image']['height'])
+                assert set(visual)=={'id','width','height','coordinates','expires_in_ms'}
+                row['visual_reference_bound']=True
             cases.append(row)
             dev.call('browseruse.tabs',{'action':'close','browser':browser},SCOPE);browser=None
         report={'passed':all(row['initial_state']=='succeeded' for row in cases),'backend':'actual-normal-public-capture-startup',

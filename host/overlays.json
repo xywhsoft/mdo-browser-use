@@ -723,6 +723,10 @@
     {
       "source": "host/frame-capture.js",
       "target": "app/web/js/features/workbench/frame-capture.js"
+    },
+    {
+      "source": "host/visual-snapshot.js",
+      "target": "app/web/js/features/workbench/visual-snapshot.js"
     }
   ]
 }

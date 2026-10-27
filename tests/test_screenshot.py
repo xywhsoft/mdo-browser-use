@@ -10,7 +10,7 @@ import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 import dev
-from managed_probe import FULL, READ_ONLY, read_operation_result
+from managed_probe import FULL, READ_ONLY, read_operation_result, value
 
 
 class ScreenshotTests(unittest.TestCase):
@@ -63,7 +63,7 @@ class ScreenshotTests(unittest.TestCase):
         finally:
             dev.call("browseruse.result", {"id": receipt["id"], "release": True}, self.owner)
 
-    def execute_image(self, image, session=FULL):
+    def execute_image(self, image, session=FULL, visual=None):
         caller = dict(self.caller, session=session)
         browser = self.browser
         if session != FULL:
@@ -83,7 +83,8 @@ class ScreenshotTests(unittest.TestCase):
             time.sleep(0.02)
         self.assertIsNotNone(pending, "The actual managed worker did not queue its screenshot")
         dev.call("client.ack", {"client": self.client, "id": pending["id"], "success": True,
-                 "result": {"ok": True, "document": "d-image-fixture", "image": image}})
+                 "result": {"ok": True, "document": "d-image-fixture", "image": image,
+                            **({'visual_reference':visual} if visual is not None else {})}})
         while time.monotonic() < end:
             state = dev.call("operation.get", {"id": job["id"]}, caller)
             if state.get("terminal"):
@@ -117,6 +118,18 @@ class ScreenshotTests(unittest.TestCase):
         readonly = self.execute_image(image, READ_ONLY)
         self.assertTrue(readonly["success"], readonly["text"])
         self.assertEqual(readonly["image"]["media_type"], "image/png")
+
+    def test_visual_reference_matches_the_image_and_only_public_fields_reach_model_text(self):
+        image={'media_type':'image/png','base64':self.png,'bytes':len(base64.b64decode(self.png)),'width':1,'height':1}
+        visual={'id':'vs-'+'a'*48,'width':1,'height':1,'coordinates':'image_pixels','expires_in_ms':60000}
+        result=self.execute_image(image,visual={**visual,'private_hashes':['must-not-reach-model']})
+        self.assertTrue(result['success'],result['text'])
+        self.assertEqual(value(result)['visual_reference'],visual)
+        self.assertNotIn('private_hashes',result['text']);self.assertNotIn('must-not-reach-model',result['text'])
+        for changed in ({'id':'vs-guess'},{'id':'vs-'+'Z'*48},{'width':2},{'height':0},{'coordinates':'css_pixels'},{'expires_in_ms':60001}):
+            with self.subTest(changed=changed):
+                failed=self.execute_image(image,visual={**visual,**changed})
+                self.assertFalse(failed['success']);self.assertIn('screenshot_invalid',failed['text']);self.assertNotIn('image',failed)
 
 
 if __name__ == "__main__":

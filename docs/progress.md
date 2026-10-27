@@ -13,8 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | Pending |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestone: S5 verifies offscreen frame scrolling in the normal Windows
-workbench. Android, vision coordinates and final
+Latest verified milestone: V0 adds bounded completed-image references in the normal Windows
+workbench. Android, vision coordinate input and final
 lifecycle/performance/package gates remain active; this is not a release.
 
 ## Working boundaries
@@ -1914,3 +1914,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   about all transforms, smooth scripts or offscreen drag endpoints. No model
   calls or additional deployment/Home. The S4 product source is unchanged;
   its 145 JS, 102 Python pass/two skips and native gates remain applicable.
+
+## V0 — bounded completed-image references and private tile fingerprints
+
+- Supported screenshots now issue a 60-second, browser-scoped visual reference
+  with the exact delivered image dimensions/coordinate system. Only the newest
+  image per browser is retained; references cap at 32 entries, 192 KiB each and
+  2 MiB total. Expiry/eviction/one-shot consumption are implemented internally.
+  Public coordinate input is intentionally not exposed before native fences.
+- Hash padded 64-pixel tiles only after privacy masking and final sizing, using
+  SHA-256. Keep hashes/document/frame/layout metadata in trusted-UI memory;
+  retain no bitmap, base64, page text or profile path. Tests detect local and
+  neighboring-tile changes, tolerate an unrelated distant tile change, reject
+  invalid rasters and enforce lifetime, browser scope, immutable snapshots,
+  quotas and failed-admission preservation. Bitmap cleanup still runs on a
+  failed raster inspection, and the inspector sees both privacy scans' masks.
+- The existing managed C image formatter dropped new screenshot metadata. Add
+  strict ID/coordinate/dimension/lease validation and copy only the five public
+  descriptor fields to Agent text, alongside the binary image. Malformed
+  descriptors withhold the image; extra private fields are omitted. Test through
+  the real worker and writer, including old-host images with no descriptor.
+- Sequential JS: 151 pass. Python: 105 total, 103 pass/two Windows symlink
+  privilege skips. Three normal first captures pass with bound descriptors
+  (2,156 / 2,062 / 1,953 ms; these are measurements, not a performance budget).
+  Actual normal public/managed OOPIF input/upload/private-image gate passes,
+  including managed descriptor dimensions matching its image metadata.
+- Contracts and deployed overlays match. The same Home/deployment is reused;
+  no native rebuild, new runtime dependency or model call. Next add exact native
+  frame-snapshot input fences and scene/point validation before coordinate input.

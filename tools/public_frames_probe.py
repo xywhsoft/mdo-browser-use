@@ -77,6 +77,8 @@ def main():
         assert managed_fill['success'] and value(managed_fill)['verification']=='field_state'
         managed_image=tool('browser_screenshot',{'browser':managed_browser,'document':managed_page['document'],'mode':'element','target':{'ref':managed_field['ref']}})
         assert managed_image['success'] and managed_image['image']['media_type']=='image/png' and 'base64' not in managed_image['text']
+        managed_visual=value(managed_image)['visual_reference'];assert managed_visual['id'].startswith('vs-') and managed_visual['coordinates']=='image_pixels'
+        assert (managed_visual['width'],managed_visual['height'])==(value(managed_image)['image']['width'],value(managed_image)['image']['height'])
         dev.call('browser.close',{'id':managed_browser},owner);managed_browser=None
         stage='readonly-owned-frame';readonly_browser=dev.call('browser.create',{'client':clients[0]['id'],'url':fixture.origin+'/geometry'},readonly_owner)['id']
         readonly_page=value(tool('browser_observe',{'browser':readonly_browser},READ_ONLY));assert readonly_page['frame_routing']=='native-isolated-v1'

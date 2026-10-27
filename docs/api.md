@@ -313,6 +313,20 @@ The operation journal retains identity/scope metadata instead of private results
 
 ## Bounded screenshots
 
+Supported Windows captures also return `visual_reference` with an opaque ID,
+the exact output image width/height, `coordinates:"image_pixels"` and a 60-second
+lease. The same allowlisted descriptor reaches C/JS receipts and managed Agent
+image metadata. It is a visual-input foundation: coordinate actions are not yet
+accepted by the public action contract; continue using observed DOM targets.
+
+The trusted UI stores only the newest completed image's document/frame/layout
+proof and padded 64-pixel tile SHA-256 hashes for each browser, never raster
+pixels, image base64, page text or profile paths. Hashes are computed after all
+privacy masks and final image sizing, with 8-pixel tile padding. References are
+browser-scoped and expire; the cache caps at 32 entries, 192 KiB per record and
+2 MiB total, with oldest-entry eviction and lazy expiry. Hashes/proofs remain
+private. New or failed image generation does not publish a partial reference.
+
 ```javascript
 const shot = await browser.screenshot({ browser: tab.id,
   document: page.document, mode: "element", target: { ref: page.elements[0].ref },

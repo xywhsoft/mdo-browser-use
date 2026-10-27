@@ -16,6 +16,24 @@ test("invalid and oversized image envelopes are rejected before bitmap decoding"
   }finally{globalThis.createImageBitmap=previous;}
 });
 
+test('visual raster inspection runs after private masks and releases its bitmap on failure',async()=>{
+  const previous={document:globalThis.document,bitmap:globalThis.createImageBitmap};let closed=0,inspected=0;
+  const png=new Uint8Array(33);png.set([137,80,78,71,13,10,26,10]);new DataView(png.buffer).setUint32(16,100);new DataView(png.buffer).setUint32(20,50);
+  const encoded=Buffer.from(png).toString('base64');
+  globalThis.createImageBitmap=async()=>({close(){closed++;}});
+  globalThis.document={createElement(){const calls=[],context={drawImage(){calls.push('image');},fillRect(){calls.push('mask');}};
+    return{width:0,height:0,getContext:()=>context,toDataURL:()=>`data:image/png;base64,${encoded}`,calls};}};
+  const area={region:{x:0,y:0,width:100,height:50},redactions:[{x:10,y:10,width:20,height:10}],device_pixel_ratio:1};
+  try{
+    const image=await prepareScreenshot({data:encoded,scale:1},area,area,{}, {raster:async canvas=>{
+      inspected++;assert.deepEqual(canvas.calls,['image','mask','mask']);assert.equal(canvas.width,100);assert.equal(canvas.height,50);
+    }});
+    assert.equal(image.redacted_regions,1);assert.equal(inspected,1);assert.equal(closed,1);assert(!('hashes'in image));
+    await assert.rejects(prepareScreenshot({data:encoded,scale:1},area,area,{}, {raster:async()=>{throw Error('Synthetic raster rejection');}}),/Synthetic raster rejection/);
+    assert.equal(closed,2);
+  }finally{globalThis.document=previous.document;globalThis.createImageBitmap=previous.bitmap;}
+});
+
 test('rendered private controls remain masked when inert, aria-hidden or CSS overrides hidden',async()=>{
   const source=(await readFile(new URL('../page/runtime.js',import.meta.url),'utf8')).replace('export function browserRuntime(','function browserRuntime(');
   const document={defaultView:{getComputedStyle:()=>({display:'block',visibility:'visible',opacity:'1'})}},controls=[];
