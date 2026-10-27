@@ -504,3 +504,19 @@ Native cache maintenance continues for a bounded five-second quiet window
 after a transfer owner retires, using backoff. This catches late empty-directory
 creation after cancellation/closure. It reuses the exclusive-lease and validated
 inventory collector; active leases and unexpected/reparse layouts are preserved.
+
+## Task-owned byte transport
+
+The host SDK's existing `stream.open/read/write/stat/close/release` methods are
+bound to extension, device, project, session, namespace and member. Keep the
+original SDK context for every producer/consumer call. A different invocation
+or run in the same task can continue the stream; changing its task or private
+subtask returns `context_mismatch` before reading, writing, closing or releasing.
+Handles remain ephemeral across application restart. Capacity, backpressure and
+explicit EOF behavior are unchanged; bytes are not model results.
+
+Local UI/RPC context reconstruction preserves validated `namespace` and `member`
+strings (at most 512 UTF-8 bytes, without control characters). New workbench
+records also retain the original `workspace`. A context supplied by the host
+server remains authoritative. Missing fields in legacy records do not prove a
+custom task workspace; future save controls must resolve that case explicitly.

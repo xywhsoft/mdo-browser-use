@@ -1171,3 +1171,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Targeted tests and TCC startup pass; the accompanying local run passes 61
   Python cases (one Windows symlink skip), 70 JS cases and public upload/picker
   regression. No file-save API is advertised yet. The full goal continues.
+
+
+## D12k — task-owned bounded byte streams for the download sink
+
+- The existing stream service will carry file chunks into the original task
+  host; it avoids whole-file UI/model buffers and adds no runtime dependency.
+  An actual SDK test demonstrated that a foreign extension/task could read,
+  append, close and release another stream if handed its handle. The retained
+  failing fixture uses synthetic bytes only.
+- Each in-memory stream now captures extension/device/project/session/namespace/
+  member at creation. All later methods check that scope before consumption,
+  mutation or lease renewal. Null/default project spellings normalize, and
+  invocation/run changes within that same task are allowed. Free/expiry/shutdown
+  also release the captured scope. Ownership allocation failure frees the slot.
+- Actual SDK tests prove foreign operations leave exact original bytes and EOF
+  intact, and exercise private subtasks, backpressure, default normalization and
+  explicit close/drain. The combined local gate passes 61 Python cases (60 pass,
+  one Windows symlink skip), 70 JS cases and public upload/picker regression.
+  This establishes byte transport, not a claim that downloads can be saved yet.
+- Next: implement the C file consumer and atomic, no-overwrite publication under
+  the frozen task root, then wire shared save APIs/tools and visible controls.
+  Use bounded streaming and complete SHA-256/size checks; preserve source bytes
+  on failure, and audit operation/crash recovery and legacy root resolution.
+  XRT supplies pinned directory roots and root-relative hard-link publication;
+  unsupported filesystems must fail explicitly rather than fall back to unsafe
+  path append/rename. Actual filesystem validation remains work to do.
