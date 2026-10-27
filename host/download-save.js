@@ -1,10 +1,32 @@
 // Move only existing verified response bytes. This producer never requests a
 // URL and never returns cache/staging paths or file bytes to the model.
-export async function executeDownloadSave({params,view,api,action,guard,deadline,setDispatched,fail}){
+const saves=new Map();
+export function downloadSaveState(browser){
+  const row=saves.get(browser);return row?Object.freeze({download:row.download,path:row.path,stage:row.stage,
+    bytes:row.bytes,total:row.total,cancelled:row.cancelled}):null;
+}
+export async function cancelDownloadSave(browser){
+  const row=saves.get(browser);if(!row)return false;row.cancelled=true;
+  // Cancel only this attempt's known children. An already committed file is
+  // retained and its receipt is reconciled; cancellation never means rollback.
+  const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),1500);
+  try{for(const id of [row.publish,row.receive])if(id)try{await row.api.call('operation.cancel',{id},{signal:abort.signal});}catch{}}
+  finally{clearTimeout(timer);}return true;
+}
+export async function executeDownloadSave(options){
+  const {browser,view,params,api,guard,fail}=options,key=browser||view;
+  if(saves.has(key))return fail('browser_busy','A save for this browser is still completing; inspect or cancel it before retrying');
+  const progress={api,download:params.download,path:params.path,stage:'context',bytes:0,total:0,cancelled:false};saves.set(key,progress);
+  try{return await performDownloadSave({...options,progress,guard:force=>progress.cancelled?
+    Promise.resolve(fail('cancelled','The save was cancelled; inspect any already published destination')):guard(force)});}
+  finally{if(saves.get(key)===progress)saves.delete(key);}
+}
+async function performDownloadSave({params,view,api,action,guard,deadline,setDispatched,fail,progress,nativeAgent=true}){
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   let stage='context',stream,receive,publish,metadata,publication,publicationRequested=false,noPublicationEffect=false;
   const transfer={cleanup_pending:false};
-  const native=(op,fields={})=>view.execute('downloads',{agent:true,action:op,download:params.download,...fields});
+  const native=(op,fields={})=>view.execute('downloads',{agent:nativeAgent,action:op,download:params.download,...fields});
+  const phase=value=>{stage=value;progress.stage=value;};
   const annotate=result=>{
     result.result.transfer=transfer;
     if(metadata)result.result.download=metadata;
@@ -41,26 +63,27 @@ export async function executeDownloadSave({params,view,api,action,guard,deadline
     const normalize=(key,value)=>key==='project'?value||'default':value||'';
     for(const key of ['extension','device','project','session','namespace','member','workspace'])
       if(normalize(key,context[key])!==normalize(key,action.context[key]))return fail('context_mismatch','The file host no longer matches the original task context');
-    stage='source_metadata';metadata=await native('get');
+    phase('source_metadata');metadata=await native('get');
     if(metadata.id!==params.download||metadata.state!=='completed'||!Number.isSafeInteger(metadata.size)||metadata.size<0||metadata.size>67108864||!/^[a-f0-9]{64}$/.test(metadata.sha256))
       return fail('download_not_verified','Accept and wait for this exact response to complete before saving it');
+    progress.total=metadata.size;
     receive=await identity('receive');publish=await identity('publish');Object.assign(transfer,{receiver:receive,publication:publish});
     checked=await check(true);if(checked.handled)return checked;
-    stage='stream_open';stream=(await api.call('stream.open',{capacity:65536})).handle;
+    phase('stream_open');stream=(await api.call('stream.open',{capacity:65536})).handle;
     if(!/^str-[a-f0-9]{32}$/.test(stream||''))throw Object.assign(Error('Invalid stream'),{code:'stream_invalid'});
-    stage='receiver_admission';setDispatched(true);
+    phase('receiver_admission');progress.receive=receive;setDispatched(true);
     await api.call('operation.start',{id:receive,method:'files.receive.start',params:{handle:stream,root_snapshot:params.root_snapshot,
       size:metadata.size,sha256:metadata.sha256,destination:params.path,timeout_ms:Math.max(100,Math.min(600000,Math.ceil(deadline-performance.now())+1000)),idle_timeout_ms:30000}});
     let offset=0;
     while(offset<metadata.size){
       checked=await check();if(checked.handled)return checked;
-      stage='source_read';const limit=Math.min(65536,metadata.size-offset),chunk=await native('read',{offset,limit});
+      phase('source_read');const limit=Math.min(65536,metadata.size-offset),chunk=await native('read',{offset,limit});
       let decoded=-1;
       if(typeof chunk.base64==='string'&&chunk.base64.length===4*Math.ceil(limit/3))try{decoded=atob(chunk.base64).length;}catch{}
       if(chunk.id!==metadata.id||chunk.sha256!==metadata.sha256||chunk.offset!==offset||chunk.bytes!==limit||chunk.next!==offset+limit||
          chunk.eof!==(chunk.next===metadata.size)||decoded!==limit)
         throw Object.assign(Error('Invalid exact native range'),{code:'download_snapshot_changed'});
-      stage='stream_write';
+      phase('stream_write');
       for(;;){
         checked=await check();if(checked.handled)return checked;
         try{
@@ -75,22 +98,22 @@ export async function executeDownloadSave({params,view,api,action,guard,deadline
           await pause(10);
         }
       }
-      offset=chunk.next;
+      offset=chunk.next;progress.bytes=offset;
     }
     checked=await check(true);if(checked.handled)return checked;
-    stage='stream_eof';await api.call('stream.close',{handle:stream});
-    stage='receiver_result';const staging=await operation(receive);
+    phase('stream_eof');await api.call('stream.close',{handle:stream});
+    phase('receiver_result');const staging=await operation(receive);
     if(staging.id!==receive||staging.state!=='ready'||staging.source!==`.mdo-receive-${receive.slice(4)}.part`||
        staging.workspace!==action.context.workspace||staging.root_snapshot!==params.root_snapshot||staging.destination!==params.path||staging.size!==metadata.size||staging.sha256!==metadata.sha256||typeof staging.source_revision!=='string'||!staging.source_revision)
       throw Object.assign(Error('Invalid staging receipt'),{code:'receiver_snapshot_invalid'});
-    stage='publication_guard';checked=await check(true);if(checked.handled)return checked;
+    phase('publication_guard');checked=await check(true);if(checked.handled)return checked;
     const fresh=await native('get');
     if(fresh.id!==metadata.id||fresh.state!=='completed'||fresh.size!==metadata.size||fresh.sha256!==metadata.sha256)
       throw Object.assign(Error('Download ownership changed'),{code:'download_snapshot_changed'});
     checked=await check(true);if(checked.handled)return checked;
-    stage='publication_admission';publicationRequested=true;
+    phase('publication_admission');progress.publish=publish;publicationRequested=true;
     await api.call('operation.start',{id:publish,method:'files.receive.publish',params:{id:receive,path:params.path}});
-    stage='publication_result';const file=await operation(publish);
+    phase('publication_result');const file=await operation(publish);
     if(file.published!==true||file.path!==params.path||file.size!==metadata.size||file.sha256!==metadata.sha256||typeof file.revision!=='string'||!file.revision)
       throw Object.assign(Error('Unconfirmed publication'),{code:'file_publication_uncertain'});
     publication=file;checked=await check(true);if(checked.handled)return checked;
@@ -107,6 +130,7 @@ export async function executeDownloadSave({params,view,api,action,guard,deadline
     // Return bounded codes and recovery identities, never those raw messages.
     return result;
   }finally{
+    phase('cleanup');
     const cleanup=new AbortController(),timer=setTimeout(()=>cleanup.abort(),2000),options={signal:cleanup.signal};
     const call=(method,params)=>api.call(method,params,options);
     try{

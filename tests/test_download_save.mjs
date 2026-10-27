@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {test} from 'node:test';
-import {executeDownloadSave} from '../host/download-save.js';
+import {executeDownloadSave,downloadSaveState,cancelDownloadSave} from '../host/download-save.js';
 
 function fixture(options={}){
   const bytes=options.bytes??Buffer.from('original response bytes'),sha=createHash('sha256').update(bytes).digest('hex');
@@ -21,6 +21,7 @@ function fixture(options={}){
       return{id:p.id};
     }
     if(method==='stream.write'){
+      if(options.beforeWrite)await options.beforeWrite();
       writes++;
       if(blocked-->0)throw Object.assign(Error('No bytes committed'),{code:'sdk_stream_would_block'});
       chunks.push(Buffer.from(p.base64,'base64'));
@@ -53,8 +54,8 @@ function fixture(options={}){
     if(options.cancelBeforePublish&&closed||options.cancelAfterPublish&&published)return fail('cancelled','Stopped by original task');
     return{state:{download_capability:true}};
   };
-  return {calls,chunks,state,context,metadata,run:()=>executeDownloadSave({params:{download:metadata.id,path:'saved.bin',root_snapshot:'root'},
-    api,view,action:{id:'uia-'+'a'.repeat(32),context:options.noWorkspace?{}:context},guard,deadline:performance.now()+3000,setDispatched:value=>{dispatched=value;},fail})};
+  return {calls,chunks,state,context,metadata,run:(overrides={})=>executeDownloadSave({params:{download:metadata.id,path:'saved.bin',root_snapshot:'root'},
+    api,view,action:{id:'uia-'+'a'.repeat(32),context:options.noWorkspace?{}:context},guard,deadline:performance.now()+3000,setDispatched:value=>{dispatched=value;},fail,...overrides})};
 }
 
 test('save streams exact existing response chunks and publishes once without refetch or release',async()=>{
@@ -124,4 +125,32 @@ test('cleanup failure cannot turn a verified saved file into a failed save',asyn
 test('cancellation after verified publication still reports the existing saved file',async()=>{
   const f=fixture({cancelAfterPublish:true}),out=(await f.run()).result;
   assert.equal(out.ok,false);assert.equal(out.error.code,'cancelled');assert.equal(out.saved,true);assert.equal(out.file.sha256,f.metadata.sha256);
+});
+
+test('manual trusted UI saving uses the same verified producer without impersonating an Agent',async()=>{
+  const f=fixture(),out=(await f.run({nativeAgent:false})).result;
+  assert.equal(out.saved,true);assert(f.calls.filter(c=>c.native).every(c=>c.agent===false));
+  assert(!f.calls.some(c=>c.native==='takeover'));
+});
+
+test('one browser shares a save fence across manual and Agent producers',async()=>{
+  let release,entered;const waiting=new Promise(resolve=>{entered=resolve;}),hold=new Promise(resolve=>{release=resolve;});
+  const f=fixture({beforeWrite:async()=>{entered();await hold;}}),browser='save-fence-qa';
+  const first=f.run({browser});await waiting;
+  try{
+    const progress=downloadSaveState(browser);assert.equal(progress.total,f.metadata.size);assert.equal(progress.stage,'stream_write');
+    assert.equal(Object.hasOwn(progress,'api'),false);assert.equal(Object.hasOwn(progress,'receive'),false);
+    assert.equal((await f.run({browser,nativeAgent:false})).result.error.code,'browser_busy');
+  }finally{release();}
+  assert.equal((await first).result.saved,true);assert.equal(downloadSaveState(browser),null);
+});
+
+test('explicit UI cancellation stops only its known child operations and leaves no stale lock',async()=>{
+  let release,entered;const waiting=new Promise(resolve=>{entered=resolve;}),hold=new Promise(resolve=>{release=resolve;});
+  const f=fixture({beforeWrite:async()=>{entered();await hold;}}),browser='cancel-save-qa';
+  const pending=f.run({browser});await waiting;
+  assert.equal(await cancelDownloadSave('unrelated-browser'),false);
+  assert.equal(await cancelDownloadSave(browser),true);assert.equal(downloadSaveState(browser).cancelled,true);release();
+  assert.equal((await pending).result.error.code,'cancelled');assert.equal(f.state.published,false);
+  assert.equal(downloadSaveState(browser),null);assert(f.calls.filter(c=>c.method==='operation.cancel').every(c=>c.id===f.state.receive||c.id===f.state.publish));
 });

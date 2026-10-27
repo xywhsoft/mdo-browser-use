@@ -1366,3 +1366,20 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Visible download/recovery controls, legacy-root handling, ask-profile UI,
   cross-device save, frame/vision/drag/Android and final lifecycle/performance/
   packaging checks remain open. The full goal remains active.
+
+## D12q — share save ownership between trusted UI and Agent calls
+
+- Add one in-memory save fence per browser shared by manual UI and Agent
+  producers. Read-only progress contains bounded metadata only; explicit cancel
+  targets this attempt's admitted receiver/publisher and never claims rollback.
+  Other Agent mutations are fenced while a UI save is completing.
+- Reuse the same verified producer for trusted UI with native Agent mode off.
+  This allows user saving during manual control without taking over the browser
+  (takeover deliberately cancels unfinished downloads). Public Agent permission
+  and manual-control gates remain unchanged.
+- Three new regressions prove actor flags, cross-producer exclusion and exact
+  child cancellation/lock release. The focused 54-case JS gate passes, followed
+  by the actual public C/JS and managed five-response save gate. Single Home is
+  restored headless and the final cache/receiver inventory is empty.
+- These helpers are the download panel's backend wiring, not the visible panel.
+  Visible controls and the full remaining goal stages are still open.

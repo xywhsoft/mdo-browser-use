@@ -2,7 +2,7 @@ import { browserRuntime } from "./automation-runtime.js";
 import { prepareScreenshot } from "./capture-image.js";
 import { executeFileUpload } from "./upload-dispatch.js";
 import { executeBrowserDownload } from "./download-dispatch.js";
-import { executeDownloadSave } from "./download-save.js";
+import { executeDownloadSave, downloadSaveState } from "./download-save.js";
 
 const writers = new Set();
 let capturing = false;
@@ -23,7 +23,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
   const exclusive = writing || command === "capture";
-  if (exclusive && writers.has(writer) || command === "capture" && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
+  if (exclusive && (writers.has(writer) || downloadSaveState(writer)) || command === "capture" && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
   if (exclusive) writers.add(writer);
   if (command === "capture") capturing = true;
   let lastReceipt = -Infinity, navigation;
@@ -123,7 +123,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   try {
-    if(command==='save_download')return await executeDownloadSave({params,view,api,action,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
+    if(command==='save_download')return await executeDownloadSave({browser:writer,params,view,api,action,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='download')return await executeBrowserDownload({params,view,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='upload')return await executeFileUpload({params,view,api,action,guard,read,deadline,
       setDispatched:value=>{dispatched=value;},fail});
