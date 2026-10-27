@@ -16,16 +16,16 @@ async function fixture(){
   const proof={document:doc,navigation:'7',frame_stamp:area.frame_stamp,region:area.region,redactions:[],options:{mode:'viewport',document:doc},
     device_pixel_ratio:1,capture:{format:'png',max_width:128,max_height:128,max_bytes:131072}};
   const store=createVisualSnapshotStore(),reference=store.issue('browser',proof,await hashVisualRaster(canvas));
-  const state={input:[],drags:[],native:[],pins:null,reads:0,area,after:null,capability:true,dragCapability:true,viewNavigation:'7'};
+  const state={input:[],drags:[],native:[],pins:null,reads:0,area,after:null,capability:true,dragCapability:true,keyboardCapability:true,focused:true,viewNavigation:'7'};
   const args={browser:'browser',params:{op:'click',document:doc,target:{image:reference.id,x:20,y:30}},store,action:{id:'visual-fixture'},
     deadline:performance.now()+10000,
     view:{async execute(command,params){state.native.push({command,params});return{};}},
-    read:async(method,options)=>method==='captureArea'?(++state.reads>1&&state.after||state.area):method==='visualPoint'?{ok:true,document:doc,point:options.point,frame_chain:[{frame:'f0',document:fd}]}:{ok:true,document:doc},
-    guard:async()=>({state:{frame_snapshot_input:state.capability,frame_snapshot_drag:state.dragCapability,navigation:state.viewNavigation}}),
+    read:async(method,options)=>method==='captureArea'?(++state.reads>1&&state.after||state.area):method==='visualPoint'?{ok:true,document:doc,point:options.point,frame_chain:[{frame:'f0',document:fd}],...(options.op==='key'?{target:{ref:`r1|f0|${fd}|${doc}|e1`},native_target:{document:doc,ref:'e1'}}:{})}:{ok:true,document:doc,focused:state.focused},
+    guard:async()=>({state:{frame_snapshot_input:state.capability,frame_snapshot_drag:state.dragCapability,frame_snapshot_keyboard:state.keyboardCapability,navigation:state.viewNavigation}}),
     send:async params=>{state.input.push(params);return null;},
     sendDrag:async params=>{state.drags.push(params);return{drag_kind:'pointer'};},
     fail:(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:state.input.length+state.drags.length>0}}}),
-    setSnapshot:(snapshot,root)=>{state.pins={snapshot,root};},
+    setSnapshot:(snapshot,root,chain)=>{state.pins={snapshot,root,chain};},
     render:async(_native,_area,_after,_params,inspect)=>{await inspect.raster(canvas);return{};}};
   return{args,state,store,reference,data,proof,canvas,run:overrides=>executeVisualAction({...args,...overrides})};
 }
@@ -106,5 +106,37 @@ test('invalid, masked, changed or unpinned drop points cannot start a visual dra
     if(mode==='wrong-chain'){const read=f.args.read;f.args.read=async(method,options)=>method==='visualPoint'?{ok:true,document:doc,point:options.point,frame_chain:[{frame:'f0',document:'wrong'}]}:read(method,options);}
     const result=await f.run();assert.equal(result.result.ok,false,mode);assert.equal(result.result.error.effect_may_have_occurred,false,mode);
     assert.equal(f.state.input.length+f.state.drags.length,0,mode);
+  }
+});
+
+test('visual key consumes one image and pins its exact isolated focus target',async()=>{
+  const f=await fixture();f.args.params.op='key';f.args.params.key='ArrowRight';
+  const out=await f.run();assert(out.result.ok&&out.result.scene_validated);assert.equal(out.result.input_method,'native_key');
+  assert.deepEqual(f.state.input.map(row=>row.kind),['focus','key']);
+  assert.deepEqual(f.state.input[1],{kind:'key',key:'ArrowRight',focus_document:doc,focus_ref:'e1'});
+  assert.deepEqual(f.state.pins.chain,[{frame:'f0',document:fd}]);
+  assert(!JSON.stringify(out).includes('native_target'));assert(!JSON.stringify(out).includes('focus_ref'));
+  assert.equal((await f.run()).result.error.code,'visual_reference_expired');assert.equal(f.state.input.length,2);
+});
+
+test('visual key refuses old hosts and invalid focus proofs before focusing',async()=>{
+  for(const mode of ['old-host','missing-target','wrong-native','wrong-frame']){
+    const f=await fixture();f.args.params.op='key';f.args.params.key='Enter';
+    if(mode==='old-host')f.state.keyboardCapability=false;
+    else{const read=f.args.read;f.args.read=async(method,options)=>{const value=await read(method,options);if(method==='visualPoint'){
+      if(mode==='missing-target')delete value.target;if(mode==='wrong-native')value.native_target.ref='e99';if(mode==='wrong-frame')value.frame_chain[0].document='wrong';
+    }return value;};}
+    const out=await f.run();assert.equal(out.result.ok,false,mode);assert.equal(f.state.input.length,0,mode);assert.equal(out.result.error.effect_may_have_occurred,false);
+  }
+});
+
+test('focus hijacking and cancellation after visual focus never dispatch its key',async()=>{
+  for(const mode of ['focus','cancel','native']){
+    const f=await fixture();f.args.params.op='key';f.args.params.key='Enter';
+    if(mode==='focus')f.state.focused=false;
+    if(mode==='cancel'){const read=f.args.read;f.args.read=async(method,options)=>method==='verify'?{ok:false,error:{code:'cancelled'}}:read(method,options);}
+    if(mode==='native')f.args.send=async params=>{f.state.input.push(params);return f.args.fail('cancelled','Stopped after native focus acquisition');};
+    const out=await f.run();assert(!out.result.ok);assert.equal(out.result.error.effect_may_have_occurred,true);assert.deepEqual(f.state.input.map(row=>row.kind),['focus']);
+    assert.throws(()=>f.store.get('browser',f.reference.id),{code:'visual_reference_expired'});
   }
 });

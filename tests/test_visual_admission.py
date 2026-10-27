@@ -20,7 +20,8 @@ class VisualAdmissionTests(unittest.TestCase):
                ({'target':{**point,'y':2048}},'arguments_invalid'),
                ({'target':{**point,'x':1.5}},'arguments_invalid'),
                ({'target':{**point,'y':True}},'arguments_invalid')]
-        cases.extend(({'op':op,'target':point},'unsupported_action') for op in ('fill','type','key','check','select'))
+        cases.extend(({'op':op,'target':point},'unsupported_action') for op in ('fill','type','check','select'))
+        cases.append(({'op':'key','target':point},'key_required'))
         cases.extend([
             ({'op':'drag','target':point},'destination_required'),
             ({'op':'drag','target':point,'destination':{'ref':'e1'}},'target_invalid'),

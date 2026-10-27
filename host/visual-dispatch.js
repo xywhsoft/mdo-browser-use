@@ -1,7 +1,7 @@
 import {prepareScreenshot} from './capture-image.js';
 import {visualSnapshots,visualPointUnchanged} from './visual-snapshot.js';
 
-const supported=new Set(['click','double_click','right_click','middle_click','hover','scroll','drag']);
+const supported=new Set(['click','double_click','right_click','middle_click','hover','scroll','drag','key']);
 const regionMatches=(a,b)=>a&&b&&['x','y','width','height'].every(key=>Number.isFinite(a[key])&&Number.isFinite(b[key])&&Math.abs(a[key]-b[key])<=.01);
 const frame=/^(?:f0|f-[a-f0-9-]{36})$/i,document=/^fd-[a-f0-9-]{36}$/i;
 
@@ -11,10 +11,11 @@ export async function executeVisualAction({browser,params,view,read,guard,send,s
   store=visualSnapshots,render=prepareScreenshot}){
   let key=null;
   try{
-    if(!supported.has(params.op))return fail('unsupported_action','This visual path supports pointer gestures, wheel and dragging; use observed DOM targets for fields');
+    if(!supported.has(params.op))return fail('unsupported_action','This visual path supports pointer gestures, wheel, dragging and focus-bound keys; use observed DOM targets for fields');
     const checked=await guard(true);if(checked.handled)return checked;
     if(checked.state.frame_snapshot_input!==true)return fail('unsupported_capability','This browser lacks native complete-frame visual input fences');
-    const dragging=params.op==='drag';
+    const dragging=params.op==='drag',keyboard=params.op==='key';
+    if(keyboard&&checked.state.frame_snapshot_keyboard!==true)return fail('unsupported_capability','This browser lacks native focus-bound visual keyboard input');
     if(dragging&&(checked.state.frame_snapshot_drag!==true||typeof sendDrag!=='function'))return fail('unsupported_capability','This browser lacks complete-frame native visual drag fences');
     if(checked.state.input_busy||checked.state.capture_busy)return fail('browser_busy','Native input or capture is still completing; inspect its receipt before visual input');
     if(dragging&&(!params.destination||params.destination.image!==params.target.image))
@@ -58,33 +59,47 @@ export async function executeVisualAction({browser,params,view,read,guard,send,s
       unchanged=true;for(const {x,y} of targets)if(!await visualPointUnchanged(canvas,saved.raster,x,y)){unchanged=false;break;}
     }});
     if(!unchanged)return fail('visual_scene_changed','A selected image neighborhood changed; request a fresh screenshot before visual input');
-    let chains=[];
-    if(dragging){
+    let chains=[],focus;
+    if(dragging||keyboard){
       const valid=chain=>Array.isArray(chain)&&chain.length>0&&chain.length<=32&&chain.every((pin,index)=>{
         const saved=snapshot.find(row=>row.frame===pin.frame);return saved?.document===pin.document&&(index+1<chain.length?saved.parent===chain[index+1].frame:pin.frame==='f0'&&!saved.parent);
       });
       for(const point of points){
-        const routed=await read('visualPoint',{document:proof.document,point});if(!routed.ok)return{handled:true,result:routed};
+        const routed=await read('visualPoint',{document:proof.document,point,...(keyboard?{op:'key'}:{})});if(!routed.ok)return{handled:true,result:routed};
         if(routed.document!==proof.document||!regionMatches({...routed.point,width:1,height:1},{...point,width:1,height:1})||!valid(routed.frame_chain))
           return fail('visual_context_changed','A drag point no longer belongs to its original frame tree');
         chains.push(routed.frame_chain);
+        if(keyboard){
+          const parts=routed.target?.ref?.split('|'),native=routed.native_target;
+          if(parts?.length!==5||parts[0]!=='r1'||parts[1]!==routed.frame_chain[0].frame||parts[2]!==routed.frame_chain[0].document||
+             !/^d-[a-f0-9-]{36}$/i.test(native?.document)||!/^e[1-9][0-9]{0,12}$/.test(native?.ref)||parts[3]!==native.document||parts[4]!==native.ref)
+            return fail('frame_response_invalid','The visual key target is not bound to its original isolated frame');
+          focus=routed;
+        }
       }
     }
     const boundary=await guard(true);if(boundary.handled)return boundary;
-    store.consume(browser,params.target.image);setSnapshot(snapshot,root);
+    store.consume(browser,params.target.image);setSnapshot(snapshot,root,keyboard?chains[0]:null);
     if(dragging){
       const delivered=await sendDrag({...point,to_x:points[1].x,to_y:points[1].y,source_frame_chain:chains[0],destination_frame_chain:chains[1],frame_snapshot:snapshot});
       if(delivered.handled)return delivered;
       return{handled:true,result:{ok:true,action:action.id,dispatched:true,verification:'native_delivery',input_method:'native_drag',drag_kind:delivered.drag_kind,
         visual_reference:params.target.image,scene_validated:true,observation:await read('observe',{limit:100,max_bytes:4096})}};
     }
-    const delivered=await send({kind:params.op==='hover'?'move':params.op==='scroll'?'wheel':'click',...point,
+    const delivered=await send(keyboard?{kind:'focus',focus_document:focus.native_target.document,focus_ref:focus.native_target.ref}:
+      {kind:params.op==='hover'?'move':params.op==='scroll'?'wheel':'click',...point,
       button:params.op==='right_click'?'right':params.op==='middle_click'?'middle':'left',click_count:params.op==='double_click'?2:1,dx:params.dx||0,dy:params.dy||0});
     if(delivered)return delivered;
-    if(['click','double_click','middle_click'].includes(params.op))await new Promise(resolve=>setTimeout(resolve,Math.min(150,Math.max(0,deadline-performance.now()-25))));
+    if(keyboard){
+      const focused=await read('verify',{document:proof.document,target:focus.target,op:'key'});
+      if(!focused.ok||!focused.focused)return fail('focus_changed','The image target did not retain keyboard focus; no key was sent');
+      const keyed=await send({kind:'key',key:params.key,focus_document:focus.native_target.document,focus_ref:focus.native_target.ref});
+      if(keyed)return keyed;
+    }
+    if(['click','double_click','middle_click','key'].includes(params.op))await new Promise(resolve=>setTimeout(resolve,Math.min(150,Math.max(0,deadline-performance.now()-25))));
     const stopped=await guard(true);if(stopped.handled)return stopped;
     return{handled:true,result:{ok:true,action:action.id,dispatched:true,verification:'native_delivery',visual_reference:params.target.image,
-      scene_validated:true,observation:await read('observe',{limit:100,max_bytes:4096})}};
+      scene_validated:true,...(keyboard?{input_method:'native_key'}:{}),observation:await read('observe',{limit:100,max_bytes:4096})}};
   }catch(error){
     if(error.browserBoundary)throw error;
     if(['visual_reference_expired','visual_raster_invalid'].includes(error.code))return fail(error.code,error.message);

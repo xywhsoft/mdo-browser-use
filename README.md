@@ -52,6 +52,7 @@ python tools/drag_lifetime_probe.py
 python tools/public_frames_probe.py
 python tools/frame_scroll_probe.py
 python tools/visual_probe.py
+python tools/keyboard_probe.py
 python tools/android_world_probe.py
 python tools/sdk_probe.py
 python tools/managed_probe.py
@@ -108,6 +109,13 @@ full-access/read-only permissions. Focused `--drag-only`,
 `--drag-navigation-only` and `--managed-only` gates explicitly label their scope;
 they reuse the same deployment/Home. The last mode writes its separate
 `.mdo/managed-visual-result.json` receipt.
+
+`keyboard_probe.py` checks actual shared C/JS and Agent image-key calls on root,
+OOPIF and open-shadow controls. It verifies trusted keys, no focus clicks, exactly
+one Enter activation, focus-hijack and dialog checkpoints without key delivery,
+durable recovery without replay, privacy masks and owned read-only denial before
+focus. The same native view/controller and isolated runtime provide focus and
+the immediate pre-key focus/document checks; no extra browser engine is used.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

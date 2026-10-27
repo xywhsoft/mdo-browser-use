@@ -115,7 +115,8 @@ static bool xb_input_frames_live(const std::shared_ptr<xb_view>& view,const xb_i
 struct xb_input_step{const wchar_t* method;std::string params;bool release=false,press=false;};
 struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::string id,error;
-  UINT64 navigation;std::vector<xb_input_step> steps;xb_input_frame_guard frameGuard;xb_input_frame_snapshot frameSnapshot;size_t index=0;bool replied=false,pressed=false;
+  UINT64 navigation;std::vector<xb_input_step> steps;xb_input_frame_guard frameGuard;xb_input_frame_snapshot frameSnapshot;size_t index=0;bool replied=false,pressed=false,focusReady=false;
+  std::function<void(std::function<void(bool)>)> focusCheck;
   void boundary(const char* kind){
     if(replied)return;replied=true;
     error="A browser interaction checkpoint interrupted input; inspect the page before continuing";
@@ -125,10 +126,16 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   void popupOpened(){boundary("popup");}
   void run(){
     if(index==steps.size()){if(!replied)host->reply(id,error.empty()?"{\"accepted\":true,\"trusted_input\":true}":"",error);return;}
-    const auto step=steps[index++];
+    const auto step=steps[index];
     if(!xb_automation_live(host,view,navigation)&&error.empty())error="Browser control or document changed; verify the action result";
     if(!xb_input_frames_live(view,frameGuard)&&error.empty())error="A frame document changed; inspect the page before further input";
     if(!xb_input_snapshot_live(view,frameSnapshot)&&error.empty())error="The visual frame snapshot changed; inspect a fresh image before further input";
+    if(error.empty()&&!step.release&&focusCheck&&!focusReady){
+      auto self=shared_from_this();focusCheck([self](bool focused){
+        self->focusReady=true;if(!focused&&self->error.empty())self->error="The original visual target lost keyboard focus; inspect before further input";self->run();
+      });return;
+    }
+    focusReady=false;index++;
     // Release an admitted press even after navigation/takeover, but never send
     // an unpaired up event for a press that the interruption already skipped.
     if(!error.empty()&&!step.release){run();return;}
@@ -142,6 +149,26 @@ struct xb_input_sequence:std::enable_shared_from_this<xb_input_sequence>{
   }
 };
 // BROWSER_FRAME_INPUT_GUARD_END
+// The frames backend is defined after this input helper in the native host.
+static void xb_frame_cdp(const std::shared_ptr<xb_view>& view,const std::string& session,const wchar_t* method,
+                         const std::string& params,xb_cdp_result done);
+static void xb_input_focus(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation,
+                           const xb_input_frame_guard& guard,const xb_input_frame_snapshot& snapshot,
+                           const std::string& document,const std::string& ref,std::function<void(bool)> complete,bool acquire=false){
+  const auto live=[host,view,navigation,guard,snapshot](){return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,guard)&&xb_input_snapshot_live(view,snapshot);};
+  if(guard.empty()||!live()){complete(false);return;}
+  std::string raw,session;
+  for(const auto& entry:view->frames->nodes)if(entry.second.id==guard.front().first){raw=entry.second.raw;session=entry.second.session;break;}
+  if(raw.empty()){complete(false);return;}
+  xb_frame_cdp(view,session,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(raw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
+    [view,live,session,document,ref,complete,acquire](bool ok,const std::string& result){
+      int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
+      if(!ok||context<=0||!live()){complete(false);return;}
+      const auto expression="(()=>{const r=globalThis.__mdo_browser_use_local_frame_v1;if(!r||r.documentNode!==document)return 0;const v=r."+std::string(acquire?"focus":"verify")+"({document:"+xb_quote(document)+",op:'key',target:{ref:"+xb_quote(ref)+"}});return v.ok&&v.focused&&document.hasFocus()?1:0})()";
+      xb_frame_cdp(view,session,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(context)+",\"returnByValue\":true,\"timeout\":1000}",
+        [live,complete](bool ok,const std::string& result){const auto value=xb_get(result,"result");complete(ok&&live()&&xb_get(result,"exceptionDetails").empty()&&xb_get(value,"type")=="number"&&xb_get(value,"value")=="1");});
+    });
+}
 static bool xb_input_read_frames(const std::string& json,xb_input_frame_guard& guard,const std::string& key="frame_chain"){
   const char* raw=nullptr;size_t size=0;
   guard.clear();webview::detail::json_parse_c(json.c_str(),json.size(),key.c_str(),key.size(),&raw,&size);
@@ -189,6 +216,30 @@ static void xb_input(const std::shared_ptr<xb_host>& host,const std::shared_ptr<
   if(!xb_input_pin_frames(view,json,sequence->frameGuard)){host->reply(id,"","Invalid or stale frame document chain; observe the page before input");return;}
   if(!xb_input_read_snapshot(json,sequence->frameSnapshot)||!xb_input_snapshot_live(view,sequence->frameSnapshot)){host->reply(id,"","Invalid or stale visual frame snapshot; capture a fresh image before input");return;}
   const auto kind=xb_get(json,"kind");
+  const auto focusDocument=xb_get(json,"focus_document"),focusRef=xb_get(json,"focus_ref");
+  const bool focusRequested=!focusDocument.empty()||!focusRef.empty();
+  if(focusRequested||!sequence->frameSnapshot.empty()&&(kind=="key"||kind=="text")){
+    if((kind!="key"&&kind!="text"&&kind!="focus")||focusDocument.size()!=38||focusDocument.substr(0,2)!="d-"||focusRef.size()<2||focusRef.size()>14||focusRef[0]!='e'||
+       focusRef.find_first_not_of("0123456789",1)!=std::string::npos||sequence->frameGuard.empty()||sequence->frameSnapshot.empty()){
+      host->reply(id,"","Visual keyboard input requires its original isolated target and complete frame snapshot");return;
+    }
+    std::weak_ptr<xb_input_sequence> weak=sequence;
+    sequence->focusCheck=[weak,focusDocument,focusRef](std::function<void(bool)> complete){
+      auto held=weak.lock();if(!held){complete(false);return;}
+      xb_input_focus(held->host,held->view,held->navigation,held->frameGuard,held->frameSnapshot,focusDocument,focusRef,std::move(complete));
+    };
+  }
+  if(kind=="focus"&&focusRequested){
+    // Focus the admitted native view/control without activating it by a click.
+    // Focus itself can run page handlers, so retain the normal input slot and
+    // interaction checkpoints until its exact document/focus is acknowledged.
+    view->input=sequence;
+    if(!view->controller||FAILED(view->controller->MoveFocus(COREWEBVIEW2_MOVE_FOCUS_REASON_PROGRAMMATIC))){host->reply(id,"","Cannot focus the original browser view");return;}
+    xb_input_focus(host,view,sequence->navigation,sequence->frameGuard,sequence->frameSnapshot,focusDocument,focusRef,
+      [sequence](bool focused){if(sequence->replied)return;sequence->replied=true;
+        sequence->host->reply(sequence->id,focused?"{\"accepted\":true,\"target_focused\":true,\"focus_method\":\"isolated_focus\"}":"",focused?"":"The original visual control did not retain focus");},true);
+    return;
+  }
   if(kind=="click"||kind=="move"||kind=="wheel"){
     double x=-1,y=-1;try{x=std::stod(xb_get(json,"x"));y=std::stod(xb_get(json,"y"));}catch(...){}
     if(!std::isfinite(x)||!std::isfinite(y)||x<0||y<0||x>16384||y>16384){host->reply(id,"","Invalid CSS input coordinates");return;}

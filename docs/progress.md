@@ -13,10 +13,11 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: V3 enables shared C/JS/Agent visual pointer input;
-E0 verifies the dependency-free Android world boundary contract. Android native
-integration/device validation, visual keyboard/drag and final
-lifecycle/performance/package gates remain active; this is not a release.
+Latest verified milestones: V6 adds shared C/JS/Agent focus-bound image keys;
+V4/V5 cover image dragging and retained-document cleanup. E2 provides actual
+Android unsupported-provider admission. Directory uploads, full Android native
+integration, adversarial lifecycle and final OOM/performance/package gates
+remain active; this is not a release.
 
 ## Working boundaries
 
@@ -2208,3 +2209,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   automation result. Visual keyboard, directory uploads, full Android transport,
   BFCache/adversarial lifecycle, OOM/network/performance and final packaging
   remain open. This fix does not complete the long-term goal.
+
+## V6 — focus-bound image keys through C/JS/Agent
+
+- Allow the existing shared `key` action to use one completed image point.
+  Preserve browser/document/image ownership, pixel/privacy validation, one image
+  lease per operation, durable recovery and read-only permission admission.
+  Text entry/fill, selection and check continue to require observed DOM targets;
+  masked fields are not made accessible through coordinates.
+- Fixed isolated hit testing binds the visible focusable control through exact
+  native iframe owners and open shadow roots. Return its qualified element and
+  local document only to the trusted dispatcher, never the model. The entire
+  screenshot frame snapshot and original leaf-to-root chain fence focus/input.
+  Require the separate native `frame_snapshot_keyboard` feature before effects.
+- Add an internal native focus operation using the original view/controller and
+  a fixed isolated `focus({preventScroll:true})` helper. It does not activate the
+  control by an extra click. Immediately before the key press, verify the exact
+  element's deep active-element focus, document focus and native frame/document
+  snapshot again. Keep an admitted key release even after interrupted delivery;
+  failed/late focus cannot admit a press in a replaced frame.
+- The first working key path used click-to-focus. Review identified that this
+  could activate a button before Enter activated it again. Replace that path
+  before committing this feature, and add actual one-activation/no-click evidence.
+  Focus itself can run page handlers: a stolen focus stops key delivery with
+  possible-effect uncertainty. A dialog/window checkpoint stops the operation;
+  responding does not resume the old key. Recovery never repeats focus or keys.
+- Actual public C/JS and Agent WebView2 gate passes root, OOPIF, open-shadow,
+  Control+A and button Enter cases. Trusted key/keyup counters match, Enter
+  activates exactly once and there are no focus clicks. Native focus hijacking
+  sends no key, retained failed operations do not refocus, and a focus-opened
+  dialog returns an incomplete checkpoint with zero subsequent keys. Nonfocusable
+  backgrounds, masked controls and owned read-only calls are denied; read-only
+  denial leaves the focus/key counters at zero. No model/external-site calls.
+- Sequential regressions: JS 171 pass; Python 109 total, 107 pass/two Windows
+  symlink privilege skips. Actual-source native tests exercise original session/
+  context binding, missing/malformed/failed replies, late frame changes, focus
+  rechecks and release after cancellation. Native frame gate passes 217
+  poll-inclusive checks; full normal C/JS visual and managed gate passes the
+  existing pointer/wheel and six drag combinations. No new native diagnostics;
+  transfer reservations return to zero. Same source/object tree, deployment/Home.
+- Next audit the older ordinary DOM fill/type/key click-to-focus sequence with
+  the same single-activation fixture and migrate it as a separate update.
+  Directory uploads, full Android integration (the current phone retains its
+  explicitly unsupported WebView 138), BFCache/adversarial lifetime, OOM/network/
+  performance and final packaging remain open. This is a development milestone.

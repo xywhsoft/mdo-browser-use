@@ -44,7 +44,7 @@ function fixture(){
     if(method==='locate')value=params.frame===child?{ok:true,document,element,visited:1}:{ok:false,error:{code:'element_not_found'},visited:1};
     if(method==='prepare')value={ok:true,document,element,point:{x:20,y:10},geometry:[10,0,20,20,20,10]};
     if(method==='verify')value={ok:true,document,focused:true,verified:true};
-    if(method==='visualPoint')value={ok:true,document,frame_ref:params.frame==='f0'&&options.point.x>=100&&options.point.x<400&&options.point.y>=200&&options.point.y<400?'e9':null};
+    if(method==='visualPoint')value={ok:true,document,frame_ref:params.frame==='f0'&&options.point.x>=100&&options.point.x<400&&options.point.y>=200&&options.point.y<400?'e9':null,...(options.op==='key'?{focus_ref:'e7'}:{})};
     if(method==='optionList')value={ok:true,document,ref:'e1',frame:'f0',options:[{index:0,label:'First'}]};
     if(method==='uploadInfo')value={ok:true,document,element:{...element,role:'fileinput',hidden:true}};
     if(method==='selectOptions'){state.effect++;value={ok:true,document,dispatched:true,verified:true};}
@@ -71,6 +71,22 @@ test('visual points bind the exact root or child owner without DOM selector gues
   assert(nested.ok);assert.deepEqual(nested.point,{x:120,y:210});
   assert.deepEqual(nested.frame_chain,[{frame:child,document:fd},{frame:'f0',document:rootFd}]);
   assert(!state.calls.some(row=>row.action==='evaluate'&&row.script.includes('.locate(')));
+});
+
+test('visual key routing binds a private target to the exact root or child document',async()=>{
+  for(const point of [{x:40,y:30},{x:120,y:210}]){
+    const {api,state}=fixture(),out=await api.read('visualPoint',{document:doc,point,op:'key'});
+    const nested=point.x===120;assert(out.ok);assert.equal(out.target.ref,`r1|${nested?child:'f0'}|${nested?fd:rootFd}|${nested?local:doc}|e7`);
+    assert.deepEqual(out.native_target,{document:nested?local:doc,ref:'e7'});
+    assert(!state.calls.some(row=>row.script?.includes('.locate(')));
+  }
+});
+
+test('visual key routing rejects missing or malformed local focus references',async()=>{
+  for(const ref of [undefined,'','r1|foreign','e0','e1;throw 1']){
+    const {api,state}=fixture();state.onRead=async({method,value})=>{if(method==='visualPoint'){value.focus_ref=ref;return{ok:true,frame:'f0',frame_document:rootFd,value};}};
+    const out=await api.read('visualPoint',{document:doc,point:{x:40,y:30},op:'key'});assert(!out.ok);assert.equal(out.error.code,'frame_response_invalid');
+  }
 });
 
 test('visual routing refuses unknown owners, replaced children and cancelled reads',async()=>{

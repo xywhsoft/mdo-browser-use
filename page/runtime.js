@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 15;
+  const version = 17;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -260,6 +260,19 @@ export function browserRuntime(configuration = {}) {
       const owner=pinCaptureFrame(hit);if(!owner.ok)return owner;
       return{ok:true,document:documentId,frame_ref:owner.ref};
     }
+    if(options.op==='key'){
+      let target=hit;
+      for(let depth=0;target&&target.tabIndex<0&&!target.isContentEditable&&depth<64;depth++)target=target.parentElement||target.getRootNode()?.host;
+      if(!target||target===document.body||target===document.documentElement||target.tabIndex<0&&!target.isContentEditable)
+        return fail('visual_focus_unavailable','Choose a visible keyboard-focusable control or use an exact DOM target');
+      while(target.parentElement?.isContentEditable)target=target.parentElement;
+      if(target===document.body||target===document.documentElement)return fail('visual_focus_unavailable','Choose a bounded keyboard control rather than the whole document');
+      if(!visible(target)||target.matches(':disabled')||target.getAttribute('aria-disabled')==='true'||target.closest('[inert]'))
+        return fail('element_disabled','The visual keyboard target is hidden, inert or disabled');
+      if(['input','textarea','select'].includes(target.localName))return fail('visual_region_masked','Use an exact DOM target for form controls');
+      const ref=reference(target,'f0');if(!ref)return fail('reference_limit','Too many retained element references');
+      return{ok:true,document:documentId,frame_ref:null,focus_ref:ref};
+    }
     return{ok:true,document:documentId,frame_ref:null};
   }
   function uploadInfo(options = {}) {
@@ -392,6 +405,13 @@ export function browserRuntime(configuration = {}) {
     return { ok: true, verified: matches, document: documentId,
       focused,
       sensitive: element.localName === "input" && element.type === "password" };
+  }
+  function focus(options = {}) {
+    const found=locate(options);if(!found.ok)return found;
+    const element=refs.get(found.element.ref).element;
+    if(found.element.disabled||!visible(element)||typeof element.focus!=='function')return fail('visual_focus_unavailable','The original control cannot receive focus');
+    element.focus({preventScroll:true});
+    const result=verify(options);return{...result,dispatched:true};
   }
   const optionDisabled = option => option.disabled || option.parentElement?.localName === "optgroup" && option.parentElement.disabled;
   function optionTarget(options) {
@@ -534,7 +554,7 @@ export function browserRuntime(configuration = {}) {
       return {ok:true,document:documentId,region,redactions,visited:nodes,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight},device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, visualPoint, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, focus, visualPoint, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

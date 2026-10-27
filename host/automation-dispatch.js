@@ -138,7 +138,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     dispatched = true;
     const delivered = await view.execute("input", { ...parameters,...(inputFrameChain?{frame_chain:inputFrameChain}:{}),
       ...(inputFrameSnapshot?{frame_snapshot:inputFrameSnapshot}:{}),agent: true, navigation });
-    if (!delivered.accepted || !delivered.trusted_input) return fail("action_uncertain", "Native input was not confirmed; inspect the page before repeating it");
+    if(parameters.kind==='focus'&&delivered.accepted){
+      if(delivered.dialog_open)return dialogBoundary();
+      if(delivered.popup_open)return popupBoundary();
+    }
+    if (!delivered.accepted || (parameters.kind==='focus'?!delivered.target_focused:!delivered.trusted_input)) return fail("action_uncertain", "Native input or target focus was not confirmed; inspect the page before repeating it");
     if(canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     if (delivered.dialog_open) return dialogBoundary();
     if (delivered.popup_open) return popupBoundary();
@@ -303,7 +307,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(params.target?.image){
       if(!pageDriver)return fail('unsupported_capability','This browser lacks isolated frame routing for visual input');
       return await executeVisualAction({browser:writer,params,view,read,guard,send,sendDrag,fail,deadline,action,
-        setSnapshot:(snapshot,root)=>{inputFrameSnapshot=snapshot;inputFrameChain=[{frame:root.frame,document:root.document}];}});
+        setSnapshot:(snapshot,root,chain)=>{inputFrameSnapshot=snapshot;inputFrameChain=chain||[{frame:root.frame,document:root.document}];}});
     }
     if (params.op === "drag") {
       const samePair=(a,b)=>a&&b&&sameGeometry(a.source,b.source)&&sameGeometry(a.destination,b.destination);

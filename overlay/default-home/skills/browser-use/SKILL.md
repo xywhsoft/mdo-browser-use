@@ -17,7 +17,13 @@ Coordinates are pixels of that exact delivered image, including its resizing
 and crop, never desktop/CSS coordinates or a manually resized image. The
 reference belongs to one browser, expires after 60 seconds and permits one
 gesture. Supported visual operations are click, double/right/middle click,
-hover, wheel scroll and drag; use DOM targets for fields and keyboard.
+hover, wheel scroll, drag and focus-bound keys; use DOM targets for text fields.
+Visual `op="key",key=<supported key>` focuses the exact control at the image
+point without clicking it, then sends the key only while its original document
+and focus still match. Choose a visible focusable control, not a masked field or
+page background. Focus handlers can change the page or open dialogs; inspect the
+checkpoint/result rather than repeating focus or sending the key somewhere else.
+Responding to a focus-opened dialog does not resume the original key operation.
 Visual drag uses two points from the same delivered image: `target={image:id,
 x:...,y:...}` and `destination={image:id,x:...,y:...}`. Both points must be visible,
 unmasked and at least four CSS pixels apart. Do not mix image and DOM targets.

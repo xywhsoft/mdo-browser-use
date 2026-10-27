@@ -159,7 +159,7 @@ The existing scroll-into-view path is verified through three offscreen document
 levels and two OOPIFs: the browser scrolls its ancestors before final owner/
 document-chain validation and one trusted input. Drag still requires both
 endpoints visible together. Visual pointer coordinates use completed-image
-references below; visual keyboard remains pending. Unsupported geometry
+references below, including focus-bound keys. Unsupported geometry
 remains an explicit bounded failure.
 
 Native top-level navigation invalidates pending operations immediately. A file
@@ -389,7 +389,28 @@ Coordinates belong to the exact delivered image pixels, including its scaling
 and crop; each must be inside that image (public integer range 0–2047). Do not
 mix an image point with a DOM/frame selector. Supported operations are `click`,
 `double_click`, `right_click`, `middle_click`, `hover`, `scroll` (with wheel
-deltas) and `drag`. Keyboard, fill, selection and check require DOM targets.
+deltas), `drag` and `key`. Text entry, fill, selection and check require DOM
+targets. Privacy masks remain enforced for every visual action.
+
+For visual keys, use `op:"key",key:<supported key>` with the image point on a
+visible keyboard-focusable control. Fixed isolated hit testing returns a private
+element/document pin through exact iframe owners, including open shadow roots.
+The native backend focuses that original view/control with `preventScroll`
+instead of activating it by a click. It rechecks the original target's deep
+active-element focus, `document.hasFocus()`, frame ancestry and complete native
+frame snapshot before the key press. An admitted key still receives its release
+after navigation, takeover or failure. A new native `frame_snapshot_keyboard`
+capability refuses older hosts before focus or input.
+
+One image lease covers this focus/key operation. A focus handler can itself
+change the page, steal focus or open a dialog/window; this is a possible effect,
+not permission to retry focus or send the key elsewhere. Focus changes stop key
+delivery. Dialog/window checkpoints remain incomplete, and responding does not
+automatically resume the old key. Recover the original operation after lost
+delivery. `input_method:"native_key",verification:"native_delivery"` confirms
+delivery, not the website's business result. The actual native fixture verifies
+one activation for Enter on a button, zero focus clicks, OOPIF/shadow routing,
+focus hijacking and a focus-opened dialog without a subsequent key.
 
 For visual dragging, supply `destination:{image:<same id>,x:<integer>,y:<integer>}`.
 Both endpoints must be visible together, unmasked, at least four CSS pixels

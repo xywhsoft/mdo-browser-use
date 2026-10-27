@@ -92,7 +92,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
         const rows=new Map(meta.frames.map(row=>[row.id,row]));let row=rows.get('f0'),point={...options.point};
         for(let depth=0;row&&depth<32;depth++){
           if(row.loading||!row.isolated)throw issue('frame_not_ready','The selected point frame is not ready');
-          const route={frame:row.id,frame_document:row.document},hit=await evaluate(route,'visualPoint',{point,...(row.id==='f0'?{document:meta.document}:{})});
+          const route={frame:row.id,frame_document:row.document},hit=await evaluate(route,'visualPoint',{point,...(options.op==='key'?{op:'key'}:{}),...(row.id==='f0'?{document:meta.document}:{})});
           if(!hit.ok)return hit;
           if(!/^d-[a-f0-9-]{36}$/i.test(hit.document)||row.id==='f0'&&hit.document!==meta.document)
             throw issue('stale_document','The visual point document changed');
@@ -100,7 +100,13 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
             const mapped=await mapPoint(route,{point,geometry:[]});
             if(Math.hypot(mapped.point.x-options.point.x,mapped.point.y-options.point.y)>.5)
               throw issue('visual_context_changed','An iframe moved during point routing');
-            return{ok:true,document:meta.document,point:mapped.point,frame_chain:mapped.frame_chain};
+            const focus={};
+            if(options.op==='key'){
+              if(!/^e[1-9][0-9]{0,12}$/.test(hit.focus_ref))throw issue('frame_response_invalid','The image point has no original keyboard target');
+              focus.target={ref:`r1|${route.frame}|${route.frame_document}|${hit.document}|${hit.focus_ref}`};
+              focus.native_target={document:hit.document,ref:hit.focus_ref};
+            }
+            return{ok:true,document:meta.document,point:mapped.point,frame_chain:mapped.frame_chain,...focus};
           }
           if(!/^e[1-9][0-9]{0,12}$/.test(hit.frame_ref))throw issue('frame_response_invalid','The visual point iframe identity is invalid');
           let selected=null;
