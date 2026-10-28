@@ -12,7 +12,7 @@ const {executeBrowserAutomation}=await import(`data:text/javascript;base64,${Buf
 // Couple the production driver and shared dispatcher to a synthetic native
 // protocol. These receipts do not certify Android framework input/interception.
 function coupled(){
-  const f=fixture(),inputs=[];let downloads=false,chooser=false,focused=false,text='';
+  const f=fixture(),inputs=[],captures=[],captureCancellations=[];let downloads=false,chooser=false,focused=false,text='';
   f.state.hook=({method,options,result})=>{
     if(method==='verify'){result.value.focused=focused;result.value.verified=options.op!=='fill'||text===options.text;}
     return result;
@@ -21,9 +21,16 @@ function coupled(){
     if(command==='state')return{...await f.execute(command,params),automation:f.state.available,
       browser_use:{available:f.state.available,reason:'isolated_world_unsupported'},frame_target_keyboard:true,
       wheel_input:f.state.wheel===true,
+      capture_capability:f.state.capture===true,
       download_capability:true,downloads_armed:downloads,chooser_capability:true,chooser_upload_capability:true,chooser_armed:chooser};
     if(command==='downloads'){if(params.action==='arm')downloads=true;return{ok:true,armed:downloads,downloads:[]};}
     if(command==='chooser'){if(params.action==='arm')chooser=true;return{ok:true,armed:chooser,choosers:[]};}
+    if(command==='capture'){
+      captures.push(params);if(typeof f.state.captureReply==='function')return f.state.captureReply(params);
+      return{data:f.state.captureData,scale:1,capture_key:params.capture_key,document:params.capture_context.document,
+        native_document:params.capture_context.native_document,navigation:params.capture_context.navigation};
+    }
+    if(command==='capture_cancel'){captureCancellations.push(params);return{cancelled:true};}
     if(command==='input'){
       assert(downloads&&chooser,'Native input preceded interception acknowledgement');
       assert.equal(params.input_document,doc);assert.equal(params.input_ref,'e7');assert.equal(params.navigation,7);
@@ -38,7 +45,7 @@ function coupled(){
   const view={execute},pageDriver=createDocumentDriver({execute});
   const run=(command,params,other={})=>executeBrowserAutomation({command,params,view,pageDriver,browser:view,
     action:{id:'synthetic-main-document'},api:{async call(method){assert.equal(method,'ui.result');return{state:'pending'};}},...other});
-  return{...f,inputs,run};
+  return{...f,inputs,captures,captureCancellations,run};
 }
 
 test('shared observation and waits consume the qualified main-document protocol',async()=>{
@@ -146,4 +153,55 @@ test('unconfirmed cleanup and lost transport cannot claim zero effects or replay
   const uncertain=await lost.run('act',{op:'click',document:doc,target:{ref}});
   assert.equal(uncertain.result.error.code,'action_uncertain');assert.equal(uncertain.result.error.effect_may_have_occurred,true);
   assert.equal(lost.inputs.length,1);
+});
+
+async function captureFixture(run){
+  const previous={document:globalThis.document,bitmap:globalThis.createImageBitmap},png=new Uint8Array(33),state={masks:[],decodes:0,closed:0};
+  png.set([137,80,78,71,13,10,26,10]);new DataView(png.buffer).setUint32(16,320);new DataView(png.buffer).setUint32(20,240);
+  state.data=Buffer.from(png).toString('base64');
+  globalThis.createImageBitmap=async()=>{state.decodes++;return{close(){state.closed++;}};};
+  globalThis.document={createElement(){return{width:0,height:0,getContext:()=>({drawImage(){},fillRect(...box){state.masks.push(box);}}),
+    toDataURL:()=>`data:image/png;base64,${state.data}`};}};
+  try{await run(state);}finally{globalThis.document=previous.document;globalThis.createImageBitmap=previous.bitmap;}
+}
+
+test('shared Android capture carries the original context and masks opaque children before publishing',async()=>{
+  await captureFixture(async pixels=>{
+    const f=coupled();f.state.capture=true;f.state.captureData=pixels.data;
+    const out=await f.run('capture',{document:doc});assert(out.result.ok,JSON.stringify(out));
+    assert.equal(f.captures.length,1);assert.equal(f.inputs.length,0);assert.equal(f.captures[0].navigation,7);
+    assert.deepEqual(f.captures[0].capture_context,{adapter:'android-main-document-v1',native_document:fd,navigation:7,document:doc,
+      scroll:{x:0,y:0},viewport:{width:320,height:240}});
+    assert.equal(pixels.masks.length,4);assert.equal(out.result.redacted_regions,2);assert.equal(pixels.decodes,1);assert.equal(pixels.closed,1);
+    assert.equal(out.result.frame_scope,'main_document');assert(out.result.limitations.includes('child_frames_masked'));
+    assert(!Object.hasOwn(out.result,'visual_reference'));assert(!JSON.stringify(out.result).includes('native_capture'));
+  });
+});
+
+test('changed Android native screenshot identities reject before any bitmap decode',async()=>{
+  await captureFixture(async pixels=>{
+    for(const field of ['native_document','navigation','document','capture_key']){
+      const f=coupled();f.state.capture=true;
+      f.state.captureReply=params=>({data:pixels.data,scale:1,native_document:fd,navigation:7,document:doc,capture_key:params.capture_key,[field]:'replaced'});
+      const out=await f.run('capture',{document:doc});assert.equal(out.result.error.code,'capture_changed',field);
+      assert.equal(f.captures.length,1);assert.equal(pixels.decodes,0);assert.equal(f.inputs.length,0);
+    }
+  });
+});
+
+test('Android opaque frame changes and cancellation discard native pixels without replay',async()=>{
+  await captureFixture(async pixels=>{
+    const f=coupled();f.state.capture=true;
+    f.state.captureReply=params=>{
+      f.state.hook=({method,result})=>{if(method==='captureArea')result.value.redactions[1].frame_ref='e9';return result;};
+      return{data:pixels.data,scale:1,native_document:fd,navigation:7,document:doc,capture_key:params.capture_key};
+    };
+    const changed=await f.run('capture',{document:doc});assert.equal(changed.result.error.code,'capture_changed');assert.equal(f.captures.length,1);
+    const cancelled=coupled();cancelled.state.capture=true;let alive=true,complete;
+    cancelled.state.captureReply=()=>{alive=false;return new Promise(resolve=>{complete=resolve;});};
+    const out=await cancelled.run('capture',{document:doc},{alive:()=>alive});assert.equal(out.result.error.code,'context_changed');
+    assert.equal(cancelled.captures.length,1);assert.deepEqual(cancelled.captureCancellations,[{capture_key:'synthetic-main-document'}]);
+    complete({data:pixels.data});await new Promise(resolve=>setTimeout(resolve,1));
+    assert.equal(pixels.decodes,0);assert.equal(cancelled.captures.length,1);
+  });
 });

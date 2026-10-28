@@ -27,6 +27,9 @@ export function fixture(){
     if(method==='optionList')value={...meta(),ref:'e7',frame:'f0',options:[{index:0,label:'One'}]};
     if(method==='selectOptions')value={...meta(),dispatched:true,verified:true};
     if(method==='scrollPoint')value={...meta(),point:options.point,hit_ref:'e7'};
+    if(method==='captureArea')value={...meta(),region:options.mode==='element'?{x:10,y:20,width:20,height:20}:{x:0,y:0,width:320,height:240},
+      scroll:{x:0,y:0},device_pixel_ratio:1,visited:4,redaction:'form-controls-and-opaque-content',
+      redactions:options.mode==='element'?[{x:10,y:20,width:20,height:20}]:[{x:10,y:20,width:20,height:20},{x:100,y:20,width:100,height:100,frame_ref:'e8'}]};
     const result={ok:true,native_document:params.native_document,navigation:params.navigation,value};
     return await state.hook?.({method,options,result})||result;
   };

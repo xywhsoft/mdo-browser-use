@@ -242,6 +242,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         const scale = Math.min(1,(params.max_width||1280)/(area.region.width*dpr),(params.max_height||960)/(area.region.height*dpr));
         let settled = false,native,failure;
         const pending = view.execute("capture",{agent:true,navigation,capture_key:action.id,clip:{...area.region,scale},
+          ...(area.native_capture?{capture_context:area.native_capture}:{}),
           format:params.format||"png",max_bytes:params.max_bytes||131072,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
           .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
         while (!settled) {
@@ -252,6 +253,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           }
         }
         if (failure) return fail("capture_failed",String(failure.message||failure).slice(0,512));
+        if(area.native_capture&&(native?.native_document!==area.native_capture.native_document||native?.navigation!==area.native_capture.navigation||
+           native?.document!==area.document||native?.capture_key!==action.id))
+          return fail('capture_changed','The native screenshot reply does not match its original document and request');
         const after = await read("captureArea",{...options,document:area.document});
         if (!after.ok) return {handled:true,result:after};
         if(area.frame_stamp!==after.frame_stamp){
@@ -263,12 +267,13 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         }
         if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
         let raster;
-        const image = await prepareScreenshot(native,area,after,params,pageDriver?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
+        const image = await prepareScreenshot(native,area,after,params,pageDriver&&!area.native_capture?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
         checked = await guard(true);if (checked.handled) return checked;
         const visual=raster?visualSnapshots.issue(writer,{document:area.document,navigation,frame_stamp:area.frame_stamp,
           region:area.region,options,redactions:[...area.redactions,...after.redactions],device_pixel_ratio:area.device_pixel_ratio,
           capture:{format:params.format||'png',max_width:params.max_width||1280,max_height:params.max_height||960,max_bytes:params.max_bytes||131072}},raster):null;
         return {handled:true,result:{ok:true,document:area.document,mode,region:area.region,redaction:area.redaction,...image,
+          ...(area.native_capture?{frame_scope:area.frame_scope,limitations:area.limitations}:{}),
           ...(visual?{visual_reference:visual}:{})}};
       }
       return fail('capture_changed','The screenshot viewport did not settle within its bounded attempts');

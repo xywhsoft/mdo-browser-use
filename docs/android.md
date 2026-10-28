@@ -510,3 +510,39 @@ ADB still has no device; the refreshed world and input gate receipts are
 unavailable with verification flags false. This is a boundary regression,
 not actual Android framework qualification; Agent admission remains disabled
 and the user's current WebView is preserved.
+
+## Main-document screenshot preparation (E14)
+
+The shared document driver now prepares visible-viewport and visible-element
+capture regions through the original isolated runtime. It checks the original
+native/isolated document, known native scale, settled input and cleanup, bounded
+region/density/node/mask data, and unique opaque iframe owner references. It
+keeps every child-frame mask opaque; this adapter does not enter child worlds
+or grant unmasking based on coincident rectangle coordinates.
+
+The returned internal `native_capture` context pins the native document/epoch,
+isolated document, CSS viewport and scroll. The shared screenshot executor sends
+that context to the native `capture` request and requires its original request
+and document identities on reply before decoding any pixels. Post-capture
+viewport, density, scroll or opaque owner changes invalidate the image. Before
+and after masks are applied by the trusted host canvas before publishing.
+Cancellation discards late bytes and cancels the original native capture key;
+it does not replay capture. No private context or raw mask owner ID is exposed
+in the resulting public screenshot.
+
+Full-page and offscreen captures remain unsupported in this stage. Screenshots
+declare child-frame masking and do not issue image-action references, because
+Android image actions are unfinished. The actual native draw/encode/cancel
+implementation and its framework/privacy qualification are still pending.
+The old manual `screenshot` command is not substituted for Browser Use capture.
+Overall Android automation remains disabled and the current provider is kept.
+
+Nine new protocol/coupling checks pass, including malformed privacy proofs,
+opaque frame changes, native reply replacement and cancelled/late images. The
+complete JS suite passes 236/236. The actual Windows C/JS/WebView2 public capture
+gate also passes three first-screenshot cases with zero initial failures and
+correct visual-reference bindings. These Windows results do not qualify Android
+drawing or prove full Android privacy coverage. No new Android/native build is
+needed for this shared JS stage. Receipts: `.mdo/E14-document-capture.log`,
+`.mdo/E14-js-full.log`, `.mdo/E14-windows-capture.log` and
+`.mdo/capture-readiness-result.json`.

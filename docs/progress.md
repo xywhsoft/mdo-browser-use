@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F5 refreshes and requalifies the Windows preview
+Latest verified milestones: E14 connects bounded main-document screenshot
+preparation and opaque child masks to the shared screenshot executor, with
+native Android drawing/qualification still pending; F5 refreshes and requalifies the Windows preview
 with runtime 18 and native failure receipts; E13 closes the Android parent-click
 child-frame boundary; E12 preserves native refusal causes and cumulative input
 uncertainty; E11 adds guarded native Android scrolling with framework
@@ -3290,3 +3292,36 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   created. The portable plugin is unchanged; Android is still unqualified and
   disabled, using the user's preserved provider. Remaining product/platform
   gates continue, the goal stays active and no production publication occurs.
+
+## E14 — prepare Android screenshot privacy and pin native image replies
+
+- Add visible viewport/element capture preparation to the actual main-document
+  driver. Validate bounded region, density, node usage and mask data, preserve
+  every child frame's opaque mask and require unique original owner references.
+  Refuse unknown scale, unsettled input/cleanup, offscreen/full-page modes and
+  mismatched original native/isolated documents. The root-only capture stamp
+  changes with viewport, density, scroll and opaque owner identity.
+- Carry an internal original native document/epoch, isolated document and
+  viewport/scroll context to the shared native capture request. Refuse wrong
+  request/document replies before bitmap decoding, apply before/after masks on
+  the trusted host canvas and discard changed/cancelled/late images without
+  replay. Do not expose the private context or opaque owner aliases in public
+  images. Do not issue misleading image-action references before Android image
+  operations exist. Windows frame routing/visual references are preserved.
+- Nine new production-driver/shared-executor tests pass, with malformed privacy
+  proofs, resource limits, unsupported modes, changed identities, opaque frame
+  changes, exact native context and cancelled/late images. Targeted screenshot
+  and document checks pass 38/38; complete JS regression passes 236/236. Logs:
+  `.mdo/E14-document-capture.log` and `.mdo/E14-js-full.log`.
+- The actual Windows C/JS/WebView2 public capture gate passes all three first
+  screenshots with zero initial failures and correct visual-reference bindings;
+  no model or external site is used. Receipt/log:
+  `.mdo/capture-readiness-result.json` and `.mdo/E14-windows-capture.log`.
+  Restore the same HTTP-200 headless service, about 1,110 MiB. Shared contracts,
+  reviewed overlays and whitespace checks match.
+- This is the screenshot preparation/protocol stage, not native Android capture.
+  The actual draw/encode/cancel adapter, full privacy/framework qualification,
+  image actions and other Android features remain pending; global admission
+  stays disabled. No existing manual screenshot fallback, SDK/native rebuild,
+  new Home/app copy or production publication occurs. The F5 packed preview
+  predates E14; the full goal remains active.

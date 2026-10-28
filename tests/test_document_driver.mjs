@@ -71,7 +71,7 @@ test('unsupported providers, blockers, unknown scale and unconfirmed cleanup ref
     const out=await f.driver.read('prepare',{document:doc,target:{ref},op:'click'});assert.equal(out.ok,false);
     assert(!f.state.calls.some(row=>row.command==='automation'));
   }
-  for(const method of ['focus','captureArea','uploadInfo','visualPoint','arbitrary']){
+  for(const method of ['focus','uploadInfo','visualPoint','arbitrary']){
     const f=fixture();assert.equal((await f.driver.read(method)).error.code,'unsupported_capability');assert.equal(f.state.calls.length,0);
   }
 });

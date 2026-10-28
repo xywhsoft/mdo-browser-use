@@ -2,11 +2,46 @@ import {browserRuntime} from './automation-runtime.js';
 
 const uuid='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const domId=new RegExp(`^d-${uuid}$`,'i'),nativeId=new RegExp(`^fd-${uuid}$`,'i'),elementId=/^e[1-9][0-9]{0,12}$/;
-const allowed=new Set(['describe','observe','locate','prepare','verify','optionList','selectOptions','scrollPoint']);
+const allowed=new Set(['describe','observe','locate','prepare','verify','optionList','selectOptions','scrollPoint','captureArea']);
 const inputs=new Set(['click','check','fill','type','key','select','scroll']);
 const scope={frame_scope:'main_document',frame_routing:'android-main-document-v1',limitations:Object.freeze(['child_frames_unavailable'])};
 const issue=(code,message)=>Object.assign(new Error(message),{code});
 const publicUrl=value=>{try{const url=new URL(value);url.username='';url.password='';return url.href.slice(0,2048);}catch{return '';}};
+const coordinate=value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=1e8;
+const rectangle=value=>value&&['x','y','width','height'].every(key=>coordinate(value[key]))&&value.width>0&&value.height>0;
+function captureResult(value,pin,document,mode){
+  const {region,scroll,viewport,device_pixel_ratio:dpr}=value;
+  if(!rectangle(region)||region.width>32768||region.height>32768||region.width*region.height>16777216||
+     !scroll||!coordinate(scroll.x)||!coordinate(scroll.y)||!viewport||!['width','height'].every(key=>coordinate(viewport[key])&&viewport[key]>0&&viewport[key]<=32768)||
+     typeof dpr!=='number'||!Number.isFinite(dpr)||dpr<=0||dpr>16||region.width*region.height*dpr*dpr>33554432||
+     !Number.isInteger(value.visited)||value.visited<0||value.visited>6000||!Array.isArray(value.redactions)||value.redactions.length>256||
+     value.redaction!=='form-controls-and-opaque-content')
+    throw issue('document_response_invalid','The original screenshot privacy scan is incomplete or invalid');
+  if(region.x<scroll.x-1||region.y<scroll.y-1||region.x+region.width>scroll.x+viewport.width+1||region.y+region.height>scroll.y+viewport.height+1)
+    throw issue('unsupported_geometry','This Android capture adapter supports only the visible viewport');
+  if(mode==='viewport'&&(['x','y'].some(key=>Math.abs(region[key]-scroll[key])>1)||
+     ['width','height'].some(key=>Math.abs(region[key]-viewport[key])>1)))
+    throw issue('document_response_invalid','The original viewport screenshot region is incomplete');
+  const owners=new Set(),redactions=value.redactions.map(mask=>{
+    if(!rectangle(mask)||mask.x<region.x-.05||mask.y<region.y-.05||mask.x+mask.width>region.x+region.width+.05||mask.y+mask.height>region.y+region.height+.05)
+      throw issue('document_response_invalid','The original screenshot privacy mask is invalid');
+    if(mask.frame_ref!==undefined){
+      if(!elementId.test(mask.frame_ref)||owners.has(mask.frame_ref))throw issue('document_response_invalid','The opaque frame mask has no unique original identity');
+      owners.add(mask.frame_ref);
+    }
+    return{x:mask.x,y:mask.y,width:mask.width,height:mask.height};
+  });
+  const copyRegion={x:region.x,y:region.y,width:region.width,height:region.height},copyScroll={x:scroll.x,y:scroll.y},
+    copyViewport={width:viewport.width,height:viewport.height};
+  return{ok:true,document,region:copyRegion,scroll:copyScroll,viewport:copyViewport,redactions,device_pixel_ratio:dpr,
+    redaction:'form-controls-and-opaque-content',visited:value.visited,...scope,
+    frame_stamp:JSON.stringify([['f0',pin.native,null,false,true,'opaque_child_frames',document,copyScroll,
+      {...copyViewport,device_pixel_ratio:dpr},{opaque_frames:[...owners].sort()}]]),
+    frame_masks:{readable:1,opaque:owners.size},
+    native_capture:{adapter:'android-main-document-v1',native_document:pin.native,navigation:pin.navigation,document,
+      scroll:copyScroll,viewport:copyViewport},
+    limitations:['child_frames_masked','image_actions_unavailable','full_page_capture_unavailable']};
+}
 
 // The Android bridge owns one canonical main-frame peer. Do not invent a complete
 // native frame tree or route page-provided aliases to other execution worlds.
@@ -87,12 +122,16 @@ export function createDocumentDriver({execute,checkpoint=async()=>{}}){
     try{
       if(!allowed.has(method))throw issue('unsupported_capability','This Android adapter does not provide the requested operation');
       if(method==='prepare'&&!inputs.has(options.op))throw issue('unsupported_capability','The requested Android native input kind is not implemented');
+      const captureMode=options.mode||'viewport';
+      if(method==='captureArea'&&!['viewport','element'].includes(captureMode))
+        throw issue(captureMode==='full_page'?'unsupported_capability':'capture_mode_invalid','This Android adapter currently captures visible viewport or element regions');
       if(!['observe','describe'].includes(method)&&!domId.test(options.document))
         throw issue('stale_document','Observe the original main document before acting');
       const pin=await state();
-      if(method==='prepare'&&pin.state.native_scale_ready!==true)throw issue('frame_not_ready','The original native scale has not been reported');
-      if(method==='prepare'&&pin.state.input_cleanup_confirmed===false&&!pin.state.input_busy)
+      if(['prepare','captureArea'].includes(method)&&pin.state.native_scale_ready!==true)throw issue('frame_not_ready','The original native scale has not been reported');
+      if(['prepare','captureArea'].includes(method)&&pin.state.input_cleanup_confirmed===false&&!pin.state.input_busy)
         throw issue('input_cleanup_failed','Native input cleanup is unconfirmed; end this browser before further input');
+      if(method==='captureArea'&&pin.state.input_busy)throw issue('browser_busy','Original native input has not settled before screenshot preparation');
       const meta=await evaluate(pin,'describe',{});
       if(!meta.ok||!domId.test(meta.document))throw issue('document_response_invalid','The isolated main-document identity is invalid');
       if(options.document&&options.document!==meta.document)throw issue('stale_document','The observed main document changed');
@@ -100,6 +139,7 @@ export function createDocumentDriver({execute,checkpoint=async()=>{}}){
       if(method==='describe')value=meta;
       else{
         const args={...options,document:meta.document};delete args.timeout_ms;
+        if(method==='captureArea'){args.mode=captureMode;args._max_nodes=6000;}
         if(method!=='observe')args.target=target(options.target||{},pin,meta.document);
         value=await evaluate(pin,method,args);
       }
@@ -112,6 +152,7 @@ export function createDocumentDriver({execute,checkpoint=async()=>{}}){
         return bounded({...value,...scope,error});
       }
       if(value.document!==meta.document)throw issue('stale_document','The isolated main document changed during the operation');
+      if(method==='captureArea')return bounded(captureResult(value,pin,meta.document,captureMode));
       const out={...value,...scope};
       if(value.element)out.element=qualify(value.element,pin,meta.document);
       if(value.ref)out.ref=qualify({ref:value.ref,frame:value.frame},pin,meta.document).ref;
