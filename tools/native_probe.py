@@ -645,7 +645,7 @@ try {
 '''
 
 
-def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_only=False):
+def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_only=False, capture_evidence=True):
     output = dev.ENV / "page-observation-result.json"
     output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
     dump_root = dev.ENV / "host"
@@ -761,7 +761,7 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_o
         output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         if not result.get("passed"):
             raise RuntimeError(result.get("error", "Native page checks failed"))
-        if not chooser_only and not download_only and not startup_only:
+        if capture_evidence and not chooser_only and not download_only and not startup_only:
             image = dev.call("storage.read", {"path": "qa/capture-fixture.png", "limit": 262144}, REPORT)
             import base64
             (dev.ENV / "capture-fixture.png").write_bytes(base64.b64decode(image["base64"], validate=True))

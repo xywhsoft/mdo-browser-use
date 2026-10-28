@@ -674,9 +674,24 @@ deleting any known payload, preserve unknown/renamed entries and reject reparse
 points. Sealing verifies exact sizes and complete hashes on pinned file handles
 and checks that the complete declared directory layout exists. Partial failed
 admissions and unassigned expiry use the existing asynchronous collector.
-This is native staging only: directory assignment currently returns an explicit
-unsupported result before dispatch. The public C/JS/Agent upload contract still
-requires files until relative-path assignment and picker verification pass.
+Private native assignment passes one selected-root path to Chromium, preserving
+its extended Windows namespace for enumeration and later File reads. Match the
+complete FileList by selected-root-relative path, basename and size exactly once,
+independently of enumeration order. Empty subdirectories are staged but are not
+represented by HTML FileList; a root with no files is rejected before admission.
+
+[Chromium enumerates directory selections asynchronously](https://chromium.googlesource.com/chromium/src/+/052831f0220b79fe0c3343b49f6d2863ea6de05d/third_party/blink/renderer/core/html/forms/file_input_type.cc).
+Before dispatch, establish an acknowledged, operation-keyed observer in the
+exact isolated world. Verification waits for a trusted input event and a following
+task turn, then checks the complete selection. A pre-existing matching FileList
+or an untrusted event is insufficient. Cleanup removes the listener, timer and
+keyed observer on completion, cancellation, timeout or page departure. Native
+directory assignment requires a revealed controller; hidden views reject before
+dispatch. Public mutating actions already reveal the owned browser panel.
+Actual WebView2 gates verify long root/leaf names, shadow/same-origin frame
+inputs, retained delayed reads and resumable dialog/timeout outcomes. The public
+C/JS/Agent upload contract still requires files until directory source streaming,
+routed-frame and picker end-to-end verification pass.
 
 ## File-input uploads
 

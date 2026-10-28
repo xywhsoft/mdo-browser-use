@@ -3,13 +3,14 @@
 struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::shared_ptr<xb_upload_job> job;
   std::string id,document,ref,group,object,error,session,frameRaw,frameKey;xb_input_frame_guard frameGuard;int contextId=0;ULONGLONG deadline=0;
-  bool done=false,stopped=false,replied=false,inFlight=false,dispatched=false;
+  bool done=false,stopped=false,replied=false,inFlight=false,dispatched=false,watchInstalled=false,watchCleared=false;
   std::string clearMeta()const{return job->clear?",\"input_method\":\"dom_file_clear\",\"events_trusted\":false":"";}
   const char* marker()const{return frameGuard.empty()?"__mdo_browser_use_runtime_v1":"__mdo_browser_use_local_frame_v1";}
   void protocol(const wchar_t* method,const std::string& params,xb_cdp_result done){
     if(frameGuard.empty())xb_cdp(view,method,params,std::move(done));else xb_frame_cdp(view,session,method,params,std::move(done));
   }
   void releaseGroup()noexcept{
+    releaseWatch();
     if(group.empty()||view->closed||!host->alive)return;
     if(!session.empty()&&(!view->frames||!view->frames->sessions.count(session)))return; // Destroyed session owns no live object group.
     try{std::weak_ptr<xb_view> weak=view;protocol(L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",[weak](bool ok,const std::string& result){if(!ok||!xb_get(result,"error").empty())if(auto active=weak.lock())active->uploadCleanupFailed=true;});}catch(...){view->uploadCleanupFailed=true;}
@@ -20,7 +21,8 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     if(view->uploadAssignmentKey==id){view->uploadBusy=false;view->uploadAssignment.reset();view->uploadAssignmentKey.clear();}
     releaseGroup();
   }
-  bool live()const{return !done&&!stopped&&!job->closing&&xb_input_frames_live(view,frameGuard)&&(dispatched||xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey))&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
+  bool directoryVisible()const{BOOL visible=FALSE;return !job->tree||view->controller&&SUCCEEDED(view->controller->get_IsVisible(&visible))&&visible;}
+  bool live()const{return !done&&!stopped&&!job->closing&&directoryVisible()&&xb_input_frames_live(view,frameGuard)&&(dispatched||xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey))&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
   std::string failure(const std::string& code,const std::string& message)const{
     return "{\"accepted\":false,\"ticket\":"+xb_quote(job->ticket)+clearMeta()+",\"dispatched\":"+(dispatched?"true":"false")+",\"retained\":"+(job->retained?"true":"false")+
       ",\"error\":{\"code\":"+xb_quote(code)+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":"+(dispatched?"true":"false")+"}}";
@@ -32,7 +34,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     releaseGroup();
   }
   void stop(const std::string& reason){
-    if(done)return;stopped=true;error=reason;reply(failure(dispatched?"action_uncertain":"upload_stopped",reason));
+    if(done)return;stopped=true;error=reason;releaseWatch();reply(failure(dispatched?"action_uncertain":"upload_stopped",reason));
     if(!inFlight||view->closed||!host->alive)finish(failure(dispatched?"action_uncertain":"upload_stopped",reason));
   }
   void boundary(bool popup){
@@ -58,24 +60,61 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
       next(result);
     });
   }
+  void releaseWatch()noexcept{
+    if(!watchInstalled||watchCleared)return;watchCleared=true;
+    if(view->closed||!host->alive||contextId<=0||!session.empty()&&(!view->frames||!view->frames->sessions.count(session)))return;
+    try{
+      const auto expression="(()=>{const s=globalThis.__mdo_native_upload_watch_v1;if(s&&s.key==="+xb_quote(id)+")s.dispose();return true})()";
+      std::weak_ptr<xb_view> weak=view;const auto navigation=job->navigation;const auto guard=frameGuard;
+      protocol(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(contextId)+",\"returnByValue\":true}",[weak,navigation,guard](bool ok,const std::string& result){
+        if(auto active=weak.lock())if(!active->closed&&active->navigation==navigation&&xb_input_frames_live(active,guard)&&(!ok||!xb_get(result,"error").empty()||!xb_get(result,"exceptionDetails").empty()))active->uploadCleanupFailed=true;
+      });
+    }catch(...){view->uploadCleanupFailed=true;}
+  }
+  void armDirectoryWatch(){
+    // Directory enumeration is asynchronous. Establish an acknowledged trusted
+    // input-event fence before dispatch; an old matching FileList is not proof.
+    watchInstalled=true;auto self=shared_from_this();
+    const auto duration=std::max<ULONGLONG>(1,deadline-std::min(deadline,GetTickCount64()));
+    const auto function="function(){if(globalThis.__mdo_native_upload_watch_v1)throw Error('Previous upload observer was not released');"
+      "const node=this,s={key:"+xb_quote(id)+",node,seen:false};let resolve,timer,turn;"
+      "s.promise=new Promise(r=>resolve=r);const settle=()=>{clearTimeout(timer);clearTimeout(turn);resolve()};"
+      "const input=e=>{if(e.isTrusted&&!s.seen){s.seen=true;node.removeEventListener('input',input,true);turn=setTimeout(settle,0)}};"
+      "const hide=()=>s.dispose();s.dispose=()=>{node.removeEventListener('input',input,true);removeEventListener('pagehide',hide,true);settle();if(globalThis.__mdo_native_upload_watch_v1===s)delete globalThis.__mdo_native_upload_watch_v1};"
+      "Object.defineProperty(globalThis,'__mdo_native_upload_watch_v1',{value:s,configurable:true});"
+      "node.addEventListener('input',input,true);addEventListener('pagehide',hide,true);timer=setTimeout(()=>s.dispose(),"+std::to_string(duration)+");return true}";
+    call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
+      if(xb_get(xb_get(result,"result"),"value")!="true"){self->finish(self->failure("upload_target_changed","Cannot observe completion of this directory selection"));return;}self->dispatch();
+    });
+  }
   void verify(){
     auto self=shared_from_this();
-    const std::string function="function(){return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),directory:!!this.webkitdirectory,files:Array.from({length:Math.min(this.files?.length||0,17)},(_,i)=>({name:this.files[i].name.slice(0,241),size:this.files[i].size}))}}";
-    call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
-      const auto value=xb_get(xb_get(result,"result"),"value"),files=xb_get(value,"files");bool verified=xb_get(value,"valid")=="true"&&xb_get(value,"disabled")!="true"&&(self->job->clear||xb_get(value,"directory")!="true");
-      for(size_t i=0;verified&&i<self->job->files.size();i++){auto item=webview::detail::json_parse(files,"",static_cast<int>(i));uint64_t size=0;
-        verified=!item.empty()&&xb_get(item,"name")==self->job->files[i]->name&&xb_upload_uint(xb_get(item,"size"),size)&&size==self->job->files[i]->size;
+    const auto snapshot="return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),directory:!!this.webkitdirectory,files:Array.from({length:Math.min(this.files?.length||0,"+std::string(job->tree?"129":"17")+")},(_,i)=>({name:this.files[i].name.slice(0,241),size:this.files[i].size,path:this.files[i].webkitRelativePath?.length<=1265?this.files[i].webkitRelativePath:null}))}";
+    const auto function=job->tree?"async function(){const s=globalThis.__mdo_native_upload_watch_v1;if(!s||s.key!=="+xb_quote(id)+"||s.node!==this)return null;await s.promise;if(!s.seen)return null;"+snapshot+"}":"function(){"+snapshot+"}";
+    call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true,\"awaitPromise\":true}",[self](const std::string& result){
+      const auto value=xb_get(xb_get(result,"result"),"value"),files=xb_get(value,"files");
+      bool verified=xb_get(value,"valid")=="true"&&xb_get(value,"disabled")!="true"&&(self->job->clear||(xb_get(value,"directory")=="true")==static_cast<bool>(self->job->tree));
+      if(self->job->tree)verified=verified&&xb_upload_tree_matches(*self->job->tree,files);
+      else{
+        for(size_t i=0;verified&&i<self->job->files.size();i++){auto item=webview::detail::json_parse(files,"",static_cast<int>(i));uint64_t size=0;
+          verified=!item.empty()&&xb_get(item,"name")==self->job->files[i]->name&&xb_upload_uint(xb_get(item,"size"),size)&&size==self->job->files[i]->size;
+        }
+        verified=verified&&webview::detail::json_parse(files,"",static_cast<int>(self->job->files.size())).empty();
       }
-      verified=verified&&webview::detail::json_parse(files,"",static_cast<int>(self->job->files.size())).empty();
       if(!verified){self->finish(self->failure("action_uncertain","The page changed the assigned file list; inspect before repeating"));return;}
       self->job->verified=true;
-      self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+",\"dispatched\":true,\"retained\":"+(self->job->retained?"true":"false")+",\"cleared\":"+(self->job->clear?"true":"false")+",\"verified\":true,\"verification\":\"file_list\""+(self->job->clear?self->clearMeta():",\"input_method\":\"native_file_input\"")+"}");
+      self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+",\"dispatched\":true,\"retained\":"+(self->job->retained?"true":"false")+",\"cleared\":"+(self->job->clear?"true":"false")+",\"verified\":true,\"verification\":"+xb_quote(self->job->tree?"relative_file_list":"file_list")+(self->job->clear?self->clearMeta():",\"input_method\":\"native_file_input\"")+"}");
     });
   }
   void dispatch(){
     if(!live()){stop("Upload context changed immediately before file assignment");return;}
+    std::string paths="[";
+    if(job->tree){
+      xb_upload_tree_inventory inventory;
+      if(!xb_upload_tree_inspect(job->directory,*job->tree,inventory,true)){finish(failure("upload_snapshot_changed","The staged directory layout changed before assignment"));return;}
+      paths+=xb_quote(webview::detail::narrow_string(xb_upload_tree_native(job->directory,"tree/"+job->tree->name)));
+    }else for(const auto& file:job->files){if(paths.size()>1)paths+=",";paths+=xb_quote(webview::detail::narrow_string(file->path));}paths+="]";
     if(!xb_chooser_upload_consume(view,job->chooser,document,ref,frameKey)){stop("The exact file picker changed before assignment");return;}
-    std::string paths="[";for(const auto& file:job->files){if(paths.size()>1)paths+=",";paths+=xb_quote(webview::detail::narrow_string(file->path));}paths+="]";
     auto self=shared_from_this();
     // Retain bytes before the native call: even a lost/error reply cannot prove
     // that the website did not obtain a File object for delayed submission.
@@ -97,12 +136,12 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     const std::string function="function(){return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),multiple:!!this.multiple,directory:!!this.webkitdirectory,count:this.files?.length||0}}";
     call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
       const auto value=xb_get(xb_get(result,"result"),"value");
-      if(xb_get(value,"valid")!="true"||xb_get(value,"disabled")=="true"||!self->job->clear&&xb_get(value,"directory")=="true"||self->job->files.size()>1&&xb_get(value,"multiple")!="true"){
-        self->finish(self->failure("upload_target_invalid","Choose an enabled regular file input with enough multiple-file capacity"));return;
+      if(xb_get(value,"valid")!="true"||xb_get(value,"disabled")=="true"||!self->job->clear&&((xb_get(value,"directory")=="true")!=static_cast<bool>(self->job->tree)||!self->job->tree&&self->job->files.size()>1&&xb_get(value,"multiple")!="true")){
+        self->finish(self->failure("upload_target_invalid","Choose an enabled input matching the file or directory selection"));return;
       }
       if(self->job->clear&&xb_get(value,"count")=="0"){
         self->job->verified=true;self->finish("{\"accepted\":true,\"ticket\":"+xb_quote(self->job->ticket)+self->clearMeta()+",\"dispatched\":false,\"retained\":false,\"cleared\":true,\"changed\":false,\"verified\":true,\"verification\":\"file_list\"}");return;
-      }self->dispatch();
+      }if(self->job->tree)self->armDirectoryWatch();else self->dispatch();
     });
   }
   void resolveInput(){
@@ -131,7 +170,6 @@ static void xb_upload_cancel_assignment(const std::shared_ptr<xb_upload_job>& jo
 static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json,const std::shared_ptr<xb_upload_job>& job){
   auto reject=[&](const char* code,const char* message){host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":{\"code\":"+xb_quote(code)+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":false}}");};
   if(!job){reject("upload_ticket_missing","The upload ticket expired or belongs to another browser");return;}
-  if(job->tree){reject("unsupported_capability","Directory staging is available; verified directory assignment is not enabled yet");return;}
   const auto document=xb_get(json,"document"),ref=xb_get(json,"ref");uint64_t timeout=10000;
   xb_input_frame_guard frameGuard;
   if(!xb_input_read_frames(json,frameGuard)){reject("upload_arguments_invalid","The upload frame document chain is malformed");return;}
@@ -144,6 +182,7 @@ static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::sha
     else host->reply(id,"{\"accepted\":false,\"dispatched\":true,\"retained\":"+std::string(job->retained?"true":"false")+",\"error\":{\"code\":\"action_uncertain\",\"message\":\"Inspect the page before another upload\",\"effect_may_have_occurred\":true}}");return;
   }
   if((!job->chooser.empty()||!job->frameGuard.empty())&&(job->assignDocument!=document||job->assignRef!=ref||job->assignFrameKey!=frameKey)){reject("upload_identity_conflict","This upload belongs to a different picker or frame target");return;}
+  if(job->tree){BOOL visible=FALSE;if(!view->controller||FAILED(view->controller->get_IsVisible(&visible))||!visible){reject("upload_view_hidden","Reveal the browser viewport before selecting a directory");return;}}
   if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||!xb_input_frames_live(view,frameGuard)||!xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey)||!view->input.expired()||view->capture||view->drag||(frameGuard.empty()&&!view->automationContext)||view->loading||view->initialNavigationPending||
      xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){
     reject("upload_not_ready","The sealed upload, isolated document or native input slot is no longer ready");return;

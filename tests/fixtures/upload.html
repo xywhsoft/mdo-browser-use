@@ -7,13 +7,15 @@
 <input id="clearable" type="file" hidden aria-label="Clearable attachment">
 <fieldset disabled><input id="disabled" type="file" aria-label="Disabled attachment"></fieldset>
 <input id="directory" type="file" webkitdirectory aria-label="Directory attachment">
+<input id="directory-hidden" type="file" webkitdirectory hidden aria-label="Hidden directory attachment">
+<button id="choose-directory" onclick="document.querySelector('#directory-hidden').click()">Choose hidden directory</button>
 <button id="wrong">Not a file input</button>
 <div id="shadow"></div>
-<iframe id="frame" srcdoc="<input id='framed' type='file' aria-label='Framed attachment'>"></iframe>
+<iframe id="frame" srcdoc="<input id='framed' type='file' aria-label='Framed attachment'><input id='framed-directory' type='file' webkitdirectory aria-label='Framed directory attachment'>"></iframe>
 <output id="result"></output>
 <script>
 const shadow=document.querySelector('#shadow').attachShadow({mode:'open'});
-shadow.innerHTML='<input id="shadowed" type="file" hidden aria-label="Shadow attachment">';
+shadow.innerHTML='<input id="shadowed" type="file" hidden aria-label="Shadow attachment"><input id="shadow-directory" type="file" webkitdirectory hidden aria-label="Shadow directory attachment">';
 globalThis.uploadEvents=[];globalThis.uploadReads=[];
 const hex=bytes=>[...new Uint8Array(bytes)].map(x=>x.toString(16).padStart(2,'0')).join('');
 function register(input){
@@ -28,7 +30,7 @@ function register(input){
     setTimeout(async()=>{
       try{
         const values=[];
-        for(const file of files)values.push({name:file.name,size:file.size,sha256:hex(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))});
+        for(const file of files)values.push({name:file.name,path:file.webkitRelativePath,size:file.size,sha256:hex(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))});
         uploadReads.push({id:input.id,files:values});
       }catch(error){uploadReads.push({id:input.id,error:error.name});}
       document.querySelector('#result').textContent=JSON.stringify(uploadReads);

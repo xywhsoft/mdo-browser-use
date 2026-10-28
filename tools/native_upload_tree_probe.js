@@ -50,8 +50,8 @@ try{
   }
   await call({action:'chunk',ticket:job.ticket,file:2,offset:0,base64:btoa('end')});
   const sealed=await call({action:'seal',ticket:job.ticket});assert(sealed.sealed&&!sealed.dispatched,'A complete directory did not seal without website effects');
-  const unsupported=await call({action:'assign',ticket:job.ticket,document:'not-a-page-ref',ref:'e1'});
-  assert(!unsupported.accepted&&!unsupported.dispatched&&unsupported.error.code==='unsupported_capability','Unimplemented directory assignment reached native input');
+  const stale=await call({action:'assign',ticket:job.ticket,document:'not-a-page-ref',ref:'e1'});
+  assert(!stale.accepted&&!stale.dispatched&&stale.error.effect_may_have_occurred===false,'An unready directory assignment reached native input');
   assert(!(await call({action:'status',ticket:job.ticket})).retained,'Undispatched directory bytes became retained');
   await call({action:'cancel',ticket:job.ticket});
   assert(await emptyCache(),'Cancelled directory required another native upload/status/close to reclaim files');
@@ -89,7 +89,7 @@ try{
   await call({action:'cancel',ticket:ordinary.ticket});
   report={passed:true,checks,backend:'actual-webview2-directory-staging',native_upload_staging:true,
     complete_directory_hashes:true,relative_paths_and_empty_directories:true,idempotent_begin_and_chunks:true,
-    assignment_explicitly_unsupported:true,ambiguous_manifests_denied:true,wrong_hash_reclaimed:true,
+    unready_target_rejected_before_dispatch:true,ambiguous_manifests_denied:true,wrong_hash_reclaimed:true,
     file_count_boundary:128,global_payload_directory_limit:512,expiry_reclaimed:true,regular_v1_staging:true};
 }catch(error){report={passed:false,checks,error:String(error.stack||error)};}
 finally{try{await bridge.call('close',{browser});}catch{}bridge.dispose();}

@@ -50,8 +50,27 @@ static void make_file(const std::wstring& path,const char* bytes,DWORD size){
   HANDLE file=CreateFileW(path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
   assert(file!=INVALID_HANDLE_VALUE);DWORD written=0;assert(WriteFile(file,bytes,size,&written,nullptr)&&written==size);assert(CloseHandle(file));
 }
+static void matching_checks(){
+  xb_upload_tree tree;tree.name=u8"selected-中文";tree.directories={"a","b"};
+  tree.files={{"a/same.txt",std::string(64,'a'),3},{"b/same.txt",std::string(64,'b'),0}};tree.size=3;
+  const auto first="{\"name\":\"same.txt\",\"path\":"+xb_quote(tree.name+"/a/same.txt")+",\"size\":3}";
+  const auto second="{\"name\":\"same.txt\",\"path\":"+xb_quote(tree.name+"/b/same.txt")+",\"size\":0}";
+  assert(xb_upload_tree_matches(tree,"["+first+","+second+"]"));
+  assert(xb_upload_tree_matches(tree,"["+second+","+first+"]"));
+  for(const auto& files:std::vector<std::string>{"[]","["+first+"]","["+first+","+first+"]","["+first+","+second+","+first+"]"})assert(!xb_upload_tree_matches(tree,files));
+  for(const auto& path:{"a/same.txt",u8"selected-中文/A/same.txt",u8"selected-中文/b/same.txt",u8"selected-中文/a/SAME.txt",u8"selected-中文\\a\\same.txt"}){
+    const auto wrong="{\"name\":\"same.txt\",\"path\":"+xb_quote(path)+",\"size\":3}";
+    assert(!xb_upload_tree_matches(tree,"["+wrong+","+second+"]"));
+  }
+  for(const auto& value:{"4","\"3\"","-1","null"}){
+    const auto wrong="{\"name\":\"same.txt\",\"path\":"+xb_quote(tree.name+"/a/same.txt")+",\"size\":"+value+"}";
+    assert(!xb_upload_tree_matches(tree,"["+wrong+","+second+"]"));
+  }
+  const auto wrongName="{\"name\":\"other.txt\",\"path\":"+xb_quote(tree.name+"/a/same.txt")+",\"size\":3}";
+  assert(!xb_upload_tree_matches(tree,"["+wrongName+","+second+"]"));
+}
 int wmain(int argc,wchar_t** argv){
-  assert(argc==2);validation_checks();const auto base=xb_upload_cache_path(argv[1]);assert(!base.empty());
+  assert(argc==2);validation_checks();matching_checks();const auto base=xb_upload_cache_path(argv[1]);assert(!base.empty());
   assert(CreateDirectoryW(base.c_str(),nullptr));make_file(base+L"\\.lease","",0);
   xb_upload_tree tree;tree.name="chosen";tree.directories={"nested","nested/empty"};
   tree.files={{"root.bin",std::string(64,'a'),0},{"nested/a.txt",std::string(64,'b'),3}};tree.size=3;assert(xb_upload_tree_valid(tree));

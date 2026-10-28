@@ -13,8 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: W4 adds native directory staging and conservative
-restart collection; W3 preserves long upload basenames; W1 adds source manifests.
+Latest verified milestones: W5 adds native directory selection with trusted
+completion and exact relative paths; W4 adds directory staging/restart collection;
+W3 preserves long upload basenames; W1 adds source manifests.
 V8 bounds read-only viewport settling during capture;
 V7 removes DOM input's duplicate activation clicks;
 V6 adds shared C/JS/Agent focus-bound image keys;
@@ -2499,3 +2500,48 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   intercepted pickers and C/JS/Agent coverage remain next. Android integration
   with the user's existing WebView, broader lifecycle/OOM/network/performance
   and final packaging remain active; this is not a completed goal or release.
+
+## W5 — native directory selection and trusted completion
+
+- Assign the sealed selected root once through the existing native input slot,
+  using the same extended Windows namespace as staging. Verify every complete
+  selected-root-relative path, basename and size exactly once; browser directory
+  enumeration order is independent of the source manifest. The compiled
+  production matcher rejects omitted/extra/duplicate entries, flattened paths,
+  wrong roots/case/names/sizes and coerced numeric metadata.
+- Acknowledge an operation-keyed isolated observer before native dispatch. Wait
+  for a trusted input event and the following task turn before verifying the
+  FileList. Keep bytes before dispatch, preserve uncertain effects and existing
+  idempotent receipts, and remove observers/listeners/timers after cancellation,
+  timeout, normal completion or page departure. A matching old FileList plus
+  an injected untrusted event cannot pass this fence; the actual browser gate
+  deliberately suppresses the trusted observer event to prove that behavior.
+- Preserve the original failed receipts. A hidden controller received no File
+  objects/events and timed out after about ten seconds. The revealed ordinary
+  path comparison enumerated four files but reported the long leaf as zero bytes
+  and raised NotFoundError on page reads. The final revealed extended-path
+  variant reads all complete hashes, including a 240-byte leaf and a 240-byte
+  selected-root name with the resulting full path beyond MAX_PATH. These are
+  actual environment observations, not a claimed diagnosis of Chromium internals.
+  Reject new hidden directory assignments before dispatch; public mutations
+  already reveal their owned browser panel. Keep historical replay available.
+- Real WebView2 directory gate passes 396 assertions: duplicate basenames in
+  distinct directories, long root/leaf names, zero-byte files, the 128-file
+  boundary, shadow/same-origin frame inputs, trusted events once, exact saved
+  replay, hidden-view denial, observer cleanup, delayed reads after expiry,
+  cancellation retaining already assigned bytes, page-cleared uncertainty,
+  timeout without replay and a resumed change-handler dialog. Empty directories
+  remain in native staging; HTML FileList exposes files only.
+- Final sequential gates: JS 180 pass; Python 122 total, 120 pass/two existing
+  Windows symlink-privilege skips; the full actual native regression passes
+  1,361 assertions, including file input/clear, choosers, downloads and late cache
+  cleanup. The 46-assertion directory staging regression also passes. No new
+  native diagnostics, private ACLs unchanged, zero upload/download reservations.
+  Reviewed host/shared contracts and combined source/binary build receipts match.
+  Restore the same single deployment to headless mode.
+- Directory-only probes now skip unrelated screenshot evidence instead of
+  depending on an old capture fixture, and keep their final failed receipt too.
+  Public C/JS/Agent directory source streaming, routed-frame/picker acceptance,
+  Android integration under the retained WebView limit and final lifecycle/
+  OOM/network/performance/package checks remain active. No directory capability
+  is advertised to callers yet; this milestone does not complete the goal.

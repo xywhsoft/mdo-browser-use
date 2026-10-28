@@ -68,6 +68,23 @@ static std::string xb_upload_tree_json(const xb_upload_tree& tree){
   for(const auto& path:tree.directories){if(json.back()!='[')json+=",";json+=xb_quote(path);}json+="],\"files\":[";
   for(const auto& file:tree.files){if(json.back()!='[')json+=",";json+="{\"path\":"+xb_quote(file.path)+",\"size\":"+std::to_string(file.size)+",\"sha256\":"+xb_quote(file.sha)+"}";}return json+"]}";
 }
+// Chromium's folder enumeration order is not a contract. Match every complete
+// selected-root-relative path exactly once, without flattening or case folding.
+static bool xb_upload_tree_matches(const xb_upload_tree& tree,const std::string& files){
+  if(files.empty()||files.front()!='['||files.back()!=']'||files.size()>262144)return false;
+  std::vector<bool> seen(tree.files.size(),false);
+  for(size_t i=0;i<=tree.files.size();i++){
+    const auto item=xb_upload_tree_raw(files,nullptr,static_cast<int>(i));
+    if(i==tree.files.size())return item.empty();
+    std::string path,name;uint64_t size=0;
+    if(item.empty()||!xb_upload_tree_string(item,"path",path)||!xb_upload_tree_string(item,"name",name)||!xb_upload_uint(xb_upload_tree_raw(item,"size"),size))return false;
+    size_t at=0;for(;at<tree.files.size();at++)if(path==tree.name+"/"+tree.files[at].path)break;
+    if(at==tree.files.size()||seen[at]||size!=tree.files[at].size)return false;
+    const auto& relative=tree.files[at].path;const auto slash=relative.find_last_of('/');
+    if(name!=relative.substr(slash==std::string::npos?0:slash+1))return false;
+    seen[at]=true;
+  }return false;
+}
 static std::vector<std::string> xb_upload_tree_directories(const xb_upload_tree& tree){
   std::vector<std::string> paths={"tree","tree/"+tree.name};
   for(const auto& path:tree.directories)paths.push_back("tree/"+tree.name+"/"+path);
