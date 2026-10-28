@@ -73,6 +73,17 @@ python tools/publication_recovery_probe.py
 python tools/download_ui_probe.py
 ```
 
+Generate the portable development plugin with `python tools/package_plugin.py`.
+The allowlisted JSON and SHA-256 inventory go to `dist/`; no app staging tree,
+Home, provider settings or browser profile is included. The installer uses the
+same local ecosystem plan/import and enable flow as the UI. A separately applied
+old development plugin intentionally conflicts with ecosystem ownership;
+`python tools/package_probe.py` migrates only this project's exact known payload
+and verifies import/restart/export in the same Home. See
+[distribution requirements and limits](docs/distribution.md). The preview needs
+this project's enhanced Windows host; stock 0.7.0 and Android automation are not
+advertised as compatible. This does not publish a release.
+
 The native probe reuses this exact deployment, briefly opens its real WebView2
 window with local fixtures, and restores headless mode afterwards. No live model
 or external website is needed. Its latest result is `.mdo/page-observation-result.json`.

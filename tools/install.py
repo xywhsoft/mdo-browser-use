@@ -1,32 +1,47 @@
 """Install/update this plugin in the single project mdo deployment."""
 import json
-from pathlib import Path
 import sys
 
 import dev
+from package_plugin import build
 
-ROOT = Path(__file__).resolve().parents[1]
+def ecosystem(action, **fields):
+    # Only the local ecosystem authoring/import/export paths are used here.
+    if action not in {"plan_import", "import", "export", "uninstall"}:
+        raise ValueError("Not a local package action")
+    status, _, raw = dev.request("POST", "/api/v1/ecosystem",
+                                 {"action": action, "single_kind": "plugins", **fields})
+    result = json.loads(raw)
+    if status != 200:
+        error = result.get("error", {})
+        raise RuntimeError(f"Local package {action}: HTTP {status}: {error.get('code')}: {error.get('message')}")
+    return result["data"]
 
 
-def install():
-    manifest = json.loads((ROOT / "plugin.json").read_text(encoding="utf-8"))
-    files = []
-    for directory in ("runtime", "sdk", "overlay", "page"):
-        for path in sorted((ROOT / directory).rglob("*")):
-            if path.is_file():
-                files.append({"path": path.relative_to(ROOT).as_posix(),
-                              "text": path.read_text(encoding="utf-8")})
-    dev.call("plugin.apply", {"id": manifest["id"], "manifest": manifest, "files": files})
-    changes = [{"id": manifest["id"], "enabled": True}]
+def enable(identity):
+    changes = [{"id": identity, "enabled": True}]
     plan = dev.call("plugin.plan", {"changes": changes})
     if not plan["allowed"]:
         raise RuntimeError("Plugin plan rejected: " + json.dumps(plan.get("issues")))
     result = dev.call("plugin.commit", {"changes": changes,
                                        "expected_revision": plan["base_revision"],
                                        "expected_plan": plan["plan_revision"]})
-    print(json.dumps({"plugin": manifest["id"], "files": len(files),
+    return result
+
+
+def install(package=None):
+    if package is None:
+        package = json.loads(build()[1])
+    plan = ecosystem("plan_import", package=package)
+    if not plan.get("can_install"):
+        raise RuntimeError("Plugin import plan contains unresolved dependencies or conflicts")
+    ecosystem("import", package=package, trust_code=True, expected_plan=plan["sha256"])
+    identity = package["resources"][0]["id"]
+    result = enable(identity)
+    print(json.dumps({"plugin": identity, "files": len(package["resources"][0]["files"]),
                       "pending": result.get("pending", False),
                       "restart_required": result.get("restart_required", False)}, indent=2))
+    return result
 
 
 if __name__ == "__main__":

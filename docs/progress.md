@@ -2826,3 +2826,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   headless deployment. The original intermittent creation delay remains
   unclassified. Android integration and final lifecycle/OOM/network/performance/
   package delivery remain active; no release has been published.
+
+## F1 — deterministic portable plugin and real ecosystem installation
+
+- Build one `mdo.extension.v2` artifact directly from an explicit 22-file source
+  allowlist: C plugin, C/JS SDK, page runtime, Skill, installation requirements
+  and MIT license. Normalize UTF-8/LF and stable ordering; reject missing entry
+  files, unsafe/duplicate names, links/reparse points and format limits. Produce
+  a SHA-256 artifact/file inventory without scanning Home or staging another app.
+- Mark this as an enhanced-host Windows development preview. The ordinary 0.7.0
+  plugin-format minimum is not proof that stock mdo has the required host/native
+  changes. Android remains unadvertised/incomplete and its current provider is
+  preserved. No production store/download/updater publication occurs.
+- Move the development installer onto the actual local ecosystem plan/import
+  path, with explicit C trust, expected-plan digest and ordinary plugin enable
+  plan/commit. Repeated installations retain ecosystem ownership instead of
+  replacing its recorded revision via `plugin.apply`.
+- In the same existing Home, verify the exact known 20-file legacy development
+  revision before unregistering it, retain its immutable files and migration
+  receipt, then import/enable/restart the portable revision. The real native
+  parser accepts it. Stale plans and missing C trust reject without configuration
+  changes. All shared C service contracts register after restart, every decoded
+  byte survives native export, and reinstall retains the identical revision.
+- The first probe failed before any mutation because the QA script expected a
+  `plugins` field instead of `plugin.list.items`; fix the probe and retain its
+  first log. This was not an importer/product failure. The corrected real gate
+  passes nine checks on the first migration, and eight on repeat installation
+  (no migration is needed). The current receipt is
+  `.mdo/package-install-result.json`; the original revision/inventory is retained
+  in `.mdo/package-development-migration.json`. Four packaging integrity tests,
+  12 actual installed-C-plugin regressions and shared-contract verification pass.
+  The final 241,343-byte artifact SHA-256 is
+  `6930d76d8fa02be9b0a9cde060a0064ad40b35832f05358bab4fbba613cdab33`.
+  No external catalog, model, second Home or application copy was used.
+- The final enhanced program artifact, uninstall/recovery verification, Android
+  integration and remaining lifecycle/OOM/network/performance gates remain active.
