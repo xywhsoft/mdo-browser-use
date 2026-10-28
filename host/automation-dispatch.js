@@ -349,7 +349,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const { state } = checked;
       if (!state.loading) {
         if (command === "act") {
-          if(state.platform==='android-webview'&&(params.op==='hover'||params.op==='scroll'&&state.wheel_input!==true))
+          if(state.platform==='android-webview'&&(params.op==='hover'&&state.hover_input!==true||params.op==='scroll'&&state.wheel_input!==true))
             return fail('unsupported_capability','This Android adapter does not provide the requested native pointer operation; no browser input was sent');
           if(!params.target?.image&&['fill','type','key'].includes(params.op)&&(!pageDriver||state.frame_target_keyboard!==true))
             return fail('unsupported_capability','This host cannot safely focus and fence an exact keyboard target; update the host or use manual control');

@@ -7,7 +7,7 @@ recovery controls. Android and the remaining vision/lifecycle gates are in progr
 browser engine, Node, Python or Playwright runtime is shipped.
 
 Android's native capability descriptor separately reports provider features and
-Browser Use readiness. The connected WebView 138 lacks isolated execution worlds;
+Browser Use readiness. The last inspected WebView 138 lacks isolated execution worlds;
 the current Android adapter also remains incomplete on providers that have them.
 C/JS automation preflight returns `unsupported_capability`, a stable
 `capability_reason` and `effect_may_have_occurred:false` before sending the URL or
@@ -15,6 +15,13 @@ creating a native automated page. Existing manual pages cannot fall back to
 page-world Agent execution. Manual browsing/cleanup remain available. See the
 [Android verification boundaries](android.md); this is not Android automation
 support being declared complete.
+
+The in-progress Android main-document adapter now implements guarded native
+hover behind `hover_input`, using the original isolated ref/point and one
+zero-button mouse move. Old hosts refuse before preparing an input target.
+This does not enable overall Android admission: its actual trusted-hover and
+full host-UI qualification remain unavailable. Native implementation/fixture
+details and pinned source references are in the Android verification document.
 
 Page document identities use cryptographic random bytes rather than relying on
 secure-context-only `randomUUID`; see the [Crypto interface](https://w3c.github.io/webcrypto/#Crypto-interface).

@@ -1,9 +1,13 @@
 # Android Browser Use adapter
 
-The Android implementation is in progress. The existing `MdoBrowser.java`
-provides manual content WebViews and page-world script operations. It does not
-yet implement the Windows Browser Use input/capture/frame/transfer contract.
-No Android automation capability is enabled by this milestone.
+The Android implementation is in progress. Reviewed overlays extend the pinned
+manual WebView with isolated main-document execution, guarded native input,
+capture and retained dialogs. These compile and have deterministic contract
+checks; actual framework and full host-UI qualification remain incomplete.
+Frames, transfers and remaining input capabilities still need implementation
+or verification. Overall Android Browser Use admission stays disabled, including
+on providers that advertise isolated execution worlds. Existing manual browsing
+remains available.
 
 ## Installed-WebView boundary foundation
 
@@ -837,3 +841,35 @@ The native-input device gate remains unavailable, all flags false, as recorded
 in `.mdo/E26-device-input.log`. Keep the installed provider and disabled overall
 automation. Framework, supported-provider and full host-UI qualification remain
 pending; Windows F9 is unchanged by this Android-only milestone.
+
+## Guarded main-document native hover (E27)
+
+The shared C/JS action path now prepares and pins an Android `hover` target and
+sends one private native `move`. An explicit `hover_input` capability is required
+before preparation; the independent overall readiness gate remains disabled.
+Native input revalidates the original root document/ref, unobscured CSS point,
+scale/viewport/scroll and absence of a child-frame hit before dispatching one
+zero-button mouse `ACTION_HOVER_MOVE` to the owned WebView. It adds no touch,
+focus or click and retains no held button. Pointer position persists normally.
+
+Reference sources and hashes are in
+[`hover-protocol.json`](../host/android/hover-protocol.json). AOSP dispatch routes
+hover through the hover callback; the pinned Chromium provider forwards a move
+to its native mouse path while ignoring enter/exit as mouse events. Source review
+does not certify an installed provider or substitute for trusted-event testing.
+
+The production sequencer passes 82 new hover assertions and the existing 413
+input/lifecycle/channel/guard/wheel assertions in `.mdo/E27-hover-contract.log`.
+All 255 sequential JS checks pass (`.mdo/E27-js-full.log`). The actual SDK Activity,
+hooks and extended native input fixture compile (`.mdo/E27-android-build.log`).
+Current tiny QA APK: 192,915 bytes, SHA-256
+`8eb85f17d39053228f713f0750c90c08d75d75e66761d102efa149fc893c0a45`.
+
+The actual-framework fixture requires exactly one trusted move with matching
+CSS coordinates/target, zero buttons, active CSS hover styling, unchanged DOM
+focus and no additional touch/click. It records `native_hover_verified`
+separately and uses page-world script only to create/read synthetic fixture data.
+Current ADB has no authorized device; `.mdo/E27-device-input.log` and its receipt
+remain unavailable with `native_hover_verified:false` and every automation/
+framework flag false. Preserve the current provider and disabled overall
+admission. This is implementation/compile evidence, not a framework hover pass.

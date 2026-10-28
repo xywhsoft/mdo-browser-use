@@ -23,7 +23,7 @@ final class MdoBrowserNativeInput {
         "code=geometry();return code?bad(code):{ok:true};}"+
         "const options={document:p.document,target:{ref:p.ref},op:'key'},found=r.locate(options);"+
         "if(!found.ok)return bad('input_target_changed');if(found.element.frame!=='f0')return bad('android_frames_unavailable');"+
-        "if(p.kind==='click'){const checked=r.prepare({...options,op:'click',scroll:false});"+
+        "if(p.kind==='click'||p.kind==='move'){const checked=r.prepare({...options,op:p.kind==='move'?'hover':'click',scroll:false});"+
         "if(!checked.ok||checked.element.ref!==p.ref||Math.abs(checked.point.x-p.x)>0.5||Math.abs(checked.point.y-p.y)>0.5)return bad('input_target_changed');"+
         "const hit=r.visualPoint({document:p.document,point:{x:p.x,y:p.y}});"+
         "if(!hit.ok)return bad('input_target_changed');if(hit.frame_ref!==null)return bad('android_frames_unavailable');"+
@@ -41,7 +41,7 @@ final class MdoBrowserNativeInput {
         this.view=view;this.document=document;this.owned=owned;this.nativeScale=nativeScale;
         nativeDocument=document.identity();if(nativeDocument==null)throw new IllegalStateException("world_not_ready");
         kind=request.getString("kind");
-        if(!kind.matches("focus|click|key|text|wheel"))throw new UnsupportedOperationException("android_input_kind_unsupported");
+        if(!kind.matches("focus|click|key|text|wheel|move"))throw new UnsupportedOperationException("android_input_kind_unsupported");
         JSONArray frames=request.optJSONArray("frame_chain"),snapshot=request.optJSONArray("frame_snapshot");
         if(frames==null||frames.length()!=1||!frames.getJSONObject(0).getString("frame").equals("f0")||
            request.has("frame_snapshot")&&(snapshot==null||snapshot.length()!=0))
@@ -59,7 +59,7 @@ final class MdoBrowserNativeInput {
             throw new IllegalArgumentException("input_viewport_unsupported");
         JSONObject witness=new JSONObject().put("document",id).put("ref",ref).put("kind",kind).put("scale",scale)
             .put("width",width).put("height",height).put("scrollX",scrollX).put("scrollY",scrollY);
-        if(kind.equals("click")||kind.equals("wheel")){
+        if(kind.equals("click")||kind.equals("wheel")||kind.equals("move")){
             if(kind.equals("click")&&(!request.optString("button","left").equals("left")||request.optInt("click_count",1)!=1))
                 throw new UnsupportedOperationException("android_input_kind_unsupported");
             double x=request.getDouble("x"),y=request.getDouble("y");
@@ -95,6 +95,7 @@ final class MdoBrowserNativeInput {
         switch(kind){
             case "focus":input.focus(this::check,complete);break;
             case "click":input.tap((float)(request.getDouble("x")*scale),(float)(request.getDouble("y")*scale),this::check,complete);break;
+            case "move":input.hover((float)(request.getDouble("x")*scale),(float)(request.getDouble("y")*scale),this::check,complete);break;
             case "wheel":input.wheel((float)(request.getDouble("x")*scale),(float)(request.getDouble("y")*scale),
                 (float)(request.getDouble("dx")*scale),(float)(request.getDouble("dy")*scale),this::check,complete);break;
             case "text":input.text(request.getString("text"),this::check,complete);break;

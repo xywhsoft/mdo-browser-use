@@ -17,7 +17,8 @@ def main():
     sources=[dev.ROOT/name for name in ('host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java',
         'host/android/MdoBrowserChannel.java','tests/fixtures/AndroidInputContractTest.java',
         'tests/fixtures/AndroidLifecycleContractTest.java','tests/fixtures/AndroidChannelContractTest.java',
-        'tests/fixtures/AndroidInputGuardContractTest.java','tests/fixtures/AndroidWheelContractTest.java')]
+        'tests/fixtures/AndroidInputGuardContractTest.java','tests/fixtures/AndroidWheelContractTest.java',
+        'tests/fixtures/AndroidHoverContractTest.java')]
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputContractTest'],
@@ -35,6 +36,9 @@ def main():
     wheel=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidWheelContractTest'],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['wheel_checks']=json.loads(wheel.stdout.strip())['checks']
+    hover=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidHoverContractTest'],
+        cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['hover_checks']=json.loads(hover.stdout.strip())['checks']
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 

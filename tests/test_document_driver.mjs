@@ -27,6 +27,13 @@ test('main-document scroll point binds the actual hit without inventing a target
   assert.equal((await f.driver.read('scrollPoint',{document:doc,point:{x:20,y:30}})).error.code,'document_response_invalid');
 });
 
+test('main-document hover preparation preserves its original ref and exact native point',async()=>{
+  const f=fixture(),out=await f.driver.read('prepare',{document:doc,target:{ref},op:'hover',scroll:false});
+  assert(out.ok,JSON.stringify(out));assert.deepEqual(out.point,{x:20,y:30});assert.equal(out.element.ref,ref);
+  assert.deepEqual(out.native_target,{document:doc,ref:'e7'});assert.deepEqual(out.frame_chain,[{frame:'f0',document:fd}]);
+  const prepared=f.state.calls.find(row=>row.method==='prepare');assert.equal(prepared.options.op,'hover');assert.equal(prepared.options.scroll,false);
+});
+
 test('stale references and explicit child-frame targets cannot select another world',async()=>{
   for(const target of [{ref:ref.replace(fd,'fd-00000000-0000-4000-8000-000000000000')},
     {ref:ref.replace(doc,'d-00000000-0000-4000-8000-000000000000')},{ref:'e7'},

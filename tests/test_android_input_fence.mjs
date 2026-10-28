@@ -45,6 +45,15 @@ test('Android native fence pins its exact root document, reference and CSS point
   assert.equal(f.run().code,'input_target_changed');
 });
 
+test('Android hover fence rechecks its exact hover target and rejects child-document hits',()=>{
+  const f=fixture('move');assert.deepEqual(f.run(),{ok:true});
+  assert.deepEqual(f.calls.map(row=>row[0]),['locate','prepare','visualPoint']);
+  assert.equal(f.calls[1][1].op,'hover');assert.equal(f.calls[1][1].scroll,false);
+  f.runtime.visualPoint=()=>({ok:true,frame_ref:'e8'});assert.equal(f.run().code,'android_frames_unavailable');
+  f.runtime.visualPoint=()=>({ok:true,frame_ref:null});f.runtime.prepare=()=>({...f.located,point:{x:21,y:30}});
+  assert.equal(f.run().code,'input_target_changed');assert(!f.calls.some(row=>['focus','verify'].includes(row[0])));
+});
+
 test('Android native fence rejects changed document, subframe, missing runtime or detached target before focus',()=>{
   for(const change of [f=>{f.runtime.document='d-other';},f=>{f.runtime.documentNode={};},
     f=>{f.context.top={};},f=>{delete f.context.__mdo_browser_use_local_frame_v1;},

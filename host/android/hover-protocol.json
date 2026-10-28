@@ -1,0 +1,29 @@
+{
+  "format": "mdo.browser-use.android-hover-reference.v1",
+  "reference_tag": "138.0.7204.179",
+  "version_gate": false,
+  "event": {
+    "source": "SOURCE_MOUSE",
+    "tool_type": "TOOL_TYPE_MOUSE",
+    "action": "ACTION_HOVER_MOVE",
+    "buttons": 0,
+    "pointers": 1
+  },
+  "input_units": "CSS viewport pixels multiplied by the admitted native scale; exact root-document target and unobscured point required",
+  "delivery": "One generic motion event to the owned WebView. No touch, button, focus, DOM mouse-event synthesis or pointer release is added.",
+  "qualification": "Source review and protocol checks do not qualify an installed provider. Framework isTrusted, CSS hover, exact coordinates/target, no clicks and unchanged focus must pass separately. Overall Android automation stays disabled.",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/aosp-mirror/platform_frameworks_base/android-16.0.0_r1/core/java/android/view/View.java",
+      "sha256": "ceb24df845d5304ba82422d828f0bd3af8f9da93c33ce898935850df875c7ac2"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/android_webview/java/src/org/chromium/android_webview/AwContents.java",
+      "sha256": "e6b7013ed075e467e86f2f58f67e752acc2c0ed93cad09f64897096814297472"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/ui/android/java/src/org/chromium/ui/base/EventForwarder.java",
+      "sha256": "1ecd4bc851c5f7966c74a8d3bd6a87129473e97b800c5d618fd6d2de6d7cf400"
+    }
+  ]
+}

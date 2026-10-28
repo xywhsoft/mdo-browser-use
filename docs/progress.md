@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E26 settles post-admission Android input OOM and
+Latest verified milestones: E27 implements guarded main-document Android native
+hover through the shared dispatcher, with 82 hover/255 JS checks and actual SDK
+compilation; framework qualification stays unavailable. E26 settles post-admission Android input OOM and
 retains cleanup uncertainty without replay, passing 413 native/lifecycle checks
 and actual SDK compilation. F10 passes the complete sequential Python/JS
 regression and four actual hidden/visible WebView2 startup samples. F9 refreshes the packed Windows program with E24's
@@ -3854,3 +3856,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   no authorized device is present. Preserve the current WebView and disabled
   overall Android automation. Windows F9 is unchanged. Contracts/overlays match
   and the same headless deployment is healthy. Full-goal work continues.
+
+## E27 — implement guarded Android main-document hover
+
+- Add one native mouse `ACTION_HOVER_MOVE` to the owned WebView through generic
+  motion dispatch, with zero buttons and mouse tool/source. Preserve normal
+  pointer position after completion. No focus, touch, click, held-button cleanup
+  sequence, DOM mouse-event synthesis or runtime dependency is introduced.
+  Pin consulted AOSP/Chromium sources and hashes in
+  `host/android/hover-protocol.json`; this reference is not a provider version gate.
+- Connect public C/JS `act(op:"hover")` through shared capability admission,
+  original element/document preparation and private native `move`. The native
+  fence rechecks exact point/scale/viewport/root ref and refuses child-document
+  hits. Old hosts lacking `hover_input` refuse before page preparation. The
+  independent overall Android automation gate stays disabled.
+- Pass 82 new production-sequencer hover assertions, plus 413 existing input/
+  lifecycle/channel/guard/wheel assertions. Cover delayed/stale guards, document/
+  viewport/visibility changes, deadline/cancellation/replacement, native refusal,
+  allocation failure and reentrancy without press/focus/text events. Log:
+  `.mdo/E27-hover-contract.log`. All 255 complete sequential JS checks pass;
+  `.mdo/E27-js-full.log`. The first new drift fixture changed a point without
+  its correlated runtime geometry; correct that fixture at the final preparation
+  boundary, rather than treating its inconsistent protocol as a product defect.
+- Extend the reused actual-framework input fixture to require one trusted move
+  at the exact CSS coordinates/target, active `:hover` style, zero buttons,
+  unchanged focus and no touch/click. `native_hover_verified` starts false and
+  stays false in unavailable/installation-wait receipts, separately from overall
+  automation and guarded-world qualification.
+- Compile actual Activity/hooks and QA fixture with the same SDK. APK: 192,915
+  bytes, SHA-256
+  `8eb85f17d39053228f713f0750c90c08d75d75e66761d102efa149fc893c0a45`;
+  source SHA-256
+  `5006f95539006765f05628a26bbaa2bf4381606eb698fada225eaeff0433fe1f`.
+  Logs: `.mdo/E27-android-build.log`, `.mdo/E27-device-input.log`. Current ADB
+  has no authorized device; actual hover/framework verification remains false.
+  Keep the installed provider and disabled Android automation. Refresh the packed
+  shared dispatcher in F11; remaining full-goal work stays active.

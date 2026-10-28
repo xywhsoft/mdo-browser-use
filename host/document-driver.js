@@ -3,7 +3,7 @@ import {browserRuntime} from './automation-runtime.js';
 const uuid='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const domId=new RegExp(`^d-${uuid}$`,'i'),nativeId=new RegExp(`^fd-${uuid}$`,'i'),elementId=/^e[1-9][0-9]{0,12}$/;
 const allowed=new Set(['describe','observe','locate','prepare','verify','optionList','selectOptions','scrollPoint','captureArea']);
-const inputs=new Set(['click','check','fill','type','key','select','scroll']);
+const inputs=new Set(['click','check','fill','type','key','select','scroll','hover']);
 const scope={frame_scope:'main_document',frame_routing:'android-main-document-v1',limitations:Object.freeze(['child_frames_unavailable'])};
 const issue=(code,message)=>Object.assign(new Error(message),{code});
 const publicUrl=value=>{try{const url=new URL(value);url.username='';url.password='';return url.href.slice(0,2048);}catch{return '';}};

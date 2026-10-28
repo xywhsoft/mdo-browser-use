@@ -31,7 +31,7 @@ public final class BrowserUseDevActivity extends Activity {
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);nonce=getIntent().getStringExtra("nonce");
         if(nonce==null||!nonce.matches("[a-f0-9]{32}")){finished=true;finish();return;}
-        put("nonce",nonce);put("api",Build.VERSION.SDK_INT);put("automation_verified",false);put("native_wheel_verified",false);
+        put("nonce",nonce);put("api",Build.VERSION.SDK_INT);put("automation_verified",false);put("native_wheel_verified",false);put("native_hover_verified",false);
         put("native_capture_verified",false);put("guarded_native_capture_verified",false);put("capture_privacy_verified",false);
         put("native_dialog_verified",false);put("before_unload_framework_verified",false);put("host_dialog_routing_verified",false);
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
@@ -56,7 +56,8 @@ public final class BrowserUseDevActivity extends Activity {
                 getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN|
                     android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
                 inputProbe=new BrowserUseInputProbe(view,handler,(ok,code,checks)->{
-                    put("native_input_checks",checks);put("native_input_verified",ok);put("native_wheel_verified",inputProbe!=null&&inputProbe.wheelVerified());finishProbe(ok,code);
+                    put("native_input_checks",checks);put("native_input_verified",ok);put("native_wheel_verified",inputProbe!=null&&inputProbe.wheelVerified());
+                    put("native_hover_verified",inputProbe!=null&&inputProbe.hoverVerified());finishProbe(ok,code);
                 });inputProbe.run();return;
             }
             if(Build.VERSION.SDK_INT<28){finishProbe(true,"provider_loader_unsupported");return;}

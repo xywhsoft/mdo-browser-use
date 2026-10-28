@@ -44,6 +44,15 @@ final class MdoBrowserInputTarget implements MdoBrowserInput.Target {
             new MotionEvent.PointerCoords[]{point},0,0,1,1,0,0,InputDevice.SOURCE_MOUSE,0);
         try{return view.dispatchGenericMotionEvent(event);}finally{event.recycle();}
     }
+    public boolean hover(long time,float x,float y){
+        MotionEvent.PointerProperties pointer=new MotionEvent.PointerProperties();pointer.id=0;pointer.toolType=MotionEvent.TOOL_TYPE_MOUSE;
+        MotionEvent.PointerCoords point=new MotionEvent.PointerCoords();point.x=x;point.y=y;
+        MotionEvent event=MotionEvent.obtain(time,time,MotionEvent.ACTION_HOVER_MOVE,1,new MotionEvent.PointerProperties[]{pointer},
+            new MotionEvent.PointerCoords[]{point},0,0,1,1,0,0,InputDevice.SOURCE_MOUSE,0);
+        // Use the framework hover route, with no touch, button or focus event.
+        // The resulting pointer position persists normally until another move.
+        try{return view.dispatchGenericMotionEvent(event);}finally{event.recycle();}
+    }
     public boolean key(boolean down,long started,long time,String name,int modifiers){
         int code;
         if(name.length()==1)code=name.charAt(0)>='A'?KeyEvent.KEYCODE_A+name.charAt(0)-'A':KeyEvent.KEYCODE_0+name.charAt(0)-'0';

@@ -21,6 +21,7 @@ function coupled(){
     if(command==='state')return{...await f.execute(command,params),automation:f.state.available,
       browser_use:{available:f.state.available,reason:'isolated_world_unsupported'},frame_target_keyboard:true,
       wheel_input:f.state.wheel===true,
+      hover_input:f.state.hover===true,
       capture_capability:f.state.capture===true,
       capture_busy:f.state.captureBusy===true,capture_cleanup_failed:f.state.captureCleanupFailed===true,
       dialog_cleanup_failed:f.state.dialogCleanupFailed===true,
@@ -92,6 +93,30 @@ test('Android viewport and target scrolling pin a root hit and send one native w
   const f=coupled();f.state.wheel=true;
   f.state.hook=({method,result})=>method==='scrollPoint'?{...result,value:{ok:false,error:{code:'android_frames_unavailable'}}}:result;
   const out=await f.run('act',{op:'scroll',document:doc,dx:0,dy:100});assert.equal(out.result.error.code,'android_frames_unavailable');assert.equal(f.inputs.length,0);
+});
+
+test('Android hover sends one pinned native move with no focus, click or touch',async()=>{
+  const f=coupled();f.state.hover=true;
+  const out=await f.run('act',{op:'hover',document:doc,target:{ref}});assert(out.result.ok,JSON.stringify(out.result));
+  assert.deepEqual(f.inputs.map(row=>row.kind),['move']);assert.equal(f.inputs[0].x,20);assert.equal(f.inputs[0].y,30);
+  assert(!Object.hasOwn(f.inputs[0],'focus_ref'));
+  const preparations=f.state.calls.filter(row=>row.method==='prepare');assert(preparations.length>=2);
+  assert(preparations.every(row=>row.options.op==='hover'));
+});
+
+test('Android hover refuses target drift and cancelled preparation before native movement',async()=>{
+  for(const mode of ['moved','cancelled']){
+    const f=coupled();f.state.hover=true;let count=0,alive=true;
+    f.state.hook=({method,result})=>{
+      if(method==='prepare'&&++count===3){
+        if(mode==='moved'){result.value.point.x+=10;result.value.geometry[4]+=10;}else alive=false;
+      }
+      return result;
+    };
+    const out=await f.run('act',{op:'hover',document:doc,target:{ref}},{alive:()=>alive});
+    assert.equal(out.result.error.code,mode==='moved'?'target_changed':'context_changed');
+    assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(f.inputs.length,0);
+  }
 });
 
 const nativeRefusal=(code,overrides={})=>({accepted:false,trusted_input:false,target_focused:false,
