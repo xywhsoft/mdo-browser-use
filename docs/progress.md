@@ -13,7 +13,10 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E24 fixes retained Android dialogs on allocation
+Latest verified milestones: F9 refreshes the packed Windows program with E24's
+shared cleanup guard and passes all eight actual runtime checks. E25 closes
+the Android native callback allocation boundary before controller ownership,
+passing 95 core/68 target checks and compiling the actual SDK Activity. E24 fixes retained Android dialogs on allocation
 failure and blocks new page effects on unconfirmed modal cleanup. N2 verifies actual Windows certificate refusal,
 no HTTP/pixel publication and recovery using memory-only local TLS credentials.
 F8 qualifies the packed Windows network-recovery
@@ -3777,3 +3780,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Shared contracts and applied overlays match; restore the same healthy headless
   deployment. Windows packaging still needs the E24 shared guard refresh, and
   remaining full-goal/platform qualification continues without publication.
+
+## F9 — refresh and qualify the packed shared cleanup barrier
+
+- Repack the reviewed single deployment with E24's early shared dialog-cleanup
+  barrier. Windows artifact: 6,876,415 bytes, SHA-256
+  `d3b1c8ff6d92e6cbe1f82c4e36b280bd5b421936ebfdaf1fb6a07b79a45c8609`.
+  Native inventory verifies all 747 files; shared dispatcher/panel-manager hashes
+  match the reviewed deployed source. Artifact and runtime receipts both verify.
+- Start that actual self-contained executable directly from `dist/`, in the
+  same Home, immediately after packing. All eight archive/UI/C/JS/native checks
+  pass: native observation, Unicode input/trusted click, capture, connection-reset
+  reporting, explicit recovery navigation and close. The two packaging integrity
+  contracts pass. Logs: `.mdo/F9-program-package.log`,
+  `.mdo/F9-program-runtime.log` and `.mdo/F9-package-contracts.log`.
+- Restore the healthy headless service and matching overlays, one Home and about
+  1,110 MiB deployment. No `dist/mdo-home`, application copy or downloaded engine
+  exists. The portable plugin stays unchanged. Android tiny QA client remains
+  E25 with framework qualification unavailable and overall automation disabled;
+  keep the installed provider. Remaining full-goal work continues, with no
+  production publication or completion claim.

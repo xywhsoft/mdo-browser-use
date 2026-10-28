@@ -7,11 +7,12 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,876,390 bytes**, SHA-256
-`1bc3eb7911dfdf665f2fecb89012872b153d4b2ad94c81a0040471050f0d4e19`.
+The current refreshed preview is **6,876,415 bytes**, SHA-256
+`d3b1c8ff6d92e6cbe1f82c4e36b280bd5b421936ebfdaf1fb6a07b79a45c8609`.
 Its native inventory contains 747 files, including runtime 19, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
-lossless-source privacy fix, plus N1's explicit page-error navigation recovery. Included module
+lossless-source privacy fix, N1's explicit page-error navigation recovery and
+E24's shared admission guard for uncertain native dialog cleanup. Included module
 hashes match the reviewed deployment. The actual packed-program gate passes all
 eight runtime checks, including connection-reset reporting and recovery
 navigation from the error card. This is
