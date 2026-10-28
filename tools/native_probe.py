@@ -635,8 +635,9 @@ try {
     do{
       try{
         const state=await bridge.call('state',{browser:failedBrowser},{timeout:2000});
-        report.creation_observation.push({elapsed_ms:Math.round(performance.now()-started),ready:true,
-          loading:state.loading,navigation:state.navigation,error:state.error});break;
+        report.creation_observation.push({elapsed_ms:Math.round(performance.now()-started),ready:state.creating!==true,
+          creating:state.creating,creation:state.creation,loading:state.loading,navigation:state.navigation,error:state.error});
+        if(state.creating!==true)break;
       }catch(observed){report.creation_observation.push({elapsed_ms:Math.round(performance.now()-started),ready:false,error:observed.message});}
       await pause(500);
     }while(performance.now()-started<15000);

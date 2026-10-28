@@ -198,11 +198,20 @@ def main():
         if base.count(before)!=1:raise RuntimeError('Native frame hook no longer unique: '+before)
         base=base.replace(before,after,1)
     creation_hooks=[
-        ('struct xb_view{','struct xb_view{\n  std::string creationRequest;'),
+        ('struct xb_view{',(dev.ROOT/'host/native-creation-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{\n  std::string creationRequest;xb_creation_state creation;'),
+        ('struct xb_host{','struct xb_host{\n  std::shared_ptr<xb_creation_budget> creations=std::make_shared<xb_creation_budget>();'),
+        ('auto view=std::make_shared<xb_view>();','auto view=std::make_shared<xb_view>();if(!view->creation.acquire(host->creations,GetTickCount64())){host->reply(id,"","Native browser creation limit reached (16); wait for pending provider callbacks");return;}'),
         ('host->views[browser]=view;','host->views[browser]=view;view->creationRequest=id;'),
         ('if(command=="close"){if(found!=host->views.end()){found->second->closed=true;',
-         'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;xb_creation_cancel(host,found->second);'),
+         'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;found->second->creation.cancel();xb_creation_cancel(host,found->second);'),
+        ('view->environment=env;env->AddRef();','view->environment=env;env->AddRef();view->creation.advance(xb_creation_state::phase::controller);'),
+        ('            const auto activate=[host,view,id,browser,url,popup]',
+         '            view->creation.advance(xb_creation_state::phase::interception);\n            const auto activate=[host,view,id,browser,url,popup]'),
         ('static void xb_receive(', (dev.ROOT/'host/native-creation.inc.hpp').read_text(encoding='utf-8')+'\nstatic void xb_receive('),
+        ('  if(found==host->views.end()||found->second->creating){',
+         '  if(command=="state"&&found!=host->views.end()&&found->second->creating){host->reply(id,"{\\"creating\\":true,\\"loading\\":true,\\"automation\\":false,\\"visible\\":false,\\"platform\\":\\"webview2\\""+xb_creation_json(found->second->creation,GetTickCount64())+"}");return;}\n  if(found==host->views.end()||found->second->creating){'),
+        ('const auto viewport=",\\"navigation\\":','const auto viewport=std::string(",\\"creating\\":false")+xb_creation_json(view->creation,GetTickCount64())+",\\"navigation\\":'),
+        ('\\"initial_download_interception\\":true}");','\\"initial_download_interception\\":true,\\"creation_capacity\\":{\\"limit\\":16,\\"pending\\":"+std::to_string(host->creations->pending())+"}}");'),
     ]
     for before,after in creation_hooks:
         if base.count(before)!=1:raise RuntimeError('Native creation hook no longer unique: '+before)
@@ -211,7 +220,7 @@ def main():
     creation_end=base.index('\n  if(command=="close")',creation_start)
     creation_body=base[creation_start:creation_end]
     if creation_body.count('host->reply(id,')!=11:raise RuntimeError('Native terminal creation reply sites changed')
-    base=base[:creation_start]+creation_body.replace('host->reply(id,','xb_creation_settle(host,view,')+base[creation_end:]
+    base=base[:creation_start]+creation_body.replace('host->reply(id,','xb_creation_finish(host,view,GetTickCount64(),')+base[creation_end:]
     target = NATIVE / "src/webview/xs_browser.inc.hpp"
     record_path = dev.ENV / "native-overlay.json"
     record = json.loads(record_path.read_text(encoding="utf-8")) if record_path.exists() else {}

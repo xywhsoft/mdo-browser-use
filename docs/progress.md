@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: W9 settles cancelled Windows creations before close
+Latest verified milestones: W10 bounds unfinished native creations and adds
+observable, cancellable readiness waiting; W9 settles cancelled Windows creations before close
 acknowledgement and releases their popup deferrals; E5 pins Android main-document connections and
 asynchronous replies; E4 integrates owned-view/input lifecycle and compiles
 the actual Android Activity hooks; E3 adds the bounded Android native input foundation
@@ -2779,3 +2780,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Reviewed overlays/shared contracts match; the same headless service is
   restored and healthy. Android integration, outstanding native lifecycle/
   OOM/network/performance checks and final deliverable remain active.
+
+## W10 — bound retained provider work and wait on observable creation phases
+
+- The previous eight-view limit covered only the active map. A cancelled view
+  retained by its provider callback could continue to consume resources after
+  removal, allowing more unfinished creations. Add a separate per-native-window
+  budget of 16 original creations, admitted before native viewport allocation,
+  popup claiming or navigation. Embed a noncopyable reservation in each original
+  view and keep a shared budget lifetime rather than borrowing a dead host.
+  Cancellation settles its reply without releasing unfinished work. Terminal
+  provider callbacks or view destruction drain the reservation once.
+- Expose private read-only `creation_capacity` and `state.creation` diagnostics.
+  State is now readable while creating, with environment/controller/interception
+  phases and monotonic elapsed time. Creation-ready is distinct from document
+  readiness. Preserve bounded post-timeout observations of the same identity;
+  late readiness never converts an original failure to success or replays it.
+- The shared dispatcher waits on creation state under its existing deadline,
+  cancellation receipt and original device/context. It checks deadline/context
+  again after a delayed state reply. Once input or a document was pinned, a
+  replacement fails stale rather than waiting and continuing on another view.
+  No model script or native creation/navigation replay is introduced.
+- Production C++ helpers pass deterministic delayed/dropped/duplicate provider
+  seams, 16-slot exhaustion/recovery, cancellation-retained ownership, shared
+  counter lifetime, phase progression, stable completion time and once-only
+  replies. This is a resource-lifetime seam, not 16 stalled real WebViews.
+  Four dispatcher tests cover readiness, deadline, cancellation, takeover, lost
+  context, delayed ready replies and no further input after recreation.
+- The actual focused native gate passes all eight close/recreate cases and popup
+  cancellation. Cancelled work is still counted immediately after close, and
+  final pending count is zero (peak observed in this run: one). The actual shared
+  dispatcher consumes three creating-state reads, seven state reads total and
+  one page observation, with no creation replay. The deliberate one-millisecond
+  missed reply exposes controller/ready phases and recovers the same identity.
+- Preserve two first readiness failures: the QA wrapper incorrectly classified
+  its normal read-only download-list query as a mutation. Diagnostic evidence
+  showed the current dispatcher had waited and observed correctly. Whitelist
+  only state/automation and read-only transfer lists before forwarding; do not
+  weaken production guards. The corrected actual fixture passes.
+- Full native 1,374 assertions pass, all prior feature flags retained, no new
+  diagnostics, protected upload/download caches empty. JS 194/194 pass; Python
+  126 total/124 pass/two existing Windows symlink skips. Generated contracts and
+  reviewed overlays match; native source/binary hashes match their receipt.
+  Preserve focused/full structured evidence separately; restore the same healthy
+  headless deployment. The original intermittent creation delay remains
+  unclassified. Android integration and final lifecycle/OOM/network/performance/
+  package delivery remain active; no release has been published.

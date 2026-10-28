@@ -92,6 +92,13 @@ Closing a creating native view now settles its original request before the close
 acknowledgement, without waiting for a provider callback; late callbacks cannot
 reply twice. The gate also closes a creating popup and verifies immediate opener
 deferral release, with nine distinct cancellation replies in the real host.
+Creating views expose read-only phase/elapsed diagnostics. The shared dispatcher
+waits within the original deadline and cancellation scope instead of treating
+initialization as missing automation. An independent 16-slot native creation
+budget also counts cancelled work still retained by a provider callback; the
+ordinary eight-live-view limit remains separate. The focused gate checks the
+actual waiting dispatcher and eventual reservation drain. Deterministic C++
+fault seams exercise budget saturation without hanging or duplicating a browser.
 The receipt is `.mdo/native-creation-result.json`. The full native gate also
 retains read-only post-timeout creation observations; late readiness keeps the
 original gate failed. An earlier unreproduced production-budget creation timeout

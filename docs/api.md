@@ -221,6 +221,26 @@ close-ordering guarantee, not a guarantee that a provider never stalls during a
 new creation. A lost create reply must still be inspected/recovered without
 replaying another create or navigation.
 
+The private Windows bridge's `state` is readable during creation. It returns
+`creating:true`, `loading:true`, `automation:false` and
+`creation:{phase,elapsed_ms}`; phases are `environment`, `controller` and
+`interception`. Other page operations remain unavailable until creation ends.
+Completed creation reports `creating:false` and phase `ready`; this does not
+replace page/document loading checks. Elapsed time uses a monotonic clock and
+freezes when creation completes. The shared dispatcher waits on these state
+reads within its original deadline/cancellation/context; it neither creates
+another browser nor navigates again. A replacement after an admitted input
+returns stale-document uncertainty instead of sending more effects.
+
+Native `capabilities.creation_capacity:{limit:16,pending}` describes a separate
+per-window budget for unfinished provider creation work, including cancelled
+views retained by their original callbacks. Cancellation does not release this
+reservation prematurely. A terminal provider callback or original view
+destruction releases it once. Admission refuses further work at capacity before
+allocating a native viewport, claiming a popup or sending navigation. This is
+independent of the eight-live-view limit and is not a general process-memory
+limit. These are private bridge diagnostics, not raw protocol access for models.
+
 ## JavaScript completion helpers
 
 ```javascript

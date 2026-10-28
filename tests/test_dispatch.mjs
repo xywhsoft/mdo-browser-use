@@ -176,6 +176,56 @@ test('a lost focus reply waits for its original response download without anothe
   assert.equal(result.result.outcome,'download_pending');assert.equal(result.result.completed,false);assert.deepEqual(inputs.map(row=>row.kind),['focus']);
 });
 
+test('native creation is awaited with state reads only, then the original browser is observed',async()=>{
+  const commands=[];let reads=0;
+  const result=await executeBrowserAutomation({command:'observe',params:{timeout_ms:350},action:{id:'native-create-wait'},
+    api:{async call(method){assert.equal(method,'ui.result');return{state:'pending'};}},view:{async execute(command){
+      commands.push(command);
+      if(command==='state')return ++reads<3?{creating:true,loading:true,automation:false,creation:{phase:'controller',elapsed_ms:1}}:
+        {creating:false,loading:false,automation:true,navigation:'original'};
+      assert.equal(command,'automation');return{ok:true,value:{ok:true,ready:'complete',text:'Original fixture'}};
+    }}});
+  assert.equal(result.result.ok,true);assert.equal(result.result.text,'Original fixture');assert(reads>=3);
+  assert.equal(commands.filter(command=>command==='automation').length,1);
+  assert(commands.every(command=>command==='state'||command==='automation'));
+});
+
+test('native creation wait honors timeout, lost context, cancellation and manual takeover without page execution',async()=>{
+  for(const mode of ['timeout','context','cancel','manual']){
+    let reads=0,receipts=0,alive=true;
+    const result=await executeBrowserAutomation({command:'observe',params:{timeout_ms:mode==='cancel'?500:70},action:{id:'create-wait-'+mode},alive:()=>alive,
+      api:{async call(){receipts++;return{state:mode==='cancel'&&receipts>1?'cancelled':'pending'};}},view:{async execute(command){
+        assert.equal(command,'state');reads++;if(mode==='context'&&reads===2)alive=false;
+        return{creating:true,loading:true,automation:false,manual:mode==='manual'&&reads>1,creation:{phase:'environment',elapsed_ms:reads}};
+      }}});
+    assert.equal(result.result.error.code,{timeout:'timed_out',context:'context_changed',cancel:'cancelled',manual:'manual_control'}[mode]);
+    assert.equal(result.result.error.effect_may_have_occurred,false);assert(reads>0);
+  }
+});
+
+test('a late ready-state reply cannot cause page execution after the original action deadline',async()=>{
+  let evaluations=0;
+  const result=await executeBrowserAutomation({command:'observe',params:{timeout_ms:15},action:{id:'late-ready-state'},
+    api:{async call(){return{state:'pending'};}},view:{async execute(command){
+      if(command==='state'){await new Promise(resolve=>setTimeout(resolve,30));return{loading:false,automation:true,navigation:'1'};}
+      evaluations++;throw Error('Expired state reply allowed page execution');
+    }}});
+  assert.equal(result.result.error.code,'timed_out');assert.equal(result.result.error.effect_may_have_occurred,false);assert.equal(evaluations,0);
+});
+
+test('native recreation after dispatched input stops instead of waiting or sending another effect',async()=>{
+  let creating=false;const inputs=[];
+  const result=await executeBrowserAutomation({command:'act',params:{op:'fill',document:'d1',target:{name:'Fixture'},text:'synthetic'},
+    action:{id:'recreated-after-focus'},api:{async call(){return{state:'pending'};}},pageDriver:keyboardDriver(),
+    view:{async execute(command,params){
+      if(command==='state')return creating?{creating:true,loading:true,automation:false,creation:{phase:'controller',elapsed_ms:1}}:
+        {loading:false,automation:true,frame_target_keyboard:true,navigation:'1',chooser_capability:true,chooser_upload_capability:true,chooser_armed:true};
+      if(command==='input'){inputs.push(params.kind);creating=true;return{accepted:true,trusted_input:true,target_focused:true};}
+      throw Error('Unexpected page execution');
+    }}});
+  assert.equal(result.result.error.code,'stale_document');assert.equal(result.result.error.effect_may_have_occurred,true);assert.deepEqual(inputs,['focus']);
+});
+
 test("observe waits for readiness and reports bounded timeout", async () => {
   const result = await observe({ loading: true, automation: true });
   assert.equal(result.result.error.code, "timed_out");

@@ -1,5 +1,6 @@
 """Compile the production creation receipt/deferral ownership helpers."""
 from pathlib import Path
+import json
 import subprocess
 import sys
 import unittest
@@ -9,6 +10,74 @@ import dev
 
 
 class NativeCreationTests(unittest.TestCase):
+    def test_reservations_survive_cancellation_bound_late_providers_and_drain_once(self):
+        directory=dev.ENV/'qa/native-creation';directory.mkdir(parents=True,exist_ok=True)
+        source=directory/'lifetime.cpp';binary=directory/'lifetime.exe'
+        prefix=r'''
+#include <memory>
+#include <string>
+#include <functional>
+#include <vector>
+#include <utility>
+#include <type_traits>
+#include <cassert>
+#include <iostream>
+'''
+        state=(dev.ROOT/'host/native-creation-state.inc.hpp').read_text(encoding='utf-8')
+        declarations=r'''
+struct Popup{int completed=0;void complete(){completed++;}};
+struct View{xb_creation_state creation;bool closed=false;std::string creationRequest;std::shared_ptr<Popup> opening;};
+struct Host{std::shared_ptr<xb_creation_budget> budget=std::make_shared<xb_creation_budget>();unsigned replies=0;
+ void reply(const std::string&,const std::string&,const std::string&){replies++;}};
+'''
+        helper=(dev.ROOT/'host/native-creation.inc.hpp').read_text(encoding='utf-8')
+        program=r'''
+int main(){
+ static_assert(!std::is_copy_constructible<xb_creation_state>::value,"Reservation accidentally copyable");
+ static_assert(!std::is_move_constructible<xb_creation_state>::value,"Reservation accidentally movable");
+ auto host=std::make_shared<Host>();std::vector<std::function<void()>> provider;
+ for(unsigned i=0;i<xb_creation_budget::limit;i++){
+   auto view=std::make_shared<View>();assert(view->creation.acquire(host->budget,10));
+   view->creationRequest="original"+std::to_string(i);view->closed=true;view->creation.cancel();xb_creation_cancel(host,view);
+   assert(view->creation.reserved()&&std::string(view->creation.name())=="cancelled");
+   provider.push_back([host,view]{assert(!xb_creation_finish(host,view,100,"","late provider failure"));});
+ }
+ assert(host->replies==16&&host->budget->pending()==16);
+ auto denied=std::make_shared<View>();assert(!denied->creation.acquire(host->budget,11));assert(!denied->creation.reserved());
+ assert(host->budget->pending()==16&&host->replies==16);
+ provider[0]();assert(host->budget->pending()==15);provider[0]();assert(host->budget->pending()==15&&host->replies==16);
+ auto recovery=std::make_shared<View>();assert(recovery->creation.acquire(host->budget,20));assert(!recovery->creation.acquire(host->budget,21));
+ assert(!recovery->creation.advance(xb_creation_state::phase::interception));
+ assert(recovery->creation.advance(xb_creation_state::phase::controller));assert(!recovery->creation.advance(xb_creation_state::phase::controller));
+ assert(recovery->creation.advance(xb_creation_state::phase::interception));
+ assert(recovery->creation.elapsed(19)==0&&recovery->creation.elapsed(25)==5);
+ recovery->creationRequest="recovery";assert(xb_creation_finish(host,recovery,40,"created"));
+ assert(!recovery->creation.reserved()&&host->budget->pending()==15&&host->replies==17);
+ assert(std::string(recovery->creation.name())=="ready"&&recovery->creation.elapsed(400)==20);
+ assert(!recovery->creation.advance(xb_creation_state::phase::controller));
+ assert(!xb_creation_finish(host,recovery,99,"duplicate"));assert(recovery->creation.elapsed(500)==20&&host->budget->pending()==15);
+ provider.clear();assert(host->budget->pending()==0); // Dropped callbacks release their retained original views.
+ {xb_creation_state failed;assert(failed.acquire(host->budget,50));failed.finish(false,false,60);assert(std::string(failed.name())=="failed");}
+ {xb_creation_state unstarted;assert(!unstarted.acquire(nullptr,1));assert(unstarted.elapsed(10)==0&&std::string(unstarted.name())=="none");}
+ assert(host->budget->pending()==0);
+ std::weak_ptr<xb_creation_budget> weak;
+ {auto budget=std::make_shared<xb_creation_budget>();weak=budget;auto original=std::make_shared<View>();
+  assert(original->creation.acquire(budget,1));budget.reset();assert(!weak.expired());original.reset();assert(weak.expired());}
+ {auto original=std::make_shared<View>();assert(original->creation.acquire(host->budget,1));original->creation.cancel();original->creation.finish(false,true,2);
+  assert(std::string(original->creation.name())=="cancelled"&&!original->creation.reserved());}
+ assert(host->budget->pending()==0);
+ std::cout<<"{\"creating\":false"<<xb_creation_json(recovery->creation,999)<<"}";
+ return 0;
+}
+'''
+        source.write_text(prefix+state+declarations+helper+program,encoding='utf-8',newline='\n')
+        build=subprocess.run(['E:/software/w64devkit/bin/g++.exe','-std=c++17','-O1','-Wall','-Wextra','-Werror',str(source),'-o',str(binary)],
+            cwd=dev.ROOT,capture_output=True,text=True,timeout=45)
+        self.assertEqual(build.returncode,0,build.stderr[-2400:])
+        run=subprocess.run([str(binary)],cwd=dev.ROOT,capture_output=True,text=True,timeout=10)
+        self.assertEqual(run.returncode,0,run.stderr[-1000:])
+        self.assertEqual(json.loads(run.stdout),{'creating':False,'creation':{'phase':'ready','elapsed_ms':20}})
+
     def test_close_settles_original_once_without_waiting_for_provider(self):
         directory=dev.ENV/'qa/native-creation';directory.mkdir(parents=True,exist_ok=True)
         source=directory/'receipt.cpp';binary=directory/'receipt.exe'

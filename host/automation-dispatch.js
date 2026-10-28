@@ -72,15 +72,25 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return result.value;
   };
   const guard = async (force = false) => {
-    if (!alive()) return fail("context_changed", "The displaying device or window changed");
-    if (performance.now() >= deadline) return fail("timed_out", "The browser action deadline expired");
-    if (force || performance.now() - lastReceipt > 200) {
-      const receipt = await api.call("ui.result", { id: action.id });
-      lastReceipt = performance.now();
-      if (receipt.state === "cancelled") return fail("cancelled", "The originating browser call was cancelled");
+    let state;
+    for (;;) {
+      if (!alive()) return fail("context_changed", "The displaying device or window changed");
+      if (performance.now() >= deadline) return fail("timed_out", "The browser action deadline expired");
+      if (force || performance.now() - lastReceipt > 200) {
+        const receipt = await api.call("ui.result", { id: action.id });
+        lastReceipt = performance.now();
+        if (receipt.state === "cancelled") return fail("cancelled", "The originating browser call was cancelled");
+      }
+      const snapshot = await view.execute("state");
+      if (!alive()) return fail("context_changed", "The displaying device or window changed");
+      if (performance.now() >= deadline) return fail("timed_out", "The browser action deadline expired");
+      state = { ...snapshot, loading: snapshot.initial_navigation_pending && typeof snapshot.loading === "boolean" ? true : snapshot.loading };
+      if(state.creating!==true)break;
+      if(state.error||state.process_failed)return fail('browser_unavailable',state.error||'The browser process stopped during creation');
+      if(state.manual)return fail('manual_control','The user currently controls the browser');
+      if(dispatched||navigation!==undefined)return fail('stale_document','The native browser was replaced; inspect its new document before further work');
+      await pause(Math.min(20,Math.max(0,deadline-performance.now())));force=false;
     }
-    const snapshot = await view.execute("state");
-    const state = { ...snapshot, loading: snapshot.initial_navigation_pending && typeof snapshot.loading === "boolean" ? true : snapshot.loading };
     if(command==='upload'&&params.action==='status')return{state};
     if(command==='download'||command==='save_download'){
       if(state.manual&&writing)return fail('manual_control','The user currently controls the browser');
