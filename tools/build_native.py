@@ -197,6 +197,21 @@ def main():
     for before,after in frame_hooks:
         if base.count(before)!=1:raise RuntimeError('Native frame hook no longer unique: '+before)
         base=base.replace(before,after,1)
+    creation_hooks=[
+        ('struct xb_view{','struct xb_view{\n  std::string creationRequest;'),
+        ('host->views[browser]=view;','host->views[browser]=view;view->creationRequest=id;'),
+        ('if(command=="close"){if(found!=host->views.end()){found->second->closed=true;',
+         'if(command=="close"){if(found!=host->views.end()){found->second->closed=true;xb_creation_cancel(host,found->second);'),
+        ('static void xb_receive(', (dev.ROOT/'host/native-creation.inc.hpp').read_text(encoding='utf-8')+'\nstatic void xb_receive('),
+    ]
+    for before,after in creation_hooks:
+        if base.count(before)!=1:raise RuntimeError('Native creation hook no longer unique: '+before)
+        base=base.replace(before,after,1)
+    creation_start=base.index('    auto* environment=xb_cb<')
+    creation_end=base.index('\n  if(command=="close")',creation_start)
+    creation_body=base[creation_start:creation_end]
+    if creation_body.count('host->reply(id,')!=11:raise RuntimeError('Native terminal creation reply sites changed')
+    base=base[:creation_start]+creation_body.replace('host->reply(id,','xb_creation_settle(host,view,')+base[creation_end:]
     target = NATIVE / "src/webview/xs_browser.inc.hpp"
     record_path = dev.ENV / "native-overlay.json"
     record = json.loads(record_path.read_text(encoding="utf-8")) if record_path.exists() else {}

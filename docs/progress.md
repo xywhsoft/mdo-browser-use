@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: E5 pins Android main-document connections and
+Latest verified milestones: W9 settles cancelled Windows creations before close
+acknowledgement and releases their popup deferrals; E5 pins Android main-document connections and
 asynchronous replies; E4 integrates owned-view/input lifecycle and compiles
 the actual Android Activity hooks; E3 adds the bounded Android native input foundation
 and compiles its device gate (framework verification unavailable);
@@ -2744,3 +2745,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   headless deployment is healthy after the checks. Full Android integration,
   original Windows creation diagnosis, final lifecycle/OOM/network/performance
   gates and package delivery remain active; this is not a release.
+
+## W9 — settle cancelled native creations without waiting for the provider
+
+- W8's retained actual receipt shows all eight closed creations still waiting
+  for WebView2's later callbacks. Preserve it as
+  `.mdo/native-creation-before-cancel-fix.json`. The native close handler only
+  marked the view closed; the original request identity remained in callbacks.
+- Give creation its own once-only original reply identity. Every terminal
+  environment/controller/interception/adoption result consumes that identity
+  before posting its reply. Close marks the original view closed and settles
+  cancellation before its own acknowledgement, without waiting for the provider.
+  Late callbacks cannot reply twice or use a replacement's identity. A creating
+  popup's original deferral is completed immediately, including if posting the
+  cancellation itself fails. No creation/navigation is retried.
+- Compile and execute the actual production helper with reentrant/duplicate/
+  late-success/late-error replies, replacement ownership, terminal failure and
+  lost acknowledgement fault seams. Rebuild the same pinned native host using
+  its single object variant; binary/source hashes match the build receipt.
+- The actual same-profile gate passes eight close/recreate cases, all with
+  `old_settled_at_close:true`; replacement readiness is 303–473 ms. A creating
+  popup's request settles at close and its opener is unblocked. Nine unique
+  native cancellation receipts are observed. The deliberate one-millisecond
+  lost-reply case remains a separate diagnostic: the same identity becomes ready
+  after 513 ms with no create/navigation replay.
+- The complete actual native gate passes 1,383 assertions, all prior feature
+  flags still present, no new native diagnostics, protected upload/download
+  caches empty, and late empty download-directory reclamation in 203 ms.
+  Preserve its structured receipt separately as
+  `.mdo/native-creation-cancel-full-result.json`. The prior 20-second creation
+  timeout remains unreproduced/unclassified and is not claimed fixed by this
+  separate confirmed cancellation repair.
+- Reviewed overlays/shared contracts match; the same headless service is
+  restored and healthy. Android integration, outstanding native lifecycle/
+  OOM/network/performance checks and final deliverable remain active.

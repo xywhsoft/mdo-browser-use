@@ -88,6 +88,10 @@ that exceeded the default readiness bound into a passing measurement.
 native profile, and deliberately loses one creation reply with a one-millisecond
 test deadline. It observes the same native identity until ready, without another
 create or navigation. This synthetic deadline is not the production timeout.
+Closing a creating native view now settles its original request before the close
+acknowledgement, without waiting for a provider callback; late callbacks cannot
+reply twice. The gate also closes a creating popup and verifies immediate opener
+deferral release, with nine distinct cancellation replies in the real host.
 The receipt is `.mdo/native-creation-result.json`. The full native gate also
 retains read-only post-timeout creation observations; late readiness keeps the
 original gate failed. An earlier unreproduced production-budget creation timeout

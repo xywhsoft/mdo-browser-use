@@ -212,6 +212,15 @@ Tabs belong to the caller's extension/device/project/session. Discover clients
 with `tabs(action="clients")`, then explicitly select one. The SDK does not
 guess a window or substitute another device's localhost with this device.
 
+On Windows, closing an in-flight native creation settles that original create
+with cancellation before acknowledging close. It does not wait for WebView2's
+environment/controller callback. Closing a creating popup also releases its
+original new-window deferral. Late provider callbacks cannot reply to the old
+request twice or consume a replacement view's reply identity. This is a native
+close-ordering guarantee, not a guarantee that a provider never stalls during a
+new creation. A lost create reply must still be inspected/recovered without
+replaying another create or navigation.
+
 ## JavaScript completion helpers
 
 ```javascript
