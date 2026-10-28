@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E27 implements guarded main-document Android native
+Latest verified milestones: F11 refreshes the packed shared hover path and
+passes all eight actual Windows program checks. E27 implements guarded main-document Android native
 hover through the shared dispatcher, with 82 hover/255 JS checks and actual SDK
 compilation; framework qualification stays unavailable. E26 settles post-admission Android input OOM and
 retains cleanup uncertainty without replay, passing 413 native/lifecycle checks
@@ -3892,3 +3893,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   has no authorized device; actual hover/framework verification remains false.
   Keep the installed provider and disabled Android automation. Refresh the packed
   shared dispatcher in F11; remaining full-goal work stays active.
+
+## F11 — pack the shared hover capability path and verify the Windows artifact
+
+- Refresh the existing Windows executable from the reviewed single deployment:
+  6,876,426 bytes, SHA-256
+  `6ede1c5194bcba3a6e1bceacf32220ce9a039bdbd3b3b6d6eb99af412eb59c6d`.
+  All 747 native inventory entries verify. Packed dispatcher, document driver
+  and panel-manager hashes match applied source; artifact/runtime receipts verify.
+- Pass all eight checks in the actual self-contained Windows program, started
+  directly after packaging in the same Home: archive/UI readiness, C/JS/native
+  observation, Unicode input/trusted click, capture, reset error, recovery
+  navigation and close. Logs: `.mdo/F11-program-package.log` and
+  `.mdo/F11-program-runtime.log`. This checks Windows delivery and does not
+  qualify Android native hover or its unverified framework route.
+- Restore healthy headless operation, matching shared contracts/overlays and the
+  same Home. No `dist/mdo-home`, app copy or browser download is added. The portable
+  plugin remains unchanged; the tiny Android QA APK is E27, with current device
+  verification unavailable and overall automation disabled. Preserve the current
+  provider. Remaining full-goal/platform qualification continues; no online
+  publication or completion is claimed.
