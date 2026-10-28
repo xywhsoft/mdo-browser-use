@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F9 refreshes the packed Windows program with E24's
+Latest verified milestones: F10 passes the complete sequential Python/JS
+regression and four actual hidden/visible WebView2 startup samples. F9 refreshes the packed Windows program with E24's
 shared cleanup guard and passes all eight actual runtime checks. E25 closes
 the Android native callback allocation boundary before controller ownership,
 passing 95 core/68 target checks and compiling the actual SDK Activity. E24 fixes retained Android dialogs on allocation
@@ -3800,3 +3801,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   E25 with framework qualification unavailable and overall automation disabled;
   keep the installed provider. Remaining full-goal work continues, with no
   production publication or completion claim.
+
+## F10 — complete sequential regression and native startup samples
+
+- Run the entire current Python suite against this same deployment: 132 cases,
+  130 passed and two skipped because Windows does not grant symlink creation
+  (error 1314). The unavailable source/upload symlink cases remain unverified;
+  they are not passing checks. Log: `.mdo/F10-python-regression.log`.
+- All 251 JavaScript checks pass, strictly sequentially, including shared
+  dispatch/admission, document/input fences, native failure projections, frames,
+  downloads, capture privacy and visual identity.
+  Log: `.mdo/F10-js-regression.log`.
+- Re-run the existing real WebView2 startup gate against local fixtures, in the
+  reused native profile. Hidden/visible/hidden/visible samples are 683/217/204/224
+  ms, with no post-deadline show recovery, errors or new diagnostics. All satisfy
+  the original 10-second readiness bound. These four sequential samples do not
+  prove cold-profile or production-load latency, and do not erase the historical
+  unreproduced slow-start evidence. Log: `.mdo/F10-native-startup.log`.
+- Shared contracts match and the same healthy headless service is restored.
+  Windows F9/Android E25 artifacts stay unchanged. Android framework qualification
+  remains unavailable, with its current provider and disabled automation
+  preserved. The broader native fault/performance/platform work is still active;
+  no production publication or completion is claimed.
