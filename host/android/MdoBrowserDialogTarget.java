@@ -31,13 +31,23 @@ final class MdoBrowserDialogTarget extends WebChromeClient implements AutoClosea
     private boolean receive(WebView source,String kind,String url,String message,String initial,JsResult result){
         if(source!=view)return false;
         if(result==null)return true;
-        final long epoch=navigation.getAsLong();
-        dialogs.open(result,(accept,text)->{
-            if(!accept)result.cancel();
-            else if(result instanceof JsPromptResult)((JsPromptResult)result).confirm(text);
-            else result.confirm();
-            if(!accept&&"beforeunload".equals(kind))beforeUnloadCancelled.accept(epoch);
-        },kind,url,message,initial);
+        try{
+            final long epoch=navigation.getAsLong();
+            dialogs.open(result,(accept,text)->{
+                if(!accept)result.cancel();
+                else if(result instanceof JsPromptResult)((JsPromptResult)result).confirm(text);
+                else result.confirm();
+                if(!accept&&"beforeunload".equals(kind))beforeUnloadCancelled.accept(epoch);
+            },kind,url,message,initial);
+        }catch(OutOfMemoryError error){
+            // Reading metadata or creating the response closure can fail before
+            // the controller owns this result. Claim it without another closure,
+            // reject once, and require teardown when its epoch was not proven.
+            if(dialogs.rejectOnce(result)){
+                dialogs.rejectionFailed();
+                try{result.cancel();}catch(RuntimeException|OutOfMemoryError ignored){dialogs.rejectionFailed();}
+            }
+        }
         return true;
     }
     @Override public boolean onJsAlert(WebView view,String url,String message,JsResult result){return receive(view,"alert",url,message,null,result);}

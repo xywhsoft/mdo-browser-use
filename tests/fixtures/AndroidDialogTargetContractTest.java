@@ -17,8 +17,9 @@ public final class AndroidDialogTargetContractTest {
     static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     static final class Fixture {
         final WebView view=new WebView();final AtomicBoolean owned=new AtomicBoolean(true);final AtomicLong epoch=new AtomicLong(7);
+        boolean epochOom;
         final List<Boolean> blockers=new ArrayList<>();final List<Long> cancelled=new ArrayList<>();
-        final MdoBrowserDialogTarget target=new MdoBrowserDialogTarget(view,owned::get,epoch::get,blockers::add,cancelled::add);
+        final MdoBrowserDialogTarget target=new MdoBrowserDialogTarget(view,owned::get,()->{if(epochOom)throw new OutOfMemoryError("Synthetic callback allocation failure");return epoch.get();},blockers::add,cancelled::add);
         Fixture(){Handler.reset();SystemClock.time=100;}
         String id(){return target.dialogs.snapshot().id;}
     }
@@ -87,6 +88,40 @@ public final class AndroidDialogTargetContractTest {
         destroyedDuringCancel.callback=()->{rejected.target.close();rejected.target.viewDestroyed();};
         rejected.target.onJsAlert(rejected.view,"url","retired result",destroyedDuringCancel);
         check(destroyedDuringCancel.cancels==1&&rejected.target.dialogs.clean(),"Rejected native result poisoned exact reentrant teardown");
+        for(String kind:new String[]{"alert","confirm","prompt","beforeunload"}){
+            Fixture allocation=new Fixture();allocation.epochOom=true;JsPromptResult noMetadata=new JsPromptResult();boolean escaped=false;
+            try{
+                switch(kind){
+                    case "alert":allocation.target.onJsAlert(allocation.view,"url","memory",noMetadata);break;
+                    case "confirm":allocation.target.onJsConfirm(allocation.view,"url","memory",noMetadata);break;
+                    case "prompt":allocation.target.onJsPrompt(allocation.view,"url","memory","default",noMetadata);break;
+                    default:allocation.target.onJsBeforeUnload(allocation.view,"url","memory",noMetadata);break;
+                }
+            }catch(OutOfMemoryError error){escaped=true;}
+            check(!escaped&&noMetadata.cancels==1&&noMetadata.confirms==0,"Native callback allocation OOM escaped before result ownership");
+            check(allocation.target.dialogs.snapshot()==null&&!allocation.target.dialogs.clean(),"Unproven callback metadata admitted new work");
+            check(allocation.cancelled.isEmpty(),"Missing callback epoch borrowed a navigation cancellation identity");
+            allocation.target.onJsConfirm(allocation.view,"url","duplicate after memory failure",noMetadata);
+            check(noMetadata.cancels==1&&noMetadata.confirms==0,"Allocation fallback replayed an already rejected native result");
+            allocation.target.close();allocation.target.viewDestroyed();check(allocation.target.dialogs.clean(),"Native allocation failure retained state after exact teardown");
+        }
+        Fixture duplicateOom=new Fixture();JsResult original=new JsResult();
+        duplicateOom.target.onJsConfirm(duplicateOom.view,"url","original",original);String originalId=duplicateOom.id();duplicateOom.epochOom=true;
+        duplicateOom.target.onJsConfirm(duplicateOom.view,"url","duplicate during allocation failure",original);
+        check(original.cancels==0&&original.confirms==0&&duplicateOom.target.dialogs.clean(),"Allocation fallback cancelled an already owned native result");
+        duplicateOom.epochOom=false;
+        check(duplicateOom.target.dialogs.respond(originalId,true,false,null).ok&&original.confirms==1,"Original native result was lost after duplicate allocation failure");
+        duplicateOom.target.close();duplicateOom.target.viewDestroyed();
+        Fixture reentrantOom=new Fixture();reentrantOom.epochOom=true;JsResult reentrantResult=new JsResult();reentrantResult.oom=true;
+        reentrantResult.callback=()->{reentrantOom.target.close();reentrantOom.target.viewDestroyed();};
+        reentrantOom.target.onJsAlert(reentrantOom.view,"url","destroy during fallback",reentrantResult);
+        check(reentrantResult.cancels==1&&reentrantOom.target.dialogs.clean(),"Native fallback repoisoned exact reentrant teardown");
+        Fixture lowMemory=new Fixture();lowMemory.epochOom=true;JsResult cancelOom=new JsResult();cancelOom.oom=true;
+        lowMemory.target.onJsConfirm(lowMemory.view,"url","memory",cancelOom);lowMemory.target.dialogs.cancel();lowMemory.target.close();
+        check(cancelOom.cancels==1&&cancelOom.confirms==0&&!lowMemory.target.dialogs.clean(),"OOM during admission rejection replayed native result");
+        lowMemory.target.viewDestroyed();JsResult lateMemory=new JsResult();lateMemory.oom=true;
+        lowMemory.target.onJsConfirm(lowMemory.view,"url","late",lateMemory);
+        check(lateMemory.cancels==0&&lowMemory.target.dialogs.clean(),"OOM in a destroyed-view callback touched retired native state");
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"framework_verified\":false}");
     }
 }

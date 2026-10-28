@@ -71,9 +71,14 @@ final class MdoBrowserDialogs implements AutoCloseable {
         try{listener.blocked(false);}catch(RuntimeException|OutOfMemoryError error){failed=true;}
     }
     private Result refusal(String code){return new Result(false,code,false,clean());}
+    boolean rejectOnce(Object token){
+        thread();if(token==null||destroyed||seen(token))return false;
+        remember(token);return true;
+    }
+    void rejectionFailed(){thread();if(!destroyed)failed=true;}
     private void reject(Object token,Response response){
-        if(token==null||response==null||seen(token))return;
-        remember(token);try{response.send(false,null);}catch(RuntimeException|OutOfMemoryError error){if(!destroyed)failed=true;}
+        if(response==null||!rejectOnce(token))return;
+        try{response.send(false,null);}catch(RuntimeException|OutOfMemoryError error){rejectionFailed();}
     }
     boolean open(Object token,Response response,String kind,String url,String message,String initial){
         thread();if(token==null||response==null)throw new IllegalArgumentException("Missing native dialog result");

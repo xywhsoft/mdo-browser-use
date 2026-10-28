@@ -797,3 +797,23 @@ Logs: `.mdo/E24-dialog-contract-final.log`, `.mdo/E24-js-full.log` and
 `.mdo/E24-android-build.log`. The device gate is still unavailable with all flags
 false in `.mdo/E24-device-dialog.log`. Keep the current provider and disabled
 global Android automation admission; remaining qualification stays pending.
+
+## Callback admission before response allocation (E25)
+
+The actual WebChromeClient target can fail while reading its original navigation
+or allocating the response closure, before the controller owns the result. The
+deterministic gate reproduced that escaped OOM in
+`.mdo/E25-native-admission-before.log`. The fallback now claims the original result
+through the allocation-free tombstone and directly cancels once. It cannot borrow
+a replacement epoch, replay a settled/active native result or touch an exactly
+destroyed view. An unproven admission requires exact teardown before new work;
+reentrant teardown remains acknowledged even when native cancellation throws.
+
+All 95 core and 68 actual-target callback checks pass in
+`.mdo/E25-native-admission-after.log`. Actual SDK Activity/hooks compile separately;
+the reused QA APK is 188,819 bytes, SHA-256
+`2a13a71d8e181e81c69de60c70beaf018f921f3851900ee6607c87b080aea039`.
+See `.mdo/E25-android-build.log`. These are fault-injection/compile checks; the
+current device gate is unavailable with every verification flag false in
+`.mdo/E25-device-dialog.log`. Keep the current provider and disabled overall
+Android automation; actual framework and full host-UI qualification remain open.

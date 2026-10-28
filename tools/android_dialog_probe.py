@@ -24,9 +24,9 @@ public final class Handler {
     'android/webkit/WebView.java':'package android.webkit; public final class WebView {}',
     'android/webkit/JsResult.java':'''package android.webkit;
 public class JsResult {
- public int confirms,cancels;public boolean fail;public Runnable callback;
+ public int confirms,cancels;public boolean fail,oom;public Runnable callback;
  public final void confirm(){confirms++;done();}public final void cancel(){cancels++;done();}
- private void done(){if(callback!=null)callback.run();if(fail)throw new IllegalStateException("Synthetic native acknowledgement loss");}
+ private void done(){if(callback!=null)callback.run();if(oom)throw new OutOfMemoryError("Synthetic native allocation failure");if(fail)throw new IllegalStateException("Synthetic native acknowledgement loss");}
 }''',
     'android/webkit/JsPromptResult.java':'''package android.webkit;
 public class JsPromptResult extends JsResult {public String text;public void confirm(String value){text=value;confirm();}}''',

@@ -3750,3 +3750,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   automation admission. Contracts/overlays match and the same headless service
   is healthy. Refresh the packed shared-host fix before delivery. Full-goal work
   continues without production publication or an additional app/Home.
+
+## E25 — retain native callback ownership before metadata allocation
+
+- Reproduce allocation failure escaping the actual WebChromeClient target before
+  its controller receives the native result. The early navigation read/response
+  closure boundary was outside the controller's OOM handling. Preserve
+  `.mdo/E25-native-admission-before.log`.
+- Claim the original result through the controller's allocation-free tombstone
+  before direct cancellation. Do not allocate another response closure, borrow
+  an unproven navigation epoch, replay an owned/settled result or touch a destroyed
+  provider. Unproven admission fails closed until exact view teardown; reentrant
+  teardown cannot be poisoned by the later native exception.
+- All 95 controller and 68 actual-target callback checks pass, including all four
+  dialog kinds, native cancel OOM, duplicate active/settled callbacks and reentrant
+  exact teardown. Log: `.mdo/E25-native-admission-after.log`. These injected JVM
+  callback faults are not whole-process OOM or Android framework qualification.
+- Compile the actual SDK Activity/hooks and reused tiny QA client. APK: 188,819
+  bytes, SHA-256
+  `2a13a71d8e181e81c69de60c70beaf018f921f3851900ee6607c87b080aea039`;
+  source SHA-256
+  `6e80cd1d33c25dbee5d846f76781efc642628d68b79b5359a82825912e0b31f2`.
+  Logs: `.mdo/E25-android-build.log` and `.mdo/E25-device-dialog.log`. No current
+  authorized ADB device is available, so every device-verification flag remains
+  false. Preserve the current WebView and disabled global Android automation.
+- Shared contracts and applied overlays match; restore the same healthy headless
+  deployment. Windows packaging still needs the E24 shared guard refresh, and
+  remaining full-goal/platform qualification continues without publication.
