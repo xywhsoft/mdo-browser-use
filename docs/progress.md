@@ -2934,3 +2934,11 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Preserve the initial F2 inventory receipt privately before replacing the binary.
 - Android native integration and remaining final adversarial/OOM/network/
   performance qualification continue. No production release is published.
+- Full post-repair regression: Python 132 total/130 pass/two existing Windows
+  symlink-privilege skips in 51.341 s; JavaScript 194/194 pass in 9.173 s, run
+  sequentially. Preserve `.mdo/F3-python-full.log` and `.mdo/F3-js-full.log`.
+  Afterwards the real service is HTTP 200, the ordinary 22-file plugin is enabled
+  with no pending selection/recovery journal, all packaging inputs are restored,
+  and the updated executable still matches its runtime-qualified SHA-256. No
+  additional `dist/mdo-home` was created. This does not qualify the unfinished
+  Android/native OOM/network/performance scope as complete.
