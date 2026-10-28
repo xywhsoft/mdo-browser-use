@@ -779,6 +779,12 @@
       "before": "    add('files.digest'",
       "after_file": "host/files-tree-contract.inc.py",
       "suffix": "    add('files.digest'"
+    },
+    {
+      "path": "app/src/api/ecosystem_install.inc.c",
+      "before": "static bool EcoLocalCurrent(cstr path,xvalue* change,const xvalue* owned,char error[1024])\n{\n    if(!EcoLocalAllowed(path))return false;\n    xvalue* Plugin=ExtensionPluginOwner(path);if(Plugin){snprintf(error,1024,\"Resource is owned by plugin %s; change that plugin first\",MdoPackageText(Plugin,\"id\",64));xrtValueRelease(Plugin);return false;}\n    if(!strcmp(path,\"config/plugins.json\"))return xrtValueObjectHas(change,XRT_STR_LITERAL(\"old\"));\n    bool exists=false;xfileinfo info;if(!MdoHomeExternalStat(path,&exists,&info))return false;\n    if(!exists){if(owned){snprintf(error,1024,\"Installed file is missing: %s\",path);return false;}\n        xfile builtin=MdoResourceOpenRead(path);if(builtin){xrtClose(builtin);snprintf(error,1024,\"Built-in resource cannot be replaced: %s\",path);return false;}\n        xrtClearError();return xrtValueObjectSetNew(change,XRT_STR_LITERAL(\"old\"),xrtValueNull());}\n    if(!owned&&!strncmp(path,\"data/ecosystem/mcp/\",19)){bool missing=false;char* raw=MdoExtensionRead(path,true,131072,&missing);char hash[65];bool same=raw&&MdoExtensionHash(raw,hash)&&!strcmp(hash,MdoPackageText(change,\"sha256\",64));\n        char* encoded=same?xrtBase64EncodeNew(raw,strlen(raw),NULL):NULL;bool reused=encoded&&MdoApiValueSetString(change,\"old\",encoded);xrtFree(encoded);xrtFree(raw);if(reused)return true;}\n    if(!owned||info.Type!=XFILE_TYPE_FILE||!(info.Available&XFILE_INFO_SIZE)||info.Size>64u*1024u*1024u){snprintf(error,1024,\"Resource already exists: %s\",path);return false;}\n    xfile f=MdoHomeOpenRead(path);size_t n=(size_t)info.Size;bytes b=xrtMalloc(n+1);char hash[65];bool ok=f&&b&&xrtReadFull(f,b,n,NULL)&&MdoExtensionHashBytes(b,n,hash)&&!strcmp(hash,MdoPackageText(owned,\"sha256\",64));if(f)xrtClose(f);\n    if(!ok)snprintf(error,1024,\"Resource was edited locally: %s. Keep it or export/remove it before updating.\",path);\n    char* encoded=ok?xrtBase64EncodeNew(b,n,NULL):NULL;ok=encoded&&MdoApiValueSetString(change,\"old\",encoded);xrtFree(encoded);xrtFree(b);return ok;\n}\n",
+      "after_file": "host/ecosystem-current.inc.c",
+      "suffix": "\n"
     }
   ],
   "files": [

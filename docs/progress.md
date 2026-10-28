@@ -11,9 +11,12 @@ development stream and the single deployment inside this project.
 | C | Waiting, action identity, ownership, cancellation and recovery | In progress |
 | D | Frames, tabs, dialogs, upload/download and visible UI | In progress |
 | E | Android implementation and explicit platform limits | In progress |
-| F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
+| F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: W10 bounds unfinished native creations and adds
+Latest verified milestones: F3 repairs retained-generation reinstallation and
+verifies package uninstall/startup recovery; F2 delivers the enhanced Windows
+preview with actual packed-program native checks; F1 verifies the portable
+plugin and native ecosystem installation. W10 bounds unfinished native creations and adds
 observable, cancellable readiness waiting; W9 settles cancelled Windows creations before close
 acknowledgement and releases their popup deferrals; E5 pins Android main-document connections and
 asynchronous replies; E4 integrates owned-view/input lifecycle and compiles
@@ -2897,3 +2900,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   No production store/website/updater publication occurs. Android, uninstall/
   recovery and outstanding final lifecycle/OOM/network/performance work remain
   active; the full goal is not marked complete.
+
+## F3 — repair same-version reinstall and verify package lifecycle/recovery
+
+- The real local lifecycle gate reproduced a host defect: uninstall deliberately
+  retains immutable plugin revisions for live code/UI and rollback, but removes
+  their installation receipt. Reimporting the same portable package then failed
+  with `Resource already exists` on the retained LICENSE before activation.
+  Preserve `.mdo/package-lifecycle-first-failure.json` and its log. Browser data
+  and immutable files remained intact; the failed gate cleaned up its own tab.
+- Represent the confirmed host repair in `host/ecosystem-current.inc.c` and the
+  reviewed overlay manifest. After the existing destination/owner checks, a
+  plugin revision without a receipt can reuse only bytes whose full SHA-256
+  matches the incoming immutable file. Retain those exact original bytes in the
+  rollback journal. The reader is binary-safe and bounded to 64 MiB. Ordinary
+  unowned paths still conflict; the existing MCP-specific behavior is retained.
+- The actual same-Home gate passes ten checks: native uninstall requests restart
+  and retains immutable files, C services disappear after restart, the existing
+  browser record survives, same-version reimport works, a second generation
+  with 16,640 bytes of embedded NUL/non-UTF-8 binary data also reinstalls, and
+  a changed retained binary is rejected without overwriting it. Restore the
+  ordinary 22-file portable plugin and clean up the fixture tab.
+- A journaled synthetic partial payload/receipt transaction is recovered by the
+  actual startup loader before plugin initialization. Original file bytes and
+  all original receipt records return, the pending journal is removed, and a
+  second startup leaves them unchanged. This is a deliberate documented crash
+  seam, not a timeout interpreted as a crash. No extra Home/app copy is used.
+- Four packaging integrity tests and 12 actual C-plugin regressions pass. Repack
+  the enhanced Windows preview with the fix: 6,870,079 bytes, SHA-256
+  `d02380ac414660c3cd7aedac2f81917b871a081eac1509c848f7a32c08689a13`.
+  Its six actual packed-program C/JS/native checks pass again, all 13 temporarily
+  excluded inputs restore, and the original headless service is healthy.
+  Preserve the initial F2 inventory receipt privately before replacing the binary.
+- Android native integration and remaining final adversarial/OOM/network/
+  performance qualification continue. No production release is published.

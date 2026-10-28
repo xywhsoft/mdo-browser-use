@@ -55,3 +55,12 @@ headless service. It does not send a model request or test external websites.
 The executable receipt records inventory verification separately from runtime
 verification; a newly built artifact is not marked runtime-verified until that
 gate passes. Private build/runtime/recovery receipts remain under `.mdo/`.
+
+`python tools/package_lifecycle_probe.py` additionally verifies native-plugin
+uninstall/restart/reinstall and interrupted import recovery in the same Home.
+Uninstall retains immutable plugin generations for existing code/UI and drops
+the installation receipt. Reinstall reuses retained bytes only when their full
+SHA-256 matches; an edited file remains a conflict. The gate includes embedded
+NUL/non-UTF-8 binary data, a changed retained file, preservation of an existing
+browser record, removal of C services after restart, and recovery of a deliberately
+incomplete payload/receipt transaction. It restores the ordinary 22-file plugin.

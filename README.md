@@ -89,6 +89,8 @@ The matching enhanced Windows development executable is produced by
 `python tools/program_probe.py` starts that artifact, exercises the real
 C → JS → native browser path and restores the headless service, using the same
 Home. See [program packaging and recovery](docs/program.md).
+`python tools/package_lifecycle_probe.py` verifies uninstall/reinstall,
+retained-generation conflicts and actual startup recovery in that same Home.
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
 window with local fixtures, and restores headless mode afterwards. No live model
