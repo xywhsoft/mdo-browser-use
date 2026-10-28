@@ -3913,3 +3913,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   verification unavailable and overall automation disabled. Preserve the current
   provider. Remaining full-goal/platform qualification continues; no online
   publication or completion is claimed.
+
+## Follow-up verification boundaries after F11
+
+- Attempt the ordinary desktop-window visual check with the bundled Computer
+  Use workflow. Both available JavaScript UI runtimes fail before initialization
+  with `failed to write kernel assets` / Windows path-not-found error 3. No target
+  window is selected and no UI input is sent. Actual main-window desktop pixels
+  remain unverified; passing native page captures and the packed-program gate
+  do not replace this check. The unchanged failure is a tool availability limit,
+  not evidence of a new mdo rendering defect.
+- Inspect the default-workspace save boundary before adding another API. The
+  pinned host already has `files.resolve(path:".",prepare_default:true)`, narrowed
+  to the canonical default project root under a project lease; normal default
+  session creation also prepares that directory. Manual download-save currently
+  requires an existing physical root and has no preparation flow. A future
+  integration must preserve existing root identity pins, refuse arbitrary/custom
+  path reconstruction and retain response bytes on uncertainty. No directory
+  was moved or created during this inspection, and no fix or passing end-to-end
+  missing-directory gate is claimed.
