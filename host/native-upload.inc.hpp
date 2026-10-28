@@ -241,11 +241,16 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     xb_upload_guard guard(store->root);if(guard.handle==INVALID_HANDLE_VALUE){fail("Another browser is updating its transfer cache; retry admission after checking its receipt");return;}
     if(!xb_upload_stale(store->root)){fail("Private browser transfer cache has uncollected entries; inspect them before another admission");return;}
     job->ticket="u-"+webview::detail::narrow_string(std::wstring(identifier+1,36));job->directory=store->root+L"\\"+webview::detail::widen_string(job->ticket);
-    if(!CreateDirectoryW(job->directory.c_str(),nullptr)){fail("Cannot reserve a private upload directory");return;}job->directoryOwned=true;
-    job->lease=CreateFileW((job->directory+L"\\.lease").c_str(),GENERIC_READ|GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN,nullptr);
-    if(job->lease==INVALID_HANDLE_VALUE){fail("Cannot lock the private upload reservation");return;}job->leaseOwned=true;
+    // Publish ownership and a collector before the first filesystem effect.
+    // Admission holds .guard: nested immediate cleanup cannot acquire it, so
+    // every partial/error/exception path also needs the later timer tick.
+    xb_upload_stores[host->window]=store;
+    if(!SetTimer(host->window,xb_upload_timer,250,xb_upload_tick)){fail("Cannot retain the upload expiry lease");return;}
     store->jobs[job->ticket]=job;
     auto reject=[&](const char* error){job->closing=true;store->collect();fail(error);};
+    if(!CreateDirectoryW(job->directory.c_str(),nullptr)){reject("Cannot reserve a private upload directory");return;}job->directoryOwned=true;
+    job->lease=CreateFileW((job->directory+L"\\.lease").c_str(),GENERIC_READ|GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN,nullptr);
+    if(job->lease==INVALID_HANDLE_VALUE){reject("Cannot lock the private upload reservation");return;}job->leaseOwned=true;
     std::string inventory="{\"format\":\"mdo.browser-upload.v1\",\"files\":[";
     for(const auto& file:job->files){if(inventory.back()!='[')inventory+=",";inventory+="{\"name\":"+xb_quote(file->name)+",\"size\":"+std::to_string(file->size)+",\"sha256\":"+xb_quote(file->sha)+"}";}inventory+="]}";
     DWORD written=0;if(!WriteFile(job->lease,inventory.data(),static_cast<DWORD>(inventory.size()),&written,nullptr)||written!=inventory.size()){reject("Cannot retain the private upload cleanup inventory");return;}
@@ -254,8 +259,6 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
       file->handle=CreateFileW(file->path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
       if(file->handle==INVALID_HANDLE_VALUE||GetFileType(file->handle)!=FILE_TYPE_DISK){reject("Cannot create a regular private upload file");return;}file->pathOwned=true;
     }
-    xb_upload_stores[host->window]=store;
-    if(!SetTimer(host->window,xb_upload_timer,250,xb_upload_tick)){job->closing=true;store->collect();fail("Cannot retain the upload expiry lease");return;}
     job->prepared=true;
     host->reply(id,xb_upload_status(job));return;
   }

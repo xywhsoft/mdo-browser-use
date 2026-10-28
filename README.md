@@ -61,6 +61,8 @@ python tools/managed_probe.py
 python tools/restart_probe.py
 python tools/upload_restart_probe.py
 python tools/upload_probe.py
+python tools/upload_admission_probe.py
+python tools/upload_admission_probe.py --about-blank
 python tools/download_probe.py
 python tools/save_probe.py
 python tools/publication_recovery_probe.py
@@ -155,6 +157,13 @@ picker interception, opaque chooser uploads, cancellation, repeat-click fencing
 and read-only picker inspection versus cancellation. Nested OOPIF uploads are
 also covered by the public frame gate. Directory uploads and Android transfer
 support remain in development.
+
+`upload_admission_probe.py` verifies an actual failed first native admission
+reclaims its reservation while the browser remains open, without another
+upload/status/close command. The `--about-blank` variant checks the empty native
+document too. Its deliberate current v1 long-cache-path I/O failure seam must
+be replaced explicitly when extended native cache paths are implemented; a
+newly successful admission must never be mistaken for a cleanup-failure test.
 
 See [the shared API](docs/api.md) for C/JS calls, operation identities and
 recovery. The SDK probe also runs the actual JS client against WebView2;

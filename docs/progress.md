@@ -2370,3 +2370,41 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   chooser/C/JS/Agent end-to-end gates. Android integration, broader lifetime/
   OOM/network/performance and final packaging remain active; this is a tested
   foundation milestone, not completion of the long-term goal.
+
+## W2 — reclaim failed native upload admissions
+
+- During directory-staging work, reproduce a real existing admission leak in
+  WebView2. A selected safe basename triggers the current v1 Win32 cache-path
+  length failure after the reservation directory/lease is created. The native
+  error is returned, but an otherwise idle browser retains one reservation for
+  the full two-second observation; closing that browser finally reclaims it.
+  Preserve this original failed receipt separately from passing rechecks.
+- The job was registered after directory/lease creation and its cleanup timer
+  was armed only after all files were created. Rejection occurs while admission
+  still holds the private cache guard, so nested cleanup cannot acquire that
+  guard. Publish the owned job and arm the collector before the first reservation
+  filesystem effect, routing directory/lease failures through the same rejection
+  path. Later ticks reclaim partial admissions after the guard is released;
+  timer setup failure has no reservation filesystem effect. Preserve unknown
+  cache entries and all existing retained-assignment/consumption semantics.
+- Add an explicit-phase actual native regression. Wait after failed admission
+  without any upload/status/close request, inspect the real private cache/ACL,
+  and close the browser only after the independent observation is acknowledged.
+  Both loopback HTTP and about:blank cases now have zero reservations before
+  close (250/218 ms in the final checks), no new native diagnostics, and zero
+  reservations after close. Earlier repeated checks also passed. Keep the first
+  uninstrumented no-receipt observation separately; it is not a diagnosed second
+  product defect. The stable explicit-phase variants are the acceptance gates.
+- Native build succeeds and reuses the single object variant. An interrupted
+  prior build produced no new receipt/binary; confirm its missing handle and
+  absent build processes before continuing, rather than starting a second live
+  build. Normal public C/JS/Agent upload, clear, picker acceptance/cancellation,
+  recovery and read-only denial all pass on the rebuilt host, with zero cache
+  reservations. Both compiled native upload policy/resource-ownership gates
+  pass. No contracts or page-input behavior changed.
+- Directory hierarchy staging/assignment still remains open. Implement proper
+  extended native cache paths instead of lowering accepted filename limits;
+  update the deliberate failure seam when that limitation is fixed. Full Android
+  integration, broader lifetime/OOM/network/performance and final packaging
+  remain active. Restore the same Home to headless mode; do not mark the overall
+  Browser Use goal complete for this bug fix.

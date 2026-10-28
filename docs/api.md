@@ -643,6 +643,11 @@ current-user/SYSTEM cache uses per-reservation leases and cleanup inventories.
 Unknown/renamed entries and directory reparse points block collection instead
 of being followed or guessed. Unassigned expired/cancelled and closed reservations
 are reclaimed, and a new host can collect an abandoned process's files.
+Native admission publishes the owned job and arms its collector before creating
+the reservation directory or lease. A partially failed admission is reclaimed
+asynchronously while its browser stays open, without a later upload/status/close
+call. Timer setup failure occurs before reservation filesystem effects. Unknown
+cache entries continue to prevent collection instead of being guessed away.
 
 ## File-input uploads
 
