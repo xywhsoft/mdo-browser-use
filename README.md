@@ -84,6 +84,12 @@ and verifies import/restart/export in the same Home. See
 this project's enhanced Windows host; stock 0.7.0 and Android automation are not
 advertised as compatible. This does not publish a release.
 
+The matching enhanced Windows development executable is produced by
+`python tools/package_program.py` after stopping this same service.
+`python tools/program_probe.py` starts that artifact, exercises the real
+C → JS → native browser path and restores the headless service, using the same
+Home. See [program packaging and recovery](docs/program.md).
+
 The native probe reuses this exact deployment, briefly opens its real WebView2
 window with local fixtures, and restores headless mode afterwards. No live model
 or external website is needed. Its latest result is `.mdo/page-observation-result.json`.

@@ -47,7 +47,7 @@ def probe():
     if dev.state().get("window") or dev.request("GET", "/api/v1/bootstrap")[0] != 200:
         raise RuntimeError("Start the same headless development service before this gate")
     apply_host.apply(check=True)
-    receipt = json.loads((dev.ENV / "host/browser-use-build.json").read_text())
+    receipt = json.loads((dev.ENV / "host/browser-use-build.json").read_text(encoding="utf-8"))
     if hashlib.sha256(Path(dev.state()["host"]).read_bytes()).hexdigest() != receipt["binary_sha256"]:
         raise RuntimeError("Enhanced native host no longer matches its build receipt")
     name, data, artifact = package_plugin.build()
@@ -75,7 +75,7 @@ def probe():
             backup = dev.ENV / "package-development-migration.json"
             if not backup.exists():
                 backup.write_text(json.dumps(saved, indent=2) + "\n", encoding="utf-8")
-            elif json.loads(backup.read_text()).get("original", {}).get("revision") != old["revision"]:
+            elif json.loads(backup.read_text(encoding="utf-8")).get("original", {}).get("revision") != old["revision"]:
                 raise RuntimeError("A different previous migration receipt is retained")
             if dev.call("plugin.get", {"id": IDENTITY}) != old:
                 raise RuntimeError("Development plugin changed before migration")
@@ -102,7 +102,7 @@ def probe():
     if not current["enabled"] or current["manifest"] != manifest or installed_inventory(current) != expected:
         raise RuntimeError("Restarted plugin does not match the portable inventory")
     mark("same_home_restart_exact_inventory")
-    for row in json.loads((dev.ROOT / "contracts.json").read_text())["services"]:
+    for row in json.loads((dev.ROOT / "contracts.json").read_text(encoding="utf-8"))["services"]:
         described = dev.call("sdk.describe", {"id": row["id"]})
         if described["input_schema"] != row["input"] or described["output_schema"] != row["output"]:
             raise RuntimeError("Installed C service differs from shared contract: " + row["id"])
@@ -124,7 +124,7 @@ def probe():
         raise RuntimeError("Identical package unexpectedly changed its revision")
     mark("same_package_reinstall_uses_existing_receipt")
     report.update(state="passed", plugin_revision=revision, services=len(json.loads(
-        (dev.ROOT / "contracts.json").read_text())["services"]), files=len(files),
+        (dev.ROOT / "contracts.json").read_text(encoding="utf-8"))["services"]), files=len(files),
         external_calls=0, existing_home_reused=True)
     RESULT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"state": report["state"], "checks": len(report["checks"]),
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         probe()
     except Exception as error:
         if RESULT.exists():
-            report = json.loads(RESULT.read_text())
+            report = json.loads(RESULT.read_text(encoding="utf-8"))
             report.update(state="failed", error=str(error))
             RESULT.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(error, file=sys.stderr)

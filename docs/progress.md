@@ -2861,3 +2861,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   No external catalog, model, second Home or application copy was used.
 - The final enhanced program artifact, uninstall/recovery verification, Android
   integration and remaining lifecycle/OOM/network/performance gates remain active.
+
+## F2 — self-contained enhanced Windows program, packed and tested in place
+
+- Package the same existing application/native host directly, without the
+  upstream full application staging copy. Check the pinned baseline, reviewed
+  overlays, both native binary receipts and mechanically generated SDK surface.
+  Reuse the pinned generator and build the small Windows command forwarder in
+  the existing app. Unknown files or unrelated tracked changes stop packaging.
+- Journal hashes before temporarily moving only 13 known QA/config/build-receipt
+  files outside the app and adding the ordinary desktop-edition define to its
+  generated unity. Restore every original hash in `finally`; `--restore` handles
+  an interrupted build. Validate all recovery destinations before moving any
+  file and preserve intervening edits. Two fault/path tests verify partial
+  interruption recovery, changed-destination preservation and repeatability.
+- Generate `dist/mdo-browser-use-dev-windows-x86_64.exe`, 6,869,925 bytes, SHA-256
+  `c722be46f66409f1ef7b9124b9b2c1221a096298968106fe05f20e00bb3623b5`.
+  The production native pack provider inventory matches all 746 included files;
+  original unity and all 13 exclusions are restored. No extra application/Home
+  copy was made. Inventory and runtime qualification are separate receipt fields.
+- Start the actual executable from `dist/`, without an unpacked app config or
+  generated tree there, on the existing loopback port and exact same Home. All
+  six runtime checks pass: archive-root boot, real UI registration, portable C
+  plugin/native observation, Unicode fill plus trusted click, synthetic PNG
+  capture, and browser close. Restore the original healthy headless deployment.
+  Retain `.mdo/program-runtime-result.json` and the artifact's inventory receipt.
+- Preserve initial packaging-tool failures: explicit UTF-8 fixes the Windows
+  default-codepage read; generated `workbench-services.js` is accepted only after
+  comparing it with the reviewed generator without writes; GUI `xsw.exe`
+  redirects stdout, so inventory uses the same pack provider in console `xs.exe`.
+  The first generated archive was independently verified before reclaiming its
+  pending file; inputs had already restored correctly. These were build-tool
+  checks, not native browser defects.
+- These are development artifacts requiring the paired plugin/enhanced host.
+  No production store/website/updater publication occurs. Android, uninstall/
+  recovery and outstanding final lifecycle/OOM/network/performance work remain
+  active; the full goal is not marked complete.
