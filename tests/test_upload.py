@@ -24,11 +24,17 @@ class UploadTests(unittest.TestCase):
             (dict(exact,target={'ref':'e1','name':'other'}),'target_invalid'),
             (dict(exact,files=[{'path':'x','script':'evil'}]),'arguments_invalid'),
             (dict(exact,files=[{'path':'x','space':'vfs'}]),'arguments_invalid'),
+            (dict(exact,directory={'path':'.'}),'arguments_invalid'),
+            (dict(base,document='fresh',target={'ref':'e1'},directory={}),'arguments_invalid'),
+            (dict(base,document='fresh',target={'ref':'e1'},directory={'path':'.','files':['escape']}),'arguments_invalid'),
+            (dict(base,document='fresh',target={'ref':'e1'},directory={'path':'.','space':'vfs'}),'arguments_invalid'),
             (dict(exact,ticket='u-old'),'arguments_invalid'),
             (dict(base,action='clear'),'upload_target_required'),
             (dict(exact,action='clear'),'arguments_invalid'),
+            (dict(base,action='clear',document='fresh',target={'ref':'e1'},directory={'path':'.'}),'arguments_invalid'),
             ({'browser':'absent','action':'status'},'upload_ticket_required'),
             ({'browser':'absent','action':'status','ticket':'u-owned','files':[{'path':'x'}]},'arguments_invalid'),
+            ({'browser':'absent','action':'status','ticket':'u-owned','directory':{'path':'.'}},'arguments_invalid'),
             ({'browser':'absent','action':'status','ticket':'u-owned','confirmed':True},'arguments_invalid'),
             ({'browser':'absent','action':'release','ticket':'u-owned'},'upload_confirmation_required')]:
             with self.subTest(params=params):self.reject(params,code)
@@ -40,6 +46,8 @@ class UploadTests(unittest.TestCase):
         browser=dev.call('browseruse.tabs',{'action':'create','client':client},self.scope)['id']
         try:
             for args in ({'action':'set','document':'fresh','target':{'ref':'e1'},'files':[{'path':'missing-is-not-read-yet.bin','space':'workspace','name':'snapshot.bin'}]},
+                         {'action':'set','document':'fresh','target':{'ref':'e1'},'directory':{'path':'missing-is-not-scanned-yet','space':'workspace','name':'selected'}},
+                         {'action':'set','document':'fresh','chooser':'directory-picker','directory':{'path':'.'}},
                          {'action':'clear','document':'fresh','target':{'ref':'e1'}},
                          {'action':'status','ticket':'u-ticket'}, {'action':'release','ticket':'u-ticket','confirmed':True}):
                 receipt=dev.call('browseruse.upload',dict(browser=browser,**args),self.scope)

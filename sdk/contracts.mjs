@@ -773,7 +773,7 @@ export const services = [
   },
   {
     "id": "browseruse.upload",
-    "description": "Set files on an exact input or pending chooser, or clear an exact input. Snapshots belong to the original task host. Release retained bytes only after website consumption; cancelling a picker never clears old files.",
+    "description": "Set files or one directory on an exact matching input or pending chooser, or clear an exact input. Use files or directory, never both. Snapshots belong to the original task host. Release retained bytes only after website consumption; cancelling a picker never clears old files.",
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -882,6 +882,34 @@ export const services = [
                 "minLength": 1,
                 "maxLength": 240
               }
+            }
+          }
+        },
+        "directory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "space": {
+              "type": "string",
+              "enum": [
+                "native",
+                "workspace",
+                "home",
+                "application"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240
             }
           }
         },

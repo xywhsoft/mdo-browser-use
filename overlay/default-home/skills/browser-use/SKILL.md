@@ -71,8 +71,19 @@ hidden `fileinput`) and call `browser_upload(action="set",document=<fresh id>,
 target=<exact input>,files=[{path:<task-host source>,space:"workspace"}])`.
 Paths refer to the original task device, not the device displaying the browser.
 An optional `name` overrides the safe basename; never paste file bytes/Base64
-into tools. Limits are sixteen files, 32 MiB per file and 64 MiB in total. This
-version needs a regular HTML file input, not a directory or arbitrary OS picker.
+into tools. Limits are sixteen regular files, 32 MiB per file and 64 MiB in total.
+For an observed directory input, use
+`browser_upload(action="set",document=<fresh id>,target=<exact input>,
+directory={path:"...",space:"workspace",name:"optional-root-name"})` instead of
+files. Never mix `directory` and `files`. Relative paths, including `"."`,
+resolve in the original task workspace; the default selected-root name comes
+from that original directory. The optional safe name overrides only that root
+name, preserving the complete relative hierarchy. Limits are 128 files, 128
+subdirectories and 16 directory levels, with the same byte budgets. Empty
+subdirectories remain staged, but HTML FileList cannot represent them; a root
+with no files is rejected. Directory changes during transfer stop assignment.
+The browser panel is revealed before selection. Unsupported clients fail before
+source reads. Arbitrary OS pickers remain outside this interface.
 Assignment verifies FileList, not website acceptance. Follow the website's
 actual upload/submit result. Keep `transfer.ticket`; use `browser_upload_status`
 to inspect it. Only call `browser_upload(action="release",ticket=<exact ticket>,
@@ -95,6 +106,8 @@ Agent input automatically enables native file-picker interception. For
 Use `browser_choosers(action="list")` and observe the current document. Provide
 the exact pending `chooser` ID instead of `target` to
 `browser_upload(action="set",document=<fresh id>,chooser=<picker id>,files=[...])`.
+For a directory input, provide `directory={path:...,space:...,name:...}` instead
+of files, preserving the same opaque chooser identity and fresh document.
 The source paths still belong to the original task host. Native delivery pins
 the actual input and consumes the picker only when assigning its files.
 Alternatively use `browser_chooser_cancel(action="cancel",chooser=<exact id>)`.

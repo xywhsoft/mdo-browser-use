@@ -697,6 +697,10 @@
       "target": "app/web/js/features/workbench/upload-dispatch.js"
     },
     {
+      "source": "host/upload-tree.js",
+      "target": "app/web/js/features/workbench/upload-tree.js"
+    },
+    {
       "source": "host/chooser-ui.js",
       "target": "app/web/js/features/workbench/chooser-ui.js"
     },

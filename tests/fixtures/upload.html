@@ -33,7 +33,17 @@ function register(input){
         for(const file of files)values.push({name:file.name,path:file.webkitRelativePath,size:file.size,sha256:hex(await crypto.subtle.digest('SHA-256',await file.arrayBuffer()))});
         uploadReads.push({id:input.id,files:values});
       }catch(error){uploadReads.push({id:input.id,error:error.name});}
-      document.querySelector('#result').textContent=JSON.stringify(uploadReads);
+      // Readable observations intentionally bound each leaf's text. Render
+      // complete JSON tokens in separate leaves so QA never parses clipped JSON.
+      const result=document.querySelector('#result');result.replaceChildren();
+      const token=text=>{const span=document.createElement('span');span.textContent=text;result.append(span);};
+      uploadReads.forEach((row,index)=>{
+        if(!row.files||!row.files.length){token((index?',':'[')+JSON.stringify(row));return;}
+        token((index?',{':'[{')+'"id":'+JSON.stringify(row.id)+',"files":[');
+        row.files.forEach((file,i)=>token((i?',':'')+JSON.stringify(file)));
+        token(']}');
+      });
+      if(uploadReads.length)token(']');
     },mode==='delayed'?2500:0);
   });
 }

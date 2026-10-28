@@ -45,7 +45,7 @@ python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
 python -m unittest discover -s tests -v
-node --test --test-concurrency=1 tests/test_client.mjs tests/test_capture_settling.mjs tests/test_dispatch.mjs tests/test_popups.mjs tests/test_android_support.mjs tests/test_capture_image.mjs tests/test_frame_capture.mjs tests/test_visual_snapshot.mjs tests/test_visual_dispatch.mjs tests/test_drag.mjs tests/test_readiness.mjs tests/test_upload.mjs tests/test_downloads.mjs tests/test_download_save.mjs tests/test_download_user.mjs tests/test_frames.mjs tests/test_frame_driver.mjs tests/test_page_identity.mjs
+node --test --test-concurrency=1 (Get-ChildItem tests -Filter 'test_*.mjs' -File | Sort-Object Name | Select-Object -ExpandProperty FullName)
 python tools/native_probe.py
 python tools/native_frames_probe.py
 python tools/drag_lifetime_probe.py
@@ -60,7 +60,10 @@ python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py
 python tools/upload_restart_probe.py
+python tools/upload_restart_probe.py --directory
 python tools/upload_probe.py
+python tools/upload_tree_probe.py
+python tools/upload_directory_probe.py
 python tools/upload_admission_probe.py
 python tools/upload_admission_probe.py --about-blank
 python tools/download_probe.py

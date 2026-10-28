@@ -699,25 +699,40 @@ keyed observer on completion, cancellation, timeout or page departure. Native
 directory assignment requires a revealed controller; hidden views reject before
 dispatch. Public mutating actions already reveal the owned browser panel.
 Actual WebView2 gates verify long root/leaf names, shadow/same-origin frame
-inputs, retained delayed reads and resumable dialog/timeout outcomes. The public
-C/JS/Agent upload contract still requires files until directory source streaming,
-routed-frame and picker end-to-end verification pass.
+inputs, retained delayed reads and resumable dialog/timeout outcomes. Public
+C/JS/Agent directory streaming, routed-frame assignment and intercepted picker
+acceptance have also passed their normal-workbench end-to-end gates.
 
 ## File-input uploads
 
 `browseruse.upload` / `mdoBrowserUseUpload` accepts `action:"set"` with an owned
-browser, fresh document, precise target and `files:[{path,space?,name?}]`. Sources
+browser, fresh document, precise target and `files:[{path,space?,name?}]`, or
+`directory:{path,space?,name?}` for a directory input. Never mix the two. Sources
 belong to the original task host. `space` supports native/workspace/home/application;
 the default resolves relative paths against the original workspace. An optional
-safe `name` overrides the source basename. Arbitrary scripts, raw file bytes and
+safe `name` overrides the file basename or selected directory root. Directory
+paths such as `"."` resolve against the original task workspace. The default
+root name is resolved there too, independently of the displayed chat. Arbitrary scripts, raw file bytes and
 browser-device paths are not part of this public contract.
 
 The displaying device must advertise `file_input_capability` and
 `upload_capability` before any task file is read. Source snapshots are pinned by
 revision, streamed in 64 KiB ranges and sealed against complete SHA-256. Limits
-are sixteen files, 32 MiB each and 64 MiB total, within the normal 16 KiB UI
+are sixteen regular files, 32 MiB each and 64 MiB total, within the normal 16 KiB UI
 argument budget. Native retained-file limits are sixteen reservations per view,
 thirty-two per host, 128 files and 128 MiB. Resource exhaustion is explicit.
+
+Directory inputs additionally require `directory_upload_capability` before
+source path resolution or reads. A complete `files.tree` manifest supplies the
+relative paths, empty directories, per-file revisions and full hashes. Stream
+the declared files through the same byte/seal path, then rescan the complete
+original tree with its revision before assignment. This observed consistency
+check is not an atomic cross-call source lease. Limits are 128 files, 128
+subdirectories, 16 directory levels and a 240 KiB native manifest, with the same
+per-file/total byte budgets. A root with no files returns `upload_directory_empty`
+without clearing an existing selection. Retained transfers share the host's
+512 payload-directory limit. Native assignment requires the revealed viewport;
+the public dispatcher uses its existing owned-panel reveal flow.
 
 ```javascript
 const page = await browser.observe({ browser: tab.id });
@@ -730,6 +745,15 @@ const status = await browser.upload({ browser: tab.id, action: "status", ticket 
 await browser.upload({ browser: tab.id, action: "release", ticket, confirmed: true });
 ```
 
+For a freshly observed directory input:
+
+```javascript
+const selected = await browser.upload({ browser: tab.id, action: "set",
+  document: page.document, target: { role: "fileinput", name: "Project directory" },
+  directory: { path: ".", space: "workspace" }, timeout_ms: 30000 });
+// Inspect the website's submission result before confirmed release.
+```
+
 `set/clear/release` use durable operation identities in the JS client; `status` waits
 for its read-only UI receipt. Raw C calls return the same kind of receipt as
 other queued services. Agent tools are `browser_upload` (set/clear/release, external
@@ -737,9 +761,12 @@ effect) and `browser_upload_status` (read). They use the existing live permissio
 full access needs no additional prompt and read-only tools cannot assign files.
 
 FileList verification confirms exact names/sizes/count, not website acceptance.
+Directory verification also matches every complete selected-root-relative path
+once, independently of enumeration order, and reports `relative_file_list`.
 Hidden inputs, open Shadow DOM and native-routed cross-origin frame inputs work
 on the enhanced Windows backend.
-Disabled/inert, stale, non-file, directory and single-file capacity mismatches
+Disabled/inert, stale, non-file, mismatched file/directory inputs and regular
+single-file capacity mismatches
 fail before assignment. Assigned bytes survive cancellation, navigation and
 staging expiry because a website can submit its File objects later. Retain the
 ticket until `release(confirmed:true)` after consumption or close the browser.
@@ -747,7 +774,7 @@ Release is refused while assignment is in flight. A dialog/new-window checkpoint
 timeout or lost native reply can mean the files were already assigned; inspect
 the page and transfer instead of repeating that effect.
 
-For `action:"clear"`, provide a fresh document and exact input without `files`,
+For `action:"clear"`, provide a fresh document and exact input without `files`, `directory`,
 `ticket` or `confirmed`. It uses a fixed isolated DOM transaction to empty the
 value, emits one input/change pair and checks the final FileList. Chromium's
 empty `DOM.setFileInputFiles` does not clear it, so the result explicitly says
@@ -759,8 +786,8 @@ the independent file-staging ticket/byte budget. Clearing never releases a
 previous upload: the site can retain old File objects. Status is historical
 transfer state; a fresh observation provides the current `selected_count`.
 
-Directory uploads and Android transfer support remain unfinished. Windows
-OOPIF uploads and intercepted downloads have separate real-browser gates.
+Android transfer support remains unfinished. Windows directory uploads,
+OOPIF uploads/pickers and intercepted downloads have separate real-browser gates.
 Unsupported devices fail before source reads; there is no browser-device path fallback.
 
 ## Intercepted file pickers

@@ -14,7 +14,7 @@ const sdk={async call(method,params,scope=context){
 }};
 const client=createBrowserUseClient(sdk),file=new URL('.mdo/qa/public-upload.bin',root),empty=new URL('.mdo/qa/public-upload-empty.bin',root);
 const nativePath=url=>decodeURIComponent(url.pathname).replace(/^\/([A-Za-z]:)/,'$1');
-const hash=createHash('sha256').update(await readFile(file)).digest('hex');let browser;
+const hash=createHash('sha256').update(await readFile(file)).digest('hex');let browser,directoryBrowser,directoryClient;
 const reads=page=>JSON.parse(page.text.slice(page.text.indexOf('[{')));
 try{
   const{clients}=await client.tabs({action:'clients'});assert.equal(clients.length,1);
@@ -88,9 +88,44 @@ try{
     assert.equal(after.at(-1).files[0].name,name);assert.equal(after.at(-1).files[0].sha256,hash);
     await client.upload({browser:browser.id,action:'release',ticket:long.transfer.ticket,confirmed:true});
   }
+  const directory=new URL('.mdo/qa/public-upload-directory/',root),directoryContext={...context,workspace:nativePath(directory).replace(/\/$/,'')};
+  directoryClient=createBrowserUseClient({call:(method,params)=>sdk.call(method,params,directoryContext)});
+  directoryBrowser=await directoryClient.tabs({action:'create',client:clients[0].id,url:origin+'/__browser_use_upload__.html',key:'directory-js-native'});
+  const dirPage=await directoryClient.observe({browser:directoryBrowser.id}),dirOperation='sdk-'+crypto.randomUUID().replaceAll('-','');
+  const dirParams={browser:directoryBrowser.id,action:'set',document:dirPage.document,target:{css:'#directory'},directory:{path:'.',space:'workspace'},timeout_ms:15000};
+  const dirAssigned=await directoryClient.upload(dirParams,{operation:dirOperation,retain:true});
+  assert.equal(dirAssigned.verification,'relative_file_list');assert.equal(dirAssigned.transfer.retained,true);
+  await directoryClient.waitFor({browser:directoryBrowser.id,until:'text',text:'public-upload-directory/nested/'+'n'.repeat(240)});
+  let dirReads=reads(await directoryClient.observe({browser:directoryBrowser.id}));assert.equal(dirReads.length,1);assert.equal(dirReads[0].files.length,4);
+  const expected=new Map([['nested/same.bin',hash],['other/same.bin',createHash('sha256').update('distinct').digest('hex')],
+    ['zero.txt',emptyHash],['nested/'+'n'.repeat(240),createHash('sha256').update('long directory leaf').digest('hex')]]);
+  for(const actual of dirReads[0].files){const relative=actual.path.slice('public-upload-directory/'.length);assert(expected.has(relative));assert.equal(actual.sha256,expected.get(relative));expected.delete(relative);}assert.equal(expected.size,0);
+  assert.deepEqual(await directoryClient.upload(dirParams,{operation:dirOperation,retain:true}),dirAssigned);
+  assert.equal(reads(await directoryClient.observe({browser:directoryBrowser.id})).length,1,'Directory recovery repeated assignment');
+  await directoryClient.upload({browser:directoryBrowser.id,action:'release',ticket:dirAssigned.transfer.ticket,confirmed:true});
+  await directoryClient.operation({action:'release',operation:dirOperation});
+  const dirOpened=await directoryClient.act({browser:directoryBrowser.id,document:dirPage.document,op:'click',target:{css:'#choose-directory'}});
+  assert.equal(dirOpened.outcome,'file_chooser_open');
+  const dirChooser=(await directoryClient.chooser({browser:directoryBrowser.id,action:'list'})).choosers[0];
+  const dirPicked=await directoryClient.upload({browser:directoryBrowser.id,action:'set',document:dirPage.document,chooser:dirChooser.id,
+    directory:{path:'.',name:'picker-directory'},timeout_ms:15000});assert.equal(dirPicked.verification,'relative_file_list');
+  await directoryClient.waitFor({browser:directoryBrowser.id,until:'text',text:'picker-directory/nested/'+'n'.repeat(240)});
+  assert.equal((await directoryClient.chooser({browser:directoryBrowser.id,action:'list'})).choosers.length,0);
+  dirReads=reads(await directoryClient.observe({browser:directoryBrowser.id}));assert.equal(dirReads.length,2);assert(dirReads.at(-1).files.every(row=>row.path.startsWith('picker-directory/')));
+  await directoryClient.upload({browser:directoryBrowser.id,action:'release',ticket:dirPicked.transfer.ticket,confirmed:true});
+  const rawDirectory=await sdk.call('browseruse.upload',{browser:directoryBrowser.id,action:'set',document:dirPage.document,target:{css:'#directory'},
+    directory:{path:'.',name:'raw-c-directory'}},directoryContext);
+  const rawDirectoryResult=await directoryClient.wait(rawDirectory);assert.equal(rawDirectoryResult.verification,'relative_file_list');
+  await directoryClient.waitFor({browser:directoryBrowser.id,until:'text',text:'raw-c-directory/zero.txt'});
+  await directoryClient.upload({browser:directoryBrowser.id,action:'release',ticket:rawDirectoryResult.transfer.ticket,confirmed:true});
   await writeFile(new URL('.mdo/upload-client-result.json',root),JSON.stringify({passed:true,backend:'actual-c-service-js-client-webview2',
     exact_binary_and_empty_bytes:true,retained_until_confirmed_release:true,durable_duplicate_once:true,foreign_scope_denied:true,raw_c_service:true,
     controlled_clear_once:true,clear_events_trusted:false,empty_clear_no_events:true,automatic_picker_interception:true,
     observed_picker_metadata:true,pending_picker_blocks_repeat_click:true,durable_cancel_once:true,chooser_bound_upload:true,
-    long_native_cache_paths:true,long_ascii_and_unicode_names:longNames.map(name=>Buffer.byteLength(name))})+'\n');
-}finally{if(browser)await client.tabs({action:'close',browser:browser.id});}
+    long_native_cache_paths:true,long_ascii_and_unicode_names:longNames.map(name=>Buffer.byteLength(name)),
+    source_directory_frozen_workspace:true,directory_relative_paths_and_hashes:true,directory_recovery_once:true,
+    directory_picker:true,raw_c_directory:true})+'\n');
+}finally{
+  if(directoryBrowser)await directoryClient.tabs({action:'close',browser:directoryBrowser.id});
+  if(browser)await client.tabs({action:'close',browser:browser.id});
+}

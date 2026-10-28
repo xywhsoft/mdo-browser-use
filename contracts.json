@@ -791,7 +791,7 @@
     },
     {
       "id": "browseruse.upload",
-      "description": "Set files on an exact input or pending chooser, or clear an exact input. Snapshots belong to the original task host. Release retained bytes only after website consumption; cancelling a picker never clears old files.",
+      "description": "Set files or one directory on an exact matching input or pending chooser, or clear an exact input. Use files or directory, never both. Snapshots belong to the original task host. Release retained bytes only after website consumption; cancelling a picker never clears old files.",
       "callback": "BuUpload",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
       "input": {
@@ -903,6 +903,16 @@
                   "maxLength": 240
                 }
               }
+            }
+          },
+          "directory": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1, "maxLength": 4096},
+              "space": {"type": "string", "enum": ["native", "workspace", "home", "application"]},
+              "name": {"type": "string", "minLength": 1, "maxLength": 240}
             }
           },
           "ticket": {
@@ -1139,7 +1149,7 @@
     },
     {
       "id": "browser_upload",
-      "description": "Set or clear exact HTML file-input selections using native delivery. Upload snapshots belong to the original task host. Inspect status and release only after website consumption; clearing never releases retained File bytes. For a pending picker use its chooser identity instead of target; never repeat the opening click.",
+      "description": "Set files or one directory, or clear an exact HTML file-input selection, using native delivery. Use files for regular inputs, directory:{path,space?,name?} for directory inputs; never mix them. Sources belong to the original task host. Inspect status and release only after website consumption; clear never releases File bytes. For a pending picker use its chooser identity instead of target; never repeat the opening click.",
       "service": "browseruse.upload",
       "actions": [
         "set",

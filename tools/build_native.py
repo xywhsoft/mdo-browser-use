@@ -94,6 +94,7 @@ def main():
         ('if(command=="drag_cancel"){', 'if(command=="upload"){xb_upload_request(host,view,id,json);return;}\n  if(command=="drag_cancel"){'),
         ('const bool mutation=command!="drag_cancel"', 'const bool mutation=command!="upload"&&command!="drag_cancel"'),
         ('\\"drag_capability\\":true,', '\\"drag_capability\\":true,\\"upload_capability\\":true,\\"file_input_capability\\":true,\\"file_clear_capability\\":true,\\"upload_cleanup_failed\\":"+std::string(view->uploadCleanupFailed?"true":"false")+",'),
+        ('\\"file_input_capability\\":true,', '\\"file_input_capability\\":true,\\"directory_upload_capability\\":true,'),
         ('if(found->second->controller)found->second->controller->Close();', 'if(found->second->controller)found->second->controller->Close();xb_upload_close_view(host,found->second);'),
         ('if(entry.second->controller)entry.second->controller->Close();', 'if(entry.second->controller)entry.second->controller->Close();xb_upload_close_view(host,entry.second);'),
         ('host->views.clear();host->main=nullptr;', 'xb_upload_shutdown(host);host->views.clear();host->main=nullptr;'),

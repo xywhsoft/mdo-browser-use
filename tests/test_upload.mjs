@@ -140,3 +140,65 @@ test('a lost clear reply cancels only its exact clear key and preserves uncertai
   assert.equal(result.error.effect_may_have_occurred,true);assert.equal(f.calls.length,0);
   assert.deepEqual(f.native,[{action:'clear_cancel',upload_key:'frozen-action'}]);
 });
+
+function directoryFixture(){
+  const f=fixture(),call=f.api.call;delete f.params.files;f.params.directory={path:'task-root/.',space:'workspace'};
+  Object.assign(f.state,{directory_upload_capability:true,visible:true,pinned:(_n,_o,value)=>({...value,element:{...value.element,directory:true,multiple:false}})});
+  f.tree={format:'mdo.file-tree.v1',revision:'t1-'+'b'.repeat(64),root:{path:'.',revision:'f-root'},
+    directory_count:2,directories:[{path:'nested'},{path:'nested/empty'}],file_count:2,total_bytes:65539,
+    files:[{path:'nested/a.bin',size:65539,sha256:'a'.repeat(64),revision:'f-snapshot'},{path:'zero.txt',size:0,sha256:'b'.repeat(64),revision:'f-snapshot'}]};
+  f.api.call=async(method,params)=>{
+    if(method==='files.resolve'){f.calls.push({method,params});return{path:'C:\\frozen-original\\selected-root'};}
+    if(method==='files.tree'){f.calls.push({method,params});return structuredClone(f.tree);}
+    return call(method,params);
+  };return f;
+}
+test('directories probe separate capability, visibility and exact input before source access',async()=>{
+  for(const change of [f=>f.state.directory_upload_capability=false,f=>f.state.visible=false,f=>f.state.pinned=(_n,_o,value)=>value]){
+    const f=directoryFixture();change(f);const result=(await f.run()).result;
+    assert.equal(result.ok,false);assert.equal(result.error.effect_may_have_occurred,false);assert.equal(f.calls.length,0);assert.equal(f.native.length,0);
+  }
+  const mixed=directoryFixture();mixed.params.files=[{path:'x'}];assert.equal((await mixed.run()).result.error.code,'arguments_invalid');assert.equal(mixed.calls.length,0);
+});
+test('directory transfer preserves the source namespace, relative tree and final whole-tree revision',async()=>{
+  const f=directoryFixture(),result=(await f.run()).result;assert.equal(result.ok,true);
+  assert.deepEqual(f.calls.map(row=>row.method),['files.resolve','files.tree','files.read','files.read','files.tree']);
+  assert.deepEqual(f.calls.filter(row=>row.method==='files.read').map(row=>[row.params.path,row.params.space,row.params.revision]),
+    [['task-root/./nested/a.bin','workspace','f-snapshot'],['task-root/./nested/a.bin','workspace','f-snapshot']]);
+  assert.equal(f.calls.at(-1).params.revision,f.tree.revision);assert.equal(f.native[0].directory.name,'selected-root');
+  assert.deepEqual(f.native[0].directory.directories,['nested','nested/empty']);assert(!('files' in f.native[0]));
+  assert(!JSON.stringify(f.native).includes('frozen-original'));assert(!JSON.stringify(f.native).includes('task-root'));
+  assert.deepEqual(f.native.map(row=>row.action),['begin','chunk','chunk','seal','assign']);
+});
+test('empty/partial/unsafe directory scans fail before native admission or per-file reads',async()=>{
+  for(const change of [f=>{f.tree.files=[];f.tree.file_count=0;f.tree.total_bytes=0;},f=>f.tree.file_count++,
+    f=>f.tree.files[0].path='../escape',f=>f.tree.files[0].path='undeclared/a',f=>f.tree.files[0].revision='',
+    f=>f.params.directory.name='CON',f=>f.params.directory.path='bad\npath']){
+    const f=directoryFixture();change(f);const result=(await f.run()).result;
+    assert.equal(result.ok,false);assert.equal(result.error.effect_may_have_occurred,false);
+    assert(!f.calls.some(row=>row.method==='files.read'));assert.equal(f.native.length,0);
+  }
+});
+test('a changed/failed final tree scan cancels staging and never dispatches files',async()=>{
+  for(const throws of [false,true]){
+    const f=directoryFixture(),call=f.api.call;
+    f.api.call=async(method,params)=>{
+      if(method==='files.tree'&&params.revision){
+        if(throws)throw Object.assign(Error('Directory changed'),{code:'sdk_file_conflict'});
+        return{...structuredClone(f.tree),revision:'t1-'+'c'.repeat(64)};
+      }return call(method,params);
+    };
+    const result=(await f.run()).result;assert.equal(result.ok,false);assert.equal(result.error.effect_may_have_occurred,false);
+    assert.equal(result.transfer.retained,false);assert.equal(f.native.at(-1).action,'cancel');assert(!f.native.some(row=>row.action==='assign'));
+    if(throws)assert.equal(result.error.stage,'source_directory_revalidation');
+  }
+});
+test('directory cancellation or lost assignment replies keep the existing no-replay semantics',async()=>{
+  const before=directoryFixture(),call=before.api.call;
+  before.api.call=async(method,params)=>{const result=await call(method,params);if(method==='files.read')before.cancel();return result;};
+  assert.equal((await before.run()).result.error.code,'cancelled');assert.deepEqual(before.native.map(row=>row.action),['begin','cancel']);
+  const uncertain=directoryFixture(),execute=uncertain.view.execute;
+  uncertain.view.execute=async(command,params)=>{if(params.action==='assign')throw Error('Reply lost');return execute(command,params);};
+  const result=(await uncertain.run()).result;assert.equal(result.error.code,'action_uncertain');assert.equal(result.transfer.retained,true);assert.equal(result.error.effect_may_have_occurred,true);
+  assert.equal(uncertain.native.at(-1).action,'cancel');
+});

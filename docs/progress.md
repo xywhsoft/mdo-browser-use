@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: W6 fixes long source-path digest/range/tree calls;
+Latest verified milestones: W7 connects directory uploads through shared C/JS,
+Agent tools and routed-frame pickers; W6 fixes long source snapshot paths;
 W5 adds native directory selection with trusted
 completion and exact relative paths; W4 adds directory staging/restart collection;
 W3 preserves long upload basenames; W1 adds source manifests.
@@ -21,7 +22,7 @@ V8 bounds read-only viewport settling during capture;
 V7 removes DOM input's duplicate activation clicks;
 V6 adds shared C/JS/Agent focus-bound image keys;
 V4/V5 cover image dragging and retained-document cleanup. E2 provides actual
-Android unsupported-provider admission. Public directory assignment, full Android native
+Android unsupported-provider admission. Full Android native
 integration, adversarial lifecycle and final OOM/performance/package gates
 remain active; this is not a release.
 
@@ -2574,3 +2575,50 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   explicit; the adapter and long paths have their separate real/compiled gates.
   Keep the original failed evidence. Public directory integration remains under
   development and is committed separately after its complete end-to-end gates.
+
+## W7 — public C/JS/Agent directory uploads and frame pickers
+
+- Extend the shared upload contract with a mutually exclusive directory
+  descriptor (path/resource space/optional root name), using the same C service,
+  generated SDK/tool schemas, live permissions, durable operation identities and
+  original frozen task context. Status/release/clear cannot take directory
+  sources. Update the official Skill; legacy hosts without the independent
+  directory capability reject before source path resolution or reads.
+- Resolve the default selected-root name in the original task workspace,
+  including a relative dot path. Validate a complete bounded source tree and
+  native manifest, stream revision-pinned chunks, seal complete hashes, and
+  rescan the original full tree with its revision before exact target/frame
+  revalidation and one assignment. Reject empty roots without clearing old
+  selections; changed/partial/unsafe sources cancel unassigned staging. Preserve
+  retained bytes and uncertain effects after a dispatched/lost reply.
+- Actual normal-workbench C service, JS client and managed tools pass directory
+  paths and complete per-file hashes, duplicate basenames, empty files and a
+  real 240-byte source leaf. Verify the JS client's original directory workspace
+  with a dot source path, default/overridden root names, saved-operation recovery
+  without duplicate assignment, raw C acceptance, directory picker consumption
+  and explicit release. Full-access sessions need no extra prompt; owned
+  read-only sessions cannot assign directories.
+- Public routed-frame regression passes 26 operations across two actual
+  cross-origin native-process frames. Directory input and intercepted picker
+  assignment preserve all relative paths and byte hashes. Managed frame
+  directories work and read-only denial occurs on an owned frame. C/JS/Agent
+  receipts, private ACLs and zero reservations are checked. No model or external
+  website calls are involved.
+- Preserve the first source-path failure, fixed separately in W6. The next
+  observation failure was a test-page issue: a single accumulated JSON text leaf
+  exceeded the documented observation bound. Render complete bounded JSON tokens
+  in separate leaves and preserve empty-list tokens. Do not widen production
+  observation budgets. Native File objects and their complete hashes remain the
+  success evidence. A pending plugin installation required its reported restart;
+  check the active schema after restart instead of treating old code as new.
+- Final JS 188 pass; Python 124 total, 122 pass/two existing Windows symlink
+  privilege skips. Shared generated contracts and reviewed overlays match.
+  Both public upload and public frame gates pass and restore the same headless
+  deployment, with zero upload reservations and protected ACLs.
+- The broad native gate subsequently FAILED before its first assertion: the
+  third command (replacement creation after closing an in-flight create) timed
+  out. It had not entered upload tests; no new native diagnostics appeared and
+  both transfer caches are empty after restoration. Preserve its full failed
+  receipt/log. Investigate this creation path with bounded phase observations;
+  do not present this run as green or infer a local root cause from one timeout.
+  Android/native lifecycle/OOM/network/performance/package work remains active.

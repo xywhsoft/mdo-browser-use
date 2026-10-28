@@ -1,13 +1,19 @@
 // Bytes cross the original task SDK boundary; browser-device paths never do.
+import {safeUploadName,directoryManifest} from './upload-tree.js';
 export async function executeFileUpload({params,view,api,action,guard,read,deadline,setDispatched,fail}){
   let ticket=null,navigation,targetIdentity=null,stage='capability',sourceIndex=null,requested=false,cleanupRequested=false,clearStarted=false,retained=false,settled=false,completed=false;
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const isDirectory=params.action==='set'&&params.directory!==undefined;
   const remaining=()=>Math.max(1,Math.ceil(deadline-performance.now()));
   const transfer=result=>{
     if(ticket)result.result.transfer={ticket,retained,assignment_requested:requested};
     return result;
   };
   const stopped=async()=>{const checked=await guard(true);if(checked.handled)return transfer(checked);
+    if(isDirectory&&navigation!==undefined&&!requested){
+      if(!checked.state.directory_upload_capability)return transfer(fail('unsupported_capability','This displaying device cannot receive verified directory selections; no files were assigned'));
+      if(!checked.state.visible)return transfer(fail('upload_view_hidden','Reveal the browser viewport before selecting a directory'));
+    }
     if(params.chooser&&params.action==='set'&&!requested){
       if(!checked.state.chooser_upload_capability)return transfer(fail('unsupported_capability','This displaying device cannot accept file pickers; no source files were read'));
       const pickers=await view.execute('chooser',{action:'list',agent:true});
@@ -43,6 +49,8 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     let checked=await stopped();if(checked.handled)return checked;
     if(!checked.state.file_input_capability||!(params.action==='clear'?checked.state.file_clear_capability:checked.state.upload_capability))
       return fail('unsupported_capability','This displaying device cannot receive verified native file inputs; no source files were read');
+    if(isDirectory&&!checked.state.directory_upload_capability)return fail('unsupported_capability','This displaying device cannot receive verified directory selections; no source files were read');
+    if(isDirectory&&(!params.directory||typeof params.directory!=='object'||Array.isArray(params.directory)||params.files!==undefined))return fail('arguments_invalid','Choose source files or one source directory, never both');
     if(params.action==='status'||params.action==='release'){
       stage='transfer_'+params.action;
       if(params.action==='release'){cleanupRequested=true;setDispatched(true);}
@@ -64,16 +72,31 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
       clearStarted=true;
       return await assign({action:'clear',upload_key:action.id,navigation,...targetIdentity,timeout_ms:remaining()});
     }
-    if(pinned.element.directory||params.files.length>1&&!pinned.element.multiple)
-      return fail('upload_target_invalid','Choose a regular file input with enough multiple-file capacity');
-    const snapshots=[];let total=0;
-    for(const file of params.files){
+    if(Boolean(pinned.element.directory)!==isDirectory||!isDirectory&&params.files.length>1&&!pinned.element.multiple)
+      return fail('upload_target_invalid','Choose an enabled input matching the file or directory selection');
+    const snapshots=[];let total=0,tree=null,treeRevision=null;
+    const treeOptions=isDirectory?{path:params.directory.path,...(params.directory.space?{space:params.directory.space}:{})}:null;
+    if(isDirectory){
+      if(typeof treeOptions.path!=='string'||!treeOptions.path||/[\u0000-\u001f\u007f]/.test(treeOptions.path))return fail('upload_path_invalid','Choose an unambiguous source directory path without control characters');
+      checked=await stopped();if(checked.handled)return checked;
+      stage='source_directory_name';
+      const resolved=params.directory.name===undefined?await api.call('files.resolve',treeOptions):null;
+      if(resolved!==null&&(typeof resolved?.path!=='string'||!resolved.path))return fail('upload_snapshot_invalid','The task host did not resolve the selected directory name');
+      const absolute=resolved?.path?.replace(/[\\/]+$/,'');
+      const name=params.directory.name??(/^[a-z]:$/i.test(absolute)?absolute[0]:absolute?.split(/[\\/]/).at(-1)||'root');
+      if(!safeUploadName(name))return fail('upload_name_invalid','Choose a safe selected-directory basename or provide an explicit safe name');
+      checked=await stopped();if(checked.handled)return checked;
+      stage='source_directory_snapshot';const snapshot=await api.call('files.tree',treeOptions);
+      tree=directoryManifest(snapshot,name);treeRevision=snapshot.revision;
+      if(!tree.files.length)return fail('upload_directory_empty','The selected directory contains no files; its empty directories cannot form an HTML FileList');
+      for(const file of snapshot.files)snapshots.push({source:{path:treeOptions.path.replace(/[\\/]+$/,'')+'/'+file.path,...(treeOptions.space?{space:treeOptions.space}:{})},
+        name:file.path.split('/').at(-1),path:file.path,size:file.size,sha256:file.sha256,revision:file.revision});
+    }else for(const file of params.files){
       sourceIndex=snapshots.length;stage='source_snapshot';
       checked=await stopped();if(checked.handled)return checked;
       if(typeof file.path!=='string'||/[\u0000-\u001f\u007f]/.test(file.path))return fail('upload_path_invalid','Choose an unambiguous source path without control characters');
       const name=file.name??file.path.split(/[\\/]/).at(-1);
-      const stem=(name||'').split('.')[0].toUpperCase();
-      if(!name||new TextEncoder().encode(name).length>240||/[<>:"/\\|?*\u0000-\u001f\u007f]/.test(name)||/[. ]$/.test(name)||/ $/.test(stem)||/^(CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|CLOCK\$|COM[0-9¹²³]|LPT[0-9¹²³])$/.test(stem))
+      if(!safeUploadName(name))
         return fail('upload_name_invalid','Choose a safe file basename or provide an explicit safe name');
       const snapshot=await api.call('files.digest',{path:file.path,...(file.space?{space:file.space}:{}),max_bytes:33554432});
       if(!Number.isSafeInteger(snapshot.size)||snapshot.size<0||snapshot.size>33554432||typeof snapshot.revision!=='string'||!snapshot.revision||!/^[a-f0-9]{64}$/.test(snapshot.sha256))
@@ -87,7 +110,7 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     const admitted=await native({action:'begin',navigation,upload_key:action.id,timeout_ms:Math.min(120000,remaining()+5000),
       ...(params.chooser?{chooser:params.chooser,document:params.document,ref:pinned.element.ref}:{}),
       ...(pinned.native_target?targetIdentity:{}),
-      files:snapshots.map(file=>({name:file.name,size:file.size,sha256:file.sha256}))});
+      ...(tree?{directory:tree}:{files:snapshots.map(file=>({name:file.name,size:file.size,sha256:file.sha256}))})});
     if(typeof admitted.ticket!=='string'||!/^u-[a-f0-9-]{36}$/i.test(admitted.ticket))return fail('upload_receipt_invalid','The browser did not return a valid staging ticket');
     ticket=admitted.ticket;
     for(let file=0;file<snapshots.length;file++){
@@ -107,6 +130,11 @@ export async function executeFileUpload({params,view,api,action,guard,read,deadl
     checked=await stopped();if(checked.handled)return checked;
     sourceIndex=null;stage='native_seal';const sealed=await native({action:'seal',ticket,navigation});
     if(!sealed.sealed)return transfer(fail('upload_snapshot_invalid','The receiving browser could not verify complete file bytes'));
+    if(tree){
+      checked=await stopped();if(checked.handled)return checked;
+      stage='source_directory_revalidation';const current=await api.call('files.tree',{...treeOptions,revision:treeRevision});
+      if(current.revision!==treeRevision||JSON.stringify(directoryManifest(current,tree.name))!==JSON.stringify(tree))return transfer(fail('upload_snapshot_changed','The source directory changed during transfer; no files were assigned'));
+    }
     // Revalidate the pinned reference, never a newly matching replacement node.
     stage='target_revalidation';pinned=await read('uploadInfo',{document:params.document,target:{ref:pinned.element.ref}});
     if(!pinned.ok)return transfer({handled:true,result:pinned});
