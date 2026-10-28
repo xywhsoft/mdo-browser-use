@@ -43,6 +43,15 @@ public final class AndroidDocumentContractTest {
             emit(view,false,MdoBrowserDocument.HELLO,first);document.loaded();denied(document,"world_not_ready");
             emit(invoke("newView",new Class<?>[]{}),first);denied(document,"world_not_ready");
             emit(view,first);check(document.ready(),"Main frame did not become ready");
+            String firstIdentity=document.identity();
+            check(firstIdentity!=null&&firstIdentity.matches("fd-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}"),"Native document identity was not assigned");
+            document.loaded();check(firstIdentity.equals(document.identity()),"Duplicate load rotated the native document identity");
+            int nativeBefore=calls("peer:executeJavaScript");
+            try{document.evaluate("fd-foreign","must not execute",100,result->{throw new AssertionError();});throw new AssertionError();}
+            catch(MdoBrowserWorld.Failure failure){check(failure.code.equals("frame_changed"),"Foreign document identity was not explicit");}
+            check(calls("peer:executeJavaScript")==nativeBefore,"Foreign document identity dispatched native code");
+            int[] identityReplies={0};document.evaluate(firstIdentity,"fixed",100,result->{check(result.ok,"Exact native identity failed");identityReplies[0]++;});
+            check(identityReplies[0]==1,"Exact native identity did not settle once");
             List<MdoBrowserWorld.Result> results=new ArrayList<>();mode("twice");document.evaluate("fixed",100,results::add);
             check(results.size()==1&&results.get(0).ok&&document.pending()==0,"Duplicate native result was forwarded");
             mode("defer");document.evaluate("old document",100,results::add);
@@ -52,6 +61,7 @@ public final class AndroidDocumentContractTest {
             epoch.incrementAndGet();document.navigation();
             check(!document.ready(),"Navigation was ready before completion");document.loaded();
             check(document.ready(),"Early replacement peer was retired by a later start callback");
+            check(!firstIdentity.equals(document.identity()),"Replacement document reused the original native identity");
             int completed=results.size();invoke("late",new Class<?>[]{});
             check(results.size()==completed,"Late old result escaped document retirement");
             mode("defer");document.evaluate("reentrant navigation",100,result->{
@@ -61,13 +71,22 @@ public final class AndroidDocumentContractTest {
             check(results.size()==completed+1,"Navigation callback was not settled once");
             int reentrantReplacement=peer();emit(view,reentrantReplacement);document.loaded();
             check(document.ready(),"Reentrant cancellation prevented fresh document recovery");
+            document.block(MdoBrowserDocument.BACKGROUND,true);
+            int beforeStart=peer();emit(view,beforeStart);
+            document.block(MdoBrowserDocument.BACKGROUND,false);
+            check(document.identity()==null,"Resume exposed a peer before its original native start");
+            epoch.incrementAndGet();document.navigation();document.loaded();
+            check(document.ready(),"Resume retired an early replacement peer before its native navigation start");
             completed=results.size();
+            String resumedIdentity=document.identity();
             mode("defer");document.evaluate("paused",100,results::add);
             document.block(MdoBrowserDocument.BACKGROUND,true);
             check(results.size()==completed+1&&results.get(completed).code.equals("world_view_unavailable"),"Background cancellation lost its reason");
             check(clock.tasks.isEmpty(),"Cancelled document left a timer");denied(document,"world_view_unavailable");
+            check(document.identity()==null,"A blocked document retained externally usable identity");
             document.block(MdoBrowserDocument.MANUAL,true);document.block(MdoBrowserDocument.BACKGROUND,false);
             denied(document,"user_taken_control");document.block(MdoBrowserDocument.MANUAL,false);check(document.ready(),"Independent blockers did not clear");
+            check(resumedIdentity.equals(document.identity()),"Returning to the same document rotated its native identity");
             completed=results.size();document.evaluate("main connection",100,results::add);document.block(MdoBrowserDocument.CHANNEL,true);
             check(results.get(completed).code.equals("main_document_changed"),"Main connection cancellation lost its reason");
             denied(document,"main_document_changed");document.block(MdoBrowserDocument.CHANNEL,false);
@@ -80,6 +99,7 @@ public final class AndroidDocumentContractTest {
             completed=results.size();document.evaluate("owner changed",100,results::add);owned.set(false);invoke("late",new Class<?>[]{});
             check(results.size()==completed+1&&!results.get(completed).ok,"Retired native view accepted a late success");denied(document,"frame_changed");
             owned.set(true);document.close();check(document.cleanupConfirmed()&&clock.tasks.isEmpty(),"Owned document cleanup failed");denied(document,"world_closed");
+            check(document.identity()==null,"Closed native document identity remained usable");
             mode("success");Object nextView=invoke("newView",new Class<?>[]{});
             MdoBrowserDocument isolated=new MdoBrowserDocument(nextView,loader,new Clock(),()->true,()->1,"qa.content");
             check(isolated.profileAssigned()&&calls("setProfile")==profiles+1,"Explicit profile was not assigned before use");

@@ -49,16 +49,25 @@
             .put("phase",document==null?documentFailures.getOrDefault(key,"world_unavailable"):document.phase())
             .put("pending",document==null?0:document.pending()).put("native_outstanding",document==null?0:document.outstanding())
             .put("native_budget_used",worldBudget.used()).put("native_budget_limit",worldBudget.limit())
+            .put("native_document",document==null||document.identity()==null?JSONObject.NULL:document.identity())
+            .put("adapter","android-main-document-v1")
             .put("profile_isolation",document!=null&&document.profileAssigned());
     }
     private void executeDocument(String key,String id,JSONObject request) throws Exception {
         MdoBrowserDocument document=documents.get(key);
         if(document==null)throw new UnsupportedOperationException(documentFailures.getOrDefault(key,"world_unavailable"));
         final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
+        final String identity=document.identity();final long epoch=views.epoch(key,views.get(key));
+        String expected=null;
+        if(request.has("native_document")||request.has("navigation")){
+            expected=request.getString("native_document");
+            if(!(request.get("navigation") instanceof Number)||request.getDouble("navigation")!=epoch||!expected.equals(identity))
+                throw new MdoBrowserWorld.Failure("frame_changed");
+        }
         String expression="(()=>{try{return {ok:true,value:("+request.getString("script")+")}}catch(e){return {ok:false,error:String(e.message||e)}}})()";
-        document.evaluate(expression,Math.min(10000,Math.max(1,request.optLong("timeout_ms",10000))),result->{
+        document.evaluate(expected,expression,Math.min(10000,Math.max(1,request.optLong("timeout_ms",10000))),result->{
             if(!result.ok){reply(lease,id,null,result.code);return;}
-            try{JSONObject value=new JSONObject(result.value);reply(lease,id,value,value.optBoolean("ok")?null:value.optString("error","World execution failed"));}
+            try{JSONObject value=new JSONObject(result.value);value.put("native_document",identity).put("navigation",epoch);reply(lease,id,value,value.optBoolean("ok")?null:value.optString("error","World execution failed"));}
             catch(JSONException error){reply(lease,id,null,"world_result_invalid");}
         });
     }

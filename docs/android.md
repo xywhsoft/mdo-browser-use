@@ -391,3 +391,25 @@ Both device receipts are unavailable because ADB currently has no device.
 `guarded_native_input_verified` remains false even if the older low-level input
 fixture is later run. The current provider, existing mdo package/data and
 qualified Windows development artifacts are preserved.
+
+## Native document identity and resume ordering (E9)
+
+Each newly admitted main document now owns an independent `fd-` identity in
+native state. The state omits a usable identity while loading, blocked, closed
+or unowned. A duplicate load or release of a blocker on the same document does
+not rotate it; navigation/replacement does. A private `automation` request can
+pin `native_document` and numeric `navigation`. Mismatches reject before the
+provider receives code, and successful replies include both original values.
+This identity is a document alias, not authority to execute arbitrary model
+scripts; the shared driver still selects fixed operations and Agent admission
+remains disabled.
+
+A regression fixture also reproduced an early-peer race during resume: the
+replacement's announcement could arrive before its native navigation start.
+Adopting it on resume made the later start retire the replacement permanently.
+The controller now retains that candidate for the navigation transition.
+Its failing log is preserved. The production classes pass 59 document, 35
+boundary and 18 budget assertions; nine Android JS/protocol checks pass.
+The actual Activity/bridge compile and the same QA APK is 115,091 bytes, SHA-256
+`d83a3fa49612cdcb37a7f5cafb5fa513dc15b452fca98a7e53c003b527c70836`.
+ADB has no device; no framework pass or WebView replacement is claimed.

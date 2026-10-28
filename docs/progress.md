@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E8 connects guarded main-document Android native
+Latest verified milestones: E9 fixes an early-peer/resume race and adds pinned
+native document identity; E8 connects guarded main-document Android native
 input, compiles the actual bridge/Activity and keeps framework qualification
 explicitly unavailable; E7 fixes retained native evaluation admission with
 per-view/shared budgets; E6 wires isolated document execution/lifecycle into
@@ -3065,3 +3066,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Reviewed host overlays match, the single headless service is HTTP 200 and
   deployment use is about 1,109 MiB. The previously qualified Windows artifacts
   are unaffected; no production release is published. The full goal is active.
+
+## E9 — pin native document identities and fix resume/start ordering
+
+- Reproduce a production document-controller race: an early replacement peer
+  arrives while backgrounded, resume adopts it, then its delayed native start
+  retires that same new peer. The once-per-document bootstrap cannot announce
+  again, leaving the document permanently unready. Retain the failing gate log
+  `.mdo/E9-document-resume-before.log`. Blocker release now retains the candidate
+  until the original navigation transition, rather than adopting it over the
+  older active peer. The exact failure fixture passes after the fix.
+- Give each newly admitted native document an independent `fd-` identity.
+  Duplicate load events and ordinary blocker release keep that identity;
+  navigation/replacement rotate it, and blocked/closed/unowned documents expose
+  none. Pin private automation requests to both that native identity and the
+  native navigation epoch, return both with the original lease's reply, and
+  reject mismatches before evaluation. The legacy trusted executor remains
+  available internally; this does not enable Agent admission.
+- Production Java target 8 passes 59 document assertions, 35 boundary assertions
+  and 18 retained-budget assertions. Nine Android protocol/JS checks pass.
+  The actual Activity/bridge compile; the same QA APK is 115,091 bytes, SHA-256
+  `d83a3fa49612cdcb37a7f5cafb5fa513dc15b452fca98a7e53c003b527c70836`.
+  Reviewed overlays match. ADB still has no device, so the current provider is
+  preserved and the new world/framework gate is unavailable, not passed.
+- Main-document shared-driver integration, Android capture/privacy/transfers,
+  supported-provider framework qualification and final product gates continue.
+  The goal remains active and no public release is published.
