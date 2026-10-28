@@ -576,6 +576,15 @@ do not gain this admission. Input and capture still need their visible native
 viewport. All ordinary scope, permission, cancellation and native dispatch
 checks continue before an effect; the recovery never replays a prior action.
 
+The loopback TLS gate verifies direct, redirected and initial invalid-certificate
+failures, refusal of screenshot pixels and explicit navigation recovery. Native
+error 5 is checked against the pinned WebView2 header and Microsoft's
+[certificate error status reference](https://learn.microsoft.com/en-us/microsoft-edge/webview2/reference/winrt/microsoft_web_webview2_core/corewebview2weberrorstatus).
+The actual TLS endpoint receives zero HTTP requests; a connection failure alone
+is not accepted as proof of certificate enforcement. The gate changes no browser
+certificate policy or system trust and makes no claim about all CA/revocation
+failures.
+
 ## JavaScript dialogs and human control
 
 `dialog({browser,action:"list"})` returns bounded pending alert, confirm, prompt

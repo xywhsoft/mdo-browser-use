@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F8 qualifies the packed Windows network-recovery
+Latest verified milestones: N2 verifies actual Windows certificate refusal,
+no HTTP/pixel publication and recovery using memory-only local TLS credentials.
+F8 qualifies the packed Windows network-recovery
 fix through eight actual runtime checks. N1 fixes recovery navigation blocked by a failed
 page's error card, with actual C/JS/WebView2 network/cancel checks. E23 fixes late Android dialog callbacks dispatching
 after exact view teardown and adds native target fault tests. E22 compiles the actual native dialog framework
@@ -3688,3 +3690,34 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Preserve the current provider and disabled Android automation admission.
   Remaining full-goal work continues; no production publication or completion
   is claimed.
+
+## N2 — verify certificate refusal and recovery without persisted test keys
+
+- Add a bounded loopback TLS endpoint using the existing WSL Python/OpenSSL.
+  Keep generated credentials in a private pipe, an anonymous memory descriptor
+  and the helper's TLS context; erase the staging buffer and close its descriptor.
+  Four connection slots, bounded I/O, parent-pipe ownership and a hard helper
+  lifetime prevent abandoned work. No key/certificate file, system trust import,
+  browser override, application/Home copy or shipped runtime dependency is added.
+- The first Windows-only fixture failed credential negotiation and produced
+  generic connection-aborted error 9. Preserve `.mdo/N2-tls-fixture-before.json`
+  and `.mdo/N2-tls-public.log`; this was insufficient certificate-test evidence,
+  not a claimed product TLS defect. The working memory-backed fixture is also
+  checked with an ordinary verifying TLS client before the browser gate.
+- Pass actual public C → ordinary UI → WebView2 direct, HTTP-redirected and
+  initial invalid-certificate cases. Each reports native certificate error 5,
+  matching the pinned header. Across five actual TLS connections the endpoint
+  receives zero HTTP application requests, with certificate-unknown alerts.
+  Screenshot refusal publishes no pixels. Each explicit navigation afterwards
+  recovers the same affected browser to a fresh isolated HTTP fixture.
+- Final native busy/cleanup flags are clear and both transfer caches have zero
+  reservations. Only mark the gate passed after the browser closes, the helper
+  terminates and the same healthy headless service is restored. Receipt/log:
+  `.mdo/tls-result.json` and `.mdo/N2-tls-public-final.log`.
+- Contracts and applied host overlays match. Windows F8 is unchanged at SHA-256
+  `1bc3eb7911dfdf665f2fecb89012872b153d4b2ad94c81a0040471050f0d4e19`.
+  This is specific invalid-certificate refusal/recovery evidence, not complete
+  CA/revocation or arbitrary-network qualification. Current ADB has no device;
+  Android qualification and remaining full-goal work continue with the existing
+  provider and disabled automation admission preserved. No production publication
+  or goal completion is claimed.

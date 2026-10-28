@@ -10,6 +10,7 @@ import threading
 class NetworkFixture:
     def __init__(self):
         self.counts={};self.valid_posts=0
+        self.redirect_url=None
         self.seen={name:threading.Event() for name in ('get','post')}
         self.release={name:threading.Event() for name in ('get','post')}
         self.finished={name:threading.Event() for name in ('get','post')}
@@ -27,6 +28,9 @@ class NetworkFixture:
             def reply(self):
                 path=urlsplit(self.path).path
                 fixture.counts[path]=fixture.counts.get(path,0)+1
+                if path=='/tls-redirect' and fixture.redirect_url:
+                    self.send_response(302);self.send_header('Location',fixture.redirect_url);self.send_header('Content-Length','0')
+                    self.send_header('Connection','close');self.end_headers();self.close_connection=True;return
                 if path=='/reset':
                     self.close_connection=True
                     self.connection.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('HH' if os.name=='nt' else 'ii',1,0))

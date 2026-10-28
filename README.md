@@ -58,6 +58,7 @@ python tools/capture_readiness_probe.py
 python tools/capture_privacy_probe.py
 python tools/capture_privacy_public_probe.py
 python tools/network_probe.py
+python tools/tls_probe.py
 python tools/dom_keyboard_probe.py
 python tools/android_world_probe.py
 python tools/android_dialog_probe.py
@@ -201,6 +202,14 @@ navigation; final native busy/cleanup flags and transfer reservations must clear
 The loopback server counts the original POST, rather than inferring no replay
 from a successful UI receipt. It does not access external websites or models.
 Reported elapsed times include UI admission and polling, not only native time.
+
+`tls_probe.py` uses the existing WSL Python/OpenSSL runtime for a bounded local
+TLS fixture. Certificate/private-key material stays in pipes, anonymous memory
+descriptors and the helper's TLS context; no key file or trust-store import is
+used. Actual public C/JS/WebView2 direct/redirect/initial certificate failures
+must report native certificate error 5 before any HTTP application request, then
+recover through explicit navigation. Capturing the failed page must publish no
+pixels. This checks invalid-certificate refusal, not every CA/revocation case.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
