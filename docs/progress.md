@@ -4102,3 +4102,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   code, with the separate 103-assertion ownership correction above. Full goal
   remains active; installed-provider/production-popup qualification is pending.
 
+## F13 — refresh the Windows artifact with shared popup cleanup admission
+
+- Refresh the same self-contained program with the shared cleanup guard:
+  6,877,954 bytes, SHA-256
+  `518e6f1495768cbf4273eaf197d66629c00af34e1fde25f793f53760711262ed`.
+  Artifact hash and native inventory verify; all nine actual packed-runtime
+  checks pass (`.mdo/F13-program-package.log`,
+  `.mdo/F13-program-runtime.log`). The checks exercise ordinary client
+  registration, read-only default-directory SDK review, C/JS native observation,
+  trusted Unicode fill/click, capture, network-reset reporting, recovery and
+  exact browser close. They do not substitute for normal-desktop pixel or
+  Android framework qualification.
+- Restore the same healthy headless service and Home; deployment is about
+  1,112 MiB. Reviewed overlays match, both held-workspace paths are absent and
+  no `dist/mdo-home` or extra app/engine copy exists. Repository is on `master`;
+  no online publication or provider change. Android's E31 raw fixture is built
+  but its installed-provider result remains unavailable/false. Full goal stays
+  active while outstanding platform/production qualification continues.
+
