@@ -1,13 +1,13 @@
     private final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();
     private void bindDialogs(String key,WebView view){
         if(dialogs.containsKey(key))throw new IllegalStateException("Dialog view identity is already bound");
-        MdoBrowserDialogTarget target=new MdoBrowserDialogTarget(view,
+        MdoBrowserDialogTarget target=new MdoBrowserWindowTarget(view,
             ()->!stopped&&!browserPaused&&views.owns(key,view)&&view.isShown()&&channel.current()!=null&&channel.active(channel.current(),host.getUrl()),
             ()->views.epoch(key,view),blocked->{
                 MdoBrowserDocument document=documents.get(key);
                 if(document!=null)document.block(MdoBrowserDocument.DIALOG,blocked);
                 if(blocked){cancelCapture(key);if(views.owns(key,view))views.input(key,view).invalidate("input_dialog_open");}
-            },epoch->{if(views.owns(key,view)&&views.epoch(key,view)==epoch)cancelNavigationRequest(key,view);});
+            },epoch->{if(views.owns(key,view)&&views.epoch(key,view)==epoch)cancelNavigationRequest(key,view);},windowCallbacks(key,view));
         dialogs.put(key,target);view.setWebChromeClient(target);
     }
     private boolean dialogReady(String key,WebView view){

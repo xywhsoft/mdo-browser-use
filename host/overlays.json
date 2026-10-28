@@ -1010,6 +1010,63 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "handler.cancel();if(!views.owns(key,view))return;loading.put(key,false);",
       "after": "handler.cancel();if(!views.owns(key,view))return;cancelNavigationRequest(key,view);loading.put(key,false);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"create\".equals(command)) {\n                if(web!=null){bounds(web,request);reply(id,new JSONObject().put(\"attached\",true),null);return;}\n                if(views.size()>=8)throw new IllegalStateException(\"Native browser view limit reached (8)\");\n                String target=request.optString(\"url\",\"about:blank\");if(!\"about:blank\".equals(target))target=url(target);\n                web=new WebView(activity);views.put(key,web);bindDocument(key,web,request.optBoolean(\"automation\"));web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);\n                web.getSettings().setAllowFileAccess(false);web.getSettings().setAllowContentAccess(false);\n                web.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);\n                bindDialogs(key,web);\n                web.setWebViewClient(new WebViewClient(){\n                    @Override public void onScaleChanged(WebView view,float oldScale,float newScale){if(views.owns(key,view))cancelCapture(key);views.scaleChanged(key,view,newScale);}\n                    @Override public void onPageStarted(WebView view,String address,Bitmap icon){if(!views.owns(key,view))return;documentNavigation(key,view);if(!views.navigation(key,view))return;loading.put(key,true);errors.remove(key);errorCodes.remove(key);locations.put(key,address);}\n                    @Override public void onPageFinished(WebView view,String address){if(views.owns(key,view)){loading.put(key,false);documentLoaded(key,view);}}\n                    @Override public void onReceivedError(WebView view,WebResourceRequest navigation,WebResourceError error){\n                        if(views.owns(key,view)&&navigation.isForMainFrame()){cancelNavigationRequest(key,view);loading.put(key,false);errors.put(key,error.getDescription().toString());errorCodes.put(key,error.getErrorCode());}\n                    }\n                    @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){handler.cancel();if(!views.owns(key,view))return;cancelNavigationRequest(key,view);loading.put(key,false);errors.put(key,\"TLS certificate validation failed\");errorCodes.put(key,error.getPrimaryError());}\n                    @Override public void onReceivedHttpError(WebView view,WebResourceRequest navigation,WebResourceResponse response){\n                        if(views.owns(key,view)&&navigation.isForMainFrame()){errorCodes.put(key,response.getStatusCode());}\n                    }\n                    @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest navigation){\n                        String scheme=navigation.getUrl().getScheme();return !\"http\".equals(scheme)&&!\"https\".equals(scheme);\n                    }\n                    @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){\n                        if(!views.owns(key,view))return true;views.remove(key);manual.remove(key);loading.put(key,false);errors.put(key,\"Browser process stopped; reload to restore the page\");crashed.add(key);closeAndDestroyDocument(key,view);return true;\n                    }\n                });\n                crashed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);loading.put(key,true);web.loadUrl(target);reply(id,new JSONObject().put(\"created\",true),null);return;\n            }\n",
+      "after_file": "host/android/browser-create.inc.java",
+      "suffix": ""
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private void request(JSONObject request) throws Exception {",
+      "after_file": "host/android/browser-native-popup.inc.java",
+      "suffix": "    private void request(JSONObject request) throws Exception {"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "channel.invalidate();cancelDialogs();",
+      "after": "channel.invalidate();cancelPopups();cancelDialogs();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        cancelDialogs();\n        if(previous!=null)",
+      "after": "        cancelPopups();cancelDialogs();\n        if(previous!=null)"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(!visible)cancelDialog(request.optString(\"browser\"));",
+      "after": "if(!visible){cancelPopup(request.optString(\"browser\"));cancelDialog(request.optString(\"browser\"));}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"state\".equals(command)){reply(id,captureState(key,",
+      "after": "            if(\"state\".equals(command)){reply(id,popupState(key,captureState(key,"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"error\",errors.getOrDefault(key,\"\"))),null);return;}",
+      "after": ".put(\"error\",errors.getOrDefault(key,\"\")))),null);return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"dialog\".equals(command)){executeDialog(key,id,request);return;}",
+      "after": "            if(\"popups\".equals(command)){executePopups(key,id,request);return;}\n            if(\"dialog\".equals(command)){executeDialog(key,id,request);return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(\"takeover\".equals(command))cancelCapture(key);",
+      "after": "if(\"takeover\".equals(command)){cancelPopup(key);cancelCapture(key);}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "else if(\"stop\".equals(command)){cancelDialog(key);",
+      "after": "else if(\"stop\".equals(command)){cancelPopup(key);cancelDialog(key);"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogTarget.java'),source.with_name('MdoBrowserDialogTarget.java'))",
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogTarget.java'),source.with_name('MdoBrowserDialogTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserPopups.java'),source.with_name('MdoBrowserPopups.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))"
     }
   ],
   "files": [
@@ -1204,6 +1261,14 @@
     {
       "source": "host/android/MdoBrowserDialogTarget.java",
       "target": "tools/android/MdoBrowserDialogTarget.java"
+    },
+    {
+      "source": "host/android/MdoBrowserPopups.java",
+      "target": "tools/android/MdoBrowserPopups.java"
+    },
+    {
+      "source": "host/android/MdoBrowserWindowTarget.java",
+      "target": "tools/android/MdoBrowserWindowTarget.java"
     }
   ]
 }

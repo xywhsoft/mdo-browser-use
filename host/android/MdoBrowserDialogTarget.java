@@ -13,7 +13,7 @@ import java.util.function.LongConsumer;
 
 /** Native callbacks for one owned WebView. A callback URL is display metadata,
  * never a root/subframe identity or permission to execute in a different view. */
-final class MdoBrowserDialogTarget extends WebChromeClient implements AutoCloseable {
+class MdoBrowserDialogTarget extends WebChromeClient implements AutoCloseable {
     final WebView view;final MdoBrowserDialogs dialogs;
     private final LongSupplier navigation;private final LongConsumer beforeUnloadCancelled;
     MdoBrowserDialogTarget(WebView view,BooleanSupplier owned,LongSupplier navigation,MdoBrowserDialogs.Listener listener){

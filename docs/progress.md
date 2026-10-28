@@ -4027,3 +4027,41 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   the current WebView and disabled Android automation. Full-goal platform/
   transport/production qualification remains active; no online release or
   completion is claimed.
+
+## E30 — retain and adopt Android native popup contents
+
+- Implement exact-opener `WebChromeClient.onCreateWindow` transport ownership,
+  sharing the existing popup admit/create/settle SDK and scoped panel manager.
+  Android exposes neither a trustworthy target URL nor a frame identity here;
+  admission uses explicitly unknown `about:blank` metadata. Adopt a fresh attached
+  unnavigated child through the original framework message, without loading the
+  caller's URL again. Manual browsing gains popup transport; automation remains
+  disabled and popup isolated-world installation stays explicitly unqualified.
+- Retain at most one native request per opener and eight globally, with a 15s
+  pending lease and 5s dispatch barrier deadline. Claim each original message
+  before dispatch, including null-child rejection. The same UI queue's barrier
+  proves callback consumption, not page load or world readiness. Lost dispatch/
+  barrier acknowledgement retains uncertainty/resource budget until the exact
+  native view is destroyed; no replay is allowed. Navigation, hide, pause,
+  channel detach, takeover and teardown invalidate original ownership. Native
+  page-close is reconciled by the existing scoped browser/panel manager.
+- Block effectful work after uncertain popup cleanup. Test unknown-URL Android
+  admission through the existing JS popup flow without invented navigation.
+  Pin public API/Chromium evidence and limitations in
+  `host/android/popup-protocol.json`.
+- Pass 74 production controller and 25 real Chrome-target contract assertions
+  (`.mdo/E30-popup-contract.log`). Existing world/document/native-budget (134),
+  dialog (163), and input/lifecycle/channel/guard/wheel/hover (495) assertions
+  pass in `.mdo/E30-{world,dialog,input}-contract.log`. These use protocol doubles,
+  not an installed Android provider. All 262 sequential JS tests pass; Python
+  passes 140/142 with the same two Windows symlink privilege skips. Logs:
+  `.mdo/E30-js-full.log`, `.mdo/E30-python-full.log`.
+- Compile the actual reviewed Activity/hooks and tiny QA APK with Java 8/API 36,
+  without another Home, native engine or provider upgrade. APK is 209,299 bytes,
+  SHA-256 `38e04e2382cc765f72b6f6b004c57adee5a1e0a24eabb80a10ebe9d5cdbeaf65`
+  (`.mdo/E30-android-build.log`). ADB has no device; framework popup qualification
+  and raw device fixture are outstanding. Overall Android admission remains
+  false. The healthy headless deployment is restored (about 1,110.6 MiB).
+  Windows F12 remains its previously qualified artifact, pending later refresh
+  for shared cleanup-guard changes. Full goal remains active; no online release.
+

@@ -125,6 +125,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (state.capture_cleanup_failed && (writing || command === 'capture')) return fail('capture_cleanup_failed','Native screenshot cleanup was not confirmed; end this browser before further input');
     if (state.dialog_cleanup_failed && (writing || command === 'capture') && !(command==='upload'&&params.action==='release'))
       return fail('dialog_cleanup_failed','Native dialog cleanup was not confirmed; end this browser before further input');
+    if (state.popup_cleanup_failed && (writing || command === 'capture') && !(command==='upload'&&params.action==='release'))
+      return fail('popup_cleanup_failed','Native popup cleanup was not confirmed; end this browser before further input');
     if (state.capture_busy && command==='act') return fail('browser_busy','The original native screenshot is still settling; wait for its cleanup before sending input');
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
     if (command === "chooser") {

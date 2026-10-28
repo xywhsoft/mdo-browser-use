@@ -14,7 +14,7 @@
         if(navigationRequests.containsKey(key))throw new IllegalStateException("navigation_pending");
         if("back".equals(command)&&!view.canGoBack()||"forward".equals(command)&&!view.canGoForward())return;
         if(!Arrays.asList("navigate","back","forward","reload").contains(command))throw new IllegalArgumentException("navigation_action_invalid");
-        cancelDialog(key);cancelCapture(key);views.stop(key,view);
+        cancelPopup(key);cancelDialog(key);cancelCapture(key);views.stop(key,view);
         if(!dialogReady(key,view))throw new IllegalStateException("dialog_pending_or_unclean");
         navigationRequests.put(key,new NavigationRequest(view,views.epoch(key,view),Boolean.TRUE.equals(loading.get(key))));
         try{

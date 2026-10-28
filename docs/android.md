@@ -873,3 +873,30 @@ Current ADB has no authorized device; `.mdo/E27-device-input.log` and its receip
 remain unavailable with `native_hover_verified:false` and every automation/
 framework flag false. Preserve the current provider and disabled overall
 admission. This is implementation/compile evidence, not a framework hover pass.
+
+### Native popup transport (E30; framework qualification outstanding)
+
+Manual browser views now enable multiple windows through the original Android
+`WebViewTransport`. The shared C/JS popup admission API is unchanged. Android's
+callback provides no trustworthy requested URL or source frame: native discovery
+reports `url:"about:blank", url_known:false`. Creation ignores a caller URL for
+that ticket and never performs `loadUrl` to reconstruct a popup; this preserves
+the original contents/POST/document-write semantics pending framework proof.
+
+There is one pending request per exact opener, eight globally and eight owned
+views. Pending requests expire after 15s; accepted transport dispatch has a 5s
+same-queue barrier deadline. A barrier is callback-consumption evidence only.
+Dispatch or acknowledgement loss cannot release native budget early or replay
+the original message. Navigation, hiding, pause, detach, takeover and close
+invalidate the source; only exact view destruction resolves remaining native
+uncertainty. `onCloseWindow` uses the existing browser/panel close reconciliation.
+
+Run `python tools/android_popup_probe.py` for production Java controller/Chrome
+transport checks with deterministic queue doubles. They currently pass 99
+assertions; the actual Activity and SDK compile as well. Neither is a framework
+pass. The initial native popup navigation has no public pre-adoption URL gate,
+and replacing the child's native contents has not qualified isolated-world
+installation. Popup views therefore report `popup_world_unqualified`, and
+overall Android Browser Use automation stays unavailable. Preserve the current
+installed WebView. The reviewed contracts/references are in
+`host/android/popup-protocol.json`; actual device fixture/qualification is next.

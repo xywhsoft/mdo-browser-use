@@ -1,0 +1,24 @@
+{
+  "adapter": "android-native-window-transport-v1",
+  "minimum_api": 26,
+  "public_api": "https://developer.android.com/reference/android/webkit/WebChromeClient#onCreateWindow(android.webkit.WebView,boolean,boolean,android.os.Message)",
+  "implementation_reference": "https://chromium.googlesource.com/chromium/src/+/HEAD/android_webview/docs/how-does-on-create-window-work.md",
+  "audited_source": {
+    "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/android_webview/java/src/org/chromium/android_webview/AwContents.java",
+    "sha256": "e6b7013ed075e467e86f2f58f67e752acc2c0ed93cad09f64897096814297472",
+    "methods": ["supplyContentsForPopup", "receivePopupContents", "restoreState"]
+  },
+  "one_pending_transport_per_opener": true,
+  "shared_pending_limit": 8,
+  "view_limit": 8,
+  "pending_timeout_ms": 15000,
+  "dispatch_barrier_timeout_ms": 5000,
+  "requested_url_available": false,
+  "source_frame_available": false,
+  "same_queue_barrier_proves": "Transport callback was processed; it does not prove successful navigation, page readiness or world installation",
+  "rejection": "Complete original Message once with a null WebView; never re-send after an uncertain effect",
+  "adoption": "Fresh attached unnavigated child, original transport, no loadUrl replay; HTTP-only initial popup navigation is not guaranteed by this callback",
+  "isolated_world": "Popup replaces the child's native contents. No popup document world is installed or claimed qualified yet",
+  "automation_available": false,
+  "framework_verified": false
+}

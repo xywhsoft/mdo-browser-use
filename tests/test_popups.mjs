@@ -23,9 +23,9 @@ test("ephemeral native tickets require the original display client and stop on a
   assert.equal(calls.length,0);
 });
 
-function fixture({settled=false,queued=[]}={}){
+function fixture({settled=false,queued=[],request={}}={}){
   const calls=[],opened=[],closed=[],errors=[];
-  let pending=[{id:ticket,url:"https://example.com/popup",user_initiated:true}],closeRequested=false;
+  let pending=[{id:ticket,url:"https://example.com/popup",user_initiated:true,...request}],closeRequested=false;
   const row={id:"child",owner:"original-extension",opener:"source",client:"display",context,
     ...(settled?{}:{runtime:{popup_request:descriptor}})};
   const states=new Map([["child",{opener:"source"}]]);
@@ -64,6 +64,17 @@ test("duplicate native notifications adopt one child in the original task",async
   assert.equal(f.calls.filter(c=>c.method==="browser.popup.admit").length,1);
   assert.equal(f.opened.length,1);assert.equal(f.opened[0].reveal,"activate");assert.ok(f.views.has("child"));
   f.manager.dispose();
+});
+
+test('Android unknown popup URLs use the retained ticket without inventing or loading a URL',async()=>{
+  const f=fixture({request:{url:'about:blank',url_known:false,user_initiated:false}});
+  await f.manager.reconcile('source');
+  assert.equal(f.errors.length,0);assert.equal(f.opened.length,1);assert.equal(f.opened[0].reveal,'background');
+  const admission=f.calls.find(row=>row.method==='browser.popup.admit');
+  assert.deepEqual(admission.params,{opener:'source',client:'display',popup:ticket,url:'about:blank'});
+  const created=f.calls.filter(row=>row.method==='create');assert.equal(created.length,1);
+  assert.equal(created[0].params.popup,ticket);assert.equal(created[0].params.opener,'source');
+  assert(!f.calls.some(row=>['navigate','reload'].includes(row.method)));f.manager.dispose();
 });
 
 test("settled admissions are inspected instead of recreating a native window",async()=>{
