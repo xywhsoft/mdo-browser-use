@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E16 wires actual Android visible drawing/encoding,
+Latest verified milestones: F6 refreshes/requalifies the packed Windows preview
+with runtime 19 and the E14/E16 shared capture changes; E16 wires actual Android visible drawing/encoding,
 capture cancellation/lifecycle and isolated proof, compiles the real host and
 pixel fixture, with actual-device/privacy qualification unavailable; E15 adds a tested, resource-bounded native capture
 transaction core, with actual Android draw/encode integration still pending;
@@ -3415,3 +3416,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Actual Android pixels/privacy/framework qualification, remaining platform
   features and final product gates continue. Admission stays disabled, the goal
   remains active and nothing is published to production.
+
+## F6 — qualify the packed preview with the current capture protocol
+
+- Repack in place from the same source/native host, with no app/Home staging
+  copy. The inventory verifies 747 files; deployed and packed hashes match for
+  runtime 19, the document driver, image preparation and shared dispatcher.
+  Restore the original unity and all known excluded development inputs.
+- The executable is 6,875,876 bytes, SHA-256
+  `136bfa62c3e68e8fa1ba00795b4573fa76245fbf3ade283afd00c10bd53fe36f`.
+  Recomputed hash, inventory and actual runtime verification all match. Boot
+  this `dist/` artifact on the same Home/port without unpacked app input and pass
+  all six checks: archive boot, UI registration, C/JS/native observation,
+  Unicode fill/trusted click, synthetic capture and close. Logs/receipt:
+  `.mdo/F6-program-package.log`, `.mdo/F6-program-runtime.log` and
+  `.mdo/program-runtime-result.json` plus the adjacent artifact inventory.
+- Restore the healthy HTTP-200 headless service, about 1,110 MiB in the single
+  deployment. Shared contracts and reviewed overlays match; no extra
+  `dist/mdo-home` exists. The portable plugin is unchanged. Android actual
+  pixels/privacy/framework qualification remains unavailable, and its global
+  admission remains disabled with the current provider preserved. Remaining
+  platform/product gates continue; no production publication and no goal
+  completion is claimed.
