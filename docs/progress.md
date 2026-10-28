@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F11 refreshes the packed shared hover path and
+Latest verified milestones: E28 adds reviewed canonical-default workspace
+preparation and physical binding through shared C/JS SDK services, with 10 new
+actual-host checks and 11 existing legacy recovery checks. F11 refreshes the packed shared hover path and
 passes all eight actual Windows program checks. E27 implements guarded main-document Android native
 hover through the shared dispatcher, with 82 hover/255 JS checks and actual SDK
 compilation; framework qualification stays unavailable. E26 settles post-admission Android input OOM and
@@ -3932,3 +3934,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   path reconstruction and retain response bytes on uncertainty. No directory
   was moved or created during this inspection, and no fix or passing end-to-end
   missing-directory gate is claimed.
+
+## E28 — reviewed canonical default directory preparation in the shared SDK
+
+- Extend read-only `browser.workspace.lookup` with `prepare_default:true` and add
+  `browser.workspace.prepare` to the same generated C/JS/discovery contract.
+  Review resolves the original persisted task only, reporting current browser/
+  task revisions, canonical path, existence and physical identity when present.
+  It never opens a model or creates a directory.
+- Preparation requires explicit confirmation and the reviewed browser/task/path/
+  existence/identity. Only the canonical default project directory is eligible;
+  original custom roots, missing tasks, foreign private members and already
+  physically pinned bindings cannot be reconstructed. Revalidate task metadata,
+  cancellation, original row revision and the named physical root before saving.
+- Create a missing default directory through the retained Home root and constant
+  storage-relative name, not a caller path, under a project lease. Persist its
+  physical pin before acknowledging the browser binding. Allocation/persistence
+  failures after a possible directory/binding effect remain uncertain and require
+  rereading the binding; no download/request or file publication is replayed.
+- Ten actual C-host tests pass in `.mdo/E28-default-workspace-final.log`, covering
+  missing-root review/creation, explicit preconditions, physical replacement,
+  forbidden recreation of pinned roots, foreign scope, missing tasks, legacy
+  empty context, a regular file at the default path and generated SDK parity.
+  Missing-root cases rename and restore this single QA Home's exact workspace;
+  no copy/Home is added, and original physical identity and contents are retained.
+  All 11 existing legacy-root recovery tests also pass
+  (`.mdo/E28-legacy-workspace.log`).
+- Download UI integration is next. The running single development deployment
+  includes the SDK feature; Windows F11 remains the previously verified artifact
+  pending refresh. Android framework/normal-desktop visual qualification remains
+  unavailable as recorded above. No production publication or completion claimed.

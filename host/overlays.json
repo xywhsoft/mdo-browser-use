@@ -578,7 +578,7 @@
     {
       "path": "app/src/application/workbench.c",
       "before": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\",\"browser.popup.admit\",\"browser.popup.settle\"",
-      "after": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\",\"browser.popup.admit\",\"browser.popup.settle\",\n    \"browser.workspace.lookup\",\"browser.workspace.adopt\""
+      "after": "\"browser.close\",\"browser.result\",\"browser.release\",\"browser.report\",\"browser.popup.admit\",\"browser.popup.settle\",\n    \"browser.workspace.lookup\",\"browser.workspace.adopt\",\"browser.workspace.prepare\""
     },
     {
       "path": "app/src/application/workbench.c",
@@ -588,12 +588,12 @@
     {
       "path": "app/src/application/workbench.c",
       "before": "    if(!strcmp(Method,\"browser.command\")){",
-      "after": "    if(!strcmp(Method,\"browser.workspace.lookup\")||!strcmp(Method,\"browser.workspace.adopt\"))return BuBrowserWorkspace(C,Method,P,R,E);\n    if(!strcmp(Method,\"browser.command\")){"
+      "after": "    if(!strcmp(Method,\"browser.workspace.lookup\")||!strcmp(Method,\"browser.workspace.adopt\")||!strcmp(Method,\"browser.workspace.prepare\"))return BuBrowserWorkspace(C,Method,P,R,E);\n    if(!strcmp(Method,\"browser.command\")){"
     },
     {
       "path": "tools/workbench_contracts.py",
       "before": "    add('browser.update'",
-      "after": "    add('browser.workspace.lookup','Read the original persisted task directory for a legacy tab; no model, default fallback or file creation',identity,('id',))\n    add('browser.workspace.adopt','Explicitly fill an empty legacy workspace after reviewing task, browser and physical-root revisions',\n        {**revision,'workspace':s,'root_snapshot':s,'session_revision':{'type':'integer','minimum':1},'confirmed':{'type':'boolean'}},('id','revision','workspace','root_snapshot','session_revision','confirmed'))\n    add('browser.update'"
+      "after": "    add('browser.workspace.lookup','Read the original persisted task directory; optional default preparation review is read-only and never creates a directory',{**identity,'prepare_default':b},('id',))\n    add('browser.workspace.adopt','Explicitly fill an empty legacy workspace after reviewing task, browser and physical-root revisions',\n        {**revision,'workspace':s,'root_snapshot':s,'session_revision':{'type':'integer','minimum':1},'confirmed':b},('id','revision','workspace','root_snapshot','session_revision','confirmed'))\n    add('browser.workspace.prepare','Explicitly prepare and pin only an unbound original task canonical default directory after read-only review',\n        {**revision,'workspace':s,'root_snapshot':s,'session_revision':{'type':'integer','minimum':1},'root_exists':b,'confirmed':b},('id','revision','workspace','session_revision','root_exists','confirmed'))\n    add('browser.update'"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",

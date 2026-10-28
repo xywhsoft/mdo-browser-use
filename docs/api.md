@@ -1218,6 +1218,24 @@ captured window` and `FrameArrived timed out`; it is not recorded as passed.
 
 ## Recover a legacy tab's original task directory
 
+For the canonical default directory, trusted C/JS clients can request
+`browser.workspace.lookup({id,prepare_default:true})`. This read-only review uses
+the original persisted task and returns `revision`, `session_revision`,
+`workspace`, `prepare_default:true`, `root_exists`, and `root_snapshot` only when
+the directory exists. It does not create a directory or infer another task.
+
+`browser.workspace.prepare` (`mdoBrowserWorkspacePrepare` /
+`api.browser.workspace.prepare`) requires that reviewed `id`, `revision`,
+`session_revision`, `workspace`, `root_exists`, optional existing `root_snapshot`
+and `confirmed:true`. A missing directory is prepared through the retained Home
+root's fixed default-workspace entry. The physical root is pinned in the returned
+browser context. Existing physical pins cannot be replaced or reconstructed;
+custom roots require restoration. Original task/private-member scope and current
+metadata/physical identity are checked before commitment. After an uncertain
+response, reread `browser.get` before deciding another action; preparation never
+replays a request, download or file publication. This is a trusted SDK operation,
+not an added Agent tool. The download UI flow is being integrated separately.
+
 The shared host C/JS SDK now provides `browser.workspace.lookup` and
 `browser.workspace.adopt` (`mdoBrowserWorkspaceLookup/Adopt` and
 `api.browser.workspace.lookup/adopt`). They are trusted extension/UI services,
