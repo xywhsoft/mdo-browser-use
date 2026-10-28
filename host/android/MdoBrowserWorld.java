@@ -2,6 +2,7 @@ package org.xserver.android;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
+import java.lang.ref.WeakReference;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -25,6 +26,14 @@ final class MdoBrowserWorld implements AutoCloseable {
     static final class Failure extends Exception {
         final String code;Failure(String code){super(code);this.code=code;}
     }
+    static final class Budget {
+        private final Thread owner=Thread.currentThread();private final int limit;private int used;
+        Budget(int limit){if(limit<1||limit>128)throw new IllegalArgumentException("Invalid world budget");this.limit=limit;}
+        private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("World budget requires its owning UI thread");}
+        boolean acquire(){thread();if(used>=limit)return false;used++;return true;}
+        void release(){thread();if(used<=0)throw new IllegalStateException("World budget underflow");used--;}
+        int used(){thread();return used;}int limit(){thread();return limit;}
+    }
     static final class Features {
         final boolean isolatedWorld,profiles,messageListener;final int count;
         private final ClassLoader loader;private final InvocationHandler factory;
@@ -35,7 +44,8 @@ final class MdoBrowserWorld implements AutoCloseable {
     }
     private final Object view;private final ClassLoader loader;private final InvocationHandler provider;
     private final Scheduler scheduler;private final Receiver receiver;private final Thread owner=Thread.currentThread();
-    private final Set<Pending> pending=new HashSet<>();private final boolean profiles;
+    private final Set<Pending> pending=new HashSet<>();private final Set<NativeCall> outstanding=new HashSet<>();
+    private final boolean profiles;private final Budget budget;
     private InvocationHandler script;private Peer current;private boolean listening,closed,scriptUncertain;
 
     static Features inspect(ClassLoader loader) throws Failure {
@@ -52,17 +62,21 @@ final class MdoBrowserWorld implements AutoCloseable {
         }catch(Failure failure){throw failure;}catch(ReflectiveOperationException|RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
     }
     static MdoBrowserWorld open(Object view,ClassLoader loader,Scheduler scheduler,Receiver receiver) throws Failure {
-        if(view==null||loader==null||scheduler==null||receiver==null)throw new Failure("world_arguments_invalid");
+        return open(view,loader,scheduler,receiver,new Budget(16));
+    }
+    static MdoBrowserWorld open(Object view,ClassLoader loader,Scheduler scheduler,Receiver receiver,Budget budget) throws Failure {
+        if(view==null||loader==null||scheduler==null||receiver==null||budget==null)throw new Failure("world_arguments_invalid");budget.used();
         Features features=inspect(loader);
         if(!features.isolatedWorld)throw new Failure("isolated_world_unsupported");
         try{
             Object result=invoke(loader,features.factory,"WebViewProviderFactoryBoundaryInterface","createWebView",view);
             if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");
-            return new MdoBrowserWorld(view,features.loader,(InvocationHandler)result,scheduler,receiver,features.profiles);
+            return new MdoBrowserWorld(view,features.loader,(InvocationHandler)result,scheduler,receiver,features.profiles,budget);
         }catch(Failure failure){throw failure;}catch(RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
     }
-    private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,boolean profiles){
+    private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,boolean profiles,Budget budget){
         this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;this.profiles=profiles;
+        this.budget=budget;
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("World operations require their owning UI thread");}
     private static boolean compatible(Class<?> type,Object value){
@@ -142,37 +156,68 @@ final class MdoBrowserWorld implements AutoCloseable {
         void evaluate(String expression,long timeout,Completion complete) throws Failure {
             thread();if(closed||retired||current!=this)throw new Failure("frame_changed");
             if(!bounded(expression,131072)||timeout<1||timeout>10000||complete==null)throw new Failure("world_evaluation_invalid");
-            if(pending.size()>=16)throw new Failure("world_job_limit");
-            Pending job=new Pending(this,complete,scheduler.now()+timeout);pending.add(job);
-            try{scheduler.post(job.timer,timeout);}catch(RuntimeException error){pending.remove(job);scheduler.remove(job.timer);throw new Failure("world_timer_unavailable");}
-            InvocationHandler callback=(proxy,method,args)->{
-                thread();if(job.done)return null;
-                if("onSuccess".equals(method.getName())&&args!=null&&args.length==1&&args[0] instanceof String){
-                    String value=(String)args[0];boolean valid=bounded(value,262144);job.finish(valid?value:null,valid?null:"world_result_limit");
-                }else if("onFailure".equals(method.getName())&&args!=null&&args.length==2){
-                    boolean destroyed=Integer.valueOf(1).equals(args[0]);if(destroyed)retire(this,"frame_changed");
-                    job.finish(null,destroyed?"frame_changed":"world_evaluation_failed");
-                }else job.finish(null,"world_callback_invalid");return null;
-            };
+            if(outstanding.size()>=16)throw new Failure("world_job_limit");
+            NativeCall callback=new NativeCall(MdoBrowserWorld.this,budget);
+            Pending job=new Pending(this,complete,scheduler.now()+timeout,callback);callback.delivery=job;
+            if(!budget.acquire())throw new Failure("world_shared_job_limit");callback.reserved=true;
+            try{outstanding.add(callback);pending.add(job);scheduler.post(job.timer,timeout);}
+            catch(RuntimeException|Error error){
+                job.done=true;job.complete=null;pending.remove(job);callback.release();
+                try{scheduler.remove(job.timer);}catch(RuntimeException ignored){}
+                if(error instanceof Error)throw(Error)error;throw new Failure("world_timer_unavailable");
+            }
             job.sent=true;
             try{invoke(loader,reply,"JsReplyProxyBoundaryInterface","executeJavaScript",expression,callback);}
             catch(Failure failure){job.finish(null,failure.code);}
         }
     }
+    /** A provider can retain this handler after the client's deadline. It must
+     * not retain the completed UI/session callback or an old Activity graph. */
+    private static final class NativeCall implements InvocationHandler {
+        final WeakReference<MdoBrowserWorld> owner;final Budget budget;
+        Pending delivery;boolean reserved;
+        NativeCall(MdoBrowserWorld owner,Budget budget){this.owner=new WeakReference<>(owner);this.budget=budget;}
+        void release(){
+            budget.thread();delivery=null;if(!reserved)return;reserved=false;budget.release();
+            MdoBrowserWorld world=owner.get();if(world!=null)world.outstanding.remove(this);
+        }
+        public Object invoke(Object proxy,Method method,Object[] args){
+            budget.thread();Pending job=delivery;String name=method.getName();
+            boolean terminal="onSuccess".equals(name)||"onFailure".equals(name);
+            if(terminal)release();
+            if(job==null||job.done)return null;
+            if("onSuccess".equals(name)&&args!=null&&args.length==1&&args[0] instanceof String){
+                String value=(String)args[0];boolean valid=bounded(value,262144);job.finish(valid?value:null,valid?null:"world_result_limit");
+            }else if("onFailure".equals(name)&&args!=null&&args.length==2){
+                boolean gone=Integer.valueOf(1).equals(args[0]);if(gone)job.peer.world().retire(job.peer,"frame_changed");
+                job.finish(null,gone?"frame_changed":"world_evaluation_failed");
+            }else job.finish(null,"world_callback_invalid");return null;
+        }
+    }
     private final class Pending {
-        final Peer peer;final Completion complete;final long deadline;final Runnable timer;boolean sent,done;
-        Pending(Peer peer,Completion complete,long deadline){this.peer=peer;this.complete=complete;this.deadline=deadline;timer=()->finish(null,"world_timed_out");}
+        final Peer peer;Completion complete;final long deadline;final Runnable timer;final NativeCall call;boolean sent,done;
+        Pending(Peer peer,Completion complete,long deadline,NativeCall call){this.peer=peer;this.complete=complete;this.deadline=deadline;this.call=call;timer=()->finish(null,"world_timed_out");}
         void finish(String value,String code){
-            if(done)return;done=true;pending.remove(this);scheduler.remove(timer);
+            if(done)return;done=true;pending.remove(this);call.delivery=null;
+            Completion destination=complete;complete=null;
+            try{scheduler.remove(timer);}catch(RuntimeException error){code="world_timer_cleanup_failed";value=null;}
             if(scheduler.now()>=deadline){value=null;code="world_timed_out";}
-            try{complete.complete(new Result(code==null,value,code,sent));}catch(RuntimeException error){receiver.fault("world_callback_failed");}
+            try{destination.complete(new Result(code==null,value,code,sent));}catch(RuntimeException error){receiver.fault("world_callback_failed");}
         }
     }
     int pending(){thread();return pending.size();}
+    int outstanding(){thread();return outstanding.size();}
+    int sharedOutstanding(){thread();return budget.used();}
+    int sharedLimit(){thread();return budget.limit();}
     @Override public void close(){
         thread();if(!closed){closed=true;invalidate();for(Pending job:new ArrayList<>(pending))job.finish(null,"world_closed");}
         if(script!=null)try{invoke(loader,script,"ScriptHandlerBoundaryInterface","remove");script=null;}catch(Failure failure){receiver.fault("world_script_cleanup_failed");}
         if(listening)try{invoke(loader,provider,"WebViewProviderBoundaryInterface","removeWebMessageListener",LISTENER,WORLD);listening=false;}catch(Failure failure){receiver.fault("world_listener_cleanup_failed");}
     }
-    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&!listening&&pending.isEmpty();}
+    void viewDestroyed(Object original){
+        thread();if(!closed||original!=view)throw new IllegalStateException("Confirm only the exact closed native view");
+        script=null;scriptUncertain=false;listening=false;
+        for(NativeCall call:new ArrayList<>(outstanding))call.release();
+    }
+    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
 }

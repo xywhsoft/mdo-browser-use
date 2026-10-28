@@ -311,3 +311,35 @@ system provider and existing mdo installation/data are unchanged.
 DOM/native focus and geometry, frame/capture/privacy and transfer integration,
 native callback retention/resource budgets, and supported-provider device
 qualification remain outstanding before enabling Android automation.
+
+## Retained native evaluations and shared admission (E7)
+
+A deferred-callback fixture reproduced a resource-limit defect: after each
+client deadline the old implementation removed its client job and admitted
+another evaluation, reaching 17 native dispatches through a nominal 16-job
+limit while all client jobs had finished. The original failure receipt/log are
+retained under `.mdo/android-native-budget-first-failure.json` and
+`.mdo/android-native-budget-before.log`. This is a production-Java protocol
+failure; it is not attributed to the installed Android provider.
+
+Unfinished provider callbacks now retain their original reservation after
+timeout, cancellation, navigation, listener removal or lost dispatch
+acknowledgement. Admission is limited to 16 per content view and 32 across the
+browser's views. Client jobs and native outstanding work are separate state
+fields. A terminal callback releases only its own reservation; late or repeated
+callbacks cannot complete a client twice or decrement a replacement's work.
+Only a confirmed `WebView.destroy()` of that exact closed view can release work
+whose provider never acknowledges completion. Closing a listener alone is not
+such proof. Detached callbacks retain a weak world reference and the small
+shared budget, not the completed UI/session callback.
+
+The native-budget fixture passes 18 assertions, including shared admission,
+exact-view destruction, late callbacks and timer-allocation OOM before native
+dispatch. Existing 35 boundary, 47 document, 125 input, 69 lifecycle and 22
+channel assertions pass, as do all 196 JavaScript tests. These are protocol and
+lifetime checks, not Android framework results. The real Activity and the same
+tiny QA package compile; its APK is 98,707 bytes with SHA-256
+`5412d32b1fef1740a1645eee38706ee91248801bf7803d46e05cc30c3a0b650e`.
+No device is currently available, both device receipts remain unavailable, and
+the current system WebView is preserved. Android automation remains disabled
+pending the remaining integration and supported-provider qualification.

@@ -1,5 +1,6 @@
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
+    private final MdoBrowserWorld.Budget worldBudget=new MdoBrowserWorld.Budget(32);
     private boolean browserPaused;
     private void bindDocument(String key,WebView view,boolean automation){
         if(documents.containsKey(key))closeDocument(key);
@@ -11,7 +12,7 @@
                 public long now(){return android.os.SystemClock.uptimeMillis();}
                 public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("World scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
-            },()->!stopped&&views.owns(key,view),()->views.epoch(key,view),automation?"mdo.browser-use":null);
+            },()->!stopped&&views.owns(key,view),()->views.epoch(key,view),automation?"mdo.browser-use":null,worldBudget);
             document.block(MdoBrowserDocument.BACKGROUND,browserPaused);
             document.block(MdoBrowserDocument.CHANNEL,channel.current()==null);
             documents.put(key,document);
@@ -24,6 +25,12 @@
         MdoBrowserDocument document=documents.remove(key);
         documentFailures.remove(key);
         if(document==null)return true;document.close();return document.cleanupConfirmed();
+    }
+    private boolean closeAndDestroyDocument(String key,WebView view){
+        MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
+        if(document!=null)document.close();root.removeView(view);view.destroy();
+        if(document!=null)document.viewDestroyed(view);
+        return document==null||document.cleanupConfirmed();
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;
@@ -40,7 +47,9 @@
         MdoBrowserDocument document=documents.get(key);
         return new JSONObject().put("installed",document!=null).put("ready",document!=null&&document.ready())
             .put("phase",document==null?documentFailures.getOrDefault(key,"world_unavailable"):document.phase())
-            .put("pending",document==null?0:document.pending()).put("profile_isolation",document!=null&&document.profileAssigned());
+            .put("pending",document==null?0:document.pending()).put("native_outstanding",document==null?0:document.outstanding())
+            .put("native_budget_used",worldBudget.used()).put("native_budget_limit",worldBudget.limit())
+            .put("profile_isolation",document!=null&&document.profileAssigned());
     }
     private void executeDocument(String key,String id,JSONObject request) throws Exception {
         MdoBrowserDocument document=documents.get(key);

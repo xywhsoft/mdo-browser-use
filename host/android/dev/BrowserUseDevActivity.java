@@ -111,7 +111,7 @@ public final class BrowserUseDevActivity extends Activity {
         put("probe_verified",verified);put("code",code);
         if(inputProbe!=null){inputProbe.close();inputProbe=null;}
         if(world!=null){world.close();put("cleanup_confirmed",world.cleanupConfirmed());}
-        if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();view=null;}
+        if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();if(world!=null){world.viewDestroyed(view);put("cleanup_confirmed",world.cleanupConfirmed());}view=null;}
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);
         Log.i("MdoBrowserUseProbe",report.toString());
     }

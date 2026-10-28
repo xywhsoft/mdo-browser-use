@@ -824,13 +824,8 @@
     },
     {
       "path": "tools/android/MdoBrowser.java",
-      "before": "if(!views.owns(key,view))return true;views.remove(key);",
-      "after": "if(!views.owns(key,view))return true;closeDocument(key);views.remove(key);"
-    },
-    {
-      "path": "tools/android/MdoBrowser.java",
       "before": "if(web!=null){views.remove(key);root.removeView(web);web.destroy();}",
-      "after": "boolean worldClean=closeDocument(key);if(web!=null){views.remove(key);root.removeView(web);web.destroy();}"
+      "after": "boolean worldClean=web==null?closeDocument(key):true;if(web!=null){views.remove(key);worldClean=closeAndDestroyDocument(key,web);}"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -876,6 +871,11 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "locations.remove(key);reply(id,new JSONObject(),null);",
       "after": "locations.remove(key);reply(id,new JSONObject().put(\"world_cleanup_confirmed\",worldClean),null);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "crashed.add(key);root.removeView(view);view.destroy();return true;",
+      "after": "crashed.add(key);closeAndDestroyDocument(key,view);return true;"
     }
   ],
   "files": [

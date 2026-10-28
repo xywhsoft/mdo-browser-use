@@ -2986,3 +2986,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Native focus/geometry, frame/capture/privacy, transfer integration and retained
   provider-callback/resource qualification remain active, along with supported-
   provider framework verification and final delivery. The goal remains active.
+
+## E7 — retain native world reservations until actual completion or teardown
+
+- Reproduce a production-Java admission defect with a deferred provider: client
+  deadlines reduced the pending count to zero and admitted 17 native evaluations
+  through the 16-job limit. Retain the original failure receipt/log. Provider
+  acknowledgement loss is also explicitly uncertain rather than proof that
+  native execution did not start.
+- Separate client jobs from unfinished native callbacks. Keep a per-view limit
+  of 16 and share a 32-job budget across content views, including cancelled and
+  timed-out calls. Release each original reservation exactly once, on a terminal
+  callback or after the exact closed WebView is physically destroyed. Listener
+  removal or a foreign/replacement view cannot release it. Late callbacks do not
+  replay client replies or decrement replacement work. Drop the completed
+  session/UI callback and retain only a weak world reference with the small
+  budget in the provider's original handler.
+- Add 18 native-budget assertions covering timeouts, cancellations, shared
+  saturation, exact/foreign teardown, replacement work, late callbacks and a
+  scheduler-allocation OOM before dispatch. Production Java target 8 passes,
+  alongside 35 boundary/47 document assertions and the existing 125 input,
+  69 lifecycle and 22 channel assertions. All 196 JavaScript tests pass.
+- Compile the actual Activity/hooks and rebuild the same owned tiny QA package:
+  98,707 bytes, SHA-256
+  `5412d32b1fef1740a1645eee38706ee91248801bf7803d46e05cc30c3a0b650e`.
+  No additional app/Home/toolchain or runtime dependency is introduced. ADB has
+  no device, so both framework receipts remain unavailable, not passed. Keep
+  the current WebView and existing mdo installation/data unchanged.
+- Reviewed overlays match and the original headless loopback service is healthy
+  (HTTP 200). Windows artifacts are unaffected. Continue Android native focus/
+  geometry, frame/capture/privacy, transfers and framework qualification, plus
+  final adversarial/network/performance work; product admission remains disabled
+  and the full goal is active.

@@ -75,7 +75,7 @@ public final class SupportLibReflectionUtil {
     case "postMessage":return null;
     case "executeJavaScript":InvocationHandler callback=(InvocationHandler)a[1];
      if(mode.equals("defer")){delayed.add(callback);return null;}
-     if(mode.equals("throw"))throw new RuntimeException("Synthetic dispatch acknowledgement loss");
+     if(mode.equals("throw")){delayed.add(callback);throw new RuntimeException("Synthetic dispatch acknowledgement loss");}
      if(mode.equals("frame")){failure(callback,1);return null;}
      success(callback,mode.equals("oversize")?"x".repeat(262145):"{\"fixture\":7}");
      if(mode.equals("twice"))success(callback,"duplicate");return null;
@@ -148,7 +148,9 @@ public final class AndroidWorldContractTest {
    mode("defer");sink.peer.evaluate("waiting",100,results::add);mode("frame");sink.peer.evaluate("destroyed",100,results::add);
    check(world.pending()==0&&results.get(results.size()-1).code.equals("frame_changed"),"Destroyed frame did not drain all jobs");
    int third=peer();emit(view,true,"last hello",third);mode("defer");sink.peer.evaluate("closing",100,results::add);mode("cleanup_fail");world.close();
-   check(world.pending()==0&&!world.cleanupConfirmed(),"Unconfirmed cleanup was hidden");mode("success");world.close();check(world.cleanupConfirmed(),"Owned cleanup retry");
+   check(world.pending()==0&&!world.cleanupConfirmed(),"Unconfirmed cleanup was hidden");mode("success");world.close();
+   check(!world.cleanupConfirmed()&&world.outstanding()>0,"Unreturned native work was reported cleaned");
+   world.viewDestroyed(view);check(world.cleanupConfirmed()&&world.sharedOutstanding()==0,"Exact native teardown did not release retained work");
    completed=results.size();invoke("late",new Class<?>[]{});emit(view,true,"closed hello",third);check(results.size()==completed&&clock.tasks.isEmpty(),"Closed world accepted a callback");
    invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"JS_INJECTION_IN_FRAME_AND_WORLD"});
    MdoBrowserWorld noProfile=MdoBrowserWorld.open(view,loader,new Clock(),new Sink());check(!noProfile.supportsProfile(),"Missing profile feature was guessed");
@@ -173,7 +175,7 @@ def main():
     for name,text in SOURCES.items():
         target=source/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text,encoding='utf-8',newline='\n');paths.append(target)
     production=[dev.ROOT/'host/android/MdoBrowserWorld.java',dev.ROOT/'host/android/MdoBrowserDocument.java']
-    paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java'])
+    paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java'])
     def linux(path):
         path=path.resolve().as_posix();return '/mnt/'+path[0].lower()+path[2:]
     result=dev.ENV/'android-world-result.json';result.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
@@ -183,6 +185,11 @@ def main():
     report=json.loads(run.stdout.strip());report['scope']='protocol-lifetime-contract-only';report['apk_built']=False;report['production_java_target']=8
     document=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidDocumentContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['document_checks']=json.loads(document.stdout.strip())['checks'];report['document_framework_verified']=False
+    budget=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidNativeBudgetContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['native_budget']=json.loads(budget.stdout.strip())
+    if not report['native_budget']['passed']:
+        report['passed']=False;result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+        raise RuntimeError('Client deadlines admitted more native evaluations while provider callbacks remained outstanding')
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 

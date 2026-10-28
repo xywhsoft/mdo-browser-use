@@ -23,12 +23,16 @@ final class MdoBrowserDocument implements AutoCloseable {
 
     MdoBrowserDocument(Object view,ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,
                        BooleanSupplier owned,LongSupplier epoch,String profile) throws MdoBrowserWorld.Failure {
+        this(view,loader,scheduler,owned,epoch,profile,new MdoBrowserWorld.Budget(16));
+    }
+    MdoBrowserDocument(Object view,ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,
+                       BooleanSupplier owned,LongSupplier epoch,String profile,MdoBrowserWorld.Budget budget) throws MdoBrowserWorld.Failure {
         if(owned==null||epoch==null)throw new MdoBrowserWorld.Failure("world_arguments_invalid");
         this.owned=owned;this.epoch=epoch;
         world=MdoBrowserWorld.open(view,loader,scheduler,new MdoBrowserWorld.Receiver(){
             public void message(MdoBrowserWorld.Peer peer,String text){receive(peer,text);}
             public void fault(String code){failed(code);}
-        });
+        },budget);
         try{
             if(profile!=null){world.profile(profile);this.profile=true;}
             world.install(BOOTSTRAP);
@@ -78,6 +82,9 @@ final class MdoBrowserDocument implements AutoCloseable {
     boolean ready(){thread();return reason()==null;}
     String phase(){thread();String code=reason();return code==null?"ready":code;}
     int pending(){thread();return world.pending();}
+    int outstanding(){thread();return world.outstanding();}
+    int sharedOutstanding(){thread();return world.sharedOutstanding();}
+    int sharedLimit(){thread();return world.sharedLimit();}
     boolean profileAssigned(){thread();return profile;}
     void cancel(){thread();if(!closed){serial++;world.cancelPending("world_cancelled");}}
     void evaluate(String expression,long timeout,MdoBrowserWorld.Completion complete) throws MdoBrowserWorld.Failure {
@@ -97,4 +104,5 @@ final class MdoBrowserDocument implements AutoCloseable {
         thread();if(!closed){closed=true;serial++;active=null;candidate=null;}world.close();
     }
     boolean cleanupConfirmed(){thread();return closed&&world.cleanupConfirmed();}
+    void viewDestroyed(Object original){thread();if(!closed)throw new IllegalStateException("Close the document before native teardown");world.viewDestroyed(original);}
 }
