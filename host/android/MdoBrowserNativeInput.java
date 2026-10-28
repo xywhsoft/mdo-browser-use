@@ -11,7 +11,7 @@ import org.json.JSONObject;
  * remaining Android contracts and real provider have been qualified. */
 final class MdoBrowserNativeInput {
     static final String FENCE="(p=>{try{"+
-        "const bad=code=>({ok:false,code}),r=globalThis.__mdo_browser_use_runtime_v1;"+
+        "const bad=code=>({ok:false,code}),r=globalThis.__mdo_browser_use_local_frame_v1;"+
         "if(self!==top||!r||r.documentNode!==document||r.document!==p.document)return bad('frame_changed');"+
         "const geometry=()=>{const v=globalThis.visualViewport,s=p.scale;"+
         "if(!v||![innerWidth,innerHeight,scrollX,scrollY,v.width,v.height,v.scale,v.offsetLeft,v.offsetTop,s].every(Number.isFinite)||s<=0||v.scale<=0)return 'input_viewport_unsupported';"+
@@ -29,16 +29,19 @@ final class MdoBrowserNativeInput {
 
     private final WebView view;private final MdoBrowserDocument document;private final BooleanSupplier owned;private final DoubleSupplier nativeScale;
     private final int width,height,scrollX,scrollY;private final double scale;
-    private final String kind,expression;
+    private final String kind,expression,nativeDocument;
 
     MdoBrowserNativeInput(WebView view,MdoBrowserDocument document,BooleanSupplier owned,DoubleSupplier nativeScale,JSONObject request)throws JSONException {
         if(view==null||document==null||owned==null||nativeScale==null)throw new IllegalArgumentException("Missing native input owner");
         this.view=view;this.document=document;this.owned=owned;this.nativeScale=nativeScale;
+        nativeDocument=document.identity();if(nativeDocument==null)throw new IllegalStateException("world_not_ready");
         kind=request.getString("kind");
         if(!kind.matches("focus|click|key|text"))throw new UnsupportedOperationException("android_input_kind_unsupported");
         JSONArray frames=request.optJSONArray("frame_chain"),snapshot=request.optJSONArray("frame_snapshot");
-        if(request.has("frame_chain")&&(frames==null||frames.length()!=0)||request.has("frame_snapshot")&&(snapshot==null||snapshot.length()!=0))
+        if(frames==null||frames.length()!=1||!frames.getJSONObject(0).getString("frame").equals("f0")||
+           request.has("frame_snapshot")&&(snapshot==null||snapshot.length()!=0))
             throw new UnsupportedOperationException("android_frames_unavailable");
+        if(!frames.getJSONObject(0).getString("document").equals(nativeDocument))throw new IllegalStateException("frame_changed");
         String id=request.getString("input_document"),ref=request.getString("input_ref");
         if(!id.matches("d-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")||!ref.matches("e[1-9][0-9]{0,12}"))
             throw new IllegalArgumentException("input_target_invalid");
@@ -62,14 +65,14 @@ final class MdoBrowserNativeInput {
         expression=FENCE+"("+witness.toString()+")";
     }
     private String current(){
-        if(!owned.getAsBoolean()||!document.ready())return "frame_changed";
+        if(!owned.getAsBoolean()||!nativeDocument.equals(document.identity()))return "frame_changed";
         if(view.getWidth()!=width||view.getHeight()!=height||view.getScrollX()!=scrollX||view.getScrollY()!=scrollY||
            nativeScale.getAsDouble()!=scale||view.getPaddingLeft()!=0||view.getPaddingTop()!=0||view.getPaddingRight()!=0||view.getPaddingBottom()!=0)return "input_viewport_changed";
         return null;
     }
     private void check(long remaining,MdoBrowserInput.Checked complete){
         String stale=current();if(stale!=null){complete.complete(stale);return;}
-        try{document.evaluate(expression,Math.min(10000,remaining),result->{
+        try{document.evaluate(nativeDocument,expression,Math.min(10000,remaining),result->{
             if(!result.ok){complete.complete(result.code);return;}
             String code;
             try{JSONObject value=new JSONObject(result.value);code=value.optBoolean("ok")?current():value.optString("code","input_guard_failed");}

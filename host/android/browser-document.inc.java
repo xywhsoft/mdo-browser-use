@@ -53,21 +53,30 @@
             .put("adapter","android-main-document-v1")
             .put("profile_isolation",document!=null&&document.profileAssigned());
     }
+    private void documentFailure(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String identity,long epoch,String code,boolean sent){
+        try{reply(lease,id,new JSONObject().put("ok",false).put("native_document",identity==null?JSONObject.NULL:identity).put("navigation",epoch)
+            .put("error",new JSONObject().put("code",code).put("evaluation_may_have_occurred",sent)),null);}
+        catch(JSONException error){reply(lease,id,null,"world_result_invalid");}
+    }
     private void executeDocument(String key,String id,JSONObject request) throws Exception {
         MdoBrowserDocument document=documents.get(key);
         if(document==null)throw new UnsupportedOperationException(documentFailures.getOrDefault(key,"world_unavailable"));
         final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
         final String identity=document.identity();final long epoch=views.epoch(key,views.get(key));
+        final boolean pinned=request.has("native_document")||request.has("navigation");
         String expected=null;
-        if(request.has("native_document")||request.has("navigation")){
+        if(pinned){
             expected=request.getString("native_document");
-            if(!(request.get("navigation") instanceof Number)||request.getDouble("navigation")!=epoch||!expected.equals(identity))
-                throw new MdoBrowserWorld.Failure("frame_changed");
+            if(!(request.get("navigation") instanceof Number)||request.getDouble("navigation")!=epoch||!expected.equals(identity)){
+                documentFailure(lease,id,identity,epoch,"frame_changed",false);return;
+            }
         }
         String expression="(()=>{try{return {ok:true,value:("+request.getString("script")+")}}catch(e){return {ok:false,error:String(e.message||e)}}})()";
-        document.evaluate(expected,expression,Math.min(10000,Math.max(1,request.optLong("timeout_ms",10000))),result->{
-            if(!result.ok){reply(lease,id,null,result.code);return;}
-            try{JSONObject value=new JSONObject(result.value);value.put("native_document",identity).put("navigation",epoch);reply(lease,id,value,value.optBoolean("ok")?null:value.optString("error","World execution failed"));}
+        try{document.evaluate(expected,expression,Math.min(10000,Math.max(1,request.optLong("timeout_ms",10000))),result->{
+            if(!result.ok){if(pinned)documentFailure(lease,id,identity,epoch,result.code,result.evaluationMayHaveOccurred);else reply(lease,id,null,result.code);return;}
+            try{JSONObject value=new JSONObject(result.value);
+                if(pinned&&!value.optBoolean("ok")){documentFailure(lease,id,identity,epoch,"document_script_failed",result.evaluationMayHaveOccurred);return;}
+                value.put("native_document",identity).put("navigation",epoch);reply(lease,id,value,value.optBoolean("ok")?null:value.optString("error","World execution failed"));}
             catch(JSONException error){reply(lease,id,null,"world_result_invalid");}
-        });
+        });}catch(MdoBrowserWorld.Failure failure){if(pinned)documentFailure(lease,id,identity,epoch,failure.code,false);else throw failure;}
     }

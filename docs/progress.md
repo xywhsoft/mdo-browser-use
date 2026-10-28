@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E9 fixes an early-peer/resume race and adds pinned
+Latest verified milestones: E10 connects the Android main-document driver to
+the shared dispatcher and verifies the existing Windows C/JS/native path;
+E9 fixes an early-peer/resume race and adds pinned
 native document identity; E8 connects guarded main-document Android native
 input, compiles the actual bridge/Activity and keeps framework qualification
 explicitly unavailable; E7 fixes retained native evaluation admission with
@@ -3092,3 +3094,48 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Main-document shared-driver integration, Android capture/privacy/transfers,
   supported-provider framework qualification and final product gates continue.
   The goal remains active and no public release is published.
+
+## E10 — connect the main-document driver to the shared C/JS execution path
+
+- Add the Android document driver to the real workbench's native descriptor
+  selection. It calls only fixed isolated runtime methods, pins native identity
+  and epoch on every call and reply, qualifies original element references and
+  forwards the same root frame chain/local document/reference to native input.
+  Observations and results explicitly declare `main_document` scope and missing
+  child-frame support. No fictitious complete frame tree is supplied.
+- Cover observation, exact/semantic location, preparation, verification, option
+  listing and selection through the existing dispatcher. Bound native reads and
+  external checkpoints by the original deadline; late results do not issue more
+  work. Preserve cancellation boundaries, native refusal codes and mutation
+  uncertainty without replay. Structured pinned native failures distinguish
+  refused admission from possibly executed work and withhold page exception text.
+- Bind Android native input to the one exact root native document chain and the
+  same local-frame runtime namespace. A replaced document reports `frame_changed`;
+  unsupported frame/visual or input types reject separately. The shared input
+  request now carries the prepared local identity for both backends. Android
+  hover/scroll are explicitly unfinished. Global Android Agent admission and
+  first-navigation interception requirements remain unchanged and disabled;
+  capture/privacy, transfers, child frames and supported-provider qualification
+  remain pending.
+- Thirteen new JS tests cover the production document driver and its coupling
+  to the actual shared dispatcher: qualified reads/waits, click/fill/key metadata,
+  stale/changed/bad replies, blockers, result bounds, timeout, late mutation
+  replies, original checkpoint ownership and unsupported capability admission.
+  Synthetic native/interception acknowledgements prove protocol wiring only,
+  not actual Android input or transfer behavior. Full JS regression passes
+  213/213; Java passes 59 document, 35 boundary, 18 budget, 125 input, 81 lifecycle,
+  22 channel and 63 deferred-guard assertions. Shared C/JS contracts match.
+- The actual Windows C -> JS -> WebView2 DOM keyboard gate passes against these
+  changes: root/child clicks activate once, Unicode fill/type/clear, shadow and
+  contenteditable input, focus hijack/replacement/selection loss, dialog
+  boundaries, original POST download bytes and read-only admission. No model or
+  external site is used; no new native diagnostics or transfer reservations
+  remain. Restore the same healthy headless service. Receipt:
+  `.mdo/dom-keyboard-result.json` and `.mdo/E10-windows-dom-keyboard.log`.
+- The actual Android Activity/bridge compile. The same tiny QA APK is 115,091
+  bytes, SHA-256
+  `b06ba67c02d33f2cd2070662be1345428b2445073c685d83133bc1290323fcd9`.
+  ADB has no device; both latest device receipts remain unavailable, all relevant
+  verification flags false. Keep the current WebView and existing mdo/data.
+- Reviewed overlays match. Refresh the packed Windows preview separately before
+  claiming its archive contains the new shared modules. The goal remains active.

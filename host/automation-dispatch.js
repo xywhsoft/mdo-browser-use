@@ -31,7 +31,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const timeout = Math.min(60000, Math.max(1, params.timeout_ms || 10000));
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null,inputFocus=null;
+  let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null,inputFocus=null,inputTarget=null;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','fill','type','key','drag'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
@@ -147,7 +147,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
     dispatched = true;
     if(parameters.kind==='focus'&&canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
-    const delivered = await view.execute("input", { ...parameters,...(inputFrameChain?{frame_chain:inputFrameChain}:{}),
+    const delivered = await view.execute("input", { ...parameters,...(inputTarget||{}),...(inputFrameChain?{frame_chain:inputFrameChain}:{}),
       ...(inputFocus&&['key','text'].includes(parameters.kind)?inputFocus:{}),
       ...(inputFrameSnapshot?{frame_snapshot:inputFrameSnapshot}:{}),agent: true, navigation });
     if(parameters.kind==='focus'&&delivered.accepted){
@@ -303,6 +303,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const { state } = checked;
       if (!state.loading) {
         if (command === "act") {
+          if(state.platform==='android-webview'&&(['hover','scroll'].includes(params.op)))
+            return fail('unsupported_capability','This Android adapter has not implemented hover or native scrolling; no browser input was sent');
           if(!params.target?.image&&['fill','type','key'].includes(params.op)&&(!pageDriver||state.frame_target_keyboard!==true))
             return fail('unsupported_capability','This host cannot safely focus and fence an exact keyboard target; update the host or use manual control');
           if (params.op === "drag" && !state.drag_capability) return fail("unsupported_capability", "This browser backend cannot deliver bounded native dragging");
@@ -399,6 +401,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const fresh = await read("prepare", pinned);
       if (!fresh.ok || !sameGeometry(fresh, prepared)) return fail("target_changed", "The target moved or changed immediately before input");
       if(pageDriver){if(!Array.isArray(fresh.frame_chain)||!fresh.frame_chain.length||fresh.frame_chain.length>32)return fail('frame_response_invalid','The prepared target has no complete frame document chain');inputFrameChain=fresh.frame_chain;}
+      if(/^d-[a-f0-9-]{36}$/i.test(fresh.native_target?.document)&&/^e[1-9][0-9]{0,12}$/.test(fresh.native_target?.ref))
+        inputTarget={input_document:fresh.native_target.document,input_ref:fresh.native_target.ref};
       if (params.op === "select") {
         const checked = await guard(true);if(checked.handled)return checked;
         dispatched = true;

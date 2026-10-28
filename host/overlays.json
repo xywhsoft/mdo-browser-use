@@ -603,12 +603,12 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "import { executeBrowserAutomation } from \"./automation-dispatch.js\";",
-      "after": "import { createFrameDriver } from \"./frame-driver.js\";\nimport { executeBrowserAutomation } from \"./automation-dispatch.js\";"
+      "after": "import { createFrameDriver } from \"./frame-driver.js\";\nimport { createDocumentDriver } from \"./document-driver.js\";\nimport { executeBrowserAutomation } from \"./automation-dispatch.js\";"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });",
-      "after": "      const routedCommand=[\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"capture\",\"upload\"].includes(command);\n      const frameState=routedCommand?await view.execute(\"state\"):null;\n      const pageDriver=frameState?.frame_automation===true?createFrameDriver({execute:(operation,parameters)=>view.execute(operation,parameters)}):null;\n      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });"
+      "after": "      const routedCommand=[\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"capture\",\"upload\"].includes(command);\n      const frameState=routedCommand?await view.execute(\"state\"):null;\n      const executePage=(operation,parameters)=>view.execute(operation,parameters);\n      const pageDriver=frameState?.frame_automation===true?createFrameDriver({execute:executePage}):frameState?.isolated_world?.adapter===\"android-main-document-v1\"?createDocumentDriver({execute:executePage}):null;\n      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -901,7 +901,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": ".put(\"isolated_world\",documentState(key))",
-      "after": ".put(\"isolated_world\",documentState(key)).put(\"navigation\",views.epoch(key,web)).put(\"input_busy\",views.inputBusy(key,web)).put(\"input_cleanup_confirmed\",views.inputClean(key,web)).put(\"native_scale_ready\",Double.isFinite(views.scale(key,web)))"
+      "after": ".put(\"isolated_world\",documentState(key)).put(\"navigation\",views.epoch(key,web)).put(\"input_busy\",views.inputBusy(key,web)).put(\"input_cleanup_confirmed\",views.inputClean(key,web)).put(\"native_scale_ready\",Double.isFinite(views.scale(key,web))).put(\"frame_target_keyboard\",documents.containsKey(key))"
     }
   ],
   "files": [
@@ -1060,6 +1060,10 @@
     {
       "source": "host/android/MdoBrowserNativeInput.java",
       "target": "tools/android/MdoBrowserNativeInput.java"
+    },
+    {
+      "source": "host/document-driver.js",
+      "target": "app/web/js/features/workbench/document-driver.js"
     }
   ]
 }

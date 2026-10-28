@@ -26,7 +26,7 @@ function fixture(kind='click'){
     verify(options){calls.push(['verify',options]);return{ok:true,focused:true};}};
   const context=vm.createContext({document,innerWidth:320,innerHeight:240,scrollX:10,scrollY:20,
     visualViewport:{width:320,height:240,scale:1,offsetLeft:0,offsetTop:0},
-    __mdo_browser_use_runtime_v1:runtime});
+    __mdo_browser_use_local_frame_v1:runtime});
   vm.runInContext('self=globalThis;top=self',context);
   const witness={kind,document:id,ref:'e7',x:20,y:30,width:640,height:480,scrollX:20,scrollY:40,scale:2};
   return{context,runtime,calls,located,witness,run(){return JSON.parse(JSON.stringify(vm.runInContext(`${script}(${JSON.stringify(witness)})`,context)));}};
@@ -43,7 +43,7 @@ test('Android native fence pins its exact root document, reference and CSS point
 
 test('Android native fence rejects changed document, subframe, missing runtime or detached target before focus',()=>{
   for(const change of [f=>{f.runtime.document='d-other';},f=>{f.runtime.documentNode={};},
-    f=>{f.context.top={};},f=>{delete f.context.__mdo_browser_use_runtime_v1;},
+    f=>{f.context.top={};},f=>{delete f.context.__mdo_browser_use_local_frame_v1;},
     f=>{f.located.ok=false;},f=>{f.located.element.frame='f1';}]){
     const f=fixture('focus');change(f);assert.equal(f.run().ok,false);
     assert.equal(f.calls.some(row=>row[0]==='focus'),false);

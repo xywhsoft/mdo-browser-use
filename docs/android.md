@@ -413,3 +413,41 @@ boundary and 18 budget assertions; nine Android JS/protocol checks pass.
 The actual Activity/bridge compile and the same QA APK is 115,091 bytes, SHA-256
 `d83a3fa49612cdcb37a7f5cafb5fa513dc15b452fca98a7e53c003b527c70836`.
 ADB has no device; no framework pass or WebView replacement is claimed.
+
+## Shared main-document driver (E10)
+
+The real workbench selects `document-driver.js` for the native
+`android-main-document-v1` descriptor. It uses the same C/JS dispatcher as the
+Windows frame driver, but explicitly reports `frame_scope:main_document` and
+`child_frames_unavailable`. It does not manufacture a complete native frame
+inventory. Original references use the existing qualified form
+`r1|f0|native-document|isolated-document|element`.
+
+The driver supports fixed observation, location, preparation, verification,
+option-listing and selection methods. Each request pins native document/epoch;
+successful replies must match both. Stale references, unready or replaced
+documents, malformed results and original deadline/checkpoint expiry prevent
+further work. A timed-out selection retains possible effects and is never
+replayed. Pinned native failure receipts carry a refusal code and evaluation
+uncertainty; page exception text is not forwarded as a native error.
+
+Shared input now forwards the prepared local document/reference alongside its
+native frame chain. The Android bridge requires exactly one original root
+chain and the local-frame runtime namespace; old native identity rejects as
+`frame_changed`. This supersedes E8's temporary empty-chain private interface.
+Subframes, captures/visual snapshots, transfers, native scrolling and hover
+remain unfinished. The original first-navigation interception checks and global
+Android automation flag are retained. This integration does not enable Agent
+operation on either the unsupported current provider or an unqualified provider.
+
+Thirteen new JS tests exercise the production driver and actual shared
+dispatcher with synthetic native/interception acknowledgements. They verify
+reads/waits and click/fill/key metadata, not Android framework behavior. The
+full JS suite passes 213 tests. Actual Java gates pass 59 document, 35 boundary,
+18 budget, 125 input, 81 lifecycle, 22 channel and 63 guarded-input assertions.
+The actual Activity/bridge compile; the same QA APK is 115,091 bytes, SHA-256
+`b06ba67c02d33f2cd2070662be1345428b2445073c685d83133bc1290323fcd9`.
+Both device receipts remain unavailable because ADB has no device; the provider
+and existing mdo/data remain unchanged. The actual Windows C/JS/WebView2 DOM
+keyboard gate passes with the added input metadata, including root/child,
+shadow/contenteditable, focus-loss, permission and original-download cases.
