@@ -124,6 +124,7 @@ final class MdoBrowserInput implements AutoCloseable {
         }
         private String guard(){
             if(closed)return "input_closed";
+            if(poisoned)return "input_cleanup_failed";
             if(target.document()!=document)return "frame_changed";
             if(target.width()!=width||target.height()!=height)return "input_viewport_changed";
             if(!target.interactive())return "input_view_unavailable";
@@ -134,7 +135,7 @@ final class MdoBrowserInput implements AutoCloseable {
             if(check==null){dispatch();return;}
             String failure;
             try{failure=guard();if(failure==null&&scheduler.now()>deadline)failure="input_timed_out";}
-            catch(RuntimeException error){failure="input_target_failed";}
+            catch(RuntimeException|OutOfMemoryError error){failure="input_target_failed";}
             if(failure!=null){finish(failure);return;}
             try{
                 if(focus){sent=true;if(!target.acquireFocus()){finish("input_focus_required");return;}}
@@ -144,7 +145,7 @@ final class MdoBrowserInput implements AutoCloseable {
                     thread();if(done||finishing||active!=this||!checking||original!=ticket)return;checking=false;
                     if(code!=null){finish(code);return;}dispatch();
                 });
-            }catch(RuntimeException error){if(!done)finish("input_guard_failed");}
+            }catch(RuntimeException|OutOfMemoryError error){if(!done)finish("input_guard_failed");}
         }
         void dispatch(){
             thread();if(done||finishing||active!=this)return;
@@ -168,30 +169,36 @@ final class MdoBrowserInput implements AutoCloseable {
                         if(index!=0&&accepted)keyDown=false;
                     }else accepted=target.text(text);
                 }
-            }catch(RuntimeException error){failure="input_dispatch_failed";}
+            }catch(RuntimeException|OutOfMemoryError error){failure="input_dispatch_failed";}
             if(done||finishing||active!=this)return;
             if(failure!=null){finish(failure);return;}
             if(!accepted){finish("input_not_accepted");return;}
             delivered++;index++;
-            try{failure=guard();}catch(RuntimeException error){failure="input_target_failed";}
+            try{failure=guard();}catch(RuntimeException|OutOfMemoryError error){failure="input_target_failed";}
             if(failure!=null){finish(failure);return;}
             int count=points!=null?points.length/2:name!=null?2:1;
             if(index==count){finish(null);return;}
             long next=started+((long)duration*index/(count-1));
             try{scheduler.post(timer,Math.max(1,next-scheduler.now()));}
-            catch(RuntimeException error){finish("input_timer_unavailable");}
+            catch(RuntimeException|OutOfMemoryError error){finish("input_timer_unavailable");}
         }
         void finish(String code){
             if(done||finishing)return;finishing=true;boolean clean=true;
-            try{scheduler.remove(timer);}catch(RuntimeException error){clean=false;}
-            if(check!=null)try{scheduler.remove(watchdog);}catch(RuntimeException error){clean=false;}
+            try{scheduler.remove(timer);}catch(RuntimeException|OutOfMemoryError error){clean=false;}
+            if(check!=null)try{scheduler.remove(watchdog);}catch(RuntimeException|OutOfMemoryError error){clean=false;}
             if(pressed)try{if(!target.touch(CANCEL,started,scheduler.now(),x,y))clean=false;}
-                catch(RuntimeException error){clean=false;}
+                catch(RuntimeException|OutOfMemoryError error){clean=false;}
             if(keyDown)try{if(!target.key(false,started,scheduler.now(),name,modifiers))clean=false;}
-                catch(RuntimeException error){clean=false;}
-            pressed=false;keyDown=false;text=null;points=null;poisoned|=!clean;
+                catch(RuntimeException|OutOfMemoryError error){clean=false;}
+            pressed=false;keyDown=false;text=null;points=null;clean&=!poisoned;poisoned|=!clean;
             done=true;finishing=false;checking=false;ticket++;if(active==this)active=null;
-            complete.complete(new Result(code!=null?code:clean?null:"input_cleanup_failed",sent,clean,delivered));
+            try{complete.complete(new Result(code!=null?code:clean?null:"input_cleanup_failed",sent,clean,delivered));}
+            catch(RuntimeException|OutOfMemoryError error){
+                // A lost result allocation/delivery cannot authorize replay or
+                // further effects, including work admitted by a reentrant
+                // completion. Native held state was already settled above.
+                poisoned=true;Pending next=active;if(next!=null)next.finish("input_cleanup_failed");
+            }
         }
     }
 }

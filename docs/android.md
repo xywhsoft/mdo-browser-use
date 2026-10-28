@@ -817,3 +817,23 @@ See `.mdo/E25-android-build.log`. These are fault-injection/compile checks; the
 current device gate is unavailable with every verification flag false in
 `.mdo/E25-device-dialog.log`. Keep the current provider and disabled overall
 Android automation; actual framework and full host-UI qualification remain open.
+
+## Retained input allocation faults after admission (E26)
+
+`.mdo/E26-native-input-oom-before.log` reproduces an OOM escaping native dispatch
+after its transaction has begun. Post-admission document/guard/dispatch/timer
+allocation faults now settle the original transaction, releasing held touch/key
+state once and preserving effect uncertainty. Failed cleanup poisons further
+admission; unremoved callbacks stay inert. Result-allocation or completion loss
+does not replay a response, and cancels any reentrantly admitted work before it
+can send input. The pre-effect admission OOM contract remains unchanged.
+
+The actual core passes 177 input, 85 lifecycle, 22 channel, 63 guard and 66 wheel
+checks in `.mdo/E26-native-input-oom-after.log`. These are bounded injected faults,
+not a claim about process-wide heap exhaustion. Actual SDK Activity/hooks compile
+in `.mdo/E26-android-build.log`. The current reused tiny QA APK is 188,819 bytes,
+SHA-256 `d847e16d857669b18ef15838008248ad86c427ea45f581815e737433054a13db`.
+The native-input device gate remains unavailable, all flags false, as recorded
+in `.mdo/E26-device-input.log`. Keep the installed provider and disabled overall
+automation. Framework, supported-provider and full host-UI qualification remain
+pending; Windows F9 is unchanged by this Android-only milestone.

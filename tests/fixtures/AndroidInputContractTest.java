@@ -12,24 +12,24 @@ public final class AndroidInputContractTest {
         try{action.run();throw new AssertionError("Expected "+code);}catch(MdoBrowserInput.Failure failure){check(failure.code.equals(code),"Wrong rejection: "+failure.code);}
     }
     static class Clock implements MdoBrowserInput.Scheduler {
-        long time=100;boolean failPost,failRemove,failNow;final Map<Runnable,Long> tasks=new LinkedHashMap<>();
+        long time=100;boolean failPost,failRemove,failNow,oomPost,oomRemove;final Map<Runnable,Long> tasks=new LinkedHashMap<>();
         public long now(){if(failNow)throw new IllegalStateException();return time;}
-        public void post(Runnable task,long delay){if(failPost)throw new IllegalStateException();tasks.put(task,time+delay);}
-        public void remove(Runnable task){if(failRemove)throw new IllegalStateException();tasks.remove(task);}
+        public void post(Runnable task,long delay){if(oomPost)throw new OutOfMemoryError("Synthetic timer allocation failure");if(failPost)throw new IllegalStateException();tasks.put(task,time+delay);}
+        public void remove(Runnable task){if(oomRemove)throw new OutOfMemoryError("Synthetic timer removal failure");if(failRemove)throw new IllegalStateException();tasks.remove(task);}
         void advance(long delta){time+=delta;for(Runnable task:new ArrayList<>(tasks.keySet()))if(tasks.get(task)<=time){tasks.remove(task);task.run();}}
         void drain(){for(int i=0;!tasks.isEmpty();i++){if(i>200)throw new AssertionError("Unbounded input timer");advance(Math.max(0,Collections.min(tasks.values())-time));}}
     }
     static class Surface implements MdoBrowserInput.Target {
-        long doc=7;int w=640,h=480;boolean visible=true,focus=true,accept=true,clean=true,throwDispatch;
+        long doc=7;int w=640,h=480;boolean visible=true,focus=true,accept=true,clean=true,throwDispatch,oomDispatch,oomCleanup,oomDocument;
         final List<String> calls=new ArrayList<>();Runnable reenter;
-        public long document(){return doc;}public int width(){return w;}public int height(){return h;}
+        public long document(){if(oomDocument)throw new OutOfMemoryError("Synthetic document lookup failure");return doc;}public int width(){return w;}public int height(){return h;}
         public boolean interactive(){return visible;}public boolean focused(){return focus;}
         private boolean send(String value){calls.add(value);if(reenter!=null){Runnable run=reenter;reenter=null;run.run();}
-            if(throwDispatch)throw new IllegalStateException();return accept;}
+            if(oomDispatch)throw new OutOfMemoryError("Synthetic native dispatch allocation failure");if(throwDispatch)throw new IllegalStateException();return accept;}
         public boolean touch(int action,long down,long now,float x,float y){check(down<=now,"Non-monotonic native input");
-            if(action==MdoBrowserInput.CANCEL){calls.add("cancel");return clean;}return send("touch:"+action+":"+x+":"+y);}
+            if(action==MdoBrowserInput.CANCEL){calls.add("cancel");if(oomCleanup)throw new OutOfMemoryError("Synthetic touch cleanup allocation failure");return clean;}return send("touch:"+action+":"+x+":"+y);}
         public boolean key(boolean down,long started,long now,String name,int modifiers){
-            if(!down){calls.add("key:up:"+name+":"+modifiers);return clean;}return send("key:down:"+name+":"+modifiers);}
+            if(!down){calls.add("key:up:"+name+":"+modifiers);if(oomCleanup)throw new OutOfMemoryError("Synthetic key cleanup allocation failure");return clean;}return send("key:down:"+name+":"+modifiers);}
         public boolean text(String value){return send("text:"+value);}
     }
     static class Case {
@@ -89,6 +89,38 @@ public final class AndroidInputContractTest {
         Case removed=new Case();removed.input.tap(0,0,removed.results::add);removed.clock.failRemove=true;removed.input.cancel();removed.failed("input_cancelled",false);
         check(!removed.input.cleanupConfirmed(),"Uncertain timer removal was hidden");removed.clock.failRemove=false;removed.clock.drain();check(removed.target.calls.isEmpty(),"Unremoved timer dispatched after cancellation");
         Case thread=new Case();final boolean[] owner={false};Thread other=new Thread(()->{try{thread.input.cancel();}catch(IllegalStateException expected){owner[0]=true;}});other.start();other.join();check(owner[0],"Cross-thread input admitted");thread.clean();
+        for(String kind:new String[]{"tap","key","text"}){
+            Case oom=new Case();oom.target.oomDispatch=true;
+            if(kind.equals("tap"))oom.input.tap(1,2,oom.results::add);
+            else if(kind.equals("key"))oom.input.key("Enter",0,oom.results::add);else oom.input.text("once",oom.results::add);
+            boolean escaped=false;try{oom.clock.drain();}catch(OutOfMemoryError error){escaped=true;}
+            check(!escaped,"Post-admission native OOM escaped its retained transaction");oom.failed("input_dispatch_failed",true);oom.clean();
+            check(oom.target.calls.size()==(kind.equals("text")?1:2),"Native dispatch OOM replayed input or omitted held-state cleanup");
+        }
+        for(boolean keyCleanup:new boolean[]{false,true}){
+            Case oom=new Case();if(keyCleanup)oom.input.key("Enter",0,oom.results::add);else oom.input.tap(1,2,oom.results::add);oom.clock.advance(0);
+            oom.target.oomCleanup=true;boolean escaped=false;try{oom.input.cancel();}catch(OutOfMemoryError error){escaped=true;}
+            check(!escaped,"Native cleanup OOM escaped before settling its transaction");oom.failed("input_cancelled",true);
+            check(!oom.input.busy()&&!oom.input.cleanupConfirmed(),"Native cleanup OOM was claimed clean or left pending");
+            oom.input.cancel();oom.input.close();check(oom.target.calls.size()==2,"Uncertain native cleanup was replayed");
+        }
+        Case oomTimer=new Case();oomTimer.input.tap(1,2,oomTimer.results::add);oomTimer.clock.oomPost=true;oomTimer.clock.advance(0);
+        oomTimer.failed("input_timer_unavailable",true);check(oomTimer.target.calls.get(1).equals("cancel"),"Reschedule OOM retained a pressed touch");oomTimer.clean();
+        Case oomRemove=new Case();oomRemove.input.tap(1,2,oomRemove.results::add);oomRemove.clock.oomRemove=true;oomRemove.input.cancel();
+        oomRemove.failed("input_cancelled",false);check(!oomRemove.input.busy()&&!oomRemove.input.cleanupConfirmed(),"Timer removal OOM lost cleanup uncertainty");
+        oomRemove.clock.oomRemove=false;oomRemove.clock.drain();check(oomRemove.target.calls.isEmpty(),"Stale timer sent input after removal OOM");
+        Case oomGuard=new Case();oomGuard.input.tap(1,2,(remaining,complete)->{throw new OutOfMemoryError("Synthetic world guard allocation failure");},oomGuard.results::add);
+        oomGuard.clock.drain();oomGuard.failed("input_guard_failed",false);oomGuard.clean();
+        Case oomDocument=new Case();oomDocument.input.tap(1,2,oomDocument.results::add);oomDocument.clock.advance(0);oomDocument.target.oomDocument=true;
+        oomDocument.clock.drain();oomDocument.failed("input_dispatch_failed",true);oomDocument.clean();
+        Case oomReply=new Case();final int[] completionCalls={0};oomReply.input.text("once",result->{completionCalls[0]++;throw new OutOfMemoryError("Synthetic reply allocation failure");});
+        oomReply.clock.drain();check(completionCalls[0]==1&&oomReply.target.calls.size()==1&&!oomReply.input.busy()&&!oomReply.input.cleanupConfirmed(),"Reply OOM was replayed or reported clean");
+        denied("input_cleanup_failed",()->oomReply.input.text("unsafe",oomReply.results::add));
+        Case oomReentry=new Case();oomReentry.input.text("once",result->{
+            try{oomReentry.input.text("must not run",oomReentry.results::add);}catch(MdoBrowserInput.Failure error){throw new AssertionError(error);}
+            throw new OutOfMemoryError("Synthetic reentrant reply allocation failure");
+        });oomReentry.clock.drain();oomReentry.failed("input_cleanup_failed",false);
+        check(oomReentry.target.calls.equals(Collections.singletonList("text:once"))&&!oomReentry.input.busy(),"Reply OOM let reentrantly admitted input run");
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"android_device_verified\":false}");
     }
 }

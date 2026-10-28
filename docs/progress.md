@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F10 passes the complete sequential Python/JS
+Latest verified milestones: E26 settles post-admission Android input OOM and
+retains cleanup uncertainty without replay, passing 413 native/lifecycle checks
+and actual SDK compilation. F10 passes the complete sequential Python/JS
 regression and four actual hidden/visible WebView2 startup samples. F9 refreshes the packed Windows program with E24's
 shared cleanup guard and passes all eight actual runtime checks. E25 closes
 the Android native callback allocation boundary before controller ownership,
@@ -3823,3 +3825,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remains unavailable, with its current provider and disabled automation
   preserved. The broader native fault/performance/platform work is still active;
   no production publication or completion is claimed.
+
+## E26 — settle allocation faults after native input admission
+
+- Reproduce OOM escaping a retained native input transaction after dispatch has
+  begun. Preserve `.mdo/E26-native-input-oom-before.log`. This can skip original
+  held-pointer/key cleanup and leave the caller without a terminal receipt.
+- Handle allocation faults in post-admission target/document checks, isolated
+  guards, native dispatch, rescheduling and terminal timer/held-state cleanup.
+  Release the original touch/key once on failure; never reissue its press, text
+  or action. Unconfirmed cleanup blocks further admission. Failed timer removal
+  leaves inert callbacks, not a reusable live transaction.
+- If result allocation/delivery fails after cleanup, do not replay completion or
+  claim a fresh clean state. Fail closed and settle any work a reentrant
+  completion had admitted, before that new work sends input. Pre-effect timer
+  admission OOM preserves its existing original-error/zero-effects contract.
+- Pass 177 input, 85 lifecycle, 22 channel, 63 guard and 66 wheel checks (413
+  assertions total). The extended input gate covers touch/key/text dispatch OOM,
+  uncertain native releases, scheduler/guard/document faults and lost/reentrant
+  completion. Log: `.mdo/E26-native-input-oom-after.log`. These are injected
+  production-core faults, not whole-process heap exhaustion or framework proof.
+- Actual Activity/hooks compile in the reused SDK. Tiny QA APK: 188,819 bytes,
+  SHA-256 `d847e16d857669b18ef15838008248ad86c427ea45f581815e737433054a13db`;
+  source SHA-256
+  `a6d37968c57596e7070ca0378a4d5e71f7680758b8aad33923b5865b78659708`.
+  Log: `.mdo/E26-android-build.log`. The new native-input device receipt is
+  unavailable with all verification flags false (`.mdo/E26-device-input.log`);
+  no authorized device is present. Preserve the current WebView and disabled
+  overall Android automation. Windows F9 is unchanged. Contracts/overlays match
+  and the same headless deployment is healthy. Full-goal work continues.
