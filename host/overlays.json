@@ -706,7 +706,73 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "                web.evaluateJavascript(\"(()=>{try{return {ok:true,value:(\"+script+\")}}catch(e){return {ok:false,error:String(e.message||e)}}})()\", output -> {",
-      "after": "                final WebView executionView=web;final long executionEpoch=views.epoch(key,web);\n                web.evaluateJavascript(\"(()=>{try{return {ok:true,value:(\"+script+\")}}catch(e){return {ok:false,error:String(e.message||e)}}})()\", output -> {\n                    if(!views.owns(key,executionView)||views.epoch(key,executionView)!=executionEpoch){reply(id,null,\"Browser document changed; execution result is unconfirmed\");return;}"
+      "after": "                final WebView executionView=web;final long executionEpoch=views.epoch(key,web);\n                final MdoBrowserChannel<WebMessagePort>.Lease executionLease=channel.current();\n                web.evaluateJavascript(\"(()=>{try{return {ok:true,value:(\"+script+\")}}catch(e){return {ok:false,error:String(e.message||e)}}})()\", output -> {\n                    if(!views.owns(key,executionView)||views.epoch(key,executionView)!=executionEpoch){reply(executionLease,id,null,\"Browser document changed; execution result is unconfirmed\");return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private String document;",
+      "after": "    private final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        document=url.split(\"#\",2)[0];\n",
+      "after": ""
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        WebMessagePort[] ports=host.createWebMessageChannel(); port=ports[0];",
+      "after": "        WebMessagePort[] ports=host.createWebMessageChannel(); port=ports[0];\n        final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.attach(url,port);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                if (stopped || host.getUrl()==null || !host.getUrl().split(\"#\",2)[0].equals(document)) return;",
+      "after": "                if (stopped || port!=ports[0] || !channel.owns(lease,source,host.getUrl())) return;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "const f=e=>{if(e.data!=='mdo-browser-init'||e.ports.length!==1||e.source!==null)return;window.removeEventListener('message',f);const p=e.ports[0];",
+      "after": "if(window.__mdoBrowserInitListener)window.removeEventListener('message',window.__mdoBrowserInitListener);const f=e=>{if(e.data!=='mdo-browser-init'||e.ports.length!==1||e.source!==null)return;window.removeEventListener('message',f);if(window.__mdoBrowserInitListener===f)delete window.__mdoBrowserInitListener;const p=e.ports[0];"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "window.dispatchEvent(new Event('mdo-browser-ready'));};window.addEventListener('message',f)})()",
+      "after": "window.dispatchEvent(new Event('mdo-browser-ready'));};window.__mdoBrowserInitListener=f;window.addEventListener('message',f)})()"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if (!stopped) host.postWebMessage(new WebMessage(\"mdo-browser-init\",new WebMessagePort[]{ports[1]}),origin);",
+      "after": "            if (!stopped&&port==ports[0]&&channel.active(lease,host.getUrl())) host.postWebMessage(new WebMessage(\"mdo-browser-init\",new WebMessagePort[]{ports[1]}),origin);\n            else{ports[0].close();ports[1].close();}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        if(stopped || port==null)return;",
+      "after": "        if(stopped || port==null||!channel.owns(channel.current(),port,host.getUrl()))return;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private static String url(String value) {",
+      "after_file": "host/android/browser-channel-reply.inc.java",
+      "suffix": "    private static String url(String value) {"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "try{JSONObject result=new JSONObject(output);reply(id,result,result.optBoolean(\"ok\")?null:result.optString(\"error\",\"Browser execution failed\"));}",
+      "after": "try{JSONObject result=new JSONObject(output);reply(executionLease,id,result,result.optBoolean(\"ok\")?null:result.optString(\"error\",\"Browser execution failed\"));}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "catch(Exception error){reply(id,null,\"Browser returned an invalid result\");}",
+      "after": "catch(Exception error){reply(executionLease,id,null,\"Browser returned an invalid result\");}"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))",
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChannel.java'),source.with_name('MdoBrowserChannel.java'))"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "      '@Override protected void onPause() {':",
+      "after": "      '@Override public void onPageFinished(WebView view, String url) {':'@Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap icon) { if (view == web && mdoBrowser != null) mdoBrowser.detach(); }\\n            @Override public void onPageFinished(WebView view, String url) {',\n      '@Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {':'@Override public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) { if (view == web && mdoBrowser != null) mdoBrowser.detach();',\n      '@Override protected void onPause() {':"
     },
     {
       "path": "tools/workbench_contracts.py",
@@ -855,6 +921,10 @@
     {
       "source": "host/android/MdoBrowserLifecycle.java",
       "target": "tools/android/MdoBrowserLifecycle.java"
+    },
+    {
+      "source": "host/android/MdoBrowserChannel.java",
+      "target": "tools/android/MdoBrowserChannel.java"
     },
     {
       "source": "host/files-tree.inc.c",

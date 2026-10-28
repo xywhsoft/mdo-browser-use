@@ -211,7 +211,10 @@ The last connected phone reported no isolated-world feature; this is an
 explicit unsupported-provider receipt, not an Android automation pass.
 `tools/android_input_probe.py` checks the native Java sequencer's bounded
 lifecycle and the production view ownership registry; the actual Activity hooks
-are compiled by the tiny client builder. `tools/android_device_probe.py --mode native-input` separately tests
+and main-document connection/reply ownership are compiled/checked as well.
+`node --test tests/test_android_channel.mjs` checks the applied main-page bootstrap
+(pair it with `python tools/apply_host.py --check`).
+`tools/android_device_probe.py --mode native-input` separately tests
 the actual WebView input target using the same tiny QA app. That new framework
 gate is currently unavailable because ADB reports no phone. The current provider
 is retained, and Android product automation remains disabled pending integration.

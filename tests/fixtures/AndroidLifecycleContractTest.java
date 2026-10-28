@@ -84,6 +84,11 @@ public final class AndroidLifecycleContractTest {
         check(callbacks.views.size()==0&&callbacks.clock.tasks.isEmpty()&&survivor.events.equals(Arrays.asList(0,3)),"Throwing completion prevented other owned cleanup");
         check(!callbacks.views.cleanupConfirmed(),"Completion fault was hidden");
 
+        Case disconnected=new Case();View a=new View(),b=new View();disconnected.views.put("tab",a);disconnected.views.put("other",b);
+        disconnected.input(a).tap(0,0,disconnected.results::add);disconnected.views.input("other",b).tap(0,0,disconnected.results::add);disconnected.clock.down();
+        disconnected.views.stopAll();check(disconnected.results.size()==2&&disconnected.clock.tasks.isEmpty(),"Main channel detachment did not drain all original input");
+        check(a.events.equals(Arrays.asList(0,3))&&b.events.equals(Arrays.asList(0,3)),"Channel detachment left a native press");disconnected.views.close();
+
         Case reentrant=new Case();View old=new View(),newer=new View();reentrant.views.put("tab",old);
         reentrant.input(old).tap(0,0,result->{reentrant.views.remove("tab");reentrant.views.put("tab",newer);});reentrant.clock.down();
         check(!reentrant.views.navigation("tab",old)&&reentrant.views.get("tab")==newer,"Navigation callback mutated a reentrant replacement");reentrant.views.close();

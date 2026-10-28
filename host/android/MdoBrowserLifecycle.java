@@ -51,6 +51,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         if(value)settle(entry,()->entry.input.invalidate("user_taken_control"));
     }
     void stop(String key,T view){thread();Entry entry=current(key,view);if(entry!=null)settle(entry,entry.input::cancel);}
+    void stopAll(){thread();for(Entry entry:new ArrayList<>(entries.values()))settle(entry,entry.input::cancel);}
     void background(boolean value){
         thread();if(closed)return;background=value;
         if(value)for(Entry entry:new ArrayList<>(entries.values()))settle(entry,()->entry.input.invalidate("input_view_unavailable"));

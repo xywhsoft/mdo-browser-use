@@ -207,7 +207,7 @@ directory and adds no APK/service/Home/engine. Those Activity classes are not
 packaged into the tiny fixture APK. Native Java templates and the applied hook
 script are covered by its source-hash receipt.
 
-The latest tiny APK is **82,323 bytes**, compiled/aligned/signed with
+The E4 tiny APK was **82,323 bytes**, compiled/aligned/signed with
 `production_activity_compiled:true`. Its input fixture now uses the same
 production lifecycle registry. The shared unsupported-provider preflight still
 passes, reviewed overlays match, and the original headless development service
@@ -217,8 +217,46 @@ world/focus/frame/geometry/capture/transfer integration and supported-provider
 regression remain pending. The current WebView is retained and automation
 remains explicitly disabled.
 
+## Main-document channel and asynchronous replies (E5)
+
+`MdoBrowserChannel.java` gives each connection an exact native port/document
+lease. A repeated URL, reused port value or same tab name cannot substitute for
+that original connection. The actual Activity invalidates its channel at main
+navigation start and renderer loss, including same-URL reloads before another
+`onPageFinished` arrives. Detachment cancels all owned content input. A callback
+from an old port is ignored, and a late initialization closes only its own
+untransferred endpoints. Successful transfers keep the page-owned endpoint's
+ownership with the page. Destroy permanently invalidates the channel.
+
+Legacy asynchronous script replies now retain both their original content-view
+epoch and original main-document connection. A reply from a retired connection
+is dropped instead of being sent on the replacement port, even if an identifier
+or URL repeats. The bootstrap replaces an earlier waiting initialization
+listener, keeping one pending listener per document and one transfer per
+handshake; iframe-originated messages still cannot claim the native port.
+
+`android_input_probe.py` passes the actual Java channel's **22 ownership
+assertions**, the updated registry's **69 lifecycle assertions**, and the
+existing **125 input assertions**. Two additional Node tests extract the script
+from the applied Android Java source and exercise 128 repeated installations,
+foreign/invalid transfers, listener cleanup, result forwarding and a fresh port
+replacing the old JS route. These are JVM/JS protocol tests, not real Android
+message-port/input tests. Run the overlay check with them so the deployed source
+must match the reviewed host enhancements.
+
+The actual Activity/hooks and the tiny **86,419-byte** fixture APK compile;
+the APK aligns/signs with the existing private development key and adds no
+runtime dependency. Full JS regression passes **190 tests**; Python regression
+passes **122/124**, with two existing Windows symlink-privilege skips. Reviewed
+host overlays and generated shared C/JS contracts match. The same headless
+loopback service is healthy again. ADB remains unavailable: no new APK has been
+installed/run, and the current WebView is unchanged. Android automation remains
+disabled until its remaining world/focus/frame/capture/transfer integration and
+supported-provider verification are complete.
+
 References: [execution worlds and message listeners](https://developer.android.com/reference/androidx/webkit/WebViewCompat),
 [per-frame reply execution](https://chromium.googlesource.com/chromium/src.git/+/HEAD/android_webview/java/src/org/chromium/android_webview/JsReplyProxy.java),
 [boundary architecture](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/webkit/webkit/docs/feature_checking.md),
 [native gesture cancellation](https://developer.android.com/reference/android/view/MotionEvent#ACTION_CANCEL),
-[text commit contract](https://developer.android.com/reference/android/view/inputmethod/InputConnection#commitText(java.lang.CharSequence,%20int)).
+[text commit contract](https://developer.android.com/reference/android/view/inputmethod/InputConnection#commitText(java.lang.CharSequence,%20int)),
+[message-port ownership and closing](https://developer.android.com/reference/android/webkit/WebMessagePort).

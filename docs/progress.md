@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: E4 integrates owned-view/input lifecycle and compiles
+Latest verified milestones: E5 pins Android main-document connections and
+asynchronous replies; E4 integrates owned-view/input lifecycle and compiles
 the actual Android Activity hooks; E3 adds the bounded Android native input foundation
 and compiles its device gate (framework verification unavailable);
 W8 adds cancel/recreate and missed-reply observations;
@@ -2714,3 +2715,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   headless loopback deployment. Android world/focus/frame/capture/transfer work,
   original Windows creation diagnosis and final lifecycle/OOM/network/performance/
   package verification remain active.
+
+## E5 — Android main-document connection and stale-reply isolation
+
+- Bind actual incoming messages and initialization transfers to their original
+  native port/document lease. Main navigation start and renderer loss invalidate
+  it before a same-URL reload can finish. Detachment cancels original content
+  input; the host admits no new input while disconnected. Dispose permanently
+  retires the channel. A late handshake closes only its owned, untransferred
+  endpoints and cannot install the old channel into the replacement document.
+- Pin asynchronous legacy script replies to the original main-document lease,
+  alongside E4's content-view/epoch pin. Old completions cannot reply through
+  the current port after reload/reconnect or an identifier/URL reuse. Keep only
+  one pending main-page initialization listener, preserving the null-native-
+  source check that rejects iframe messages and the one-transfer handshake.
+- Actual Java gates pass 22 channel assertions, 69 lifecycle assertions and 125
+  input assertions. Two Node tests extract the applied Java's real bootstrap
+  and verify repeated installation (128), invalid/foreign messages, listener
+  cleanup, port/result forwarding and route replacement. These are protocol
+  checks; no Android framework pass is inferred.
+- Actual pinned Activity/hooks and the tiny 86,419 B APK compile; align/sign
+  succeeds with the same private dev key. No additional app/Home/runtime
+  dependency/provider is introduced. ADB still has no phone; new APK execution
+  and framework verification remain unavailable. Keep current WebView and
+  explicit Android automation degradation.
+- Full JS 190/190 pass; Python 124 total/122 pass/two existing Windows symlink
+  skips. Reviewed overlays/shared generated C/JS contracts match. The same
+  headless deployment is healthy after the checks. Full Android integration,
+  original Windows creation diagnosis, final lifecycle/OOM/network/performance
+  gates and package delivery remain active; this is not a release.
