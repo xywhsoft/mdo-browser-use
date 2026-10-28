@@ -3199,3 +3199,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   created. The portable C plugin is unchanged and the previously qualified
   packed preview predates E11. Final product gates and Android work continue;
   the goal stays active and nothing is published to production.
+
+## E12 — preserve native input refusal causes and action-wide uncertainty
+
+- Reproduce a shared-dispatch bug using the actual Android native reply schema:
+  even `accepted:false`, zero effects/steps and confirmed cleanup became generic
+  `action_uncertain`, discarding `input_target_changed`. Partial failures also
+  lost their native cause and cleanup/step evidence. Four new targeted checks
+  fail before the fix; preserve `.mdo/E12-native-receipt-before.log`.
+- Accept only internally consistent typed failure receipts with bounded cause
+  codes and boolean/integer proof fields. Preserve their cause plus a nested
+  `error.native_input` failed-step receipt. Clear uncertainty only for a proven
+  zero-effect/zero-step, cleaned-up step, retaining earlier focus/selection
+  effects. Unconfirmed cleanup remains conservative. Malformed or contradictory
+  receipts, missing trusted-input proof and lost transport remain uncertain.
+  No page-supplied exception text or automatic retry is introduced.
+- Five new coupled production-driver/dispatcher checks cover click/wheel
+  refusal, independently requested recovery, later key/text refusal after
+  earlier effects, partial delivery, cleanup failure, malformed/contradictory
+  replies and lost acknowledgement. Focus/input acceptance now requires actual
+  booleans. Targeted shared/visual checks pass 54/54 and complete JS regression
+  passes 225/225. Logs: `.mdo/E12-native-receipt-after.log` and
+  `.mdo/E12-js-full.log`.
+- Pass the actual Windows C/JS/WebView2 DOM keyboard gate: root/child input,
+  shadow/contenteditable, focus/selection replacement, permission boundaries
+  and original POST download bytes. No model/external-site calls, diagnostics
+  or leaked transfer reservations. The initial invocation did not enter the
+  gate because its prerequisite headless service had been stopped while
+  applying overlays; preserve that startup failure separately. Starting from
+  the restored healthy service passes in `.mdo/E12-windows-dom-keyboard-after.log`
+  and `.mdo/dom-keyboard-result.json`.
+- Shared C/JS contracts, reviewed overlays and whitespace checks pass. Restore
+  the same headless service (HTTP 200), about 1,112 MiB in the one deployment.
+  No Android/native rebuild is required for this shared JS fix. Android actual
+  framework qualification remains pending/disabled with the current WebView
+  preserved. The packed Windows preview still predates E11/E12; no production
+  publication occurs and the full goal remains active.

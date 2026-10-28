@@ -29,8 +29,9 @@ function coupled(){
       assert.equal(params.input_document,doc);assert.equal(params.input_ref,'e7');assert.equal(params.navigation,7);
       assert.deepEqual(params.frame_chain,[{frame:'f0',document:fd}]);
       if(['focus','key','text'].includes(params.kind)){assert.equal(params.focus_document,doc);assert.equal(params.focus_ref,'e7');}
+      inputs.push(params);if(typeof f.state.inputReply==='function')return f.state.inputReply(params,inputs);
       if(params.kind==='focus')focused=true;if(params.kind==='text')text=params.text;
-      inputs.push(params);return{accepted:true,target_focused:focused,trusted_input:params.kind!=='focus'};
+      return{accepted:true,target_focused:focused,trusted_input:params.kind!=='focus'};
     }
     return f.execute(command,params);
   };
@@ -82,4 +83,67 @@ test('Android viewport and target scrolling pin a root hit and send one native w
   const f=coupled();f.state.wheel=true;
   f.state.hook=({method,result})=>method==='scrollPoint'?{...result,value:{ok:false,error:{code:'android_frames_unavailable'}}}:result;
   const out=await f.run('act',{op:'scroll',document:doc,dx:0,dy:100});assert.equal(out.result.error.code,'android_frames_unavailable');assert.equal(f.inputs.length,0);
+});
+
+const nativeRefusal=(code,overrides={})=>({accepted:false,trusted_input:false,target_focused:false,
+  effect_may_have_occurred:false,cleanup_confirmed:true,delivered_steps:0,error:{code},...overrides});
+
+test('native guard refusal retains its cause and confirmed zero effects without replay',async()=>{
+  for(const op of ['click','scroll']){
+    const f=coupled();f.state.wheel=true;
+    f.state.inputReply=()=>nativeRefusal('input_target_changed',{error:{code:'input_target_changed',message:'page-provided exception must not escape'}});
+    const out=await f.run('act',{op,document:doc,target:{ref},dy:100});
+    assert.equal(out.result.error.code,'input_target_changed');assert.equal(out.result.error.effect_may_have_occurred,false);
+    assert.deepEqual(out.result.error.native_input,{kind:op==='scroll'?'wheel':'click',effect_may_have_occurred:false,cleanup_confirmed:true,delivered_steps:0});
+    assert(!JSON.stringify(out).includes('page-provided'));assert.equal(f.inputs.length,1);
+    f.state.inputReply=null;
+    const next=await f.run('act',{op,document:doc,target:{ref},dy:100});assert(next.result.ok);
+    assert.equal(f.inputs.length,2,'Only the independently requested next action may send more input');
+  }
+});
+
+test('a later native refusal cannot erase effects from earlier focus or selection',async()=>{
+  for(const refusedKind of ['key','text']){
+    const f=coupled(),hook=f.state.hook;
+    f.state.hook=args=>{const result=hook(args);if(args.method==='verify')result.value.focused=true;return result;};
+    f.state.inputReply=params=>params.kind===refusedKind?nativeRefusal('input_focus_lost'):
+      {accepted:true,target_focused:params.kind==='focus',trusted_input:params.kind!=='focus'};
+    const out=await f.run('act',{op:'fill',document:doc,target:{ref},text:'must not be replayed'});
+    assert.equal(out.result.error.code,'input_focus_lost');assert.equal(out.result.error.effect_may_have_occurred,true);
+    assert.equal(out.result.error.native_input.kind,refusedKind);assert.equal(out.result.error.native_input.effect_may_have_occurred,false);
+    assert.deepEqual(f.inputs.map(row=>row.kind),refusedKind==='key'?['focus','key']:['focus','key','text']);
+  }
+});
+
+test('partial native input preserves its cause, cleanup and delivered-step receipt',async()=>{
+  const f=coupled();f.state.inputReply=()=>nativeRefusal('input_cleanup_failed',{
+    effect_may_have_occurred:true,cleanup_confirmed:false,delivered_steps:1});
+  const out=await f.run('act',{op:'click',document:doc,target:{ref}});
+  assert.equal(out.result.error.code,'input_cleanup_failed');assert.equal(out.result.error.effect_may_have_occurred,true);
+  assert.deepEqual(out.result.error.native_input,{kind:'click',effect_may_have_occurred:true,cleanup_confirmed:false,delivered_steps:1});
+  assert.equal(f.inputs.length,1);
+});
+
+test('malformed or untrusted native replies retain conservative input uncertainty',async()=>{
+  const valid=nativeRefusal('input_target_changed');
+  for(const reply of [null,{}, {...valid,accepted:true}, {...valid,effect_may_have_occurred:undefined},
+      {...valid,cleanup_confirmed:undefined},{...valid,delivered_steps:1},{...valid,delivered_steps:-1},
+      {...valid,delivered_steps:1.5},{...valid,delivered_steps:2147483648},
+      {...valid,error:{code:'unbounded\npage text'}},{...valid,error:{code:'a'.repeat(65)}}]){
+    const f=coupled();f.state.inputReply=()=>reply;
+    const out=await f.run('act',{op:'click',document:doc,target:{ref}});
+    assert.equal(out.result.error.code,'action_uncertain');assert.equal(out.result.error.effect_may_have_occurred,true);
+    assert(!Object.hasOwn(out.result.error,'native_input'));assert.equal(f.inputs.length,1);
+  }
+});
+
+test('unconfirmed cleanup and lost transport cannot claim zero effects or replay input',async()=>{
+  const f=coupled();f.state.inputReply=()=>nativeRefusal('input_cleanup_failed',{cleanup_confirmed:false});
+  const out=await f.run('act',{op:'click',document:doc,target:{ref}});
+  assert.equal(out.result.error.code,'input_cleanup_failed');assert.equal(out.result.error.effect_may_have_occurred,true);
+  assert.equal(out.result.error.native_input.cleanup_confirmed,false);assert.equal(f.inputs.length,1);
+  const lost=coupled();lost.state.inputReply=()=>{throw Error('Native acknowledgement lost');};
+  const uncertain=await lost.run('act',{op:'click',document:doc,target:{ref}});
+  assert.equal(uncertain.result.error.code,'action_uncertain');assert.equal(uncertain.result.error.effect_may_have_occurred,true);
+  assert.equal(lost.inputs.length,1);
 });

@@ -421,6 +421,16 @@ website's business result in the returned observation. Distinct errors include
 `unsupported_geometry`. Inspect any `effect_may_have_occurred` outcome before
 another effect. Only a user can return manual control.
 
+A structured native input refusal keeps its bounded cause code, such as
+`input_target_changed` or `input_focus_lost`. `error.native_input` identifies
+the failed step's `kind`, `effect_may_have_occurred`, `cleanup_confirmed` and
+`delivered_steps`; the outer error's effect flag covers the entire action.
+Confirmed zero-step/zero-effect input with successful cleanup can clear only
+that step's uncertainty. A prior focus or selection remains a possible effect.
+Unconfirmed cleanup, contradictory/malformed replies and lost transport retain
+conservative uncertainty. Native/page exception text is not copied into the
+structured refusal. No failed input is automatically replayed.
+
 Managed tools `browser_tabs/observe/wait/dialog/screenshot` are read-only; `browser_open/act/navigate/dialog_respond`
 use the existing external-service permission. Full access adds no second
 approval system. Ordinary tool failures remain feedback for the Agent.

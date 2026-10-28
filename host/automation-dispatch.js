@@ -145,16 +145,34 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     let stopped = await guard(true); if (stopped.handled) return stopped;
     if(inputFrameSnapshot&&stopped.state.input_busy)return fail('browser_busy','Native input started after visual validation; request a fresh image before another attempt');
     while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
+    const previouslyDispatched=dispatched;
     dispatched = true;
     if(parameters.kind==='focus'&&canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     const delivered = await view.execute("input", { ...parameters,...(inputTarget||{}),...(inputFrameChain?{frame_chain:inputFrameChain}:{}),
       ...(inputFocus&&['key','text'].includes(parameters.kind)?inputFocus:{}),
       ...(inputFrameSnapshot?{frame_snapshot:inputFrameSnapshot}:{}),agent: true, navigation });
-    if(parameters.kind==='focus'&&delivered.accepted){
+    const code=delivered?.error?.code;
+    if(delivered?.accepted===false&&typeof code==='string'&&/^[a-z][a-z0-9_]{0,63}$/.test(code)&&
+       typeof delivered.effect_may_have_occurred==='boolean'&&typeof delivered.cleanup_confirmed==='boolean'&&
+       Number.isInteger(delivered.delivered_steps)&&delivered.delivered_steps>=0&&delivered.delivered_steps<=2147483647&&
+       (delivered.effect_may_have_occurred||delivered.delivered_steps===0)){
+      // Only an explicit, internally consistent native receipt can clear this
+      // step's uncertainty. Never clear effects from an earlier focus/key step,
+      // or infer safe retry from missing/contradictory/transport-failed replies.
+      dispatched=previouslyDispatched||delivered.effect_may_have_occurred||!delivered.cleanup_confirmed;
+      const failure=fail(code,!delivered.cleanup_confirmed?
+        'Native input cleanup was not confirmed; end this browser before further input':dispatched?
+        'Native input did not complete; inspect the page for effects before repeating the action':
+        'The native guard refused input before dispatch; inspect the current document before another action');
+      failure.result.error.native_input={kind:parameters.kind,effect_may_have_occurred:delivered.effect_may_have_occurred,
+        cleanup_confirmed:delivered.cleanup_confirmed,delivered_steps:delivered.delivered_steps};
+      return failure;
+    }
+    if(parameters.kind==='focus'&&delivered?.accepted===true){
       if(delivered.dialog_open)return dialogBoundary();
       if(delivered.popup_open)return popupBoundary();
     }
-    if (!delivered.accepted || (parameters.kind==='focus'?!delivered.target_focused:!delivered.trusted_input)) return fail("action_uncertain", "Native input or target focus was not confirmed; inspect the page before repeating it");
+    if (delivered?.accepted!==true || (parameters.kind==='focus'?delivered.target_focused!==true:delivered.trusted_input!==true)) return fail("action_uncertain", "Native input or target focus was not confirmed; inspect the page before repeating it");
     if(canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
     if (delivered.dialog_open) return dialogBoundary();
     if (delivered.popup_open) return popupBoundary();
