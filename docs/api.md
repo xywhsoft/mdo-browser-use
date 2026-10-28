@@ -441,6 +441,13 @@ The operation journal retains identity/scope metadata instead of private results
 
 ## Bounded screenshots
 
+An explicit native `dialog_cleanup_failed` state blocks new page effects and
+screenshots before any document preparation. End that affected browser rather
+than replaying a response whose acknowledgement was lost. Read-only observation
+and existing upload-release cleanup remain available. A previous action's
+uncertainty is retained by its own receipt; a refused new action has no newly
+dispatched input.
+
 Native screenshot sources stay lossless PNG, with a separate 256 KiB source
 budget. Privacy masking runs before the caller's PNG/JPEG output encoding and
 final `max_bytes` limit. Windows can reduce source scale within its existing

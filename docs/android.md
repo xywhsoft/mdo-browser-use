@@ -769,3 +769,31 @@ Logs: `.mdo/E23-dialog-target-after.log`, `.mdo/E23-android-build.log` and
 `.mdo/E23-device-dialog.log`. The current actual-device gate remains unavailable
 with all verification flags false. Keep Android automation disabled and preserve
 the installed provider; full host UI/platform qualification remains pending.
+
+## Allocation-failure cleanup and shared admission (E24)
+
+Deterministic resource faults reproduced a timer-allocation OOM escaping native
+dialog admission and leaving the modal retained without a timer. They also show
+that the shared dispatcher previously prepared a new page action despite an
+explicit native dialog-cleanup failure. Before logs:
+`.mdo/E24-dialog-oom-before.log` and `.mdo/E24-dialog-guard-before.log`.
+
+Handle OOM at liveness/metadata/timer/blocker/native-result boundaries. Rejected
+or unscheduled results are cancelled once; native acknowledgement loss remains
+uncertain until exact view teardown. Timer removal failures leave weak exact-ID
+callbacks inert. One allocation-free result tombstone protects reentrant cleanup
+before optional recent-history allocation; tracking failure blocks further
+admission. Exact teardown clears the retained metadata.
+
+The shared C/JS dispatcher now refuses new effects/captures before document
+preparation when native dialog cleanup is unconfirmed. Read-only observation
+and existing upload-release cleanup remain possible. The actual core passes 95
+checks and native target 43; complete JS regression passes 251. This is injected
+allocation-failure evidence, not whole-process heap-exhaustion or Android
+framework qualification. The actual Activity/hooks compile with Java 8/API 36,
+minimum 26. Current tiny QA APK: 188,819 bytes, SHA-256
+`97c667f18ed6765dc8905b2c4534cd5f59757c4f19b3fde16e59fcc3d9813a74`.
+Logs: `.mdo/E24-dialog-contract-final.log`, `.mdo/E24-js-full.log` and
+`.mdo/E24-android-build.log`. The device gate is still unavailable with all flags
+false in `.mdo/E24-device-dialog.log`. Keep the current provider and disabled
+global Android automation admission; remaining qualification stays pending.

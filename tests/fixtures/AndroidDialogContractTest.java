@@ -11,21 +11,21 @@ public final class AndroidDialogContractTest {
     static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     static String repeat(String text,int count){StringBuilder out=new StringBuilder();for(int i=0;i<count;i++)out.append(text);return out.toString();}
     static final class Clock implements MdoBrowserDialogs.Scheduler {
-        long time;boolean failAt,failRemove;long slowAt;Map<Runnable,Long> tasks=new LinkedHashMap<>();
-        public long now(){return time;}
-        public void at(Runnable task,long deadline){tasks.put(task,deadline);time+=slowAt;if(failAt)throw new IllegalStateException("Synthetic timer admission loss");}
-        public void remove(Runnable task){if(failRemove)throw new IllegalStateException("Synthetic removal loss");tasks.remove(task);}
+        long time;boolean failAt,failRemove,oomAt,oomRemove,oomNow;long slowAt;Map<Runnable,Long> tasks=new LinkedHashMap<>();
+        public long now(){if(oomNow)throw new OutOfMemoryError("Synthetic clock allocation failure");return time;}
+        public void at(Runnable task,long deadline){tasks.put(task,deadline);time+=slowAt;if(oomAt)throw new OutOfMemoryError("Synthetic timer allocation failure");if(failAt)throw new IllegalStateException("Synthetic timer admission loss");}
+        public void remove(Runnable task){if(oomRemove)throw new OutOfMemoryError("Synthetic removal allocation failure");if(failRemove)throw new IllegalStateException("Synthetic removal loss");tasks.remove(task);}
         void advance(long duration){time+=duration;for(Runnable task:new ArrayList<>(tasks.keySet()))if(tasks.get(task)<=time)task.run();}
     }
     static final class Sink implements MdoBrowserDialogs.Response {
-        int calls;boolean accepted,fail;String text;Runnable callback;
+        int calls;boolean accepted,fail,oom;String text;Runnable callback;
         public void send(boolean accept,String text){calls++;accepted=accept;this.text=text;
-            if(callback!=null)callback.run();if(fail)throw new IllegalStateException("Private native exception must not escape");}
+            if(callback!=null)callback.run();if(oom)throw new OutOfMemoryError("Synthetic native result allocation failure");if(fail)throw new IllegalStateException("Private native exception must not escape");}
     }
     static final class Fixture {
         final Object view=new Object();final Clock clock=new Clock();final List<Boolean> changes=new ArrayList<>();
-        boolean owned=true,listenerFail;long epoch=1;MdoBrowserDialogs dialogs;
-        Fixture(){dialogs=new MdoBrowserDialogs(view,clock,()->owned,()->epoch,value->{changes.add(value);if(listenerFail)throw new IllegalStateException();});}
+        boolean owned=true,listenerFail;int listenerOom;long epoch=1;MdoBrowserDialogs dialogs;
+        Fixture(){dialogs=new MdoBrowserDialogs(view,clock,()->owned,()->epoch,value->{changes.add(value);if(listenerOom==(value?1:2))throw new OutOfMemoryError("Synthetic blocker allocation failure");if(listenerFail)throw new IllegalStateException();});}
         Sink open(String kind){Sink sink=new Sink();check(dialogs.open(sink,sink,kind,"https://fixture.invalid/","Private message","initial"),"Native dialog was not retained");return sink;}
         String id(){return dialogs.snapshot().id;}
     }
@@ -93,6 +93,24 @@ public final class AndroidDialogContractTest {
         Fixture callback=new Fixture();callback.listenerFail=true;Sink failure=new Sink();
         check(!callback.dialogs.open(failure,failure,"confirm","url","message",null)&&failure.calls==1,"Failed blocker left native modal pending");
         check(!callback.dialogs.clean(),"Failed blocker cleanup was hidden");
+        Fixture timerOom=new Fixture();timerOom.clock.oomAt=true;Sink noMemory=new Sink();boolean escaped=false;
+        try{timerOom.dialogs.open(noMemory,noMemory,"confirm","url","message",null);}catch(OutOfMemoryError error){escaped=true;}
+        check(!escaped&&noMemory.calls==1&&!noMemory.accepted&&timerOom.dialogs.snapshot()==null,"Timer allocation OOM escaped and retained its native modal");
+        check(timerOom.clock.tasks.isEmpty()&&timerOom.dialogs.clean(),"Timer OOM left queued work or fabricated uncertain cleanup");
+        Fixture admissionOom=new Fixture();admissionOom.clock.oomNow=true;Sink refusedMemory=new Sink();
+        check(!admissionOom.dialogs.open(refusedMemory,refusedMemory,"alert","url","message",null)&&refusedMemory.calls==1,"Clock OOM retained an unadmitted native result");
+        Fixture removalOom=new Fixture();Sink withTimer=removalOom.open("confirm");Runnable inert=removalOom.clock.tasks.keySet().iterator().next();removalOom.clock.oomRemove=true;
+        removalOom.dialogs.cancel();inert.run();check(withTimer.calls==1&&removalOom.dialogs.snapshot()==null,"Timer removal OOM leaked or replayed native cleanup");
+        Fixture blockerOom=new Fixture();blockerOom.listenerOom=1;Sink failedBlocker=new Sink();
+        check(!blockerOom.dialogs.open(failedBlocker,failedBlocker,"confirm","url","message",null)&&failedBlocker.calls==1&&blockerOom.dialogs.clean(),"Blocker admission OOM left a native modal");
+        Fixture unblockOom=new Fixture();Sink delivered=unblockOom.open("confirm");unblockOom.listenerOom=2;
+        MdoBrowserDialogs.Result unblockFailure=unblockOom.dialogs.respond(unblockOom.id(),true,false,null);
+        check(!unblockFailure.ok&&unblockFailure.code.equals("dialog_cleanup_failed")&&!unblockOom.dialogs.clean()&&delivered.calls==1,"Unblock OOM admitted new native work");
+        Fixture nativeOom=new Fixture();Sink allocated=nativeOom.open("prompt");allocated.oom=true;String allocatedId=nativeOom.id();
+        MdoBrowserDialogs.Result allocationLost=nativeOom.dialogs.respond(allocatedId,true,true,"answer");
+        check(!allocationLost.ok&&allocationLost.effectMayHaveOccurred&&!allocationLost.cleanupConfirmed&&allocationLost.code.equals("dialog_response_uncertain"),"Native result OOM lost effect uncertainty");
+        nativeOom.dialogs.cancel();nativeOom.dialogs.close();check(allocated.calls==1,"Native OOM replayed confirmation or cancellation");
+        nativeOom.dialogs.viewDestroyed(nativeOom.view);check(nativeOom.dialogs.clean(),"Native OOM retained resources after exact teardown");
         Fixture thread=new Fixture();Sink waiting=thread.open("alert");boolean[] wrong={false};
         Thread worker=new Thread(()->{try{thread.dialogs.cancel();}catch(IllegalStateException expected){wrong[0]=true;}});worker.start();worker.join();
         check(wrong[0]&&waiting.calls==0,"Worker thread touched UI-owned native result");thread.dialogs.close();thread.dialogs.viewDestroyed(thread.view);

@@ -23,6 +23,7 @@ function coupled(){
       wheel_input:f.state.wheel===true,
       capture_capability:f.state.capture===true,
       capture_busy:f.state.captureBusy===true,capture_cleanup_failed:f.state.captureCleanupFailed===true,
+      dialog_cleanup_failed:f.state.dialogCleanupFailed===true,
       download_capability:true,downloads_armed:downloads,chooser_capability:true,chooser_upload_capability:true,chooser_armed:chooser};
     if(command==='downloads'){if(params.action==='arm')downloads=true;return{ok:true,armed:downloads,downloads:[]};}
     if(command==='chooser'){if(params.action==='arm')chooser=true;return{ok:true,armed:chooser,choosers:[]};}
@@ -228,4 +229,20 @@ test('native screenshot reservations and cleanup faults refuse new input before 
     assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(f.inputs.length,0);
     assert(!f.state.calls.some(row=>row.command==='automation'));assert.equal(f.captures.length,0);
   }
+});
+
+test('uncertain native dialog cleanup refuses effects before document preparation',async()=>{
+  for(const command of ['act','capture','navigate_to']){
+    const f=coupled();f.state.dialogCleanupFailed=true;f.state.capture=true;
+    const out=await f.run(command,{op:'click',document:doc,target:{ref},action:'goto',url:'https://fixture.invalid/'});
+    assert.equal(out.result.ok,false);assert.equal(out.result.error.code,'dialog_cleanup_failed');
+    assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(f.inputs.length,0);assert.equal(f.captures.length,0);
+    assert(!f.state.calls.some(row=>row.command==='automation'));
+  }
+});
+
+test('dialog cleanup faults still allow read-only observation without native input',async()=>{
+  const f=coupled();f.state.dialogCleanupFailed=true;
+  const out=await f.run('observe',{});assert.equal(out.result.ok,true);
+  assert.equal(f.inputs.length,0);assert.equal(f.captures.length,0);
 });

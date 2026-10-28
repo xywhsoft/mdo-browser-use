@@ -39,7 +39,7 @@ final class MdoBrowserDialogs implements AutoCloseable {
     private final Object view;private final Scheduler scheduler;private final BooleanSupplier owned;
     private final LongSupplier navigation;private final Listener listener;private final Thread thread=Thread.currentThread();
     private final List<WeakReference<Object>> settled=new ArrayList<>();
-    private Pending active;private boolean closed,blocked,failed,destroyed;
+    private Pending active;private Object lastToken;private boolean closed,blocked,failed,destroyed;
     MdoBrowserDialogs(Object view,Scheduler scheduler,BooleanSupplier owned,LongSupplier navigation,Listener listener){
         if(view==null||scheduler==null||owned==null||navigation==null||listener==null)throw new IllegalArgumentException("Missing native dialog binding");
         this.view=view;this.scheduler=scheduler;this.owned=owned;this.navigation=navigation;this.listener=listener;
@@ -55,18 +55,25 @@ final class MdoBrowserDialogs implements AutoCloseable {
     }
     private static boolean textFits(String value){return value==null||bounded(value,8192).length()==value.length();}
     private boolean seen(Object token){
-        if(active!=null&&active.token==token)return true;
-        for(WeakReference<Object> old:settled)if(old.get()==token)return true;return false;
+        if(lastToken==token||active!=null&&active.token==token)return true;
+        for(int index=0;index<settled.size();index++)if(settled.get(index).get()==token)return true;return false;
     }
-    private void remember(Object token){if(settled.size()==8)settled.remove(0);settled.add(new WeakReference<>(token));}
+    private void remember(Object token){
+        if(destroyed)return;
+        // Assign the once-only tombstone before any allocation or native call.
+        // Keep at most one strong result, cleared at exact view destruction.
+        lastToken=token;
+        try{if(settled.size()==8)settled.remove(0);settled.add(new WeakReference<>(token));}
+        catch(OutOfMemoryError error){failed=true;}
+    }
     private void unblock(){
         if(!blocked)return;blocked=false;
-        try{listener.blocked(false);}catch(RuntimeException error){failed=true;}
+        try{listener.blocked(false);}catch(RuntimeException|OutOfMemoryError error){failed=true;}
     }
     private Result refusal(String code){return new Result(false,code,false,clean());}
     private void reject(Object token,Response response){
         if(token==null||response==null||seen(token))return;
-        remember(token);try{response.send(false,null);}catch(RuntimeException error){if(!destroyed)failed=true;}
+        remember(token);try{response.send(false,null);}catch(RuntimeException|OutOfMemoryError error){if(!destroyed)failed=true;}
     }
     boolean open(Object token,Response response,String kind,String url,String message,String initial){
         thread();if(token==null||response==null)throw new IllegalArgumentException("Missing native dialog result");
@@ -74,30 +81,33 @@ final class MdoBrowserDialogs implements AutoCloseable {
         if(seen(token))return active!=null&&active.token==token;
         boolean live=false;long epoch=0,now=0;
         try{live=!closed&&!failed&&active==null&&owned.getAsBoolean();epoch=navigation.getAsLong();now=scheduler.now();}
-        catch(RuntimeException error){live=false;}
-        if(!live||epoch<=0||now<0||now>Long.MAX_VALUE-120000||
-           !("alert".equals(kind)||"confirm".equals(kind)||"prompt".equals(kind)||"beforeunload".equals(kind))||
-           "prompt".equals(kind)&&!textFits(initial)){
-            reject(token,response);return false;
-        }
-        Pending pending=new Pending(token,response,kind,bounded(url,2048),bounded(message,4096),
-            "prompt".equals(kind)?(initial==null?"":initial):null,epoch,now+120000);
-        pending.timer=new Expiry(this,pending.id);active=pending;
+        catch(RuntimeException|OutOfMemoryError error){live=false;}
+        Pending pending=null;
         try{
+            if(!live||epoch<=0||now<0||now>Long.MAX_VALUE-120000||
+               !("alert".equals(kind)||"confirm".equals(kind)||"prompt".equals(kind)||"beforeunload".equals(kind))||
+               "prompt".equals(kind)&&!textFits(initial)){
+                reject(token,response);return false;
+            }
+            pending=new Pending(token,response,kind,bounded(url,2048),bounded(message,4096),
+                "prompt".equals(kind)?(initial==null?"":initial):null,epoch,now+120000);
+            pending.timer=new Expiry(this,pending.id);active=pending;
             blocked=true;listener.blocked(true);
             if(active!=pending||closed||failed)return false;
             scheduler.at(pending.timer,pending.deadline);
             if(active!=pending)return false;
             if(scheduler.now()>=pending.deadline){finish(pending,false,null);return false;}
             return true;
-        }catch(RuntimeException error){finish(pending,false,null);return false;}
+        }catch(RuntimeException|OutOfMemoryError error){
+            if(pending!=null&&active==pending)finish(pending,false,null);else reject(token,response);return false;
+        }
     }
-    private void removeTimer(Pending pending){try{scheduler.remove(pending.timer);}catch(RuntimeException ignored){/* Weak, exact-ID timer is inert after settlement. */}}
+    private void removeTimer(Pending pending){try{scheduler.remove(pending.timer);}catch(RuntimeException|OutOfMemoryError ignored){/* Weak, exact-ID timer is inert after settlement. */}}
     private Result finish(Pending pending,boolean accept,String text){
         if(active!=pending||pending.sending||pending.unclean)return refusal("dialog_not_pending");
         pending.sending=true;removeTimer(pending);
         try{pending.response.send(accept,text);}
-        catch(RuntimeException error){
+        catch(RuntimeException|OutOfMemoryError error){
             // A lost acknowledgement cannot authorize either confirm or cancel
             // to be replayed. Keep admission blocked until exact view teardown.
             if(destroyed)return new Result(false,"dialog_response_uncertain",true,true);
@@ -112,13 +122,13 @@ final class MdoBrowserDialogs implements AutoCloseable {
         if(pending==null||!pending.id.equals(id)||pending.sending||pending.unclean)return;
         try{
             if(scheduler.now()<pending.deadline){scheduler.at(pending.timer,pending.deadline);return;}
-        }catch(RuntimeException error){/* A timer that cannot be retained must cancel this result. */}
+        }catch(RuntimeException|OutOfMemoryError error){/* A timer that cannot be retained must cancel this result. */}
         finish(pending,false,null);
     }
     private void current(){
         Pending pending=active;if(pending==null||pending.sending||pending.unclean)return;
         try{if(owned.getAsBoolean()&&navigation.getAsLong()==pending.navigation&&scheduler.now()<pending.deadline)return;}
-        catch(RuntimeException ignored){}
+        catch(RuntimeException|OutOfMemoryError ignored){}
         finish(pending,false,null);
     }
     Snapshot snapshot(){thread();current();return active==null?null:new Snapshot(active);}
@@ -133,6 +143,6 @@ final class MdoBrowserDialogs implements AutoCloseable {
     @Override public void close(){thread();closed=true;cancel();}
     void viewDestroyed(Object original){
         thread();if(!closed||original!=view)throw new IllegalStateException("Close the exact dialog view before teardown");
-        if(destroyed)return;destroyed=true;if(active!=null)removeTimer(active);active=null;settled.clear();failed=false;unblock();
+        if(destroyed)return;destroyed=true;if(active!=null)removeTimer(active);active=null;lastToken=null;settled.clear();failed=false;unblock();
     }
 }

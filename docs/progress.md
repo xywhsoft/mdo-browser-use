@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: N2 verifies actual Windows certificate refusal,
+Latest verified milestones: E24 fixes retained Android dialogs on allocation
+failure and blocks new page effects on unconfirmed modal cleanup. N2 verifies actual Windows certificate refusal,
 no HTTP/pixel publication and recovery using memory-only local TLS credentials.
 F8 qualifies the packed Windows network-recovery
 fix through eight actual runtime checks. N1 fixes recovery navigation blocked by a failed
@@ -3721,3 +3722,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android qualification and remaining full-goal work continue with the existing
   provider and disabled automation admission preserved. No production publication
   or goal completion is claimed.
+
+## E24 — settle dialog allocation faults and guard uncertain cleanup
+
+- Reproduce timer-allocation OOM escaping the production native dialog controller
+  and retaining an unscheduled modal. Separately reproduce shared C/JS page
+  preparation despite explicit native dialog-cleanup failure. Preserve failing
+  `.mdo/E24-dialog-oom-before.log` and `.mdo/E24-dialog-guard-before.log`.
+- Settle rejected/unscheduled native results once across liveness, metadata,
+  scheduler, blocker and response allocation faults. Retain lost acknowledgement
+  uncertainty instead of replaying confirm/cancel. Weak exact-ID timers stay
+  inert after failed removal. Establish an allocation-free last-result tombstone
+  before optional bounded history; tracking failure blocks new admission, and
+  exact teardown clears retained tokens.
+- Add the shared dispatcher barrier before any document preparation/input or
+  capture when native modal cleanup is unconfirmed. Preserve read-only inspection
+  and existing upload-release cleanup. All 95 controller/43 target checks and
+  251 complete sequential JS checks pass. Logs:
+  `.mdo/E24-dialog-contract-final.log` and `.mdo/E24-js-full.log`.
+- Compile the actual pinned Activity/hooks in the reused SDK with Java 8/API 36,
+  minimum 26. Tiny QA APK: 188,819 bytes, SHA-256
+  `97c667f18ed6765dc8905b2c4534cd5f59757c4f19b3fde16e59fcc3d9813a74`;
+  log `.mdo/E24-android-build.log`. The actual device gate remains unavailable,
+  with all verification flags false in `.mdo/E24-device-dialog.log` and its
+  receipt. These are injected fault/compile gates, not whole-process OOM or
+  Android framework passes. Preserve the current provider and disabled Android
+  automation admission. Contracts/overlays match and the same headless service
+  is healthy. Refresh the packed shared-host fix before delivery. Full-goal work
+  continues without production publication or an additional app/Home.
