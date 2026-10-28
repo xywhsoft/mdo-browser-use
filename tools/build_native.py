@@ -234,6 +234,9 @@ def main():
         if current != navigation_helper and hashlib.sha256(current.encode()).hexdigest() != record.get("navigation"):
             raise RuntimeError("Unreviewed native navigation helper edit preserved")
     upload = (dev.ROOT / "host/native-upload.inc.hpp").read_text(encoding="utf-8")
+    if upload.count('// BROWSER_UPLOAD_TREE_HELPER')!=1:
+        raise RuntimeError('Native upload tree helper insertion changed')
+    upload=upload.replace('// BROWSER_UPLOAD_TREE_HELPER',(dev.ROOT/'host/native-upload-tree.inc.hpp').read_text(encoding='utf-8'))
     upload_path = target.with_name("xs_browser_upload.inc.hpp")
     if upload_path.exists():
         current = upload_path.read_text(encoding="utf-8")

@@ -93,21 +93,28 @@ struct xb_upload_guard{
   }
   ~xb_upload_guard(){if(handle!=INVALID_HANDLE_VALUE)CloseHandle(handle);}
 };
+// BROWSER_UPLOAD_TREE_HELPER
 struct xb_upload_file{
-  std::string name,sha;std::wstring directory,path;uint64_t size=0,received=0;HANDLE handle=INVALID_HANDLE_VALUE;bool directoryOwned=false,pathOwned=false;
+  std::string name,sha,relative;std::wstring directory,path;uint64_t size=0,received=0;HANDLE handle=INVALID_HANDLE_VALUE;bool directoryOwned=false,pathOwned=false;
   ~xb_upload_file(){if(handle!=INVALID_HANDLE_VALUE)CloseHandle(handle);}
 };
 struct xb_upload_job{
   std::weak_ptr<xb_view> view;std::string ticket,key,chooser;std::wstring directory;UINT64 navigation=0;uint64_t size=0;
   ULONGLONG expires=0;HANDLE lease=INVALID_HANDLE_VALUE;bool prepared=false,sealed=false,closing=false,directoryOwned=false,leaseOwned=false,retained=false,assigning=false,verified=false,dispatched=false,clear=false;
   std::weak_ptr<xb_upload_assignment> assignment;std::string assignDocument,assignRef,assignFrameKey,assignmentResult;xb_input_frame_guard frameGuard;
+  std::shared_ptr<const xb_upload_tree> tree;
   std::vector<std::shared_ptr<xb_upload_file>> files;
   bool cleanup(){
     closing=true;bool ok=true;
     std::unique_ptr<xb_upload_guard> guard;
     if(directoryOwned){guard=std::make_unique<xb_upload_guard>(directory.substr(0,directory.find_last_of(L'\\')));if(guard->handle==INVALID_HANDLE_VALUE||!xb_upload_cleanup_directory(directory))return false;}
-    for(const auto& file:files)if(file->directoryOwned&&!xb_upload_cleanup_directory(file->directory))return false;
-    for(auto& file:files){if(file->handle!=INVALID_HANDLE_VALUE){CloseHandle(file->handle);file->handle=INVALID_HANDLE_VALUE;}if(file->pathOwned&&!xb_upload_remove_file(file->path))ok=false;if(file->directoryOwned&&!xb_upload_remove_directory(file->directory))ok=false;}
+    if(tree){
+      for(auto& file:files)if(file->handle!=INVALID_HANDLE_VALUE){CloseHandle(file->handle);file->handle=INVALID_HANDLE_VALUE;}
+      if(directoryOwned&&!xb_upload_tree_cleanup(directory,*tree))return false;
+    }else{
+      for(const auto& file:files)if(file->directoryOwned&&!xb_upload_cleanup_directory(file->directory))return false;
+      for(auto& file:files){if(file->handle!=INVALID_HANDLE_VALUE){CloseHandle(file->handle);file->handle=INVALID_HANDLE_VALUE;}if(file->pathOwned&&!xb_upload_remove_file(file->path))ok=false;if(file->directoryOwned&&!xb_upload_remove_directory(file->directory))ok=false;}
+    }
     if(!ok)return false;
     if(lease!=INVALID_HANDLE_VALUE){CloseHandle(lease);lease=INVALID_HANDLE_VALUE;}
     if(directoryOwned)return (!leaseOwned||xb_upload_remove_file(directory+L"\\.lease"))&&xb_upload_remove_directory(directory);
@@ -133,9 +140,19 @@ static bool xb_upload_stale(const std::wstring& root){
     xb_upload_handle lease;lease.value=CreateFileW(leasePath.c_str(),GENERIC_READ,0,nullptr,OPEN_EXISTING,FILE_FLAG_OPEN_REPARSE_POINT,nullptr);
     if(lease.value==INVALID_HANDLE_VALUE){auto error=GetLastError();if(error==ERROR_SHARING_VIOLATION)continue;if(error==ERROR_FILE_NOT_FOUND&&xb_upload_remove_directory(job))continue;ok=false;continue;}
     BY_HANDLE_FILE_INFORMATION info{};bool valid=GetFileType(lease.value)==FILE_TYPE_DISK&&GetFileInformationByHandle(lease.value,&info)&&
-      !(info.dwFileAttributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))&&!info.nFileSizeHigh&&info.nFileSizeLow<=16384;
+      !(info.dwFileAttributes&(FILE_ATTRIBUTE_DIRECTORY|FILE_ATTRIBUTE_REPARSE_POINT))&&!info.nFileSizeHigh&&info.nFileSizeLow<=262144;
     std::string inventory;DWORD read=0;
     if(valid){inventory.resize(info.nFileSizeLow);valid=ReadFile(lease.value,inventory.data(),info.nFileSizeLow,&read,nullptr)&&read==info.nFileSizeLow;}
+    if(valid&&xb_get(inventory,"format")=="mdo.browser-upload.v2"){
+      xb_upload_tree tree;
+      if(xb_upload_tree_parse(xb_upload_tree_raw(inventory,"directory"),tree)){
+        if(!xb_upload_tree_cleanup(job,tree)){ok=false;continue;}
+        CloseHandle(lease.value);lease.value=INVALID_HANDLE_VALUE;
+        if(!xb_upload_remove_file(leasePath)||!xb_upload_remove_directory(job))ok=false;continue;
+      }
+      // An invalid/partial inventory may be reclaimed only if no payload exists,
+      // using the same empty-reservation inspection below as v1.
+    }
     std::vector<std::string> expected;
     const auto manifest=xb_get(inventory,"files");
     valid=valid&&xb_get(inventory,"format")=="mdo.browser-upload.v1"&&!manifest.empty()&&manifest.front()=='[';
@@ -172,6 +189,7 @@ struct xb_upload_store{
   uint64_t reserved()const{uint64_t total=0;for(const auto& item:jobs)total+=item.second->size;return total;}
   size_t fileCount()const{size_t count=0;for(const auto& item:jobs)count+=item.second->files.size();return count;}
   size_t fileJobs()const{size_t count=0;for(const auto& item:jobs)count+=!item.second->clear;return count;}
+  size_t directoryCount()const{size_t count=0;for(const auto& item:jobs)count+=item.second->tree?item.second->tree->directories.size()+2:item.second->files.size();return count;}
   bool initialize(const std::shared_ptr<xb_host>& owner){
     if(initialized)return true;
     host=owner;root=xb_upload_cache_path(owner->profile+L"\\mdo-browser-use-transfers");
@@ -194,12 +212,14 @@ static void CALLBACK xb_upload_tick(HWND window,UINT,UINT_PTR,DWORD){auto at=xb_
 static void xb_upload_close_view(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view){xb_upload_abort_view(view);if(!host->uploads)return;for(auto& item:host->uploads->jobs)if(item.second->view.lock()==view)item.second->closing=true;host->uploads->collect();}
 static void xb_upload_shutdown(const std::shared_ptr<xb_host>& host){KillTimer(host->window,xb_upload_timer);xb_upload_stores.erase(host->window);if(host->uploads){for(auto& item:host->uploads->jobs)item.second->cleanup();host->uploads.reset();}}
 static std::string xb_upload_status(const std::shared_ptr<xb_upload_job>& job){
-  std::string files="[";for(const auto& file:job->files){if(files.size()>1)files+=",";files+="{\"name\":"+xb_quote(file->name)+",\"size\":"+std::to_string(file->size)+",\"received\":"+std::to_string(file->received)+"}";}files+="]";
+  std::string files="[";for(const auto& file:job->files){if(files.size()>1)files+=",";files+="{\"name\":"+xb_quote(file->name)+(job->tree?",\"path\":"+xb_quote(file->relative):"")+",\"size\":"+std::to_string(file->size)+",\"received\":"+std::to_string(file->received)+"}";}files+="]";
   return "{\"ticket\":"+xb_quote(job->ticket)+",\"clear\":"+(job->clear?"true":"false")+",\"sealed\":"+(job->sealed?"true":"false")+",\"closing\":"+(job->closing?"true":"false")+
     ",\"retained\":"+(job->retained?"true":"false")+",\"dispatched\":"+(job->dispatched?"true":"false")+",\"assigning\":"+(job->assigning?"true":"false")+",\"verified\":"+(job->verified?"true":"false")+
+    (job->tree?",\"directory\":{\"name\":"+xb_quote(job->tree->name)+",\"directories\":"+std::to_string(job->tree->directories.size())+"}":"")+
     (job->assignmentResult.empty()?"":",\"assignment_result\":"+job->assignmentResult)+",\"files\":"+files+"}";
 }
 static bool xb_upload_seal(const std::shared_ptr<xb_upload_job>& job){
+  if(job->tree){xb_upload_tree_inventory inventory;if(!xb_upload_tree_inspect(job->directory,*job->tree,inventory))return false;}
   xb_upload_provider provider;if(!CryptAcquireContextW(&provider.value,nullptr,nullptr,PROV_RSA_AES,CRYPT_VERIFYCONTEXT))return false;
   bool ok=true;
   for(auto& file:job->files){
@@ -213,6 +233,7 @@ static bool xb_upload_seal(const std::shared_ptr<xb_upload_job>& job){
     if(ok&&total==file->size&&CryptGetHashParam(sha.value,HP_HASHVAL,digest,&length,0)&&length==32){static const char chars[]="0123456789abcdef";for(auto c:digest){hex+=chars[c>>4];hex+=chars[c&15];}ok=hex==file->sha;}else ok=false;
     if(!ok)break;
   }
+  if(ok&&job->tree){xb_upload_tree_inventory inventory;ok=xb_upload_tree_inspect(job->directory,*job->tree,inventory,true);}
   return ok;
 }
 static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json){
@@ -230,9 +251,9 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     store->collect();host->reply(id,"{\"cancelled\":true}");return;
   }
   if(action=="begin"){
-    const auto key=xb_get(json,"upload_key"),manifest=xb_get(json,"files");uint64_t timeout=60000;
+    const auto key=xb_get(json,"upload_key"),manifest=xb_get(json,"files"),directory=xb_upload_tree_raw(json,"directory");uint64_t timeout=60000;
     xb_input_frame_guard frameGuard;if(!xb_input_pin_frames(view,json,frameGuard)){fail("Upload frame documents changed before byte admission");return;}
-    if(view->uploadCleanupFailed||!xb_chooser_upload_ready(view,xb_get(json,"chooser"),xb_get(json,"document"),xb_get(json,"ref"),xb_input_frame_key(frameGuard))||key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||manifest.empty()||manifest.front()!='['||
+    if(view->uploadCleanupFailed||!xb_chooser_upload_ready(view,xb_get(json,"chooser"),xb_get(json,"document"),xb_get(json,"ref"),xb_input_frame_key(frameGuard))||key.empty()||key.size()>100||(!xb_get(json,"timeout_ms").empty()&&!xb_upload_uint(xb_get(json,"timeout_ms"),timeout))||timeout<1000||timeout>120000||(!directory.empty()&&!manifest.empty())||(directory.empty()&&(manifest.empty()||manifest.front()!='['))||
        xb_get(json,"navigation")!=std::to_string(view->navigation)||view->loading||view->initialNavigationPending||!xb_automation_live(host,view,view->navigation)){fail("Upload needs a live document, exact key and bounded file manifest");return;}
     auto job=std::make_shared<xb_upload_job>();job->view=view;job->key=key;job->navigation=view->navigation;job->expires=GetTickCount64()+timeout;
     job->frameGuard=std::move(frameGuard);
@@ -241,7 +262,13 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
       if(job->assignDocument.empty()||job->assignDocument.size()>100||job->assignRef.empty()||job->assignRef.size()>100){fail("Framed uploads require their exact local document and reference");return;}
     }
     job->chooser=xb_get(json,"chooser");if(!job->chooser.empty()){job->assignDocument=xb_get(json,"document");job->assignRef=xb_get(json,"ref");}
-    for(int n=0;n<17;n++){auto item=webview::detail::json_parse(manifest,"",n);if(item.empty())break;auto file=std::make_shared<xb_upload_file>();file->name=xb_get(item,"name");file->sha=xb_get(item,"sha256");
+    if(!directory.empty()){
+      auto tree=std::make_shared<xb_upload_tree>();
+      if(!xb_upload_tree_parse(directory,*tree)){fail("Directory upload requires one bounded, unambiguous relative tree manifest");return;}
+      job->tree=tree;job->size=tree->size;
+      for(const auto& item:tree->files){auto file=std::make_shared<xb_upload_file>();file->relative=item.path;file->name=item.path.substr(item.path.find_last_of('/')==std::string::npos?0:item.path.find_last_of('/')+1);file->sha=item.sha;file->size=item.size;job->files.push_back(file);}
+    }else for(int n=0;n<17;n++){
+      auto item=webview::detail::json_parse(manifest,"",n);if(item.empty())break;auto file=std::make_shared<xb_upload_file>();file->name=xb_get(item,"name");file->sha=xb_get(item,"sha256");
       if(n==16||!xb_upload_name(file->name)||!xb_upload_hash(file->sha)||!xb_upload_uint(xb_get(item,"size"),file->size)||file->size>32u*1024u*1024u){fail("Upload manifest needs at most sixteen safe names, complete SHA-256 and 32 MiB files");return;}
       job->size+=file->size;job->files.push_back(file);
     }
@@ -249,10 +276,13 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     unsigned owned=0;for(const auto& item:store->jobs)if(item.second->view.lock()==view){owned+=!item.second->clear;if(item.second->key==key){
       auto old=item.second;bool same=!old->closing&&old->navigation==job->navigation&&old->files.size()==job->files.size();
       same=same&&!old->clear&&old->chooser==job->chooser&&old->assignFrameKey==job->assignFrameKey&&((job->chooser.empty()&&job->frameGuard.empty())||(old->assignDocument==job->assignDocument&&old->assignRef==job->assignRef));
+      same=same&&static_cast<bool>(old->tree)==static_cast<bool>(job->tree)&&(!job->tree||xb_upload_tree_json(*old->tree)==xb_upload_tree_json(*job->tree));
       for(size_t i=0;same&&i<job->files.size();i++)same=old->files[i]->name==job->files[i]->name&&old->files[i]->size==job->files[i]->size&&old->files[i]->sha==job->files[i]->sha;
       if(same)host->reply(id,xb_upload_status(old));else fail("Upload identity conflicts with its original manifest");return;
     }}
     if(owned>=16||store->fileJobs()>=32||job->files.size()>128-store->fileCount()||job->size>xb_upload_total_limit-store->reserved()){fail("Browser transfer cache resource limit reached; release completed staging first");return;}
+    const size_t directories=store->directoryCount(),neededDirectories=job->tree?job->tree->directories.size()+2:job->files.size();
+    if(directories>512||neededDirectories>512-directories){fail("Browser transfer cache directory limit reached; release completed staging first");return;}
     GUID guid{};wchar_t identifier[40]{};if(FAILED(CoCreateGuid(&guid))||!StringFromGUID2(guid,identifier,40)){fail("Cannot allocate a private upload identity");return;}
     xb_upload_guard guard(store->root);if(guard.handle==INVALID_HANDLE_VALUE){fail("Another browser is updating its transfer cache; retry admission after checking its receipt");return;}
     if(!xb_upload_stale(store->root)){fail("Private browser transfer cache has uncollected entries; inspect them before another admission");return;}
@@ -267,11 +297,16 @@ static void xb_upload_request(const std::shared_ptr<xb_host>& host,const std::sh
     if(!CreateDirectoryW(job->directory.c_str(),nullptr)){reject("Cannot reserve a private upload directory");return;}job->directoryOwned=true;
     job->lease=CreateFileW((job->directory+L"\\.lease").c_str(),GENERIC_READ|GENERIC_WRITE,0,nullptr,CREATE_NEW,FILE_ATTRIBUTE_HIDDEN,nullptr);
     if(job->lease==INVALID_HANDLE_VALUE){reject("Cannot lock the private upload reservation");return;}job->leaseOwned=true;
-    std::string inventory="{\"format\":\"mdo.browser-upload.v1\",\"files\":[";
-    for(const auto& file:job->files){if(inventory.back()!='[')inventory+=",";inventory+="{\"name\":"+xb_quote(file->name)+",\"size\":"+std::to_string(file->size)+",\"sha256\":"+xb_quote(file->sha)+"}";}inventory+="]}";
-    DWORD written=0;if(!WriteFile(job->lease,inventory.data(),static_cast<DWORD>(inventory.size()),&written,nullptr)||written!=inventory.size()){reject("Cannot retain the private upload cleanup inventory");return;}
+    std::string inventory;
+    if(job->tree)inventory="{\"format\":\"mdo.browser-upload.v2\",\"directory\":"+xb_upload_tree_json(*job->tree)+"}";
+    else{inventory="{\"format\":\"mdo.browser-upload.v1\",\"files\":[";for(const auto& file:job->files){if(inventory.back()!='[')inventory+=",";inventory+="{\"name\":"+xb_quote(file->name)+",\"size\":"+std::to_string(file->size)+",\"sha256\":"+xb_quote(file->sha)+"}";}inventory+="]}";}
+    DWORD written=0;if(!WriteFile(job->lease,inventory.data(),static_cast<DWORD>(inventory.size()),&written,nullptr)||written!=inventory.size()||!FlushFileBuffers(job->lease)){reject("Cannot retain the private upload cleanup inventory");return;}
+    if(job->tree){
+      for(const auto& path:xb_upload_tree_directories(*job->tree))if(!CreateDirectoryW(xb_upload_tree_native(job->directory,path).c_str(),nullptr)){reject("Cannot reserve a private upload tree directory");return;}
+    }
     for(size_t i=0;i<job->files.size();i++){auto file=job->files[i];file->directory=job->directory+L"\\"+std::to_wstring(i);file->path=file->directory+L"\\"+webview::detail::widen_string(file->name);
-      if(!CreateDirectoryW(file->directory.c_str(),nullptr)){reject("Cannot reserve an upload file directory");return;}file->directoryOwned=true;
+      if(job->tree){file->path=xb_upload_tree_native(job->directory,"tree/"+job->tree->name+"/"+file->relative);file->directory=file->path.substr(0,file->path.find_last_of(L'\\'));}
+      else{if(!CreateDirectoryW(file->directory.c_str(),nullptr)){reject("Cannot reserve an upload file directory");return;}file->directoryOwned=true;}
       file->handle=CreateFileW(file->path.c_str(),GENERIC_READ|GENERIC_WRITE,FILE_SHARE_READ,nullptr,CREATE_NEW,FILE_ATTRIBUTE_NORMAL,nullptr);
       if(file->handle==INVALID_HANDLE_VALUE||GetFileType(file->handle)!=FILE_TYPE_DISK){reject("Cannot create a regular private upload file");return;}file->pathOwned=true;
     }

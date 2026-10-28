@@ -13,11 +13,13 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: V8 bounds read-only viewport settling during capture;
+Latest verified milestones: W4 adds native directory staging and conservative
+restart collection; W3 preserves long upload basenames; W1 adds source manifests.
+V8 bounds read-only viewport settling during capture;
 V7 removes DOM input's duplicate activation clicks;
 V6 adds shared C/JS/Agent focus-bound image keys;
 V4/V5 cover image dragging and retained-document cleanup. E2 provides actual
-Android unsupported-provider admission. Directory uploads, full Android native
+Android unsupported-provider admission. Public directory assignment, full Android native
 integration, adversarial lifecycle and final OOM/performance/package gates
 remain active; this is not a release.
 
@@ -2453,3 +2455,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android integration under the existing provider limit, broader lifetime/
   OOM/network/performance and final packaging remain open; this does not
   complete the long-term Browser Use goal.
+
+## W4 — native directory staging and restart collection
+
+- Add the real Windows directory reservation path, reusing bounded chunks,
+  complete SHA-256 sealing, opaque tickets and existing ownership/expiry rules.
+  Preserve the selected root basename, relative files and nested empty
+  directories. Keep v1 regular-file reservations compatible. Do not advertise
+  directory upload or permit assignment until its separate end-to-end gate.
+- Validate the typed, bounded manifest with the production WebView JSON parser
+  and Windows ordinal case comparison. Reject traversal, reserved/ambiguous
+  components, undeclared parents, file/directory collisions and Unicode case
+  aliases. Bound manifests to 240 KiB, 128 files/128 subdirectories, 16 directory
+  levels, 32 MiB per file and 64 MiB total. Limit retained payload directories
+  to 512 per host in addition to existing job/file/byte budgets.
+- Flush a v2 cleanup inventory before materializing payloads. Inspect the
+  complete layout before deleting known files, including ancestor files; reject
+  reparse points and preserve unknown or renamed entries. Reuse the registered
+  pre-effect collector so failed partial creation and expiry are reclaimed while
+  the browser remains open. Complete sealing checks the layout and exact pinned
+  file sizes/hashes; enumeration metadata is not treated as authoritative size
+  while a writer is open.
+- Compile the actual production parser/validator/cleanup with real Windows I/O:
+  46 adversarial validations and all 63 cleanup allocation failure positions
+  preserve ownership without partial deletion or enumeration-handle leaks.
+  A real WebView2 staging gate passes 46 assertions for nested Unicode/empty
+  directories, a 240-byte leaf, chunk/key replay, hash failure cleanup, the
+  128-file boundary, global directory quota, expiry and regular v1 compatibility.
+  Independent filesystem observation occurs before native status/close, so it
+  cannot hide a missing collector. Directory assignment explicitly rejects with
+  no dispatch or retained bytes at this milestone.
+- Actual forced-restart gates preserve a live v2 lease, unknown/renamed files,
+  ancestor files and a real local directory junction; after fixture restoration,
+  orphan collection leaves zero reservations. Private ACLs remain protected and
+  no new native diagnostics appear. Reuse the same deployment/Home/native object
+  variant and restore headless operation.
+- Sequential Python regression: 122 total, 120 pass/two existing Windows
+  symlink-privilege skips. Reviewed host overlays and shared contracts match;
+  the binary and expanded upload helpers match their build receipt. The actual
+  public C/JS/Agent regular-file gate also passes, including long names, clear,
+  intercepted pickers and read-only denial, with zero private reservations.
+- Public directory source streaming, relative-path FileList verification,
+  intercepted pickers and C/JS/Agent coverage remain next. Android integration
+  with the user's existing WebView, broader lifecycle/OOM/network/performance
+  and final packaging remain active; this is not a completed goal or release.

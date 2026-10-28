@@ -659,6 +659,25 @@ still applies; no unchecked wire path is prefixed, and no private cache path is
 returned to a task. Actual local WebView2 delivery and reads are verified for
 long ASCII/Unicode names; UNC syntax normalization is not an SMB/share test.
 
+The private Windows staging backend also accepts a mutually exclusive
+`directory:{name,directories:[relativePath],files:[{path,size,sha256}]}` manifest.
+It materializes the selected root and empty directories without flattening
+relative paths. Bounds are 128 files, 128 subdirectories, 16 directory levels,
+32 MiB per file and 64 MiB total; native manifests are limited to 240 KiB.
+Paths use `/`, require exact declared parents, and reject traversal, reserved
+components, Unicode case aliases and file/directory collisions. The host's
+retained transfers share a 512 payload-directory limit across views.
+
+Directory reservations use a flushed `mdo.browser-upload.v2` lease inventory.
+Live and abandoned-process collection inspect the entire declared layout before
+deleting any known payload, preserve unknown/renamed entries and reject reparse
+points. Sealing verifies exact sizes and complete hashes on pinned file handles
+and checks that the complete declared directory layout exists. Partial failed
+admissions and unassigned expiry use the existing asynchronous collector.
+This is native staging only: directory assignment currently returns an explicit
+unsupported result before dispatch. The public C/JS/Agent upload contract still
+requires files until relative-path assignment and picker verification pass.
+
 ## File-input uploads
 
 `browseruse.upload` / `mdoBrowserUseUpload` accepts `action:"set"` with an owned

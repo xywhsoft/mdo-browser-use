@@ -131,6 +131,7 @@ static void xb_upload_cancel_assignment(const std::shared_ptr<xb_upload_job>& jo
 static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,const std::string& id,const std::string& json,const std::shared_ptr<xb_upload_job>& job){
   auto reject=[&](const char* code,const char* message){host->reply(id,"{\"accepted\":false,\"dispatched\":false,\"error\":{\"code\":"+xb_quote(code)+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":false}}");};
   if(!job){reject("upload_ticket_missing","The upload ticket expired or belongs to another browser");return;}
+  if(job->tree){reject("unsupported_capability","Directory staging is available; verified directory assignment is not enabled yet");return;}
   const auto document=xb_get(json,"document"),ref=xb_get(json,"ref");uint64_t timeout=10000;
   xb_input_frame_guard frameGuard;
   if(!xb_input_read_frames(json,frameGuard)){reject("upload_arguments_invalid","The upload frame document chain is malformed");return;}

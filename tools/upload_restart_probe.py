@@ -1,5 +1,6 @@
 """Crash/restart this same deployment with a real live native upload reservation."""
 import json
+import argparse
 import ctypes
 from ctypes import wintypes
 from pathlib import Path
@@ -42,7 +43,11 @@ try{
   const body=BODY_VALUE,bytes=new TextEncoder().encode(body);
   const sha=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(v=>v.toString(16).padStart(2,'0')).join('');
   const call=params=>bridge.call('upload',{browser,navigation:state.navigation,...params});
-  const begin=()=>call({action:'begin',upload_key:'restart-upload',timeout_ms:120000,files:[{name:FILENAME_VALUE,size:bytes.length,sha256:sha}]});
+  const filename=FILENAME_VALUE;
+  const selection=DIRECTORY_MODE?{directory:{name:'restart-root',directories:['nested','nested/empty','空目录'],files:[
+    {path:'nested/'+filename,size:bytes.length,sha256:sha},{path:'empty.txt',size:0,sha256:'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}]}}:
+    {files:[{name:filename,size:bytes.length,sha256:sha}]};
+  const begin=()=>call({action:'begin',upload_key:'restart-upload',timeout_ms:120000,...selection});
   if(['unexpected','renamed','junction'].includes(PHASE_VALUE)){
     let blocked=false;try{await begin();}catch(error){blocked=error.message.includes('uncollected entries');}
     if(!blocked)throw Error('Unexpected cache data was not preserved as an explicit admission failure');
@@ -60,11 +65,12 @@ try{
 '''
 
 
-def main():
-    output=dev.ENV/"upload-restart-result.json"
+def main(directory=False):
+    output=dev.ENV/('upload-tree-restart-result.json' if directory else 'upload-restart-result.json')
     output.write_text('{"passed":false,"state":"running"}\n',encoding="utf-8")
     cache=dev.HOME/"data/cache/webview2-content/mdo-browser-use-transfers"
     web=dev.SOURCE/"app/web"
+    parent=Path('tree/restart-root/nested') if directory else Path('0')
     (web/"__browser_use_page__.html").write_bytes((dev.ROOT/"tests/fixtures/page.html").read_bytes())
     before_diagnostics={p.name:(p.stat().st_size,p.stat().st_mtime_ns) for p in (dev.ENV/"host").glob("crash_*")}
     kernel=ctypes.WinDLL("kernel32",use_last_error=True)
@@ -77,7 +83,8 @@ def main():
             if not dev.state().get("pid"):dev.start()
             dev.call("storage.write",{"path":SAVED,"text":"null"},SCOPE)
             dev.stop()
-            script=SCRIPT.replace("BODY_VALUE",json.dumps(BODY)).replace("PHASE_VALUE",json.dumps(phase)).replace('FILENAME_VALUE',json.dumps(NAME))
+            script=SCRIPT.replace("BODY_VALUE",json.dumps(BODY)).replace("PHASE_VALUE",json.dumps(phase)).replace('FILENAME_VALUE',json.dumps(NAME)).replace('DIRECTORY_MODE',json.dumps(directory))
+            subprocess.run(['node','--input-type=module','--check'],input=script,text=True,capture_output=True,check=True,cwd=dev.ROOT)
             (web/"__browser_use_probe__.html").write_text('<!doctype html><meta charset="utf-8"><h1>Native upload recovery</h1><script type="module">'+script+'</script>',encoding="utf-8")
             dev.start(window=True,page="/__browser_use_probe__.html?upload="+phase)
             deadline=time.monotonic()+30;result=None
@@ -90,7 +97,9 @@ def main():
             if phase=="stage":
                 if not re.fullmatch(r"u-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}",result["ticket"]):raise RuntimeError("Invalid private staging identity")
                 original=cache/result["ticket"]
-                if fixture_path(original/'0'/NAME).read_bytes()!=BODY.encode():raise RuntimeError("Native staging bytes differ before forced termination")
+                if fixture_path(original/parent/NAME).read_bytes()!=BODY.encode():raise RuntimeError("Native staging bytes differ before forced termination")
+                if directory and not all((original/'tree/restart-root'/p).is_dir() for p in ('nested/empty','空目录')):
+                    raise RuntimeError('Native directory staging omitted an empty directory')
                 # Existing dev.stop verifies and force-stops this exact process
                 # tree. The page deliberately does not close/cancel its ticket.
                 dev.stop()
@@ -105,20 +114,21 @@ def main():
                     # teardown drains; do not restart or manufacture a ticket.
                     time.sleep(0.02)
             elif phase=="live-lease":
-                if fixture_path(original/'0'/NAME).read_bytes()!=BODY.encode():raise RuntimeError("Collector changed a reservation whose lease was still held")
+                if fixture_path(original/parent/NAME).read_bytes()!=BODY.encode():raise RuntimeError("Collector changed a reservation whose lease was still held")
                 kernel.CloseHandle(held);held=None
-                unexpected=original/"0/aaa-unexpected-fixture-note.txt";unexpected.write_bytes(b"preserve-unknown-cache-entry")
+                unexpected=original/parent/'aaa-unexpected-fixture-note.txt';unexpected.write_bytes(b"preserve-unknown-cache-entry")
             elif phase=="unexpected":
                 if unexpected.read_bytes()!=b"preserve-unknown-cache-entry":raise RuntimeError("Collector changed an unexpected cache entry")
-                if fixture_path(original/'0'/NAME).read_bytes()!=BODY.encode():raise RuntimeError("Collector deleted a known file before validating the whole directory")
+                if fixture_path(original/parent/NAME).read_bytes()!=BODY.encode():raise RuntimeError("Collector deleted a known file before validating the whole directory")
+                if directory and not (original/'tree/restart-root/empty.txt').is_file():raise RuntimeError('Collector partially deleted a known ancestor file before inspecting the whole tree')
                 unexpected.unlink();unexpected=None
-                renamed=original/"0/renamed-fixture.txt";fixture_path(original/'0'/NAME).rename(renamed)
+                renamed=original/parent/'renamed-fixture.txt';fixture_path(original/parent/NAME).rename(renamed)
             elif phase=="renamed":
                 if renamed.read_bytes()!=BODY.encode():raise RuntimeError("Collector deleted a single file outside its immutable inventory")
-                renamed.rename(fixture_path(original/'0'/NAME));renamed=None
+                renamed.rename(fixture_path(original/parent/NAME));renamed=None
                 target=dev.ENV/"qa/upload-junction-target";target.mkdir(exist_ok=True)
                 marker=fixture_path(target/NAME);marker.write_bytes(b"outside-cache-junction-fixture")
-                backup=dev.ENV/"qa/upload-junction-backup";junction=original/"0"
+                backup=dev.ENV/"qa/upload-junction-backup";junction=original/parent
                 if backup.exists():raise RuntimeError("A prior junction fixture needs inspection before reuse")
                 if not all(p.resolve().is_relative_to(dev.ENV.resolve()) for p in (backup,junction,target)):raise RuntimeError("Junction fixture left the project deployment")
                 junction.rename(backup)
@@ -137,14 +147,15 @@ def main():
         if not dev.call("runtime.info").get("application_root"):raise RuntimeError("Host was unhealthy after recovery")
         report={"passed":True,"backend":"actual-webview2-same-deployment","forced_restart_reclaimed_staging":True,
             "live_lease_preserved":True,"unexpected_entry_preserved":True,"immutable_inventory_enforced":True,"junction_not_followed":True,
-            "private_acl":True,"remaining_reservations":0,"new_native_diagnostics":[],"long_filename_bytes":len(NAME.encode('utf-8'))}
+            "private_acl":True,"remaining_reservations":0,"new_native_diagnostics":[],"long_filename_bytes":len(NAME.encode('utf-8')),
+            'directory_hierarchy':directory,'empty_directories_preserved':directory}
         output.write_text(json.dumps(report,indent=2)+"\n",encoding="utf-8");print(json.dumps(report,indent=2))
     except Exception as error:
         output.write_text(json.dumps({"passed":False,"phase":phase,"error":str(error)[:1024],"winerror":getattr(error,"winerror",None)})+"\n",encoding="utf-8");raise
     finally:
         if held is not None:kernel.CloseHandle(held)
         if unexpected is not None:unexpected.unlink(missing_ok=True)
-        if renamed is not None and renamed.exists():renamed.rename(fixture_path(original/'0'/NAME))
+        if renamed is not None and renamed.exists():renamed.rename(fixture_path(original/parent/NAME))
         if backup is not None and backup.exists():
             if junction.exists() and junction.lstat().st_file_attributes&0x400:kernel.RemoveDirectoryW(str(junction))
             if not junction.exists():backup.rename(junction)
@@ -152,5 +163,6 @@ def main():
 
 
 if __name__=="__main__":
-    try:main()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--directory',action='store_true',help='Exercise the v2 hierarchy inventory, including empty directories')
+    try:main(parser.parse_args().directory)
     except (OSError,RuntimeError,ValueError) as error:print(error,file=sys.stderr);raise SystemExit(1)
