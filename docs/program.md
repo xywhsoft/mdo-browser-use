@@ -7,10 +7,12 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,873,520 bytes**, SHA-256
-`aefae21cfa554bf2ae3db957be5c1a9b2ee1b30c96c9eaa97192075456e431dc`.
-Its native inventory contains 747 files, including the new shared document
-driver. The actual packed-program gate passes all six runtime checks. This is
+The current refreshed preview is **6,874,349 bytes**, SHA-256
+`a1864fd98e14e711281532942b49745a68b02699769244bc743e59fbbe10df71`.
+Its native inventory contains 747 files, including runtime 18, the shared
+document driver and E12's native input refusal/effect handling. Included module
+hashes match the reviewed deployment. The actual packed-program gate passes all
+six runtime checks. This is
 Windows verification; Android framework qualification remains unavailable.
 
 On a Windows x86-64 device with WebView2, place the executable in a writable

@@ -13,7 +13,11 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F4 refreshes and requalifies the packed Windows
+Latest verified milestones: F5 refreshes and requalifies the Windows preview
+with runtime 18 and native failure receipts; E13 closes the Android parent-click
+child-frame boundary; E12 preserves native refusal causes and cumulative input
+uncertainty; E11 adds guarded native Android scrolling with framework
+qualification still unavailable; F4 refreshes the earlier packed Windows
 preview; E10 connects the Android main-document driver to
 the shared dispatcher and verifies the existing Windows C/JS/native path;
 E9 fixes an early-peer/resume race and adds pinned
@@ -3264,3 +3268,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Home/app/native build or production publication is created. Refresh the packed
   Windows preview separately for E11/E12. Final product/Android work continues
   and the full goal remains active.
+
+## F5 — refresh and verify the packed preview after E11/E12
+
+- Repack from the single existing application/native host, with the existing
+  in-place exclusion journal and no staging Home/app tree. The inventory checks
+  747 files; actual runtime 18, shared document driver and E12 dispatch hashes
+  match reviewed deployed inputs. Restore all excluded development files and
+  original unity content after packing.
+- The executable is 6,874,349 bytes, SHA-256
+  `a1864fd98e14e711281532942b49745a68b02699769244bc743e59fbbe10df71`.
+  Start that exact `dist/` artifact on the same Home/port, without unpacked
+  application input. All six actual runtime checks pass: self-contained boot,
+  UI registration, C/JS/native observation, native Unicode fill/trusted click,
+  synthetic capture and close. Native inventory/runtime verification are both
+  true in the adjacent receipt; recomputing the artifact hash matches.
+  Logs: `.mdo/F5-program-package.log`, `.mdo/F5-program-runtime.log` and
+  `.mdo/program-runtime-result.json`.
+- Restore the ordinary healthy headless service (HTTP 200), about 1,110 MiB.
+  Shared contracts and reviewed overlays match. No extra `dist/mdo-home` is
+  created. The portable plugin is unchanged; Android is still unqualified and
+  disabled, using the user's preserved provider. Remaining product/platform
+  gates continue, the goal stays active and no production publication occurs.
