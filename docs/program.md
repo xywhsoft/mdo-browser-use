@@ -7,6 +7,12 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
+The current refreshed preview is **6,873,520 bytes**, SHA-256
+`aefae21cfa554bf2ae3db957be5c1a9b2ee1b30c96c9eaa97192075456e431dc`.
+Its native inventory contains 747 files, including the new shared document
+driver. The actual packed-program gate passes all six runtime checks. This is
+Windows verification; Android framework qualification remains unavailable.
+
 On a Windows x86-64 device with WebView2, place the executable in a writable
 directory and start it. Its default `mdo-home` is beside the executable; an
 explicit `-- --home <directory>` selects an existing Home. Import the plugin JSON

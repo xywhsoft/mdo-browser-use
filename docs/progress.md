@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E10 connects the Android main-document driver to
+Latest verified milestones: F4 refreshes and requalifies the packed Windows
+preview; E10 connects the Android main-document driver to
 the shared dispatcher and verifies the existing Windows C/JS/native path;
 E9 fixes an early-peer/resume race and adds pinned
 native document identity; E8 connects guarded main-document Android native
@@ -3139,3 +3140,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   verification flags false. Keep the current WebView and existing mdo/data.
 - Reviewed overlays match. Refresh the packed Windows preview separately before
   claiming its archive contains the new shared modules. The goal remains active.
+
+## F4 — refresh the packed preview after the shared driver integration
+
+- Rebuild the Windows preview from the same application/native host after E10,
+  using the existing in-place packaging journal and no app/Home staging copy.
+  The native inventory verifies 747 files, including the actual shared document
+  driver. Restore the original unity and all 13 excluded development files.
+- The refreshed executable is 6,873,520 bytes, SHA-256
+  `aefae21cfa554bf2ae3db957be5c1a9b2ee1b30c96c9eaa97192075456e431dc`.
+  The receipt independently records inventory and actual runtime verification.
+  Boot that artifact from `dist/` on the same Home/port, without an unpacked app
+  configuration or generated tree, and pass all six checks: archive boot, real
+  UI registration, C/JS/native observation, Unicode fill/trusted click, synthetic
+  capture and browser close. Receipts/logs: `.mdo/program-runtime-result.json`,
+  `.mdo/F4-program-package.log`, `.mdo/F4-program-runtime.log` and the adjacent
+  artifact receipt. Hash and included-module checks match after the run.
+- Restore the ordinary healthy headless service (HTTP 200), verify reviewed
+  overlays and generated C/JS contracts, and confirm no extra `dist/mdo-home`
+  was created. Deployment use is about 1,109 MiB. The portable plugin is unchanged.
+  Android remains unqualified/disabled, the current WebView is preserved, final
+  product gates remain pending and the full goal stays active. No store, website
+  or updater publication occurs.
