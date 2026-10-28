@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 17;
+  const version = 18;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -274,6 +274,19 @@ export function browserRuntime(configuration = {}) {
       return{ok:true,document:documentId,frame_ref:null,focus_ref:ref};
     }
     return{ok:true,document:documentId,frame_ref:null};
+  }
+  function scrollPoint(options = {}) {
+    if(!localFrame)return fail('frame_method_invalid','Scroll point routing requires a native isolated frame');
+    if(options.document!==documentId)return fail('stale_document','Observe the original document before scrolling');
+    const point=options.point;
+    if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.y<0||point.x>=innerWidth||point.y>=innerHeight)
+      return fail('input_coordinate_invalid','The scroll point is outside the original viewport');
+    const hit=deepHit(document,point.x,point.y);
+    if(!hit||!hit.isConnected||hit.ownerDocument!==document)return fail('input_target_changed','The scroll point has no original rendered target');
+    if(['iframe','frame'].includes(hit.localName))return fail('android_frames_unavailable','Scroll within this child frame is not implemented');
+    const ref=reference(hit,'f0');if(!ref)return fail('reference_limit','Too many retained element references');
+    if(options.ref&&options.ref!==ref)return fail('input_target_changed','The original scroll point target changed');
+    return{ok:true,document:documentId,point:{x:point.x,y:point.y},hit_ref:ref};
   }
   function uploadInfo(options = {}) {
     const found = locate({ ...options, _upload: true }); if (!found.ok) return found;
@@ -554,7 +567,7 @@ export function browserRuntime(configuration = {}) {
       return {ok:true,document:documentId,region,redactions,visited:nodes,scroll:{x:scrollX,y:scrollY},viewport:{width:innerWidth,height:innerHeight},device_pixel_ratio:dpr,redaction:"form-controls-and-opaque-content"};
     } catch(error){return fail("capture_preparation_failed",String(error.message||error).slice(0,256));}
   }
-  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, focus, visualPoint, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
+  const runtime = Object.freeze({ version, documentNode: document, document: documentId, describe, observe: scan, locate, prepare, verify, focus, visualPoint, scrollPoint, optionList, selectOptions, captureArea, pinCaptureFrame, uploadInfo, uploadNode, pinUploadNode, clearFiles });
   Object.defineProperty(globalThis, marker, { value: runtime, configurable: true });
   return runtime;
 }

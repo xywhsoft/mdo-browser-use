@@ -17,10 +17,10 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java',
         'host/android/dev/BrowserUseInputProbe.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserInputTarget.java',
         'host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserDocument.java',
-        'host/android/MdoBrowserNativeInput.java')
+        'host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserWheel.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
-    'tools/android/MdoBrowserNativeInput.java')
+    'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py',)
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))
@@ -96,7 +96,7 @@ def main():
     receipt={'state':'built','package':PACKAGE,'source_sha256':source_hash(),'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),
         'apk_bytes':apk.stat().st_size,'java_target':8,'min_api':26,'compile_api':tools_receipt['compile_sdk'],
         'toolchain_lock_sha256':tools_receipt['lock_sha256'],'ndk_required':False,'runtime_dependencies_added':False,
-        'production_activity_compiled':True,'production_native_input_bridge_compiled':True}
+        'production_activity_compiled':True,'production_native_input_bridge_compiled':True,'production_wheel_input_compiled':True}
     receipt_path.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))
 
 

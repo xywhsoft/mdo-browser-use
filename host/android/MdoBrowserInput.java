@@ -10,6 +10,7 @@ final class MdoBrowserInput implements AutoCloseable {
     interface Target {
         long document(); int width(); int height(); boolean interactive(); boolean focused();
         default boolean acquireFocus(){return false;}
+        default boolean wheel(long time,float x,float y,float dx,float dy){return false;}
         boolean touch(int action,long down,long time,float x,float y);
         boolean key(boolean down,long started,long time,String name,int modifiers);
         boolean text(String value);
@@ -58,6 +59,12 @@ final class MdoBrowserInput implements AutoCloseable {
     }
     void key(String name,int modifiers,Completion complete)throws Failure {
         key(name,modifiers,null,complete);
+    }
+    void wheel(float x,float y,float dx,float dy,Guard guard,Completion complete)throws Failure {
+        thread();if(!MdoBrowserWheel.delta(dx)||!MdoBrowserWheel.delta(dy))throw new Failure("input_scroll_invalid");
+        Pending job=admit(complete,false,guard);
+        if(!coordinate(x,job.width)||!coordinate(y,job.height))throw new Failure("input_coordinate_invalid");
+        job.wheel=true;job.x=x;job.y=y;job.dx=dx;job.dy=dy;start(job);
     }
     void key(String name,int modifiers,Guard guard,Completion complete)throws Failure {
         thread();if(!keyName(name)||modifiers<0||(modifiers&~7)!=0)throw new Failure("input_key_invalid");
@@ -111,7 +118,7 @@ final class MdoBrowserInput implements AutoCloseable {
     private final class Pending {
         final Completion complete;final boolean needsFocus;final long document;final int width,height;final Guard check;
         final Runnable timer=this::tick,watchdog=()->finish("input_timed_out");float[] points;String name,text;int modifiers,duration,index,delivered,ticket;
-        long started,deadline;float x,y;boolean sent,pressed,keyDown,done,finishing,checking,focus;
+        long started,deadline;float x,y,dx,dy;boolean sent,pressed,keyDown,done,finishing,checking,focus,wheel;
         Pending(Completion complete,boolean needsFocus,long document,int width,int height,Guard check){
             this.complete=complete;this.needsFocus=needsFocus;this.document=document;this.width=width;this.height=height;this.check=check;
         }
@@ -150,6 +157,7 @@ final class MdoBrowserInput implements AutoCloseable {
                     // framework: callbacks may synchronously invalidate us.
                     sent=true;
                     if(focus)accepted=target.focused();
+                    else if(wheel)accepted=target.wheel(now,x,y,dx,dy);
                     else if(points!=null){int count=points.length/2;x=points[index*2];y=points[index*2+1];
                         int action=index==0?DOWN:index==count-1?UP:MOVE;
                         if(action==DOWN)pressed=true;

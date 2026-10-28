@@ -13,7 +13,8 @@ final class BrowserUseInputProbe implements AutoCloseable {
     interface Completion {void complete(boolean ok,String code,int checks);}
     private final WebView view;private final Handler handler;private final Completion completion;
     private final MdoBrowserInput input;private final MdoBrowserLifecycle<WebView> owners;
-    private int checks;private boolean closed,started;
+    private int checks;private boolean closed,started,wheelVerified;
+    boolean wheelVerified(){return wheelVerified;}
     private final java.util.Set<Runnable> timers=new java.util.HashSet<>();
     BrowserUseInputProbe(WebView view,Handler handler,Completion completion){
         this.view=view;this.handler=handler;this.completion=completion;
@@ -30,9 +31,13 @@ final class BrowserUseInputProbe implements AutoCloseable {
             @Override public void onPageFinished(WebView web,String url){if(!started&&!closed){started=true;later(150,()->coordinates("button",(x,y)->tapButton(x,y)));}}
         });
         view.loadDataWithBaseURL("http://127.0.0.1/","<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>"+
-            "<style>body{margin:0;height:2400px}button,input{position:absolute;left:20px;width:220px;height:60px}button{top:20px}input{top:110px}</style>"+
-            "<button id='button'>Native input fixture</button><input id='editor'><script>globalThis.fixture={clicks:0,touch:true,input:true,key:false};"+
+            "<style>body{margin:0;height:2400px}button,input{position:absolute;left:20px;width:220px;height:60px}button{top:20px}input{top:110px}"+
+            "#wheelArea{position:absolute;left:10px;top:220px;width:calc(100vw - 20px);height:calc(100vh - 240px);overflow:scroll}#wheelBody{width:2400px;height:3600px}</style>"+
+            "<button id='button'>Native input fixture</button><input id='editor'><div id='wheelArea'><div id='wheelBody'></div></div>"+
+            "<script>globalThis.fixture={clicks:0,touch:true,input:true,key:false,downs:0,wheels:[]};"+
             "button.addEventListener('click',e=>{fixture.clicks++;fixture.touch=fixture.touch&&e.isTrusted});"+
+            "document.addEventListener('touchstart',()=>fixture.downs++);document.addEventListener('mousedown',()=>fixture.downs++);"+
+            "document.addEventListener('wheel',e=>fixture.wheels.push({trusted:e.isTrusted,x:e.clientX,y:e.clientY,dx:e.deltaX,dy:e.deltaY,mode:e.deltaMode,target:e.target.id}),{passive:true});"+
             "editor.addEventListener('input',e=>fixture.input=fixture.input&&e.isTrusted);"+
             "editor.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='a'&&e.ctrlKey)fixture.key=e.isTrusted});</script>","text/html","UTF-8",null);
     }
@@ -57,8 +62,33 @@ final class BrowserUseInputProbe implements AutoCloseable {
     private void tapButton(float x,float y){
         try{input.tap(x,y,result->{if(accepted(result))later(120,()->read("({clicks:fixture.clicks,trusted:fixture.touch})",state->{
             if(state.getInt("clicks")!=1||!state.getBoolean("trusted")){fail("device_touch_not_trusted");return;}checks++;
-            coordinates("editor",this::focusEditor);
+            wheel();
         }));});}catch(MdoBrowserInput.Failure error){fail(error.code);}
+    }
+    private void wheel(){
+        read("(()=>{const r=wheelArea.getBoundingClientRect();return{width:innerWidth,px:r.left+r.width/2,py:r.top+r.height/2,"+
+            "x:wheelArea.scrollLeft,y:wheelArea.scrollTop,windowX:scrollX,windowY:scrollY,downs:fixture.downs}})()",before->{
+            final double x=before.getDouble("px"),y=before.getDouble("py");
+            final float scale=(float)(view.getWidth()/before.getDouble("width"));
+            final int downs=before.getInt("downs");
+            try{input.wheel((float)x*scale,(float)y*scale,97*scale,131*scale,null,result->{
+                if(accepted(result))later(200,()->read("({wheels:fixture.wheels,downs:fixture.downs,clicks:fixture.clicks,"+
+                    "x:wheelArea.scrollLeft,y:wheelArea.scrollTop,windowX:scrollX,windowY:scrollY})",state->{
+                    if(state.getJSONArray("wheels").length()!=1||state.getInt("downs")!=downs||state.getInt("clicks")!=1){fail("device_wheel_replayed_or_clicked");return;}
+                    JSONObject event=state.getJSONArray("wheels").getJSONObject(0);
+                    if(!event.getBoolean("trusted")||event.getInt("mode")!=0||!event.getString("target").equals("wheelBody")||
+                       Math.abs(event.getDouble("x")-x)>2||Math.abs(event.getDouble("y")-y)>2||
+                       Math.abs(event.getDouble("dx")-97)>2||Math.abs(event.getDouble("dy")-131)>2||
+                       state.getDouble("x")<=before.getDouble("x")||state.getDouble("y")<=before.getDouble("y")||
+                       state.getDouble("windowX")!=before.getDouble("windowX")||state.getDouble("windowY")!=before.getDouble("windowY")){
+                        fail("device_wheel_geometry_or_units_failed");return;
+                    }
+                    wheelVerified=true;checks++;
+                    // Fixture reset only, after the native movement was verified.
+                    read("(()=>{wheelArea.scrollTo(0,0);return{reset:true}})()",reset->later(150,()->coordinates("editor",this::focusEditor)));
+                }));
+            });}catch(MdoBrowserInput.Failure failure){fail(failure.code);}
+        });
     }
     private void focusEditor(float x,float y){
         try{input.tap(x,y,result->{if(accepted(result))later(180,()->{

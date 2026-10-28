@@ -20,6 +20,12 @@ test('main-document target helpers retain the native chain and use only the orig
     if(method==='optionList')assert.equal(out.ref,ref);
   }
 });
+test('main-document scroll point binds the actual hit without inventing a target or native frame',async()=>{
+  const f=fixture(),out=await f.driver.read('scrollPoint',{document:doc,point:{x:20,y:30}});assert(out.ok);
+  assert.equal(out.hit_ref,ref);assert.deepEqual(out.native_target,{document:doc,ref:'e7'});assert.deepEqual(out.frame_chain,[{frame:'f0',document:fd}]);
+  f.state.hook=({method,result})=>{if(method==='scrollPoint')result.value.point={x:22,y:30};return result;};
+  assert.equal((await f.driver.read('scrollPoint',{document:doc,point:{x:20,y:30}})).error.code,'document_response_invalid');
+});
 
 test('stale references and explicit child-frame targets cannot select another world',async()=>{
   for(const target of [{ref:ref.replace(fd,'fd-00000000-0000-4000-8000-000000000000')},

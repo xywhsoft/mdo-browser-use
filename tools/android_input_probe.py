@@ -14,10 +14,10 @@ def main():
     def linux(path):
         value=path.resolve().as_posix();return '/mnt/'+value[0].lower()+value[2:]
     result=dev.ENV/'android-input-result.json';result.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
-    sources=[dev.ROOT/name for name in ('host/android/MdoBrowserInput.java','host/android/MdoBrowserLifecycle.java',
+    sources=[dev.ROOT/name for name in ('host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java',
         'host/android/MdoBrowserChannel.java','tests/fixtures/AndroidInputContractTest.java',
         'tests/fixtures/AndroidLifecycleContractTest.java','tests/fixtures/AndroidChannelContractTest.java',
-        'tests/fixtures/AndroidInputGuardContractTest.java')]
+        'tests/fixtures/AndroidInputGuardContractTest.java','tests/fixtures/AndroidWheelContractTest.java')]
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputContractTest'],
@@ -32,6 +32,9 @@ def main():
     guard=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputGuardContractTest'],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['guard_checks']=json.loads(guard.stdout.strip())['checks']
+    wheel=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidWheelContractTest'],
+        cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['wheel_checks']=json.loads(wheel.stdout.strip())['checks']
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 

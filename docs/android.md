@@ -451,3 +451,41 @@ Both device receipts remain unavailable because ADB has no device; the provider
 and existing mdo/data remain unchanged. The actual Windows C/JS/WebView2 DOM
 keyboard gate passes with the added input metadata, including root/child,
 shadow/contenteditable, focus-loss, permission and original-download cases.
+
+## Guarded native scrolling (E11)
+
+The private main-document input bridge now accepts `wheel`. The shared driver
+pins the actual rendered element under the original CSS viewport point, then
+the isolated guard checks that same element/document, native frame, viewport,
+scroll and scale immediately before dispatch. Open shadow roots are inspected;
+child-frame hits refuse explicitly. Viewport and element scrolling both use
+this pin. The runtime's retained-reference bound also applies to scroll targets.
+Android hover, child-frame input, capture/privacy and transfers remain pending.
+
+The native target emits one `ACTION_SCROLL` mouse event with no pressed buttons;
+it does not tap to focus or simulate a touch stroke. Public deltas use CSS pixels
+with positive right/down, converted by the admitted native scale. Chromium's
+Android wheel path uses the Activity theme's `listPreferredItemHeight` physical
+pixel factor for both axes, with both tick signs inverted relative to public
+CDP deltas. Reviewed primary-source references and hashes are recorded in
+`host/android/scroll-protocol.json`; this is not an installed-provider version
+gate or a claim of framework compatibility. Failed/unknown conversion refuses
+without a DOM or touch fallback. Cancellation and timeout settle the original
+action once; late checks cannot dispatch new input.
+
+Verification: 66 Java wheel assertions pass alongside 125 input, 81 lifecycle,
+22 channel and 63 deferred-guard assertions. The complete JS suite passes
+220/220, including real runtime hit tests and coupled shared-driver routing.
+The actual Android Activity and native wheel bridge compile. The same QA APK
+is 123,283 bytes, SHA-256
+`1de0ef332c0ecb0907470fae09a9806f707f755e3fd11f471270e226baffc31c`.
+Its nested scrolling fixture checks both pixel directions, target coordinates,
+trusted wheel events and absence of extra clicks when a device is available.
+ADB currently has no device: both device gates are unavailable and
+`native_wheel_verified` remains false. Overall Android automation stays disabled,
+and the current WebView and installed mdo/data are preserved.
+
+The actual Windows C/JS/WebView2 DOM keyboard gate also passes with runtime 18,
+including original POST download bytes. The running headless deployment is
+healthy and reviewed overlays match. The previously qualified packed Windows
+preview predates E11; it has not been refreshed or published in this milestone.

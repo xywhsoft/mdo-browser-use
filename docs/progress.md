@@ -3162,3 +3162,40 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android remains unqualified/disabled, the current WebView is preserved, final
   product gates remain pending and the full goal stays active. No store, website
   or updater publication occurs.
+
+## E11 — pin native Android wheel input without touch/click fallback
+
+- Add one native mouse `ACTION_SCROLL` event through the existing input
+  sequencer, with bounded deltas, no pressed buttons and no focus click. Convert
+  public right/down CSS pixels using the admitted native scale and Chromium's
+  Activity-theme wheel factor for both axes. Record reviewed primary-source
+  mappings/hashes in `host/android/scroll-protocol.json`; actual installed
+  provider behavior remains a separate qualification gate.
+- Add a fixed isolated `scrollPoint` operation and original hit-element pin to
+  the shared document driver. Recheck document/frame, hit, viewport, scroll and
+  scale before native dispatch; reject child frames or changed targets. Open
+  shadow roots and retained-reference bounds are covered. Runtime 18 invalidates
+  older runtime observations. Native wheel state does not enable overall
+  Android Agent admission, interception or unsupported provider operation.
+- Pass 66 new Java wheel assertions with the existing 125 input, 81 lifecycle,
+  22 channel and 63 deferred-guard assertions. Full JS regression passes 220/220.
+  Logs: `.mdo/E11-wheel-contract.log`, `.mdo/E11-wheel-js.log` and
+  `.mdo/E11-js-full.log`. The real Activity/bridge and wheel path compile; the
+  single QA APK is 123,283 bytes, SHA-256
+  `1de0ef332c0ecb0907470fae09a9806f707f755e3fd11f471270e226baffc31c`.
+- Extend that device fixture with a nested two-axis scroller to verify actual
+  trusted events, coordinates/deltas, target scrolling and absence of extra
+  clicks. Neither device gate can run because ADB has no device; all framework
+  verification fields remain false. Preserve the current WebView and mdo/data.
+  Do not treat compilation or synthetic protocol assertions as framework passes.
+- Pass the actual Windows C -> JS -> WebView2 DOM keyboard gate with runtime 18,
+  including root/child/shadow/contenteditable input, focus/permission boundaries
+  and original POST download bytes. No models or external sites are called, no
+  native diagnostics or transfer reservations remain, and the same headless
+  service is HTTP 200. C/JS contracts and reviewed overlays match; whitespace
+  checks pass. Logs: `.mdo/E11-wheel-build.log`, `.mdo/E11-device-world.log`,
+  `.mdo/E11-device-input.log` and `.mdo/E11-windows-dom-keyboard.log`.
+- Deployment use is about 1,112 MiB. No extra application/Home/native build is
+  created. The portable C plugin is unchanged and the previously qualified
+  packed preview predates E11. Final product gates and Android work continue;
+  the goal stays active and nothing is published to production.

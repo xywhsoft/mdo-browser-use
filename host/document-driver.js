@@ -2,8 +2,8 @@ import {browserRuntime} from './automation-runtime.js';
 
 const uuid='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const domId=new RegExp(`^d-${uuid}$`,'i'),nativeId=new RegExp(`^fd-${uuid}$`,'i'),elementId=/^e[1-9][0-9]{0,12}$/;
-const allowed=new Set(['describe','observe','locate','prepare','verify','optionList','selectOptions']);
-const inputs=new Set(['click','check','fill','type','key','select']);
+const allowed=new Set(['describe','observe','locate','prepare','verify','optionList','selectOptions','scrollPoint']);
+const inputs=new Set(['click','check','fill','type','key','select','scroll']);
 const scope={frame_scope:'main_document',frame_routing:'android-main-document-v1',limitations:Object.freeze(['child_frames_unavailable'])};
 const issue=(code,message)=>Object.assign(new Error(message),{code});
 const publicUrl=value=>{try{const url=new URL(value);url.username='';url.password='';return url.href.slice(0,2048);}catch{return '';}};
@@ -130,6 +130,13 @@ export function createDocumentDriver({execute,checkpoint=async()=>{}}){
           throw issue('document_response_invalid','The main-document input geometry is invalid');
         const ref=value.element.ref;
         out.frame_chain=[{frame:'f0',document:pin.native}];out.native_target={document:meta.document,ref};
+      }
+      if(method==='scrollPoint'){
+        if(!elementId.test(value.hit_ref)||!value.point||![value.point.x,value.point.y].every(n=>Number.isFinite(n)&&n>=0&&n<=32768)||
+           value.point.x!==options.point?.x||value.point.y!==options.point?.y)
+          throw issue('document_response_invalid','The original scroll point reply is invalid');
+        out.hit_ref=qualify({ref:value.hit_ref,frame:'f0'},pin,meta.document).ref;
+        out.frame_chain=[{frame:'f0',document:pin.native}];out.native_target={document:meta.document,ref:value.hit_ref};
       }
       return bounded(out);
     }catch(error){

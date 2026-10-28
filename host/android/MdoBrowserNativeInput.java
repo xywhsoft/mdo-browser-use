@@ -18,6 +18,9 @@ final class MdoBrowserNativeInput {
         "if(Math.abs(v.width-innerWidth)>1||Math.abs(v.height-innerHeight)>1||Math.abs(v.offsetLeft)>0.01||Math.abs(v.offsetTop)>0.01)return 'input_viewport_unsupported';"+
         "return Math.abs(innerWidth*s-p.width)>2||Math.abs(innerHeight*s-p.height)>2||Math.abs(scrollX*s-p.scrollX)>1||Math.abs(scrollY*s-p.scrollY)>1?'input_viewport_changed':null};"+
         "let code=geometry();if(code)return bad(code);"+
+        "if(p.kind==='wheel'){const hit=r.scrollPoint({document:p.document,point:{x:p.x,y:p.y},ref:p.ref});"+
+        "if(!hit.ok||hit.hit_ref!==p.ref)return bad(hit.error?.code==='android_frames_unavailable'?'android_frames_unavailable':'input_target_changed');"+
+        "code=geometry();return code?bad(code):{ok:true};}"+
         "const options={document:p.document,target:{ref:p.ref},op:'key'},found=r.locate(options);"+
         "if(!found.ok)return bad('input_target_changed');if(found.element.frame!=='f0')return bad('android_frames_unavailable');"+
         "if(p.kind==='click'){const checked=r.prepare({...options,op:'click',scroll:false});"+
@@ -36,7 +39,7 @@ final class MdoBrowserNativeInput {
         this.view=view;this.document=document;this.owned=owned;this.nativeScale=nativeScale;
         nativeDocument=document.identity();if(nativeDocument==null)throw new IllegalStateException("world_not_ready");
         kind=request.getString("kind");
-        if(!kind.matches("focus|click|key|text"))throw new UnsupportedOperationException("android_input_kind_unsupported");
+        if(!kind.matches("focus|click|key|text|wheel"))throw new UnsupportedOperationException("android_input_kind_unsupported");
         JSONArray frames=request.optJSONArray("frame_chain"),snapshot=request.optJSONArray("frame_snapshot");
         if(frames==null||frames.length()!=1||!frames.getJSONObject(0).getString("frame").equals("f0")||
            request.has("frame_snapshot")&&(snapshot==null||snapshot.length()!=0))
@@ -45,7 +48,7 @@ final class MdoBrowserNativeInput {
         String id=request.getString("input_document"),ref=request.getString("input_ref");
         if(!id.matches("d-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")||!ref.matches("e[1-9][0-9]{0,12}"))
             throw new IllegalArgumentException("input_target_invalid");
-        if(!kind.equals("click")&&(!id.equals(request.getString("focus_document"))||!ref.equals(request.getString("focus_ref"))))
+        if(kind.matches("focus|key|text")&&(!id.equals(request.getString("focus_document"))||!ref.equals(request.getString("focus_ref"))))
             throw new IllegalArgumentException("input_focus_target_mismatch");
         width=view.getWidth();height=view.getHeight();scrollX=view.getScrollX();scrollY=view.getScrollY();scale=nativeScale.getAsDouble();
         if(!Double.isFinite(scale)||scale<=0||scale>32)throw new IllegalStateException("input_scale_not_ready");
@@ -54,13 +57,18 @@ final class MdoBrowserNativeInput {
             throw new IllegalArgumentException("input_viewport_unsupported");
         JSONObject witness=new JSONObject().put("document",id).put("ref",ref).put("kind",kind).put("scale",scale)
             .put("width",width).put("height",height).put("scrollX",scrollX).put("scrollY",scrollY);
-        if(kind.equals("click")){
-            if(!request.optString("button","left").equals("left")||request.optInt("click_count",1)!=1)
+        if(kind.equals("click")||kind.equals("wheel")){
+            if(kind.equals("click")&&(!request.optString("button","left").equals("left")||request.optInt("click_count",1)!=1))
                 throw new UnsupportedOperationException("android_input_kind_unsupported");
             double x=request.getDouble("x"),y=request.getDouble("y");
             if(!Double.isFinite(x)||!Double.isFinite(y)||x<0||y<0||x*scale>=width||y*scale>=height)
                 throw new IllegalArgumentException("input_coordinate_invalid");
             witness.put("x",x).put("y",y);
+            if(kind.equals("wheel")){
+                double dx=request.getDouble("dx"),dy=request.getDouble("dy");
+                if(!Double.isFinite(dx)||!Double.isFinite(dy)||Math.abs(dx)>32768||Math.abs(dy)>32768)
+                    throw new IllegalArgumentException("input_scroll_invalid");
+            }
         }
         expression=FENCE+"("+witness.toString()+")";
     }
@@ -85,6 +93,8 @@ final class MdoBrowserNativeInput {
         switch(kind){
             case "focus":input.focus(this::check,complete);break;
             case "click":input.tap((float)(request.getDouble("x")*scale),(float)(request.getDouble("y")*scale),this::check,complete);break;
+            case "wheel":input.wheel((float)(request.getDouble("x")*scale),(float)(request.getDouble("y")*scale),
+                (float)(request.getDouble("dx")*scale),(float)(request.getDouble("dy")*scale),this::check,complete);break;
             case "text":input.text(request.getString("text"),this::check,complete);break;
             case "key":
                 String key=request.getString("key");int modifiers=0;

@@ -167,6 +167,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     const checked=await guard(true);if(checked.handled)return checked;
     return null;
   };
+  const pinScrollPoint=async point=>{
+    const hit=await read('scrollPoint',{document:params.document,point});
+    if(!hit.ok)return{handled:true,result:hit};
+    const pin=hit.native_target,chain=hit.frame_chain;
+    if(!/^d-[a-f0-9-]{36}$/i.test(pin?.document)||pin.document!==params.document||!/^e[1-9][0-9]{0,12}$/.test(pin?.ref)||
+       !Array.isArray(chain)||chain.length!==1||chain[0]?.frame!=='f0'||!/^fd-[a-f0-9-]{36}$/i.test(chain[0]?.document))
+      return fail('frame_response_invalid','The original Android scroll point has no complete document/target pin');
+    inputFrameChain=chain;inputTarget={input_document:pin.document,input_ref:pin.ref};return null;
+  };
   const sendDrag=async parameters=>{
     const before=await guard(true);if(before.handled)return before;
     if(before.state.input_busy||before.state.capture_busy)return fail('browser_busy','Native input or capture started before dragging');
@@ -303,8 +312,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const { state } = checked;
       if (!state.loading) {
         if (command === "act") {
-          if(state.platform==='android-webview'&&(['hover','scroll'].includes(params.op)))
-            return fail('unsupported_capability','This Android adapter has not implemented hover or native scrolling; no browser input was sent');
+          if(state.platform==='android-webview'&&(params.op==='hover'||params.op==='scroll'&&state.wheel_input!==true))
+            return fail('unsupported_capability','This Android adapter does not provide the requested native pointer operation; no browser input was sent');
           if(!params.target?.image&&['fill','type','key'].includes(params.op)&&(!pageDriver||state.frame_target_keyboard!==true))
             return fail('unsupported_capability','This host cannot safely focus and fence an exact keyboard target; update the host or use manual control');
           if (params.op === "drag" && !state.drag_capability) return fail("unsupported_capability", "This browser backend cannot deliver bounded native dragging");
@@ -383,7 +392,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const snapshot = await read("observe", { limit: 1, max_bytes: 256 });
       if (snapshot.document !== params.document) return fail("stale_document", "Observe the current document before scrolling");
       if(pageDriver){const root=snapshot.frames?.find(row=>row.id==='f0');if(!root?.document)return fail('frame_response_invalid','The root frame pin is missing');inputFrameChain=[{frame:'f0',document:root.document}];}
-      const error = await send({ kind: "wheel", x: snapshot.viewport.width / 2, y: snapshot.viewport.height / 2, dx: params.dx || 0, dy: params.dy || 0 });
+      const point={x:snapshot.viewport.width/2,y:snapshot.viewport.height/2};
+      if(policy.state.platform==='android-webview'){const checked=await pinScrollPoint(point);if(checked)return checked;}
+      const error = await send({ kind: "wheel",...point,dx: params.dx || 0, dy: params.dy || 0 });
       if (error) return error;
     } else {
       let previous, prepared;
@@ -421,6 +432,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
            parts[1]!==leaf.frame||parts[2]!==leaf.document||parts[3]!==target.document||parts[4]!==target.ref)
           return fail('frame_response_invalid','The keyboard target is not bound to its original isolated frame');
         inputFocus={focus_document:target.document,focus_ref:target.ref};
+      }
+      if(params.op==='scroll'&&policy.state.platform==='android-webview'){
+        const checked=await pinScrollPoint(fresh.point);if(checked)return checked;
       }
       let error = await send(keyboard?{kind:'focus',...inputFocus}:{ kind: params.op === "hover" ? "move" : params.op === "scroll" ? "wheel" : "click", ...fresh.point,
         button: params.op === "right_click" ? "right" : params.op === "middle_click" ? "middle" : "left",

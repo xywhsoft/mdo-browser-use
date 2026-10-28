@@ -23,6 +23,7 @@ function fixture(kind='click'){
     locate(options){calls.push(['locate',options]);return located;},
     prepare(options){calls.push(['prepare',options]);return{...located,point:{x:20,y:30}};},
     focus(options){calls.push(['focus',options]);return{ok:true,focused:true};},
+    scrollPoint(options){calls.push(['scrollPoint',options]);return{ok:true,hit_ref:'e7'};},
     verify(options){calls.push(['verify',options]);return{ok:true,focused:true};}};
   const context=vm.createContext({document,innerWidth:320,innerHeight:240,scrollX:10,scrollY:20,
     visualViewport:{width:320,height:240,scale:1,offsetLeft:0,offsetTop:0},
@@ -73,4 +74,11 @@ test('Android native fence checks the original keyboard target each time and obs
   assert.equal(changed.run().code,'frame_changed');
   const unfocused=fixture('text');unfocused.context.document.hasFocus=()=>false;
   assert.equal(unfocused.run().code,'input_focus_lost');
+});
+test('Android wheel fence requires the same root hit and viewport without focusing or clicking',()=>{
+  const f=fixture('wheel');assert.deepEqual(f.run(),{ok:true});assert.deepEqual(f.calls.map(row=>row[0]),['scrollPoint']);
+  assert.equal(f.calls[0][1].ref,'e7');assert.equal(f.calls[0][1].document,id);
+  f.runtime.scrollPoint=()=>({ok:true,hit_ref:'e8'});assert.equal(f.run().code,'input_target_changed');
+  f.runtime.scrollPoint=()=>({ok:false,error:{code:'android_frames_unavailable'}});assert.equal(f.run().code,'android_frames_unavailable');
+  const moved=fixture('wheel');moved.context.scrollY++;assert.equal(moved.run().code,'input_viewport_changed');assert.equal(moved.calls.length,0);
 });

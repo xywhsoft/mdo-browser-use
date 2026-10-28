@@ -26,6 +26,7 @@ export function fixture(){
     if(method==='verify')value={...meta(),focused:true,verified:true};
     if(method==='optionList')value={...meta(),ref:'e7',frame:'f0',options:[{index:0,label:'One'}]};
     if(method==='selectOptions')value={...meta(),dispatched:true,verified:true};
+    if(method==='scrollPoint')value={...meta(),point:options.point,hit_ref:'e7'};
     const result={ok:true,native_document:params.native_document,navigation:params.navigation,value};
     return await state.hook?.({method,options,result})||result;
   };

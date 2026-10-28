@@ -891,7 +891,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeInput.java'),source.with_name('MdoBrowserNativeInput.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeInput.java'),source.with_name('MdoBrowserNativeInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWheel.java'),source.with_name('MdoBrowserWheel.java'))"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -901,7 +901,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": ".put(\"isolated_world\",documentState(key))",
-      "after": ".put(\"isolated_world\",documentState(key)).put(\"navigation\",views.epoch(key,web)).put(\"input_busy\",views.inputBusy(key,web)).put(\"input_cleanup_confirmed\",views.inputClean(key,web)).put(\"native_scale_ready\",Double.isFinite(views.scale(key,web))).put(\"frame_target_keyboard\",documents.containsKey(key))"
+      "after": ".put(\"isolated_world\",documentState(key)).put(\"navigation\",views.epoch(key,web)).put(\"input_busy\",views.inputBusy(key,web)).put(\"input_cleanup_confirmed\",views.inputClean(key,web)).put(\"native_scale_ready\",Double.isFinite(views.scale(key,web))).put(\"frame_target_keyboard\",documents.containsKey(key)).put(\"wheel_input\",documents.containsKey(key))"
     }
   ],
   "files": [
@@ -1064,6 +1064,10 @@
     {
       "source": "host/document-driver.js",
       "target": "app/web/js/features/workbench/document-driver.js"
+    },
+    {
+      "source": "host/android/MdoBrowserWheel.java",
+      "target": "tools/android/MdoBrowserWheel.java"
     }
   ]
 }

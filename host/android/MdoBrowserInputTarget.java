@@ -4,6 +4,7 @@ import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.util.TypedValue;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.text.InputType;
@@ -28,6 +29,20 @@ final class MdoBrowserInputTarget implements MdoBrowserInput.Target {
         MotionEvent event=MotionEvent.obtain(down,time,action,x,y,0);
         try{event.setSource(InputDevice.SOURCE_TOUCHSCREEN);return view.dispatchTouchEvent(event);}
         finally{event.recycle();}
+    }
+    public boolean wheel(long time,float x,float y,float dx,float dy){
+        // Chromium WindowAndroid uses this Activity theme attribute for BOTH
+        // wheel axes; a generic ViewConfiguration horizontal factor can differ.
+        TypedValue value=new TypedValue();
+        if(!view.getContext().getTheme().resolveAttribute(android.R.attr.listPreferredItemHeight,value,true))return false;
+        float factor=value.getDimension(view.getResources().getDisplayMetrics());
+        float[] ticks=MdoBrowserWheel.ticks(dx,dy,factor);
+        MotionEvent.PointerProperties pointer=new MotionEvent.PointerProperties();pointer.id=0;pointer.toolType=MotionEvent.TOOL_TYPE_MOUSE;
+        MotionEvent.PointerCoords point=new MotionEvent.PointerCoords();point.x=x;point.y=y;
+        point.setAxisValue(MotionEvent.AXIS_HSCROLL,ticks[0]);point.setAxisValue(MotionEvent.AXIS_VSCROLL,ticks[1]);
+        MotionEvent event=MotionEvent.obtain(time,time,MotionEvent.ACTION_SCROLL,1,new MotionEvent.PointerProperties[]{pointer},
+            new MotionEvent.PointerCoords[]{point},0,0,1,1,0,0,InputDevice.SOURCE_MOUSE,0);
+        try{return view.dispatchGenericMotionEvent(event);}finally{event.recycle();}
     }
     public boolean key(boolean down,long started,long time,String name,int modifiers){
         int code;

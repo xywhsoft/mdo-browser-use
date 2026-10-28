@@ -20,6 +20,7 @@ function coupled(){
   const execute=async(command,params)=>{
     if(command==='state')return{...await f.execute(command,params),automation:f.state.available,
       browser_use:{available:f.state.available,reason:'isolated_world_unsupported'},frame_target_keyboard:true,
+      wheel_input:f.state.wheel===true,
       download_capability:true,downloads_armed:downloads,chooser_capability:true,chooser_upload_capability:true,chooser_armed:chooser};
     if(command==='downloads'){if(params.action==='arm')downloads=true;return{ok:true,armed:downloads,downloads:[]};}
     if(command==='chooser'){if(params.action==='arm')chooser=true;return{ok:true,armed:chooser,choosers:[]};}
@@ -70,4 +71,15 @@ test('context cancellation during preparation never dispatches the partially pre
   const out=await f.run('act',{document:doc,target:{ref},op:'click'},{alive:()=>alive});
   assert.equal(out.result.error.code,'context_changed');assert.equal(out.result.error.effect_may_have_occurred,false);
   assert.equal(f.inputs.length,0);
+});
+test('Android viewport and target scrolling pin a root hit and send one native wheel without a focus click',async()=>{
+  for(const target of [undefined,{ref}]){
+    const f=coupled();f.state.wheel=true;const out=await f.run('act',{op:'scroll',document:doc,target,dx:97,dy:131});
+    assert(out.result.ok,JSON.stringify(out.result));assert.deepEqual(f.inputs.map(row=>row.kind),['wheel']);
+    assert.equal(f.inputs[0].dx,97);assert.equal(f.inputs[0].dy,131);
+    assert(!Object.hasOwn(f.inputs[0],'focus_ref'));assert.equal(f.state.calls.filter(row=>row.method==='scrollPoint').length,1);
+  }
+  const f=coupled();f.state.wheel=true;
+  f.state.hook=({method,result})=>method==='scrollPoint'?{...result,value:{ok:false,error:{code:'android_frames_unavailable'}}}:result;
+  const out=await f.run('act',{op:'scroll',document:doc,dx:0,dy:100});assert.equal(out.result.error.code,'android_frames_unavailable');assert.equal(f.inputs.length,0);
 });

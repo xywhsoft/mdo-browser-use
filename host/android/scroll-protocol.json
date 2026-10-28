@@ -1,0 +1,37 @@
+{
+  "format": "mdo.browser-use.android-wheel-reference.v1",
+  "reference_tag": "138.0.7204.179",
+  "version_gate": false,
+  "event": {
+    "source": "SOURCE_MOUSE",
+    "tool_type": "TOOL_TYPE_MOUSE",
+    "action": "ACTION_SCROLL",
+    "buttons": 0
+  },
+  "input_units": "CSS viewport pixels, positive right/down, multiplied by the admitted native scale",
+  "webview_ticks": "Both axes: -native_pixel_delta / physical_pixels_per_tick",
+  "physical_pixels_per_tick": "Activity theme android.R.attr.listPreferredItemHeight in physical pixels, matching WindowAndroid",
+  "qualification": "This source reference and protocol tests do not qualify an installed WebView. Actual framework direction, pixels, target and trusted-event gates remain required.",
+  "sources": [
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/refs/tags/138.0.7204.179/ui/android/java/src/org/chromium/ui/base/WindowAndroid.java",
+      "sha256": "5b6c82c1fa29406edaa152345a811bceab768ba5ebefbc47a792f5e50760ed8c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/android/content_ui_event_handler.cc",
+      "sha256": "0a879d811882e2ee579460ba6306468b417d95e0a8757c230d37b113c7d2a18c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/components/input/web_input_event_builders_android.cc",
+      "sha256": "ec4ed87aee46584ba5cebb0254509f680612235b5a3f152eaaaa7be5991b46ae"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/ui/events/android/motion_event_android.cc",
+      "sha256": "c4425f02f31de93e03f57fe8faf7ef67fe1458db18bfdc78927b04e7cd6ea408"
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/refs/tags/138.0.7204.179/content/browser/devtools/protocol/input_handler.cc",
+      "sha256": "e155aaa3cb9a22e11bbcdfbaf5fc7c7341d3275e576ec6c9957628ec6f72fc18"
+    }
+  ]
+}
