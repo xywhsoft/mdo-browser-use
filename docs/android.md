@@ -723,3 +723,26 @@ Logs: `.mdo/E21-world-contract.log`, `.mdo/E21-dialog-contract.log`,
 `.mdo/E21-android-build.log`. These are deterministic callback-order and compile
 gates. Actual framework before-unload/host-UI qualification is still pending;
 Android automation stays disabled and no provider change is requested.
+
+## Native dialog framework fixture (E22)
+
+`python tools/android_device_probe.py --mode native-dialog` runs the actual
+`MdoBrowserDialogTarget` and controller on a local, no-network WebView fixture.
+It covers alert, confirm accept/reject, prompt default/empty/Unicode replies,
+stale modal IDs and close cancellation. A native touchscreen gesture activates
+the page before an `about:blank` navigation requests before-unload; cancellation
+must resume the original DOM/URL/epoch with balanced modal blockers. The fixture
+uses page-world script only to create/read synthetic test data; this is not a
+production execution fallback. Its global deadline, background refusal and
+exact-view teardown remain bounded.
+
+The gate records `native_dialog_verified` and `before_unload_framework_verified`
+separately. `host_dialog_routing_verified`, world/document qualification and
+overall automation remain false even on a native-only pass. The actual pinned
+Activity, hooks and fixture compile in the existing SDK. The reused QA APK is
+188,819 bytes, SHA-256
+`17f7dd8241ef590de5365d897c737c3a0e8b17922601d885723d548d7d1fd874`.
+Build log: `.mdo/E22-android-build.log`. Current ADB has no device; the receipt
+`.mdo/android-device-dialog-result.json` is unavailable with every verification
+flag false, and `.mdo/E22-device-dialog.log` preserves that result. No install,
+system-provider change or full Android qualification is claimed.

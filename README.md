@@ -60,6 +60,7 @@ python tools/capture_privacy_public_probe.py
 python tools/dom_keyboard_probe.py
 python tools/android_world_probe.py
 python tools/android_dialog_probe.py
+python tools/android_device_probe.py --mode native-dialog
 python tools/sdk_probe.py
 python tools/managed_probe.py
 python tools/restart_probe.py

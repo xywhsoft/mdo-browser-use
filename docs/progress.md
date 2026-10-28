@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E21 fixes cancelled-navigation peer retirement,
+Latest verified milestones: E22 compiles the actual native dialog framework
+fixture, with its device gate unavailable and all flags false. E21 fixes cancelled-navigation peer retirement,
 with deterministic callback-order tests and actual host compilation. E20 wires and compiles actual Android native dialog
 hooks with document/input/capture/lifecycle boundaries; framework qualification
 remains unavailable. E19 adds the bounded retained native Android dialog
@@ -3582,3 +3583,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   native framework/host-UI/before-unload qualification and remaining full-goal
   work continue. Keep Android admission disabled and the current WebView intact.
   No app/Home copy or production publication occurs.
+
+## E22 — add the native dialog framework gate to the same QA client
+
+- Add `--mode native-dialog` to the existing tiny APK/runner. It exercises the
+  actual WebChromeClient target and retained-result controller on synthetic local
+  data: alert, confirm, prompt default/empty/Unicode, stale IDs and close cancel.
+  Actual native touch must activate the fixture before before-unload cancellation
+  preserves the original DOM/URL/epoch. Require balanced blockers and bounded
+  callbacks; background/teardown cannot claim a pass.
+- Separate native-dialog and before-unload framework verification from host UI,
+  isolated-world and full Agent qualification. The latter flags remain false
+  even on a native-only pass. Reuse the existing package, output, signer, SDK and
+  no-network-permission manifest; no app/Home/provider or dependency is added.
+- Compile the actual Activity/hooks and fixture with Java 8, API 36/minimum 26.
+  The tiny QA APK is 188,819 bytes, SHA-256
+  `17f7dd8241ef590de5365d897c737c3a0e8b17922601d885723d548d7d1fd874`.
+  Build log: `.mdo/E22-android-build.log`. The exact runner finds no authorized
+  device and exits unavailable; `.mdo/android-device-dialog-result.json` has all
+  verification flags false, with `.mdo/E22-device-dialog.log` as evidence. No
+  installation or WebView change occurs. Android admission and the full goal
+  remain open; framework behavior has not been verified.

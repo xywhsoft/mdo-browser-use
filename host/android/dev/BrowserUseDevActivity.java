@@ -23,6 +23,7 @@ public final class BrowserUseDevActivity extends Activity {
     private WebView view;private MdoBrowserDocument world;private long documentEpoch=1;
     private BrowserUseInputProbe inputProbe;
     private BrowserUseCaptureProbe captureProbe;
+    private BrowserUseDialogProbe dialogProbe;
     private TextView status;private String nonce;private boolean finished,loaded,started;
     private final Runnable timeout=()->finishProbe(false,"device_probe_timed_out");
     private final Runnable readiness=()->maybeEvaluate();
@@ -32,6 +33,7 @@ public final class BrowserUseDevActivity extends Activity {
         if(nonce==null||!nonce.matches("[a-f0-9]{32}")){finished=true;finish();return;}
         put("nonce",nonce);put("api",Build.VERSION.SDK_INT);put("automation_verified",false);put("native_wheel_verified",false);
         put("native_capture_verified",false);put("guarded_native_capture_verified",false);put("capture_privacy_verified",false);
+        put("native_dialog_verified",false);put("before_unload_framework_verified",false);put("host_dialog_routing_verified",false);
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
         status=new TextView(this);status.setText("Checking the installed WebView provider…");layout.addView(status);
         setContentView(layout);handler.postDelayed(timeout,15000);
@@ -39,6 +41,12 @@ public final class BrowserUseDevActivity extends Activity {
             view=new WebView(this);layout.addView(view,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
             PackageInfo info=WebView.getCurrentWebViewPackage();
             if(info!=null){put("provider_package",info.packageName);put("provider_version",info.versionName);}
+            if("native-dialog".equals(getIntent().getStringExtra("mode"))){
+                dialogProbe=new BrowserUseDialogProbe(view,handler,(ok,code,checks)->{
+                    put("native_dialog_checks",checks);put("native_dialog_verified",ok);
+                    put("before_unload_framework_verified",dialogProbe!=null&&dialogProbe.beforeUnloadVerified());finishProbe(ok,code);
+                });dialogProbe.run();return;
+            }
             if("native-capture".equals(getIntent().getStringExtra("mode"))){
                 captureProbe=new BrowserUseCaptureProbe(view,handler,(ok,code,checks)->{
                     put("native_capture_checks",checks);put("native_capture_verified",ok);finishProbe(ok,code);
@@ -119,12 +127,13 @@ public final class BrowserUseDevActivity extends Activity {
         put("probe_verified",verified);put("code",code);
         if(inputProbe!=null){inputProbe.close();inputProbe=null;}
         if(captureProbe!=null)captureProbe.close();
+        if(dialogProbe!=null)dialogProbe.close();
         if(world!=null){world.close();put("cleanup_confirmed",world.cleanupConfirmed());}
-        if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();if(captureProbe!=null)captureProbe.viewDestroyed();if(world!=null){world.viewDestroyed(view);put("cleanup_confirmed",world.cleanupConfirmed());}view=null;}
+        if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();if(captureProbe!=null)captureProbe.viewDestroyed();if(dialogProbe!=null)dialogProbe.viewDestroyed();if(world!=null){world.viewDestroyed(view);put("cleanup_confirmed",world.cleanupConfirmed());}view=null;}
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);
         Log.i("MdoBrowserUseProbe",report.toString());
     }
-    @Override protected void onPause(){if(captureProbe!=null&&!finished)finishProbe(false,"capture_activity_backgrounded");if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
+    @Override protected void onPause(){if(dialogProbe!=null&&!finished)finishProbe(false,"dialog_activity_backgrounded");if(captureProbe!=null&&!finished)finishProbe(false,"capture_activity_backgrounded");if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
     @Override protected void onResume(){super.onResume();if(inputProbe!=null)inputProbe.resume();if(world!=null&&!finished){world.block(MdoBrowserDocument.BACKGROUND,false);maybeEvaluate();}}
     @Override protected void onDestroy(){
         if(!finished)finishProbe(false,"activity_destroyed");handler.removeCallbacksAndMessages(null);super.onDestroy();
