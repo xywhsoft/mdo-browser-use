@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E14 connects bounded main-document screenshot
+Latest verified milestones: E15 adds a tested, resource-bounded native capture
+transaction core, with actual Android draw/encode integration still pending;
+E14 connects bounded main-document screenshot
 preparation and opaque child masks to the shared screenshot executor, with
 native Android drawing/qualification still pending; F5 refreshes and requalifies the Windows preview
 with runtime 18 and native failure receipts; E13 closes the Android parent-click
@@ -3325,3 +3327,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   stays disabled. No existing manual screenshot fallback, SDK/native rebuild,
   new Home/app copy or production publication occurs. The F5 packed preview
   predates E14; the full goal remains active.
+
+## E15 — bound native capture transactions and retain unfinished resources
+
+- Add the production Java capture transaction and bounded encoder output stream.
+  Pin native document/navigation, viewport/scroll/scale; validate cropped raster
+  dimensions/bytes and original deadlines. An isolated guard and native visual
+  readiness precede drawing; an injected worker then owns the raster. This core
+  contains no Android bitmap codec or page-world fallback.
+- Keep a per-controller native reservation and shared hard budget through
+  cancelled/timed-out native callbacks and active encoding. Exact-view destroy
+  retires readiness callbacks, but does not recycle a worker's bitmap. Cancelled
+  queued work becomes inert; ambiguous submission cannot double-use/release it.
+  Duplicate/late callbacks, reentrant cancellation, post-callback throws and lost
+  UI replies cannot replay work or publish stale pixels. A failed raster release
+  poisons that controller and conservatively retains its shared slot until the
+  runtime resets. Native callbacks use weak controller references.
+- Pass 182 Java-target-8 contract assertions, including real background-thread
+  ownership, OOM, output bounds, worker/ready/timer failure, changed original
+  snapshots, close/cancel/deadline, shared quota and stale callback isolation.
+  An adversarial foreign-thread native callback reproduced a state transition
+  before thread validation and a retained lease which would not drain after
+  view destruction. Move thread validation before the transition; preserve
+  `.mdo/E15-callback-thread-before.log`. Final gate:
+  `.mdo/E15-capture-contract-final.log` and `.mdo/android-capture-result.json`.
+  The initial test run also exposed a test fixture reusing its first callback
+  for a deliberately new request; the corrected fixture passes.
+- Reuse one small `.mdo/qa/android-capture` class output and the existing WSL JDK;
+  no APK, provider, app/Home copy, native binary, signing key or runtime dependency
+  is changed. The previously passed 236 JS checks and actual Windows capture
+  gate are unchanged by this Java component, so they are not repeated.
+- Actual Android visual-ready/draw/encode targets, native channel/lifecycle
+  wiring and pixel/privacy/framework qualification remain pending. This core
+  is not deployed or advertised as working Android screenshots. Admission stays
+  disabled and the user's current WebView is preserved. Continue the full goal;
+  no production publication occurs.

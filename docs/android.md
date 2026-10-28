@@ -546,3 +546,45 @@ drawing or prove full Android privacy coverage. No new Android/native build is
 needed for this shared JS stage. Receipts: `.mdo/E14-document-capture.log`,
 `.mdo/E14-js-full.log`, `.mdo/E14-windows-capture.log` and
 `.mdo/capture-readiness-result.json`.
+
+## Native capture transaction core (E15)
+
+`MdoBrowserCapture` adds the UI-owned capture transaction which the native
+draw/encode adapter will use. It binds the exact native document/navigation,
+viewport, scroll and scale snapshot; validates a visible crop; bounds raster
+allocation to 4,194,304 pixels/4,096 per side and compressed output to 256 KiB;
+and uses the original monotonic deadline. `MdoBrowserCaptureBuffer` enforces the
+compressed byte limit before its buffer grows. Both compile with Java target 8.
+
+The transaction waits for the original isolated guard and native visual-ready
+acknowledgement before drawing. Its scheduler/target run on the owning UI
+thread; an injected worker owns the raster after submission. No native bitmap
+codec is called by this core. Cancellation can discard queued work once, but
+cannot recycle a raster being encoded. Ambiguous submission, duplicate/late
+callbacks, post-callback exceptions, timer failure, reentrant cancellation,
+view replacement and lost UI replies cannot replay drawing or encoding.
+
+One controller retains its outstanding native callback after client timeout or
+close; only the actual callback or acknowledged exact-view destruction retires
+that reservation. A shared bounded budget counts independent controllers.
+Destroying the view does not release a worker-owned raster prematurely. A failed
+raster release poisons the controller and retains that shared slot until the
+runtime resets, rather than claiming cleanup or allowing repeated allocations.
+Callbacks retain only a weak controller reference. Returned pixels are dropped
+after cancellation and are never persisted by this component.
+
+Run `python tools/android_capture_probe.py` for the production-core contract.
+Its 182 assertions include an actual background-thread ownership check, plus
+deterministic native/worker callback faults, allocation/encoding/cleanup errors,
+resource bounds and replacement isolation. An adversarial foreign-thread ready
+callback exposed a lease-state transition before the thread check; it is now
+refused before state changes and the original view can drain its reservation.
+The failing log is `.mdo/E15-callback-thread-before.log`; the final result is
+`.mdo/E15-capture-contract-final.log` and `.mdo/android-capture-result.json`.
+
+This is a tested native transaction component, not an Android bitmap/framework
+or APK pass. It is not yet connected to `MdoBrowser.java`: the real
+`postVisualStateCallback`/draw target, worker codec, channel reply, lifecycle
+hooks, pixel/privacy fixtures and supported-provider qualification are the next
+integration steps. Overall automation remains disabled; no WebView, installed
+package, Home, signing key or runtime dependency is changed.
