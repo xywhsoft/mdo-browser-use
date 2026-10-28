@@ -2408,3 +2408,48 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   integration, broader lifetime/OOM/network/performance and final packaging
   remain active. Restore the same Home to headless mode; do not mark the overall
   Browser Use goal complete for this bug fix.
+
+## W3 — preserve valid names through long native cache paths
+
+- Reproduce the public C/JS long-name failure before rebuilding: a valid
+  240-byte basename is rejected at `native_admission` with `Cannot create a
+  regular private upload file`, with no website assignment. Keep that receipt
+  and its log apart from the passing post-fix evidence; do not lower the name
+  budget to avoid the failure.
+- Normalize only the trusted browser-profile cache root into the extended
+  Windows file namespace. Keep basename validation and the opaque GUID/index
+  layout; staging, complete hashing, native assignment, live cleanup and the
+  startup collector now use the same native root. No unchecked wire path is
+  prefixed and no private path is returned to the caller. Preserve an existing
+  native profile path's semantics; ordinary paths are made full before prefixing.
+- Compile the actual normalizer and exercise real Windows create/read/write/
+  inspect/delete operations beyond legacy MAX_PATH with ASCII and Unicode
+  filenames, plus empty/NUL/device-path and size rejection. The fixture deletes
+  only entries it created, without recursive deletion. UNC formatting is tested
+  as normalization only; no network share was used or claimed verified.
+- Public C-service/JS completion and managed-tool upload gate passes on the
+  rebuilt host. The page receives exact 240-byte ASCII and 238-byte Unicode
+  names and reads their complete source hashes; retained bytes are explicitly
+  released after consumption. Existing clear, duplicate recovery, picker,
+  ownership and read-only checks pass, with zero private cache reservations.
+- Replace the former legacy-path failure seam with a deterministic real I/O
+  denial: after warming/emptying this process's cache, temporarily deny
+  subdirectory creation in newly inherited GUID reservations. This fails at
+  numeric file-directory creation after registration. Constrain the exact
+  project QA cache, require its expected private inherited ACL, and keep the
+  original descriptor only in memory. Restore on both normal completion and
+  deliberate exception, including after an ACL API error that may be partial;
+  independently check the protected original ACL and a subsequent successful
+  admission. No access rights are broadened. HTTP and about:blank gates pass
+  without an upload/status/close command masking cleanup before observation.
+- Strengthen the actual forced-restart gate to use a 240-byte name. Complete
+  bytes survive a held lease; unknown/renamed files and a real local junction
+  are preserved; orphan collection then completes with zero reservations and
+  no new native diagnostics. QA evidence operations use extended paths too.
+- Sequential final Python checks: 121 total, 119 pass/two existing Windows
+  symlink-privilege skips. Native public upload, forced restart and both I/O
+  failure/ACL restoration gates pass. Same single deployment/Home/object
+  variant, restored to headless. Directory hierarchy staging/assignment,
+  Android integration under the existing provider limit, broader lifetime/
+  OOM/network/performance and final packaging remain open; this does not
+  complete the long-term Browser Use goal.

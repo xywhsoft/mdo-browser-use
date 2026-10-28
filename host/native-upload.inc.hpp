@@ -47,6 +47,22 @@ static bool xb_upload_remove_file(const std::wstring& path){return DeleteFileW(p
 static bool xb_upload_remove_directory(const std::wstring& path){return RemoveDirectoryW(path.c_str())||GetLastError()==ERROR_PATH_NOT_FOUND||GetLastError()==ERROR_FILE_NOT_FOUND;}
 static bool xb_upload_plain_directory(const std::wstring& path){DWORD flags=GetFileAttributesW(path.c_str());return flags!=INVALID_FILE_ATTRIBUTES&&(flags&FILE_ATTRIBUTE_DIRECTORY)&&!(flags&FILE_ATTRIBUTE_REPARSE_POINT);}
 static bool xb_upload_cleanup_directory(const std::wstring& path){DWORD flags=GetFileAttributesW(path.c_str());if(flags==INVALID_FILE_ATTRIBUTES)return GetLastError()==ERROR_FILE_NOT_FOUND||GetLastError()==ERROR_PATH_NOT_FOUND;return (flags&FILE_ATTRIBUTE_DIRECTORY)&&!(flags&FILE_ATTRIBUTE_REPARSE_POINT);}
+/* Normalize only the trusted browser profile's cache root. All user-selected
+ * basenames still pass xb_upload_name; never prefix an unchecked wire path. */
+static std::wstring xb_upload_cache_path(const std::wstring& value){
+  if(value.empty()||value.size()>32766||value.find(L'\0')!=std::wstring::npos)return {};
+  std::wstring path=value;std::replace(path.begin(),path.end(),L'/',L'\\');
+  if(path.rfind(L"\\\\.\\",0)==0)return {};
+  if(path.rfind(L"\\\\?\\",0)==0)return path; // Preserve already-native profile semantics.
+  const DWORD needed=GetFullPathNameW(path.c_str(),0,nullptr,nullptr);
+  if(!needed||needed>32766)return {};
+  std::wstring full(needed,L'\0');const DWORD size=GetFullPathNameW(path.c_str(),needed,&full[0],nullptr);
+  if(!size||size>=needed)return {};full.resize(size);
+  if(full.rfind(L"\\\\",0)==0)full=L"\\\\?\\UNC\\"+full.substr(2);
+  else if(full.size()>2&&((full[0]>=L'A'&&full[0]<=L'Z')||(full[0]>=L'a'&&full[0]<=L'z'))&&full[1]==L':'&&full[2]==L'\\')full=L"\\\\?\\"+full;
+  else return {};
+  return full.size()<=32766?full:std::wstring{};
+}
 static bool xb_upload_private_root(const std::wstring& path){
   xb_upload_handle token;DWORD bytes=0;LPWSTR sid=nullptr;PSECURITY_DESCRIPTOR descriptor=nullptr;bool ok=false;
   if(!OpenProcessToken(GetCurrentProcess(),TOKEN_QUERY,&token.value))return false;
@@ -158,8 +174,8 @@ struct xb_upload_store{
   size_t fileJobs()const{size_t count=0;for(const auto& item:jobs)count+=!item.second->clear;return count;}
   bool initialize(const std::shared_ptr<xb_host>& owner){
     if(initialized)return true;
-    host=owner;root=owner->profile+L"\\mdo-browser-use-transfers";
-    if(!xb_upload_private_root(root))return false;
+    host=owner;root=xb_upload_cache_path(owner->profile+L"\\mdo-browser-use-transfers");
+    if(root.empty()||!xb_upload_private_root(root))return false;
     xb_upload_guard guard(root);if(guard.handle==INVALID_HANDLE_VALUE||!xb_upload_stale(root))return false;
     initialized=true;return true;
   }

@@ -649,6 +649,16 @@ asynchronously while its browser stays open, without a later upload/status/close
 call. Timer setup failure occurs before reservation filesystem effects. Unknown
 cache entries continue to prevent collection instead of being guessed away.
 
+The trusted Windows browser-profile cache root is normalized into the extended
+Windows file namespace before staging. This follows the
+[Windows path namespace rules](https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#win32-file-namespaces)
+and lets valid basenames survive a private GUID/index prefix that takes the
+full path beyond legacy `MAX_PATH`. Creation, complete hashing, delivery and
+cleanup share that native root. The public 240 UTF-8 byte basename validation
+still applies; no unchecked wire path is prefixed, and no private cache path is
+returned to a task. Actual local WebView2 delivery and reads are verified for
+long ASCII/Unicode names; UNC syntax normalization is not an SMB/share test.
+
 ## File-input uploads
 
 `browseruse.upload` / `mdoBrowserUseUpload` accepts `action:"set"` with an owned

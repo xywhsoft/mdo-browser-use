@@ -158,12 +158,20 @@ and read-only picker inspection versus cancellation. Nested OOPIF uploads are
 also covered by the public frame gate. Directory uploads and Android transfer
 support remain in development.
 
-`upload_admission_probe.py` verifies an actual failed first native admission
+`upload_admission_probe.py` verifies an actual failed idle native admission
 reclaims its reservation while the browser remains open, without another
-upload/status/close command. The `--about-blank` variant checks the empty native
-document too. Its deliberate current v1 long-cache-path I/O failure seam must
-be replaced explicitly when extended native cache paths are implemented; a
-newly successful admission must never be mistaken for a cleanup-failure test.
+upload/status/close command before independent inspection. The `--about-blank`
+variant checks the empty native document too. Its I/O fault temporarily denies
+subdirectory creation only in newly created reservation directories in this
+empty private QA cache. It restores the original ACL in `finally`, verifies
+exception unwinding also restores it, and confirms a new admission works after
+the fault. No system settings or other paths are changed.
+
+Public upload checks include actual page reads of 240-byte ASCII and 238-byte
+Unicode filenames through long private cache paths. The restart gate uses the
+240-byte name while checking orphan collection, held leases, unexpected/renamed
+entries and a real project-local junction. Native path unit checks also perform
+long Windows file I/O; UNC normalization is checked without accessing a share.
 
 See [the shared API](docs/api.md) for C/JS calls, operation identities and
 recovery. The SDK probe also runs the actual JS client against WebView2;

@@ -74,8 +74,23 @@ try{
   assert.equal(pickerAssigned.verified,true);assert.equal((await client.chooser({browser:browser.id,action:'list'})).choosers.length,0);
   await client.waitFor({browser:browser.id,until:'text',text:'picker-zero.txt'});
   await client.upload({browser:browser.id,action:'release',ticket:pickerAssigned.transfer.ticket,confirmed:true});
+  // Valid basenames must not fail because the private GUID/index cache prefix
+  // pushes their full native path beyond Win32 MAX_PATH. Verify actual page
+  // File objects and their complete bytes, rather than just staging success.
+  const longNames=['n'.repeat(240),'文'.repeat(78)+'.txt'];
+  for(const name of longNames){
+    const before=reads(await client.observe({browser:browser.id})).length;
+    const long=await client.upload({browser:browser.id,action:'set',document:page.document,target:{css:'#single'},
+      files:[{path:nativePath(file),name}],timeout_ms:15000});
+    assert.equal(long.verified,true);assert.equal(long.transfer.retained,true);
+    await client.waitFor({browser:browser.id,until:'text',text:name});
+    const after=reads(await client.observe({browser:browser.id}));assert.equal(after.length,before+1);
+    assert.equal(after.at(-1).files[0].name,name);assert.equal(after.at(-1).files[0].sha256,hash);
+    await client.upload({browser:browser.id,action:'release',ticket:long.transfer.ticket,confirmed:true});
+  }
   await writeFile(new URL('.mdo/upload-client-result.json',root),JSON.stringify({passed:true,backend:'actual-c-service-js-client-webview2',
     exact_binary_and_empty_bytes:true,retained_until_confirmed_release:true,durable_duplicate_once:true,foreign_scope_denied:true,raw_c_service:true,
     controlled_clear_once:true,clear_events_trusted:false,empty_clear_no_events:true,automatic_picker_interception:true,
-    observed_picker_metadata:true,pending_picker_blocks_repeat_click:true,durable_cancel_once:true,chooser_bound_upload:true})+'\n');
+    observed_picker_metadata:true,pending_picker_blocks_repeat_click:true,durable_cancel_once:true,chooser_bound_upload:true,
+    long_native_cache_paths:true,long_ascii_and_unicode_names:longNames.map(name=>Buffer.byteLength(name))})+'\n');
 }finally{if(browser)await client.tabs({action:'close',browser:browser.id});}
