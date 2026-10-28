@@ -66,10 +66,11 @@ final class MdoBrowserDialogs implements AutoCloseable {
     private Result refusal(String code){return new Result(false,code,false,clean());}
     private void reject(Object token,Response response){
         if(token==null||response==null||seen(token))return;
-        remember(token);try{response.send(false,null);}catch(RuntimeException error){failed=true;}
+        remember(token);try{response.send(false,null);}catch(RuntimeException error){if(!destroyed)failed=true;}
     }
     boolean open(Object token,Response response,String kind,String url,String message,String initial){
         thread();if(token==null||response==null)throw new IllegalArgumentException("Missing native dialog result");
+        if(destroyed)return false;
         if(seen(token))return active!=null&&active.token==token;
         boolean live=false;long epoch=0,now=0;
         try{live=!closed&&!failed&&active==null&&owned.getAsBoolean();epoch=navigation.getAsLong();now=scheduler.now();}

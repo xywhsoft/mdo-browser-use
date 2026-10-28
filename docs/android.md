@@ -746,3 +746,26 @@ Build log: `.mdo/E22-android-build.log`. Current ADB has no device; the receipt
 `.mdo/android-device-dialog-result.json` is unavailable with every verification
 flag false, and `.mdo/E22-device-dialog.log` preserves that result. No install,
 system-provider change or full Android qualification is claimed.
+
+## Retire late native dialog callbacks after exact teardown (E23)
+
+The deterministic callback gate reproduced a cleanup bug in the actual
+WebChromeClient target/controller: after exact view destruction, a fresh late
+callback still called native `cancel`; a thrown acknowledgement could poison
+cleanup that had already completed. `.mdo/E23-dialog-target-before.log` preserves
+the failing assertion. Ignore callbacks after exact teardown, and do not let a
+rejected result's reentrant teardown exception undo that acknowledgement. Closed
+but still-native views continue their necessary result cancellation.
+
+`android_dialog_probe.py` now also compiles/runs the actual target against small
+framework signature fixtures in its existing QA output. Its 43 callback checks
+cover owned/foreign views, result subtypes, prompts/defaults/Unicode, original
+before-unload epochs, duplicate/late callbacks, timer admission/expiry and lost
+acknowledgement. The existing 83 controller checks still pass. This is callback
+fault evidence, not execution of Android framework classes. The separate actual
+SDK/Activity compile remains required and passes; the tiny QA APK is 188,819 bytes,
+SHA-256 `ddb803dbbb733082cced434a525a015177932c24df4704534823a486cd069b0e`.
+Logs: `.mdo/E23-dialog-target-after.log`, `.mdo/E23-android-build.log` and
+`.mdo/E23-device-dialog.log`. The current actual-device gate remains unavailable
+with all verification flags false. Keep Android automation disabled and preserve
+the installed provider; full host UI/platform qualification remains pending.

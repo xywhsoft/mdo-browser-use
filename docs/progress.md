@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E22 compiles the actual native dialog framework
+Latest verified milestones: E23 fixes late Android dialog callbacks dispatching
+after exact view teardown and adds native target fault tests. E22 compiles the actual native dialog framework
 fixture, with its device gate unavailable and all flags false. E21 fixes cancelled-navigation peer retirement,
 with deterministic callback-order tests and actual host compilation. E20 wires and compiles actual Android native dialog
 hooks with document/input/capture/lifecycle boundaries; framework qualification
@@ -3604,3 +3605,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   verification flags false, with `.mdo/E22-device-dialog.log` as evidence. No
   installation or WebView change occurs. Android admission and the full goal
   remain open; framework behavior has not been verified.
+
+## E23 — stop native dialog callbacks after confirmed view destruction
+
+- Reproduce a lifecycle defect by executing the actual WebChromeClient target
+  and retained controller against deterministic native callback fixtures. A late
+  callback after exact view destruction still calls native cancel, and a thrown
+  acknowledgement poisons already confirmed cleanup. Preserve the failing
+  `.mdo/E23-dialog-target-before.log`.
+- Ignore result callbacks after exact native teardown. Preserve that teardown
+  if rejection cancellation itself destroys the view and then throws. Keep the
+  necessary cancellation for closed views whose native teardown is not yet
+  confirmed. No response is replayed and no replacement view is touched.
+- Pass all 83 controller and 43 actual target callback checks with Java 8. Cover
+  result subtypes, prompt data, exact owned/foreign views, original navigation
+  epoch, duplicate/late callbacks, timer faults and uncertain native delivery.
+  Reuse the same small QA output. Receipt/log: `.mdo/android-dialog-result.json`
+  and `.mdo/E23-dialog-target-after.log`. Framework signatures are synthetic in
+  this JVM gate; Android runtime behavior is not being declared verified.
+- Compile the actual pinned Activity/hooks/target and device fixture in the
+  existing SDK. The tiny APK is 188,819 bytes, SHA-256
+  `ddb803dbbb733082cced434a525a015177932c24df4704534823a486cd069b0e`;
+  build log `.mdo/E23-android-build.log`. The actual device gate remains
+  unavailable with every verification flag false, recorded in
+  `.mdo/E23-device-dialog.log` and `.mdo/android-device-dialog-result.json`.
+  Contracts/overlays match and the same headless service is healthy. Preserve
+  the current provider and keep Android admission disabled. Remaining full-goal
+  work continues without production publication or an extra app/Home.
