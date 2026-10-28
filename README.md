@@ -210,7 +210,8 @@ It reuses the existing WSL JDK, requires no NDK, and preserves installed mdo app
 The last connected phone reported no isolated-world feature; this is an
 explicit unsupported-provider receipt, not an Android automation pass.
 `tools/android_input_probe.py` checks the native Java sequencer's bounded
-lifecycle; `tools/android_device_probe.py --mode native-input` separately tests
+lifecycle and the production view ownership registry; the actual Activity hooks
+are compiled by the tiny client builder. `tools/android_device_probe.py --mode native-input` separately tests
 the actual WebView input target using the same tiny QA app. That new framework
 gate is currently unavailable because ADB reports no phone. The current provider
 is retained, and Android product automation remains disabled pending integration.

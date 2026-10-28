@@ -12,20 +12,21 @@ import org.json.JSONObject;
 final class BrowserUseInputProbe implements AutoCloseable {
     interface Completion {void complete(boolean ok,String code,int checks);}
     private final WebView view;private final Handler handler;private final Completion completion;
-    private final MdoBrowserInput input;private long document=1;private int checks;private boolean closed,started;
+    private final MdoBrowserInput input;private final MdoBrowserLifecycle<WebView> owners;
+    private int checks;private boolean closed,started;
     private final java.util.Set<Runnable> timers=new java.util.HashSet<>();
     BrowserUseInputProbe(WebView view,Handler handler,Completion completion){
         this.view=view;this.handler=handler;this.completion=completion;
-        input=new MdoBrowserInput(new MdoBrowserInputTarget(view,()->document,()->!closed),new MdoBrowserInput.Scheduler(){
+        owners=new MdoBrowserLifecycle<>((owned,epoch,admitted)->new MdoBrowserInput(new MdoBrowserInputTarget(owned,epoch,admitted),new MdoBrowserInput.Scheduler(){
             public long now(){return SystemClock.uptimeMillis();}
             public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("Input scheduler stopped");}
             public void remove(Runnable task){handler.removeCallbacks(task);}
-        });
+        }));owners.put("fixture",view);input=owners.input("fixture",view);
     }
     void run(){
         view.getSettings().setJavaScriptEnabled(true);
         view.setWebViewClient(new WebViewClient(){
-            @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap icon){document++;input.invalidate("frame_changed");}
+            @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap icon){owners.navigation("fixture",web);}
             @Override public void onPageFinished(WebView web,String url){if(!started&&!closed){started=true;later(150,()->coordinates("button",(x,y)->tapButton(x,y)));}}
         });
         view.loadDataWithBaseURL("http://127.0.0.1/","<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>"+
@@ -80,7 +81,7 @@ final class BrowserUseInputProbe implements AutoCloseable {
             later(120,()->read("({clicks:fixture.clicks})",state->{
                 if(state.getInt("clicks")!=1){fail("device_cancel_activated_click");return;}checks++;swipe();
             }));
-        });later(8,input::cancel);}catch(MdoBrowserInput.Failure error){fail(error.code);}
+        });later(8,()->owners.stop("fixture",view));}catch(MdoBrowserInput.Failure error){fail(error.code);}
     }
     private void swipe(){
         float x=view.getWidth()-20,y=view.getHeight()-40,end=Math.max(30,y-240);float[] points=new float[18];
@@ -90,14 +91,15 @@ final class BrowserUseInputProbe implements AutoCloseable {
         }));});}catch(MdoBrowserInput.Failure error){fail(error.code);}
     }
     private void checkHidden(){
-        view.setVisibility(View.INVISIBLE);
+        owners.visibility("fixture",view,false);view.setVisibility(View.INVISIBLE);
         try{input.tap(1,1,result->fail("device_hidden_input_dispatched"));fail("device_hidden_input_admitted");}
         catch(MdoBrowserInput.Failure error){
-            view.setVisibility(View.VISIBLE);
+            view.setVisibility(View.VISIBLE);owners.visibility("fixture",view,true);
             if(!error.code.equals("input_view_unavailable")||!input.cleanupConfirmed()){fail("device_hidden_input_failed");return;}
             checks++;completion.complete(true,"native_input_verified",checks);
         }
     }
     private void fail(String code){if(!closed)completion.complete(false,code,checks);}
-    @Override public void close(){if(closed)return;closed=true;for(Runnable task:timers)handler.removeCallbacks(task);timers.clear();input.close();}
+    void pause(){owners.background(true);}void resume(){owners.background(false);}
+    @Override public void close(){if(closed)return;closed=true;for(Runnable task:timers)handler.removeCallbacks(task);timers.clear();owners.close();}
 }

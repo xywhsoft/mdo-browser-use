@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: E3 adds the bounded Android native input foundation
+Latest verified milestones: E4 integrates owned-view/input lifecycle and compiles
+the actual Android Activity hooks; E3 adds the bounded Android native input foundation
 and compiles its device gate (framework verification unavailable);
 W8 adds cancel/recreate and missed-reply observations;
 W7 connects directory uploads through shared C/JS,
@@ -2681,3 +2682,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   deployment is restored to headless service. The original Windows creation
   timeout remains unclassified. Lifecycle/OOM/network/performance and final
   delivery remain active; this is not a release or completion claim.
+
+## E4 — actual Android view/input lifecycle and retired-callback fences
+
+- Replace the actual Android browser's key-only view map with an exact-instance
+  ownership registry. Old navigation/completion/error/HTTP/renderer callbacks
+  cannot overwrite or remove a replacement sharing the tab ID. Cancel a TLS
+  handler independently of whether its original view is still current. Pin
+  asynchronous legacy script acknowledgements to the original instance/epoch;
+  changed documents return unconfirmed results instead of stale success.
+- Bind the actual input adapter to each registered view's original epoch and
+  admission. Navigation intent/start, hide, takeover, stop, close and Activity
+  pause invalidate pending input; resume/show/release admit only fresh work.
+  Close drains input before the native WebView is detached/destroyed. Failed
+  cleanup refuses further input on that adapter; callback failure cannot stop
+  cleanup of other owned views. No Android automation capability is enabled.
+- The actual registry/sequencer pass 67 new lifecycle assertions, plus the
+  existing 125 input assertions. Cover same-ID replacement, value-equal foreign
+  views, reentrant replacement, stale callbacks, all cancellation transitions,
+  slot limits, throwing completion and owner-thread checks. These use a synthetic
+  native target and are not an Android framework pass.
+- Apply and compile the actual browser overlay against the pinned Activity and
+  its real Java dependencies in the existing owned build directory. Hash the
+  script/templates; do not package this compile-only Activity/service into a
+  second app. The tiny fixture APK itself uses the same lifecycle registry and
+  builds/aligns/signs at 82,323 bytes, Java 8/min API 26/API 36, without added
+  runtime dependencies or NDK.
+- Shared unsupported-provider UI regression passes; overlays/contracts match.
+  ADB still has no phone: new APK installation/framework execution unavailable,
+  never counted as passed. Retain the user's current WebView. Restore the same
+  headless loopback deployment. Android world/focus/frame/capture/transfer work,
+  original Windows creation diagnosis and final lifecycle/OOM/network/performance/
+  package verification remain active.

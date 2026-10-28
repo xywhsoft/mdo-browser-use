@@ -634,7 +634,79 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private final Map<String,WebView> views = new HashMap<>();",
+      "after": "    private final MdoBrowserLifecycle<WebView> views;"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "      '@Override protected void onDestroy() {':",
+      "after": "      '@Override protected void onPause() {':'@Override protected void onPause() { if (mdoBrowser != null) mdoBrowser.pause();',\n      '@Override protected void onResume() {':'@Override protected void onResume() { if (mdoBrowser != null) mdoBrowser.resume();',\n      '@Override protected void onDestroy() {':"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        this.activity=activity; this.root=root; this.host=host;",
+      "after_file": "host/android/browser-input-binding.inc.java",
+      "suffix": ""
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        web.setLayoutParams(params);web.setVisibility(request.optBoolean(\"visible\",true)?View.VISIBLE:View.INVISIBLE);",
+      "after": "        boolean visible=request.optBoolean(\"visible\",true);views.visibility(request.optString(\"browser\"),web,visible);\n        web.setLayoutParams(params);web.setVisibility(visible?View.VISIBLE:View.INVISIBLE);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "onPageStarted(WebView view,String address,Bitmap icon){loading.put(key,true);",
+      "after": "onPageStarted(WebView view,String address,Bitmap icon){if(!views.navigation(key,view))return;loading.put(key,true);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "onPageFinished(WebView view,String address){loading.put(key,false);}",
+      "after": "onPageFinished(WebView view,String address){if(views.owns(key,view))loading.put(key,false);}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(navigation.isForMainFrame()){loading.put(key,false);",
+      "after": "if(views.owns(key,view)&&navigation.isForMainFrame()){loading.put(key,false);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "SslError error){handler.cancel();loading.put(key,false);",
+      "after": "SslError error){handler.cancel();if(!views.owns(key,view))return;loading.put(key,false);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(navigation.isForMainFrame()){errorCodes.put(key,response.getStatusCode());}",
+      "after": "if(views.owns(key,view)&&navigation.isForMainFrame()){errorCodes.put(key,response.getStatusCode());}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){\n                        views.remove(key);",
+      "after": "onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){\n                        if(!views.owns(key,view))return true;views.remove(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                if(\"takeover\".equals(command))manual.add(key);else manual.remove(key);",
+      "after": "                views.manual(key,web,\"takeover\".equals(command));\n                if(\"takeover\".equals(command))manual.add(key);else manual.remove(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"navigate\".equals(command))web.loadUrl(url(request.getString(\"url\")));\n            else if(\"back\".equals(command))web.goBack();\n            else if(\"forward\".equals(command))web.goForward();\n            else if(\"reload\".equals(command))web.reload();\n            else if(\"stop\".equals(command))web.stopLoading();",
+      "after": "            if(\"navigate\".equals(command)){String target=url(request.getString(\"url\"));views.navigation(key,web);web.loadUrl(target);}\n            else if(\"back\".equals(command)){views.navigation(key,web);web.goBack();}\n            else if(\"forward\".equals(command)){views.navigation(key,web);web.goForward();}\n            else if(\"reload\".equals(command)){views.navigation(key,web);web.reload();}\n            else if(\"stop\".equals(command)){views.stop(key,web);web.stopLoading();}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    void destroy(){stopped=true;if(port!=null)port.close();for(WebView web:views.values()){root.removeView(web);web.destroy();}views.clear();manual.clear();loading.clear();errors.clear();errorCodes.clear();crashed.clear();locations.clear();}",
+      "after_file": "host/android/browser-destroy.inc.java",
+      "suffix": ""
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                web.evaluateJavascript(\"(()=>{try{return {ok:true,value:(\"+script+\")}}catch(e){return {ok:false,error:String(e.message||e)}}})()\", output -> {",
+      "after": "                final WebView executionView=web;final long executionEpoch=views.epoch(key,web);\n                web.evaluateJavascript(\"(()=>{try{return {ok:true,value:(\"+script+\")}}catch(e){return {ok:false,error:String(e.message||e)}}})()\", output -> {\n                    if(!views.owns(key,executionView)||views.epoch(key,executionView)!=executionEpoch){reply(id,null,\"Browser document changed; execution result is unconfirmed\");return;}"
     },
     {
       "path": "tools/workbench_contracts.py",
@@ -779,6 +851,10 @@
     {
       "source": "host/android/MdoBrowserInputTarget.java",
       "target": "tools/android/MdoBrowserInputTarget.java"
+    },
+    {
+      "source": "host/android/MdoBrowserLifecycle.java",
+      "target": "tools/android/MdoBrowserLifecycle.java"
     },
     {
       "source": "host/files-tree.inc.c",

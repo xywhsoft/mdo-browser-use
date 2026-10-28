@@ -3,6 +3,7 @@
 No native host, engine, mdo Home, release signer or runtime dependency is copied.
 """
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,8 +15,12 @@ import zipfile
 ROOT=Path(__file__).resolve().parents[1]
 INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActivity.java',
         'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java',
-        'host/android/dev/BrowserUseInputProbe.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserInputTarget.java')
-HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java')
+        'host/android/dev/BrowserUseInputProbe.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserInputTarget.java',
+        'host/android/MdoBrowserLifecycle.java')
+HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java','tools/android/MdoBrowserLifecycle.java')
+HOST_SCRIPTS=('tools/android/browser_overlay.py',)
+NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
+    ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))
 PACKAGE='org.xleaves.mdo.browseruse.dev'
 
 
@@ -23,10 +28,12 @@ def source_hash():
     digest=hashlib.sha256()
     for name in INPUTS:digest.update(name.encode()+b'\0'+(ROOT/name).read_bytes()+b'\0')
     deployed=json.loads((ROOT/'.mdo/host-overlays.json').read_text(encoding='utf-8'))
-    for name in HOST_INPUTS:
+    for name in HOST_INPUTS+HOST_SCRIPTS:
         data=(ROOT/'.mdo/source'/name).read_bytes()
         if deployed['files'].get(name)!=hashlib.sha256(data).hexdigest():raise RuntimeError('Reviewed Android source needs applying before building the dev client')
         digest.update(name.encode()+b'\0'+data+b'\0')
+    for name in NATIVE_INPUTS:
+        digest.update(name.encode()+b'\0'+(ROOT/'.mdo/native-source'/name).read_bytes()+b'\0')
     return digest.hexdigest()
 
 
@@ -58,6 +65,15 @@ def main():
         if result.returncode:raise RuntimeError(f'{Path(str(args[0])).name} failed: '+(result.stderr or result.stdout)[-1800:])
     sources=[ROOT/INPUTS[0],ROOT/INPUTS[1],ROOT/'host/android/dev/BrowserUseInputProbe.java',*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
     run(java/'javac','-encoding','UTF-8','-source','8','-target','8','-classpath',platform,'-d',classes,*sources)
+    # Compile the actual pinned Activity with its reviewed hooks as well. These
+    # classes are a compile gate only, never a second APK/service or runtime.
+    activity_source=build/'activity';activity=activity_source/'org/xserver/android/XsActivity.java';activity.parent.mkdir(parents=True)
+    shutil.copy2(ROOT/'.mdo/native-source'/NATIVE_INPUTS[0],activity)
+    spec=importlib.util.spec_from_file_location('browser_use_android_overlay',ROOT/'.mdo/source'/HOST_SCRIPTS[0])
+    overlay=importlib.util.module_from_spec(spec);spec.loader.exec_module(overlay);overlay.apply(activity_source)
+    activity_classes=build/'activity-classes';activity_classes.mkdir()
+    activity_sources=[*sorted(activity.parent.glob('*.java')),*[ROOT/'.mdo/native-source'/name for name in NATIVE_INPUTS[1:]]]
+    run(java/'javac','-encoding','UTF-8','-source','8','-target','8','-classpath',platform,'-d',activity_classes,*activity_sources)
     jar=build/'classes.jar'
     with zipfile.ZipFile(jar,'w') as archive:
         for path in sorted(classes.rglob('*.class')):archive.write(path,path.relative_to(classes).as_posix())
@@ -76,7 +92,8 @@ def main():
     run(*signer,'verify','--min-sdk-version','26',apk)
     receipt={'state':'built','package':PACKAGE,'source_sha256':source_hash(),'apk_sha256':hashlib.sha256(apk.read_bytes()).hexdigest(),
         'apk_bytes':apk.stat().st_size,'java_target':8,'min_api':26,'compile_api':tools_receipt['compile_sdk'],
-        'toolchain_lock_sha256':tools_receipt['lock_sha256'],'ndk_required':False,'runtime_dependencies_added':False}
+        'toolchain_lock_sha256':tools_receipt['lock_sha256'],'ndk_required':False,'runtime_dependencies_added':False,
+        'production_activity_compiled':True}
     receipt_path.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))
 
 

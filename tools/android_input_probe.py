@@ -14,12 +14,16 @@ def main():
     def linux(path):
         value=path.resolve().as_posix();return '/mnt/'+value[0].lower()+value[2:]
     result=dev.ENV/'android-input-result.json';result.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
-    source=dev.ROOT/'host/android/MdoBrowserInput.java';fixture=dev.ROOT/'tests/fixtures/AndroidInputContractTest.java'
-    subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),linux(source),linux(fixture)],
+    sources=[dev.ROOT/name for name in ('host/android/MdoBrowserInput.java','host/android/MdoBrowserLifecycle.java',
+        'tests/fixtures/AndroidInputContractTest.java','tests/fixtures/AndroidLifecycleContractTest.java')]
+    subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputContractTest'],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report=json.loads(run.stdout.strip());report.update({'scope':'native-input-lifetime-contract','production_java_target':8,'framework_verified':False})
+    lifetime=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidLifecycleContractTest'],
+        cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['lifecycle_checks']=json.loads(lifetime.stdout.strip())['checks']
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 

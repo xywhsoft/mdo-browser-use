@@ -159,7 +159,7 @@ document/focus changes, held-input cleanup and Unicode/coordinate/key limits.
 This is not an Android framework or real-device pass. The existing world gate
 still passes 34 assertions, and the shared unsupported-provider UI gate passes.
 
-The rebuilt 74,131-byte dev APK includes a separate synthetic input fixture:
+The E3 74,131-byte dev APK added a separate synthetic input fixture:
 `python tools/android_device_probe.py --mode native-input`. It checks trusted
 touch/input/key events, Unicode commit, selection replacement, cancelled-touch
 nonactivation, swiping and hidden-view refusal. Its page-world reads are solely
@@ -167,11 +167,55 @@ assertions on the owned test fixture, never a product automation fallback.
 `--mode world` retains the existing provider gate. Both use the same app and
 separate receipts. No second Home, engine or provider is installed.
 
-The new APK compiles/aligns/signs successfully against API 36, Java 8/min API 26,
+That APK compiles/aligns/signs successfully against API 36, Java 8/min API 26,
 with no added runtime dependency. ADB currently reports no device, so the input
 framework receipt is explicitly `unavailable`, `native_input_verified:false`.
 The new APK has not been installed or run on the phone. The user's current
 WebView remains unchanged and no update request is pending.
+
+## Owned view/input lifecycle integration (E4)
+
+The actual `MdoBrowser.java` now owns its views through
+`MdoBrowserLifecycle.java`. A reused tab name is not a native view identity:
+navigation, completion, error/TLS/HTTP and renderer-exit callbacks first check
+the original WebView instance. The previous key-only callbacks could overwrite
+or remove a replacement view after closing/recreating the same tab. TLS failures
+still cancel their own handler even when the originating view has retired.
+Legacy asynchronous script replies are additionally pinned to that view's epoch;
+a changed document returns an unconfirmed result instead of stale success.
+
+Each actual content view receives the input adapter at registration. Navigation
+intent/start advances its epoch and cancels owned input before loading; hiding,
+user takeover, stop and close also invalidate/close its pending sequence. Input
+cleanup precedes detachment/destruction. The pinned Activity's pause/resume hooks
+cancel held input on pause and admit only fresh work after returning; they never
+replay cancelled work or erase a view's separate hidden/manual state. Destroy
+drains all input before destroying the corresponding WebViews. Foreign/retired
+views cannot alter the replacement's epoch, visibility or manual ownership.
+
+The actual registry and sequencer pass **67 lifecycle assertions** in addition
+to the existing 125 input assertions. Gates exercise equal-looking but distinct
+view instances, stale callbacks after same-ID recreation, navigation/hidden/
+takeover/background/stop/close, slot limits, exact ownership, reentrant
+replacement and a throwing completion while other views still need cleanup.
+The synthetic native surface does not prove Android framework behavior.
+
+`build_android_client.py` now applies the actual reviewed browser hooks to the
+pinned `XsActivity.java` and compiles it with its real Java dependencies and
+the actual mdo adapters. This compile gate reuses the existing owned build
+directory and adds no APK/service/Home/engine. Those Activity classes are not
+packaged into the tiny fixture APK. Native Java templates and the applied hook
+script are covered by its source-hash receipt.
+
+The latest tiny APK is **82,323 bytes**, compiled/aligned/signed with
+`production_activity_compiled:true`. Its input fixture now uses the same
+production lifecycle registry. The shared unsupported-provider preflight still
+passes, reviewed overlays match, and the original headless development service
+is restored. ADB still reports no device, so this new APK has not been installed
+or run; the native input framework result remains unavailable. Full Android
+world/focus/frame/geometry/capture/transfer integration and supported-provider
+regression remain pending. The current WebView is retained and automation
+remains explicitly disabled.
 
 References: [execution worlds and message listeners](https://developer.android.com/reference/androidx/webkit/WebViewCompat),
 [per-frame reply execution](https://chromium.googlesource.com/chromium/src.git/+/HEAD/android_webview/java/src/org/chromium/android_webview/JsReplyProxy.java),

@@ -107,6 +107,8 @@ public final class BrowserUseDevActivity extends Activity {
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);
         Log.i("MdoBrowserUseProbe",report.toString());
     }
+    @Override protected void onPause(){if(inputProbe!=null)inputProbe.pause();super.onPause();}
+    @Override protected void onResume(){super.onResume();if(inputProbe!=null)inputProbe.resume();}
     @Override protected void onDestroy(){
         if(!finished)finishProbe(false,"activity_destroyed");handler.removeCallbacksAndMessages(null);super.onDestroy();
     }
