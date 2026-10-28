@@ -207,8 +207,13 @@ Android adapter status and verification boundaries are tracked in
 The minimal Java device gate uses `python tools/setup_android_client.py`,
 `python tools/build_android_client.py` and `python tools/android_device_probe.py`.
 It reuses the existing WSL JDK, requires no NDK, and preserves installed mdo apps.
-The connected phone currently reports no isolated-world feature; this is an
+The last connected phone reported no isolated-world feature; this is an
 explicit unsupported-provider receipt, not an Android automation pass.
+`tools/android_input_probe.py` checks the native Java sequencer's bounded
+lifecycle; `tools/android_device_probe.py --mode native-input` separately tests
+the actual WebView input target using the same tiny QA app. That new framework
+gate is currently unavailable because ADB reports no phone. The current provider
+is retained, and Android product automation remains disabled pending integration.
 
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next

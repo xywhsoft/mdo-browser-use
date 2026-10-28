@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: W8 adds cancel/recreate and missed-reply observations;
+Latest verified milestones: E3 adds the bounded Android native input foundation
+and compiles its device gate (framework verification unavailable);
+W8 adds cancel/recreate and missed-reply observations;
 W7 connects directory uploads through shared C/JS,
 Agent tools and routed-frame pickers; W6 fixes long source snapshot paths;
 W5 adds native directory selection with trusted
@@ -2650,3 +2652,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remains unreproduced and unclassified; it is not erased or labelled fixed.
   The same deployment is headless again. Android implementation, lifecycle/
   OOM/network/performance and final deliverable gates remain active.
+
+## E3 — bounded Android native input foundation
+
+- Add the actual Java 8 input sequencer and WebView framework target: frozen
+  touch paths, allowlisted content keys and Unicode InputConnection commits,
+  without DOM input/global injection/runtime dependencies. Pin document epoch,
+  viewport, foreground visibility and native focus; timer admission precedes
+  dispatch. Cancel/navigation/takeover/close release owned held input. Preserve
+  uncertain effects and permanently refuse new input after unconfirmed cleanup.
+- The production sequencer passes 125 deterministic assertions covering
+  bounds/Unicode, busy admission, monotonic expiry, late callbacks, reentrant
+  invalidation, timer and dispatch faults, held-input cleanup, changed document/
+  viewport/focus and completion ownership. This is a JVM contract gate, not a
+  mocked claim of Android framework behavior. The 34-assertion isolated-world
+  protocol gate and shared unsupported-provider UI test still pass.
+- Deploy both reviewed classes through the single Android host overlay. Add a
+  native-input mode to the existing tiny QA app, reusing its own network-free
+  fixture/package and separate terminal receipt. Compile/align/sign its 74,131 B
+  APK with the existing SDK/JDK. It adds no Home, engine, provider or runtime
+  dependency. Existing world mode remains separate from input verification.
+- ADB reports no phone; the new APK has not been installed or executed. Record
+  framework verification as unavailable, with automation/input verified false.
+  Keep the user's current WebView and existing mdo installation/data unchanged.
+  Higher-level isolated-world focus/frame/geometry integration and the remaining
+  Android contracts are still pending; automation is not enabled by this stage.
+- Reviewed overlay/generated shared contracts match and the same loopback
+  deployment is restored to headless service. The original Windows creation
+  timeout remains unclassified. Lifecycle/OOM/network/performance and final
+  delivery remain active; this is not a release or completion claim.

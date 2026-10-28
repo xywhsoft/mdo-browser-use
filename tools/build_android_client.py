@@ -13,8 +13,9 @@ import zipfile
 
 ROOT=Path(__file__).resolve().parents[1]
 INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActivity.java',
-        'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java')
-HOST_INPUTS=('tools/android/MdoBrowser.java',)
+        'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java',
+        'host/android/dev/BrowserUseInputProbe.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserInputTarget.java')
+HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java')
 PACKAGE='org.xleaves.mdo.browseruse.dev'
 
 
@@ -55,7 +56,7 @@ def main():
     def run(*args):
         result=subprocess.run(list(map(str,args)),cwd=ROOT,text=True,capture_output=True,timeout=120)
         if result.returncode:raise RuntimeError(f'{Path(str(args[0])).name} failed: '+(result.stderr or result.stdout)[-1800:])
-    sources=[ROOT/INPUTS[0],ROOT/INPUTS[1],*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
+    sources=[ROOT/INPUTS[0],ROOT/INPUTS[1],ROOT/'host/android/dev/BrowserUseInputProbe.java',*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
     run(java/'javac','-encoding','UTF-8','-source','8','-target','8','-classpath',platform,'-d',classes,*sources)
     jar=build/'classes.jar'
     with zipfile.ZipFile(jar,'w') as archive:

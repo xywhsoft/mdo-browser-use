@@ -21,6 +21,7 @@ public final class BrowserUseDevActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final JSONObject report=new JSONObject();
     private WebView view;private MdoBrowserWorld world;private MdoBrowserWorld.Peer peer;
+    private BrowserUseInputProbe inputProbe;
     private TextView status;private String nonce;private boolean finished,loaded,started;
     private final Runnable timeout=()->finishProbe(false,"device_probe_timed_out");
     private void put(String key,Object value){try{report.put(key,value);}catch(Exception error){throw new IllegalStateException(error);}}
@@ -33,9 +34,16 @@ public final class BrowserUseDevActivity extends Activity {
         setContentView(layout);handler.postDelayed(timeout,15000);
         try{
             view=new WebView(this);layout.addView(view,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
-            if(Build.VERSION.SDK_INT<28){finishProbe(true,"provider_loader_unsupported");return;}
             PackageInfo info=WebView.getCurrentWebViewPackage();
             if(info!=null){put("provider_package",info.packageName);put("provider_version",info.versionName);}
+            if("native-input".equals(getIntent().getStringExtra("mode"))){
+                getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN|
+                    android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+                inputProbe=new BrowserUseInputProbe(view,handler,(ok,code,checks)->{
+                    put("native_input_checks",checks);put("native_input_verified",ok);finishProbe(ok,code);
+                });inputProbe.run();return;
+            }
+            if(Build.VERSION.SDK_INT<28){finishProbe(true,"provider_loader_unsupported");return;}
             ClassLoader loader=WebView.getWebViewClassLoader();features(loader);
             world=MdoBrowserWorld.open(view,loader,new MdoBrowserWorld.Scheduler(){
                 public long now(){return SystemClock.uptimeMillis();}
@@ -93,6 +101,7 @@ public final class BrowserUseDevActivity extends Activity {
     private void finishProbe(boolean verified,String code){
         if(finished)return;finished=true;handler.removeCallbacks(timeout);
         put("probe_verified",verified);put("code",code);
+        if(inputProbe!=null){inputProbe.close();inputProbe=null;}
         if(world!=null){world.close();put("cleanup_confirmed",world.cleanupConfirmed());}
         if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();view=null;}
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);

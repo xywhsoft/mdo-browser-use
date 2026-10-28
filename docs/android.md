@@ -72,7 +72,7 @@ installation archives and requires no NDK or downloaded browser. A 10 GiB free
 disk margin and explicit owned-directory/lock receipts prevent accidental cache
 expansion or replacement. No runtime dependency is added.
 
-The reusable 45,459-byte Java device client contains the actual world adapter,
+The reusable Java device client contains the actual world/input adapters,
 reviewed `MdoBrowser.java`, one tiny Activity and a no-network-permission manifest. It is built with Java 8,
 dexed, aligned and signed with a persistent private development key under
 `.mdo/host/android-client`. The app ID is `org.xleaves.mdo.browseruse.dev`;
@@ -87,7 +87,7 @@ verifies the installed APK bytes before reusing it, rather than requesting a
 second installation. Unknown existing packages are preserved. No provider is
 automatically installed, selected or upgraded.
 
-On 2026-10-28 the user confirmed this client installation. The actual API 36
+On 2026-10-28 the user confirmed the earlier 45,459-byte client installation. The actual API 36
 phone's `com.google.android.webview` 138.0.7204.179 reported 72 provider features:
 `MULTI_PROFILE` and `WEB_MESSAGE_LISTENER` are present, but
 `JS_INJECTION_IN_FRAME_AND_WORLD` is absent. The production adapter returns
@@ -127,6 +127,54 @@ preflight results for observe/action/navigation/capture/upload without a create
 or reveal command. The user elected to retain the current system WebView; no
 provider-update request is pending.
 
+## Native input foundation (E3)
+
+`MdoBrowserInput.java` serializes bounded native input on its owning UI thread.
+`MdoBrowserInputTarget.java` dispatches touchscreen events and allowlisted content
+keys only to the owned WebView; Unicode text uses its current `InputConnection`.
+It never dispatches global/system input, executes a DOM click or assigns a DOM
+input value. The WebView/IME retains ownership of the input connection.
+
+Each operation pins the original document epoch and view dimensions. Hidden,
+detached, background/unfocused windows are rejected; keys/text additionally
+require native focus. Changes before/after each dispatch terminate the sequence.
+The higher layer must still verify isolated-world DOM focus, frame identity and
+CSS-to-view geometry before admitting an operation. These classes are deployed
+through the reviewed Android overlay; product automation remains disabled until
+that higher layer and the remaining Android contracts are integrated.
+
+An operation has at most 64 frozen touch points, five seconds of gesture time
+and a 500 ms dispatch allowance; only one can run per adapter. Text is bounded
+to 16 KiB of valid UTF-8 (8,192 UTF-16 units), with no NUL/unpaired surrogate.
+Timer admission precedes the first event. Cancellation, navigation, takeover,
+lost focus and close release an owned press with CANCEL/key-up, then drain its
+timer and complete once. A lost/failed dispatch preserves possible effects;
+failed cleanup poisons that adapter until its view is destroyed. Successful
+dispatch receipts are not proof of a page's eventual business result.
+
+`python tools/android_input_probe.py` compiles the actual sequencer as Java 8
+and passes 125 deterministic protocol/lifetime assertions, including stale
+queued work, reentrant invalidation, late callbacks, timer failures, viewport/
+document/focus changes, held-input cleanup and Unicode/coordinate/key limits.
+This is not an Android framework or real-device pass. The existing world gate
+still passes 34 assertions, and the shared unsupported-provider UI gate passes.
+
+The rebuilt 74,131-byte dev APK includes a separate synthetic input fixture:
+`python tools/android_device_probe.py --mode native-input`. It checks trusted
+touch/input/key events, Unicode commit, selection replacement, cancelled-touch
+nonactivation, swiping and hidden-view refusal. Its page-world reads are solely
+assertions on the owned test fixture, never a product automation fallback.
+`--mode world` retains the existing provider gate. Both use the same app and
+separate receipts. No second Home, engine or provider is installed.
+
+The new APK compiles/aligns/signs successfully against API 36, Java 8/min API 26,
+with no added runtime dependency. ADB currently reports no device, so the input
+framework receipt is explicitly `unavailable`, `native_input_verified:false`.
+The new APK has not been installed or run on the phone. The user's current
+WebView remains unchanged and no update request is pending.
+
 References: [execution worlds and message listeners](https://developer.android.com/reference/androidx/webkit/WebViewCompat),
 [per-frame reply execution](https://chromium.googlesource.com/chromium/src.git/+/HEAD/android_webview/java/src/org/chromium/android_webview/JsReplyProxy.java),
-[boundary architecture](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/webkit/webkit/docs/feature_checking.md).
+[boundary architecture](https://android.googlesource.com/platform/frameworks/support/+/androidx-main/webkit/webkit/docs/feature_checking.md),
+[native gesture cancellation](https://developer.android.com/reference/android/view/MotionEvent#ACTION_CANCEL),
+[text commit contract](https://developer.android.com/reference/android/view/inputmethod/InputConnection#commitText(java.lang.CharSequence,%20int)).

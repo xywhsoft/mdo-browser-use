@@ -634,7 +634,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))"
     },
     {
       "path": "tools/workbench_contracts.py",
@@ -771,6 +771,14 @@
     {
       "source": "host/android/MdoBrowserWorld.java",
       "target": "tools/android/MdoBrowserWorld.java"
+    },
+    {
+      "source": "host/android/MdoBrowserInput.java",
+      "target": "tools/android/MdoBrowserInput.java"
+    },
+    {
+      "source": "host/android/MdoBrowserInputTarget.java",
+      "target": "tools/android/MdoBrowserInputTarget.java"
     },
     {
       "source": "host/files-tree.inc.c",
