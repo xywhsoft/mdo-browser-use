@@ -7,19 +7,29 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,877,938 bytes**, SHA-256
-`ac9f89d0c13041dc40f959ffc00fb3a28e41b53a9ba1957902a8e0a836ab613d`.
+The current refreshed preview is **6,878,978 bytes**, SHA-256
+`ed71fc9ba815ceb796a8605b971bf02f5c16923f22267f7b2b188a88e6c9ba1f`.
 Its native inventory contains 747 files, including runtime 19, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
 E24's shared admission guard for uncertain native dialog cleanup, plus E27's
 shared Android hover capability/preparation path and E28/E29's reviewed default
-workspace SDK/download UI. Included module
+workspace SDK/download UI, E30's shared popup cleanup guard and F15's retained
+screenshot/callback ownership and allocation-failure cleanup. Included module
 hashes match the reviewed deployment. The actual packed-program gate passes all
-nine runtime checks, including actual default-directory SDK review, its packed C
+ten runtime checks, including actual default-directory SDK review, its packed C
 header/discovery contract, connection-reset reporting and recovery
 navigation from the error card. This is
 Windows verification; Android framework qualification remains unavailable.
+
+The paired plugin is **243,663 bytes**, SHA-256
+`3b9a4b949ac94ef8cbecba786ba45793ed47b9e1356ae75fcb7f941ba32e76a6`.
+Its 22-file native import/export roundtrip passes. The program gate now refuses
+a stale paired plugin before launching the app, verifies the actual installed
+manifest/inventory in the same Home, and requires the packed host and plugin
+`page/runtime.js` to have identical hashes. A same-size runtime alteration is
+rejected without launching another app. Package and program integrity/runtime
+verification remain separate from full production/platform qualification.
 
 On a Windows x86-64 device with WebView2, place the executable in a writable
 directory and start it. Its default `mdo-home` is beside the executable; an
@@ -38,6 +48,8 @@ an Android or full production qualification.
 ## Reproduce without an application staging copy
 
 ```powershell
+python tools/package_plugin.py
+python tools/package_probe.py
 python tools/dev.py stop
 python tools/package_program.py
 python tools/program_probe.py
@@ -70,7 +82,11 @@ headless service. It does not send a model request or test external websites.
 
 The executable receipt records inventory verification separately from runtime
 verification; a newly built artifact is not marked runtime-verified until that
-gate passes. Private build/runtime/recovery receipts remain under `.mdo/`.
+gate passes. `paired_plugin_verified` and its source/inventory hash identify the
+specific plugin verified with the program. Private build/runtime/recovery
+receipts remain under `.mdo/`. Rebuild/reimport a changed plugin before running
+the paired program gate; an earlier native smoke receipt does not establish
+that a newer plugin payload was delivered.
 
 `python tools/package_lifecycle_probe.py` additionally verifies native-plugin
 uninstall/restart/reinstall and interrupted import recovery in the same Home.

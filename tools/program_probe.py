@@ -1,5 +1,6 @@
 """Boot the packed program and use its actual UI/native browser in the same Home."""
 import base64
+import hashlib
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
@@ -12,6 +13,7 @@ import time
 
 import dev
 import package_program
+import package_plugin
 from sdk_probe import wait_receipt, SCOPE
 
 HTML = """<!doctype html><meta charset=utf-8><title>Packed Browser Use</title>
@@ -37,10 +39,22 @@ class Fixture(BaseHTTPRequestHandler):
         pass
 
 
+def paired_plugin_source():
+    name,data,metadata=package_plugin.build()
+    path=dev.ROOT/'dist'/name
+    if (not path.is_file() or package_plugin.linked(path.lstat()) or
+            path.stat().st_size!=len(data) or package_program.sha(path)!=metadata['artifact']['sha256']):
+        raise RuntimeError('Paired portable Browser Use plugin is stale; build and install the reviewed package first')
+    manifest,files=package_plugin.snapshot()
+    inventory={name:{'bytes':len(payload),'sha256':hashlib.sha256(payload).hexdigest()} for name,payload in files}
+    return metadata['artifact'],manifest,inventory
+
+
 def main():
     original = dev.state()
     if original.get("pid"):
         raise RuntimeError("Stop the single development service before starting the packaged program")
+    paired,plugin_manifest,plugin_files=paired_plugin_source()
     artifact = package_program.OUTPUT
     receipt_path = artifact.with_suffix(".receipt.json")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
@@ -49,11 +63,12 @@ def main():
     if (artifact.parent / "xs.json").exists() or (artifact.parent / "generated").exists():
         raise RuntimeError("Artifact directory contains unpacked app inputs; preserve them and inspect")
     receipt["runtime_verified"] = False
+    receipt["paired_plugin_verified"] = False
     receipt["runtime_checks"] = []
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     report_path = dev.ENV / "program-runtime-result.json"
     report = {"state": "running", "artifact_sha256": receipt["artifact"]["sha256"],
-              "same_home": True, "checks": []}
+              "same_home": True, "checks": [],"paired_plugin":paired}
     def mark(value):
         report["checks"].append(value)
         report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -99,6 +114,13 @@ def main():
         else:
             raise RuntimeError("Packed frontend did not register an SDK client")
         mark("packed_ui_registered")
+        plugin=dev.call('plugin.get',{'id':plugin_manifest['id']})
+        installed={row['path']:{'bytes':row['bytes'],'sha256':row['sha256']} for row in plugin['files']}
+        if not plugin.get('enabled') or plugin['manifest']!=plugin_manifest or installed!=plugin_files:
+            raise RuntimeError('Packed program did not load the reviewed paired plugin inventory')
+        if receipt['files'].get('web/js/features/workbench/automation-runtime.js',{}).get('sha256')!=plugin_files['page/runtime.js']['sha256']:
+            raise RuntimeError('Packed host and paired plugin page runtimes differ')
+        mark('paired_plugin_source_installed_and_host_runtime_match')
         root_schema=dev.call('sdk.describe',{'id':'browser.workspace.prepare'})['input_schema']
         if not {'id','revision','session_revision','workspace','root_exists','confirmed'}.issubset(root_schema['required']):
             raise RuntimeError('Packed workspace preparation SDK contract is incomplete')
@@ -194,6 +216,8 @@ def main():
     report["state"] = "passed"
     report_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     receipt["runtime_verified"] = True
+    receipt["paired_plugin_verified"] = True
+    receipt["paired_plugin"] = dict(paired,files=len(plugin_files))
     receipt["runtime_checks"] = list(report["checks"])
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"state": report["state"], "checks": len(report["checks"]),

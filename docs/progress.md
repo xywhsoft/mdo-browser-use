@@ -23,9 +23,11 @@ Latest verified milestones:
   input/upload/permission gates pass. F14 separately verifies the real 120s
   dialog lease and full native transfer cleanup. These are scoped results,
   not a claim of exhaustive OOM/performance qualification.
-- **Artifacts:** F13 is the currently verified Windows executable (nine packed
-  runtime checks); it predates F15's native fix and needs refresh. The portable
-  plugin remains verified separately. E28/E29's reviewed canonical workspace
+- **Artifacts F16:** the refreshed Windows executable includes F15 and passes
+  ten packed runtime checks, including paired source/installed/host runtime
+  equality. Refresh a stale portable `page/runtime.js`; native import/restart/
+  export verifies all 22 files, and altered paired payloads are rejected before
+  application launch. E28/E29's reviewed canonical workspace
   SDK/download UI passed legacy, existing-root and missing-root native gates.
 - **Android E30/E31:** implement retained original popup transport through the
   existing C/JS admission flow, correct ownership-query failure, and build the
@@ -4130,4 +4132,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   executable is the earlier verified artifact; refresh it next to include this
   native fix. The full goal and remaining platform/transport/permission/
   lifecycle/performance qualification remain active.
+
+## F16 — refresh delivery and reject a stale paired plugin runtime
+
+- Refresh the Windows program with F15's native fix: 6,878,978 bytes, SHA-256
+  `ed71fc9ba815ceb796a8605b971bf02f5c16923f22267f7b2b188a88e6c9ba1f`.
+  All 747 native inventory entries verify and the packed native-host hash
+  matches the rebuilt GUI host. Initial nine packed checks pass
+  (`.mdo/F16-program-package.log`, `.mdo/F16-program-runtime.log`).
+- Source comparison then finds the old portable package's `page/runtime.js`
+  was stale: 37,891 bytes, SHA-256
+  `82f12f89d3d1b6c254bc139b520bc3dc759a75598a892df544a08e7daef82133`,
+  versus reviewed 39,633 bytes, SHA-256
+  `580d95cb3d6a54b0abd3559885611658112a1f15424a0181379ac9228ca757cd`.
+  Record the mismatch without copying an app/Home
+  (`.mdo/package-runtime-sync-before.json`). Rebuild the portable plugin:
+  243,663 bytes, SHA-256
+  `3b9a4b949ac94ef8cbecba786ba45793ed47b9e1356ae75fcb7f941ba32e76a6`.
+- Pass eight actual local ecosystem import/trust/plan/restart/export/reinstall
+  checks for all 22 files in the same Home. Logs:
+  `.mdo/F16-plugin-package.log`, `.mdo/F16-plugin-install.log`. Old generations
+  remain retained; no unrelated revision or user data is overwritten.
+- Make the packed-program gate compare the paired portable artifact to current
+  source before starting any app. After boot, require the actual enabled plugin
+  manifest/inventory and packed host runtime to match the paired source. Track
+  `paired_plugin_verified` and exact artifact metadata separately. A real
+  same-size payload alteration is refused before process launch; restore exact
+  original bytes (`.mdo/F16-pair-rejection.json`). With the current pair, all ten
+  actual packed checks pass (`.mdo/F16-paired-program-runtime.log`). This closes
+  a delivery-verification gap; older smoke checks alone did not prove pairing.
+- Restore the same healthy headless deployment (about 1,118 MiB). Source overlays,
+  artifact hashes and paired receipts verify; no `dist/mdo-home`, extra app or
+  browser engine exists. Android E31 is unchanged and no device is available.
+  Current WebView/disabled automation and remaining full-goal requirements are
+  preserved. No online release or full production/platform completion claimed.
 
