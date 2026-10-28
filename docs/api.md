@@ -554,6 +554,16 @@ are bounded. Unsupported geometry, excessive area or a changed document returns
 an explicit error. Cancellation/takeover stops delivery, and native resource
 admission remains held until its callback drains.
 
+Closing a native view detaches its active screenshot but does not return the
+host's single native screenshot reservation while its callback is retained.
+Callback completion or destruction releases that reservation exactly once.
+A provider that drops a live callback produces a failed receipt, without an
+image. Each byte-budget retry has its own completion marker; a duplicate older
+reply cannot finish the newer attempt. Parameter/result allocation failures
+must not leak the callback reference or admit replacement native work early.
+Callbacks follow the existing
+[WebView2 UI/STA threading model](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/threading-model).
+
 The managed `browser_screenshot` tool returns a real image through mdo's existing
 image-result channel, plus small text metadata. C/JS SDK callers receive the
 image envelope in memory and release its receipt normally. Image bytes are not

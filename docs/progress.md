@@ -13,77 +13,33 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F12 refreshes the Windows artifact with the reviewed
-directory SDK/UI and passes nine actual packed-program checks. E29 connects reviewed directory preparation to the
-download UI and passes actual legacy/existing-default/missing-default WebView2
-save/recovery gates, plus complete Python/JS regression. E28 adds reviewed canonical-default workspace
-preparation and physical binding through shared C/JS SDK services, with 10 new
-actual-host checks and 11 existing legacy recovery checks. F11 refreshes the packed shared hover path and
-passes all eight actual Windows program checks. E27 implements guarded main-document Android native
-hover through the shared dispatcher, with 82 hover/255 JS checks and actual SDK
-compilation; framework qualification stays unavailable. E26 settles post-admission Android input OOM and
-retains cleanup uncertainty without replay, passing 413 native/lifecycle checks
-and actual SDK compilation. F10 passes the complete sequential Python/JS
-regression and four actual hidden/visible WebView2 startup samples. F9 refreshes the packed Windows program with E24's
-shared cleanup guard and passes all eight actual runtime checks. E25 closes
-the Android native callback allocation boundary before controller ownership,
-passing 95 core/68 target checks and compiling the actual SDK Activity. E24 fixes retained Android dialogs on allocation
-failure and blocks new page effects on unconfirmed modal cleanup. N2 verifies actual Windows certificate refusal,
-no HTTP/pixel publication and recovery using memory-only local TLS credentials.
-F8 qualifies the packed Windows network-recovery
-fix through eight actual runtime checks. N1 fixes recovery navigation blocked by a failed
-page's error card, with actual C/JS/WebView2 network/cancel checks. E23 fixes late Android dialog callbacks dispatching
-after exact view teardown and adds native target fault tests. E22 compiles the actual native dialog framework
-fixture, with its device gate unavailable and all flags false. E21 fixes cancelled-navigation peer retirement,
-with deterministic callback-order tests and actual host compilation. E20 wires and compiles actual Android native dialog
-hooks with document/input/capture/lifecycle boundaries; framework qualification
-remains unavailable. E19 adds the bounded retained native Android dialog
-controller and lifetime tests. E18 verifies the public screenshot privacy boundary
-with fractional layout and downscaling. F7 refreshes and qualifies the packed Windows
-preview with E17's screenshot privacy fix. E17 fixes private-pixel influence
-leaking through lossy native screenshot sources, with actual codec and public
-C/JS/WebView2 regressions. F6 refreshes/requalifies the packed Windows preview
-with runtime 19 and the E14/E16 shared capture changes; E16 wires actual Android visible drawing/encoding,
-capture cancellation/lifecycle and isolated proof, compiles the real host and
-pixel fixture, with actual-device/privacy qualification unavailable; E15 adds a tested, resource-bounded native capture
-transaction core, with actual Android draw/encode integration still pending;
-E14 connects bounded main-document screenshot
-preparation and opaque child masks to the shared screenshot executor, with
-native Android drawing/qualification still pending; F5 refreshes and requalifies the Windows preview
-with runtime 18 and native failure receipts; E13 closes the Android parent-click
-child-frame boundary; E12 preserves native refusal causes and cumulative input
-uncertainty; E11 adds guarded native Android scrolling with framework
-qualification still unavailable; F4 refreshes the earlier packed Windows
-preview; E10 connects the Android main-document driver to
-the shared dispatcher and verifies the existing Windows C/JS/native path;
-E9 fixes an early-peer/resume race and adds pinned
-native document identity; E8 connects guarded main-document Android native
-input, compiles the actual bridge/Activity and keeps framework qualification
-explicitly unavailable; E7 fixes retained native evaluation admission with
-per-view/shared budgets; E6 wires isolated document execution/lifecycle into
-the production Android view, with actual Activity compilation and explicit
-unavailable device results; F3 repairs retained-generation reinstallation and
-verifies package uninstall/startup recovery; F2 delivers the enhanced Windows
-preview with actual packed-program native checks; F1 verifies the portable
-plugin and native ecosystem installation. W10 bounds unfinished native creations and adds
-observable, cancellable readiness waiting; W9 settles cancelled Windows creations before close
-acknowledgement and releases their popup deferrals; E5 pins Android main-document connections and
-asynchronous replies; E4 integrates owned-view/input lifecycle and compiles
-the actual Android Activity hooks; E3 adds the bounded Android native input foundation
-and compiles its device gate (framework verification unavailable);
-W8 adds cancel/recreate and missed-reply observations;
-W7 connects directory uploads through shared C/JS,
-Agent tools and routed-frame pickers; W6 fixes long source snapshot paths;
-W5 adds native directory selection with trusted
-completion and exact relative paths; W4 adds directory staging/restart collection;
-W3 preserves long upload basenames; W1 adds source manifests.
-V8 bounds read-only viewport settling during capture;
-V7 removes DOM input's duplicate activation clicks;
-V6 adds shared C/JS/Agent focus-bound image keys;
-V4/V5 cover image dragging and retained-document cleanup. E2 provides actual
-Android unsupported-provider admission. Full Android native
-integration, adversarial lifecycle and final OOM/performance/package gates
-remain active; this is not a release.
+Latest verified milestones:
+
+- **Windows F15:** correct retained screenshot/native callback ownership and
+  parameter-conversion callback leaks. Controlled production C++ checks cover
+  63 assertions and 19 one-shot allocation failure sites. Complete regression
+  passes 262 JS cases and 142/144 Python cases (two symlink-privilege skips).
+  Actual native, first public screenshot, public privacy and public OOPIF
+  input/upload/permission gates pass. F14 separately verifies the real 120s
+  dialog lease and full native transfer cleanup. These are scoped results,
+  not a claim of exhaustive OOM/performance qualification.
+- **Artifacts:** F13 is the currently verified Windows executable (nine packed
+  runtime checks); it predates F15's native fix and needs refresh. The portable
+  plugin remains verified separately. E28/E29's reviewed canonical workspace
+  SDK/download UI passed legacy, existing-root and missing-root native gates.
+- **Android E30/E31:** implement retained original popup transport through the
+  existing C/JS admission flow, correct ownership-query failure, and build the
+  raw popup content/lifecycle device fixture. The controller/Chrome target pass
+  103 contract assertions; the actual Activity/hooks compile. Current ADB has
+  no device, so native popup/framework/host routing qualification remains false.
+  Preserve the installed WebView; its earlier measured provider lacks isolated
+  worlds. Overall Android automation stays disabled, including on newer
+  providers until adapter integration and qualification are complete.
+- **Remaining full-goal work:** Android frame/transfer integration and installed
+  provider checks; remote transport and real ask-profile interaction; broader
+  lifetime/OOM/performance qualification and normal-desktop visual checks;
+  final delivery verification. Keep the full scope active and do not infer
+  completion from green component or packaged smoke checks.
 
 ## Working boundaries
 
@@ -4120,4 +4076,58 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   no online publication or provider change. Android's E31 raw fixture is built
   but its installed-provider result remains unavailable/false. Full goal stays
   active while outstanding platform/production qualification continues.
+
+## F14 — full native verification including the production dialog lease
+
+- Run the actual WebView2 gate with `--dialog-expiry` against F13's deployment,
+  before the following capture correction. Pass 1,504 assertions, including
+  dialogs/popups, native input, file/chooser transfers, cancellation and recovery.
+  The real dialog expires after 120,945 ms; one replacement becomes ready in
+  131 ms. These are observations for that run, not latency guarantees; assertion
+  totals include polling. Log: `.mdo/F14-native-full.log`.
+- No new native crash/exception diagnostics appear. Both transfer caches have
+  private ACLs and zero remaining reservations. Interrupted and POST responses
+  are each requested once, and native cleanup removes a deliberately recreated
+  empty retired download directory. Restore the same healthy headless service.
+  Resource/OOM/performance qualification continues; this is not full completion.
+
+## F15 — retain screenshot ownership through native callback retirement
+
+- Reproduce early native screenshot admission release when a view closes while
+  its CDP callback is retained. Keep the host's single capture reservation until
+  the provider invokes or releases that exact callback. Detach closed active
+  slots without keeping the view/job cycle. Dropped live/cancelled callbacks
+  settle safely; late old callbacks cannot complete a newer byte-budget retry.
+  Failures of timer admission, dispatch, result storage and reply publication
+  settle logical work without returning retained native ownership early.
+- Also reproduce a leaked CDP callback reference when parameter encoding throws
+  before dispatch. Use the existing COM ownership wrapper for the caller's
+  callback reference, including exceptions and failed native dispatch. Keep the
+  provider's accepted reference until its own retirement; never invoke a second
+  callback to compensate for a conversion/handler exception.
+- Both regressions fail on the previous code (`.mdo/F15-capture-before.log`,
+  `.mdo/F15-cdp-before.log`). Actual production C++/COM helper checks pass 50
+  screenshot lifetime assertions and 13 callback-reference assertions. A
+  one-shot allocator sweep covers 14 admission/dispatch and five result
+  allocation sites for the fixed screenshot workload, with no remaining slots.
+  Logs: `.mdo/F15-capture-oom.log`, `.mdo/F15-cdp-after.log`. This is controlled
+  component OOM evidence, not exhaustive live-process OOM qualification.
+- Rebuild both native hosts in the existing source/object root
+  (`.mdo/F15-native-build.log`). Pass all 262 JS cases and 142/144 Python cases;
+  the same two Windows symlink-privilege cases remain skipped. Logs:
+  `.mdo/F15-js-full.log`, `.mdo/F15-python-full.log`. The actual native gate
+  passes 1,387 assertions without the long dialog-expiry mode, no new native
+  diagnostics, and both upload/download reservations drained
+  (`.mdo/F15-native-full.log`). The separate F14 long-lease evidence is above.
+- Pass three first public screenshot cases (1,984 / 1,828 / 1,812 ms, zero initial
+  failures), six public C/JS privacy cases and normal public C/workbench OOPIF
+  input/transfer/managed-permission checks. Logs: `.mdo/F15-capture-readiness.log`,
+  `.mdo/F15-public-capture.log`, `.mdo/F15-public-frames.log`. These use the same
+  Home and synthetic loopback fixtures, with zero model/external-site calls.
+  They do not prove normal-desktop pixel or Android framework qualification.
+- Restore the healthy headless service (about 1,117.8 MiB). Android is unchanged,
+  ADB has no authorized device, and full automation remains disabled. F13's
+  executable is the earlier verified artifact; refresh it next to include this
+  native fix. The full goal and remaining platform/transport/permission/
+  lifecycle/performance qualification remain active.
 

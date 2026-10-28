@@ -1,27 +1,44 @@
 // Typed screenshots only; CDP parameters never come from model-provided script.
 static constexpr UINT_PTR xb_capture_timer=0xBADD3;
 struct xb_capture_job;
+struct xb_capture_callback{
+  std::shared_ptr<xb_capture_job> job;bool completed=false;
+  explicit xb_capture_callback(const std::shared_ptr<xb_capture_job>& value):job(value){}
+  xb_capture_callback(const xb_capture_callback&)=delete;xb_capture_callback& operator=(const xb_capture_callback&)=delete;
+  ~xb_capture_callback();
+};
 static std::map<HWND,std::weak_ptr<xb_capture_job>> xb_capture_jobs;
 struct xb_capture_job:std::enable_shared_from_this<xb_capture_job>{
+  xb_capture_job()=default;xb_capture_job(const xb_capture_job&)=delete;xb_capture_job& operator=(const xb_capture_job&)=delete;
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;
   std::string id,key,format;double x=0,y=0,width=0,height=0,scale=1;size_t maximum=131072;
-  UINT64 navigation=0;ULONGLONG expires=0;unsigned attempts=0;bool done=false,agent=true,inFlight=false,released=false;
+  UINT64 navigation=0;ULONGLONG expires=0;unsigned attempts=0;bool done=false,agent=true,inFlight=false,released=false,reserved=false;
+  ~xb_capture_job(){release();}
   bool live()const{return host->alive&&!view->closed&&!view->requestedClose&&!view->failed&&!view->dialog&&!xb_popup_blocked(view)&&
     (!agent||!view->manual)&&view->navigation==navigation;}
-  void release(){if(released)return;released=true;if(view->capture.get()==this)view->capture.reset();if(host->captures)host->captures--;}
-  void finish(const std::string& result,const std::string& error=""){
+  void detach(){if(view&&view->capture.get()==this)view->capture.reset();}
+  void release(){if(released)return;released=true;detach();if(reserved&&host&&host->captures)host->captures--;reserved=false;}
+  void settle(){
     if(done)return;done=true;KillTimer(view->window,xb_capture_timer);xb_capture_jobs.erase(view->window);
-    if(!inFlight||view->closed||!host->alive)release();
+    if(!inFlight)release();else if(view->closed||!host->alive)detach();
+  }
+  void finish(const std::string& result,const std::string& error=""){
+    if(done)return;settle();
     host->reply(id,result,error);
   }
+  void fail(const char* reason)noexcept{try{finish("",reason);}catch(...){settle();}}
   void run(){
+    try{
     if(done)return;if(!live()){finish("","Screenshot context changed");return;}
     if(GetTickCount64()>=expires){finish("","Screenshot deadline expired");return;}attempts++;
     const auto clip="{\"x\":"+std::to_string(x)+",\"y\":"+std::to_string(y)+",\"width\":"+std::to_string(width)+
       ",\"height\":"+std::to_string(height)+",\"scale\":"+std::to_string(scale)+"}";
     const auto params="{\"format\":"+xb_quote(format)+(format=="jpeg"?",\"quality\":80":"")+
       ",\"fromSurface\":true,\"captureBeyondViewport\":true,\"clip\":"+clip+"}";
-    auto self=shared_from_this();inFlight=true;xb_cdp(view,L"Page.captureScreenshot",params,[self](bool ok,const std::string& result){
+    auto ticket=std::make_shared<xb_capture_callback>(shared_from_this());
+    inFlight=true;xb_cdp(view,L"Page.captureScreenshot",params,[ticket](bool ok,const std::string& result){
+      if(ticket->completed)return;ticket->completed=true;auto self=ticket->job;
+      try{
       self->inFlight=false;if(self->done){self->release();return;}if(!self->live()){self->finish("","Screenshot context changed");return;}
       const auto data=xb_get(result,"data");if(!ok||data.empty()){self->finish("","Native screenshot failed");return;}
       if(data.size()%4){self->finish("","Native screenshot has an invalid encoding");return;}
@@ -32,11 +49,18 @@ struct xb_capture_job:std::enable_shared_from_this<xb_capture_job>{
       }
       self->finish("{\"ok\":true,\"data\":"+xb_quote(data)+",\"format\":"+xb_quote(self->format)+
         ",\"scale\":"+std::to_string(self->scale)+",\"attempts\":"+std::to_string(self->attempts)+"}");
+      }catch(...){self->fail("Native screenshot result could not be retained");}
     });
+    }catch(...){fail("Native screenshot dispatch was not confirmed");}
   }
 };
+inline xb_capture_callback::~xb_capture_callback(){
+  // Provider destruction is terminal ownership evidence even when the callback
+  // was never invoked. A completed/duplicate old callback cannot settle a retry.
+  if(!completed){completed=true;job->inFlight=false;if(job->done)job->release();else job->fail("Native screenshot callback was released");}
+}
 static void xb_cancel_capture(const std::shared_ptr<xb_view>& view){
-  auto current=view->capture;if(current){current->finish("","Screenshot was cancelled");if(view->closed)current->release();}
+  auto current=view->capture;if(current){current->fail("Screenshot was cancelled");if(view->closed||!current->host->alive)current->detach();}
 }
 static void CALLBACK xb_capture_tick(HWND window,UINT,UINT_PTR,DWORD){
   auto entry=xb_capture_jobs.find(window);if(entry==xb_capture_jobs.end()){KillTimer(window,xb_capture_timer);return;}
@@ -59,7 +83,9 @@ static void xb_capture(const std::shared_ptr<xb_host>& host,const std::shared_pt
   auto job=std::make_shared<xb_capture_job>();job->host=host;job->view=view;job->id=id;job->key=key;job->format=format;
   job->x=x;job->y=y;job->width=width;job->height=height;job->scale=scale;job->maximum=static_cast<size_t>(maximum);
   job->navigation=view->navigation;job->expires=GetTickCount64()+static_cast<ULONGLONG>(timeout);job->agent=xb_get(json,"agent")=="true";
-  view->capture=job;host->captures++;xb_capture_jobs[view->window]=job;
-  if(!SetTimer(view->window,xb_capture_timer,50,xb_capture_tick)){job->finish("","Cannot retain screenshot deadline");return;}
-  job->run();
+  try{
+    view->capture=job;host->captures++;job->reserved=true;xb_capture_jobs[view->window]=job;
+    if(!SetTimer(view->window,xb_capture_timer,50,xb_capture_tick)){job->fail("Cannot retain screenshot deadline");return;}
+    job->run();
+  }catch(...){job->fail("Cannot retain screenshot operation");}
 }

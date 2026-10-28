@@ -13,13 +13,14 @@ static bool xb_popup_blocked(const std::shared_ptr<xb_view>& view){
 }
 static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
                    const std::string& params,xb_cdp_result done){
-  auto* callback=xb_cb<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,HRESULT,LPCWSTR>(
+  xs_wv_com<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler> callback;
+  callback.p=xb_cb<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,HRESULT,LPCWSTR>(
     IID_ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,
     [done](HRESULT status,LPCWSTR output){
       done(SUCCEEDED(status),webview::detail::narrow_string(output?output:L"{}"));return S_OK;
     });
-  HRESULT status=view->core->CallDevToolsProtocolMethod(method,webview::detail::widen_string(params).c_str(),callback);
-  callback->Release();if(FAILED(status))done(false,"{}");
+  HRESULT status=view->core->CallDevToolsProtocolMethod(method,webview::detail::widen_string(params).c_str(),callback.p);
+  if(FAILED(status))done(false,"{}");
 }
 static bool xb_automation_live(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation){
   return host->alive&&!view->closed&&!view->requestedClose&&!view->failed&&!view->manual&&!view->dialog&&!xb_popup_blocked(view)&&view->navigation==navigation;
