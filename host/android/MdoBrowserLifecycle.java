@@ -12,7 +12,7 @@ import java.util.function.LongSupplier;
 final class MdoBrowserLifecycle<T> implements AutoCloseable {
     interface Factory<T> {MdoBrowserInput create(T view,LongSupplier epoch,BooleanSupplier admitted);}
     private final class Entry {
-        final T view;MdoBrowserInput input;long epoch=1;boolean hidden,manual,failed;
+        final T view;MdoBrowserInput input;long epoch=1;double scale=Double.NaN;boolean hidden,manual,failed;
         Entry(T view){this.view=view;}
     }
     private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;
@@ -57,6 +57,15 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         if(value)for(Entry entry:new ArrayList<>(entries.values()))settle(entry,()->entry.input.invalidate("input_view_unavailable"));
     }
     long epoch(String key,T view){thread();Entry entry=current(key,view);return entry==null?0:entry.epoch;}
+    boolean inputBusy(String key,T view){thread();Entry entry=current(key,view);return entry!=null&&entry.input.busy();}
+    boolean inputClean(String key,T view){thread();Entry entry=current(key,view);return entry!=null&&!entry.failed&&entry.input.cleanupConfirmed();}
+    double scale(String key,T view){thread();Entry entry=current(key,view);return entry==null?Double.NaN:entry.scale;}
+    void scaleChanged(String key,T view,double factor){
+        thread();Entry entry=current(key,view);if(entry==null)return;
+        double next=Double.isFinite(factor)&&factor>0&&factor<=32?factor:Double.NaN;
+        if(Double.compare(next,entry.scale)==0)return;entry.scale=next;
+        settle(entry,()->entry.input.invalidate("input_viewport_changed"));
+    }
     MdoBrowserInput input(String key,T view){
         thread();Entry entry=current(key,view);if(entry==null||entry.failed)throw new IllegalStateException("Native input binding is unavailable");return entry.input;
     }

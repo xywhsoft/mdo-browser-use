@@ -876,6 +876,32 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "crashed.add(key);root.removeView(view);view.destroy();return true;",
       "after": "crashed.add(key);closeAndDestroyDocument(key,view);return true;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-native-input.inc.java",
+      "suffix": "    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}",
+      "after": "else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}\n            else if(\"input\".equals(command)){executeNativeInput(key,id,web,request);return;}"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))",
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeInput.java'),source.with_name('MdoBrowserNativeInput.java'))"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                    @Override public void onPageStarted(WebView view,String address,Bitmap icon)",
+      "after": "                    @Override public void onScaleChanged(WebView view,float oldScale,float newScale){views.scaleChanged(key,view,newScale);}\n                    @Override public void onPageStarted(WebView view,String address,Bitmap icon)"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"isolated_world\",documentState(key))",
+      "after": ".put(\"isolated_world\",documentState(key)).put(\"navigation\",views.epoch(key,web)).put(\"input_busy\",views.inputBusy(key,web)).put(\"input_cleanup_confirmed\",views.inputClean(key,web)).put(\"native_scale_ready\",Double.isFinite(views.scale(key,web)))"
     }
   ],
   "files": [
@@ -1030,6 +1056,10 @@
     {
       "source": "host/android/MdoBrowserDocument.java",
       "target": "tools/android/MdoBrowserDocument.java"
+    },
+    {
+      "source": "host/android/MdoBrowserNativeInput.java",
+      "target": "tools/android/MdoBrowserNativeInput.java"
     }
   ]
 }

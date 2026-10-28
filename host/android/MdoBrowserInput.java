@@ -9,11 +9,14 @@ final class MdoBrowserInput implements AutoCloseable {
     interface Scheduler { long now(); void post(Runnable task,long milliseconds); void remove(Runnable task); }
     interface Target {
         long document(); int width(); int height(); boolean interactive(); boolean focused();
+        default boolean acquireFocus(){return false;}
         boolean touch(int action,long down,long time,float x,float y);
         boolean key(boolean down,long started,long time,String name,int modifiers);
         boolean text(String value);
     }
     interface Completion { void complete(Result result); }
+    interface Checked {void complete(String rejection);}
+    interface Guard {void check(long remainingMilliseconds,Checked complete);}
     static final class Result {
         final boolean ok,effectMayHaveOccurred,cleanupConfirmed;final String code;final int deliveredSteps;
         Result(String code,boolean sent,boolean clean,int delivered){this.ok=code==null;this.code=code;
@@ -40,24 +43,38 @@ final class MdoBrowserInput implements AutoCloseable {
         }
         return value.getBytes(StandardCharsets.UTF_8).length<=16384;
     }
-    void tap(float x,float y,Completion complete)throws Failure {gesture(new float[]{x,y,x,y},48,complete);}
+    void tap(float x,float y,Completion complete)throws Failure {tap(x,y,null,complete);}
+    void tap(float x,float y,Guard guard,Completion complete)throws Failure {gesture(new float[]{x,y,x,y},48,guard,complete);}
     void gesture(float[] points,int duration,Completion complete)throws Failure {
+        gesture(points,duration,null,complete);
+    }
+    void gesture(float[] points,int duration,Guard guard,Completion complete)throws Failure {
         thread();if(points==null||points.length<4||points.length>128||points.length%2!=0||duration<16||duration>5000)
             throw new Failure("input_gesture_invalid");
-        float[] copy=points.clone();Pending job=admit(complete,false);
+        float[] copy=points.clone();Pending job=admit(complete,false,guard);
         for(int i=0;i<copy.length;i+=2)if(!coordinate(copy[i],job.width)||!coordinate(copy[i+1],job.height))
             throw new Failure("input_coordinate_invalid");
         job.points=copy;job.duration=duration;start(job);
     }
     void key(String name,int modifiers,Completion complete)throws Failure {
+        key(name,modifiers,null,complete);
+    }
+    void key(String name,int modifiers,Guard guard,Completion complete)throws Failure {
         thread();if(!keyName(name)||modifiers<0||(modifiers&~7)!=0)throw new Failure("input_key_invalid");
-        Pending job=admit(complete,true);job.name=name;job.modifiers=modifiers;job.duration=16;start(job);
+        Pending job=admit(complete,true,guard);job.name=name;job.modifiers=modifiers;job.duration=16;start(job);
     }
     void text(String value,Completion complete)throws Failure {
-        thread();if(!validText(value))throw new Failure("input_text_invalid");
-        Pending job=admit(complete,true);job.text=value;start(job);
+        text(value,null,complete);
     }
-    private Pending admit(Completion complete,boolean needsFocus)throws Failure {
+    void text(String value,Guard guard,Completion complete)throws Failure {
+        thread();if(!validText(value))throw new Failure("input_text_invalid");
+        Pending job=admit(complete,true,guard);job.text=value;start(job);
+    }
+    void focus(Guard guard,Completion complete)throws Failure {
+        thread();if(guard==null)throw new Failure("input_focus_guard_required");
+        Pending job=admit(complete,false,guard);job.focus=true;start(job);
+    }
+    private Pending admit(Completion complete,boolean needsFocus,Guard guard)throws Failure {
         if(closed)throw new Failure("input_closed");if(poisoned)throw new Failure("input_cleanup_failed");
         if(active!=null)throw new Failure("input_busy");if(complete==null)throw new Failure("input_completion_invalid");
         try{
@@ -65,32 +82,38 @@ final class MdoBrowserInput implements AutoCloseable {
             int width=target.width(),height=target.height();
             if(width<1||height<1||width>16384||height>16384)throw new Failure("input_viewport_invalid");
             if(needsFocus&&!target.focused())throw new Failure("input_focus_required");
-            return new Pending(complete,needsFocus,target.document(),width,height);
+            return new Pending(complete,needsFocus,target.document(),width,height,guard);
         }catch(RuntimeException error){throw new Failure("input_target_failed");}
     }
     private void start(Pending job)throws Failure {
         try{job.started=scheduler.now();job.deadline=job.started+job.duration+500;}
         catch(RuntimeException error){throw new Failure("input_timer_unavailable");}
         active=job;
-        try{scheduler.post(job.timer,0);}catch(RuntimeException error){active=null;
+        try{
+            if(job.check!=null)scheduler.post(job.watchdog,job.duration+501);
+            scheduler.post(job.timer,0);
+        }catch(RuntimeException|Error error){active=null;
             try{scheduler.remove(job.timer);}catch(RuntimeException ignored){}
+            try{scheduler.remove(job.watchdog);}catch(RuntimeException ignored){}
+            if(error instanceof Error)throw(Error)error;
             throw new Failure("input_timer_unavailable");}
     }
     boolean busy(){thread();return active!=null;}
     boolean cleanupConfirmed(){thread();return !poisoned&&active==null;}
     void cancel(){invalidate("input_cancelled");}
     void invalidate(String reason){thread();
-        if(!("frame_changed".equals(reason)||"input_cancelled".equals(reason)||"user_taken_control".equals(reason)||"input_view_unavailable".equals(reason)))
+        if(!("frame_changed".equals(reason)||"input_cancelled".equals(reason)||"user_taken_control".equals(reason)||
+             "input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)))
             throw new IllegalArgumentException("Invalid native input invalidation");
         if(active!=null)active.finish(reason);
     }
     @Override public void close(){thread();if(closed)return;closed=true;if(active!=null)active.finish("input_closed");}
     private final class Pending {
-        final Completion complete;final boolean needsFocus;final long document;final int width,height;
-        final Runnable timer=this::tick;float[] points;String name,text;int modifiers,duration,index,delivered;
-        long started,deadline;float x,y;boolean sent,pressed,keyDown,done,finishing;
-        Pending(Completion complete,boolean focus,long document,int width,int height){
-            this.complete=complete;this.needsFocus=focus;this.document=document;this.width=width;this.height=height;
+        final Completion complete;final boolean needsFocus;final long document;final int width,height;final Guard check;
+        final Runnable timer=this::tick,watchdog=()->finish("input_timed_out");float[] points;String name,text;int modifiers,duration,index,delivered,ticket;
+        long started,deadline;float x,y;boolean sent,pressed,keyDown,done,finishing,checking,focus;
+        Pending(Completion complete,boolean needsFocus,long document,int width,int height,Guard check){
+            this.complete=complete;this.needsFocus=needsFocus;this.document=document;this.width=width;this.height=height;this.check=check;
         }
         private String guard(){
             if(closed)return "input_closed";
@@ -100,6 +123,23 @@ final class MdoBrowserInput implements AutoCloseable {
             if(needsFocus&&!target.focused())return "input_focus_lost";return null;
         }
         void tick(){
+            thread();if(done||finishing||checking||active!=this)return;
+            if(check==null){dispatch();return;}
+            String failure;
+            try{failure=guard();if(failure==null&&scheduler.now()>deadline)failure="input_timed_out";}
+            catch(RuntimeException error){failure="input_target_failed";}
+            if(failure!=null){finish(failure);return;}
+            try{
+                if(focus){sent=true;if(!target.acquireFocus()){finish("input_focus_required");return;}}
+                if(done||finishing||active!=this)return;
+                checking=true;final int original=++ticket;
+                check.check(Math.max(1,deadline-scheduler.now()),code->{
+                    thread();if(done||finishing||active!=this||!checking||original!=ticket)return;checking=false;
+                    if(code!=null){finish(code);return;}dispatch();
+                });
+            }catch(RuntimeException error){if(!done)finish("input_guard_failed");}
+        }
+        void dispatch(){
             thread();if(done||finishing||active!=this)return;
             String failure=null;boolean accepted=false;long now=0;
             try{
@@ -109,7 +149,8 @@ final class MdoBrowserInput implements AutoCloseable {
                     // Mark potential effects and held state before calling the
                     // framework: callbacks may synchronously invalidate us.
                     sent=true;
-                    if(points!=null){int count=points.length/2;x=points[index*2];y=points[index*2+1];
+                    if(focus)accepted=target.focused();
+                    else if(points!=null){int count=points.length/2;x=points[index*2];y=points[index*2+1];
                         int action=index==0?DOWN:index==count-1?UP:MOVE;
                         if(action==DOWN)pressed=true;
                         accepted=target.touch(action,started,now,x,y);
@@ -135,12 +176,13 @@ final class MdoBrowserInput implements AutoCloseable {
         void finish(String code){
             if(done||finishing)return;finishing=true;boolean clean=true;
             try{scheduler.remove(timer);}catch(RuntimeException error){clean=false;}
+            if(check!=null)try{scheduler.remove(watchdog);}catch(RuntimeException error){clean=false;}
             if(pressed)try{if(!target.touch(CANCEL,started,scheduler.now(),x,y))clean=false;}
                 catch(RuntimeException error){clean=false;}
             if(keyDown)try{if(!target.key(false,started,scheduler.now(),name,modifiers))clean=false;}
                 catch(RuntimeException error){clean=false;}
             pressed=false;keyDown=false;text=null;points=null;poisoned|=!clean;
-            done=true;finishing=false;if(active==this)active=null;
+            done=true;finishing=false;checking=false;ticket++;if(active==this)active=null;
             complete.complete(new Result(code!=null?code:clean?null:"input_cleanup_failed",sent,clean,delivered));
         }
     }

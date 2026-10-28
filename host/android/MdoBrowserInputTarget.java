@@ -23,6 +23,7 @@ final class MdoBrowserInputTarget implements MdoBrowserInput.Target {
     public int width(){return view.getWidth();}public int height(){return view.getHeight();}
     public boolean interactive(){return admitted.getAsBoolean()&&view.isAttachedToWindow()&&view.isShown()&&view.hasWindowFocus();}
     public boolean focused(){return view.hasFocus();}
+    public boolean acquireFocus(){return interactive()&&view.requestFocus();}
     public boolean touch(int action,long down,long time,float x,float y){
         MotionEvent event=MotionEvent.obtain(down,time,action,x,y,0);
         try{event.setSource(InputDevice.SOURCE_TOUCHSCREEN);return view.dispatchTouchEvent(event);}

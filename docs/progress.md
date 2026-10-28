@@ -13,7 +13,10 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E6 wires isolated document execution/lifecycle into
+Latest verified milestones: E8 connects guarded main-document Android native
+input, compiles the actual bridge/Activity and keeps framework qualification
+explicitly unavailable; E7 fixes retained native evaluation admission with
+per-view/shared budgets; E6 wires isolated document execution/lifecycle into
 the production Android view, with actual Activity compilation and explicit
 unavailable device results; F3 repairs retained-generation reinstallation and
 verifies package uninstall/startup recovery; F2 delivers the enhanced Windows
@@ -3018,3 +3021,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   geometry, frame/capture/privacy, transfers and framework qualification, plus
   final adversarial/network/performance work; product admission remains disabled
   and the full goal is active.
+
+## E8 — connect asynchronous document guards to Android native input
+
+- Add a per-action asynchronous check before every native press/release or text
+  commit, with a separate bounded watchdog. Delayed/duplicate replies cannot
+  act on a cancelled, expired or replacement job. Reject changed view/document/
+  focus after the check, and release original held touch/keys on rejection or
+  timeout. Timer admission also rolls back queued tasks/state on OOM. Native
+  view focus is reserved in the same input slot until isolated DOM focus is
+  acknowledged; it is not a click used to activate the control.
+- Wire the actual private native `input` command to a main-frame adapter. It
+  requires the original isolated document/reference and matching keyboard
+  target, verifies root-frame ownership, live hit geometry and DOM focus, and
+  converts admitted CSS points to native view pixels. Use exact-view native
+  scale callbacks rather than guessing unknown initial scale or trusting the
+  deprecated scale getter. A scale change cancels original input; stale view
+  callbacks cannot update a replacement. Cross-check viewport/scroll/zoom and
+  padding before dispatch. Unsupported frames, visual snapshots, offset pinch
+  viewports, mouse variants and unknown inputs reject explicitly. No synthetic
+  DOM click/value assignment or page-world fallback is added to this bridge.
+- Preserve the original main-document reply lease, cancellation and effect/
+  cleanup receipts. Native state now reports the actual navigation epoch, input
+  busy/cleanup state and whether scale is known, without throwing on a poisoned
+  input binding. The main-document adapter is private integration work:
+  shared Android frame-driver/Agent integration, capture/privacy, transfers and
+  real framework qualification remain pending. The overall Android Browser Use
+  admission flag stays false. Add a separate always-false guarded-input device
+  qualification field so the older low-level fixture cannot certify this path.
+- Actual Java target 8 passes 63 new deferred-guard assertions, 81 lifecycle
+  assertions (including native scale ownership), and the existing 125 input and
+  22 channel assertions. Four Node tests execute the actual Java fence constant
+  for document/target/focus, viewport/scroll/zoom and focus-handler side effects.
+  Full JavaScript regression passes 200/200; both real deployment/SDK smoke
+  tests pass. Preserve the initial fixture compile and scroll-tolerance test
+  logs; the corrected checks pass.
+- The actual pinned Activity/hooks and native input bridge compile. The same
+  tiny QA APK builds/aligns/signs to 110,995 bytes, SHA-256
+  `68c100a30ca85ffb16c3e071854ba7cbb62c9fae4b25c74baa32abb85f58afc2`.
+  No additional SDK/Home/app copy or runtime dependency is introduced. ADB has
+  no device; both new device receipts are unavailable with all verification
+  flags false. No package is installed and the current WebView is preserved.
+- Reviewed host overlays match, the single headless service is HTTP 200 and
+  deployment use is about 1,109 MiB. The previously qualified Windows artifacts
+  are unaffected; no production release is published. The full goal is active.

@@ -343,3 +343,51 @@ tiny QA package compile; its APK is 98,707 bytes with SHA-256
 No device is currently available, both device receipts remain unavailable, and
 the current system WebView is preserved. Android automation remains disabled
 pending the remaining integration and supported-provider qualification.
+
+## Guarded main-document native input (E8)
+
+The private `input` bridge now connects the real document controller and native
+input sequencer. It requires `navigation`, `input_document` and `input_ref` from
+the original isolated runtime. Focus, text and key requests also require the
+same `focus_document`/`focus_ref`; click coordinates are CSS viewport pixels.
+Native state exposes the actual navigation epoch, per-view input busy/cleanup
+status and whether its scale is known, including failed-input diagnostics.
+Each step checks that exact main-document reference and focus or hit point in
+the isolated world, then rechecks native view ownership, epoch, viewport,
+scroll, scale and visibility before dispatching native input. Native focus and
+DOM focus confirmation share one reserved action slot. Click, text and key
+delivery use WebView touch, input-connection and key APIs, without a synthetic
+DOM input fallback.
+
+Native scale comes only from the exact content view's `onScaleChanged` callback;
+unknown scale rejects as `input_scale_not_ready`. This follows Android's warning
+that [`getScale()` can race rendering](https://developer.android.com/reference/android/webkit/WebView#getScale())
+and its recommended [`onScaleChanged` notification](https://developer.android.com/reference/android/webkit/WebViewClient#onScaleChanged(android.webkit.WebView,%20float,%20float)).
+A changed scale cancels original held input. Old view callbacks cannot set a
+replacement's scale. The isolated viewport must also fit the native dimensions;
+offset pinch viewports and nonzero padding reject. Initial callback delivery,
+rounding, IME resize and scale timing still require actual provider tests.
+
+An independent watchdog bounds asynchronous checks, including a provider that
+never replies. Timeout, cancellation, close, changed focus or rejected geometry
+settle once and release held native input. Late or duplicate checks cannot
+dispatch a replacement action. Scheduler-allocation OOM removes both queued
+tasks and the reservation before any input. Client expiry does not release the
+underlying world's native reservation; E7's independent budget still applies.
+
+This initial private bridge supports a root-document left single click, focus,
+text and the native key subset. Frame chains/snapshots, mouse variants and other
+input kinds refuse. Shared Android frame-driver/Agent wiring, capture/privacy,
+transfers and supported-provider framework qualification remain unfinished.
+Product Browser Use admission stays disabled. This is not Android end-to-end
+qualification or an API to enable unsupported providers.
+
+Verification: 63 deferred-guard, 81 lifecycle, 125 input and 22 channel Java
+assertions pass. Four Node tests execute the actual Java fence constant; the
+full JS suite passes 200 tests. The real Activity and bridge compile, and the
+same QA APK is 110,995 bytes with SHA-256
+`68c100a30ca85ffb16c3e071854ba7cbb62c9fae4b25c74baa32abb85f58afc2`.
+Both device receipts are unavailable because ADB currently has no device.
+`guarded_native_input_verified` remains false even if the older low-level input
+fixture is later run. The current provider, existing mdo package/data and
+qualified Windows development artifacts are preserved.
