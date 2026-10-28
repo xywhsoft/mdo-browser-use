@@ -892,11 +892,27 @@ invalidate the source; only exact view destruction resolves remaining native
 uncertainty. `onCloseWindow` uses the existing browser/panel close reconciliation.
 
 Run `python tools/android_popup_probe.py` for production Java controller/Chrome
-transport checks with deterministic queue doubles. They currently pass 99
+transport checks with deterministic queue doubles. They currently pass 103
 assertions; the actual Activity and SDK compile as well. Neither is a framework
 pass. The initial native popup navigation has no public pre-adoption URL gate,
 and replacing the child's native contents has not qualified isolated-world
 installation. Popup views therefore report `popup_world_unqualified`, and
 overall Android Browser Use automation stays unavailable. Preserve the current
 installed WebView. The reviewed contracts/references are in
-`host/android/popup-protocol.json`; actual device fixture/qualification is next.
+`host/android/popup-protocol.json`.
+
+The tiny SDK client also has a `native-popup` mode. After building, run
+`python tools/android_device_probe.py --mode native-popup` with the authorized
+device. This does not need an isolated execution world or a provider upgrade.
+It uses only synthetic loopback-origin data: write contents into the original
+pending `window.open`, adopt an attached unnavigated child, verify the exact
+contents and opener, close through the native callback, reject another retained
+request, then cancel a pending popup by actually navigating the opener. It
+checks original-ticket rejection, resource release and callback counts.
+
+The mounted 1px child qualifies transport/content only, not pixels, Agent input,
+host panel layout/routing or an isolated popup world. Those flags stay separate.
+The actual Activity and fixture compile; QA APK is now 225,683 bytes, SHA-256
+`f633c927fb3df4107a83df7bf29f1fe45f7611c1eda10f9c519f2533de22e431`.
+Current ADB has no device: `.mdo/android-device-popup-result.json` records
+`android_device_unavailable` and all popup/framework/automation flags false.

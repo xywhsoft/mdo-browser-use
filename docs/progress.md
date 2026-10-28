@@ -4078,3 +4078,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   target assertions. This is a protocol contract result, not a framework pass.
   Actual SDK/fixture packaging is refreshed in the following device-gate stage.
 
+## E31 — add a provider-independent native popup device gate
+
+- Add `native-popup` to the same tiny QA app/device runner. It needs no isolated
+  world or provider upgrade and uses synthetic loopback-origin data only. Check
+  original `window.open` document-write/opener contents in a fresh attached
+  child, original-ticket rejection, native page-close, null-child rejection,
+  actual opener-navigation cancellation and released budgets/callback counts.
+  Reuse one child; cleanup owns/destroys exact views without another app/Home.
+- Separate native transport/content verification from production host routing,
+  isolated popup world, pixels and Agent input. The 1px mounted fixture claims
+  none of the latter. Backgrounding terminates the gate explicitly. No support
+  flag or unavailable/confirmation receipt can imply full automation readiness.
+- The actual Activity, all reviewed host hooks, popup transport and raw fixture
+  compile in the current minimal SDK (`.mdo/E31-android-build-final.log`). QA APK
+  is 225,683 bytes, SHA-256
+  `f633c927fb3df4107a83df7bf29f1fe45f7611c1eda10f9c519f2533de22e431`.
+  ADB has no device (`.mdo/E31-device-popup.log`); its terminal receipt records
+  `android_device_unavailable`, `native_popup_verified:false`, host routing/
+  popup-world qualification false and overall automation false. No install or
+  component upgrade occurred. The same healthy headless deployment is restored.
+  E30's 262 JS and 140/142 Python results remain applicable to unchanged shared
+  code, with the separate 103-assertion ownership correction above. Full goal
+  remains active; installed-provider/production-popup qualification is pending.
+
