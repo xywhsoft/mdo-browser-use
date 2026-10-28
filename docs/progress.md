@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E23 fixes late Android dialog callbacks dispatching
+Latest verified milestones: N1 fixes recovery navigation blocked by a failed
+page's error card, with actual C/JS/WebView2 network/cancel checks. E23 fixes late Android dialog callbacks dispatching
 after exact view teardown and adds native target fault tests. E22 compiles the actual native dialog framework
 fixture, with its device gate unavailable and all flags false. E21 fixes cancelled-navigation peer retirement,
 with deterministic callback-order tests and actual host compilation. E20 wires and compiles actual Android native dialog
@@ -3632,3 +3633,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Contracts/overlays match and the same headless service is healthy. Preserve
   the current provider and keep Android admission disabled. Remaining full-goal
   work continues without production publication or an extra app/Home.
+
+## N1 — recover explicit navigation after a page connection failure
+
+- Reproduce an actual public C → ordinary workbench → native WebView2 defect:
+  a connection reset returns `navigation_failed`, but the next explicit recovery
+  is blocked before sending its GET. The page's own error card hides its native
+  surface; action viewport admission mistakes that for an unavailable pane.
+  Preserve `.mdo/N1-network-before.json`, `.mdo/N1-network-public-diagnosis.log`
+  and the failing `.mdo/N1-reveal-before.log`. The first harness attempt also
+  exposed an error-envelope type assumption; its log is preserved separately.
+- Permit explicit navigation to replace that failed page only in the original
+  connected/active/shown, unobstructed pane with valid DOM/native bounds and a
+  matching native page error. Keep renderer failure, manual control, modal/popup,
+  hidden/detached panes and bridge failures outside this admission. Input and
+  capture still require native visibility; normal dispatcher guards remain.
+- Pass the actual network gate: reset failure, explicit recovery, stalled GET
+  timeout and recovery, read cancellation, and cancel/repeated durable admission
+  after the original POST. Server evidence contains exactly one POST; recovery
+  does not resubmit it. The transport made six reset GET attempts; do not confuse
+  Chromium's GET retries with an application repeating the POST.
+- Observed end-to-end times include UI admission/polling: reset 1,625 ms,
+  recovery 1,641 ms; the 800 ms requested operation timeout returns after 2,344 ms
+  end-to-end, then recovers in 1,578 ms. Read/POST cancellation takes 31/16 ms in
+  this run. These are measured samples and a bounded fault gate, not a latency
+  guarantee or arbitrary-network-loss qualification. Native input/capture/modal/
+  popup busy and cleanup flags are clear; upload/download reservations are zero.
+  Receipt/log: `.mdo/network-result.json` and `.mdo/N1-network-public-after.log`.
+- All 249 sequential JS checks pass, including four new viewport tests covering
+  23 refusal variations. Shared contracts and overlays match. Reuse the same
+  Home/host and restore healthy headless operation. No external site or model
+  call is used. Refresh the packed Windows program after this UI fix; remaining
+  full-goal work and unavailable Android framework qualification continue.

@@ -57,6 +57,7 @@ python tools/keyboard_probe.py
 python tools/capture_readiness_probe.py
 python tools/capture_privacy_probe.py
 python tools/capture_privacy_public_probe.py
+python tools/network_probe.py
 python tools/dom_keyboard_probe.py
 python tools/android_world_probe.py
 python tools/android_dialog_probe.py
@@ -192,6 +193,14 @@ results remain byte-identical across the private-pixel variants, with the final
 8 KiB budget enforced. The public gate also covers fractional CSS bounds and
 downscaling to an 87×73 output. These gates cover this compression boundary, not all
 possible privacy layouts. Their reports store equality/dimensions, not pixels.
+
+`network_probe.py` exercises actual public C/JS/WebView2 connection reset,
+stalled navigation, read cancellation and cancellation/repeated durable admission
+after one submitted POST. Each failure is followed by an explicit recovery
+navigation; final native busy/cleanup flags and transfer reservations must clear.
+The loopback server counts the original POST, rather than inferring no replay
+from a successful UI receipt. It does not access external websites or models.
+Reported elapsed times include UI admission and polling, not only native time.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in

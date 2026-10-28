@@ -567,6 +567,15 @@ still waits for its public C/JS/managed integration regression.
 
 ## JavaScript dialogs and human control
 
+After a page connection error, the browser's error card hides its native content
+surface. An explicit navigation may still replace that failed page when its
+original pane is connected, active, shown, unobstructed and has valid native/DOM
+bounds. The error card must match the native page error. Renderer failure,
+manual control, native dialogs/popups, a hidden/detached pane and bridge errors
+do not gain this admission. Input and capture still need their visible native
+viewport. All ordinary scope, permission, cancellation and native dispatch
+checks continue before an effect; the recovery never replays a prior action.
+
 `dialog({browser,action:"list"})` returns bounded pending alert, confirm, prompt
 and before-unload metadata. Messages and URLs are untrusted page data. Prompt
 defaults are never exposed. `dialog({browser,action:"respond",dialog:id,

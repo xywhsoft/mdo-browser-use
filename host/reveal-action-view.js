@@ -14,16 +14,28 @@ if (command === "act" || command === "navigate_to" || command === "capture" || c
     key: id, resource: { id }, reveal: "activate" });
   await sync(); reveal(panel.id);
   const deadline = performance.now() + Math.min(10000, params.timeout_ms || 10000);
-  let visible = false, phase = "waiting_for_panel_mount";
+  let ready = false, phase = "waiting_for_panel_mount";
   while (!stopped && performance.now() < deadline) {
     const current = browserViews.get(id);
     if (current?.row.id === panel.id) {
       const state = await current.execute("state");
       const mounted = mounts.get(panel.id);
       phase = `visible=${Boolean(state.visible)},document_hidden=${document.hidden},active_matches=${layout.active===panel.id},root_hidden=${mounted?.root.hidden},mount_status=${mounted?.status?.status},mount_error=${mounted?.status?.message||""},viewport=${state.controller_bounds?.width}x${state.controller_bounds?.height},renderer_failed=${Boolean(state.process_failed)}`;
-      if (state.visible) { visible = true; break; }
+      // A page-network error intentionally hides the native surface behind its
+      // error card. Explicit navigation must be able to replace that page; it
+      // sends no pointer input and its normal dispatcher guards still apply.
+      let navigationReady = false;
+      if(command==='navigate_to'&&typeof state.error==='string'&&state.error&&state.automation===true&&
+         !state.process_failed&&!state.manual&&!state.creating&&!state.close_requested&&!state.closed_by_page&&!state.dialog_open&&!state.popup_open&&
+         !document.hidden&&layout.open&&layout.active===panel.id&&mounted?.root.isConnected===true&&mounted.root.hidden===false&&
+         mounted.status?.status==='error'&&mounted.status.message===state.error){
+        const surface=mounted.root.querySelector('.wb-browser-surface')?.getBoundingClientRect(),bounds=state.controller_bounds;
+        const unobstructed=![...document.querySelectorAll('dialog[open], [role=menu]:not([hidden])')].some(node=>node.getClientRects().length);
+        navigationReady=unobstructed&&[surface?.width,surface?.height,bounds?.width,bounds?.height].every(number=>Number.isFinite(number)&&number>0);
+      }
+      if (state.visible===true||navigationReady) { ready = true; break; }
     }
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  if (!visible) throw Error(`The browser action viewport could not be shown (${phase})`);
+  if (!ready) throw Error(`The browser action viewport could not be shown (${phase})`);
 }
