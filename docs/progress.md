@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E28 adds reviewed canonical-default workspace
+Latest verified milestones: E29 connects reviewed directory preparation to the
+download UI and passes actual legacy/existing-default/missing-default WebView2
+save/recovery gates, plus complete Python/JS regression. E28 adds reviewed canonical-default workspace
 preparation and physical binding through shared C/JS SDK services, with 10 new
 actual-host checks and 11 existing legacy recovery checks. F11 refreshes the packed shared hover path and
 passes all eight actual Windows program checks. E27 implements guarded main-document Android native
@@ -3964,3 +3966,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   includes the SDK feature; Windows F11 remains the previously verified artifact
   pending refresh. Android framework/normal-desktop visual qualification remains
   unavailable as recorded above. No production publication or completion claimed.
+
+## E29 — complete the download UI's reviewed default-directory workflow
+
+- Add trusted chrome inspection/confirmation for eligible default-task directories.
+  Show `检查任务目录` for an unpinned bound directory, or the existing original-task
+  lookup for legacy tabs. Missing canonical default directories offer
+  `准备并确认此目录`; existing directories offer explicit adoption/pinning. Custom
+  roots keep restoration semantics. A stored physical pin cannot be replaced by
+  a fresh server row or silently reconstructed.
+- Carry only reviewed root fields into the shared preparation service. Recover a
+  lost reply by rereading the same browser binding, without repeating preparation,
+  requesting the URL again, opening a byte stream early or changing the frozen
+  owner/task/private member. Unexpected review errors do not fall back to another
+  directory. Add bounded, actionable binding-failure messages.
+- Pass 31 focused save/user-action checks and all 260 sequential JS checks.
+  Logs: `.mdo/E29-download-workspace-unit.log`, `.mdo/E29-js-full.log`.
+  Complete Python regression passes 140 of 142 cases; the two existing Windows
+  symlink-privilege cases remain skipped (error 1314), not verified passes.
+  Log: `.mdo/E29-python-full.log`.
+- In the actual mounted WebView2/native browser, pass 18 legacy/custom, 17
+  existing-default and 17 missing-default UI checks. Each accepts and retains one
+  original response, confirms the original directory, saves exact bytes/hash,
+  preserves editing focus, resizes the native surface, publishes/reconciles
+  recovery data and drains cache reservations. Each makes exactly one `/binary`
+  request. Logs: `.mdo/E29-legacy-download-ui-final.log`,
+  `.mdo/E29-default-download-ui-final.log`,
+  `.mdo/E29-missing-default-download-ui-final.log`; corresponding result receipts
+  are `.mdo/download-ui-result.json`, `.mdo/default-download-ui-result.json`,
+  `.mdo/missing-default-download-ui-result.json`.
+- The missing-root UI gate temporarily renames this same Home's exact default
+  workspace, then restores its original physical identity and contents. No Home
+  or app copy is added. Only mark success after exact synthetic-output checks,
+  cleanup, original-root restoration and healthy headless restart; preserve one
+  bounded evidence directory on failure. This qualifies the mounted workflow,
+  not the unavailable normal-desktop screenshot or Android framework. Refresh
+  Windows delivery next; remaining full-goal work stays active.

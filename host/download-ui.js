@@ -12,6 +12,10 @@ const message=error=>{
     browser_workspace_task_missing:'原任务已不可用，无法恢复目录。下载响应仍会保留，请先恢复原任务。',
     browser_workspace_unavailable:'原任务目录不存在或无法确认，请恢复原目录后重新读取。',
     browser_workspace_conflict:'任务或目录已变化，请重新读取原任务目录并确认。',
+    browser_workspace_confirmation:'请先检查原任务目录，再确认准备或使用此目录。',
+    browser_workspace_failed:'目录操作结果尚未确认，请重新读取绑定后再继续。',
+    workbench_save_failed:'目录绑定结果尚未确认，请重新读取原任务目录，避免重复操作。',
+    browser_workspace_bound:'此标签已有目录身份，请恢复原目录后再保存。',
     revision_conflict:'标签状态已更新，请重新读取原任务目录后再确认。',
     workspace_snapshot_changed:'已确认的原任务目录被替换，请先恢复原目录；下载响应仍会保留。',
     sdk_arguments_invalid:'请检查文件相对路径，目录必须已存在。',sdk_file_receive_limit:'暂存空间已满，请核对并清理待处理记录后继续。',
@@ -53,7 +57,10 @@ export function createBrowserDownloads({browser,sdk,execute,signal,alive,onChang
   lookupButton.onclick=()=>{void run(async()=>{
     workspaceReview=null;adoptButton.hidden=true;candidateText.textContent='';
     const candidate=await actions.workspaceCandidate();if(candidate.bound){notice.textContent='已读取原任务的目录绑定。';return;}
-    workspaceReview=candidate;candidateText.textContent=`原任务目录：${candidate.workspace}。确认后将用于此标签的文件保存。`;adoptButton.hidden=false;
+    workspaceReview=candidate;
+    const preparing=candidate.prepare_default===true&&candidate.root_exists===false;
+    candidateText.textContent=`原任务目录：${candidate.workspace}。${preparing?'目录尚未创建，确认后将准备此默认目录。':'确认后将用于此标签的文件保存。'}`;
+    adoptButton.textContent=preparing?'准备并确认此目录':'确认使用此目录';adoptButton.hidden=false;
   });};
   adoptButton.onclick=()=>{void run(async()=>{
     if(!workspaceReview)return;const reviewed=workspaceReview;workspaceReview=null;adoptButton.hidden=true;
@@ -72,7 +79,8 @@ export function createBrowserDownloads({browser,sdk,execute,signal,alive,onChang
   function paint(){
     const saving=downloadSaveState(browser.id),locked=busy||Boolean(saving),disabled=disposed||nativeError;
     info.textContent=actions.context.workspace?`保存到原任务目录：${actions.context.workspace}`:'此标签尚未记录原任务目录。可先接收下载，再读取原任务目录并确认保存位置。';
-    binding.hidden=Boolean(actions.context.workspace);lookupButton.disabled=adoptButton.disabled=locked;
+    binding.hidden=!actions.workspaceReviewAvailable;lookupButton.textContent=actions.context.workspace?'检查任务目录':'读取原任务目录';
+    lookupButton.disabled=adoptButton.disabled=locked;
     for(const [id,row]of nativeRows){
       const previous=row.controls;row.controls=previous.cloneNode(false);
       const value=row.data,active=saving?.download===id;row.name.textContent=String(value.name||'下载文件');row.name.title=row.name.textContent;

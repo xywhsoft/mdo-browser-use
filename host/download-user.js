@@ -4,6 +4,7 @@ import {executeDownloadSave,cancelDownloadSave,downloadSaveState} from './downlo
 // replace this frozen browser context with the currently selected conversation.
 export function createDownloadUserActions({browser,sdk,execute,signal,alive=()=>true}){
   let context=Object.freeze({...browser.context,extension:browser.owner}),api=sdk.bind(context);
+  let defaultReview=(context.project||'default')==='default'&&!Object.hasOwn(context,'workspace_snapshot');
   let stopped=false,active=null;
   const valid=()=>!stopped&&!signal?.aborted&&alive();
   const error=(code,message)=>Object.assign(new Error(message),{code});
@@ -51,21 +52,37 @@ export function createDownloadUserActions({browser,sdk,execute,signal,alive=()=>
     if(!row.context.workspace)return false;
     if(typeof row.context.workspace!=='string'||(context.workspace&&row.context.workspace!==context.workspace)||
        (!context.workspace&&typeof row.context.workspace_snapshot!=='string'))throw error('workspace_snapshot_invalid','原任务目录绑定无法确认');
-    context=Object.freeze({...row.context,extension:browser.owner});api=sdk.bind(context);return true;
+    if(Object.hasOwn(row.context,'workspace_snapshot')&&(typeof row.context.workspace_snapshot!=='string'||
+       row.context.workspace_snapshot.length>256||!/^f-\d+-\d+-/.test(row.context.workspace_snapshot)))
+      throw error('workspace_snapshot_invalid','原任务目录身份无法确认');
+    if(Object.hasOwn(context,'workspace_snapshot')&&context.workspace_snapshot!==row.context.workspace_snapshot)
+      throw error('workspace_snapshot_changed','已确认的原任务目录身份已改变');
+    context=Object.freeze({...row.context,extension:browser.owner});api=sdk.bind(context);
+    if(Object.hasOwn(context,'workspace_snapshot'))defaultReview=false;return true;
   };
   const workspaceCandidate=async()=>{
     check();if(active)throw error('browser_busy','请等待当前操作结束');
     const row=await api.call('browser.get',{id:browser.id},{signal});check();
-    if(bindOriginal(row))return{bound:true}; // Recover a previously lost binding reply.
+    const bound=bindOriginal(row);
+    if(bound&&!defaultReview)return{bound:true}; // Recover a previously lost binding reply.
+    if(defaultReview){
+      try{const candidate=await api.call('browser.workspace.lookup',{id:browser.id,prepare_default:true},{signal});check();return candidate;}
+      catch(cause){check();if(cause?.code!=='browser_workspace_not_default')throw cause;defaultReview=false;}
+      if(bound)return{bound:true}; // A custom root is never prepared as default.
+    }
     const candidate=await api.call('browser.workspace.lookup',{id:browser.id},{signal});check();return candidate;
   };
   const adoptWorkspace=async candidate=>{
-    check();if(active||context.workspace||downloadSaveState(browser.id))throw error('browser_busy','请先刷新目录绑定与当前操作状态');
+    check();const preparing=candidate?.prepare_default===true;
+    if(active||downloadSaveState(browser.id)||(preparing?!defaultReview:Boolean(context.workspace)))
+      throw error('browser_busy','请先刷新目录绑定与当前操作状态');
     if(candidate?.id!==browser.id)throw error('context_mismatch','目录确认不属于当前浏览器');
     const current={kind:'workspace',abort:new AbortController()};active=current;
     try{
-      const {id,revision,session_revision,workspace,root_snapshot}=candidate;
-      const row=await api.call('browser.workspace.adopt',{id,revision,session_revision,workspace,root_snapshot,confirmed:true},{signal:current.abort.signal});
+      const {id,revision,session_revision,workspace,root_snapshot,root_exists}=candidate;
+      const row=await api.call(preparing?'browser.workspace.prepare':'browser.workspace.adopt',
+        {id,revision,session_revision,workspace,...(root_snapshot!==undefined?{root_snapshot}:{}),
+         ...(preparing?{root_exists}:{}),confirmed:true},{signal:current.abort.signal});
       check();if(current.abort.signal.aborted)throw error('operation_uncertain','目录绑定结果需重新读取');
       if(!bindOriginal(row))throw error('workspace_snapshot_invalid','原任务目录绑定未确认');return row;
     }finally{if(active===current)active=null;}
@@ -96,6 +113,7 @@ export function createDownloadUserActions({browser,sdk,execute,signal,alive=()=>
   }
   const stop=()=>{stopped=true;void cancel();};signal?.addEventListener('abort',stop,{once:true});
   return Object.freeze({get context(){return context;},save,inspect,cancel,workspaceCandidate,adoptWorkspace,
+    get workspaceReviewAvailable(){return !context.workspace||defaultReview;},
     reconcile:id=>recover('files.receive.reconcile',{id}),
     publish:(id,path)=>recover('files.receive.publish',{id,path}),
     async release(id){check();if(active||downloadSaveState(browser.id))throw error('browser_busy','请先等待或取消当前保存');return api.call('files.receive.release',{id},{signal});},

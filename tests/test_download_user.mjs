@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {createDownloadUserActions} from '../host/download-user.js';
 
 function fixture(options={}){
-  const calls=[],context={extension:'owner',device:'local',project:'original',session:'original-session',workspace:'D:\\original',namespace:'subtask',member:'worker'};
+  const calls=[],context={extension:'owner',device:'local',project:'original',session:'original-session',workspace:'D:\\original',namespace:'subtask',member:'worker',...options.baseContext};
   const hash='e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
   let bound,receive,publish,destination,serverContext={...context,...options.serverContext};const controller=new AbortController();
   const revision=options.rootSnapshot||'root',candidate={id:'manual-ui-qa',revision:1,session_revision:4,workspace:context.workspace,root_snapshot:revision};
@@ -12,10 +12,18 @@ function fixture(options={}){
     if(method==='files.stat')return{revision};
     if(method==='sdk.context')return bound;
     if(method==='browser.get')return{id:'manual-ui-qa',owner:context.extension,context:serverContext};
-    if(method==='browser.workspace.lookup')return candidate;
-    if(method==='browser.workspace.adopt'){
+    if(method==='browser.workspace.lookup'){
+      if(p.prepare_default){
+        if(options.reviewError)throw Object.assign(Error('Unconfirmed directory review'),{code:options.reviewError});
+        if(options.customDefault)throw Object.assign(Error('Custom original root'),{code:'browser_workspace_not_default'});
+        const result={...candidate,prepare_default:true,root_exists:!options.missingDefault};
+        if(options.missingDefault)delete result.root_snapshot;return result;
+      }
+      return candidate;
+    }
+    if(method==='browser.workspace.adopt'||method==='browser.workspace.prepare'){
       serverContext={...serverContext,workspace:candidate.workspace,workspace_snapshot:revision};
-      if(options.lostAdopt)throw Object.assign(Error('Lost binding reply'),{code:'connection_lost'});
+      if(options.lostAdopt||method==='browser.workspace.prepare'&&options.lostPrepare)throw Object.assign(Error('Lost binding reply'),{code:'connection_lost'});
       return{id:'manual-ui-qa',owner:context.extension,context:serverContext};
     }
     if(method==='stream.open')return{handle:'str-'+'1'.repeat(32)};
@@ -115,5 +123,55 @@ test('manual saving checks an adopted physical pin before opening any byte strea
 test('ordinary directory metadata changes do not invalidate an adopted manual save',async()=>{
   const f=fixture({context:{workspace_snapshot:'f-3-4-0-0'},rootSnapshot:'f-3-4-80-999'});try{
     assert.equal((await f.actions.save('download','empty.bin')).saved,true);
+  }finally{f.actions.dispose();}
+});
+
+test('missing canonical default root is only prepared after explicit review and confirmation',async()=>{
+  const f=fixture({baseContext:{project:'default'},missingDefault:true,rootSnapshot:'f-3-4-0-0'});try{
+    assert.equal(f.actions.workspaceReviewAvailable,true);
+    const candidate=await f.actions.workspaceCandidate();assert.equal(candidate.prepare_default,true);assert.equal(candidate.root_exists,false);
+    assert(!Object.hasOwn(candidate,'root_snapshot'));assert(!f.calls.some(c=>c.method==='browser.workspace.prepare'||c.native));
+    await f.actions.adoptWorkspace(candidate);
+    const prepare=f.calls.find(c=>c.method==='browser.workspace.prepare');assert.equal(prepare.confirmed,true);assert.equal(prepare.root_exists,false);
+    assert(!Object.hasOwn(prepare,'root_snapshot'));assert.equal(prepare.workspace,f.context.workspace);assert.equal(prepare.session_revision,4);
+    assert.equal(f.actions.context.workspace_snapshot,'f-3-4-0-0');assert.equal(f.actions.workspaceReviewAvailable,false);
+    assert.equal(f.actions.context.namespace,f.context.namespace);assert.equal(f.actions.context.member,f.context.member);
+    assert((await f.actions.save('download','empty.bin')).saved);assert(!f.calls.some(c=>c.method==='files.resolve'));
+  }finally{f.actions.dispose();}
+});
+
+test('lost default preparation reply is reread without repeating preparation or a download',async()=>{
+  const f=fixture({baseContext:{project:'default'},missingDefault:true,rootSnapshot:'f-3-4-0-0',lostPrepare:true});try{
+    const candidate=await f.actions.workspaceCandidate();await assert.rejects(f.actions.adoptWorkspace(candidate),{code:'connection_lost'});
+    assert(!f.actions.context.workspace_snapshot);assert.equal((await f.actions.workspaceCandidate()).bound,true);
+    assert.equal(f.actions.context.workspace_snapshot,'f-3-4-0-0');assert.equal(f.actions.workspaceReviewAvailable,false);
+    assert.equal(f.calls.filter(c=>c.method==='browser.workspace.prepare').length,1);assert(!f.calls.some(c=>c.native||c.method==='stream.open'));
+  }finally{f.actions.dispose();}
+});
+
+test('custom roots in the default project keep legacy restoration and never use default creation',async()=>{
+  for(const legacy of [false,true]){
+    const f=fixture({baseContext:{project:'default'},customDefault:true,rootSnapshot:'f-3-4-0-0',
+      ...(legacy?{context:{workspace:''},serverContext:{workspace:''}}:{})});try{
+      const candidate=await f.actions.workspaceCandidate();
+      if(legacy){assert(!candidate.prepare_default);await f.actions.adoptWorkspace(candidate);assert(f.calls.some(c=>c.method==='browser.workspace.adopt'));}
+      else assert.equal(candidate.bound,true);
+      assert.equal(f.actions.workspaceReviewAvailable,false);assert(!f.calls.some(c=>c.method==='browser.workspace.prepare'||c.method==='files.resolve'));
+    }finally{f.actions.dispose();}
+  }
+});
+
+test('a stored physical pin cannot be replaced by rereading another server binding',async()=>{
+  const f=fixture({baseContext:{project:'default'},context:{workspace_snapshot:'f-3-4-0-0'},serverContext:{workspace_snapshot:'f-3-9-0-0'}});try{
+    await assert.rejects(f.actions.workspaceCandidate(),{code:'workspace_snapshot_changed'});
+    assert.equal(f.actions.context.workspace_snapshot,'f-3-4-0-0');assert(!f.calls.some(c=>c.method==='browser.workspace.prepare'||c.native));
+  }finally{f.actions.dispose();}
+});
+
+test('unconfirmed default review errors do not fall back to another recovery or create path',async()=>{
+  const f=fixture({baseContext:{project:'default'},reviewError:'browser_workspace_unavailable'});try{
+    await assert.rejects(f.actions.workspaceCandidate(),{code:'browser_workspace_unavailable'});
+    const lookups=f.calls.filter(c=>c.method==='browser.workspace.lookup');assert.equal(lookups.length,1);assert.equal(lookups[0].prepare_default,true);
+    assert(!f.calls.some(c=>c.method==='browser.workspace.adopt'||c.method==='browser.workspace.prepare'||c.method==='files.resolve'));
   }finally{f.actions.dispose();}
 });

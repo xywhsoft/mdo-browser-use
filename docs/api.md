@@ -1209,8 +1209,9 @@ Legacy tabs without an original workspace offer `读取原任务目录`, followe
 `确认使用此目录` after review. Saving stays disabled until the binding is confirmed.
 If the original task or directory cannot be established, the response is retained
 and an explicit error is shown; the current task is never substituted. Nonexistent
-default-root preparation, remote save transport and Android transfers still need
-their own implementation or final verification. The mounted WebView2 UI gate proves exact
+default-root preparation now passes actual missing-directory review, preparation
+and physical binding in the mounted WebView2 workflow. Remote save transport and
+Android transfers still need their own implementation or final verification. The mounted WebView2 UI gate proves exact
 manual-save bytes, acceptance without takeover, focus retention, actual native
 viewport bounds and recovery publication/reconciliation. A normal-main-window
 desktop screenshot check was attempted but failed with `failed to activate
@@ -1234,7 +1235,19 @@ custom roots require restoration. Original task/private-member scope and current
 metadata/physical identity are checked before commitment. After an uncertain
 response, reread `browser.get` before deciding another action; preparation never
 replays a request, download or file publication. This is a trusted SDK operation,
-not an added Agent tool. The download UI flow is being integrated separately.
+not an added Agent tool.
+
+The download tray now offers `检查任务目录` for an eligible unpinned default-task
+directory. Review shows its original path; a missing canonical default offers
+`准备并确认此目录`, while an existing root offers `确认使用此目录`. Custom roots
+retain restoration semantics. A lost preparation reply is recovered by reading
+the same browser, without repeating directory preparation or a request/download.
+Existing physical pins remain immutable. Actual mounted legacy, existing-default
+and missing-default gates verify exact saved bytes, retained response identity,
+recovery publication/reconciliation, focus and native-surface bounds. These gates
+reuse one Home; the missing-root case restores the original physical directory.
+They do not replace the unavailable normal-desktop visual or Android framework
+qualification.
 
 The shared host C/JS SDK now provides `browser.workspace.lookup` and
 `browser.workspace.adopt` (`mdoBrowserWorkspaceLookup/Adopt` and

@@ -77,6 +77,8 @@ python tools/download_probe.py
 python tools/save_probe.py
 python tools/publication_recovery_probe.py
 python tools/download_ui_probe.py
+python tools/download_ui_probe.py --default-workspace
+python tools/download_ui_probe.py --missing-default-workspace
 ```
 
 Generate the portable development plugin with `python tools/package_plugin.py`.
