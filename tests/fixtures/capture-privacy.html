@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#fff}.private{position:absolute}</style>
+<div class="private" data-mdo-private style="left:13px;top:13px;width:11px;height:9px"></div>
+<div class="private" data-mdo-private style="left:31px;top:23px;width:17px;height:11px"></div>
+<div class="private" data-mdo-private style="left:61px;top:43px;width:19px;height:13px"></div>
+<script>
+const variant=new URL(location.href).searchParams.get('variant')==='1'?1:0;
+for(const box of document.querySelectorAll('.private'))box.style.background=variant?'#fff':'#000';
+document.title='Capture privacy fixture '+variant;
+</script>

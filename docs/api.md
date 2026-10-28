@@ -441,6 +441,14 @@ The operation journal retains identity/scope metadata instead of private results
 
 ## Bounded screenshots
 
+Native screenshot sources stay lossless PNG, with a separate 256 KiB source
+budget. Privacy masking runs before the caller's PNG/JPEG output encoding and
+final `max_bytes` limit. Windows can reduce source scale within its existing
+bounded native capture attempts; it never substitutes a lossy source. An explicit
+native source-codec mismatch stops with `capture_source_invalid` before decoding
+or publishing an image. A private region's pixels must not affect surrounding
+public pixels through an earlier JPEG compression step.
+
 After page readiness, the newly revealed pane may still finish resizing. A
 viewport-only mismatch can be retried inside the same read-only screenshot call
 with at most three native captures, the original deadline/cancellation/control

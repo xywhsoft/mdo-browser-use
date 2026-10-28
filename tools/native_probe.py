@@ -661,7 +661,7 @@ try {
 '''
 
 
-def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_only=False, capture_evidence=True):
+def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_only=False, capture_evidence=True, *, script_override=None, download_fixture=True):
     output = dev.ENV / "page-observation-result.json"
     output.write_text('{"passed":false,"state":"running"}\n', encoding="utf-8")
     dump_root = dev.ENV / "host"
@@ -670,13 +670,14 @@ def main(dialog_expiry=False, chooser_only=False, download_only=False, startup_o
                 for p in dump_root.glob("crash_*") if p.suffix in (".dmp", ".txt")}
     previous_dumps = dumps()
     from download_fixture import DownloadFixture
-    fixture = DownloadFixture().start() if not chooser_only and not startup_only else None
+    if script_override is not None and (chooser_only or download_only or startup_only):raise ValueError('Custom probe cannot replace another selected mode')
+    fixture = DownloadFixture().start() if download_fixture and not chooser_only and not startup_only else None
     web = dev.SOURCE / "app/web"
     runtime = (ROOT / "page/runtime.js").read_text(encoding="utf-8")
     if runtime.count("export function browserRuntime(") != 1:
         raise RuntimeError("The injectable page entry changed")
     runtime = runtime.replace("export function browserRuntime(", "function browserRuntime(")
-    selected_script = SCRIPT
+    selected_script = SCRIPT if script_override is None else script_override
     if chooser_only:
         start = selected_script.index('try {\n  const raceBrowser=')
         end = selected_script.index('} catch(error) { report=')

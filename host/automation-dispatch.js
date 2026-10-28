@@ -245,7 +245,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         let settled = false,native,failure;
         const pending = view.execute("capture",{agent:true,navigation,capture_key:action.id,clip:{...area.region,scale},
           ...(area.native_capture?{capture_context:area.native_capture}:{}),
-          format:params.format||"png",max_bytes:params.max_bytes||131072,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
+          // Source pixels must remain lossless until privacy masking. The
+          // caller's output codec/byte limit is applied by prepareScreenshot.
+          format:'png',max_bytes:262144,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
           .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
         while (!settled) {
           await Promise.race([pending,pause(50)]);checked = await guard();
@@ -263,6 +265,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           return fail(code,code==='capture_cleanup_failed'?'Native screenshot cleanup was not confirmed; end this browser before another capture':
             'The original native screenshot could not complete; inspect the current browser before another capture');
         }
+        if(native?.format!==undefined&&native.format!=='png')
+          return fail('capture_source_invalid','The browser did not return the requested lossless PNG source; inspect or update the host before retrying');
+        native={...native,format:'png'};
         const after = await read("captureArea",{...options,document:area.document});
         if (!after.ok) return {handled:true,result:after};
         if(area.frame_stamp!==after.frame_stamp){

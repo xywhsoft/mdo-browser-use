@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F6 refreshes/requalifies the packed Windows preview
+Latest verified milestones: E17 fixes private-pixel influence leaking through
+lossy native screenshot sources, with actual codec and public C/JS/WebView2
+regressions; its refreshed Windows preview is pending. F6 refreshes/requalifies the packed Windows preview
 with runtime 19 and the E14/E16 shared capture changes; E16 wires actual Android visible drawing/encoding,
 capture cancellation/lifecycle and isolated proof, compiles the real host and
 pixel fixture, with actual-device/privacy qualification unavailable; E15 adds a tested, resource-bounded native capture
@@ -3438,3 +3440,34 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   admission remains disabled with the current provider preserved. Remaining
   platform/product gates continue; no production publication and no goal
   completion is claimed.
+
+## E17 — mask private pixels before lossy screenshot encoding
+
+- Reproduce a shared screenshot privacy defect with actual Chromium codecs and
+  the production shared executor. Changing only pixels inside three masked
+  regions changes 456 public JPEG pixels when JPEG compression precedes masking;
+  PNG remains identical. Preserve `.mdo/E17-privacy-before.log`,
+  `.mdo/E17-privacy-before.json` and the two failing source-contract tests in
+  `.mdo/E17-source-contract-before.log`. This is synthetic private data only.
+- Always request a lossless PNG native source with its own 256 KiB budget, then
+  mask before applying the original public format and output byte limit. Refuse
+  an explicit non-PNG native reply before decoding/publication. Reuse Windows'
+  existing bounded source-scale reduction; no native binary or Android Java
+  change is needed. Android already supplies lossless sources.
+- Pass 245 complete sequential JS checks, including the new source-codec and
+  refusal cases. The actual codec regression now has zero changed public pixels
+  for both PNG and JPEG. Logs/results: `.mdo/E17-js-full.log`,
+  `.mdo/E17-privacy-after.log` and `.mdo/capture-privacy-result.json`.
+- Independently pass the actual public C service → ordinary JS workbench → native
+  WebView2 gate. The two private-pixel variants produce byte-identical 457×384
+  outputs with three redactions: PNG 5,052 bytes and JPEG 2,256 bytes, within the
+  caller's 8 KiB limit. Receipt/log: `.mdo/capture-privacy-public-result.json`
+  and `.mdo/E17-privacy-public.log`. No images, model calls or external sites are
+  retained/used. These regressions prove this compression boundary, not every
+  possible privacy layout.
+- Shared contracts and applied overlays match. Reuse the same Home/deployment
+  and restore the healthy headless service. The Windows executable must be
+  refreshed after this fix; Android actual pixels/privacy/framework qualification
+  and the remaining full product gates continue. Preserve the current Android
+  provider, keep admission disabled and the full goal active. No production
+  publication occurs.

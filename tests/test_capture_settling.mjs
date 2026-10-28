@@ -25,7 +25,7 @@ function fixture(areas,mode=''){
       return value;
     }},view:{async execute(command,options){
       if(command==='state')return{loading:false,automation:true,capture_capability:true,navigation:state.navigation,manual:state.manual};
-      if(command==='capture'){state.captures.push(options);return{data:'private-invalidated-native-capture'};}
+      if(command==='capture'){state.captures.push(options);return{data:'private-invalidated-native-capture',...(state.sourceFormat!==undefined?{format:state.sourceFormat}:{})};}
       throw Error('Unexpected native operation '+command);
     }}};
   return{args,state,run:()=>executeBrowserAutomation(args)};
@@ -64,4 +64,22 @@ test('cancel, takeover, navigation and deadline interrupts stop a settling captu
 test('a settled retry cannot rebind the original screenshot to a different document',async()=>{
   const f=fixture([area(),area(120),area(120,{document:'d-replaced'})]),out=await f.run();
   assert.equal(out.result.error.code,'stale_document');assert.equal(f.state.captures.length,1);assert.equal(globalThis.__captureSettlingRenders,0);
+});
+
+test('public screenshot codecs retain a separate bounded lossless native source',async()=>{
+  for(const format of ['png','jpeg']){
+    const f=fixture([area(),area()],format);f.args.params.format=format;f.args.params.max_bytes=8192;
+    const out=await f.run();assert(out.result.ok);assert.equal(f.state.captures.length,1);
+    assert.equal(f.state.captures[0].format,'png');assert.equal(f.state.captures[0].max_bytes,262144);
+    assert.equal(f.args.params.format,format);assert.equal(f.args.params.max_bytes,8192);
+  }
+});
+
+test('a backend cannot silently substitute a lossy or unknown screenshot source',async()=>{
+  for(const format of ['jpeg','webp','',123]){
+    const f=fixture([area(),area()]);f.state.sourceFormat=format;
+    const out=await f.run();assert.equal(out.result.error.code,'capture_source_invalid');
+    assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(globalThis.__captureSettlingRenders,0);
+    assert.equal(f.state.captures.length,1);assert.equal(f.state.reads.length,1);
+  }
 });

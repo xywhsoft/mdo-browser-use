@@ -55,6 +55,8 @@ python tools/frame_scroll_probe.py
 python tools/visual_probe.py
 python tools/keyboard_probe.py
 python tools/capture_readiness_probe.py
+python tools/capture_privacy_probe.py
+python tools/capture_privacy_public_probe.py
 python tools/dom_keyboard_probe.py
 python tools/android_world_probe.py
 python tools/sdk_probe.py
@@ -178,6 +180,15 @@ resize between privacy scans and verifies two native captures in one original
 operation, one stable image and an empty native capture slot. Unit gates bound
 continuous resizing and check cancellation, takeover, navigation, privacy and DPR
 changes without image publication.
+
+`capture_privacy_probe.py` uses actual Chromium canvas codecs and the production
+shared capture executor to compare synthetic images differing only inside three
+private regions. It reproduces JPEG influence spreading outside masks when a
+lossy source is admitted. `capture_privacy_public_probe.py` independently checks
+the actual public C → JS → native WebView2 path using a loopback page: PNG/JPEG
+results remain byte-identical across the private-pixel variants, with the final
+8 KiB budget enforced. These gates cover this compression boundary, not all
+possible privacy layouts. Their reports store equality/dimensions, not pixels.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C
 service call through its workbench to WebView2. Host overlays are recorded in
