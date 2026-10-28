@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: W5 adds native directory selection with trusted
+Latest verified milestones: W6 fixes long source-path digest/range/tree calls;
+W5 adds native directory selection with trusted
 completion and exact relative paths; W4 adds directory staging/restart collection;
 W3 preserves long upload basenames; W1 adds source manifests.
 V8 bounds read-only viewport settling during capture;
@@ -2545,3 +2546,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android integration under the retained WebView limit and final lifecycle/
   OOM/network/performance/package checks remain active. No directory capability
   is advertised to callers yet; this milestone does not complete the goal.
+
+## W6 — long source snapshot paths
+
+- Public directory integration exposed an existing source SDK defect: anchored
+  tree enumeration hashes a 240-byte leaf correctly, but the ordinary full-path
+  revision read returns a metadata-open failure. Reproduce with both relative
+  and absolute paths; short sibling files read normally. Preserve the actual
+  failed public transfer log and its no-assignment receipt.
+- XRT's Windows path-stat/open adapters pass the UTF-16 path directly to Win32.
+  Snapshot digest/range/tree calls now prepare ordinary long paths in the
+  extended namespace after absolute normalization and separator conversion.
+  Keep short and explicitly prefixed paths unchanged; do not alter the public
+  path resolver, retained metadata formats, or other platforms. The original
+  task host performs this conversion, independently of the browser's platform.
+  Native path preparation never changes regular-file, no-follow, sharing,
+  identity, revision, complete-hash or byte-budget checks.
+- Actual C/XRT regression passes for a 240-byte source directory plus a 240-byte
+  leaf: whole digest, complete anchored tree, absolute and original-workspace
+  relative revision reads, and denial after a source change. File snapshot gates
+  pass six cases with the existing Windows symlink-privilege skip; all ten tree
+  snapshot cases pass. Compile the production adapter to check drive/UNC spelling,
+  explicit/device paths and both adapter allocation failures with no leak.
+  These seams do not claim real network-share access.
+- The existing tree fault gate still passes all 111 allocation positions and
+  15 replacement/cancellation/cleanup scenarios. Its path-conversion stub is
+  explicit; the adapter and long paths have their separate real/compiled gates.
+  Keep the original failed evidence. Public directory integration remains under
+  development and is committed separately after its complete end-to-end gates.

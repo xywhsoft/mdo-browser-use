@@ -74,6 +74,7 @@ static bool SdkNativeFailure(mdo_error_v1* E,cstr Stage){return MdoApplicationEr
 static bool BuFileContinue(const mdo_sdk_context_v1* C,mdo_error_v1* E){
     (void)C;Continues++;if(Scenario==6&&Continues>=5)return MdoApplicationError(E,"cancelled","","",499,false);return true;
 }
+static bool BuFileSnapshotPath(cstr Path,char** Owned,mdo_error_v1* E){(void)Path;(void)E;*Owned=NULL;return true;}
 static char* SdkNativePath(const mdo_sdk_context_v1* C,const xvalue* P,bool Storage,mdo_error_v1* E){
     (void)C;(void)P;(void)Storage;(void)E;char* S=xrtMalloc(9);if(S)strcpy(S,"/fixture");return S;
 }

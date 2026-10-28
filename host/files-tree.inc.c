@@ -188,6 +188,7 @@ static bool BuFileTree(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,md
         if(!E||!E->Code[0])MdoApplicationError(E,"sdk_tree_failed","Cannot allocate the selected directory path","file_tree",503,false);
         return false;
     }
+    char* Native=NULL;if(!BuFileSnapshotPath(Path,&Native,E)){xrtFree(Path);return false;}if(Native){xrtFree(Path);Path=Native;}
     BuTree* T=xrtCalloc(1,sizeof(*T));xvalue* Result=NULL;bool Ok=false;xfileinfo Named={0},Opened={0};
     if(!T)goto done;T->MaxFiles=(unsigned)Files;T->MaxDirectories=(unsigned)Directories;T->MaxDepth=(unsigned)Depth;T->MaxBytes=Bytes;T->MaxFileBytes=FileBytes;
     if(!BuFileContinue(C,E))goto done;

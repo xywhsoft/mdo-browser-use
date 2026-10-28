@@ -90,6 +90,30 @@ class FileSnapshotTests(unittest.TestCase):
             self.error("files.digest",{"path":str(link)},422,"sdk_file_type")
         finally:link.unlink(missing_ok=True)
 
+    @unittest.skipUnless(os.name=="nt","Actual Windows extended source paths")
+    def test_long_source_root_and_leaf_support_digest_tree_and_revision_reads(self):
+        root=self.directory/('d'*240)
+        self.assertTrue(root.absolute().is_relative_to(dev.ENV))
+        native=Path('\\\\?\\'+str(root.absolute()))
+        self.assertFalse(native.exists(),'Preserve an interrupted/unknown long source fixture')
+        native.mkdir()
+        leaf='n'*240;selected=native/leaf;data=b'complete long source bytes'
+        try:
+            selected.write_bytes(data);path=str(root/leaf)
+            snapshot=dev.call("files.digest",{"path":path},self.scope)
+            self.assertEqual(snapshot["sha256"],hashlib.sha256(data).hexdigest())
+            tree=dev.call("files.tree",{"path":str(root)},self.scope)
+            self.assertEqual(tree["files"][0]["path"],leaf)
+            self.assertEqual(tree["files"][0]["sha256"],snapshot["sha256"])
+            scope=dict(self.scope,workspace=str(root))
+            for source,context in ((path,self.scope),('./'+leaf,scope)):
+                read=dev.call("files.read",{"path":source,"revision":snapshot["revision"],"limit":65536},context)
+                self.assertEqual(base64.b64decode(read["base64"],validate=True),data)
+            selected.write_bytes(b'changed source size')
+            self.error("files.read",{"path":path,"revision":snapshot["revision"]},412,"sdk_file_conflict")
+        finally:
+            selected.unlink(missing_ok=True);native.rmdir()
+
     @unittest.skipUnless(os.name=="nt","Windows file sharing gate")
     def test_active_writer_cannot_be_hashed_or_read_as_a_stable_snapshot(self):
         selected=self.directory/"upload-snapshot-held.bin";selected.write_bytes(b"snapshot")

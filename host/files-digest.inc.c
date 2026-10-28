@@ -1,5 +1,27 @@
 /* Transfer snapshots are read-only and bounded. Never return file contents or
  * accept a digest of a prefix as the digest of the whole file. */
+static bool BuFileSnapshotPath(cstr Path,char** Owned,mdo_error_v1* E){
+    *Owned=NULL;
+#if defined(_WIN32) || defined(_WIN64)
+    /* Resolve ordinary long paths before adding the Windows namespace: extended
+     * paths do not interpret '/' or dot segments. Keep already explicit paths
+     * and short-path behavior unchanged. No namespace path is returned on wire. */
+    if(strlen(Path)<248||!strncmp(Path,"\\\\?\\",4))return true;
+    if(!strncmp(Path,"\\\\.\\",4)||!strncmp(Path,"\\??\\",4))
+        return MdoApplicationError(E,"sdk_arguments_invalid","Snapshot paths must name ordinary files or directories","filesystem",422,false);
+    char* Absolute=xrtPathAbs(Path);if(!Absolute)return SdkNativeFailure(E,"filesystem");
+    for(char* At=Absolute;*At;At++)if(*At=='/')*At='\\';
+    if(((Absolute[0]>='a'&&Absolute[0]<='z')||(Absolute[0]>='A'&&Absolute[0]<='Z'))&&Absolute[1]==':'&&Absolute[2]=='\\')
+        *Owned=xrtFormat("\\\\?\\%s",Absolute);
+    else if(Absolute[0]=='\\'&&Absolute[1]=='\\'&&Absolute[2]!='?'&&Absolute[2]!='.')
+        *Owned=xrtFormat("\\\\?\\UNC\\%s",Absolute+2);
+    xrtFree(Absolute);
+    if(!*Owned)return MdoApplicationError(E,"sdk_file_path_failed","Cannot prepare the selected snapshot path","filesystem",503,false);
+#else
+    (void)Path;(void)E;
+#endif
+    return true;
+}
 static bool BuFileSame(const xfileinfo* A,const xfileinfo* B){
     return A->Type==XFILE_TYPE_FILE&&B->Type==XFILE_TYPE_FILE&&A->Device==B->Device&&
         A->Identity==B->Identity&&A->Size==B->Size&&A->Modified==B->Modified;
@@ -19,6 +41,7 @@ static bool BuFileRead(const mdo_sdk_context_v1* C,const xvalue* P,cstr Path,xva
         return MdoApplicationError(E,"sdk_arguments_invalid","Read needs a nonempty revision and bounded byte range","filesystem",422,false);
     xfileinfo Named={0},Before={0},After={0},Current={0};xvalue* Metadata=NULL;
     xfile File=NULL;unsigned char* Bytes=NULL;size_t Read=0;bool Ok=false;
+    char* Native=NULL;if(!BuFileSnapshotPath(Path,&Native,E))return false;if(Native)Path=Native;
     if(!xrtPathStat(Path,false,&Named)){SdkNativeFailure(E,"filesystem");goto done;}
     if(Named.Type!=XFILE_TYPE_FILE){MdoApplicationError(E,"sdk_file_type","Revision reads require a regular file","filesystem",422,false);goto done;}
     xfileoptions Options;xrtFileOptionsInit(&Options);Options.Flags=XFILE_READ|XFILE_NOFOLLOW;Options.Share=XFILE_SHARE_READ;
@@ -42,7 +65,7 @@ static bool BuFileRead(const mdo_sdk_context_v1* C,const xvalue* P,cstr Path,xva
     if(Ok){*R=Metadata;Metadata=NULL;}
 done:
     if(File&&!xrtClose(File)&&(!E||!E->Code[0]))SdkNativeFailure(E,"filesystem");
-    if(Bytes){xrtSecureZero(Bytes,(size_t)Limit);xrtFree(Bytes);}xrtValueRelease(Metadata);
+    if(Bytes){xrtSecureZero(Bytes,(size_t)Limit);xrtFree(Bytes);}xrtFree(Native);xrtValueRelease(Metadata);
     if(!Ok&&(!E||!E->Code[0]))MdoApplicationError(E,"sdk_file_read_failed","Cannot read the selected bounded file snapshot","filesystem",503,false);
     return Ok;
 }
@@ -54,6 +77,7 @@ static bool BuFileDigest(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,
        (SdkGet(P,"revision")&&(!Expected||!Expected[0]||strlen(Expected)>160)))
         return MdoApplicationError(E,"sdk_arguments_invalid","Digest needs a budget from 1 through 67108864 bytes and an optional observed revision","filesystem",422,false);
     char* Path=SdkNativePath(C,P,false,E);if(!Path)return false;
+    char* Native=NULL;if(!BuFileSnapshotPath(Path,&Native,E)){xrtFree(Path);return false;}if(Native){xrtFree(Path);Path=Native;}
     xfileinfo Named={0},Before={0},After={0},Current={0};xfile File=NULL;unsigned char* Bytes=NULL;
     xvalue* Metadata=NULL;bool Ok=false;
     if(!xrtPathStat(Path,false,&Named)){SdkNativeFailure(E,"filesystem");goto done;}

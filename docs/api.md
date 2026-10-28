@@ -631,6 +631,16 @@ is open; POSIX relies on identity/metadata checks. A revision is not a permanent
 lock across separate calls, and the staged copy must still match the complete
 digest before it can be assigned to a website.
 
+On Windows, snapshot digest/range/tree calls prepare ordinary long source paths
+in the extended namespace after absolute normalization. Dot segments and `/`
+are resolved before prefixing; existing explicit namespace paths and short-path
+behavior are preserved. The selected filesystem identity/revision and the
+read-only/no-follow sharing checks still apply. This native spelling is internal;
+the path resolver and public snapshot result formats are unchanged. Actual local
+XRT gates cover a 240-byte source root plus a 240-byte leaf, complete hashing,
+revision reads and stale-revision rejection. UNC syntax conversion is tested
+without claiming a live network-share gate.
+
 These calls run against the original SDK task's filesystem. They do not treat
 a server path as a path on the browser's displaying device. UI continuations
 preserve the original C task's absolute workspace in their frozen context.
