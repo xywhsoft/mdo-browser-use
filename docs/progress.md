@@ -13,9 +13,10 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E17 fixes private-pixel influence leaking through
-lossy native screenshot sources, with actual codec and public C/JS/WebView2
-regressions; its refreshed Windows preview is pending. F6 refreshes/requalifies the packed Windows preview
+Latest verified milestones: F7 refreshes and qualifies the packed Windows
+preview with E17's screenshot privacy fix. E17 fixes private-pixel influence
+leaking through lossy native screenshot sources, with actual codec and public
+C/JS/WebView2 regressions. F6 refreshes/requalifies the packed Windows preview
 with runtime 19 and the E14/E16 shared capture changes; E16 wires actual Android visible drawing/encoding,
 capture cancellation/lifecycle and isolated proof, compiles the real host and
 pixel fixture, with actual-device/privacy qualification unavailable; E15 adds a tested, resource-bounded native capture
@@ -3471,3 +3472,21 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and the remaining full product gates continue. Preserve the current Android
   provider, keep admission disabled and the full goal active. No production
   publication occurs.
+
+## F7 — deliver the packed screenshot privacy fix
+
+- Repack the Windows preview in place with E17's lossless native capture source.
+  The executable is 6,876,009 bytes, SHA-256
+  `e63290e76ad033c01fa610e9f25149568b182a71fd3358d261293faaed29db16`.
+  The 747-file inventory and runtime verification both pass; packed shared
+  dispatcher/runtime hashes match the deployed reviewed files.
+- Boot the actual executable from `dist/` with the same Home and loopback port.
+  All six archive/UI/C/JS/native observation, Unicode fill/trusted click,
+  synthetic capture and close checks pass. Logs/receipt:
+  `.mdo/F7-program-package.log`, `.mdo/F7-program-runtime.log` and
+  `.mdo/program-runtime-result.json`, plus the adjacent artifact inventory.
+- Restore the healthy headless service. Shared contracts and overlays match;
+  the single deployment remains about 1,110 MiB, with no extra `dist/mdo-home`.
+  The portable plugin and Android QA APK are unchanged. Remaining Android
+  qualification and full product gates continue; no production publication or
+  completion is claimed.

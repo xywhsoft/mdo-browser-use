@@ -7,10 +7,11 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,875,876 bytes**, SHA-256
-`136bfa62c3e68e8fa1ba00795b4573fa76245fbf3ade283afd00c10bd53fe36f`.
+The current refreshed preview is **6,876,009 bytes**, SHA-256
+`e63290e76ad033c01fa610e9f25149568b182a71fd3358d261293faaed29db16`.
 Its native inventory contains 747 files, including runtime 19, the shared
-document/capture driver and E12/E16's native input/capture failure handling. Included module
+document/capture driver, E12/E16's native input/capture failure handling and E17's
+lossless-source privacy fix. Included module
 hashes match the reviewed deployment. The actual packed-program gate passes all
 six runtime checks. This is
 Windows verification; Android framework qualification remains unavailable.
