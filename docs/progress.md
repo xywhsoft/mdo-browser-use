@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | Pending |
 
-Latest verified milestones: W7 connects directory uploads through shared C/JS,
+Latest verified milestones: W8 adds cancel/recreate and missed-reply observations;
+W7 connects directory uploads through shared C/JS,
 Agent tools and routed-frame pickers; W6 fixes long source snapshot paths;
 W5 adds native directory selection with trusted
 completion and exact relative paths; W4 adds directory staging/restart collection;
@@ -2622,3 +2623,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   receipt/log. Investigate this creation path with bounded phase observations;
   do not present this run as green or infer a local root cause from one timeout.
   Android/native lifecycle/OOM/network/performance/package work remains active.
+
+## W8 — measured creation cancellation and late-reply observations
+
+- Preserve W7's original failed broad-native receipt. Add a same-profile
+  cancel/recreate gate with eight sequential hidden/visible replacements. The
+  first run passes with complete replacement readiness in 257–415 ms and
+  explicit native cancellation receipts; the final expanded run passes all
+  eight cases in 361–726 ms. Do not infer the first timeout's root cause or a
+  permanent fix from these successful samples.
+- Exercise a deliberate one-millisecond bridge deadline on an owned local
+  create. Observe only that same identity afterwards: the first status is not
+  ready, and after 510 ms it is ready with its requested document. No duplicate
+  create or navigation occurs. Clearly distinguish this synthetic missed reply
+  from the original default-budget failure; this is a diagnostic gate rather
+  than a change to production timing or behavior.
+- The broad native harness now preserves bounded read-only post-timeout
+  observations for the failed creation identity, without replaying it. Any late
+  readiness leaves the original gate failed. Preserve the mode-selection marker
+  used by chooser/download/startup sub-gates. The four-case startup mode passes
+  after this change.
+- A subsequent full actual native run passes 1,391 assertions with no new native
+  diagnostics, empty protected upload/download caches and successful late empty
+  download-directory reclamation. Retain its structured receipt separately from
+  the earlier failure and later startup/creation results. The original timeout
+  remains unreproduced and unclassified; it is not erased or labelled fixed.
+  The same deployment is headless again. Android implementation, lifecycle/
+  OOM/network/performance and final deliverable gates remain active.

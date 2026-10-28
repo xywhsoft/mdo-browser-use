@@ -47,6 +47,7 @@ python tools/dev.py start
 python -m unittest discover -s tests -v
 node --test --test-concurrency=1 (Get-ChildItem tests -Filter 'test_*.mjs' -File | Sort-Object Name | Select-Object -ExpandProperty FullName)
 python tools/native_probe.py
+python tools/creation_probe.py
 python tools/native_frames_probe.py
 python tools/drag_lifetime_probe.py
 python tools/public_frames_probe.py
@@ -82,6 +83,15 @@ response bytes, cancellation and cache lifecycle checks in the same Home.
 `--startup-only` measures four sequential hidden/visible native starts. It retains
 DOM/load timing when slow, and showing a delayed view cannot turn a startup
 that exceeded the default readiness bound into a passing measurement.
+
+`creation_probe.py` measures eight sequential cancel/recreate cases in the same
+native profile, and deliberately loses one creation reply with a one-millisecond
+test deadline. It observes the same native identity until ready, without another
+create or navigation. This synthetic deadline is not the production timeout.
+The receipt is `.mdo/native-creation-result.json`. The full native gate also
+retains read-only post-timeout creation observations; late readiness keeps the
+original gate failed. An earlier unreproduced production-budget creation timeout
+remains recorded for investigation.
 
 `native_frames_probe.py` verifies the private native frame/session foundation:
 two loopback sites, real cross-process iframes, nested ancestry, isolated reads,
@@ -158,8 +168,10 @@ small synthetic files in the existing `.mdo/qa`; it restores headless mode and
 checks zero remaining private cache reservations. It also covers automatic
 picker interception, opaque chooser uploads, cancellation, repeat-click fencing
 and read-only picker inspection versus cancellation. Nested OOPIF uploads are
-also covered by the public frame gate. Directory uploads and Android transfer
-support remain in development.
+also covered by the public frame gate. Directory sources, complete relative
+paths/hashes, original-workspace resolution, directory pickers and managed
+permissions are covered through both root and OOPIF public gates. Android
+transfer support remains in development.
 
 `upload_admission_probe.py` verifies an actual failed idle native admission
 reclaims its reservation while the browser remains open, without another

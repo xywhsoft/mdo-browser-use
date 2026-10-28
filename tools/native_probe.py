@@ -627,7 +627,22 @@ try {
   const downloadCleanup=await runDownloadCleanupProbe({bridge,assert,pause,origin:downloadOrigin});
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
     screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,native_downloads:true,download_cleanup:downloadCleanup,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
-} catch(error) { report={passed:false,error:String(error.stack||error),last_native_command:lastNativeCommand,checks}; }
+} catch(error) { report={passed:false,error:String(error.stack||error),last_native_command:lastNativeCommand,checks};
+  if(lastNativeCommand?.command==='create'){
+    const failedBrowser=lastNativeCommand.browser,started=performance.now();report.creation_observation=[];
+    // Read the same identity only. Late readiness is evidence, never a retry or
+    // a reason to turn the original failed gate into a pass.
+    do{
+      try{
+        const state=await bridge.call('state',{browser:failedBrowser},{timeout:2000});
+        report.creation_observation.push({elapsed_ms:Math.round(performance.now()-started),ready:true,
+          loading:state.loading,navigation:state.navigation,error:state.error});break;
+      }catch(observed){report.creation_observation.push({elapsed_ms:Math.round(performance.now()-started),ready:false,error:observed.message});}
+      await pause(500);
+    }while(performance.now()-started<15000);
+    try{await bridge.call('close',{browser:failedBrowser});}catch{}
+  }
+}
 finally {
   try { await bridge.call('close',{browser}); } catch {}
   bridge.dispose();
