@@ -634,7 +634,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -785,6 +785,97 @@
       "before": "static bool EcoLocalCurrent(cstr path,xvalue* change,const xvalue* owned,char error[1024])\n{\n    if(!EcoLocalAllowed(path))return false;\n    xvalue* Plugin=ExtensionPluginOwner(path);if(Plugin){snprintf(error,1024,\"Resource is owned by plugin %s; change that plugin first\",MdoPackageText(Plugin,\"id\",64));xrtValueRelease(Plugin);return false;}\n    if(!strcmp(path,\"config/plugins.json\"))return xrtValueObjectHas(change,XRT_STR_LITERAL(\"old\"));\n    bool exists=false;xfileinfo info;if(!MdoHomeExternalStat(path,&exists,&info))return false;\n    if(!exists){if(owned){snprintf(error,1024,\"Installed file is missing: %s\",path);return false;}\n        xfile builtin=MdoResourceOpenRead(path);if(builtin){xrtClose(builtin);snprintf(error,1024,\"Built-in resource cannot be replaced: %s\",path);return false;}\n        xrtClearError();return xrtValueObjectSetNew(change,XRT_STR_LITERAL(\"old\"),xrtValueNull());}\n    if(!owned&&!strncmp(path,\"data/ecosystem/mcp/\",19)){bool missing=false;char* raw=MdoExtensionRead(path,true,131072,&missing);char hash[65];bool same=raw&&MdoExtensionHash(raw,hash)&&!strcmp(hash,MdoPackageText(change,\"sha256\",64));\n        char* encoded=same?xrtBase64EncodeNew(raw,strlen(raw),NULL):NULL;bool reused=encoded&&MdoApiValueSetString(change,\"old\",encoded);xrtFree(encoded);xrtFree(raw);if(reused)return true;}\n    if(!owned||info.Type!=XFILE_TYPE_FILE||!(info.Available&XFILE_INFO_SIZE)||info.Size>64u*1024u*1024u){snprintf(error,1024,\"Resource already exists: %s\",path);return false;}\n    xfile f=MdoHomeOpenRead(path);size_t n=(size_t)info.Size;bytes b=xrtMalloc(n+1);char hash[65];bool ok=f&&b&&xrtReadFull(f,b,n,NULL)&&MdoExtensionHashBytes(b,n,hash)&&!strcmp(hash,MdoPackageText(owned,\"sha256\",64));if(f)xrtClose(f);\n    if(!ok)snprintf(error,1024,\"Resource was edited locally: %s. Keep it or export/remove it before updating.\",path);\n    char* encoded=ok?xrtBase64EncodeNew(b,n,NULL):NULL;ok=encoded&&MdoApiValueSetString(change,\"old\",encoded);xrtFree(encoded);xrtFree(b);return ok;\n}\n",
       "after_file": "host/ecosystem-current.inc.c",
       "suffix": "\n"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-document.inc.java",
+      "suffix": "    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        if (port != null) port.close();",
+      "after": "        blockDocuments(MdoBrowserDocument.CHANNEL,true);\n        if (port != null) port.close();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.attach(url,port);",
+      "after": "        final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.attach(url,port);\n        blockDocuments(MdoBrowserDocument.CHANNEL,false);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                web=new WebView(activity);web.getSettings().setJavaScriptEnabled(true);",
+      "after": "                web=new WebView(activity);views.put(key,web);bindDocument(key,web,request.optBoolean(\"automation\"));web.getSettings().setJavaScriptEnabled(true);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "crashed.remove(key);locations.put(key,target);views.put(key,web);root.addView(web);bounds(web,request);web.loadUrl(target);",
+      "after": "crashed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);loading.put(key,true);web.loadUrl(target);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(!views.navigation(key,view))return;loading.put(key,true);",
+      "after": "if(!views.owns(key,view))return;documentNavigation(key,view);if(!views.navigation(key,view))return;loading.put(key,true);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(views.owns(key,view))loading.put(key,false);",
+      "after": "if(views.owns(key,view)){loading.put(key,false);documentLoaded(key,view);}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(!views.owns(key,view))return true;views.remove(key);",
+      "after": "if(!views.owns(key,view))return true;closeDocument(key);views.remove(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(web!=null){views.remove(key);root.removeView(web);web.destroy();}",
+      "after": "boolean worldClean=closeDocument(key);if(web!=null){views.remove(key);root.removeView(web);web.destroy();}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"browser_use\",browserUseSupport()).put(\"error_code\"",
+      "after": ".put(\"browser_use\",browserUseSupport()).put(\"isolated_world\",documentState(key)).put(\"error_code\""
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                views.manual(key,web,\"takeover\".equals(command));",
+      "after": "                MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.MANUAL,\"takeover\".equals(command));\n                views.manual(key,web,\"takeover\".equals(command));"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "views.stop(key,web);web.stopLoading();",
+      "after": "views.stop(key,web);MdoBrowserDocument document=documents.get(key);if(document!=null)document.cancel();web.stopLoading();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            else if(\"screenshot\".equals(command)){",
+      "after": "            else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}\n            else if(\"screenshot\".equals(command)){"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "views.navigation(key,web);web.loadUrl(target);",
+      "after": "documentNavigation(key,web);views.navigation(key,web);web.loadUrl(target);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "views.navigation(key,web);web.goBack();",
+      "after": "documentNavigation(key,web);views.navigation(key,web);web.goBack();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "views.navigation(key,web);web.goForward();",
+      "after": "documentNavigation(key,web);views.navigation(key,web);web.goForward();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "views.navigation(key,web);web.reload();",
+      "after": "documentNavigation(key,web);views.navigation(key,web);web.reload();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "locations.remove(key);reply(id,new JSONObject(),null);",
+      "after": "locations.remove(key);reply(id,new JSONObject().put(\"world_cleanup_confirmed\",worldClean),null);"
     }
   ],
   "files": [
@@ -935,6 +1026,10 @@
     {
       "source": "host/files-tree.inc.c",
       "target": "app/src/application/browser_use_files_tree.inc.c"
+    },
+    {
+      "source": "host/android/MdoBrowserDocument.java",
+      "target": "tools/android/MdoBrowserDocument.java"
     }
   ]
 }

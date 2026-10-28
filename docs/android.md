@@ -260,3 +260,54 @@ References: [execution worlds and message listeners](https://developer.android.c
 [native gesture cancellation](https://developer.android.com/reference/android/view/MotionEvent#ACTION_CANCEL),
 [text commit contract](https://developer.android.com/reference/android/view/inputmethod/InputConnection#commitText(java.lang.CharSequence,%20int)),
 [message-port ownership and closing](https://developer.android.com/reference/android/webkit/WebMessagePort).
+
+## Content document integration (E6)
+
+The production `MdoBrowser.java` now binds a `MdoBrowserDocument` to every exact
+content WebView before its first requested navigation. It installs the existing
+`MdoBrowserWorld` adapter when the provider supports it. Ordinary manual views
+retain their existing profile; an explicit automation profile is assigned only
+for an automation request, which the unfinished product still refuses.
+
+The document controller accepts its fixed bootstrap announcement only through
+the adapter's native main-frame peer. The bootstrap sends once per document
+and does not announce from child frames. Execution uses that peer's frame/world
+API, not a URL-selected or page-world fallback. This follows the published
+[reply proxy frame/world contract](https://developer.android.com/reference/androidx/webkit/JavaScriptReplyProxy)
+and [main-thread message-listener lifecycle](https://developer.android.com/develop/ui/views/layout/webapps/native-api-access-jsbridge).
+
+Navigation suspends document admission before invoking input cleanup. A new peer
+that arrived before the native start callback is retained while the previously
+admitted peer is retired. Epoch/view changes reject late success. Main-channel
+replacement, backgrounding, manual takeover and stop drain original jobs without
+replay; their blockers are independent. Native replies retain the original
+main-document connection. Close removes the installed world before destroying
+the view and returns a separate world-cleanup confirmation. Failure metadata
+is removed with its view rather than accumulating closed tab IDs.
+
+The private native `automation` command is wired to this isolated executor.
+Its per-view `isolated_world` state describes installation/readiness/phase/jobs
+and actual profile assignment. These are lower-level diagnostics, **not product
+readiness**: `browser_use.available` and Agent admission remain disabled until
+the rest of the Android contracts are integrated and verified.
+
+Verification uses the actual production classes: 34 boundary assertions and
+47 document assertions with a foreign loader, plus the existing 125 input,
+69 lifecycle and 22 channel assertions. Document cases include early replacement
+peers, callback reentry during navigation, independent blockers, cancellation
+causes, old epochs/views, cleanup and unsupported providers. Five targeted Node
+tests cover the extracted Java bootstrap, channel handshake and unsupported
+product preflight. These are protocol/lifetime tests, **not framework passes**.
+
+The real Activity/hooks compile with API 36 and Java target 8; the same tiny
+dev package builds/signs to 94,611 bytes without NDK or new runtime dependencies.
+Its world device gate now uses this production document controller. The first
+Activity compile caught its missing helper copy; the reviewed actual Android
+overlay now includes it, and the build receipt covers the helper inputs.
+ADB reports no device, so this APK has not been installed/run; document/world
+and native-input framework receipts remain explicitly unavailable. The current
+system provider and existing mdo installation/data are unchanged.
+
+DOM/native focus and geometry, frame/capture/privacy and transfer integration,
+native callback retention/resource budgets, and supported-provider device
+qualification remain outstanding before enabling Android automation.

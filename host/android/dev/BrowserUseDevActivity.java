@@ -20,10 +20,11 @@ import org.json.JSONObject;
 public final class BrowserUseDevActivity extends Activity {
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final JSONObject report=new JSONObject();
-    private WebView view;private MdoBrowserWorld world;private MdoBrowserWorld.Peer peer;
+    private WebView view;private MdoBrowserDocument world;private long documentEpoch=1;
     private BrowserUseInputProbe inputProbe;
     private TextView status;private String nonce;private boolean finished,loaded,started;
     private final Runnable timeout=()->finishProbe(false,"device_probe_timed_out");
+    private final Runnable readiness=()->maybeEvaluate();
     private void put(String key,Object value){try{report.put(key,value);}catch(Exception error){throw new IllegalStateException(error);}}
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);nonce=getIntent().getStringExtra("nonce");
@@ -44,24 +45,22 @@ public final class BrowserUseDevActivity extends Activity {
                 });inputProbe.run();return;
             }
             if(Build.VERSION.SDK_INT<28){finishProbe(true,"provider_loader_unsupported");return;}
-            ClassLoader loader=WebView.getWebViewClassLoader();features(loader);
-            world=MdoBrowserWorld.open(view,loader,new MdoBrowserWorld.Scheduler(){
+            ClassLoader loader=WebView.getWebViewClassLoader();MdoBrowserWorld.Features support=features(loader);
+            final WebView ownedView=view;
+            world=new MdoBrowserDocument(view,loader,new MdoBrowserWorld.Scheduler(){
                 public long now(){return SystemClock.uptimeMillis();}
                 public void post(Runnable task,long milliseconds){if(!handler.postDelayed(task,milliseconds))throw new IllegalStateException("UI scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
-            },new MdoBrowserWorld.Receiver(){
-                public void fault(String code){finishProbe(false,code);}
-                public void message(MdoBrowserWorld.Peer value,String text){
-                    if(finished)return;
-                    if(!text.equals("hello:"+nonce)){finishProbe(false,"unexpected_world_message");return;}
-                    peer=value;maybeEvaluate();
+            },()->!finished&&view==ownedView,()->documentEpoch,support.profiles?"mdo.browseruse.dev":null);
+            view.getSettings().setJavaScriptEnabled(true);
+            view.setWebViewClient(new WebViewClient(){
+                @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap icon){
+                    if(finished||web!=view)return;documentEpoch++;loaded=false;world.navigation();
+                }
+                @Override public void onPageFinished(WebView web,String url){
+                    if(finished||web!=view)return;loaded=true;world.loaded();maybeEvaluate();
                 }
             });
-            if(world.supportsProfile())world.profile("mdo.browseruse.dev");
-            world.install("globalThis.__mdoPrivateMarker="+JSONObject.quote(nonce)+";"+
-                MdoBrowserWorld.LISTENER+".postMessage('hello:'+globalThis.__mdoPrivateMarker);");
-            view.getSettings().setJavaScriptEnabled(true);
-            view.setWebViewClient(new WebViewClient(){@Override public void onPageFinished(WebView web,String url){loaded=true;maybeEvaluate();}});
             String html="<!doctype html><meta name='viewport' content='width=device-width'><body>Browser Use device fixture"+
                 "<script>globalThis.pageMarker='page';document.body.dataset.isolated="+
                 "String(typeof globalThis.__mdoPrivateMarker==='undefined'&&typeof globalThis.__mdoBrowserWorld==='undefined');</script>";
@@ -70,7 +69,7 @@ public final class BrowserUseDevActivity extends Activity {
             finishProbe(error.code.equals("isolated_world_unsupported"),error.code);
         }catch(org.json.JSONException|RuntimeException|LinkageError error){finishProbe(false,"device_provider_probe_failed");}
     }
-    private void features(ClassLoader loader)throws MdoBrowserWorld.Failure,org.json.JSONException{
+    private MdoBrowserWorld.Features features(ClassLoader loader)throws MdoBrowserWorld.Failure,org.json.JSONException{
         MdoBrowserWorld.Features support=MdoBrowserWorld.inspect(loader);
         put("provider_feature_count",support.count);put("isolated_world_feature",support.isolatedWorld);put("profile_feature",support.profiles);put("message_listener_feature",support.messageListener);
         MdoBrowser browser=new MdoBrowser(this,new FrameLayout(this),view);
@@ -86,20 +85,29 @@ public final class BrowserUseDevActivity extends Activity {
             browser.automationAdmission(new JSONObject().put("command","create"));
             browser.automationAdmission(new JSONObject().put("command","close").put("agent",true));
             put("product_admission_denied_before_create",denied);put("manual_and_cleanup_admission",true);
-        }finally{browser.destroy();}
+        }finally{browser.destroy();}return support;
     }
     private void maybeEvaluate(){
-        if(finished||!loaded||peer==null||started)return;started=true;
-        String expression="globalThis.__mdoPrivateMarker==="+JSONObject.quote(nonce)+
-            "&&typeof globalThis.pageMarker==='undefined'&&document.body.dataset.isolated==='true'";
-        try{peer.evaluate(expression,4000,result->{
+        if(finished||!loaded||world==null||started)return;
+        handler.removeCallbacks(readiness);
+        if(!world.ready()){handler.postDelayed(readiness,25);return;}started=true;
+        final WebView owned=view;final long epoch=documentEpoch;
+        String expression="(()=>{globalThis.__mdoPrivateMarker="+JSONObject.quote(nonce)+
+            ";return typeof globalThis.pageMarker==='undefined'&&document.body.dataset.isolated==='true'})()";
+        try{world.evaluate(expression,4000,result->{
             if(!result.ok){finishProbe(false,result.code);return;}
-            boolean valid="true".equals(result.value);put("automation_verified",valid);put("world_isolation_verified",valid);
-            finishProbe(valid,valid?"isolated_world_verified":"world_isolation_failed");
+            if(!"true".equals(result.value)){finishProbe(false,"world_isolation_failed");return;}
+            // Fixture-only page-world read checks that the isolated marker did
+            // not leak. Production automation never evaluates in page world.
+            owned.evaluateJavascript("typeof globalThis.__mdoPrivateMarker==='undefined'&&document.body.dataset.isolated==='true'",value->{
+                boolean valid=!finished&&view==owned&&documentEpoch==epoch&&world.ready()&&"true".equals(value);
+                put("automation_verified",valid);put("world_isolation_verified",valid);put("production_document_controller_verified",valid);
+                finishProbe(valid,valid?"isolated_world_verified":"world_isolation_failed");
+            });
         });}catch(MdoBrowserWorld.Failure error){finishProbe(false,error.code);}
     }
     private void finishProbe(boolean verified,String code){
-        if(finished)return;finished=true;handler.removeCallbacks(timeout);
+        if(finished)return;finished=true;handler.removeCallbacks(timeout);handler.removeCallbacks(readiness);
         put("probe_verified",verified);put("code",code);
         if(inputProbe!=null){inputProbe.close();inputProbe=null;}
         if(world!=null){world.close();put("cleanup_confirmed",world.cleanupConfirmed());}
@@ -107,8 +115,8 @@ public final class BrowserUseDevActivity extends Activity {
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);
         Log.i("MdoBrowserUseProbe",report.toString());
     }
-    @Override protected void onPause(){if(inputProbe!=null)inputProbe.pause();super.onPause();}
-    @Override protected void onResume(){super.onResume();if(inputProbe!=null)inputProbe.resume();}
+    @Override protected void onPause(){if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
+    @Override protected void onResume(){super.onResume();if(inputProbe!=null)inputProbe.resume();if(world!=null&&!finished){world.block(MdoBrowserDocument.BACKGROUND,false);maybeEvaluate();}}
     @Override protected void onDestroy(){
         if(!finished)finishProbe(false,"activity_destroyed");handler.removeCallbacksAndMessages(null);super.onDestroy();
     }

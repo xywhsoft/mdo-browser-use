@@ -124,6 +124,13 @@ final class MdoBrowserWorld implements AutoCloseable {
         peer.retired=true;for(Pending job:new ArrayList<>(pending))if(job.peer==peer)job.finish(null,reason);
     }
     void invalidate(){thread();if(current!=null){retire(current,"frame_changed");current=null;}}
+    void invalidate(Peer expected){
+        thread();if(expected==null)return;retire(expected,"frame_changed");if(current==expected)current=null;
+    }
+    boolean current(Peer peer){thread();return!closed&&peer!=null&&current==peer&&!peer.retired;}
+    void cancelPending(String reason){
+        thread();for(Pending job:new ArrayList<>(pending))job.finish(null,reason);
+    }
     final class Peer {
         private final InvocationHandler reply;private boolean retired;
         Peer(InvocationHandler reply){this.reply=reply;}private MdoBrowserWorld world(){return MdoBrowserWorld.this;}

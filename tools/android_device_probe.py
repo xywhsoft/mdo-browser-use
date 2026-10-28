@@ -24,7 +24,7 @@ def main():
     args=parser.parse_args();directory=ROOT/'.mdo/host/android-client';apk=directory/'mdo-browser-use-dev.apk'
     build=json.loads((directory/'build.json').read_text(encoding='utf-8'))
     result_path=ROOT/'.mdo'/('android-device-result.json' if args.mode=='world' else 'android-device-input-result.json')
-    result_path.write_text('{"state":"running","automation_verified":false}\n',encoding='utf-8')
+    result_path.write_text('{"state":"running","automation_verified":false,"production_document_controller_verified":false}\n',encoding='utf-8')
     if build.get('state')!='built' or build.get('package')!=PACKAGE or build.get('source_sha256')!=build_android_client.source_hash() or build.get('apk_sha256')!=hashlib.sha256(apk.read_bytes()).hexdigest():
         raise RuntimeError('Android dev client build/source receipt is stale')
     def adb(*values,timeout=30,check=True):
@@ -36,7 +36,7 @@ def main():
     rows=[row.split() for row in adb('devices').splitlines()[1:] if row.strip()]
     if len(rows)!=1 or len(rows[0])<2 or rows[0][1]!='device':
         result_path.write_text(json.dumps({'state':'unavailable','code':'android_device_unavailable',
-            'automation_verified':False,'native_input_verified':False,'existing_mdo_preserved':True})+'\n',encoding='utf-8')
+            'automation_verified':False,'native_input_verified':False,'production_document_controller_verified':False,'existing_mdo_preserved':True})+'\n',encoding='utf-8')
         raise RuntimeError('Exactly one authorized Android device is required')
     install_receipt=directory/'device-install.json'
     existing=adb('shell','pm','path',PACKAGE,check=False)

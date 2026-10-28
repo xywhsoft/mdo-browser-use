@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F3 repairs retained-generation reinstallation and
+Latest verified milestones: E6 wires isolated document execution/lifecycle into
+the production Android view, with actual Activity compilation and explicit
+unavailable device results; F3 repairs retained-generation reinstallation and
 verifies package uninstall/startup recovery; F2 delivers the enhanced Windows
 preview with actual packed-program native checks; F1 verifies the portable
 plugin and native ecosystem installation. W10 bounds unfinished native creations and adds
@@ -2942,3 +2944,45 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and the updated executable still matches its runtime-qualified SHA-256. No
   additional `dist/mdo-home` was created. This does not qualify the unfinished
   Android/native OOM/network/performance scope as complete.
+
+## E6 — integrate isolated worlds with the production Android content view
+
+- Add a production document controller and wire it into actual content creation
+  before the first URL load. Keep manual-view profiles unchanged. Isolated
+  execution uses native main-frame peers and exact view/document epochs; its
+  bootstrap announces once and skips subframes. The private native automation
+  route and per-view diagnostic state now use this controller. Overall product
+  automation/Agent admission remain explicitly disabled while other Android
+  contracts are unfinished; no page-world fallback is introduced.
+- Integrate navigation, load, channel detach/reattach, pause/resume, takeover,
+  stop, renderer loss, close and destroy. Admission changes precede external
+  cleanup callbacks, independent blockers do not erase one another, and late
+  results cannot reply on a replacement main connection. Retire the previously
+  admitted peer specifically so an early new peer survives a later native start
+  callback. Closed-view failure metadata is removed and native close includes a
+  world-cleanup confirmation.
+- The actual production Java passes 34 boundary plus 47 document assertions,
+  including callback reentry, early peers, cancellation causes, epochs/owners,
+  profiles, cleanup and unsupported providers. Existing 125 input/69 lifecycle/
+  22 channel checks pass. Five targeted Node tests pass, including the actual
+  Java bootstrap constant and existing channel/preflight contracts. These are
+  protocol/lifetime checks; no Android framework pass is claimed.
+- Compile the real Activity and hooks with the new helper. Preserve the first
+  missing-helper compile log; fix the actual Android overlay's copy list and
+  include the helper in source hashing. Build/align/sign the same owned tiny
+  dev package (94,611 bytes), SHA-256
+  `61e4cca296a5e2dbb2394ae2bab0d698bd63e0ae1b22b1b0f3ca862c462881e6`.
+  It now exercises the production document controller when a capable provider
+  is available. Reuse the existing output/SDK/JDK; no NDK, runtime dependency,
+  extra Home or application installation is introduced.
+- ADB still has no device. The world/document and native-input device receipts
+  are `unavailable`, with every verification flag false. Preserve the historical
+  provider receipt separately; do not update/reselect the system WebView or touch
+  the existing mdo package/data. The same headless service remains healthy.
+- Full JavaScript regression passes 196/196; generated shared contracts and all
+  deployed overlays match. The current APK's source/binary hashes and actual
+  Activity compile receipt match. The runtime-qualified Windows artifact is
+  unchanged by these Android-only enhancements.
+- Native focus/geometry, frame/capture/privacy, transfer integration and retained
+  provider-callback/resource qualification remain active, along with supported-
+  provider framework verification and final delivery. The goal remains active.

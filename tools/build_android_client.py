@@ -16,9 +16,9 @@ ROOT=Path(__file__).resolve().parents[1]
 INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActivity.java',
         'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java',
         'host/android/dev/BrowserUseInputProbe.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserInputTarget.java',
-        'host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserChannel.java')
+        'host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserDocument.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
-    'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java')
+    'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py',)
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))

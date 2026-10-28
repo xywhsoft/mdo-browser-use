@@ -172,14 +172,17 @@ def main():
     paths=[]
     for name,text in SOURCES.items():
         target=source/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text,encoding='utf-8',newline='\n');paths.append(target)
-    paths.append(dev.ROOT/'host/android/MdoBrowserWorld.java')
+    production=[dev.ROOT/'host/android/MdoBrowserWorld.java',dev.ROOT/'host/android/MdoBrowserDocument.java']
+    paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java'])
     def linux(path):
         path=path.resolve().as_posix();return '/mnt/'+path[0].lower()+path[2:]
     result=dev.ENV/'android-world-result.json';result.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
     subprocess.run(['wsl.exe','--exec','javac','--release','17','-d',linux(classes),*[linux(path) for path in paths]],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
-    subprocess.run(['wsl.exe','--exec','javac','--release','8','-d',linux(classes),linux(dev.ROOT/'host/android/MdoBrowserWorld.java')],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    subprocess.run(['wsl.exe','--exec','javac','--release','8','-d',linux(classes),*[linux(path) for path in production]],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidWorldContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report=json.loads(run.stdout.strip());report['scope']='protocol-lifetime-contract-only';report['apk_built']=False;report['production_java_target']=8
+    document=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidDocumentContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['document_checks']=json.loads(document.stdout.strip())['checks'];report['document_framework_verified']=False
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 
