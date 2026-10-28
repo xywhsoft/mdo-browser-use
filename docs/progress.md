@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: F7 refreshes and qualifies the packed Windows
+Latest verified milestones: E18 verifies the public screenshot privacy boundary
+with fractional layout and downscaling. F7 refreshes and qualifies the packed Windows
 preview with E17's screenshot privacy fix. E17 fixes private-pixel influence
 leaking through lossy native screenshot sources, with actual codec and public
 C/JS/WebView2 regressions. F6 refreshes/requalifies the packed Windows preview
@@ -3441,6 +3442,20 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   admission remains disabled with the current provider preserved. Remaining
   platform/product gates continue; no production publication and no goal
   completion is claimed.
+
+## E18 — exercise fractional and downscaled public privacy masks
+
+- Extend the same loopback fixture with fractional CSS positions/sizes. Compare
+  private-black/private-white variants through the actual public C/JS/native
+  screenshot path for PNG and JPEG, with ordinary and small output bounds.
+  The six pairs are byte-identical, retain all three masks and respect both
+  dimensions and the final 8 KiB limit, including 87×73 downscaled output.
+- Receipt/log: `.mdo/capture-privacy-public-result.json` and
+  `.mdo/E18-privacy-scaled-public.log`. Reuse the same window, fixture, Home and
+  native host; restore the healthy headless service. No product change,
+  model/external-site call, provider change or new artifact is needed. These
+  specific layouts pass; other privacy layouts and the full goal remain under
+  development, with Android qualification unavailable.
 
 ## E17 — mask private pixels before lossy screenshot encoding
 

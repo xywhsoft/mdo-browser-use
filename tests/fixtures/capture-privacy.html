@@ -4,7 +4,15 @@
 <div class="private" data-mdo-private style="left:31px;top:23px;width:17px;height:11px"></div>
 <div class="private" data-mdo-private style="left:61px;top:43px;width:19px;height:13px"></div>
 <script>
-const variant=new URL(location.href).searchParams.get('variant')==='1'?1:0;
-for(const box of document.querySelectorAll('.private'))box.style.background=variant?'#fff':'#000';
+const query=new URL(location.href).searchParams,variant=query.get('variant')==='1'?1:0;
+for(const box of document.querySelectorAll('.private')){
+  box.style.background=variant?'#fff':'#000';
+  if(query.get('layout')==='fractional'){
+    box.style.left=(parseFloat(box.style.left)+.375)+'px';
+    box.style.top=(parseFloat(box.style.top)+.625)+'px';
+    box.style.width=(parseFloat(box.style.width)+.375)+'px';
+    box.style.height=(parseFloat(box.style.height)+.625)+'px';
+  }
+}
 document.title='Capture privacy fixture '+variant;
 </script>

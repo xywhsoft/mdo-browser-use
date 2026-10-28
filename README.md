@@ -187,7 +187,8 @@ private regions. It reproduces JPEG influence spreading outside masks when a
 lossy source is admitted. `capture_privacy_public_probe.py` independently checks
 the actual public C → JS → native WebView2 path using a loopback page: PNG/JPEG
 results remain byte-identical across the private-pixel variants, with the final
-8 KiB budget enforced. These gates cover this compression boundary, not all
+8 KiB budget enforced. The public gate also covers fractional CSS bounds and
+downscaling to an 87×73 output. These gates cover this compression boundary, not all
 possible privacy layouts. Their reports store equality/dimensions, not pixels.
 
 `sdk_probe.py` instead opens the normal mdo interface and sends a real public C

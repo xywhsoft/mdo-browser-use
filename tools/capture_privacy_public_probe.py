@@ -29,22 +29,25 @@ def main():
             try:return wait_receipt(queued['id'])['result']
             finally:dev.call('browseruse.result',{'id':queued['id'],'release':True},SCOPE)
         observed=execute('browseruse.observe',{});last_document=observed['document']
-        for fmt in ('png','jpeg'):
+        matrix=[(fmt,layout,width,height) for fmt in ('png','jpeg') for layout,width,height in
+                [('integer',512,384),('fractional',512,384),('fractional',97,73)]]
+        for fmt,layout,width,height in matrix:
             images=[]
             for variant in (0,1):
-                stage=f'{fmt}-variant-{variant}'
-                page=execute('browseruse.navigate',{'action':'goto','url':url+f'?variant={variant}'})['observation']
+                stage=f'{fmt}-{layout}-{width}x{height}-variant-{variant}'
+                page=execute('browseruse.navigate',{'action':'goto','url':url+f'?variant={variant}&layout={layout}'})['observation']
                 if page.get('title')!='Capture privacy fixture '+str(variant) or page.get('frame_routing')!='native-isolated-v1':
                     raise RuntimeError('The intended isolated fixture document was not observed')
                 if page['document']==last_document:raise RuntimeError('Navigation did not rotate the original document identity')
                 last_document=page['document']
-                captured=execute('browseruse.screenshot',{'document':page['document'],'format':fmt,'max_width':512,'max_height':384,'max_bytes':8192})
+                captured=execute('browseruse.screenshot',{'document':page['document'],'format':fmt,'max_width':width,'max_height':height,'max_bytes':8192})
                 image=captured.get('image',{});data=base64.b64decode(image.get('base64',''),validate=True)
-                if not captured.get('ok') or image.get('media_type')!='image/'+fmt or not data or len(data)>8192 or captured.get('redacted_regions',0)<3:
+                if not captured.get('ok') or image.get('media_type')!='image/'+fmt or not data or len(data)>8192 or captured.get('redacted_regions',0)<3 or image.get('width',0)>width or image.get('height',0)>height:
                     raise RuntimeError('Public screenshot format, mask or byte proof failed')
                 images.append((image['width'],image['height'],data,captured['redacted_regions']))
             equal=images[0][:3]==images[1][:3]
-            cases.append({'public_format':fmt,'encoded_images_equal':equal,'width':images[0][0],'height':images[0][1],
+            cases.append({'public_format':fmt,'layout':layout,'maximum_width':width,'maximum_height':height,
+                          'encoded_images_equal':equal,'width':images[0][0],'height':images[0][1],
                           'first_bytes':len(images[0][2]),'second_bytes':len(images[1][2]),'redacted_regions':min(images[0][3],images[1][3])})
             if not equal:raise RuntimeError('Changing only the private fixture pixels changed the public screenshot')
         report={'passed':True,'backend':'actual-public-c-js-webview2-capture','cases':cases,'model_calls':0,'external_sites':0}
