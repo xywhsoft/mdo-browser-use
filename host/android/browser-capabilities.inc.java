@@ -19,7 +19,7 @@
     }
     void automationAdmission(JSONObject request) throws JSONException {
         String command=request.optString("command");
-        boolean agent=request.optBoolean("agent")&&!Arrays.asList("capabilities","state","bounds","stop","close","takeover","release").contains(command);
+        boolean agent=request.optBoolean("agent")&&!Arrays.asList("capabilities","state","bounds","stop","close","takeover","release","capture_cancel").contains(command);
         if(agent||"create".equals(command)&&(request.optBoolean("automation")||request.optBoolean("intercept_downloads")))
             throw new UnsupportedOperationException(browserUseSupport().getString("reason"));
     }

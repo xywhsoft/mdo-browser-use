@@ -122,6 +122,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
     if (state.drag_cleanup_failed && (writing || command === "capture")) return fail("drag_cleanup_failed", "Native drag cleanup was not confirmed; inspect and end this browser before further input");
+    if (state.capture_cleanup_failed && (writing || command === 'capture')) return fail('capture_cleanup_failed','Native screenshot cleanup was not confirmed; end this browser before further input');
+    if (state.capture_busy && command==='act') return fail('browser_busy','The original native screenshot is still settling; wait for its cleanup before sending input');
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
     if (command === "chooser") {
       if(!state.chooser_capability)return fail("unsupported_capability","This browser backend cannot inspect native file pickers");
@@ -256,6 +258,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         if(area.native_capture&&(native?.native_document!==area.native_capture.native_document||native?.navigation!==area.native_capture.navigation||
            native?.document!==area.document||native?.capture_key!==action.id))
           return fail('capture_changed','The native screenshot reply does not match its original document and request');
+        if(area.native_capture&&native.ok!==true){
+          const code=native.ok===false&&/^[a-z][a-z0-9_]{0,63}$/.test(native.error?.code||'')?native.error.code:'capture_failed';
+          return fail(code,code==='capture_cleanup_failed'?'Native screenshot cleanup was not confirmed; end this browser before another capture':
+            'The original native screenshot could not complete; inspect the current browser before another capture');
+        }
         const after = await read("captureArea",{...options,document:area.document});
         if (!after.ok) return {handled:true,result:after};
         if(area.frame_stamp!==after.frame_stamp){

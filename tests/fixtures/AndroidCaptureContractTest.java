@@ -22,12 +22,16 @@ public final class AndroidCaptureContractTest {
         try{run.run();throw new AssertionError("Accepted invalid geometry");}catch(IllegalArgumentException error){checks++;}
     }
     static final class Clock implements MdoBrowserCapture.Scheduler {
-        long time;int posts,failAt;boolean throwAfterPost,removeFailure;
+        long time,admissionDelay;int posts,failAt;boolean throwAfterPost,removeFailure;
         final Map<Runnable,Long> tasks=new LinkedHashMap<>();
         public synchronized long now(){return time;}
         public synchronized void post(Runnable task,long delay){
-            if(++posts==failAt){if(throwAfterPost)tasks.put(task,time+delay);throw new OutOfMemoryError("Synthetic timer allocation");}
-            tasks.put(task,time+delay);
+            if(++posts==1)time+=admissionDelay;queue(task,time+delay);
+        }
+        public synchronized void at(Runnable task,long deadline){if(++posts==1)time+=admissionDelay;queue(task,deadline);}
+        private void queue(Runnable task,long deadline){
+            if(posts==failAt){if(throwAfterPost)tasks.put(task,deadline);throw new OutOfMemoryError("Synthetic timer allocation");}
+            tasks.put(task,deadline);
         }
         public synchronized void remove(Runnable task){tasks.remove(task);if(removeFailure)throw new IllegalStateException("Synthetic remove failure");}
         void advance(long milliseconds){time+=milliseconds;
@@ -50,15 +54,16 @@ public final class AndroidCaptureContractTest {
     }
     static final class Surface implements MdoBrowserCapture.Target {
         String document=DOC;long navigation=7;int width=640,height=480,scrollX=20,scrollY=40,draws;double scale=2;
-        boolean visible=true,throwReady,afterReady,oomDraw;Runnable ready,duringDraw;final Encoder encoder=new Encoder();
+        boolean visible=true,throwReady,afterReady,oomDraw,cleanupDraw;Runnable ready,duringDraw;final Encoder encoder=new Encoder();
         public MdoBrowserCapture.Snapshot snapshot(){if(!visible)return null;return new MdoBrowserCapture.Snapshot(document,navigation,width,height,scrollX,scrollY,scale);}
         public void ready(Runnable complete){ready=complete;if(throwReady&&!afterReady)throw new IllegalStateException("Native readiness acknowledgement lost");
             if(afterReady)complete.run();if(throwReady)throw new IllegalStateException("Post-callback exception");}
-        public MdoBrowserCapture.Raster draw(MdoBrowserCapture.Plan plan){draws++;if(oomDraw)throw new OutOfMemoryError("Synthetic bitmap allocation");if(duringDraw!=null)duringDraw.run();return encoder;}
+        public MdoBrowserCapture.Raster draw(MdoBrowserCapture.Plan plan){draws++;if(cleanupDraw)throw new MdoBrowserCapture.Cleanup();if(oomDraw)throw new OutOfMemoryError("Synthetic bitmap allocation");if(duringDraw!=null)duringDraw.run();return encoder;}
     }
     static final class Worker implements MdoBrowserCapture.Worker {
-        final List<Runnable> tasks=new ArrayList<>();boolean fail,runThenFail;
+        final List<Runnable> tasks=new ArrayList<>(),removals=new ArrayList<>();boolean fail,runThenFail;
         public void execute(Runnable task){tasks.add(task);if(runThenFail)task.run();if(fail)throw new IllegalStateException("Worker admission unconfirmed");}
+        public void remove(Runnable task){removals.add(task);}
         void run(){for(Runnable task:new ArrayList<>(tasks))task.run();}
     }
     static final class Case {
@@ -118,6 +123,7 @@ public final class AndroidCaptureContractTest {
         changedDraw.clock.advance(0);changedDraw.failed("capture_changed");check(changedDraw.surface.encoder.closes==1,"Changed draw raster not released");changedDraw.clean();
 
         Case queued=new Case();queued.begin();queued.ready();queued.capture.cancel();queued.failed("capture_cancelled");queued.worker.run();queued.clock.advance(0);
+        check(queued.worker.removals.size()==1&&queued.worker.removals.get(0)==queued.worker.tasks.get(0),"Cancelled queue removal lost its exact task");
         check(queued.surface.encoder.encodes==0&&queued.surface.encoder.closes==1,"Cancelled queued work encoded or closed twice");queued.clean();
         Case submission=new Case();submission.worker.fail=true;submission.begin();submission.ready();submission.worker.run();submission.clock.advance(0);
         submission.failed("capture_worker_unavailable");check(submission.surface.encoder.encodes==0&&submission.surface.encoder.closes==1,"Late accepted work used a discarded bitmap");submission.clean();
@@ -133,10 +139,20 @@ public final class AndroidCaptureContractTest {
         }
         Case allocation=new Case();allocation.surface.oomDraw=true;allocation.begin();allocation.ready();allocation.clock.advance(0);
         allocation.failed("capture_memory_limit");check(allocation.worker.tasks.isEmpty(),"Allocation failure reached worker");allocation.clean();
+        Case drawCleanup=new Case();drawCleanup.surface.cleanupDraw=true;drawCleanup.begin();drawCleanup.ready();drawCleanup.clock.advance(0);
+        drawCleanup.failed("capture_cleanup_failed");check(drawCleanup.budget.pending()==1&&!drawCleanup.capture.cleanupConfirmed(),"Unconfirmed draw cleanup released its native reservation");
+        refused("capture_cleanup_failed",drawCleanup::begin);
         for(boolean after:new boolean[]{false,true}){
             Case timer=new Case();timer.clock.failAt=1;timer.clock.throwAfterPost=after;timer.begin();timer.failed("capture_timer_unavailable");
             check(timer.guards.isEmpty(),"Failed timer admission executed a guard");timer.clean();
         }
+        Case expiredAdmission=new Case();expiredAdmission.clock.admissionDelay=100;expiredAdmission.begin();
+        check(expiredAdmission.guards.isEmpty(),"An expired timer admission started another native guard");expiredAdmission.failed("capture_timed_out");expiredAdmission.clean();
+        Case slowAdmission=new Case();slowAdmission.clock.admissionDelay=40;
+        slowAdmission.capture.capture(slowAdmission.plan(),(remaining,complete)->{
+            check(remaining==60,"Guard did not inherit the remaining original deadline");slowAdmission.guards.add(complete);
+        },slowAdmission.results::add);
+        slowAdmission.clock.advance(60);slowAdmission.failed("capture_timed_out");slowAdmission.guards.get(0).complete(null);slowAdmission.clean();
 
         MdoBrowserCapture.Budget shared=new MdoBrowserCapture.Budget(2);Case a=new Case(shared),b=new Case(shared),c=new Case(shared);
         a.begin();a.guards.get(0).complete(null);a.capture.cancel();b.begin();b.guards.get(0).complete(null);b.capture.cancel();
@@ -150,6 +166,7 @@ public final class AndroidCaptureContractTest {
         Thread thread=new Thread(encoding.worker.tasks.get(0));thread.setDaemon(true);thread.start();
         check(entered.await(5,TimeUnit.SECONDS),"Encoder never entered its bounded worker gate");encoding.capture.cancel();encoding.capture.viewDestroyed();
         check(encoding.budget.pending()==1&&encoding.surface.encoder.closes==0,"Cancel/destroy recycled an encoder's live bitmap");
+        check(encoding.worker.removals.isEmpty(),"Cancellation tried to remove a running encoder's task");
         exit.countDown();thread.join(5000);check(!thread.isAlive(),"Encoder failed to acknowledge its terminal state");encoding.clock.advance(0);encoding.failed("capture_cancelled");
         check(encoding.surface.encoder.closes==1&&encoding.surface.encoder.encodes==1,"Worker ownership was not settled exactly once");encoding.clean();
 

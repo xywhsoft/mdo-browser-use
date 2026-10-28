@@ -1,4 +1,6 @@
     private void executeNativeInput(String key,String id,WebView view,JSONObject request)throws Exception {
+        CaptureEntry capture=captures.get(key);
+        if(capture!=null&&(capture.capture.busy()||!capture.capture.cleanupConfirmed()))throw new IllegalStateException("capture_busy_or_unclean");
         final MdoBrowserDocument document=documents.get(key);
         if(document==null)throw new UnsupportedOperationException(documentFailures.getOrDefault(key,"world_unavailable"));
         final long epoch=views.epoch(key,view);

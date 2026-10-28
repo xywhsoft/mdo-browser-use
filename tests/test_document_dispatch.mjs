@@ -22,12 +22,13 @@ function coupled(){
       browser_use:{available:f.state.available,reason:'isolated_world_unsupported'},frame_target_keyboard:true,
       wheel_input:f.state.wheel===true,
       capture_capability:f.state.capture===true,
+      capture_busy:f.state.captureBusy===true,capture_cleanup_failed:f.state.captureCleanupFailed===true,
       download_capability:true,downloads_armed:downloads,chooser_capability:true,chooser_upload_capability:true,chooser_armed:chooser};
     if(command==='downloads'){if(params.action==='arm')downloads=true;return{ok:true,armed:downloads,downloads:[]};}
     if(command==='chooser'){if(params.action==='arm')chooser=true;return{ok:true,armed:chooser,choosers:[]};}
     if(command==='capture'){
       captures.push(params);if(typeof f.state.captureReply==='function')return f.state.captureReply(params);
-      return{data:f.state.captureData,scale:1,capture_key:params.capture_key,document:params.capture_context.document,
+      return{ok:true,data:f.state.captureData,scale:1,capture_key:params.capture_key,document:params.capture_context.document,
         native_document:params.capture_context.native_document,navigation:params.capture_context.navigation};
     }
     if(command==='capture_cancel'){captureCancellations.push(params);return{cancelled:true};}
@@ -171,7 +172,7 @@ test('shared Android capture carries the original context and masks opaque child
     const out=await f.run('capture',{document:doc});assert(out.result.ok,JSON.stringify(out));
     assert.equal(f.captures.length,1);assert.equal(f.inputs.length,0);assert.equal(f.captures[0].navigation,7);
     assert.deepEqual(f.captures[0].capture_context,{adapter:'android-main-document-v1',native_document:fd,navigation:7,document:doc,
-      scroll:{x:0,y:0},viewport:{width:320,height:240}});
+      scroll:{x:0,y:0},viewport:{width:320,height:240},device_pixel_ratio:1});
     assert.equal(pixels.masks.length,4);assert.equal(out.result.redacted_regions,2);assert.equal(pixels.decodes,1);assert.equal(pixels.closed,1);
     assert.equal(out.result.frame_scope,'main_document');assert(out.result.limitations.includes('child_frames_masked'));
     assert(!Object.hasOwn(out.result,'visual_reference'));assert(!JSON.stringify(out.result).includes('native_capture'));
@@ -194,7 +195,7 @@ test('Android opaque frame changes and cancellation discard native pixels withou
     const f=coupled();f.state.capture=true;
     f.state.captureReply=params=>{
       f.state.hook=({method,result})=>{if(method==='captureArea')result.value.redactions[1].frame_ref='e9';return result;};
-      return{data:pixels.data,scale:1,native_document:fd,navigation:7,document:doc,capture_key:params.capture_key};
+      return{ok:true,data:pixels.data,scale:1,native_document:fd,navigation:7,document:doc,capture_key:params.capture_key};
     };
     const changed=await f.run('capture',{document:doc});assert.equal(changed.result.error.code,'capture_changed');assert.equal(f.captures.length,1);
     const cancelled=coupled();cancelled.state.capture=true;let alive=true,complete;
@@ -204,4 +205,27 @@ test('Android opaque frame changes and cancellation discard native pixels withou
     complete({data:pixels.data});await new Promise(resolve=>setTimeout(resolve,1));
     assert.equal(pixels.decodes,0);assert.equal(cancelled.captures.length,1);
   });
+});
+
+test('native Android capture failures preserve bounded causes without decoding or exposing exceptions',async()=>{
+  await captureFixture(async pixels=>{
+    for(const variant of ['capture_timed_out','capture_cleanup_failed','capture_byte_limit','malformed']){
+      const f=coupled();f.state.capture=true;
+      f.state.captureReply=params=>({ok:false,native_document:fd,navigation:7,document:doc,capture_key:params.capture_key,
+        error:{code:variant==='malformed'?'bad\npage exception':variant,message:'Private native exception'}});
+      const out=await f.run('capture',{document:doc});assert.equal(out.result.error.code,variant==='malformed'?'capture_failed':variant);
+      assert.equal(out.result.error.effect_may_have_occurred,false);assert(!JSON.stringify(out).includes('Private native'));
+      assert.equal(f.captures.length,1);assert.equal(pixels.decodes,0);
+    }
+  });
+});
+
+test('native screenshot reservations and cleanup faults refuse new input before target preparation',async()=>{
+  for(const field of ['captureBusy','captureCleanupFailed']){
+    const f=coupled();f.state[field]=true;
+    const out=await f.run('act',{op:'click',document:doc,target:{ref}});
+    assert.equal(out.result.error.code,field==='captureBusy'?'browser_busy':'capture_cleanup_failed');
+    assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(f.inputs.length,0);
+    assert(!f.state.calls.some(row=>row.command==='automation'));assert.equal(f.captures.length,0);
+  }
 });

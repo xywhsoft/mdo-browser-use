@@ -11,12 +11,13 @@ test('main-document capture retains opaque frame masks, exact native context and
     assert(out.limitations.includes('image_actions_unavailable'));assert(!JSON.stringify(out).includes('Private page data'));
     assert.equal(out.frame_masks.readable,1);assert.equal(out.frame_masks.opaque,mode==='viewport'?1:0);
     assert.deepEqual(out.native_capture,{adapter:'android-main-document-v1',native_document:fd,navigation:7,document:doc,
-      scroll:{x:0,y:0},viewport:{width:320,height:240}});
+      scroll:{x:0,y:0},viewport:{width:320,height:240},device_pixel_ratio:1});
     assert.equal(out.redactions.length,mode==='viewport'?2:1);
     assert(out.redactions.every(mask=>!Object.hasOwn(mask,'frame_ref')));
     const stamp=JSON.parse(out.frame_stamp);assert.equal(stamp.length,1);assert.equal(stamp[0][1],fd);
     assert.equal(stamp[0][6],doc);assert.deepEqual(stamp[0][9].opaque_frames,mode==='viewport'?['e8']:[]);
     const call=f.state.calls.find(row=>row.method==='captureArea');assert.equal(call.options._max_nodes,6000);
+    assert.equal(call.options._native_viewport,true);assert.equal(call.options._opaque_media,true);
     if(mode==='element')assert.equal(call.options.target.ref,'e7');
     assert(!f.state.calls.some(row=>['frames','capture','screenshot','evaluate'].includes(row.command)));
   }

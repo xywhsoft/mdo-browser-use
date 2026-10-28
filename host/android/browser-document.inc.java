@@ -22,18 +22,22 @@
         }
     }
     private boolean closeDocument(String key){
+        CaptureEntry capture=captures.get(key);if(capture!=null)capture.capture.close();
         MdoBrowserDocument document=documents.remove(key);
         documentFailures.remove(key);
         if(document==null)return true;document.close();return document.cleanupConfirmed();
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
+        CaptureEntry capture=captures.remove(key);if(capture!=null)capture.capture.close();
         MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
         if(document!=null)document.close();root.removeView(view);view.destroy();
+        if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
         if(document!=null)document.viewDestroyed(view);
         return document==null||document.cleanupConfirmed();
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;
+        cancelCapture(key);
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.navigation();
     }
     private void documentLoaded(String key,WebView view){
@@ -41,6 +45,7 @@
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.loaded();
     }
     private void blockDocuments(int reason,boolean value){
+        if(value)cancelCaptures();
         for(MdoBrowserDocument document:new ArrayList<>(documents.values()))document.block(reason,value);
     }
     private JSONObject documentState(String key) throws JSONException {

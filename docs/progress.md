@@ -13,7 +13,9 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E15 adds a tested, resource-bounded native capture
+Latest verified milestones: E16 wires actual Android visible drawing/encoding,
+capture cancellation/lifecycle and isolated proof, compiles the real host and
+pixel fixture, with actual-device/privacy qualification unavailable; E15 adds a tested, resource-bounded native capture
 transaction core, with actual Android draw/encode integration still pending;
 E14 connects bounded main-document screenshot
 preparation and opaque child masks to the shared screenshot executor, with
@@ -3362,3 +3364,54 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   is not deployed or advertised as working Android screenshots. Admission stays
   disabled and the user's current WebView is preserved. Continue the full goal;
   no production publication occurs.
+
+## E16 — integrate actual Android drawing, encoding and capture lifecycle
+
+- Wire native `capture`/keyed `capture_cancel` into the actual browser, with
+  one controller per exact content view. Validate native/isolated document,
+  epoch, CSS viewport/scroll/density and clip geometry. Route only the original
+  lease's response. Cancel on navigation, bounds/scale, background, channel
+  replacement, takeover or stop; exact view destruction retires visual callbacks
+  while a worker-owned bitmap remains reserved until its terminal cleanup.
+  Expose truthful capture busy/cleanup/budget state and prevent new input from
+  bypassing retained or unclean screenshot resources.
+- Draw the visible attached owned view after its actual visual-state callback
+  has returned. Use one bounded bitmap, a single process encoder with a one-task
+  queue and the shared two-slot resource budget. Exact cancelled queue items
+  are removed; callbacks retain no content view. PNG compression runs on the
+  worker, and sources stay lossless/bounded until trusted host-side privacy masks
+  are applied. Public PNG/JPEG and output byte limits apply after masking.
+- Add runtime 19's fixed native viewport checks and opaque media masks. Initial
+  fitted scale is accepted only with matching complete viewport geometry;
+  offset/cropped pinch still refuses. Child frames and video/object/embed remain
+  opaque; no page-world fallback or image-action reference is introduced.
+  Structured native failures retain their bounded cause without publishing pixels.
+- Reproduce expired timer admission dispatching a new guard with the full old
+  timeout. Preserve `.mdo/E16-deadline-before.log`, use an absolute uptime
+  watchdog and pass only remaining time. Actual Java-target-8 checks pass 194,
+  complete JS checks pass 243. Logs: `.mdo/E16-capture-contract-final.log` and
+  `.mdo/E16-js-full-final.log`. Preserve the earlier Node VM getter fixture
+  failure separately; a throwing object-property fixture verifies the intended
+  exception boundary and passes.
+- Pass the actual Windows WebView2 full gate (1,369 checks): PNG/JPEG redaction,
+  crop/full-page/cancel, input, frames, dialogs/popups and transfers. No new native
+  diagnostics, no model/external-site calls and zero upload/download reservations
+  remain. Receipt/log: `.mdo/page-observation-result.json` and
+  `.mdo/E16-windows-native.log`. Subsequent Java deadline and JS retained-capture
+  admission changes also pass their targeted/full tests; the packed program gate
+  will exercise the latest shared host before delivery.
+- Compile the actual Android Activity/hooks and capture bridge/target in the
+  reused SDK/output. The tiny QA APK is 160,147 bytes, SHA-256
+  `2674a22ed6b02a87fae6cc7d2f7604e6e51b69f219076352a24454499a9b936c`.
+  Add the no-network native crop/PNG/JPEG/cancel pixel gate. It is distinct from
+  isolated-guard or full privacy qualification; those flags remain false even
+  on a pixel-only pass. ADB has no device, so the current capture gate is
+  unavailable with all verification flags false. No installation/provider
+  update occurs. Logs: `.mdo/E16-android-build-final.log` and
+  `.mdo/E16-device-capture-final.log`.
+- Shared contracts, reviewed overlays and whitespace checks pass. Restore the
+  same healthy headless service, without an extra Home/app/native build or new
+  runtime dependency. The current WebView and production clients are preserved.
+  Actual Android pixels/privacy/framework qualification, remaining platform
+  features and final product gates continue. Admission stays disabled, the goal
+  remains active and nothing is published to production.

@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 18;
+  const version = 19;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -509,7 +509,12 @@ export function browserRuntime(configuration = {}) {
   }
   function captureArea(options = {}) {
     if (options.document && options.document !== documentId) return fail("stale_document", "Observe the current document before capturing it");
-    if (Math.abs((visualViewport?.scale || 1) - 1) > 0.001) return fail("unsupported_geometry", "Pinch-zoomed screenshots require a supported viewport scale");
+    if(localFrame&&options._native_viewport===true){
+      const v=visualViewport;
+      if(!v||![v.width,v.height,v.scale,v.offsetLeft,v.offsetTop].every(Number.isFinite)||v.scale<=0||
+         Math.abs(v.width-innerWidth)>1||Math.abs(v.height-innerHeight)>1||Math.abs(v.offsetLeft)>.01||Math.abs(v.offsetTop)>.01)
+        return fail('unsupported_geometry','This native screenshot requires the original complete visible viewport');
+    }else if (Math.abs((visualViewport?.scale || 1) - 1) > 0.001) return fail("unsupported_geometry", "Pinch-zoomed screenshots require a supported viewport scale");
     const intersect = (a, b) => { const x=Math.max(a.x,b.x),y=Math.max(a.y,b.y);return {x,y,width:Math.max(0,Math.min(a.x+a.width,b.x+b.width)-x),height:Math.max(0,Math.min(a.y+a.height,b.y+b.height)-y)}; };
     const viewport={x:0,y:0,width:innerWidth,height:innerHeight};
     function rootRect(element) {
@@ -555,6 +560,7 @@ export function browserRuntime(configuration = {}) {
             tag==="input"&&!["button","submit","reset","checkbox","radio","hidden","image"].includes(element.type))mask(element);
           if(element.shadowRoot)walk(element.shadowRoot);
           else if(tag.includes("-"))mask(element); // Closed custom-element internals cannot be inspected here.
+          if(options._opaque_media===true&&['video','object','embed'].includes(tag))mask(element);
           if(["iframe","frame"].includes(tag)){
             if(++frames>32)throw Error("Screenshot frame budget exceeded");
             if(localFrame){const owner=pinCaptureFrame(element);if(!owner.ok)throw Error('Screenshot frame reference budget exceeded');mask(element,{frame_ref:owner.ref});continue;}

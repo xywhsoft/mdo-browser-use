@@ -20,11 +20,11 @@ PACKAGE=build_android_client.PACKAGE
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--adb',type=Path,default=Path('D:/GIT/mdo/.build/android-platform-tools/platform-tools/adb.exe'))
-    parser.add_argument('--mode',choices=('world','native-input'),default='world')
+    parser.add_argument('--mode',choices=('world','native-input','native-capture'),default='world')
     args=parser.parse_args();directory=ROOT/'.mdo/host/android-client';apk=directory/'mdo-browser-use-dev.apk'
     build=json.loads((directory/'build.json').read_text(encoding='utf-8'))
-    result_path=ROOT/'.mdo'/('android-device-result.json' if args.mode=='world' else 'android-device-input-result.json')
-    result_path.write_text('{"state":"running","automation_verified":false,"production_document_controller_verified":false,"guarded_native_input_verified":false,"native_wheel_verified":false}\n',encoding='utf-8')
+    result_path=ROOT/'.mdo'/{'world':'android-device-result.json','native-input':'android-device-input-result.json','native-capture':'android-device-capture-result.json'}[args.mode]
+    result_path.write_text('{"state":"running","automation_verified":false,"production_document_controller_verified":false,"guarded_native_input_verified":false,"native_wheel_verified":false,"native_capture_verified":false,"guarded_native_capture_verified":false,"capture_privacy_verified":false}\n',encoding='utf-8')
     if build.get('state')!='built' or build.get('package')!=PACKAGE or build.get('source_sha256')!=build_android_client.source_hash() or build.get('apk_sha256')!=hashlib.sha256(apk.read_bytes()).hexdigest():
         raise RuntimeError('Android dev client build/source receipt is stale')
     def adb(*values,timeout=30,check=True):
@@ -37,7 +37,8 @@ def main():
     if len(rows)!=1 or len(rows[0])<2 or rows[0][1]!='device':
         result_path.write_text(json.dumps({'state':'unavailable','code':'android_device_unavailable',
             'automation_verified':False,'native_input_verified':False,'production_document_controller_verified':False,
-            'guarded_native_input_verified':False,'native_wheel_verified':False,'existing_mdo_preserved':True})+'\n',encoding='utf-8')
+            'guarded_native_input_verified':False,'native_wheel_verified':False,'native_capture_verified':False,
+            'guarded_native_capture_verified':False,'capture_privacy_verified':False,'existing_mdo_preserved':True})+'\n',encoding='utf-8')
         raise RuntimeError('Exactly one authorized Android device is required')
     install_receipt=directory/'device-install.json'
     existing=adb('shell','pm','path',PACKAGE,check=False)
@@ -61,7 +62,7 @@ def main():
         install_receipt.write_text(json.dumps({'package':PACKAGE,'state':'install_requested','apk_sha256':build['apk_sha256']})+'\n',encoding='utf-8')
         try:installed=adb('install','-r','-t',str(apk),timeout=90)
         except subprocess.TimeoutExpired:
-            result_path.write_text('{"state":"awaiting_system_install_confirmation","automation_verified":false,"guarded_native_input_verified":false,"native_wheel_verified":false}\n',encoding='utf-8')
+            result_path.write_text('{"state":"awaiting_system_install_confirmation","automation_verified":false,"guarded_native_input_verified":false,"native_wheel_verified":false,"native_capture_verified":false,"guarded_native_capture_verified":false,"capture_privacy_verified":false}\n',encoding='utf-8')
             raise RuntimeError('Phone system installation confirmation is still pending; confirm Mdo Browser Use Dev and rerun this gate')
         if not installed.endswith('Success'):raise RuntimeError('Android dev package installation did not complete')
     install_receipt.write_text(json.dumps({'package':PACKAGE,'state':'installed','apk_sha256':build['apk_sha256']})+'\n',encoding='utf-8')
@@ -82,9 +83,11 @@ def main():
             time.sleep(0.4)
         if not result:raise RuntimeError('Device provider probe returned no terminal receipt')
         result.pop('nonce');result.update({'state':'complete','apk_sha256':build['apk_sha256'],
-            'scope':'installed-provider-world-gate' if args.mode=='world' else 'native-input-framework-gate',
-            'existing_mdo_preserved':True,'ndk_required':False,'guarded_native_input_verified':False})
+            'scope':{'world':'installed-provider-world-gate','native-input':'native-input-framework-gate','native-capture':'native-capture-pixel-framework-gate'}[args.mode],
+            'existing_mdo_preserved':True,'ndk_required':False,'guarded_native_input_verified':False,
+            'guarded_native_capture_verified':False,'capture_privacy_verified':False})
         result.setdefault('native_wheel_verified',False)
+        result.setdefault('native_capture_verified',False)
         result_path.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
         if not result.get('probe_verified'):raise RuntimeError('Installed provider gate failed: '+str(result.get('code')))
     finally:adb('shell','am','force-stop',PACKAGE,check=False)

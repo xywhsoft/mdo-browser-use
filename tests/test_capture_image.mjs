@@ -66,3 +66,36 @@ test('local capture masks bind exact iframe nodes without entering child documen
   assert.equal(factory().pinCaptureFrame(frames[0]).error.code,'frame_owner_unavailable');
   const bounded=runtime.captureArea({mode:'viewport',_max_nodes:1});assert(!bounded.ok);assert.equal(bounded.error.code,'capture_preparation_failed');
 });
+
+test('native viewport capture admits an initial fit and masks opaque media without weakening ordinary capture',async()=>{
+  const source=(await readFile(new URL('../page/runtime.js',import.meta.url),'utf8')).replace('export function browserRuntime(','function browserRuntime(');
+  const document={defaultView:{getComputedStyle:()=>({display:'block',visibility:'visible',opacity:'1'})}},nodes=[];
+  for(const tag of ['video','object','embed','input'])nodes.push({ownerDocument:document,isConnected:true,localName:tag,type:'text',
+    getAttribute:()=>null,hasAttribute:()=>false,getClientRects:()=>[{}],getBoundingClientRect:()=>({x:10,y:20+nodes.length*30,width:80,height:20})});
+  document.createTreeWalker=()=>{let index=0;return{nextNode:()=>nodes[index++]||null};};
+  const context=vm.createContext({document,crypto:{getRandomValues:webcrypto.getRandomValues.bind(webcrypto)},performance,
+    visualViewport:{width:320,height:240,scale:.5,offsetLeft:0,offsetTop:0},innerWidth:320,innerHeight:240,scrollX:0,scrollY:0,devicePixelRatio:2});
+  const runtime=vm.runInContext('('+source+')',context)({local_frame:true}),options={mode:'viewport',_native_viewport:true,_opaque_media:true};
+  const out=runtime.captureArea(options);assert(out.ok);assert.equal(out.redactions.length,4);
+  assert.equal(runtime.captureArea({mode:'viewport'}).error.code,'unsupported_geometry');
+  context.visualViewport.scale=1;assert.equal(runtime.captureArea({mode:'viewport'}).redactions.length,1);
+  context.visualViewport.offsetTop=1;assert.equal(runtime.captureArea(options).error.code,'unsupported_geometry');
+  context.visualViewport.offsetTop=0;context.visualViewport.width=160;assert.equal(runtime.captureArea(options).error.code,'unsupported_geometry');
+});
+
+test('lossless native pixels are masked before optional public JPEG encoding and final byte limits',async()=>{
+  const previous={document:globalThis.document,bitmap:globalThis.createImageBitmap},calls=[];
+  const png=new Uint8Array(2048);png.set([137,80,78,71,13,10,26,10]);new DataView(png.buffer).setUint32(16,100);new DataView(png.buffer).setUint32(20,50);
+  const raw=Buffer.from(png).toString('base64'),encoded=Buffer.from([255,216,255,217]).toString('base64');
+  globalThis.createImageBitmap=async blob=>{assert.equal(blob.type,'image/png');calls.push('decode-png');return{close(){calls.push('close');}};};
+  globalThis.document={createElement(){return{width:0,height:0,getContext:()=>({drawImage(){calls.push('draw');},fillRect(){calls.push('mask');}}),
+    toDataURL:mime=>{assert.equal(mime,'image/jpeg');calls.push('encode-jpeg');return`data:${mime};base64,${encoded}`;}};}};
+  const area={region:{x:0,y:0,width:100,height:50},redactions:[{x:10,y:10,width:20,height:10}]};
+  try{
+    const out=await prepareScreenshot({format:'png',data:raw,scale:1},area,area,{format:'jpeg',max_bytes:1024});
+    assert.deepEqual(calls,['decode-png','draw','mask','mask','encode-jpeg','close']);
+    assert.equal(out.image.media_type,'image/jpeg');assert(out.image.bytes<=1024);assert.notEqual(out.image.base64,raw);
+    await assert.rejects(prepareScreenshot({format:'webp',data:raw},area,area,{format:'jpeg'}),/Unsupported screenshot codec/);
+    assert.equal(calls.filter(row=>row==='decode-png').length,1);
+  }finally{globalThis.document=previous.document;globalThis.createImageBitmap=previous.bitmap;}
+});

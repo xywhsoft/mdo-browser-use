@@ -39,8 +39,8 @@ function captureResult(value,pin,document,mode){
       {...copyViewport,device_pixel_ratio:dpr},{opaque_frames:[...owners].sort()}]]),
     frame_masks:{readable:1,opaque:owners.size},
     native_capture:{adapter:'android-main-document-v1',native_document:pin.native,navigation:pin.navigation,document,
-      scroll:copyScroll,viewport:copyViewport},
-    limitations:['child_frames_masked','image_actions_unavailable','full_page_capture_unavailable']};
+      scroll:copyScroll,viewport:copyViewport,device_pixel_ratio:dpr},
+    limitations:['child_frames_masked','opaque_media_masked','image_actions_unavailable','full_page_capture_unavailable']};
 }
 
 // The Android bridge owns one canonical main-frame peer. Do not invent a complete
@@ -139,7 +139,7 @@ export function createDocumentDriver({execute,checkpoint=async()=>{}}){
       if(method==='describe')value=meta;
       else{
         const args={...options,document:meta.document};delete args.timeout_ms;
-        if(method==='captureArea'){args.mode=captureMode;args._max_nodes=6000;}
+        if(method==='captureArea'){args.mode=captureMode;args._max_nodes=6000;args._native_viewport=true;args._opaque_media=true;}
         if(method!=='observe')args.target=target(options.target||{},pin,meta.document);
         value=await evaluate(pin,method,args);
       }

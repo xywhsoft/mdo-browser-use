@@ -4,9 +4,11 @@ export async function prepareScreenshot(native, area, after, params, inspect = {
   if (typeof native.data !== "string" || native.data.length > 349528 || !/^[A-Za-z0-9+/]*={0,2}$/.test(native.data)) throw Error("Native screenshot has an invalid byte envelope");
   const bytes=Uint8Array.from(atob(native.data),char=>char.charCodeAt(0));
   const format=params.format||"png",mime=`image/${format}`;
-  if(bytes.length<24||bytes.length>(params.max_bytes||131072))throw Error("Native screenshot exceeded its byte budget");
+  const sourceFormat=native.format||format;
+  if(!['png','jpeg'].includes(sourceFormat)||!['png','jpeg'].includes(format))throw Error('Unsupported screenshot codec');
+  if(bytes.length<24||bytes.length>(native.format?262144:(params.max_bytes||131072)))throw Error("Native screenshot exceeded its byte budget");
   let width=0,height=0;
-  if(format==="png"){
+  if(sourceFormat==="png"){
     if(![137,80,78,71,13,10,26,10].every((byte,i)=>bytes[i]===byte))throw Error("Invalid native PNG signature");
     const data=new DataView(bytes.buffer);width=data.getUint32(16);height=data.getUint32(20);
   }else{
@@ -20,7 +22,7 @@ export async function prepareScreenshot(native, area, after, params, inspect = {
     }
   }
   if(!width||!height||width*height>4194304||width>4096||height>4096)throw Error("Native screenshot dimensions exceed their raster budget");
-  const bitmap=await createImageBitmap(new Blob([bytes],{type:mime}));
+  const bitmap=await createImageBitmap(new Blob([bytes],{type:`image/${sourceFormat}`}));
   try{
     const ratio=Math.min(1,(params.max_width||1280)/width,(params.max_height||960)/height);
     const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.floor(width*ratio));canvas.height=Math.max(1,Math.floor(height*ratio));

@@ -588,3 +588,61 @@ or APK pass. It is not yet connected to `MdoBrowser.java`: the real
 hooks, pixel/privacy fixtures and supported-provider qualification are the next
 integration steps. Overall automation remains disabled; no WebView, installed
 package, Home, signing key or runtime dependency is changed.
+
+## Native visible capture integration (E16)
+
+The actual `MdoBrowser.java` now owns the capture transaction per exact content
+WebView, routes `capture`/`capture_cancel`, and reports busy/cleanup/shared-budget
+state. Navigation, resize/hide, scale changes, backgrounding, channel replacement,
+takeover and stop cancel the original request. Close/destroy acknowledge the
+exact destroyed view; a still-running encoder retains its raster until terminal
+cleanup. Native input cannot bypass an active or unclean capture reservation.
+Cancelling an old request key cannot cancel a new request.
+
+`MdoBrowserNativeCapture` checks original native/isolated document, navigation,
+viewport/scroll/density and crop bounds. Its fixed isolated guard has no script
+input from a model and no page-world fallback. `MdoBrowserCaptureTarget` waits
+for the visual-state callback to return before queueing a draw of the owned
+visible attached view into one bounded cropped bitmap. It never captures the
+parent window. The process has one encoder thread, one queued task and two
+shared capture reservations; cancelled queued tasks are removed by exact identity.
+Encoding runs outside the UI thread. These choices follow Android's
+[visual-state drawing guarantee](https://developer.android.com/reference/android/webkit/WebView#postVisualStateCallback(long,%20android.webkit.WebView.VisualStateCallback))
+and [bitmap compression guidance](https://developer.android.com/reference/android/graphics/Bitmap#compress(android.graphics.Bitmap.CompressFormat,%20int,%20java.io.OutputStream)).
+
+Android raw source images stay lossless PNG, bounded to 256 KiB. The trusted
+host decodes that source, applies the before/after privacy masks, then encodes
+the requested public PNG/JPEG within its original byte budget. Source images
+are not persisted. Videos, objects and embedded content stay opaque because
+their complete rendered state is not guaranteed by this native path. An initial
+fitted viewport is allowed only when native geometry and the full visual viewport
+agree; offset/cropped pinch viewports still reject. Runtime 19 carries these
+fixed native-viewport/media scan options. Malformed, wrong-document or failed
+native replies publish no pixels and preserve bounded failure codes.
+
+A delayed timer-registration fixture also reproduced a deadline bug: already
+expired admission could start a new guard and pass the full original timeout.
+The watchdog now uses absolute uptime and the guard inherits only remaining
+time. The failing log is `.mdo/E16-deadline-before.log`; the actual core passes
+194 Java assertions in `.mdo/E16-capture-contract-final.log`. Complete JS
+regression passes 243/243. The actual Windows WebView2 gate passes 1,369 checks,
+including PNG/JPEG, redaction, crop/full-page, cancel, input, dialogs, frames and
+transfers, with no diagnostics or retained upload/download reservations.
+Receipts/logs: `.mdo/E16-js-full-final.log`, `.mdo/E16-windows-native.log` and
+`.mdo/page-observation-result.json`.
+
+The actual Activity/hooks, capture target/bridge and same tiny QA APK compile
+with Java 8, API 36/minimum 26. The APK is 160,147 bytes, SHA-256
+`2674a22ed6b02a87fae6cc7d2f7604e6e51b69f219076352a24454499a9b936c`.
+`python tools/android_device_probe.py --mode native-capture` selects a local,
+network-free crop/PNG/JPEG/cancel pixel fixture using the actual core/target.
+It deliberately does not qualify isolated execution, shared C/JS masking or
+Agent operation: `guarded_native_capture_verified` and `capture_privacy_verified`
+remain false even if that lower-level pixel fixture passes.
+
+ADB currently has no device, so its new receipt is unavailable with all capture
+verification fields false. No package is installed and no provider is changed.
+Actual clipping/drawing/encoding, privacy coverage and supported-provider full
+qualification remain pending. Full-page/offscreen capture, Android image input,
+child frames, dialogs/pickers and transfers still need work. Global Browser Use
+admission stays disabled; no production release is made.

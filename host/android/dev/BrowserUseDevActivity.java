@@ -22,6 +22,7 @@ public final class BrowserUseDevActivity extends Activity {
     private final JSONObject report=new JSONObject();
     private WebView view;private MdoBrowserDocument world;private long documentEpoch=1;
     private BrowserUseInputProbe inputProbe;
+    private BrowserUseCaptureProbe captureProbe;
     private TextView status;private String nonce;private boolean finished,loaded,started;
     private final Runnable timeout=()->finishProbe(false,"device_probe_timed_out");
     private final Runnable readiness=()->maybeEvaluate();
@@ -30,6 +31,7 @@ public final class BrowserUseDevActivity extends Activity {
         super.onCreate(saved);nonce=getIntent().getStringExtra("nonce");
         if(nonce==null||!nonce.matches("[a-f0-9]{32}")){finished=true;finish();return;}
         put("nonce",nonce);put("api",Build.VERSION.SDK_INT);put("automation_verified",false);put("native_wheel_verified",false);
+        put("native_capture_verified",false);put("guarded_native_capture_verified",false);put("capture_privacy_verified",false);
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
         status=new TextView(this);status.setText("Checking the installed WebView provider…");layout.addView(status);
         setContentView(layout);handler.postDelayed(timeout,15000);
@@ -37,6 +39,11 @@ public final class BrowserUseDevActivity extends Activity {
             view=new WebView(this);layout.addView(view,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
             PackageInfo info=WebView.getCurrentWebViewPackage();
             if(info!=null){put("provider_package",info.packageName);put("provider_version",info.versionName);}
+            if("native-capture".equals(getIntent().getStringExtra("mode"))){
+                captureProbe=new BrowserUseCaptureProbe(view,handler,(ok,code,checks)->{
+                    put("native_capture_checks",checks);put("native_capture_verified",ok);finishProbe(ok,code);
+                });captureProbe.run();return;
+            }
             if("native-input".equals(getIntent().getStringExtra("mode"))){
                 getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN|
                     android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
@@ -84,6 +91,7 @@ public final class BrowserUseDevActivity extends Activity {
             if(denied!=3||descriptor.getBoolean("available"))throw new IllegalStateException("Unsafe product admission");
             browser.automationAdmission(new JSONObject().put("command","create"));
             browser.automationAdmission(new JSONObject().put("command","close").put("agent",true));
+            browser.automationAdmission(new JSONObject().put("command","capture_cancel").put("agent",true));
             put("product_admission_denied_before_create",denied);put("manual_and_cleanup_admission",true);
         }finally{browser.destroy();}return support;
     }
@@ -110,12 +118,13 @@ public final class BrowserUseDevActivity extends Activity {
         if(finished)return;finished=true;handler.removeCallbacks(timeout);handler.removeCallbacks(readiness);
         put("probe_verified",verified);put("code",code);
         if(inputProbe!=null){inputProbe.close();inputProbe=null;}
+        if(captureProbe!=null)captureProbe.close();
         if(world!=null){world.close();put("cleanup_confirmed",world.cleanupConfirmed());}
-        if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();if(world!=null){world.viewDestroyed(view);put("cleanup_confirmed",world.cleanupConfirmed());}view=null;}
+        if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();if(captureProbe!=null)captureProbe.viewDestroyed();if(world!=null){world.viewDestroyed(view);put("cleanup_confirmed",world.cleanupConfirmed());}view=null;}
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);
         Log.i("MdoBrowserUseProbe",report.toString());
     }
-    @Override protected void onPause(){if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
+    @Override protected void onPause(){if(captureProbe!=null&&!finished)finishProbe(false,"capture_activity_backgrounded");if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
     @Override protected void onResume(){super.onResume();if(inputProbe!=null)inputProbe.resume();if(world!=null&&!finished){world.block(MdoBrowserDocument.BACKGROUND,false);maybeEvaluate();}}
     @Override protected void onDestroy(){
         if(!finished)finishProbe(false,"activity_destroyed");handler.removeCallbacksAndMessages(null);super.onDestroy();
