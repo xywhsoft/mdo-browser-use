@@ -646,3 +646,24 @@ Actual clipping/drawing/encoding, privacy coverage and supported-provider full
 qualification remain pending. Full-page/offscreen capture, Android image input,
 child frames, dialogs/pickers and transfers still need work. Global Browser Use
 admission stays disabled; no production release is made.
+
+## Retained native dialog controller (E19)
+
+`MdoBrowserDialogs` owns one modal result for one exact native view and navigation
+epoch. It uses opaque IDs and a 120-second absolute uptime deadline. Source URL
+and message metadata are bounded; prompt defaults/replies stay private and obey
+an 8 KiB UTF-8 bound. No frame identity is inferred from a callback URL.
+Confirm/cancel delivery occurs once. A lost native acknowledgement keeps admission
+blocked and cannot be replayed; only exact view destruction confirms that cleanup.
+Timers retain a weak controller and exact modal ID, so a late callback cannot
+cancel a replacement dialog or keep a closed view alive.
+
+The controller follows Android's retained-result contract for
+[WebChromeClient dialogs](https://developer.android.com/reference/android/webkit/WebChromeClient#onJsAlert(android.webkit.WebView,%20java.lang.String,%20java.lang.String,%20android.webkit.JsResult))
+and [prompt replies](https://developer.android.com/reference/android/webkit/JsPromptResult#confirm(java.lang.String)).
+Its Java 8 contract gate passes 83 checks, including delayed/failed timers,
+navigation, stale IDs, duplicate callbacks, Unicode bounds, reentrant teardown,
+lost acknowledgement and foreign-thread/view refusal. Receipt/log:
+`.mdo/android-dialog-result.json` and `.mdo/E19-dialog-contract.log`.
+This milestone is the controller only; native WebChromeClient/channel/UI wiring
+and actual-device qualification remain pending. It does not enable automation.

@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E18 verifies the public screenshot privacy boundary
+Latest verified milestones: E19 adds the bounded retained native Android dialog
+controller and lifetime tests, with host/framework integration pending. E18 verifies the public screenshot privacy boundary
 with fractional layout and downscaling. F7 refreshes and qualifies the packed Windows
 preview with E17's screenshot privacy fix. E17 fixes private-pixel influence
 leaking through lossy native screenshot sources, with actual codec and public
@@ -3442,6 +3443,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   admission remains disabled with the current provider preserved. Remaining
   platform/product gates continue; no production publication and no goal
   completion is claimed.
+
+## E19 — bound retained native Android JavaScript dialogs
+
+- Add the production UI-thread dialog controller for exact view/navigation
+  ownership, opaque modal IDs, one pending native result and absolute 120-second
+  expiry. Metadata is bounded without splitting Unicode; prompt defaults/replies
+  remain private and enforce an 8 KiB UTF-8 bound. Do not infer a root frame from
+  the callback URL.
+- Retain only the original result. Reject stale IDs and duplicate callbacks;
+  cancel on navigation/ownership loss/close. Late/removed timers use weak exact-ID
+  callbacks. Native acknowledgement loss preserves effect uncertainty and blocks
+  new admission until exact view teardown, without replaying confirm/cancel.
+  Reentrant cleanup, worker-thread and foreign-view boundaries are covered.
+- The actual Java 8 source passes 83 contract checks in the existing WSL JDK,
+  reusing one small QA class output. Receipt/log:
+  `.mdo/android-dialog-result.json` and `.mdo/E19-dialog-contract.log`.
+  This proves the controller contract, not framework behavior. Native host/UI
+  integration, APK compilation and actual-device qualification are next; global
+  Android admission stays disabled and the current provider is preserved.
+  No app/Home copy, runtime dependency or production publication is introduced.
 
 ## E18 — exercise fractional and downscaled public privacy masks
 
