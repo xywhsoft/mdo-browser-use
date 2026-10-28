@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E29 connects reviewed directory preparation to the
+Latest verified milestones: F12 refreshes the Windows artifact with the reviewed
+directory SDK/UI and passes nine actual packed-program checks. E29 connects reviewed directory preparation to the
 download UI and passes actual legacy/existing-default/missing-default WebView2
 save/recovery gates, plus complete Python/JS regression. E28 adds reviewed canonical-default workspace
 preparation and physical binding through shared C/JS SDK services, with 10 new
@@ -4002,3 +4003,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   bounded evidence directory on failure. This qualifies the mounted workflow,
   not the unavailable normal-desktop screenshot or Android framework. Refresh
   Windows delivery next; remaining full-goal work stays active.
+
+## F12 — deliver and verify the reviewed directory workflow in the Windows pack
+
+- Refresh the same self-contained Windows program: 6,877,938 bytes, SHA-256
+  `ac9f89d0c13041dc40f959ffc00fb3a28e41b53a9ba1957902a8e0a836ab613d`.
+  Native inventory verifies all 747 entries, including the reviewed generated C
+  workbench header, JS service contract, native directory service and download
+  action/UI files. Their artifact/source hashes match.
+- Extend the actual packed-program gate with a real default-task read-only
+  directory review, using the ordinary registered client and original private
+  scope. Confirm that lookup reports the canonical physical directory without
+  mutating the browser. Verify the delivered C convenience header and discovered
+  preparation schema. All nine packed checks pass, alongside native observation,
+  trusted Unicode input/click, capture, reset/recovery and close. This additional
+  artifact check is read-only review; the full missing-directory UI workflow has
+  its separate actual E29 evidence. Logs: `.mdo/F12-program-package.log` and
+  `.mdo/F12-program-runtime.log`; current artifact/runtime receipts verify.
+- Restore the healthy headless service and same Home, with both held-workspace
+  paths absent and original roots restored. No `dist/mdo-home`, app copy or new
+  engine exists; deployment is about 1,110 MiB. Contracts and applied overlays
+  match. The portable plugin and Android E27 QA artifact are unchanged. Preserve
+  the current WebView and disabled Android automation. Full-goal platform/
+  transport/production qualification remains active; no online release or
+  completion is claimed.

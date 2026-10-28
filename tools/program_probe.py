@@ -62,7 +62,7 @@ def main():
     server = HTTPServer(("127.0.0.1", 0), Fixture)
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
-    child = browser = None
+    child = browser = workspace_browser = None;workspace_scope=None
     try:
         with (dev.ENV / "program-runtime.log").open("wb") as log:
             child = subprocess.Popen([str(artifact), "--port", str(original["port"]),
@@ -99,6 +99,25 @@ def main():
         else:
             raise RuntimeError("Packed frontend did not register an SDK client")
         mark("packed_ui_registered")
+        root_schema=dev.call('sdk.describe',{'id':'browser.workspace.prepare'})['input_schema']
+        if not {'id','revision','session_revision','workspace','root_exists','confirmed'}.issubset(root_schema['required']):
+            raise RuntimeError('Packed workspace preparation SDK contract is incomplete')
+        sdk_header=package_program.APP/'generated/module-sdk/mdo/workbench.h'
+        if 'mdoBrowserWorkspacePrepare' not in sdk_header.read_text(encoding='utf-8') or receipt['files']['generated/module-sdk/mdo/workbench.h']['sha256']!=package_program.sha(sdk_header):
+            raise RuntimeError('Packed C workspace SDK header differs from the reviewed generated header')
+        workspace=dev.call('sdk.context',context={'project':'default'})['workspace']
+        workspace_scope={**SCOPE,'project':'default','session':'f1200000000000000000000000000001','workspace':workspace,
+                         'namespace':'packed-root-private','member':'packed-root-worker'}
+        task=dev.call('session.create',{'body':{'project_id':'default','client_session_id':workspace_scope['session'],
+            'title':'Browser Use packed workspace SDK QA','permission_profile':'full-access'}},workspace_scope)['data']
+        if task['workspace_root']!=workspace:raise RuntimeError('Packed SDK default task directory changed')
+        row=dev.call('browser.create',{'client':clients[0]['id'],'key':'packed-workspace-sdk-review'},workspace_scope);workspace_browser=row['id']
+        review=dev.call('browser.workspace.lookup',{'id':workspace_browser,'prepare_default':True},workspace_scope)
+        if review.get('prepare_default') is not True or review.get('root_exists') is not True or review.get('workspace')!=workspace or not review.get('root_snapshot','').startswith('f-'):
+            raise RuntimeError('Packed C workspace service did not review the original default directory')
+        if dev.call('browser.get',{'id':workspace_browser},workspace_scope)!=row:raise RuntimeError('Packed directory review changed its browser binding')
+        dev.call('browser.close',{'id':workspace_browser},workspace_scope);workspace_browser=None
+        mark('packed_default_workspace_sdk_review')
         plugin = dev.call("plugin.get", {"id": "mdo.browser-use"})
         if not plugin["enabled"]:
             raise RuntimeError("Portable plugin is not enabled in the existing Home")
@@ -149,6 +168,9 @@ def main():
         report.update(state="failed", error=str(error))
         raise
     finally:
+        if workspace_browser:
+            try:dev.call('browser.close',{'id':workspace_browser},workspace_scope)
+            except (OSError,RuntimeError):report['workspace_browser_cleanup']='service_shutdown_required'
         if browser:
             try:
                 dev.call("browseruse.tabs", {"action": "close", "browser": browser}, SCOPE)
