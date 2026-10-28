@@ -4065,3 +4065,16 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Windows F12 remains its previously qualified artifact, pending later refresh
   for shared cleanup-guard changes. Full goal remains active; no online release.
 
+## E30 correction — keep an accepted transport owned when a host query fails
+
+- A regression reproduced an exception after acquiring a native popup but before
+  returning its accepted callback. Escaping to WebView's `false` rejection while
+  retaining the original timer could leave two cleanup paths for native pending
+  contents. Catch failures of post-admission ownership/epoch queries inside the
+  controller, poison the opener, and complete the original transport once with
+  null. Retain budget until the same-queue barrier or exact view teardown.
+- The regression fails on E30 (`.mdo/E30-popup-ownership-before.log`) and passes
+  with the fix (`.mdo/E30-popup-ownership-after.log`): 78 controller and 25 Chrome
+  target assertions. This is a protocol contract result, not a framework pass.
+  Actual SDK/fixture packaging is refreshed in the following device-gate stage.
+

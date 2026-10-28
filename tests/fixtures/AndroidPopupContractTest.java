@@ -25,9 +25,11 @@ public final class AndroidPopupContractTest {
     static final class Harness {
         final Object view=new Object();final Clock clock=new Clock();final MdoBrowserPopups.Budget budget;
         final List<Boolean> blocked=new ArrayList<>();final List<String> results=new ArrayList<>();
-        long epoch=1;boolean owned=true;final MdoBrowserPopups<Object> core;
+        long epoch=1;boolean owned=true,failAfterAdmission,ownershipThrows;final MdoBrowserPopups<Object> core;
         Harness(){this(new MdoBrowserPopups.Budget(8));}
-        Harness(MdoBrowserPopups.Budget budget){this.budget=budget;core=new MdoBrowserPopups<>(view,clock,budget,()->owned,()->epoch,blocked::add);}
+        Harness(MdoBrowserPopups.Budget budget){this.budget=budget;core=new MdoBrowserPopups<>(view,clock,budget,()->{
+            if(ownershipThrows)throw new IllegalStateException("Owning host unavailable");return owned;
+        },()->epoch,value->{blocked.add(value);if(value&&failAfterAdmission)ownershipThrows=true;});}
         String id(){MdoBrowserPopups.Snapshot row=core.snapshot();return row==null?null:row.id;}
         void adopt(String id,Object child){core.adopt(id,child,(ok,code,may)->results.add(ok+":"+code+":"+may));}
     }
@@ -79,6 +81,10 @@ public final class AndroidPopupContractTest {
         Harness scheduler=new Harness();scheduler.clock.fail=true;Native rejected=new Native();check(scheduler.core.open(rejected,false));
         check(rejected.sends==1&&rejected.child==null&&!scheduler.core.clean()&&scheduler.budget.used()==1);
         rejected.ack();check(scheduler.budget.used()==0);
+
+        Harness ownership=new Harness();ownership.failAfterAdmission=true;Native ownedThenLost=new Native();
+        check(ownership.core.open(ownedThenLost,false));check(ownedThenLost.sends==1&&ownedThenLost.child==null);
+        check(ownership.budget.used()==1&&!ownership.core.clean());ownedThenLost.ack();check(ownership.budget.used()==0);
 
         MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(2);Harness one=new Harness(budget),two=new Harness(budget),three=new Harness(budget);
         Native n1=new Native(),n2=new Native(),n3=new Native();check(one.core.open(n1,false));check(two.core.open(n2,false));check(!three.core.open(n3,false));

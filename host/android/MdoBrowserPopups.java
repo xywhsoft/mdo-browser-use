@@ -44,7 +44,13 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         this.opener=opener;this.scheduler=scheduler;this.budget=budget;this.owned=owned;this.navigation=navigation;this.listener=listener;
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Popup requires its owning UI thread");}
-    private boolean current(Entry value){return !closed&&!destroyed&&owned.getAsBoolean()&&navigation.getAsLong()==value.snapshot.epoch;}
+    private boolean current(Entry value){
+        // After admission the caller must still return true to WebView. A host
+        // ownership query can fail; do not escape as a fresh framework rejection
+        // while retaining a timer that could later consume another native popup.
+        try{return !closed&&!destroyed&&owned.getAsBoolean()&&navigation.getAsLong()==value.snapshot.epoch;}
+        catch(RuntimeException|OutOfMemoryError error){faulted=true;return false;}
+    }
     private void blocked(boolean value){try{listener.blocked(value);}catch(RuntimeException|OutOfMemoryError error){faulted=true;}}
     /** False leaves the unaccepted transport with WebView's own rejection path. */
     boolean open(Transport<T> transport,boolean userInitiated){
