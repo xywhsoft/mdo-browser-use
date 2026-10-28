@@ -3235,3 +3235,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   framework qualification remains pending/disabled with the current WebView
   preserved. The packed Windows preview still predates E11/E12; no production
   publication occurs and the full goal remains active.
+
+## E13 — refuse child-frame hits inside a prepared Android parent target
+
+- Reproduce a main-document click boundary defect: normal point preparation
+  accepts a descendant of the target, including an iframe inside a parent
+  container. Android's native click fence checked the prepared parent and point
+  but did not detect that the actual input would enter an unsupported child.
+  The actual runtime/fence fixture fails before the fix; retain
+  `.mdo/E13-parent-frame-before.log`.
+- Check that exact click point with the fixed isolated `visualPoint` helper
+  after preparation. Reject a frame owner as `android_frames_unavailable` and
+  a missing hit as `input_target_changed` before sending native touch. Retain
+  ordinary descendant clicks and the original document/geometry checks. The
+  actual runtime fixture covers a normal descendant, iframe/frame, and an iframe
+  inside an open shadow root. Global Android admission remains disabled.
+- All seven fence checks and complete JS regression 227/227 pass. The actual
+  Activity/native input bridge compiles in the reused SDK/output tree. The same
+  QA APK is 123,283 bytes, SHA-256
+  `1f03c2948f09cec06104dc423576fb01bda0db31b367e1b19748081329a018fa`.
+  Logs: `.mdo/E13-parent-frame-after.log`, `.mdo/E13-js-full.log` and
+  `.mdo/E13-android-build.log`. Android framework verification is still pending:
+  both refreshed device gates are unavailable because ADB has no device. Their
+  verification fields remain false; no package/provider is changed.
+- Shared contracts, reviewed overlays and whitespace checks pass; the same
+  headless service is restored to HTTP 200. No Windows execution code changed
+  after E12's actual DOM keyboard pass, so that gate is not repeated. No extra
+  Home/app/native build or production publication is created. Refresh the packed
+  Windows preview separately for E11/E12. Final product/Android work continues
+  and the full goal remains active.

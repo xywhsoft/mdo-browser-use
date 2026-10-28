@@ -25,6 +25,8 @@ final class MdoBrowserNativeInput {
         "if(!found.ok)return bad('input_target_changed');if(found.element.frame!=='f0')return bad('android_frames_unavailable');"+
         "if(p.kind==='click'){const checked=r.prepare({...options,op:'click',scroll:false});"+
         "if(!checked.ok||checked.element.ref!==p.ref||Math.abs(checked.point.x-p.x)>0.5||Math.abs(checked.point.y-p.y)>0.5)return bad('input_target_changed');"+
+        "const hit=r.visualPoint({document:p.document,point:{x:p.x,y:p.y}});"+
+        "if(!hit.ok)return bad('input_target_changed');if(hit.frame_ref!==null)return bad('android_frames_unavailable');"+
         "}else{const checked=p.kind==='focus'?r.focus(options):r.verify(options);"+
         "if(!checked.ok||!checked.focused||!document.hasFocus())return bad('input_focus_lost');}"+
         "if(r.documentNode!==document||r.document!==p.document)return bad('frame_changed');"+

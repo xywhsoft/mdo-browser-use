@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import {webcrypto} from 'node:crypto';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
+import {browserRuntime} from '../page/runtime.js';
 
 // Run the production Java constant. This tests its document/geometry protocol,
 // not native WebView focus, scale reporting or trusted Android event behavior.
@@ -23,6 +25,7 @@ function fixture(kind='click'){
     locate(options){calls.push(['locate',options]);return located;},
     prepare(options){calls.push(['prepare',options]);return{...located,point:{x:20,y:30}};},
     focus(options){calls.push(['focus',options]);return{ok:true,focused:true};},
+    visualPoint(options){calls.push(['visualPoint',options]);return{ok:true,frame_ref:null};},
     scrollPoint(options){calls.push(['scrollPoint',options]);return{ok:true,hit_ref:'e7'};},
     verify(options){calls.push(['verify',options]);return{ok:true,focused:true};}};
   const context=vm.createContext({document,innerWidth:320,innerHeight:240,scrollX:10,scrollY:20,
@@ -35,8 +38,8 @@ function fixture(kind='click'){
 
 test('Android native fence pins its exact root document, reference and CSS point',()=>{
   const f=fixture();assert.deepEqual(f.run(),{ok:true});
-  assert.deepEqual(f.calls.map(row=>row[0]),['locate','prepare']);
-  for(const [,options] of f.calls){assert.equal(options.document,id);assert.equal(options.target.ref,'e7');}
+  assert.deepEqual(f.calls.map(row=>row[0]),['locate','prepare','visualPoint']);
+  for(const [,options] of f.calls){assert.equal(options.document,id);if(options.target)assert.equal(options.target.ref,'e7');}
   assert.equal(f.calls[1][1].scroll,false);
   f.runtime.prepare=()=>({...f.located,point:{x:21,y:30}});
   assert.equal(f.run().code,'input_target_changed');
@@ -81,4 +84,41 @@ test('Android wheel fence requires the same root hit and viewport without focusi
   f.runtime.scrollPoint=()=>({ok:true,hit_ref:'e8'});assert.equal(f.run().code,'input_target_changed');
   f.runtime.scrollPoint=()=>({ok:false,error:{code:'android_frames_unavailable'}});assert.equal(f.run().code,'android_frames_unavailable');
   const moved=fixture('wheel');moved.context.scrollY++;assert.equal(moved.run().code,'input_viewport_changed');assert.equal(moved.calls.length,0);
+});
+
+test('Android click fence refuses an iframe hit even when the prepared parent contains it',()=>{
+  const f=fixture();f.runtime.visualPoint=()=>({ok:true,frame_ref:'e8'});
+  assert.equal(f.run().code,'android_frames_unavailable');
+  f.runtime.visualPoint=()=>({ok:false,error:{code:'visual_point_unavailable'}});
+  assert.equal(f.run().code,'input_target_changed');
+});
+
+test('actual runtime parent preparation cannot bypass the Android main-document click boundary',()=>{
+  for(const kind of ['span','iframe','frame','shadow-iframe']){
+    const document={hasFocus:()=>true};let hit;
+    const rectangle={x:10,y:20,left:10,top:20,right:30,bottom:40,width:20,height:20};
+    const element=name=>({ownerDocument:document,localName:name,isConnected:true,parentElement:null,shadowRoot:null,
+      getAttribute:attribute=>attribute==='aria-label'?'Original parent':null,hasAttribute:()=>false,
+      matches:()=>false,closest:()=>null,getRootNode:()=>document,getClientRects:()=>[rectangle],getBoundingClientRect:()=>rectangle,
+      contains(node){for(let n=node;n;n=n.parentElement)if(n===this)return true;return false;}});
+    const parent=element('div'),inner=element(kind==='shadow-iframe'?'iframe':kind);inner.parentElement=parent;hit=parent;
+    document.elementFromPoint=()=>hit;
+    const context=vm.createContext({document,crypto:webcrypto,performance,TextEncoder,TextDecoder,URL,
+      innerWidth:320,innerHeight:240,scrollX:0,scrollY:0,visualViewport:{width:320,height:240,scale:1,offsetLeft:0,offsetTop:0},
+      getComputedStyle:()=>({display:'block',visibility:'visible',opacity:'1'})});
+    vm.runInContext('self=globalThis;top=self',context);document.defaultView=vm.runInContext('globalThis',context);
+    const runtime=vm.runInContext(`(${browserRuntime.toString()})({local_frame:true})`,context);
+    const pin=runtime.scrollPoint({document:runtime.document,point:{x:20,y:30}});assert(pin.ok);
+    if(kind==='shadow-iframe'){
+      const host=element('div');host.parentElement=parent;host.shadowRoot={elementFromPoint:()=>inner};
+      inner.parentElement=null;inner.getRootNode=()=>({host});hit=host;
+    }else hit=inner;
+    // The shared point helper deliberately accepts a descendant of the target;
+    // only Android's main-document native fence must reject the iframe boundary.
+    const prepared=runtime.prepare({document:runtime.document,target:{ref:pin.hit_ref},op:'click',scroll:false});
+    assert(prepared.ok,kind);assert.equal(prepared.point.x,20);assert.equal(prepared.point.y,30);
+    const witness={kind:'click',document:runtime.document,ref:pin.hit_ref,x:20,y:30,width:640,height:480,scrollX:0,scrollY:0,scale:2};
+    const out=JSON.parse(JSON.stringify(vm.runInContext(`${script}(${JSON.stringify(witness)})`,context)));
+    if(kind==='span')assert.deepEqual(out,{ok:true},kind);else assert.equal(out.code,'android_frames_unavailable',kind);
+  }
 });

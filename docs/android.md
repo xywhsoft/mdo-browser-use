@@ -489,3 +489,24 @@ The actual Windows C/JS/WebView2 DOM keyboard gate also passes with runtime 18,
 including original POST download bytes. The running headless deployment is
 healthy and reviewed overlays match. The previously qualified packed Windows
 preview predates E11; it has not been refreshed or published in this milestone.
+
+## Reject child-frame hits inside a parent click target (E13)
+
+The Android main-document fence now checks the actual prepared click point with
+the isolated runtime's `visualPoint` helper. A containing parent can pass normal
+target hit testing while its center lies on an iframe; native clicking that
+point would enter an unsupported child document. Such hits now reject as
+`android_frames_unavailable` before native input. Missing rendered hits reject
+as `input_target_changed`. Ordinary descendants remain valid, including an
+inspected open shadow tree; an iframe inside that tree still rejects.
+
+The regression executes the actual runtime and the actual Java fence constant,
+first demonstrating that parent preparation succeeds for the problematic point.
+Both targeted cases fail before the fix and pass after it. All seven fence
+checks and the full 227-test JS suite pass. The actual Activity/bridge compiles;
+the same 123,283-byte QA APK now has SHA-256
+`1f03c2948f09cec06104dc423576fb01bda0db31b367e1b19748081329a018fa`.
+ADB still has no device; the refreshed world and input gate receipts are
+unavailable with verification flags false. This is a boundary regression,
+not actual Android framework qualification; Agent admission remains disabled
+and the user's current WebView is preserved.
