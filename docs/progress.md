@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E20 wires and compiles actual Android native dialog
+Latest verified milestones: E21 fixes cancelled-navigation peer retirement,
+with deterministic callback-order tests and actual host compilation. E20 wires and compiles actual Android native dialog
 hooks with document/input/capture/lifecycle boundaries; framework qualification
 remains unavailable. E19 adds the bounded retained native Android dialog
 controller and lifetime tests. E18 verifies the public screenshot privacy boundary
@@ -3553,3 +3554,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   No install/provider change, native binary rebuild or production publication
   occurs. Reuse the same Home/deployment and healthy headless service. Remaining
   Android and full product work continues with the goal active.
+
+## E21 — preserve the original document after cancelled navigation
+
+- Reproduce the old host callback sequence with the actual production document
+  controller: it is ready before a navigation request and `world_not_ready`
+  after before-unload cancellation, despite the unchanged DOM/peer and a loaded
+  notification. Failing evidence: `.mdo/E21-navigation-before.log`. This is a
+  deterministic component reproduction, not an Android device observation.
+- Separate request blocking from actual native navigation start. Stop outstanding
+  work immediately, keep the original peer blocked, and retire/advance its native
+  epoch only at `onPageStarted`. Confirmed cancellation restores only the same
+  view/epoch request. Keep an early replacement fenced until actual start; never
+  replay cancelled evaluations. Stop/errors/teardown settle request state, and
+  repeated pending navigation or uncertain dialog cleanup cannot admit more work.
+- Pass 81 document, 35 world/18 native-budget, 83 dialog and 125 input/85 lifecycle/
+  22 channel/63 guard/66 wheel contract checks. The 17 targeted JS document and
+  dispatcher checks pass. Logs: `.mdo/E21-world-contract.log`,
+  `.mdo/E21-dialog-contract.log`, `.mdo/E21-input-contract.log` and
+  `.mdo/E21-js-document.log`.
+- Compile the actual Activity/browser/navigation/dialog hooks in the same SDK.
+  The tiny QA APK is 172,435 bytes, SHA-256
+  `e361fa79ccb5e18b010ca34cf78cdf111550cccc8562a09ac30918396f0dca50`;
+  build log `.mdo/E21-android-build.log`. Restore the healthy headless service;
+  contracts and reviewed overlays match. Windows F7 remains unchanged and its
+  artifact/inventory/runtime receipts still match. Current ADB has no device;
+  native framework/host-UI/before-unload qualification and remaining full-goal
+  work continue. Keep Android admission disabled and the current WebView intact.
+  No app/Home copy or production publication occurs.

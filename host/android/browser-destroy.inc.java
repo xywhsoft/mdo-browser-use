@@ -15,5 +15,6 @@
             for(CaptureEntry entry:captureRetiring)if(entry.view==web)entry.capture.viewDestroyed();}
         captures.clear();
         dialogs.clear();
+        navigationRequests.clear();
         manual.clear();loading.clear();errors.clear();errorCodes.clear();crashed.clear();locations.clear();
     }

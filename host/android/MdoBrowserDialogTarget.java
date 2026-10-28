@@ -9,13 +9,18 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
+import java.util.function.LongConsumer;
 
 /** Native callbacks for one owned WebView. A callback URL is display metadata,
  * never a root/subframe identity or permission to execute in a different view. */
 final class MdoBrowserDialogTarget extends WebChromeClient implements AutoCloseable {
     final WebView view;final MdoBrowserDialogs dialogs;
+    private final LongSupplier navigation;private final LongConsumer beforeUnloadCancelled;
     MdoBrowserDialogTarget(WebView view,BooleanSupplier owned,LongSupplier navigation,MdoBrowserDialogs.Listener listener){
-        this.view=view;
+        this(view,owned,navigation,listener,epoch->{});
+    }
+    MdoBrowserDialogTarget(WebView view,BooleanSupplier owned,LongSupplier navigation,MdoBrowserDialogs.Listener listener,LongConsumer beforeUnloadCancelled){
+        this.view=view;this.navigation=navigation;this.beforeUnloadCancelled=beforeUnloadCancelled;
         final Handler handler=new Handler(Looper.getMainLooper());
         dialogs=new MdoBrowserDialogs(view,new MdoBrowserDialogs.Scheduler(){
             public long now(){return SystemClock.uptimeMillis();}
@@ -26,10 +31,12 @@ final class MdoBrowserDialogTarget extends WebChromeClient implements AutoClosea
     private boolean receive(WebView source,String kind,String url,String message,String initial,JsResult result){
         if(source!=view)return false;
         if(result==null)return true;
+        final long epoch=navigation.getAsLong();
         dialogs.open(result,(accept,text)->{
             if(!accept)result.cancel();
             else if(result instanceof JsPromptResult)((JsPromptResult)result).confirm(text);
             else result.confirm();
+            if(!accept&&"beforeunload".equals(kind))beforeUnloadCancelled.accept(epoch);
         },kind,url,message,initial);
         return true;
     }

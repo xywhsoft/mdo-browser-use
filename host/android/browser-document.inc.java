@@ -22,6 +22,7 @@
         }
     }
     private boolean closeDocument(String key){
+        navigationRequests.remove(key);
         MdoBrowserDialogTarget dialog=dialogs.get(key);if(dialog!=null)dialog.close();
         CaptureEntry capture=captures.get(key);if(capture!=null)capture.capture.close();
         MdoBrowserDocument document=documents.remove(key);
@@ -29,6 +30,7 @@
         if(document==null)return dialog==null||dialog.dialogs.clean();document.close();return document.cleanupConfirmed()&&(dialog==null||dialog.dialogs.clean());
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
+        navigationRequests.remove(key);
         MdoBrowserDialogTarget dialog=dialogs.remove(key);if(dialog!=null)dialog.close();
         CaptureEntry capture=captures.remove(key);if(capture!=null)capture.capture.close();
         MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
@@ -40,6 +42,7 @@
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;
+        navigationRequests.remove(key);
         cancelDialog(key);
         cancelCapture(key);
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.navigation();

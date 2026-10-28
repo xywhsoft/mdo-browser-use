@@ -7,7 +7,7 @@
                 MdoBrowserDocument document=documents.get(key);
                 if(document!=null)document.block(MdoBrowserDocument.DIALOG,blocked);
                 if(blocked){cancelCapture(key);if(views.owns(key,view))views.input(key,view).invalidate("input_dialog_open");}
-            });
+            },epoch->{if(views.owns(key,view)&&views.epoch(key,view)==epoch)cancelNavigationRequest(key,view);});
         dialogs.put(key,target);view.setWebChromeClient(target);
     }
     private boolean dialogReady(String key,WebView view){

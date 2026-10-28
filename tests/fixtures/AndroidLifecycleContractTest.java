@@ -106,6 +106,9 @@ public final class AndroidLifecycleContractTest {
         scaled.views.scaleChanged("tab",scaledView,9);check(Double.isNaN(scaled.views.scale("tab",zoomReplacement)),"Old view scale changed a replacement");
         scaled.views.scaleChanged("tab",zoomReplacement,2);scaled.views.scaleChanged("tab",zoomReplacement,Double.NaN);
         check(Double.isNaN(scaled.views.scale("tab",zoomReplacement)),"Invalid scale remained usable");scaled.views.close();
+        Case modal=new Case();View modalView=new View();modal.views.put("tab",modalView);modal.press(modalView);
+        modal.input(modalView).invalidate("input_dialog_open");modal.terminated("input_dialog_open");
+        check(modalView.events.equals(Arrays.asList(0,3)),"Native dialog left a held pointer");modal.views.close();
         final boolean[] thread={false};Thread other=new Thread(()->{try{identity.views.get("tab");}catch(IllegalStateException expected){thread[0]=true;}});
         other.start();other.join();check(thread[0],"Cross-thread lifecycle admitted");
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"android_device_verified\":false}");

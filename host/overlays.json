@@ -840,7 +840,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "views.stop(key,web);web.stopLoading();",
-      "after": "views.stop(key,web);MdoBrowserDocument document=documents.get(key);if(document!=null)document.cancel();web.stopLoading();"
+      "after": "views.stop(key,web);MdoBrowserDocument document=documents.get(key);if(document!=null)document.cancel();web.stopLoading();cancelNavigationRequest(key,web);"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -850,22 +850,22 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "views.navigation(key,web);web.loadUrl(target);",
-      "after": "documentNavigation(key,web);views.navigation(key,web);web.loadUrl(target);"
+      "after": "performNavigation(key,web,\"navigate\",target);"
     },
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "views.navigation(key,web);web.goBack();",
-      "after": "documentNavigation(key,web);views.navigation(key,web);web.goBack();"
+      "after": "performNavigation(key,web,\"back\",null);"
     },
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "views.navigation(key,web);web.goForward();",
-      "after": "documentNavigation(key,web);views.navigation(key,web);web.goForward();"
+      "after": "performNavigation(key,web,\"forward\",null);"
     },
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "views.navigation(key,web);web.reload();",
-      "after": "documentNavigation(key,web);views.navigation(key,web);web.reload();"
+      "after": "performNavigation(key,web,\"reload\",null);"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -994,6 +994,22 @@
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeCapture.java'),source.with_name('MdoBrowserNativeCapture.java'))",
       "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeCapture.java'),source.with_name('MdoBrowserNativeCapture.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogs.java'),source.with_name('MdoBrowserDialogs.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogTarget.java'),source.with_name('MdoBrowserDialogTarget.java'))"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-navigation.inc.java",
+      "suffix": "    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(views.owns(key,view)&&navigation.isForMainFrame()){loading.put(key,false);",
+      "after": "if(views.owns(key,view)&&navigation.isForMainFrame()){cancelNavigationRequest(key,view);loading.put(key,false);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "handler.cancel();if(!views.owns(key,view))return;loading.put(key,false);",
+      "after": "handler.cancel();if(!views.owns(key,view))return;cancelNavigationRequest(key,view);loading.put(key,false);"
     }
   ],
   "files": [

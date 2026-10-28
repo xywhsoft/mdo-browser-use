@@ -695,3 +695,31 @@ contract checks pass; all 245 JS checks pass. Logs:
 and deterministic contract evidence, not actual dialog/UI/before-unload recovery
 qualification. No installation or WebView change occurs. The next framework gate
 must distinguish these native dialogs from isolated-world/full Agent support.
+
+## Preserve the original world when navigation is cancelled (E21)
+
+The old host sequence retired the isolated peer before calling the native
+navigation API. A contract reproduction of that sequence leaves the unchanged
+page in `world_not_ready` after cancelling before-unload, even after a loaded
+notification. Preserve `.mdo/E21-navigation-before.log` as the failing evidence.
+
+Typed navigation now blocks new execution and cancels outstanding work without
+retiring the original peer. Only actual `onPageStarted` retires it and advances
+the native epoch. A confirmed before-unload cancellation clears only the same
+view/epoch's pending request; the original DOM/peer identity becomes usable
+again after the modal blocker clears. An early replacement peer cannot become
+usable through cancellation and remains fenced until its actual native start.
+Stop, synchronous failure and main-frame/TLS errors settle the request barrier;
+new navigation cannot bypass a still-pending request or uncertain modal cleanup.
+An empty back/forward history does not invalidate the world.
+
+The actual document gate passes 81 checks, native-budget 18, dialog 83 and the
+existing input/lifecycle gates (including 85 lifecycle checks). The 17 targeted
+JS document/dispatch checks pass. The actual pinned Activity/browser compiles in
+the same SDK; the updated tiny QA APK is 172,435 bytes, SHA-256
+`e361fa79ccb5e18b010ca34cf78cdf111550cccc8562a09ac30918396f0dca50`.
+Logs: `.mdo/E21-world-contract.log`, `.mdo/E21-dialog-contract.log`,
+`.mdo/E21-input-contract.log`, `.mdo/E21-js-document.log` and
+`.mdo/E21-android-build.log`. These are deterministic callback-order and compile
+gates. Actual framework before-unload/host-UI qualification is still pending;
+Android automation stays disabled and no provider change is requested.
