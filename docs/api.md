@@ -565,7 +565,7 @@ composition. Its real pixel gate covers readable nested content, hidden input
 values, exact nested crops and child-navigation withholding; the normal adapter
 still waits for its public C/JS/managed integration regression.
 
-## JavaScript dialogs and human control
+## Recovering a page connection failure
 
 After a page connection error, the browser's error card hides its native content
 surface. An explicit navigation may still replace that failed page when its
@@ -575,6 +575,8 @@ manual control, native dialogs/popups, a hidden/detached pane and bridge errors
 do not gain this admission. Input and capture still need their visible native
 viewport. All ordinary scope, permission, cancellation and native dispatch
 checks continue before an effect; the recovery never replays a prior action.
+
+## JavaScript dialogs and human control
 
 `dialog({browser,action:"list"})` returns bounded pending alert, confirm, prompt
 and before-unload metadata. Messages and URLs are untrusted page data. Prompt

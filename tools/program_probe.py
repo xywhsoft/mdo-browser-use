@@ -3,6 +3,8 @@ import base64
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
+import socket
+import struct
 import subprocess
 import sys
 import threading
@@ -21,6 +23,10 @@ document.querySelector('#run').onclick=e=>document.querySelector('#result').text
 
 class Fixture(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path=='/reset':
+            self.close_connection=True
+            self.connection.setsockopt(socket.SOL_SOCKET,socket.SO_LINGER,struct.pack('HH' if os.name=='nt' else 'ii',1,0))
+            socket.close(self.connection.detach());return
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(HTML)))
@@ -123,6 +129,18 @@ def main():
             raise RuntimeError("Packed native screenshot failed")
         report["synthetic_screenshot_bytes"] = len(image_bytes)
         mark("packed_native_synthetic_capture")
+        reset=dev.call('browseruse.navigate',{'browser':browser,'action':'goto',
+            'url':'http://127.0.0.1:'+str(server.server_port)+'/reset','timeout_ms':5000},SCOPE)
+        try:failed=wait_receipt(reset['id'],allow_failure=True)
+        finally:dev.call('browseruse.result',{'id':reset['id'],'release':True},SCOPE)
+        if failed['state']!='failed' or not isinstance(failed.get('error'),dict) or failed['error'].get('code')!='navigation_failed':
+            raise RuntimeError('Packed connection reset did not report its page failure')
+        mark('packed_native_network_reset_reported')
+        recovered=execute('browseruse.navigate',{'action':'goto','url':'http://127.0.0.1:'+str(server.server_port)+'/fixture','timeout_ms':8000})
+        page=recovered.get('observation',{})
+        if not recovered.get('ok') or page.get('document')==doc or 'Packaged native browser fixture' not in page.get('text',''):
+            raise RuntimeError('Packed explicit navigation did not recover from the page error card')
+        mark('packed_recovery_navigation_after_page_error')
         dev.call("browseruse.tabs", {"action": "close", "browser": browser}, SCOPE)
         browser = None
         mark("packed_browser_closed")

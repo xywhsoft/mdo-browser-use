@@ -7,13 +7,14 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,876,009 bytes**, SHA-256
-`e63290e76ad033c01fa610e9f25149568b182a71fd3358d261293faaed29db16`.
+The current refreshed preview is **6,876,390 bytes**, SHA-256
+`1bc3eb7911dfdf665f2fecb89012872b153d4b2ad94c81a0040471050f0d4e19`.
 Its native inventory contains 747 files, including runtime 19, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
-lossless-source privacy fix. Included module
+lossless-source privacy fix, plus N1's explicit page-error navigation recovery. Included module
 hashes match the reviewed deployment. The actual packed-program gate passes all
-six runtime checks. This is
+eight runtime checks, including connection-reset reporting and recovery
+navigation from the error card. This is
 Windows verification; Android framework qualification remains unavailable.
 
 On a Windows x86-64 device with WebView2, place the executable in a writable
@@ -58,7 +59,9 @@ separate runtime gate starts the actual executable from `dist/`, with no
 unpacked app configuration or generated tree there, reusing the same development
 Home and loopback port. It verifies the archive root, real frontend client,
 installed C plugin, page observation, Unicode fill, trusted click, screenshot
-and browser close against a synthetic loopback page. It then restores the
+and browser close against a synthetic loopback page. A real loopback connection
+reset must report failure, then an explicit navigation must recover the same tab
+from its error card with a fresh observed document. It then restores the
 headless service. It does not send a model request or test external websites.
 
 The executable receipt records inventory verification separately from runtime

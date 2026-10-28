@@ -13,7 +13,8 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: N1 fixes recovery navigation blocked by a failed
+Latest verified milestones: F8 qualifies the packed Windows network-recovery
+fix through eight actual runtime checks. N1 fixes recovery navigation blocked by a failed
 page's error card, with actual C/JS/WebView2 network/cancel checks. E23 fixes late Android dialog callbacks dispatching
 after exact view teardown and adds native target fault tests. E22 compiles the actual native dialog framework
 fixture, with its device gate unavailable and all flags false. E21 fixes cancelled-navigation peer retirement,
@@ -3665,3 +3666,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Home/host and restore healthy headless operation. No external site or model
   call is used. Refresh the packed Windows program after this UI fix; remaining
   full-goal work and unavailable Android framework qualification continue.
+
+## F8 — qualify the packed Windows page-error recovery fix
+
+- Refresh the same Windows artifact with N1's workbench admission fix. The
+  executable is 6,876,390 bytes, SHA-256
+  `1bc3eb7911dfdf665f2fecb89012872b153d4b2ad94c81a0040471050f0d4e19`.
+  Its 747-file native inventory passes and the packed panel manager/shared
+  dispatcher hashes match the reviewed deployment.
+- Extend the actual packed-program gate with a real loopback connection reset
+  and subsequent explicit recovery navigation. The error must be reported and
+  the same tab must reach the normal fixture with a fresh document. All eight
+  archive/UI/C/JS/native observation, Unicode input, capture, reset/recovery and
+  close checks pass. Logs/receipt: `.mdo/F8-program-package.log`,
+  `.mdo/F8-program-runtime.log`, `.mdo/program-runtime-result.json` and the
+  adjacent artifact inventory. This checks the delivered executable itself.
+- Restore the healthy headless service, one Home and about 1,110 MiB deployment;
+  no `dist/mdo-home`, app staging copy or new engine exists. Shared contracts and
+  overlays match. The portable plugin is unchanged. Android's current tiny QA
+  APK remains E23, with actual framework/host-UI qualification unavailable.
+  Preserve the current provider and disabled Android automation admission.
+  Remaining full-goal work continues; no production publication or completion
+  is claimed.
