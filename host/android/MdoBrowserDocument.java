@@ -7,7 +7,7 @@ import java.util.UUID;
 /** One installed isolated world for an exact native content view. It does not
  * enable the product's unfinished input/capture/frame/transfer capabilities. */
 final class MdoBrowserDocument implements AutoCloseable {
-    static final int CHANNEL=1,BACKGROUND=2,MANUAL=4;
+    static final int CHANNEL=1,BACKGROUND=2,MANUAL=4,DIALOG=8;
     static final String HELLO="mdo-browser-document-v1";
     static final String BOOTSTRAP="(()=>{if(self!==top||globalThis.__mdoBrowserDocumentReady)return;"+
         "Object.defineProperty(globalThis,'__mdoBrowserDocumentReady',{value:true});"+
@@ -70,7 +70,7 @@ final class MdoBrowserDocument implements AutoCloseable {
     void loaded(){thread();if(!closed){loading=false;adopt();}}
     void block(int mask,boolean value){
         thread();if(closed)return;
-        if(mask!=CHANNEL&&mask!=BACKGROUND&&mask!=MANUAL)throw new IllegalArgumentException("Invalid document blocker");
+        if(mask!=CHANNEL&&mask!=BACKGROUND&&mask!=MANUAL&&mask!=DIALOG)throw new IllegalArgumentException("Invalid document blocker");
         int next=value?blockers|mask:blockers&~mask;
         if(next==blockers)return;blockers=next;
         if(value){serial++;world.cancelPending(reason());}else adopt();
@@ -82,6 +82,7 @@ final class MdoBrowserDocument implements AutoCloseable {
         if((blockers&CHANNEL)!=0)return"main_document_changed";
         if((blockers&BACKGROUND)!=0)return"world_view_unavailable";
         if((blockers&MANUAL)!=0)return"user_taken_control";
+        if((blockers&DIALOG)!=0)return"dialog_open";
         if(loading||nativeDocument==null||!world.current(active)||activeEpoch!=epoch.getAsLong())return"world_not_ready";
         return null;
     }

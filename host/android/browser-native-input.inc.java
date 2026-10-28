@@ -1,4 +1,5 @@
     private void executeNativeInput(String key,String id,WebView view,JSONObject request)throws Exception {
+        if(!dialogReady(key,view))throw new IllegalStateException("dialog_pending_or_unclean");
         CaptureEntry capture=captures.get(key);
         if(capture!=null&&(capture.capture.busy()||!capture.capture.cleanupConfirmed()))throw new IllegalStateException("capture_busy_or_unclean");
         final MdoBrowserDocument document=documents.get(key);

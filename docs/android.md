@@ -667,3 +667,31 @@ lost acknowledgement and foreign-thread/view refusal. Receipt/log:
 `.mdo/android-dialog-result.json` and `.mdo/E19-dialog-contract.log`.
 This milestone is the controller only; native WebChromeClient/channel/UI wiring
 and actual-device qualification remain pending. It does not enable automation.
+
+## Actual native dialog hooks (E20)
+
+The reviewed `MdoBrowser.java` now installs `MdoBrowserDialogTarget` on each owned
+content WebView. Alert/confirm/prompt/before-unload callbacks retain the actual
+result through the controller. The existing trusted host UI reads `dialog` list
+and responds by opaque ID; defaults stay private and reply types are checked.
+Metadata explicitly says `frame_scope:"owned-webview"`; no frame ID is invented.
+
+A modal blocks the isolated document, cancels capture and drains held native
+input. Navigation, hiding, stop, host-channel detach, background and exact view
+close cancel the original result. Manual takeover retains the dialog so the
+user can respond through the trusted UI; an Agent cannot respond during takeover.
+An uncertain cleanup blocks new input/capture. Exact view destruction settles
+the retained result resources. The host reports dialog capability/open/cleanup
+separately from overall Browser Use readiness, which remains false.
+
+The actual pinned Activity, browser hooks and target compile with Java 8/API 36,
+minimum API 26. The reused QA APK is 172,435 bytes, SHA-256
+`7d89de1dd50d36214f49ed2e065691bb046a3e2bf17252fd353b1bb6d4c1a65a`.
+Dialog core 83, document 64 and the existing world/input/lifecycle/channel/wheel
+contract checks pass; all 245 JS checks pass. Logs:
+`.mdo/E20-dialog-contract.log`, `.mdo/E20-world-contract.log`,
+`.mdo/E20-input-contract.log`, `.mdo/E20-js-full.log` and
+`.mdo/E20-android-build.log`. Current ADB inventory is empty, so this is compilation
+and deterministic contract evidence, not actual dialog/UI/before-unload recovery
+qualification. No installation or WebView change occurs. The next framework gate
+must distinguish these native dialogs from isolated-world/full Agent support.

@@ -19,12 +19,13 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserDocument.java',
         'host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserCapture.java',
         'host/android/MdoBrowserCaptureBuffer.java','host/android/MdoBrowserCaptureRuntime.java','host/android/MdoBrowserCaptureTarget.java',
-        'host/android/MdoBrowserNativeCapture.java','host/android/dev/BrowserUseCaptureProbe.java')
+        'host/android/MdoBrowserNativeCapture.java','host/android/dev/BrowserUseCaptureProbe.java',
+        'host/android/MdoBrowserDialogs.java','host/android/MdoBrowserDialogTarget.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
     'tools/android/MdoBrowserCaptureBuffer.java','tools/android/MdoBrowserCaptureRuntime.java','tools/android/MdoBrowserCaptureTarget.java',
-    'tools/android/MdoBrowserNativeCapture.java')
+    'tools/android/MdoBrowserNativeCapture.java','tools/android/MdoBrowserDialogs.java','tools/android/MdoBrowserDialogTarget.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py',)
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))
@@ -101,7 +102,7 @@ def main():
         'apk_bytes':apk.stat().st_size,'java_target':8,'min_api':26,'compile_api':tools_receipt['compile_sdk'],
         'toolchain_lock_sha256':tools_receipt['lock_sha256'],'ndk_required':False,'runtime_dependencies_added':False,
         'production_activity_compiled':True,'production_native_input_bridge_compiled':True,'production_wheel_input_compiled':True,
-        'production_capture_bridge_compiled':True}
+        'production_capture_bridge_compiled':True,'production_dialog_bridge_compiled':True}
     receipt_path.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))
 
 

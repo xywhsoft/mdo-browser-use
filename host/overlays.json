@@ -953,6 +953,47 @@
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWheel.java'),source.with_name('MdoBrowserWheel.java'))",
       "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWheel.java'),source.with_name('MdoBrowserWheel.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserCapture.java'),source.with_name('MdoBrowserCapture.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserCaptureBuffer.java'),source.with_name('MdoBrowserCaptureBuffer.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserCaptureRuntime.java'),source.with_name('MdoBrowserCaptureRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserCaptureTarget.java'),source.with_name('MdoBrowserCaptureTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeCapture.java'),source.with_name('MdoBrowserNativeCapture.java'))"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-native-dialog.inc.java",
+      "suffix": "    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "                web.setWebViewClient(new WebViewClient(){",
+      "after": "                bindDialogs(key,web);\n                web.setWebViewClient(new WebViewClient(){"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"takeover\".equals(command)||\"release\".equals(command)){",
+      "after": "            if(\"dialog\".equals(command)){executeDialog(key,id,request);return;}\n            if(\"takeover\".equals(command)||\"release\".equals(command)){"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(manual.contains(key)&&request.optBoolean(\"agent\")",
+      "after": "            if(!dialogReady(key,web)&&!Arrays.asList(\"navigate\",\"back\",\"forward\",\"reload\",\"stop\").contains(command))throw new IllegalStateException(\"dialog_pending_or_unclean\");\n            if(manual.contains(key)&&request.optBoolean(\"agent\")"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        blockDocuments(MdoBrowserDocument.CHANNEL,true);\n        if (port != null) port.close();",
+      "after": "        channel.invalidate();cancelDialogs();\n        blockDocuments(MdoBrowserDocument.CHANNEL,true);\n        if (port != null) port.close();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(!visible||web.getWidth()!=width||web.getHeight()!=height)cancelCapture(request.optString(\"browser\"));",
+      "after": "if(!visible)cancelDialog(request.optString(\"browser\"));if(!visible||web.getWidth()!=width||web.getHeight()!=height)cancelCapture(request.optString(\"browser\"));"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "else if(\"stop\".equals(command)){cancelCapture(key);",
+      "after": "else if(\"stop\".equals(command)){cancelDialog(key);cancelCapture(key);"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeCapture.java'),source.with_name('MdoBrowserNativeCapture.java'))",
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserNativeCapture.java'),source.with_name('MdoBrowserNativeCapture.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogs.java'),source.with_name('MdoBrowserDialogs.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogTarget.java'),source.with_name('MdoBrowserDialogTarget.java'))"
     }
   ],
   "files": [
@@ -1139,6 +1180,14 @@
     {
       "source": "host/android/MdoBrowserNativeCapture.java",
       "target": "tools/android/MdoBrowserNativeCapture.java"
+    },
+    {
+      "source": "host/android/MdoBrowserDialogs.java",
+      "target": "tools/android/MdoBrowserDialogs.java"
+    },
+    {
+      "source": "host/android/MdoBrowserDialogTarget.java",
+      "target": "tools/android/MdoBrowserDialogTarget.java"
     }
   ]
 }

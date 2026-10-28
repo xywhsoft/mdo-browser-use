@@ -13,8 +13,10 @@ development stream and the single deployment inside this project.
 | E | Android implementation and explicit platform limits | In progress |
 | F | Plugin lifecycle, end-to-end checks and deliverable | In progress |
 
-Latest verified milestones: E19 adds the bounded retained native Android dialog
-controller and lifetime tests, with host/framework integration pending. E18 verifies the public screenshot privacy boundary
+Latest verified milestones: E20 wires and compiles actual Android native dialog
+hooks with document/input/capture/lifecycle boundaries; framework qualification
+remains unavailable. E19 adds the bounded retained native Android dialog
+controller and lifetime tests. E18 verifies the public screenshot privacy boundary
 with fractional layout and downscaling. F7 refreshes and qualifies the packed Windows
 preview with E17's screenshot privacy fix. E17 fixes private-pixel influence
 leaking through lossy native screenshot sources, with actual codec and public
@@ -3444,40 +3446,6 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   platform/product gates continue; no production publication and no goal
   completion is claimed.
 
-## E19 — bound retained native Android JavaScript dialogs
-
-- Add the production UI-thread dialog controller for exact view/navigation
-  ownership, opaque modal IDs, one pending native result and absolute 120-second
-  expiry. Metadata is bounded without splitting Unicode; prompt defaults/replies
-  remain private and enforce an 8 KiB UTF-8 bound. Do not infer a root frame from
-  the callback URL.
-- Retain only the original result. Reject stale IDs and duplicate callbacks;
-  cancel on navigation/ownership loss/close. Late/removed timers use weak exact-ID
-  callbacks. Native acknowledgement loss preserves effect uncertainty and blocks
-  new admission until exact view teardown, without replaying confirm/cancel.
-  Reentrant cleanup, worker-thread and foreign-view boundaries are covered.
-- The actual Java 8 source passes 83 contract checks in the existing WSL JDK,
-  reusing one small QA class output. Receipt/log:
-  `.mdo/android-dialog-result.json` and `.mdo/E19-dialog-contract.log`.
-  This proves the controller contract, not framework behavior. Native host/UI
-  integration, APK compilation and actual-device qualification are next; global
-  Android admission stays disabled and the current provider is preserved.
-  No app/Home copy, runtime dependency or production publication is introduced.
-
-## E18 — exercise fractional and downscaled public privacy masks
-
-- Extend the same loopback fixture with fractional CSS positions/sizes. Compare
-  private-black/private-white variants through the actual public C/JS/native
-  screenshot path for PNG and JPEG, with ordinary and small output bounds.
-  The six pairs are byte-identical, retain all three masks and respect both
-  dimensions and the final 8 KiB limit, including 87×73 downscaled output.
-- Receipt/log: `.mdo/capture-privacy-public-result.json` and
-  `.mdo/E18-privacy-scaled-public.log`. Reuse the same window, fixture, Home and
-  native host; restore the healthy headless service. No product change,
-  model/external-site call, provider change or new artifact is needed. These
-  specific layouts pass; other privacy layouts and the full goal remain under
-  development, with Android qualification unavailable.
-
 ## E17 — mask private pixels before lossy screenshot encoding
 
 - Reproduce a shared screenshot privacy defect with actual Chromium codecs and
@@ -3526,3 +3494,62 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   The portable plugin and Android QA APK are unchanged. Remaining Android
   qualification and full product gates continue; no production publication or
   completion is claimed.
+
+## E18 — exercise fractional and downscaled public privacy masks
+
+- Extend the same loopback fixture with fractional CSS positions/sizes. Compare
+  private-black/private-white variants through the actual public C/JS/native
+  screenshot path for PNG and JPEG, with ordinary and small output bounds.
+  The six pairs are byte-identical, retain all three masks and respect both
+  dimensions and the final 8 KiB limit, including 87×73 downscaled output.
+- Receipt/log: `.mdo/capture-privacy-public-result.json` and
+  `.mdo/E18-privacy-scaled-public.log`. Reuse the same window, fixture, Home and
+  native host; restore the healthy headless service. No product change,
+  model/external-site call, provider change or new artifact is needed. These
+  specific layouts pass; other privacy layouts and the full goal remain under
+  development, with Android qualification unavailable.
+
+## E19 — bound retained native Android JavaScript dialogs
+
+- Add the production UI-thread dialog controller for exact view/navigation
+  ownership, opaque modal IDs, one pending native result and absolute 120-second
+  expiry. Metadata is bounded without splitting Unicode; prompt defaults/replies
+  remain private and enforce an 8 KiB UTF-8 bound. Do not infer a root frame from
+  the callback URL.
+- Retain only the original result. Reject stale IDs and duplicate callbacks;
+  cancel on navigation/ownership loss/close. Late/removed timers use weak exact-ID
+  callbacks. Native acknowledgement loss preserves effect uncertainty and blocks
+  new admission until exact view teardown, without replaying confirm/cancel.
+  Reentrant cleanup, worker-thread and foreign-view boundaries are covered.
+- The actual Java 8 source passes 83 contract checks in the existing WSL JDK,
+  reusing one small QA class output. Receipt/log:
+  `.mdo/android-dialog-result.json` and `.mdo/E19-dialog-contract.log`.
+  This proves the controller contract, not framework behavior. Native host/UI
+  integration, APK compilation and actual-device qualification are next; global
+  Android admission stays disabled and the current provider is preserved.
+  No app/Home copy, runtime dependency or production publication is introduced.
+
+## E20 — wire native Android dialogs into the actual host
+
+- Install the native WebChromeClient target on each exact content view, with
+  alert/confirm/prompt/before-unload retained results and the existing trusted UI
+  list/respond protocol. Keep private prompt defaults out of metadata and check
+  response types. Advertise owned-WebView scope instead of inventing frame IDs.
+- Block isolated execution and cancel capture/held input at modal admission.
+  Navigation, hiding, stop, channel detach, background and close cancel only the
+  original pending result. Preserve the modal during human takeover, with Agent
+  responses denied. Uncertain cleanup blocks new native work; real view teardown
+  confirms release. Overall Android automation admission remains disabled.
+- Pass 83 dialog checks, 35 world/64 document/18 native-budget checks and the
+  existing input 125/lifecycle 81/channel 22/guard 63/wheel 66 checks. Pass all
+  245 sequential JS checks. Reused logs: `.mdo/E20-dialog-contract.log`,
+  `.mdo/E20-world-contract.log`, `.mdo/E20-input-contract.log` and
+  `.mdo/E20-js-full.log`.
+- Compile the actual pinned Activity, hooks and native dialog target with Java 8,
+  API 36/minimum 26. The same tiny QA APK is 172,435 bytes, SHA-256
+  `7d89de1dd50d36214f49ed2e065691bb046a3e2bf17252fd353b1bb6d4c1a65a`.
+  Build log: `.mdo/E20-android-build.log`. Current ADB inventory has no device;
+  actual dialog/UI/before-unload recovery qualification remains unavailable.
+  No install/provider change, native binary rebuild or production publication
+  occurs. Reuse the same Home/deployment and healthy headless service. Remaining
+  Android and full product work continues with the goal active.

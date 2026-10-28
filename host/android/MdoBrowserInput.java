@@ -110,7 +110,7 @@ final class MdoBrowserInput implements AutoCloseable {
     void cancel(){invalidate("input_cancelled");}
     void invalidate(String reason){thread();
         if(!("frame_changed".equals(reason)||"input_cancelled".equals(reason)||"user_taken_control".equals(reason)||
-             "input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)))
+             "input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"input_dialog_open".equals(reason)))
             throw new IllegalArgumentException("Invalid native input invalidation");
         if(active!=null)active.finish(reason);
     }

@@ -10,7 +10,7 @@
         CaptureEntry existing=captures.get(key);
         if(existing!=null){if(existing.view!=view)throw new IllegalStateException("capture_view_changed");return existing;}
         MdoBrowserCaptureTarget target=new MdoBrowserCaptureTarget(view,document::identity,()->views.epoch(key,view),()->views.scale(key,view),
-            ()->!stopped&&!browserPaused&&views.owns(key,view)&&!manual.contains(key)&&!views.inputBusy(key,view)&&views.inputClean(key,view)&&
+            ()->!stopped&&!browserPaused&&views.owns(key,view)&&dialogReady(key,view)&&!manual.contains(key)&&!views.inputBusy(key,view)&&views.inputClean(key,view)&&
                 channel.current()!=null&&channel.active(channel.current(),host.getUrl()));
         CaptureEntry entry=new CaptureEntry(view,target);captures.put(key,entry);return entry;
     }
@@ -45,6 +45,6 @@
     private JSONObject captureState(String key,JSONObject state)throws JSONException {
         CaptureEntry entry=captures.get(key);boolean busy=entry!=null&&entry.capture.busy();
         boolean clean=entry==null||entry.capture.cleanupConfirmed();
-        return state.put("capture_capability",documents.containsKey(key)).put("capture_busy",busy).put("capture_cleanup_confirmed",clean)
+        return dialogState(key,state).put("capture_capability",documents.containsKey(key)).put("capture_busy",busy).put("capture_cleanup_confirmed",clean)
             .put("capture_cleanup_failed",!busy&&!clean).put("capture_budget_used",MdoBrowserCaptureRuntime.BUDGET.pending());
     }

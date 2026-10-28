@@ -3,5 +3,6 @@
     }
     void detach(){
         if(stopped)return;channel.invalidate();WebMessagePort previous=port;port=null;
+        cancelDialogs();
         if(previous!=null)previous.close();views.stopAll();blockDocuments(MdoBrowserDocument.CHANNEL,true);
     }

@@ -87,6 +87,10 @@ public final class AndroidDocumentContractTest {
             document.block(MdoBrowserDocument.MANUAL,true);document.block(MdoBrowserDocument.BACKGROUND,false);
             denied(document,"user_taken_control");document.block(MdoBrowserDocument.MANUAL,false);check(document.ready(),"Independent blockers did not clear");
             check(resumedIdentity.equals(document.identity()),"Returning to the same document rotated its native identity");
+            document.block(MdoBrowserDocument.DIALOG,true);denied(document,"dialog_open");
+            document.block(MdoBrowserDocument.MANUAL,true);document.block(MdoBrowserDocument.DIALOG,false);
+            denied(document,"user_taken_control");document.block(MdoBrowserDocument.MANUAL,false);
+            check(resumedIdentity.equals(document.identity()),"Dialog settlement rotated or retired the original document");
             completed=results.size();document.evaluate("main connection",100,results::add);document.block(MdoBrowserDocument.CHANNEL,true);
             check(results.get(completed).code.equals("main_document_changed"),"Main connection cancellation lost its reason");
             denied(document,"main_document_changed");document.block(MdoBrowserDocument.CHANNEL,false);
