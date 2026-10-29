@@ -49,6 +49,15 @@ These are packaged implementation/fixture results, not installed-provider
 capture qualification. Transfer/profile policy and physical/main-UI verification
 remain outstanding; global Android automation is disabled.
 
+Android's private upload preflight now binds the file input to its exact native
+frame chain and unique isolated world, including a native node description and
+same-world argument proof. Original ancestor policy is checked before and after
+local inspection; no backend/object/context IDs are returned as authority.
+Only matching document/reference and boolean input flags reach the dispatcher,
+before source digest/read/staging. This read-only stage neither reads selected
+files nor assigns them. Actual Android payload/chooser/download delivery and
+installed-provider qualification remain outstanding; admission stays disabled.
+
 The shared private frame driver now resolves scroll points through exact native
 iframe owners, passing each local document identity and the final leaf hit plus
 complete ancestor chain to Android input. It never substitutes the root DOM

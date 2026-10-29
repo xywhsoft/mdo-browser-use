@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {test} from 'node:test';
+import {executeFileUpload} from '../host/upload-dispatch.js';
 
 const url=source=>`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
 const reader=(await readFile(new URL('../host/frame-reader.js',import.meta.url),'utf8'))
@@ -13,19 +14,24 @@ const {createFrameDriver}=await import(url(driver));
 const guid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const doc='d-'+guid(1),local='d-'+guid(2),child='f-'+guid(2),fd='fd-'+guid(2),rootFd='fd-'+guid(1);
 
-function fixture(nativeCapture=null){
+function fixture(nativeCapture=null,nativeFileInputs=false){
   const rows=[{id:'f0',document:rootFd,parent:null,isolated:true,loading:false,url:'https://root.test'},
     {id:child,document:fd,parent:'f0',isolated:true,loading:false,url:'https://child.test'}];
   const state={calls:[],effect:0,parentFocused:true,parentInert:false,onRead:null,checkpoint:null,pickers:[{id:'chooser-fixture',supported:true,frame:child,frame_document:fd}]};
-  const api=createFrameDriver({nativeCapture,checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
+  const api=createFrameDriver({nativeCapture,nativeFileInputs,checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
     state.calls.push({...params,command});
     if(command==='chooser'){
       if(params.action==='list')return{ok:true,choosers:structuredClone(state.pickers)};
       assert.equal(params.action,'target');assert.equal(params.document,local);
-      const value={ok:true,document:local,element:{ref:'e7',hidden:true,multiple:true}};
+      const value={ok:true,document:local,element:{ref:'e7',hidden:true,multiple:true,directory:false}};
       return await state.onRead?.({method:'chooserTarget',options:params,value,rows})||value;
     }
     assert.equal(command,'frames');
+    if(params.action==='file_input'){
+      const value={ok:true,frame:params.frame,frame_document:params.document,value:{ok:true,document:params.local_document,
+        element:{ref:params.ref,hidden:true,multiple:true,directory:false}}};
+      return await state.onRead?.({method:'file_input',options:params,value,rows})||value;
+    }
     if(params.action==='list')return{ok:true,complete:true,frames:structuredClone(rows)};
     if(params.action==='upload_policy'){
       await state.onRead?.({method:'upload_policy',rows});
@@ -51,7 +57,7 @@ function fixture(nativeCapture=null){
       value={ok:true,document,point:{...options.point},frame_ref:params.frame==='f0'&&options.point.x>=box.x&&options.point.x<box.x+box.width&&options.point.y>=box.y&&options.point.y<box.y+box.height?'e9':null,hit_ref:'e7'};
     }
     if(method==='optionList')value={ok:true,document,ref:'e1',frame:'f0',options:[{index:0,label:'First'}]};
-    if(method==='uploadInfo')value={ok:true,document,element:{...element,role:'fileinput',hidden:true}};
+    if(method==='uploadInfo')value={ok:true,document,element:{...element,role:'fileinput',hidden:true,multiple:true,directory:false}};
     if(method==='selectOptions'){state.effect++;value={ok:true,document,dispatched:true,verified:true};}
     if(method==='captureArea')value={ok:true,document,visited:1,scroll:{x:0,y:0},viewport:{width:params.frame==='f0'?800:300,height:params.frame==='f0'?600:200},device_pixel_ratio:1,
       redactions:params.frame==='f0'?[{x:1,y:1,width:10,height:10},{x:100,y:200,width:300,height:200,frame_ref:'e9'}]:[{x:30,y:30,width:10,height:10}],
@@ -180,6 +186,53 @@ test('the exact picker pins its real input in its owning local frame world',asyn
   const expected=[{frame:child,document:fd},{frame:'f0',document:rootFd}];
   assert.deepEqual(out.native_target,{document:local,ref:'e7',frame_chain:expected});
   assert.deepEqual(state.calls.find(row=>row.command==='chooser'&&row.action==='target').frame_chain,expected);
+});
+
+test('Android verifies direct and picker file inputs through exact native objects before source delivery',async()=>{
+  for(const method of ['uploadInfo','chooserInfo']){
+    const f=fixture(null,true),out=await f.api.read(method,{document:doc,target:{name:'Child'},chooser:'chooser-fixture',timeout_ms:3000});assert(out.ok,method);
+    const proof=f.state.calls.find(row=>row.action==='file_input');assert(proof);assert.equal(proof.agent,true);
+    assert.equal(proof.frame,child);assert.equal(proof.document,fd);assert.equal(proof.local_document,local);
+    assert.equal(proof.ref,method==='uploadInfo'?'e1':'e7');assert.deepEqual(proof.frame_chain,out.native_target.frame_chain);
+    assert(Number.isInteger(proof.timeout_ms)&&proof.timeout_ms>0&&proof.timeout_ms<=3000);
+    assert.equal(f.state.effect,0);assert(!Object.hasOwn(out,'backendNodeId'));
+  }
+  const f=fixture();assert((await f.api.read('uploadInfo',{document:doc,target:{name:'Child'}})).ok);
+  assert(!f.state.calls.some(row=>row.action==='file_input'));
+  assert.throws(()=>fixture(null,'true'),error=>error.code==='file_input_context_invalid');
+});
+
+test('changed native file metadata, document, reference, ancestry or cancellation withholds the upload target',async()=>{
+  for(const mode of ['frame','frame_document','document','ref','flag','missing','failure','parent','cancel']){
+    const f=fixture(null,true);let stopped=false;const boundary=Object.assign(Error('Original operation cancelled'),{browserBoundary:{handled:true}});
+    if(mode==='cancel')f.state.checkpoint=()=>{if(stopped)throw boundary;};
+    f.state.onRead=({method,value,rows})=>{
+      if(method!=='file_input')return;
+      if(mode==='cancel'){stopped=true;return value;}
+      if(mode==='failure')return{ok:false,error:{code:'file_input_unavailable'}};
+      if(mode==='parent')rows[0].document='fd-'+guid(9);
+      if(mode==='frame'||mode==='frame_document')value[mode]='changed';
+      if(mode==='document')value.value.document='changed';if(mode==='ref')value.value.element.ref='e99';
+      if(mode==='flag')value.value.element.multiple=false;if(mode==='missing')delete value.value.element.hidden;
+      return value;
+    };
+    const pending=f.api.read('uploadInfo',{document:doc,target:{name:'Child'}});
+    if(mode==='cancel')await assert.rejects(pending,error=>error===boundary);
+    else{const out=await pending;assert.equal(out.error.code,mode==='failure'?'file_input_unavailable':'upload_target_changed',mode);
+      assert.equal(out.error.effect_may_have_occurred,false);assert(!out.native_target);}
+    assert.equal(f.state.effect,0);
+  }
+});
+
+test('a failed Android native target proof stops the actual upload dispatcher before any source SDK access',async()=>{
+  const f=fixture(null,true);let sources=0,uploads=0,dispatched=0;
+  f.state.onRead=({method})=>method==='file_input'?{ok:false,error:{code:'file_input_unavailable'}}:null;
+  const out=await executeFileUpload({params:{action:'set',document:doc,target:{name:'Child'},files:[{path:'work/input.txt'}]},action:{id:'file-proof-before-source'},
+    deadline:performance.now()+3000,guard:async()=>({state:{file_input_capability:true,upload_capability:true,navigation:7}}),
+    read:(...args)=>f.api.read(...args),api:{async call(){sources++;throw Error('Source access must follow native proof');}},
+    view:{async execute(){uploads++;throw Error('No native upload may start');}},setDispatched:()=>dispatched++,
+    fail:(code,message)=>({handled:true,result:{ok:false,error:{code,message,effect_may_have_occurred:false}}})});
+  assert.equal(out.result.error.code,'file_input_unavailable');assert.equal(sources+uploads+dispatched,0);
 });
 
 test('a missing, stale or wrong-root picker never reaches native target resolution',async()=>{

@@ -233,7 +233,7 @@
   },
   "frame_commands": {
     "state": "actual_host_route_packaged_product_admission_disabled",
-    "actions": ["list", "evaluate", "owner", "upload_policy", "capture_owner"],
+    "actions": ["list", "evaluate", "owner", "upload_policy", "capture_owner", "file_input"],
     "agent_literal_required": true,
     "caller_raw_protocol_ids": false,
     "immutable_queued_parameters": true,
@@ -280,6 +280,21 @@
     "private_bytes_cleared_on_rejection": true,
     "shared_visual_reference": "native_frame_adapter_only_not_legacy_main_document",
     "installed_provider_capture_verified": false
+  },
+  "file_input_inspection": {
+    "state": "private_read_only_route_product_admission_disabled",
+    "bound_to": ["original_frame_chain", "native_loader_and_unique_world", "local_document", "retained_input_reference"],
+    "ancestor_upload_policy_required": true,
+    "ancestor_policy_barriers": "before_and_after_local_object_inspection_with_final_native_chain_validation",
+    "remote_object": "exact_unique_world_argument_proof_and_native_input_node_description",
+    "native_ids_returned": false,
+    "caller_protocol_ids_or_paths": false,
+    "metadata": ["reference", "multiple", "directory", "hidden"],
+    "selected_files_read": false,
+    "files_assigned": false,
+    "shared_android_target_preflight": "before_source_digest_read_or_staging",
+    "object_group_cleanup": "exact_original_source_or_binding_retired",
+    "installed_provider_verified": false
   },
   "remaining": ["chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/drawing/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
   "android_automation_enabled": false

@@ -17,8 +17,8 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (E65/F21) is **6,883,165 bytes**, SHA-256
-`6b9d858c0d713ee4ba7543060e0f341b56d9d0accb26b3f9edd86aa3625900b6`.
+The current refreshed preview (E66/F21) is **6,883,440 bytes**, SHA-256
+`f5a65dd2753fdf7b6eb39630ad6886b15480cf5922ae55277d5e5a5011fbf050`.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and

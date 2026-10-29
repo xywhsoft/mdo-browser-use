@@ -14,19 +14,19 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E65)
+## Complete development host APK (E46/E66)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,358,337 bytes, SHA-256
-`5e5edfd69a0044e1b9407261d81a1a144fc43808b5d7a86411c26992d5158aa6`.
+Current APK: 6,362,433 bytes, SHA-256
+`4a980cf2e5011ed6e5b275def5d33c32f2f4fb5990ed002adbd0959983c9e6b7`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
-key is included. The app archive is extracted from the already exercised E65
+key is included. The app archive is extracted from the already exercised E66
 Windows artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -2108,3 +2108,51 @@ download/source transfers, activation/profile policy, installed DOM/drawing/inpu
 main-UI checks and the cross-platform unique-context audit remain outstanding.
 Android Agent admission/debugging stay disabled, with the existing manual
 browser and formal package/data preserved. No model calls or online publication.
+
+### Native file-input target inspection before source access (E66)
+
+The Android shared frame driver now inspects direct and intercepted-picker
+upload targets through the private `frames/file_input` route before returning a
+target to the upload dispatcher. Windows retains its existing path. The request
+copies the exact native leaf/ancestor chain, local document and retained element
+reference, and inherits only the remaining read deadline. No script, file path,
+raw CDP/backend node ID or caller-selected execution world is admitted.
+
+`MdoBrowserCdpFileInput` checks the native chain and every ancestor's upload
+policy before and after local object inspection, followed by one final native
+chain barrier. In the already proved unique isolated world, fixed helpers obtain
+only the runtime's exact `uploadNode` and compare it again with `uploadInfo`.
+An empty-unique-context negative test and native same-world argument proof
+precede the fixed DOM helper. Native `DOM.describeNode` must describe an input
+element with a positive backend node ID; that ID is never serialized or retained
+as caller authority. Each random object group is released on the original
+source, or its binding is retired when cleanup cannot be confirmed.
+
+Only exact document/reference and boolean multiple/directory/hidden metadata
+reach the trusted driver. A changed echo, flag, frame chain or authoritative
+cancellation withholds the target. Native disabled/inert and cleanup errors
+retain specific public codes and their bounded native cause. An integration
+test joins the actual frame driver to the actual upload dispatcher and proves
+that rejected native binding causes zero source SDK reads, upload calls or
+dispatch markers. Inspection itself never reads selected files, assigns a
+value, publishes a file URI or dispatches an input/change event.
+
+The actual Java/JNI/JSON/worker/graph/world/owner route passes 625 checks with
+synthetic protocol DOM peers (`.mdo/E66-native-final.log`). Cases include root,
+same-process and OOPIF targets, immutable queued pins, wrong node/realm/unique
+context, malformed metadata/raw IDs, disabled/inert ancestors both before and
+after inspection, document changes at each boundary, cancellation/timeouts,
+cleanup failure and no private native ID in replies. Production helper strings
+are separately executed by Node VM tests, including a selected-files getter and
+assignment/event methods that throw if touched. Full sequential Node passes
+305/305; Python passes 165/167 with two existing symlink skips. Actual Windows
+frame checks pass 224, and refreshed packed runtime checks pass 12. The full
+Android SDK/D8/DEX/ABI/payload/private-provider/alignment/signature build passes
+`.mdo/E66-android-build.log`; artifact hashes are at the top of this document.
+
+This completes native target preflight, not Android file delivery. Original
+chooser identity/callback assignment, native payload/URI delivery and download
+integration remain in progress. Android Agent/debug admission stays disabled;
+the phone/current WebView and formal package/data remain unchanged. Installed
+DOM/geometry/file-event/UI qualification remains outstanding. No model calls,
+external page browsing, extra app/Home/source copies or online release.

@@ -155,6 +155,47 @@ final class MdoBrowserCdpWorlds {
         return new JSONObject().put("functionDeclaration",source).put("uniqueContextId",unique).put("arguments",args)
             .put("returnByValue",true).put("awaitPromise",false).put("silent",true).put("throwOnSideEffect",proof).put("objectGroup",group);
     }
+    JSONObject fileInput(MdoBrowserCdpFrames.Route route,String document,String ref,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        if(document==null||!document.matches("d-"+MdoBrowserCdpFrameChain.UUID)||ref==null||!ref.matches("e[1-9][0-9]{0,12}"))
+            throw problem("cdp_file_input_request_invalid");
+        prepare(route,deadline);World world=worlds.get(route.frame);if(!active(world))throw problem("cdp_world_context_changed");
+        Context context=world.context;String group="mdo-file-input-"+java.util.UUID.randomUUID();boolean declared=false;IOException failure=null;JSONObject result=null;
+        try{
+            JSONObject pin=new JSONObject().put("document",document).put("ref",ref);
+            JSONObject query=evaluation(MdoBrowserCdpFileInput.NODE+"("+pin.toString()+")",context.unique,false,deadline)
+                .put("returnByValue",false).put("objectGroup",group);declared=true;
+            JSONObject reply=call(route,context,"Runtime.evaluate",query,false,deadline),node=reply.optJSONObject("result");
+            if(reply.has("exceptionDetails")||node==null||!"object".equals(node.opt("type"))||!"node".equals(node.opt("subtype"))||!(node.opt("objectId") instanceof String))
+                throw problem("cdp_file_input_node_invalid");
+            String object=node.getString("objectId");if(object.isEmpty()||object.length()>2048)throw problem("cdp_file_input_node_invalid");
+            org.json.JSONArray args=new org.json.JSONArray().put(new JSONObject().put("objectId",object));boolean rejected=false;
+            try{call(route,context,"Runtime.callFunctionOn",function("function(element){return 0;}","",args,group,true),false,deadline);}
+            catch(MdoBrowserCdpSession.Failure error){if(error.uniqueContextRejected)rejected=true;else throw error;}
+            if(!rejected)throw problem("cdp_file_input_unique_context_unsupported");
+            Object proof=byValue(call(route,context,"Runtime.callFunctionOn",function("function(element){return 0;}",context.unique,args,group,true),false,deadline));
+            if(!(proof instanceof Number)||((Number)proof).doubleValue()!=0)throw problem("cdp_file_input_world_proof_failed");
+            JSONObject description=call(route,context,"DOM.describeNode",new JSONObject().put("objectId",object).put("depth",0).put("pierce",false),false,deadline).optJSONObject("node");
+            if(description==null||!Integer.valueOf(1).equals(description.opt("nodeType"))||!"INPUT".equalsIgnoreCase(description.optString("nodeName"))||!"input".equals(description.opt("localName")))
+                throw problem("cdp_file_input_node_invalid");
+            number(description.opt("backendNodeId")); // Native-only; never serialized as authority.
+            args.put(new JSONObject().put("value",pin));Object inspected=byValue(call(route,context,"Runtime.callFunctionOn",function(MdoBrowserCdpFileInput.INFO,context.unique,args,group,false),false,deadline));
+            if(!(inspected instanceof JSONObject))throw problem("cdp_file_input_result_invalid");JSONObject value=(JSONObject)inspected;
+            if(!Boolean.TRUE.equals(value.opt("ok"))){String code=value.optString("code","");throw problem(code.matches("[a-z_]{1,40}")?"cdp_file_input_"+code:"cdp_file_input_target_changed");}
+            if(!document.equals(value.opt("document"))||!ref.equals(value.opt("ref"))||!(value.opt("multiple") instanceof Boolean)||!(value.opt("directory") instanceof Boolean)||!(value.opt("hidden") instanceof Boolean))
+                throw problem("cdp_file_input_result_invalid");
+            JSONObject element=new JSONObject().put("ref",ref).put("multiple",value.getBoolean("multiple")).put("directory",value.getBoolean("directory")).put("hidden",value.getBoolean("hidden"));
+            result=new JSONObject().put("ok",true).put("frame",route.frame).put("frame_document",route.document)
+                .put("value",new JSONObject().put("ok",true).put("document",document).put("element",element));
+        }catch(JSONException error){failure=problem("cdp_file_input_result_invalid");}
+        catch(IOException error){failure=error;}
+        catch(RuntimeException|Error error){failure=problem("cdp_file_input_failed");}
+        finally{
+            if(declared)try{binding.call("Runtime.releaseObjectGroup",new JSONObject().put("objectGroup",group),route.session,Math.min(5000,deadline.remaining()),false);}
+            catch(IOException|JSONException|RuntimeException|Error error){binding.close();if(failure==null){String code=error.getMessage();
+                failure=problem("cdp_worker_timeout".equals(code)||"cdp_worker_cancelled".equals(code)?code:"cdp_file_input_cleanup_failed");}}
+        }
+        if(failure!=null)throw failure;guard(route,context);return result;
+    }
     JSONObject owner(MdoBrowserCdpFrames.Route child,MdoBrowserCdpFrames.Route parent,String action,JSONObject point,
                      MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         frames.validate(child);prepare(parent,deadline);World world=worlds.get(parent.frame);if(!active(world))throw problem("cdp_world_context_changed");

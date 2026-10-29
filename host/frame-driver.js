@@ -9,7 +9,8 @@ const pointValid=point=>point&&[point.x,point.y].every(number=>Number.isFinite(n
 
 // The final dispatcher uses fixed methods only. Script and process/context IDs
 // cannot be supplied by a model. Route metadata is for native adapters alone.
-export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=null}){
+export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=null,nativeFileInputs=false}){
+  if(typeof nativeFileInputs!=='boolean')throw issue('file_input_context_invalid','Native file input inspection requires an explicit host boolean');
   if(nativeCapture&&(!Number.isSafeInteger(nativeCapture.navigation)||nativeCapture.navigation<1))throw issue('capture_context_invalid','The Android capture owner has no exact navigation');
   const captureOwner=nativeCapture?Object.freeze({navigation:nativeCapture.navigation}):null;
   async function read(method,options={},control={}){
@@ -143,6 +144,17 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
         }
         throw issue('frame_limit','The visual point exceeds its native frame depth bound');
       }
+      async function inspectFileInput(route,local,chain){
+        if(!nativeFileInputs)return;
+        const result=await native('frames',{action:'file_input',agent:true,frame:route.frame,document:route.frame_document,
+          local_document:route.document,ref:route.ref,frame_chain:chain,timeout_ms:Math.max(1,Math.floor(deadline-performance.now()))});
+        if(!result?.ok)throw issue(result?.error?.code||'file_input_unavailable','The native file input binding was not confirmed');
+        const value=result.value,element=value?.element;
+        if(result.frame!==route.frame||result.frame_document!==route.frame_document||value?.ok!==true||value.document!==route.document||element?.ref!==route.ref||
+          ['multiple','directory','hidden'].some(key=>typeof element?.[key]!=='boolean'||element[key]!==local.element[key])||
+          JSON.stringify(await pinChain(route))!==JSON.stringify(chain))
+          throw issue('upload_target_changed','The native file input no longer matches its original local target and frame chain');
+      }
       if(method==='chooserInfo'){
         const page=await fromReader('describe',{document:options.document});
         if(!page.ok)return page;
@@ -156,6 +168,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
         if(!target.ok)return target;
         if(target.document!==meta.document||!/^e[1-9][0-9]{0,12}$/.test(target.element?.ref)||JSON.stringify(await pinChain(route))!==JSON.stringify(chain))
           throw issue('target_changed','The picker no longer belongs to its original input and document');
+        await inspectFileInput({...route,document:meta.document,ref:target.element.ref},target,chain);
         return{...target,document:options.document,element:{...target.element,frame:route.frame,ref:`r1|${route.frame}|${route.frame_document}|${meta.document}|${target.element.ref}`},
           native_target:{document:meta.document,ref:target.element.ref,frame_chain:chain}};
       }
@@ -175,6 +188,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
       if(method==='prepare')return{...out,...await mapPoint(route,local),native_target:{document:route.document,ref:route.ref}};
       if(method==='uploadInfo'){
         const chain=await pinChain(route);await uploadParents(route,chain);
+        await inspectFileInput(route,local,chain);
         return{...out,native_target:{document:route.document,ref:route.ref,frame_chain:chain}};
       }
       if(method==='verify'&&local.focused){

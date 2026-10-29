@@ -247,4 +247,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         if(parent==null)throw problem("cdp_owner_root_unavailable");Route ancestor=select(parent.alias,parent.document);
         return worlds.owner(child,ancestor,action,position,deadline);
     }
+    JSONObject fileInput(String frame,String document,String localDocument,String ref,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        Route route=select(frame,document);refresh(deadline);validate(route);return worlds.fileInput(route,localDocument,ref,deadline);
+    }
 }

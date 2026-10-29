@@ -5822,3 +5822,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remaining Windows unique-context/realm audit. Phone/current WebView stay
   deferred; Android automation/debugging remain disabled. No model calls,
   external page browsing, extra app/Home copies or online release.
+
+## E66 — bind Android upload preflight to the exact native file input
+
+- Add immutable `frames/file_input` pins and a private native object inspection
+  route on the existing worker/graph/world bridge. Prove the complete original
+  chain and ancestor upload policy before and after resolving the local retained
+  file input. Obtain its native node description only after empty-unique-context
+  rejection and a same-world argument proof. Never select an execution realm by
+  numeric/object ID or expose the native object/backend/context/session IDs.
+- Fixed helpers require the original local document, connected input and exact
+  runtime reference/object; return only document/reference and boolean multiple,
+  directory and hidden flags. Read no selected file names/bytes and emit no
+  assignment/event. Release the exact random group on its original source or
+  retire the binding on uncertain cleanup. Preserve specific disabled/inert,
+  malformed-input and cleanup codes plus their bounded native causes.
+- Enable this inspection in the trusted Android shared driver for direct and
+  intercepted-picker target preparation, inheriting only its remaining deadline.
+  Reject changed native echoes/flags/ancestry or cancellation before returning a
+  target. A composition test uses the actual upload dispatcher and proves zero
+  source SDK reads, native upload calls or dispatch markers after rejection.
+  Windows defaults/wire behavior are unchanged.
+- Actual Java/JNI/JSON/worker/frame/world/owner inspection passes 625 checks with
+  synthetic protocol DOM peers and zero files delivered (`.mdo/E66-native-final.log`).
+  Production JS helper strings also execute in Node VM tests without touching
+  selected files, input value or events. Full sequential Node passes 305/305 in
+  22.398 s (`.mdo/E66-node-full.log`); Python passes 165/167 with two existing
+  symlink skips in 99.543 s (`.mdo/E66-python-full.log`). Actual WebView2 frame
+  checks pass 224 with no new crash diagnostics or private reservations
+  (`.mdo/E66-native-frames.log`); refreshed packed runtime passes 12 and restores
+  the headless deployment (`.mdo/E66-windows-program.log`). SDK/D8/DEX/native
+  ABI/payload/private-provider/alignment/signature build passes
+  `.mdo/E66-android-build.log`. Shared contracts, reviewed overlays, JNI transport
+  and canonical owner helpers match the single deployment.
+- Refresh existing development artifacts in place: Windows 6,883,440 bytes,
+  SHA-256 `f5a65dd2753fdf7b6eb39630ad6886b15480cf5922ae55277d5e5a5011fbf050`;
+  complete Android APK 6,362,433 bytes, SHA-256
+  `4a980cf2e5011ed6e5b275def5d33c32f2f4fb5990ed002adbd0959983c9e6b7`.
+  Plugin unchanged at 247,351 bytes, SHA-256
+  `c6b74a2780f13d08570e61bdaf58cbcbc8c4678dc06ce0348de5e8a370ae5d41`.
+- Goal remains active. Native payload/URI assignment, chooser callback identity,
+  downloads and activation/profile policy still need implementation/qualification;
+  installed provider/main-UI and Windows unique-context/realm audit remain open.
+  Phone/current WebView deferred, Android automation/debugging disabled, formal
+  data preserved. No model calls, external page browsing, extra app/Home/source
+  copies or online release. Official Chromium source was consulted read-only for
+  protocol/assignment research; no external page was operated by the browser.
