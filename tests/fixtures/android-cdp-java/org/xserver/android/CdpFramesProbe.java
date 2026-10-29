@@ -23,7 +23,7 @@ public final class CdpFramesProbe {
     private static final AtomicInteger checks=new AtomicInteger();
     private static void check(boolean value){if(!value)throw new AssertionError("Frames check "+(checks.get()+1));checks.incrementAndGet();}
     private interface Checked {void run()throws Exception;}
-    private interface Operation {JSONObject run(MdoBrowserCdpBinding binding,MdoBrowserCdpWorker.Deadline deadline)throws Exception;}
+    interface Operation {JSONObject run(MdoBrowserCdpBinding binding,MdoBrowserCdpWorker.Deadline deadline)throws Exception;}
     private static void rejects(String code,Checked operation)throws Exception {
         try{operation.run();throw new AssertionError("Missing frame rejection");}catch(IOException error){check(code.equals(error.getMessage()));}
     }
@@ -38,7 +38,8 @@ public final class CdpFramesProbe {
         return event("Target.attachedToTarget",parent,new JSONObject().put("sessionId",child).put("waitingForDebugger",false)
             .put("targetInfo",new JSONObject().put("type","iframe").put("targetId",target)));
     }
-    private static final class Plan implements CdpBindingProbe.Factory.Extra {
+    static final class Plan implements CdpBindingProbe.Factory.Extra {
+        CdpBindingProbe.Factory.Extra extra;
         final Set<String> armed=new HashSet<>();final ArrayDeque<JSONObject> pending=new ArrayDeque<>();final List<String> methods=new ArrayList<>();
         String childLoader="child-load",leafParent="child-local",attachType="iframe";
         boolean badChildRoot,badParent,duplicateTree,rootWithParent,includeLocal=true,extraSource,omitChild,navigateDuringSnapshot,detachDuringSnapshot,cycle;
@@ -60,6 +61,7 @@ public final class CdpFramesProbe {
             throw new AssertionError("Unknown synthetic source");
         }
         public boolean send(JSONObject request,CdpBindingProbe.Wire wire)throws Exception {
+            if(extra!=null&&extra.send(request,wire))return true;
             String method=request.getString("method"),source=request.has("sessionId")?request.getString("sessionId"):null;
             JSONObject params=request.getJSONObject("params"),reply=new JSONObject();methods.add(method);
             if(method.equals("Page.enable")){}
@@ -87,7 +89,8 @@ public final class CdpFramesProbe {
             JSONObject result=new JSONObject().put("id",request.getInt("id")).put("result",reply);if(source!=null)result.put("sessionId",source);wire.queue(result);return true;
         }
     }
-    private static final class Case {
+    static final class Case {
+        boolean lastEffect;
         final WebView view=new WebView();final MdoBrowserCdpMarker marker=new MdoBrowserCdpView(view,v->v==view).marker();
         final Plan plan=new Plan();final List<CdpBindingProbe.Factory> peers=new ArrayList<>();
         final MdoBrowserCdpWorker worker=new MdoBrowserCdpWorker(new MdoBrowserCdpWorker.Ui(){
@@ -99,11 +102,14 @@ public final class CdpFramesProbe {
             plan.armed.clear();peer.extra=plan;return binding;
         },()->System.nanoTime()/1000000L);
         JSONObject run(Operation operation)throws Exception {
+            return run(false,operation);
+        }
+        JSONObject run(boolean effect,Operation operation)throws Exception {
             AtomicReference<JSONObject> result=new AtomicReference<>();AtomicReference<String> error=new AtomicReference<>();AtomicReference<Throwable> defect=new AtomicReference<>();
-            worker.submit(marker,12000,false,(binding,deadline)->{
+            worker.submit(marker,12000,effect,(binding,deadline)->{
                 try{return operation.run(binding,deadline).toString().getBytes(StandardCharsets.UTF_8);}
                 catch(IOException failure){throw failure;}catch(Throwable failure){defect.set(failure);throw new IOException("cdp_fixture_failed");}
-            },value->{if(value.code!=null)error.set(value.code);else try{result.set(new JSONObject(new String(value.bytes,StandardCharsets.UTF_8)));}catch(Exception failure){defect.set(failure);}});
+            },value->{lastEffect=value.effectMayHaveOccurred;if(value.code!=null)error.set(value.code);else try{result.set(new JSONObject(new String(value.bytes,StandardCharsets.UTF_8)));}catch(Exception failure){defect.set(failure);}});
             long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);
             while(result.get()==null&&error.get()==null&&defect.get()==null&&System.nanoTime()<end){Handler.drain();Thread.sleep(1);}
             if(defect.get()!=null)throw new AssertionError(defect.get());if(error.get()!=null)throw new IOException(error.get());check(result.get()!=null);return result.get();

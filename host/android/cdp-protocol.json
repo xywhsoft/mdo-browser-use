@@ -1,8 +1,14 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "private_frame_graph_packaged_not_automation_routed",
+  "state": "private_isolated_frame_execution_packaged_not_agent_routed",
   "checked_date": "2026-10-30",
   "sources": [
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/inspector/main_thread_debugger.cc?format=TEXT",
+      "decoded_bytes": 23239,
+      "decoded_sha256": "acb6f30af27b61590584c422a0c1805ae34f21a26990501aa94d6932c77d2461",
+      "facts": ["Context metadata records native frame ID, default/isolated type and world name", "Native context destruction is forwarded to the inspector"]
+    },
     {
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/public/devtools_protocol/browser_protocol.pdl?format=TEXT",
       "decoded_bytes": 491230,
@@ -13,7 +19,7 @@
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/inspector/inspector_page_agent.cc?format=TEXT",
       "decoded_bytes": 81512,
       "decoded_sha256": "8ccb46329cc4a898aea70b2b7c5dfb08058340c128845a898c86c34369afa321",
-      "facts": ["FrameTree omits non-local child frames", "Frame metadata includes a remote parent's native frame ID", "Isolated worlds default to no universal access"]
+      "facts": ["FrameTree omits non-local child frames", "Frame metadata includes a remote parent's native frame ID", "Isolated worlds default to no universal access", "An existing per-frame named wrapper world is reused before setting a new security origin"]
     },
     {
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/devtools/render_frame_devtools_agent_host.cc?format=TEXT",
@@ -183,9 +189,29 @@
     "short_load_without_commit_retains_document": true,
     "raced_metadata_reads": "discard_then_bounded_read_only_refresh",
     "arbitrary_target_attachment": false,
-    "world_execution_enabled": false,
+    "private_isolated_execution_implemented": true,
     "provider_qualified": false
   },
-  "remaining": ["typed automation routing with isolated frame execution", "trusted frame owner and transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding and frame qualification"],
+  "frame_worlds": {
+    "state": "private_isolated_execution_packaged_not_agent_routed",
+    "world_names": "fresh_binding_namespace_and_native_source_frame_loader_proof",
+    "names_per_ui_document_generation": 256,
+    "name_budget_survives_lease_replacement": true,
+    "live_world_routes": 32,
+    "active_context_records": 256,
+    "lifetime_context_keys": 1024,
+    "context_metadata_wait_ms": 500,
+    "script_utf8_bytes": 196608,
+    "result_utf8_bytes": 1048576,
+    "unique_context_negative_probe_per_source": true,
+    "numeric_context_used_for_evaluation": false,
+    "universal_origin_access": false,
+    "promise_awaiting": false,
+    "exception_details_exposed": false,
+    "native_name_or_context_ids_in_result_envelope": false,
+    "automatic_effect_replay": false,
+    "installed_provider_execution_verified": false
+  },
+  "remaining": ["typed Agent routing and fixed shared frame operations", "trusted frame owner and native input/transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding and isolated DOM execution qualification"],
   "android_automation_enabled": false
 }

@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E56)
+## Complete development host APK (E46/E57)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,333,761 bytes, SHA-256
-`6b4914e0cf9d8fbe1aad723cd1925a66c1508a2777bb375a1b33d107c80f991e`.
+Current APK: 6,341,953 bytes, SHA-256
+`0cde1c740c629f458853d69babd7eba47e6cb69a7d979888c5233607f56c405d`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E56-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E56-python-full.log` (162/164 pass, two existing symlink skips).
+`.mdo/E57-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E57-python-full.log` (162/164 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -1819,3 +1819,56 @@ The frame gate exercises the actual Java graph, worker, binding, dispatcher and
 strict JNI reader with 172 checks, doubled Android UI and synthetic protocol peers; it does
 not qualify an installed provider. Preserve the current WebView and deferred
 phone, and keep global Android automation disabled.
+
+### Private isolated frame execution (E57)
+
+`MdoBrowserCdpWorlds` now implements the private execution core through the
+existing single-worker dispatcher. A successful world must match the original
+native route, source session, creation reply, native frame/type/name metadata
+and unique execution-context identity. Before any page expression, each source
+must reject a deliberately invalid unique context; each world must also return
+the expected harmless result in its real unique context. Do not evaluate by a
+numeric context ID or silently fall back to a default/main world. All frames
+continue to use their original native ancestry and document/loader guards.
+
+Use a fresh namespace for each binding, with a separate random name per proven
+native source/frame/loader tuple. The pinned implementation reuses existing
+named wrapper worlds before initializing their security origin; a new native
+document must therefore not adopt an old or potentially privileged named world.
+Create only with `grantUniveralAccess:false` (the protocol's historical spelling).
+Rechecking the same unchanged native document reuses its name, including an
+admission-reference fence that did not replace its loader. Keep a shared limit
+of 256 name reservations per UI-owned document generation across binding/lease
+replacement, without refunding uncertain creation. Actual navigation/view
+callback semantics remain subject to the deferred framework qualification.
+
+Keep at most 32 current world routes, 256 active context records and 1,024
+lifetime session/context keys. Unknown origins, URLs and unrelated world names
+are not retained as metadata; initial root identities are minimal ID/unique-ID
+pairs captured during native binding. Missing/ambiguous metadata, reused keys,
+default/unrelated worlds and duplicate unique IDs cannot admit execution.
+Metadata that arrives after the creation reply has a bounded 500 ms wait under
+the original job deadline. Document and ancestor changes revoke old routes;
+destruction of an admitted world fences its exact document/descendants even
+before Page events. An old context's late destruction cannot retire a newer
+loader/document. Source detach retires its contexts without retargeting them.
+
+Return only by-value JSON/finite primitives in an envelope with opaque frame/
+document aliases. Bound source to 192 KiB UTF-8 and the result envelope to 1 MiB;
+reject unserializable/undefined/exception replies without exposing raw exception
+details. DOM expressions cannot use `throwOnSideEffect` as a permission policy;
+that flag protects only the fixed capability probes. Existing broker policy and
+the operation's effect classification remain required. Effect uncertainty
+survives navigation, context/transport loss and lost replies; no script is
+automatically replayed. Java strings/JSON values remain bounded GC-managed data;
+the existing worker clears owned result bytes on delivery/discard.
+
+The new private inventory can prepare worlds and report actual `isolated:true`
+only for current proved routes. The private evaluator first performs a native
+metadata barrier, then validates the original aliases/ancestry around every
+phase. These APIs are not yet wired into Agent admission. The 539 isolated-world
+and 375 registry/resource checks use actual Java frame/binding/session/worker
+and strict JNI with doubled Android UI/synthetic evaluation peers. Real DOM
+execution, owner geometry, native input/transfer integration, activation/profile
+policy and installed-provider/framework qualification remain. Keep the current
+WebView, deferred phone and global Android automation disabled.

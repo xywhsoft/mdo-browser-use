@@ -16,7 +16,8 @@ import org.json.JSONObject;
 /** Worker-owned frame graph of one proven WebView. A renderer's tree omits
  * remote frames: recursively auto-attach only related iframe targets and join
  * their native parent/frame IDs. URLs/titles/opener hints grant no authority.
- * This layer performs metadata only; isolated-world execution is separate. */
+ * Isolated execution is delegated to the private world manager. Native owner,
+ * input and transfer semantics are layered above this routing core. */
 final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     private static final int FRAME_LIMIT=32,SESSION_LIMIT=64,DEPTH_LIMIT=32;
     private static final class Source {
@@ -30,16 +31,17 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
             alias=root?"f0":"f-"+UUID.randomUUID();document="fd-"+UUID.randomUUID();}
     }
     static final class Route {
-        final String raw,frame,document,session;private final List<String> ancestors;
-        Route(Node node,List<String> ancestors){raw=node.raw;frame=node.alias;document=node.document;session=node.session;this.ancestors=ancestors;}
+        final String raw,frame,document,session,loader;private final List<String> ancestors;
+        Route(Node node,List<String> ancestors){raw=node.raw;frame=node.alias;document=node.document;session=node.session;loader=node.loader;this.ancestors=ancestors;}
     }
     private final MdoBrowserCdpBinding binding;private final Thread owner=Thread.currentThread();
+    private final MdoBrowserCdpWorlds worlds;
     private final Map<String,Source> sources=new LinkedHashMap<>();private final Map<String,Node> nodes=new LinkedHashMap<>();
     private final Set<String> seenSessions=new LinkedHashSet<>();private long revision;private String fault;
     MdoBrowserCdpFrames(MdoBrowserCdpBinding binding)throws IOException {
         if(binding==null)throw problem("cdp_frame_arguments_invalid");this.binding=binding;
         sources.put(null,new Source(null,binding.rootFrame,null));
-        nodes.put(binding.rootFrame,new Node(binding.rootFrame,null,binding.rootLoader,null,true));binding.observe(this);
+        nodes.put(binding.rootFrame,new Node(binding.rootFrame,null,binding.rootLoader,null,true));worlds=new MdoBrowserCdpWorlds(binding,this);binding.observe(this);
     }
     private static IOException problem(String code){return new IOException(code);}
     private void current()throws IOException {
@@ -79,6 +81,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     @Override public void event(String method,String session,JSONObject params)throws IOException {
         current();Source source=source(session);
         try{
+            if(method.startsWith("Runtime.")){worlds.event(method,session,params);return;}
             if("Target.attachedToTarget".equals(method)){
                 String child=id(params,"sessionId");JSONObject target=params.getJSONObject("targetInfo");String raw=id(target,"targetId");
                 if(!source.armed||!"iframe".equals(target.opt("type"))||!Boolean.FALSE.equals(params.opt("waitingForDebugger"))||raw.equals(binding.rootFrame))
@@ -95,7 +98,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
                 if(child.equals(session)||!Objects.equals(gone.parent,session))throw invalid("cdp_frame_session_invalid");
                 List<String> retired=new ArrayList<>();retired.add(child);
                 for(int i=0;i<retired.size();i++)for(Source row:sources.values())if(Objects.equals(row.parent,retired.get(i))&&!retired.contains(row.session))retired.add(row.session);
-                for(String key:retired){Source row=sources.remove(key);binding.retireChild(key);Node node=nodes.get(row.target);if(node!=null){remove(node.raw,true);}}
+                for(String key:retired){Source row=sources.remove(key);binding.retireChild(key);worlds.retire(key);Node node=nodes.get(row.target);if(node!=null){remove(node.raw,true);}}
                 revision++;return;
             }
             if(!method.startsWith("Page.frame")&&!"Page.documentOpened".equals(method))return;
@@ -200,7 +203,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
             Source source=sources.get(node.session);Node parent=nodes.get(node.parent);
             boolean linked=attached(node,false)&&source!=null&&source.ready&&!node.swapped;if(!linked)complete=false;
             frames.put(new JSONObject().put("id",node.alias).put("document",node.document).put("parent",parent==null?JSONObject.NULL:parent.alias)
-                .put("loading",!linked||!attached(node,true)).put("isolated",false));
+                .put("loading",!linked||!attached(node,true)).put("isolated",linked&&worlds.ready(node.alias,node.document)));
         }
         return new JSONObject().put("ok",true).put("complete",complete).put("frames",frames).put("generation",revision);
     }
@@ -214,6 +217,21 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     }
     void validate(Route route)throws IOException {
         current();if(route==null)throw problem("cdp_frame_arguments_invalid");Route now=select(route.frame,route.document);
-        if(!now.raw.equals(route.raw)||!Objects.equals(now.session,route.session)||!now.ancestors.equals(route.ancestors))throw problem("cdp_frame_stale");
+        if(!now.raw.equals(route.raw)||!now.loader.equals(route.loader)||!Objects.equals(now.session,route.session)||!now.ancestors.equals(route.ancestors))throw problem("cdp_frame_stale");
+    }
+    /** Own isolated context loss is a reference fence even when a provider has
+     * not yet delivered its corresponding Page document/loader event. */
+    void worldLost(String raw,String session,String loader,String document)throws IOException {
+        current();Node root=nodes.get(raw);if(root==null||!Objects.equals(root.session,session)||!root.loader.equals(loader)||!root.document.equals(document))return;
+        List<String> changed=new ArrayList<>();changed.add(raw);
+        for(int i=0;i<changed.size();i++)for(Node node:nodes.values())if(Objects.equals(node.parent,changed.get(i))&&!changed.contains(node.raw))changed.add(node.raw);
+        for(String key:changed)nodes.get(key).document="fd-"+UUID.randomUUID();revision++;
+    }
+    JSONObject inventory(MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        refresh(deadline);for(Node node:new ArrayList<>(nodes.values()))if(attached(node,true))worlds.prepare(select(node.alias,node.document),deadline);
+        return refresh(deadline);
+    }
+    JSONObject evaluate(String frame,String document,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        Route route=select(frame,document);refresh(deadline);validate(route);return worlds.evaluate(route,expression,effect,deadline);
     }
 }

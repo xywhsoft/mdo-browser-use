@@ -100,9 +100,19 @@ public final class CdpRegistryProbe {
         MdoBrowserCdpView retired=new MdoBrowserCdpView(new WebView(),v->true,quota);
         run(()->{MdoBrowserCdpMarker.Ticket denied=retired.marker().request();check(!denied.await(200)&&"cdp_binding_document_limit".equals(denied.failure()));denied.close();return null;});retired.close();
     }
+    private static void worldBudget()throws Exception {
+        Case sample=new Case();WebView view=new WebView();sample.views.put("tab",view);
+        for(int block=0;block<8;block++){
+            MdoBrowserCdpMarker marker=sample.marker("tab",view);run(()->{for(int i=0;i<32;i++)check(marker.lease().worldName());return null;});
+            sample.registry.invalidateAll();run(()->{try{marker.lease().worldName();throw new AssertionError("Retired lease admitted a world name");}
+                catch(java.io.IOException expected){check("cdp_binding_owner_changed".equals(expected.getMessage()));}return null;});
+        }
+        MdoBrowserCdpMarker exhausted=sample.marker("tab",view);run(()->{check(!exhausted.lease().worldName());check(!exhausted.lease().worldName());return null;});
+        sample.views.navigation("tab",view);MdoBrowserCdpMarker fresh=sample.marker("tab",view);run(()->{check(fresh.lease().worldName());return null;});sample.close();
+    }
     public static void main(String[] ignored)throws Exception {
         Looper.getMainLooper();worker=Executors.newSingleThreadExecutor();
-        try{lifecycle();quota();identity();lateCallback();}
+        try{lifecycle();quota();identity();lateCallback();worldBudget();}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));Handler.drain();}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"native_ui_calls_doubled\":true,\"provider_qualified\":false}");
     }

@@ -25,6 +25,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }
         default void admitChild(String child)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default void retireChild(String child)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default boolean poll(int timeoutMs)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
     interface Factory {Peer open(String target,int timeoutMs,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException;}
@@ -35,6 +36,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public JSONObject call(String method,JSONObject params,String child,int wait,boolean effect)throws IOException{return session.call(method,params,child,wait,effect);}
                 public void admitChild(String child)throws IOException{session.admitChild(child);}
                 public void retireChild(String child)throws IOException{session.retireChild(child);}
+                public boolean poll(int wait)throws IOException{return session.poll(wait);}
                 public void close(){session.close();}
             };
         }catch(RuntimeException|Error failure){session.close();throw failure;}
@@ -73,6 +75,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     }
     private static final class Contexts implements MdoBrowserCdpSession.Events {
         final Map<Integer,Context> contexts=new HashMap<>();final Set<Integer> seen=new HashSet<>();
+        final Map<Integer,String> identities=new HashMap<>();
         volatile boolean dirty;boolean unsupported;Context armed;volatile MdoBrowserCdpSession.Events forward;
         public void event(String method,String session,JSONObject params) throws IOException {
             try {
@@ -81,6 +84,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 if("Runtime.executionContextCreated".equals(method)) {
                     JSONObject value=params.getJSONObject("context");Object number=value.get("id");
                     if(!(number instanceof Integer)||((Integer)number)<=0||!seen.add((Integer)number)||seen.size()>256)throw problem("cdp_binding_context_invalid");
+                    identities.put((Integer)number,identity(value.opt("uniqueId"))?(String)value.opt("uniqueId"):null);
                     JSONObject aux=value.optJSONObject("auxData");
                     if(aux!=null&&Boolean.TRUE.equals(aux.opt("isDefault"))) {
                         Object unique=value.opt("uniqueId"),frame=aux.opt("frameId");
@@ -90,8 +94,8 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                         if(armed!=null&&armed.frame.equals(context.frame))dirty=true;
                     }
                 } else if("Runtime.executionContextDestroyed".equals(method)) {
-                    int id=params.getInt("executionContextId");contexts.remove(id);if(armed!=null&&armed.id==id)dirty=true;
-                } else if("Runtime.executionContextsCleared".equals(method)) {contexts.clear();if(armed!=null)dirty=true;}
+                    int id=params.getInt("executionContextId");contexts.remove(id);identities.remove(id);if(armed!=null&&armed.id==id)dirty=true;
+                } else if("Runtime.executionContextsCleared".equals(method)) {contexts.clear();identities.clear();if(armed!=null)dirty=true;}
                 else if("Inspector.detached".equals(method))dirty=true;
                 MdoBrowserCdpSession.Events receiver=forward;if(receiver!=null)receiver.event(method,session,params);
             } catch(JSONException failure){throw problem("cdp_binding_context_invalid");}
@@ -107,6 +111,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     final String rootFrame,rootLoader,uniqueContext;final int contextId;
+    // Fresh namespace per binding. Specific names belong to native frame/
+    // loader proofs; old or possibly privileged worlds are never adopted.
+    final String worldName="mdo.browser-use.frames.v1."+java.util.UUID.randomUUID();
     private MdoBrowserCdpBinding(Peer peer,MdoBrowserCdpMarker.Lease lease,Contexts contexts,Context root) {
         this.peer=peer;this.lease=lease;this.contexts=contexts;rootFrame=root.frame;rootLoader=root.loader;uniqueContext=root.unique;contextId=root.id;
     }
@@ -219,6 +226,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     }
     void admitChild(String child)throws IOException {current();peer.admitChild(child);}
     void retireChild(String child)throws IOException {current();peer.retireChild(child);}
+    boolean poll(int timeoutMs)throws IOException {current();return peer.poll(timeoutMs);}
+    boolean reserveWorldName()throws IOException {current();return lease.worldName();}
+    Map<Integer,String> contextIdentities()throws IOException {current();return new HashMap<>(contexts.identities);}
     void observe(MdoBrowserCdpSession.Events controller)throws IOException {
         current();if(controller==null||controllerInstalled)throw problem("cdp_controller_busy");controllerInstalled=true;
         MdoBrowserCdpSession.Events original=contexts.forward;

@@ -22,10 +22,13 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
     /** UI-owned document quota, shared across all short-lived admission leases.
      * Hiding/reconnecting must not reset lexical declarations in the same DOM. */
     static final class DocumentQuota implements AutoCloseable {
-        private final Thread owner=Thread.currentThread();private int declarations;private boolean retired;
+        private final Thread owner=Thread.currentThread();private int declarations;private final AtomicBoolean retired=new AtomicBoolean();
+        private final AtomicInteger worldNames=new AtomicInteger();
         private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Document quota requires its UI owner");}
-        boolean acquire(){thread();if(retired||declarations>=16)return false;declarations++;return true;}
-        @Override public void close(){thread();retired=true;}
+        boolean acquire(){thread();if(retired.get()||declarations>=16)return false;declarations++;return true;}
+        boolean world(){for(;;){if(retired.get())return false;int count=worldNames.get();
+            if(count>=256)return false;if(worldNames.compareAndSet(count,count+1))return !retired.get();}}
+        @Override public void close(){thread();retired.set(true);}
     }
     static final class Budget {
         private final int limit;private final ArrayList<WeakReference<Cell>> cells=new ArrayList<>();
@@ -42,6 +45,10 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         Lease(MdoBrowserCdpMarker marker){owner=new WeakReference<>(marker);}
         boolean current(){return live.get()&&owner.get()!=null;}
         boolean busy(){return channel.get()!=null;}
+        boolean worldName()throws IOException {
+            MdoBrowserCdpMarker marker=owner.get();if(!current()||marker==null)throw new IOException("cdp_binding_owner_changed");
+            boolean admitted=marker.document.world();if(!current())throw new IOException("cdp_binding_owner_changed");return admitted;
+        }
         void track(AutoCloseable next) throws IOException {
             if(!current()){close(next);throw new IOException("cdp_binding_owner_changed");}
             if(!channel.compareAndSet(null,next))throw new IOException("cdp_binding_busy");

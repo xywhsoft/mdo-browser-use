@@ -5468,3 +5468,57 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   completion audit. Preserve current WebView, deferred phone and formal data;
   no model calls, external page tests or publication. Goal remains active.
 
+## E57 — implement and package private isolated frame execution
+
+- Verify/pin native context type/frame/name metadata and isolated-world creation.
+  The examined engine reuses named worlds before initializing their security
+  origin. Use a fresh binding namespace plus distinct names per original native
+  source/frame/loader proof, explicitly denying universal-origin access. Reuse
+  a name for the same unchanged native proof, not across changed loaders or
+  process sources. Do not adopt default, unrelated or potentially privileged
+  old worlds. Add no browser/debug dependency or activation switch.
+- Require exact route/ancestry, creation reply, native frame/session/type/name
+  and unique-context metadata. Each source must reject an invalid unique ID;
+  each world must pass its real unique-context harmless probe before page code.
+  Evaluate by unique ID only, with no default/numeric fallback. Retain minimal
+  initial root IDs for default/other-context ambiguity checks. Bound delayed
+  metadata waiting by 500 ms within the original operation deadline.
+- Bound 32 current world routes, 256 active context records, 1,024 lifetime
+  context keys, 192 KiB UTF-8 source and 1 MiB result envelopes. Share 256 native
+  name reservations across leases/bindings within the UI-owned document
+  generation; retain uncertain charges. Registry tests prove this counter does
+  not reset on short admission losses. Navigation callback/framework semantics
+  remain unqualified rather than being claimed as an actual-provider guarantee.
+- Context loss fences only its exact admitted document/loader and descendants;
+  old context callbacks cannot retire a newer document. Loader changes get fresh
+  world names. A native metadata barrier and original pins surround execution.
+  Return only by-value JSON/finite primitives with opaque aliases; omit native
+  exception details. Preserve possible effects on loss/navigation/error, and
+  never replay a script after uncertainty. Owned result bytes use the existing
+  clearing worker; Java JSON/strings remain bounded GC-managed values.
+- Actual Java world/frame/binding/session/worker/strict JNI gate passes 539
+  isolated-world checks, covering nested process worlds, cached identity and
+  probes, delayed metadata, all wrong proof variants, ignored unique IDs,
+  context/document/parent loss, lost effects without replay, Unicode/primitive
+  values, exceptions/oversize, context resource floods, loader-specific names,
+  recovery and late old callbacks. Registry/shared-budget checks increase to
+  375. Retained 172 frame, 167 worker, 474 binding, 4,303 dispatcher, 138 JNI-worker,
+  1,141 WebSocket and 310 discovery checks pass (`.mdo/E57-worlds.log`, native
+  receipt). Android UI/evaluation peers are doubled/synthetic, not a DOM/provider
+  or installed-framework pass.
+- Stop/apply reviewed host overlays and compile the complete Android development
+  host using the existing ARM64 engine, N5 app archive and QA signer. APK:
+  6,341,953 bytes, SHA-256
+  `0cde1c740c629f458853d69babd7eba47e6cb69a7d979888c5233607f56c405d`
+  (`.mdo/E57-android-build.log`, adjacent verified receipt). Real SDK/D8 world
+  class definitions, payload/manifest/package/native exports/ABI/signatures pass.
+  Full Python regression passes 162/164 with two existing symlink skips in
+  46.934 s (`.mdo/E57-python-full.log`). Source/native overlay checks pass; the
+  single development deployment remains HTTP 200, 3,417.9 MiB.
+- Keep Agent admission/global Android automation disabled. Private inventory and
+  evaluation are implemented; typed Agent routing, fixed shared operations,
+  owner geometry, guarded native input/transfers, activation/profile policy and
+  the broader physical/visual/lifetime/full audit remain. Preserve deferred
+  phone/current WebView/formal data. No model calls, external page tests or
+  publication performed; goal remains active.
+

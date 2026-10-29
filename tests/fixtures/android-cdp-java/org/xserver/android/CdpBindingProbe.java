@@ -50,6 +50,7 @@ public final class CdpBindingProbe {
                 public JSONObject call(String method,JSONObject params,String child,int wait,boolean effect)throws IOException{return session.call(method,params,child,wait,effect);}
                 public void admitChild(String child)throws IOException{session.admitChild(child);}
                 public void retireChild(String child)throws IOException{session.retireChild(child);}
+                public boolean poll(int wait)throws IOException{return session.poll(wait);}
                 public void close(){session.close();}
             };
         }
@@ -110,9 +111,10 @@ public final class CdpBindingProbe {
             }catch(IOException failure){throw failure;}catch(Exception failure){throw new IOException("synthetic-peer-invalid");}
         }
         public byte[] receive(int timeout)throws IOException {
-            if(closed.get())throw new IOException("cdp_session_closed");byte[] value=replies.pollFirst();if(value!=null)packets.add(value);return value;
+            if(closed.get())throw new IOException("cdp_session_closed");byte[] value=replies.pollFirst();if(value!=null)packets.add(value);
+            else try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IOException("cdp_binding_cancelled");}return value;
         }
-        public void close(){closed.set(true);}
+        public void close(){closed.set(true);while(!replies.isEmpty())Arrays.fill(replies.removeFirst(),(byte)0);}
         void cleared(){for(byte[] bytes:sent)zero(bytes);for(byte[] bytes:packets)zero(bytes);}
         private void zero(byte[] bytes){boolean clear=true;for(byte b:bytes)if(b!=0)clear=false;check(clear);}
     }
