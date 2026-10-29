@@ -4824,3 +4824,52 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   product Android integration remain unverified; retain the previous desktop
   and physical-transport gaps. The full goal remains active.
 
+## E42 — repair the manual browser file-picker downgrade
+
+- Confirm the child WebView had its own Chrome client, but returned `false`
+  when chooser interception was off. Android's documented default cancels file
+  requests, so it did not delegate to the Activity's main WebView file picker.
+  Add a human `ACTION_OPEN_DOCUMENT` path to the child target. Preserve the
+  existing intercepted chooser list/cancel path and disabled automatic URI
+  assignment/source-frame/global-automation gates.
+- Use one Activity-owned native picker, its exact original WebView/navigation/
+  channel, once-only callback identity, and a two-minute uptime deadline.
+  Reuse no request codes within the process (range `0x6000..0x7fff`); restore
+  only the monotonic counter. Route only this namespace through the actual
+  Activity result hook, before the original request-1/request-2 handlers.
+  A result without an original pending owner is consumed without delivery.
+- Navigation/hide/stop/close/takeover/channel loss/destroy cancel the original
+  callback. Pause for the external system picker can return before `onResume`
+  without losing that callback. An invalidated/expired/uncertain native launch
+  keeps its one original result slot until acknowledgment; refuse replacement
+  launches/interception and expose the waiting state. Do not reuse a late old
+  result for another request. Callback/unblock uncertainty requires teardown.
+- Accept only read-permitted content URIs from external-UID providers. Refuse
+  private app-provider URIs (including E40), raw file/data URIs, malformed
+  authorities, overlong URIs and oversized/unexpected selection lists. Bound
+  selected files to 16, MIME entries to 16 and each URI to 8,192 characters.
+  Return no URI/path in browser state or Agent/tool JSON. Folder/save/camera
+  automation is not introduced by this human document picker.
+- Pass 106 actual-controller checks with Activity/Intent/permission/Looper
+  doubles, including normal/multiple selection, private URI/read-permission
+  denials, stale/duplicate/cancelled native results, deadlines, quota admission,
+  launch/scheduler/callback faults, synchronous completion before a platform
+  exception, background return and restored counters. The native chooser has
+  471 controller plus 42 target-callback checks, including manual callback
+  identity and intercepted-path regression. Evidence:
+  `.mdo/E42-manual-chooser.log`, `.mdo/E42-chooser.log`. Framework qualification
+  remains false; none of these doubles selects a user's document.
+- All 418 URI/provider, 168 URI-device-fixture and 39 upload-native-fragment
+  checks pass. Python: 145/147 pass with two existing symlink-privilege skips.
+  Evidence: `.mdo/E42-uri-contract.log`, `.mdo/E42-uri-fixture.log`,
+  `.mdo/E42-upload-ui.log`, `.mdo/E42-python-full.log`. Actual pinned Activity/
+  hooks and manual chooser compile with the existing SDK. Tiny QA APK:
+  348,563 bytes, SHA-256
+  `ddc1e1b94f1a646406c15cf86598a9f11b1c9ab36561d30863f87117b262eeba`;
+  `.mdo/E42-android-build.log`. This is not a full Android mdo release.
+- Retain the current installed WebView and false manual-framework/provider/
+  chooser-assignment/automation flags. ADB remains unavailable; no device
+  result is upgraded to a pass. Keep the single deployment healthy and the
+  Windows N4 executable/plugin pair unchanged. The complete Android handoff,
+  real-device/desktop/physical-transport verification and full goal remain open.
+

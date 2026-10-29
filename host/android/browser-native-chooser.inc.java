@@ -1,7 +1,7 @@
     private boolean chooserReady(MdoBrowserDialogTarget target){
         if(!(target instanceof MdoBrowserChooserTarget))return true;
         MdoBrowserChoosers binding=((MdoBrowserChooserTarget)target).choosers;
-        return binding.ready();
+        return binding.ready()&&manualChooser.ready();
     }
     private void chooserBlocked(String key,WebView view,boolean blocked){
         // A retired target must not update a replacement document with the same key.
@@ -11,6 +11,7 @@
     }
     private void cancelChooser(String key){
         MdoBrowserDialogTarget target=dialogs.get(key);
+        if(target!=null)manualChooser.cancel(target.view);
         if(target instanceof MdoBrowserChooserTarget)((MdoBrowserChooserTarget)target).choosers.cancel();
     }
     private void cancelChoosers(){
@@ -20,15 +21,17 @@
     private boolean chooserClean(MdoBrowserDialogTarget target){
         if(!(target instanceof MdoBrowserChooserTarget))return true;
         MdoBrowserChoosers binding=((MdoBrowserChooserTarget)target).choosers;
-        return binding.ready();
+        return binding.ready()&&manualChooser.ready();
     }
     private JSONObject chooserState(String key,JSONObject state)throws JSONException {
         MdoBrowserDialogTarget target=dialogs.get(key);
         MdoBrowserChoosers binding=target instanceof MdoBrowserChooserTarget?((MdoBrowserChooserTarget)target).choosers:null;
         MdoBrowserChoosers.Snapshot pending=binding==null?null:binding.snapshot();
         return uploadState(state).put("chooser_capability",binding!=null).put("chooser_upload_capability",false)
-            .put("chooser_armed",binding!=null&&binding.intercepting()).put("chooser_open",pending!=null)
-            .put("chooser_cleanup_failed",binding!=null&&!binding.clean()).put("chooser_frame_identity_verified",false);
+            .put("chooser_armed",binding!=null&&binding.intercepting()).put("chooser_open",pending!=null||target!=null&&manualChooser.busy(target.view))
+            .put("manual_chooser_supported",true).put("manual_chooser_open",target!=null&&manualChooser.busy(target.view))
+            .put("manual_chooser_awaiting_result",manualChooser.awaitingResult())
+            .put("chooser_cleanup_failed",binding!=null&&!binding.clean()||!manualChooser.clean()).put("chooser_frame_identity_verified",false);
     }
     private void executeChooser(String key,String id,JSONObject request)throws JSONException {
         MdoBrowserDialogTarget original=dialogs.get(key);
@@ -37,6 +40,7 @@
         String action=request.optString("action");
         if("set_interception".equals(action)){
             Object enabled=request.opt("enabled");if(!(enabled instanceof Boolean))throw new IllegalArgumentException("chooser_interception_invalid");
+            if(Boolean.TRUE.equals(enabled)&&!manualChooser.ready())throw new IllegalStateException("manual_chooser_pending");
             binding.interception((Boolean)enabled);
             if(Boolean.TRUE.equals(enabled)&&!binding.intercepting())throw new IllegalStateException("chooser_cleanup_failed");
             reply(id,new JSONObject().put("ok",true).put("enabled",binding.intercepting()).put("assignment_supported",false),null);return;

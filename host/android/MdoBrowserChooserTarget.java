@@ -14,10 +14,17 @@ import java.util.function.LongSupplier;
 /** Retains/cancels a framework chooser. It does not grant unvalidated URIs,
  * identify a subframe from a callback URL, or enable global automation. */
 final class MdoBrowserChooserTarget extends MdoBrowserWindowTarget {
+    interface Manual {boolean open(ValueCallback<Uri[]> callback,WebChromeClient.FileChooserParams params);void cancel();}
     final MdoBrowserChoosers choosers;
+    private final Manual manual;
     MdoBrowserChooserTarget(WebView view,BooleanSupplier owned,LongSupplier navigation,MdoBrowserDialogs.Listener dialogs,
             LongConsumer beforeUnloadCancelled,Windows windows,MdoBrowserChoosers.Listener listener){
+        this(view,owned,navigation,dialogs,beforeUnloadCancelled,windows,listener,null);
+    }
+    MdoBrowserChooserTarget(WebView view,BooleanSupplier owned,LongSupplier navigation,MdoBrowserDialogs.Listener dialogs,
+            LongConsumer beforeUnloadCancelled,Windows windows,MdoBrowserChoosers.Listener listener,Manual manual){
         super(view,owned,navigation,dialogs,beforeUnloadCancelled,windows);
+        this.manual=manual;
         final Handler handler=new Handler(Looper.getMainLooper());
         choosers=new MdoBrowserChoosers(view,new MdoBrowserChoosers.Scheduler(){
             public long now(){return SystemClock.uptimeMillis();}
@@ -28,7 +35,12 @@ final class MdoBrowserChooserTarget extends MdoBrowserWindowTarget {
     @Override public boolean onShowFileChooser(WebView source,ValueCallback<Uri[]> callback,WebChromeClient.FileChooserParams params){
         if(source!=view||callback==null||Looper.myLooper()!=Looper.getMainLooper())return false;
         if(choosers.known(callback))return true;
-        if(!choosers.intercepting()||params==null)return false;
+        if(params==null)return false;
+        if(!choosers.intercepting()){
+            if(manual==null||!choosers.claimManual(callback))return false;
+            try{return manual.open(callback,params);}
+            catch(RuntimeException|OutOfMemoryError failure){try{callback.onReceiveValue(null);}catch(RuntimeException|OutOfMemoryError uncertain){choosers.rejectionFailed();}return true;}
+        }
         try{return choosers.open(callback,()->callback.onReceiveValue(null),params.getMode(),params.getAcceptTypes(),params.isCaptureEnabled());}
         catch(RuntimeException|OutOfMemoryError error){
             if(choosers.known(callback))return true;
@@ -37,6 +49,6 @@ final class MdoBrowserChooserTarget extends MdoBrowserWindowTarget {
             return true;
         }
     }
-    @Override public void close(){choosers.close();super.close();}
+    @Override public void close(){if(manual!=null)manual.cancel();choosers.close();super.close();}
     @Override void viewDestroyed(){choosers.viewDestroyed(view);super.viewDestroyed();}
 }

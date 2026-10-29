@@ -378,3 +378,9 @@ Its six outcome/teardown scenarios pass 168 checks with Android API doubles;
 the installed-device gate remains unavailable while ADB has no device. See
 [Android verification](docs/android.md) for the distinct framework, chooser
 assignment and full-automation gates.
+
+Android child browsers now also have a human document-picker fallback when
+automatic chooser interception is off. It retains original callback/result
+ownership and refuses private-provider URIs; 106 controller checks and 513
+chooser regression checks pass with Android API doubles. Real-device manual
+picker qualification and full Android automation remain pending.

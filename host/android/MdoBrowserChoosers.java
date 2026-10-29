@@ -91,6 +91,7 @@ final class MdoBrowserChoosers implements AutoCloseable {
     boolean rejectOnce(Object token){
         thread();return token!=null&&!known(token)&&intercepting()&&claim(token);
     }
+    boolean claimManual(Object token){thread();return token!=null&&!closed&&!destroyed&&!enabled&&!failed&&!known(token)&&claim(token);}
     void rejectionFailed(){thread();if(!destroyed){failed=true;block();}}
     boolean open(Object token,Response response,int mode,String[] accept,boolean capture){
         thread();if(known(token))return true;

@@ -1147,7 +1147,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadFiles.java'),source.with_name('MdoBrowserUploadFiles.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadStore.java'),source.with_name('MdoBrowserUploadStore.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadQueue.java'),source.with_name('MdoBrowserUploadQueue.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadRuntime.java'),source.with_name('MdoBrowserUploadRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadUris.java'),source.with_name('MdoBrowserUploadUris.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadProxy.java'),source.with_name('MdoBrowserUploadProxy.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadUriRuntime.java'),source.with_name('MdoBrowserUploadUriRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadProvider.java'),source.with_name('MdoBrowserUploadProvider.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadFiles.java'),source.with_name('MdoBrowserUploadFiles.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadStore.java'),source.with_name('MdoBrowserUploadStore.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadQueue.java'),source.with_name('MdoBrowserUploadQueue.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadRuntime.java'),source.with_name('MdoBrowserUploadRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadUris.java'),source.with_name('MdoBrowserUploadUris.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadProxy.java'),source.with_name('MdoBrowserUploadProxy.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadUriRuntime.java'),source.with_name('MdoBrowserUploadUriRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadProvider.java'),source.with_name('MdoBrowserUploadProvider.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserManualChooser.java'),source.with_name('MdoBrowserManualChooser.java'))"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -1210,6 +1210,62 @@
       "path": "tools/android/build_apk.py",
       "before": " </application>\n</manifest>'''",
       "after": "  {browser_manifest(package)}\n </application>\n</manifest>'''"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private final Activity activity;",
+      "after": "    private final Activity activity;\n    private final MdoBrowserManualChooser manualChooser;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        this.activity=activity; this.root=root; this.host=host;",
+      "after": "        this.activity=activity; this.root=root; this.host=host;manualChooser=new MdoBrowserManualChooser(activity);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private boolean chooserReady(MdoBrowserDialogTarget target){",
+      "after_file": "host/android/browser-manual-chooser.inc.java",
+      "suffix": "    private boolean chooserReady(MdoBrowserDialogTarget target){"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "},windowCallbacks(key,view),blocked->chooserBlocked(key,view,blocked));",
+      "after": "},windowCallbacks(key,view),blocked->chooserBlocked(key,view,blocked),new MdoBrowserChooserTarget.Manual(){\n                public boolean open(ValueCallback<Uri[]> callback,WebChromeClient.FileChooserParams params){return openManualChooser(key,view,callback,params);}\n                public void cancel(){manualChooser.cancel(view);}\n            });"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        channel.invalidate();cancelPopups();cancelDialogs();",
+      "after": "        manualChooser.invalidate();channel.invalidate();cancelPopups();cancelDialogs();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(stopped)return;channel.invalidate();WebMessagePort previous=port;port=null;",
+      "after": "if(stopped)return;manualChooser.invalidate();channel.invalidate();WebMessagePort previous=port;port=null;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    void pause(){browserPaused=true;",
+      "after": "    void pause(){manualChooser.pause();browserPaused=true;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    void resume(){browserPaused=false;",
+      "after": "    void resume(){manualChooser.resume();browserPaused=false;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    void destroy(){cancelUploads();",
+      "after": "    void destroy(){manualChooser.close();cancelUploads();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.MANUAL,",
+      "after": "manualChooser.cancel(web);MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.MANUAL,"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "      '@Override protected void onDestroy() {':'@Override protected void onDestroy() {\\n        if (mdoBrowser != null) mdoBrowser.destroy();',",
+      "after": "      '@Override protected void onDestroy() {':'@Override protected void onDestroy() {\\n        if (mdoBrowser != null) mdoBrowser.destroy();',\n      'mdoBrowser = new MdoBrowser(this, root, web);':'mdoBrowser = new MdoBrowser(this, root, web);\\n        mdoBrowser.manualChooserRestore(saved);',\n      'super.onActivityResult(request, result, data);':'super.onActivityResult(request, result, data);\\n        if (mdoBrowser != null && mdoBrowser.manualChooserResult(request, result, data)) return;',\n      '@Override protected void onSaveInstanceState(Bundle state) {':'@Override protected void onSaveInstanceState(Bundle state) {\\n        if (mdoBrowser != null) mdoBrowser.manualChooserSave(state);',"
     }
   ],
   "files": [
@@ -1456,6 +1512,10 @@
     {
       "source": "host/android/MdoBrowserUploadProvider.java",
       "target": "tools/android/MdoBrowserUploadProvider.java"
+    },
+    {
+      "source": "host/android/MdoBrowserManualChooser.java",
+      "target": "tools/android/MdoBrowserManualChooser.java"
     }
   ]
 }

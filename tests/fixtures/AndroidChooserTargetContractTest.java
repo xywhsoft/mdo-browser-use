@@ -49,5 +49,19 @@ public final class AndroidChooserTargetContractTest {
         Reply reply=new Reply();Looper.current=new Looper();check(!target.onShowFileChooser(view,reply,new Params())&&reply.calls==0);Looper.current=Looper.MAIN;
         check(!target.onShowFileChooser(view,null,new Params()));check(!target.onShowFileChooser(view,reply,null));target.close();target.viewDestroyed();
     }
-    public static void main(String[] args){normal();failures();System.out.println("{\"passed\":true,\"checks\":"+checks+"}");}
+    static void manual(){
+        Handler.reset();WebView view=new WebView();int[] counts={0,0};boolean[] fail={false};
+        MdoBrowserChooserTarget target=new MdoBrowserChooserTarget(view,()->true,()->1,value->{},value->{},null,value->{},new MdoBrowserChooserTarget.Manual(){
+            public boolean open(ValueCallback<Uri[]> callback,WebChromeClient.FileChooserParams params){counts[0]++;if(fail[0])throw new IllegalStateException("Synthetic manual admission failure");callback.onReceiveValue(null);return true;}
+            public void cancel(){counts[1]++;}
+        });
+        Reply reply=new Reply();check(target.onShowFileChooser(view,reply,new Params())&&reply.calls==1&&counts[0]==1);
+        Params changed=new Params();changed.fail=true;check(target.onShowFileChooser(view,reply,changed)&&reply.calls==1&&counts[0]==1);
+        target.choosers.interception(true);Reply intercepted=new Reply();check(target.onShowFileChooser(view,intercepted,new Params())&&intercepted.calls==0&&counts[0]==1);
+        target.choosers.cancel();check(intercepted.calls==1);target.choosers.interception(false);
+        fail[0]=true;Reply failed=new Reply();check(target.onShowFileChooser(view,failed,new Params())&&failed.calls==1);
+        check(target.onShowFileChooser(view,failed,new Params())&&failed.calls==1&&counts[0]==2);
+        target.close();check(counts[1]==1);Reply closed=new Reply();check(!target.onShowFileChooser(view,closed,new Params())&&closed.calls==0);target.viewDestroyed();
+    }
+    public static void main(String[] args){normal();failures();manual();System.out.println("{\"passed\":true,\"checks\":"+checks+"}");}
 }

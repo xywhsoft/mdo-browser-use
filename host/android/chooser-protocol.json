@@ -15,6 +15,25 @@
     "retained_live_callback_identities": 128
   },
   "native_cancel_value": null,
+  "manual_picker": {
+    "implemented": true,
+    "intent": "android.intent.action.OPEN_DOCUMENT",
+    "pending_per_activity": 1,
+    "lifetime_uptime_ms": 120000,
+    "maximum_selected_uris": 16,
+    "maximum_uri_characters": 8192,
+    "request_code_first": 24576,
+    "request_code_last": 32767,
+    "request_codes_reused_in_process": false,
+    "restored_state": "monotonic-request-counter-only",
+    "bound_to": ["original-webview-object", "original-navigation", "original-native-channel"],
+    "requires_external_uid_provider": true,
+    "requires_read_uri_permission": true,
+    "private_provider_uris_allowed": false,
+    "cancelled_native_slot_held_until_original_result": true,
+    "framework_verified": false,
+    "automatic_assignment_enabled": false
+  },
   "uri_assignment_available": false,
   "frame_identity_verified": false,
   "automation_enabled": false

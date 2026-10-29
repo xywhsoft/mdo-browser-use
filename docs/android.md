@@ -1355,3 +1355,46 @@ checks pass with two existing symlink-privilege skips. Evidence:
 `.mdo/E41-python-full.log`. The device attempt is unavailable (zero ADB devices),
 recorded in `.mdo/E41-device-uri.log`; no installed-device qualification, mdo
 release or Windows package change is claimed.
+
+### Human document picker for the manual browser (E42)
+
+The child WebView now routes unintercepted file requests to its own native
+`ACTION_OPEN_DOCUMENT` picker. Previously it returned the default response;
+Android's default cancels the request, rather than delegating to the main
+WebView's Activity picker. See the [WebChromeClient contract](https://developer.android.com/reference/android/webkit/WebChromeClient#onShowFileChooser(android.webkit.WebView,%20android.webkit.ValueCallback%3Candroid.net.Uri[]%3E,%20android.webkit.WebChromeClient.FileChooserParams)).
+This repair does not depend on isolated worlds or a WebView upgrade.
+
+There is one pending system picker per Activity. Its callback stays bound to
+the original native WebView object, navigation and host channel. Preserve the
+callback during the system picker's pause/return (results can arrive before
+`onResume`); cancellation, hide, navigation, stop, close, takeover, channel loss,
+timeout and destroy cannot redirect it to a replacement document. Original
+callback identity is claimed once by the target. A two-minute uptime deadline
+can cancel that callback, but a launched/uncertain native result still retains
+its slot until the original result returns. Further native picks/interception
+are refused while that slot is outstanding. State reports
+`manual_chooser_open` / `manual_chooser_awaiting_result` and cleanup uncertainty,
+with no URI or file path. Callback or unblock failures require Activity teardown.
+
+The request namespace is `0x6000..0x7fff`, separate from the pinned shell's
+main picker/export requests. Do not reuse codes within the process; only its
+monotonic counter is saved/restored. Callback and URI permissions are never
+restored. Orphan/old results in this namespace are consumed without delivery;
+malformed/exhausted counters refuse new requests. Selection accepts at most 16
+read-permitted content URIs from external-UID providers, with bounded MIME/URI
+metadata. App-private providers, file/data URLs and invalid/malformed/oversized
+selections are rejected as a whole. No model-facing URI assignment or automatic
+folder/save/camera capability is enabled.
+
+`python tools/android_manual_chooser_probe.py` passes 106 checks through the
+production controller with Android Activity/Intent/permission/Looper doubles.
+`python tools/android_chooser_probe.py` passes 471 controller and 42 native
+target-callback checks. URI/provider (418), exact device-URI fixture with doubles
+(168), native upload fragment (39), and Python (145/147, two existing symlink
+skips) pass. The actual pinned Activity/hooks and new controller compile.
+The QA APK is 348,563 bytes, SHA-256
+`ddc1e1b94f1a646406c15cf86598a9f11b1c9ab36561d30863f87117b262eeba`.
+Evidence is in `.mdo/E42-*.log`. It contains diagnostic fixtures, not a complete
+Android mdo client. `manual_chooser_framework_verified` remains false; a real
+picker/URI/FUSE run is still required. Keep the current WebView and the false
+source/frame/automatic-assignment/global-automation gates.
