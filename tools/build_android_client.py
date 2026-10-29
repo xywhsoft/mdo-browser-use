@@ -22,7 +22,8 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserNativeCapture.java','host/android/dev/BrowserUseCaptureProbe.java',
         'host/android/MdoBrowserDialogs.java','host/android/MdoBrowserDialogTarget.java','host/android/dev/BrowserUseDialogProbe.java',
         'host/android/MdoBrowserPopups.java','host/android/MdoBrowserWindowTarget.java','host/android/dev/BrowserUsePopupProbe.java',
-        'host/android/MdoBrowserChoosers.java','host/android/MdoBrowserChooserTarget.java','host/android/browser-native-chooser.inc.java')
+        'host/android/MdoBrowserChoosers.java','host/android/MdoBrowserChooserTarget.java','host/android/browser-native-chooser.inc.java',
+        'host/android/dev/BrowserUseChooserProbe.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
@@ -76,7 +77,8 @@ def main():
         result=subprocess.run(list(map(str,args)),cwd=ROOT,text=True,capture_output=True,timeout=120)
         if result.returncode:raise RuntimeError(f'{Path(str(args[0])).name} failed: '+(result.stderr or result.stdout)[-1800:])
     sources=[ROOT/INPUTS[0],ROOT/INPUTS[1],ROOT/'host/android/dev/BrowserUseInputProbe.java',ROOT/'host/android/dev/BrowserUseCaptureProbe.java',
-        ROOT/'host/android/dev/BrowserUseDialogProbe.java',ROOT/'host/android/dev/BrowserUsePopupProbe.java',*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
+        ROOT/'host/android/dev/BrowserUseDialogProbe.java',ROOT/'host/android/dev/BrowserUsePopupProbe.java',
+        ROOT/'host/android/dev/BrowserUseChooserProbe.java',*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
     run(java/'javac','-encoding','UTF-8','-source','8','-target','8','-classpath',platform,'-d',classes,*sources)
     # Compile the actual pinned Activity with its reviewed hooks as well. These
     # classes are a compile gate only, never a second APK/service or runtime.
@@ -109,7 +111,8 @@ def main():
         'production_activity_compiled':True,'production_native_input_bridge_compiled':True,'production_wheel_input_compiled':True,
         'production_capture_bridge_compiled':True,'production_dialog_bridge_compiled':True,'native_dialog_fixture_compiled':True,
         'production_popup_bridge_compiled':True,'native_popup_fixture_compiled':True,'popup_framework_verified':False,'popup_world_qualified':False,
-        'production_chooser_bridge_compiled':True,'chooser_framework_verified':False,'chooser_assignment_supported':False}
+        'production_chooser_bridge_compiled':True,'native_chooser_fixture_compiled':True,
+        'chooser_framework_verified':False,'chooser_assignment_supported':False}
     receipt_path.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))
 
 

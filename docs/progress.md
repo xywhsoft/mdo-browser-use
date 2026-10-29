@@ -4441,3 +4441,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   overall Android automation stays unavailable, and the current provider is
   preserved as requested. The Windows pair is unaffected by these Java changes.
 
+## E33 — installed-provider chooser framework fixture
+
+- Add `native-chooser` to the existing tiny QA client and nonce-bound runner.
+  Use the actual production Chrome target and native touch sequencer on one
+  fixed synthetic HTML file input. Page-world JavaScript only prepares/reads
+  fixture data; it cannot enable a production Agent execution fallback.
+- The fixture requires three distinct original native chooser callbacks:
+  single-file explicit cancellation, multiple-file disarm cancellation and
+  navigation cancellation. It verifies opaque identities/epochs, stale-ID
+  refusal, trusted page clicks, empty selections, balanced blockers and exact
+  teardown. It never assigns a URI, reads a user's files or launches a system
+  picker. Duplicate page-read replies cannot admit an additional gesture.
+- Centralize the runner's unavailable/running/install-pending false flags, and
+  keep chooser framework, host routing, assignment, source-frame identity and
+  overall automation distinct. Source/APK receipts are checked before any
+  installation or device work. The existing signed dev package is the only
+  possible installation target; preserve the current provider and other apps.
+- The actual SDK Activity/hooks and new fixture compile. Reused QA APK:
+  250,259 bytes, SHA-256
+  `ab061d51d6b53a43893578e7e5c396a4447454783e00786de35ff0cefadf812f`.
+  Evidence: `.mdo/E33-android-build.log`. Python compile checks and reviewed
+  overlay checks pass. `--mode native-chooser` currently exits unavailable
+  because ADB has no authorized device; `.mdo/E33-device-chooser.log` and
+  `.mdo/android-device-chooser-result.json` retain all qualification flags false.
+  This is fixture implementation and compile evidence, not a framework pass or
+  Android automation completion. Windows product code/artifacts are unchanged.
+

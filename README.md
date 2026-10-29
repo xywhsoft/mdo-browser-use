@@ -292,6 +292,11 @@ once-only cancellation and failure/lifecycle cleanup. It is a deterministic
 contract gate; URI assignment, frame identity and installed-framework support
 remain unqualified and do not enable Android automation.
 
+`python tools/android_device_probe.py --mode native-chooser` is the separate
+installed-provider callback gate in the tiny QA app. It uses synthetic native
+taps and cancel/disarm/navigation cases, with no file URI grants or isolated
+world requirement. Current ADB has no phone; this gate is unavailable, not passed.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

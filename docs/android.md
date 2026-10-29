@@ -955,3 +955,26 @@ against API 36. E32's tiny QA APK is 237,971 bytes, SHA-256
 `583d92abd26845ae06e5271f3906e02a8d81e70fbea9c15de3b8760a68c495df`.
 Framework, source-frame identity and URI-transfer checks remain outstanding.
 Preserve the installed WebView and disabled overall automation admission.
+
+The tiny QA client also provides `native-chooser` (E33):
+
+```powershell
+python tools/build_android_client.py
+python tools/android_device_probe.py --mode native-chooser
+```
+
+It exercises the original Chrome callback using trusted native taps on a fixed
+synthetic input: cancel one single-file chooser, disarm a multiple-file chooser,
+then navigate with another pending chooser. It requires fresh identities,
+matching epochs/modes, trusted click counts, empty selections and balanced
+cleanup. No URI is granted, no user file is selected, and no system picker is
+opened. Its page-world reads are restricted to fixture verification.
+
+This callback gate does not require isolated execution worlds or a provider
+upgrade. Its framework result is separate from host UI routing, source-frame
+identity, assignment and overall automation. The SDK compile passes; current
+QA APK is 250,259 bytes, SHA-256
+`ab061d51d6b53a43893578e7e5c396a4447454783e00786de35ff0cefadf812f`.
+Current ADB has no device, so `.mdo/android-device-chooser-result.json` records
+`android_device_unavailable` with all qualification flags false. Keep the current
+installed WebView and existing mdo data.
