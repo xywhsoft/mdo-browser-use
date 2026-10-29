@@ -195,8 +195,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     const hit=await read('scrollPoint',{document:params.document,point});
     if(!hit.ok)return{handled:true,result:hit};
     const pin=hit.native_target,chain=hit.frame_chain;
-    if(!/^d-[a-f0-9-]{36}$/i.test(pin?.document)||pin.document!==params.document||!/^e[1-9][0-9]{0,12}$/.test(pin?.ref)||
-       !Array.isArray(chain)||chain.length!==1||chain[0]?.frame!=='f0'||!/^fd-[a-f0-9-]{36}$/i.test(chain[0]?.document))
+    if(hit.document!==params.document||!/^d-[a-f0-9-]{36}$/i.test(pin?.document)||!/^e[1-9][0-9]{0,12}$/.test(pin?.ref)||
+       !Array.isArray(chain)||chain.length<1||chain.length>32||new Set(chain.map(row=>row?.frame)).size!==chain.length||
+       chain.some((row,index)=>!/^(f0|f-[a-f0-9-]{36})$/i.test(row?.frame)||!/^fd-[a-f0-9-]{36}$/i.test(row?.document)||(row.frame==='f0')!==(index===chain.length-1))||
+       hit.hit_ref!==`r1|${chain[0].frame}|${chain[0].document}|${pin.document}|${pin.ref}`||
+       !hit.point||Math.hypot(hit.point.x-point.x,hit.point.y-point.y)>.5||![hit.point.x,hit.point.y].every(Number.isFinite))
       return fail('frame_response_invalid','The original Android scroll point has no complete document/target pin');
     inputFrameChain=chain;inputTarget={input_document:pin.document,input_ref:pin.ref};return null;
   };

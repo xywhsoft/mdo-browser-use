@@ -2,7 +2,7 @@ import {browserRuntime} from './automation-runtime.js';
 import {createFrameReader} from './frame-reader.js';
 import {prepareFrameCapture} from './frame-capture.js';
 
-const permitted=new Set(['observe','locate','prepare','verify','visualPoint','optionList','selectOptions','uploadInfo','chooserInfo','captureArea']);
+const permitted=new Set(['observe','locate','prepare','verify','visualPoint','scrollPoint','optionList','selectOptions','uploadInfo','chooserInfo','captureArea']);
 const mutations=new Set(['selectOptions']);
 const issue=(code,message)=>Object.assign(new Error(message),{code});
 const pointValid=point=>point&&[point.x,point.y].every(number=>Number.isFinite(number)&&number>=0&&number<=32768);
@@ -86,21 +86,33 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
     try{
       if(!permitted.has(method))throw issue('frame_method_invalid','Only fixed Browser Use operations are allowed');
       if(method==='observe'||method==='locate')return await fromReader(method,options);
-      if(method==='visualPoint'){
+      if(method==='visualPoint'||method==='scrollPoint'){
+        const scroll=method==='scrollPoint';
         if(!pointValid(options.point))throw issue('visual_point_invalid','Choose a bounded viewport point');
         const meta=await fromReader('describe',{document:options.document});if(!meta.ok)return meta;
         const rows=new Map(meta.frames.map(row=>[row.id,row]));let row=rows.get('f0'),point={...options.point};
         for(let depth=0;row&&depth<32;depth++){
           if(row.loading||!row.isolated)throw issue('frame_not_ready','The selected point frame is not ready');
-          const route={frame:row.id,frame_document:row.document},hit=await evaluate(route,'visualPoint',{point,...(options.op==='key'?{op:'key'}:{}),...(row.id==='f0'?{document:meta.document}:{})});
+          const route={frame:row.id,frame_document:row.document};
+          let document=row.id==='f0'?meta.document:null;
+          if(scroll&&!document){const local=await evaluate(route,'describe',{});
+            if(!local.ok||!/^d-[a-f0-9-]{36}$/i.test(local.document))throw issue('frame_response_invalid','The scroll frame has no original document identity');document=local.document;}
+          const hit=await evaluate(route,method,{point,...(scroll?{document,_route_child:true}:options.op==='key'?{op:'key'}:{}),...(!scroll&&row.id==='f0'?{document:meta.document}:{})});
           if(!hit.ok)return hit;
-          if(!/^d-[a-f0-9-]{36}$/i.test(hit.document)||row.id==='f0'&&hit.document!==meta.document)
+          if(!/^d-[a-f0-9-]{36}$/i.test(hit.document)||(scroll||row.id==='f0')&&hit.document!==document)
             throw issue('stale_document','The visual point document changed');
+          if(scroll&&(!pointValid(hit.point)||hit.point.x!==point.x||hit.point.y!==point.y))
+            throw issue('frame_response_invalid','The scroll reply changed its original local point');
           if(hit.frame_ref===null){
             const mapped=await mapPoint(route,{point,geometry:[]});
             if(Math.hypot(mapped.point.x-options.point.x,mapped.point.y-options.point.y)>.5)
               throw issue('visual_context_changed','An iframe moved during point routing');
             const focus={};
+            if(scroll){
+              if(!/^e[1-9][0-9]{0,12}$/.test(hit.hit_ref))throw issue('frame_response_invalid','The scroll point has no original local hit identity');
+              focus.hit_ref=`r1|${route.frame}|${route.frame_document}|${hit.document}|${hit.hit_ref}`;
+              focus.native_target={document:hit.document,ref:hit.hit_ref};
+            }
             if(options.op==='key'){
               if(!/^e[1-9][0-9]{0,12}$/.test(hit.focus_ref))throw issue('frame_response_invalid','The image point has no original keyboard target');
               focus.target={ref:`r1|${route.frame}|${route.frame_document}|${hit.document}|${hit.focus_ref}`};
@@ -117,7 +129,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
             if(owner.value?.owner?.ref!==hit.frame_ref||owner.value.owner.document!==hit.document)continue;
             if(selected)throw issue('frame_response_invalid','The visual point owner has multiple native frames');
             const box=owner.value.content;
-            if(!owner.value.ok||owner.value.painted!==true||!pointValid(box)||![box.width,box.height].every(n=>Number.isFinite(n)&&n>0&&n<=32768))
+            if(!owner.value.ok||owner.value.painted!==true||!box||![box.x,box.y].every(n=>Number.isFinite(n)&&Math.abs(n)<=32768)||![box.width,box.height].every(n=>Number.isFinite(n)&&n>0&&n<=32768))
               throw issue('frame_owner_unavailable','The visual point iframe is hidden or has unsupported geometry');
             const local={x:point.x-box.x,y:point.y-box.y};
             if(local.x<0||local.y<0||local.x>=box.width||local.y>=box.height)

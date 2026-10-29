@@ -183,6 +183,17 @@ try{
     }}});
   const page=await dispatch('observe',{limit:100,max_bytes:4096});
   assert(page.result.ok&&page.result.frames.length===3&&page.result.elements.some(row=>row.name==='Nested field'&&row.ref.startsWith('r1|')),'Dispatcher did not use combined frame observations');
+  stage='native-scroll-point';
+  const originalFocus=(await evaluate(replacementLeaf,'document.activeElement.id')).value;
+  const scrollPrepared=await driver.read('prepare',{document:page.result.document,target:{name:'Nested field'},op:'scroll',scroll:true});
+  assert(scrollPrepared.ok&&scrollPrepared.frame_chain.length===3,'The nested scroll target did not retain its complete original chain');
+  const scrollPoint=await driver.read('scrollPoint',{document:page.result.document,point:scrollPrepared.point});
+  assert(scrollPoint.ok&&scrollPoint.document===page.result.document&&JSON.stringify(scrollPoint.frame_chain)===JSON.stringify(scrollPrepared.frame_chain),
+    'The actual native scroll point did not route through both original iframe owners');
+  assert(scrollPoint.native_target.document===scrollPrepared.native_target.document&&scrollPoint.native_target.ref===scrollPrepared.native_target.ref&&scrollPoint.hit_ref===scrollPrepared.element.ref,
+    'The native scroll route substituted a root document or another leaf hit');
+  assert((await evaluate(replacementLeaf,'document.activeElement.id')).value===originalFocus,'Read-only scroll routing changed DOM focus');
+  stage='frame-dispatch';
   const filled=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text:'Frame 🦉 input'});
   assert(filled.result.ok&&filled.result.verification==='field_state','Routed nested fill did not complete');
   assert((await evaluate(replacementLeaf,`document.querySelector('#field').value`)).value==='Frame 🦉 input','Routed native Unicode text did not reach its exact nested input');
@@ -469,7 +480,8 @@ try{
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
-    routed_dispatcher:true,nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,visual_frame_snapshot_guard:true,
+    routed_dispatcher:true,native_nested_scroll_point:true,scroll_route_retains_leaf_identity:true,scroll_route_does_not_focus:true,
+    nested_native_fill:true,ancestor_focus:true,selection_focus_fence:true,routed_options_and_selection:true,visual_frame_snapshot_guard:true,
     framed_hidden_upload:true,framed_clear:true,complete_upload_sha256:true,exact_upload_events:true,upload_receipt_without_replay:true,child_navigation_cancels_staging:true,
     frame_owned_picker:true,picker_bound_upload:true,picker_cancel_in_own_process:true,manual_disarms_frame_pickers:true,child_navigation_expires_picker:true,new_oopif_inherits_picker_policy:true,
     inert_parent_upload_denied_before_file_reads:true,hidden_enabled_upload_owner_supported:true,

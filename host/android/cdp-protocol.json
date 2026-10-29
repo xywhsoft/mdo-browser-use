@@ -263,8 +263,8 @@
     "timeout_or_cancellation": "cancel_exact_pending_guard_lease_without_replay",
     "pressed_state_cleanup": "existing_touch_cancel_and_key_up",
     "installed_provider_input_verified": false,
-    "shared_android_subframe_scroll_dispatch": "pending"
+    "shared_android_subframe_scroll_dispatch": "implemented_in_shared_runtime_20_not_provider_qualified"
   },
-  "remaining": ["frame-chain capture integration and shared Android subframe scroll routing", "chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
+  "remaining": ["frame-chain capture integration", "chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
   "android_automation_enabled": false
 }

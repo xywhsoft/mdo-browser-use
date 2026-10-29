@@ -14,7 +14,7 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E59)
+## Complete development host APK (E46/E63)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -22,11 +22,11 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,350,145 bytes, SHA-256
-`78470a77eebd117834b5fd036264248439845cc53b9fe80299ac508d6750d74b`.
+`850c38c8b70f02b7ecc584d398f928e300efca1f37a107f42e595a603a838a3e`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
-key is included. The app archive is extracted from the already exercised N5
+key is included. The app archive is extracted from the already exercised E63
 Windows artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E59-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E59-python-full.log` (165/167 pass, two existing symlink skips).
+`.mdo/E63-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E63-python-full.log` (165/167 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -1980,3 +1980,38 @@ This fixes a shared-to-Android format mismatch; it does not enable Android
 Agent admission or qualify installed framework input. Evidence is retained in
 `.mdo/E61-snapshot-wire.log`; development APK refresh follows with the shared
 scroll-driver stage.
+
+### Shared native subframe scroll routing (E63)
+
+Runtime 20 lets the trusted frame driver obtain only an exact local iframe owner
+reference when a scroll point hits one. The default/main-document helper still
+refuses that boundary. Never read child contentWindow/contentDocument, URL or
+name to choose a native route. The driver joins that reference to the native
+parent-owner record, translates into the original child's visible content,
+requires its own local document identity, and repeats down the bounded tree.
+At a leaf, re-map the point through the native owners and validate the original
+root point, original frame/documents and complete chain. Pass its local hit ref
+and document unchanged to Android input. Reject incomplete/duplicate/wrong-root
+chains, changed points/documents and malformed hit references before a wheel.
+
+The shared point route also admits visible portions of partially clipped frames:
+content origins may be finite/bounded negative coordinates, while the selected
+point must remain inside its proved content and the native forward map must
+still land in the original viewport. This is not permission to enter hidden,
+transformed, inert or unrelated frames. Read-only routing never focuses or
+clicks an element and never reads field values.
+
+Full sequential Node regression passes 292/292, including routed child identity,
+immutable native pins, changed point/doc rejection and clipped-frame geometry.
+The real Windows WebView2 fixture passes 224 checks, including a three-level
+native/OOPIF scroll hit retaining its original leaf document/reference without
+changing focus. The Android private input gate passes 315 checks, including the
+shared visual snapshot root-parent representation. These complement each other;
+they are not an installed Android provider/geometry/event qualification.
+
+The refreshed full development APK uses the verified 12-check Windows archive,
+paired runtime-20 plugin and existing native ARM64 engine, with the E62 explicit
+development update-channel prefix. SDK/D8 definitions, package/native ABI,
+alignment/private-provider attributes and signatures pass. Keep the original
+provider, deferred phone and overall Android automation gate unchanged. Continue
+frame-chain capture, transfers, activation/profile policy and platform audits.

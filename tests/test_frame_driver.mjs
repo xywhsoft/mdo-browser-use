@@ -31,12 +31,13 @@ function fixture(){
       await state.onRead?.({method:'upload_policy',rows});
       return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,value:state.parentInert?{ok:false,error:{code:'element_disabled'}}:{ok:true}};
     }
+    const box=state.ownerBox||{x:100,y:200,width:300,height:200};
     if(params.action==='capture_owner')return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,
-      value:{ok:true,owner:{document:doc,ref:'e9'},painted:true,content:{x:100,y:200,width:300,height:200},box:{x:100,y:200,width:300,height:200},scroll:{x:0,y:0},viewport:{width:800,height:600}}};
+      value:{ok:true,owner:{document:doc,ref:'e9'},painted:true,content:{...box},box:{...box},scroll:{x:0,y:0},viewport:{width:800,height:600}}};
     if(params.action==='owner'){
       await state.onRead?.({method:'owner',rows});
       return{ok:true,frame:child,frame_document:fd,parent:'f0',parent_document:rootFd,
-        value:{ok:true,focused:state.parentFocused,point:{x:100+params.point.x,y:200+params.point.y},geometry:[100,200,300,200,100,200,300,200]}};
+        value:{ok:true,focused:state.parentFocused,point:{x:box.x+params.point.x,y:box.y+params.point.y},geometry:[box.x,box.y,box.width,box.height,box.x,box.y,box.width,box.height]}};
     }
     const tail=params.script.split('({local_frame:true}).').at(-1),method=tail.slice(0,tail.indexOf('(')),options=JSON.parse(tail.slice(tail.indexOf('(')+1,-1));
     const document=params.frame==='f0'?doc:local,element={ref:'e1',frame:'f0',name:'Child',role:'textbox',editable:true};
@@ -44,7 +45,11 @@ function fixture(){
     if(method==='locate')value=params.frame===child?{ok:true,document,element,visited:1}:{ok:false,error:{code:'element_not_found'},visited:1};
     if(method==='prepare')value={ok:true,document,element,point:{x:20,y:10},geometry:[10,0,20,20,20,10]};
     if(method==='verify')value={ok:true,document,focused:true,verified:true};
-    if(method==='visualPoint')value={ok:true,document,frame_ref:params.frame==='f0'&&options.point.x>=100&&options.point.x<400&&options.point.y>=200&&options.point.y<400?'e9':null,...(options.op==='key'?{focus_ref:'e7'}:{})};
+    if(method==='visualPoint')value={ok:true,document,frame_ref:params.frame==='f0'&&options.point.x>=box.x&&options.point.x<box.x+box.width&&options.point.y>=box.y&&options.point.y<box.y+box.height?'e9':null,...(options.op==='key'?{focus_ref:'e7'}:{})};
+    if(method==='scrollPoint'){
+      assert.equal(options.document,document);assert.equal(options._route_child,true);
+      value={ok:true,document,point:{...options.point},frame_ref:params.frame==='f0'&&options.point.x>=box.x&&options.point.x<box.x+box.width&&options.point.y>=box.y&&options.point.y<box.y+box.height?'e9':null,hit_ref:'e7'};
+    }
     if(method==='optionList')value={ok:true,document,ref:'e1',frame:'f0',options:[{index:0,label:'First'}]};
     if(method==='uploadInfo')value={ok:true,document,element:{...element,role:'fileinput',hidden:true}};
     if(method==='selectOptions'){state.effect++;value={ok:true,document,dispatched:true,verified:true};}
@@ -80,6 +85,44 @@ test('visual key routing binds a private target to the exact root or child docum
     const nested=point.x===120;assert(out.ok);assert.equal(out.target.ref,`r1|${nested?child:'f0'}|${nested?fd:rootFd}|${nested?local:doc}|e7`);
     assert.deepEqual(out.native_target,{document:nested?local:doc,ref:'e7'});
     assert(!state.calls.some(row=>row.script?.includes('.locate(')));
+  }
+});
+
+test('scroll points bind root and native child hits to exact local documents and complete chains',async()=>{
+  for(const point of [{x:40,y:30},{x:120,y:210}]){
+    const {api,state}=fixture(),out=await api.read('scrollPoint',{document:doc,point});const nested=point.x===120;
+    assert(out.ok,JSON.stringify(out));assert.equal(out.document,doc);assert.deepEqual(out.point,point);
+    assert.equal(out.hit_ref,`r1|${nested?child:'f0'}|${nested?fd:rootFd}|${nested?local:doc}|e7`);
+    assert.deepEqual(out.native_target,{document:nested?local:doc,ref:'e7'});
+    assert.deepEqual(out.frame_chain,nested?[{frame:child,document:fd},{frame:'f0',document:rootFd}]:[{frame:'f0',document:rootFd}]);
+    assert(!state.calls.some(row=>/\.(?:visualPoint|locate|focus|prepare)\(/.test(row.script||'')));
+    const reads=state.calls.filter(row=>row.script?.includes('.scrollPoint('));assert.equal(reads.length,nested?2:1);
+  }
+});
+
+test('scroll routing refuses drift, changed documents, malformed hits and cancellation before input',async()=>{
+  for(const mode of ['point','document','missing-ref','bad-frame-ref','navigation']){
+    const {api,state}=fixture();state.onRead=({method,value,rows})=>{
+      if(method!=='scrollPoint')return;
+      if(mode==='point')value.point.x++;
+      if(mode==='document')value.document='d-'+guid(9);
+      if(mode==='missing-ref')delete value.hit_ref;
+      if(mode==='bad-frame-ref')value.frame_ref='caller-picked';
+      if(mode==='navigation')rows[0].document='fd-'+guid(9);
+    };
+    const out=await api.read('scrollPoint',{document:doc,point:mode==='missing-ref'?{x:40,y:30}:{x:120,y:210}});
+    assert.equal(out.ok,false,mode);assert.equal(out.error.effect_may_have_occurred,false);assert.equal(state.effect,0);
+  }
+  const {api,state}=fixture(),cancel=Error('Original caller cancelled');let retired=false;
+  state.onRead=({method})=>{if(method==='scrollPoint')retired=true;};
+  await assert.rejects(api.read('scrollPoint',{document:doc,point:{x:120,y:210}},{checkpoint(){if(retired)throw cancel;}}),error=>error===cancel);
+});
+
+test('native point routing admits the visible content of a partially clipped iframe',async()=>{
+  for(const method of ['scrollPoint','visualPoint']){
+    const {api,state}=fixture();state.ownerBox={x:-10,y:-20,width:300,height:200};
+    const point={x:5,y:10},out=await api.read(method,{document:doc,point});
+    assert(out.ok,JSON.stringify(out));assert.deepEqual(out.point,point);assert.equal(out.frame_chain[0].frame,child);
   }
 });
 

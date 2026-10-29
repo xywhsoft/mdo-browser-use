@@ -17,9 +17,9 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (N5/F21) is **6,881,951 bytes**, SHA-256
-`c618d7e990d5c7d178de2ad10325ddf72daca3763cc7e8cce0ab86a418ea218c`.
-Its native inventory contains 750 files, including runtime 19, the shared
+The current refreshed preview (E63/F21) is **6,882,658 bytes**, SHA-256
+`e0d51c6fbd43829372d6a4b588d37cfe8a4acf1d63b21d4c3e60d5d7d209777d`.
+Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
 E24's shared admission guard for uncertain native dialog cleanup, plus E27's
@@ -28,8 +28,10 @@ workspace SDK/download UI, E30's shared popup cleanup guard and F15's retained
 screenshot/callback ownership and allocation-failure cleanup, plus P2's accurate
 managed-tool cancellation and retained permission-admission marker, and N3's
 confirmed-new-navigation recovery after a content renderer exit. Included module
-hashes match the reviewed deployment. The actual packed-program gate passes all
-ten runtime checks, including actual default-directory SDK review, its packed C
+hashes match the reviewed deployment. E60 also fixes visual validation rejecting
+its own pending screenshot; E63 adds exact native subframe scroll-point routing
+and admits visible content in partially clipped iframe owners. The actual
+packed-program gate passes all twelve runtime checks, including actual default-directory SDK review, its packed C
 header/discovery contract, connection-reset reporting and recovery
 navigation from the error card. This is
 Windows verification; Android framework qualification remains unavailable.
@@ -43,8 +45,8 @@ same local eight-cycle workload measured median observe 1,654 → 242 ms, click
 1,932 → 500 ms and capture 1,712 → 247 ms. These include HTTP/receipt polling
 and are not general production or normal-desktop visual qualification.
 
-The paired plugin is **246,883 bytes**, SHA-256
-`ad8c4826ed3ed03c0cfc44ddce696ab0bb88b87d9628020e427bc094dd305912`.
+The paired plugin is **247,351 bytes**, SHA-256
+`c6b74a2780f13d08570e61bdaf58cbcbc8c4678dc06ce0348de5e8a370ae5d41`.
 It includes P3's whole-call JS transport timeout/cancellation and independent
 bounded cleanup, preserving original recovery identities and known outcomes.
 Its 22-file native import/export roundtrip passes. The program gate now refuses

@@ -1,7 +1,7 @@
 /* This function is deliberately self-contained: native hosts embed its source
  * in a browser execution context. Page data never grants host authority. */
 export function browserRuntime(configuration = {}) {
-  const version = 19;
+  const version = 20;
   const localFrame = configuration.local_frame === true;
   const marker = localFrame ? "__mdo_browser_use_local_frame_v1" : "__mdo_browser_use_runtime_v1";
   const previous = Object.getOwnPropertyDescriptor(globalThis, marker)?.value;
@@ -283,10 +283,15 @@ export function browserRuntime(configuration = {}) {
       return fail('input_coordinate_invalid','The scroll point is outside the original viewport');
     const hit=deepHit(document,point.x,point.y);
     if(!hit||!hit.isConnected||hit.ownerDocument!==document)return fail('input_target_changed','The scroll point has no original rendered target');
-    if(['iframe','frame'].includes(hit.localName))return fail('android_frames_unavailable','Scroll within this child frame is not implemented');
     const ref=reference(hit,'f0');if(!ref)return fail('reference_limit','Too many retained element references');
     if(options.ref&&options.ref!==ref)return fail('input_target_changed','The original scroll point target changed');
-    return{ok:true,document:documentId,point:{x:point.x,y:point.y},hit_ref:ref};
+    if(['iframe','frame'].includes(hit.localName)){
+      // Only the trusted native-frame driver may resolve this owner to its
+      // exact child. Never walk contentWindow/document or guess by URL/name.
+      if(options._route_child!==true)return fail('android_frames_unavailable','This scroll point needs its original native child-frame route');
+      return{ok:true,document:documentId,point:{x:point.x,y:point.y},frame_ref:ref};
+    }
+    return{ok:true,document:documentId,point:{x:point.x,y:point.y},hit_ref:ref,...(options._route_child===true?{frame_ref:null}:{})};
   }
   function uploadInfo(options = {}) {
     const found = locate({ ...options, _upload: true }); if (!found.ok) return found;

@@ -36,8 +36,17 @@ exact ancestor/focus/geometry checks, optional complete visual frame snapshots
 and the existing owned-WebView input sequencer cover nested-frame click, hover,
 wheel, focus, text and keys in deterministic Java/JNI tests. The actual host APK
 compiles these adapters. This does not enable Android Agent admission or qualify
-installed-provider input. Shared subframe scroll dispatch, frame-chain capture,
+installed-provider input. Frame-chain capture,
 transfer/profile policy and physical/main-UI verification remain outstanding.
+
+The shared private frame driver now resolves scroll points through exact native
+iframe owners, passing each local document identity and the final leaf hit plus
+complete ancestor chain to Android input. It never substitutes the root DOM
+document or enters child windows directly. Owner mapping is checked back against
+the original root point; stale documents, borders, malformed pins and changed
+geometry refuse before input. Partially clipped iframe origins may be negative
+when the selected point remains in proved visible content. Runtime 20 supplies
+this fixed read-only routing helper; Android product admission remains disabled.
 
 Page document identities use cryptographic random bytes rather than relying on
 secure-context-only `randomUUID`; see the [Crypto interface](https://w3c.github.io/webcrypto/#Crypto-interface).

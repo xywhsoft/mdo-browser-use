@@ -34,6 +34,21 @@ test('scroll point refuses unpinned documents, page-world runtime and out-of-vie
     assert.equal(f.runtime.scrollPoint({document:f.runtime.document,point}).error.code,'input_coordinate_invalid');
   const legacy=fixture(false);assert.equal(legacy.runtime.scrollPoint({document:legacy.runtime.document,point:{x:0,y:0}}).error.code,'frame_method_invalid');
 });
+
+test('native child routing exposes only an exact owner reference and never reads its content',()=>{
+  for(const kind of ['iframe','frame']){
+    const f=fixture(),child=f.element(kind);for(const name of ['contentWindow','contentDocument','src','name'])
+      Object.defineProperty(child,name,{get(){throw Error('Owner routing inspected child content or hints');}});
+    f.setHit(child);const options={document:f.runtime.document,point:{x:20,y:30}};
+    const result=f.runtime.scrollPoint({...options,_route_child:true});assert(result.ok);assert.match(result.frame_ref,/^e[1-9][0-9]*$/);
+    assert(!Object.hasOwn(result,'hit_ref'));assert.equal(result.document,f.runtime.document);assert.deepEqual({...result.point},options.point);
+    assert(f.runtime.scrollPoint({...options,_route_child:true,ref:result.frame_ref}).ok);
+    assert.equal(f.runtime.scrollPoint({...options,_route_child:true,ref:'e999'}).error.code,'input_target_changed');
+    for(const flag of [undefined,false,1,'true'])assert.equal(f.runtime.scrollPoint({...options,_route_child:flag}).error.code,'android_frames_unavailable');
+  }
+  const f=fixture(),leaf=f.runtime.scrollPoint({document:f.runtime.document,point:{x:20,y:30},_route_child:true});
+  assert.equal(leaf.frame_ref,null);assert.match(leaf.hit_ref,/^e[1-9][0-9]*$/);
+});
 test('scroll point reference retention stays bounded and does not recycle live aliases',()=>{
   const f=fixture(),options={document:f.runtime.document,point:{x:1,y:1}},first=f.runtime.scrollPoint(options);assert(first.ok);
   for(let n=1;n<2000;n++){f.setHit(f.element());assert(f.runtime.scrollPoint(options).ok);}

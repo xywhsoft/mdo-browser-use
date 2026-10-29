@@ -5679,3 +5679,45 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   (`.mdo/E63-android-build.log`, `.mdo/E63-python-full.log`). No formal executable,
   account/session data, official cache or server/release policy was changed.
   No model calls or publication; goal remains active.
+
+## E63 — route shared scroll points into exact native child documents
+
+- Runtime 20 returns an exact iframe owner ref only to the trusted native-frame
+  scroll driver. It never reads child windows/documents or uses URL/name hints;
+  legacy/main-document point checks still refuse a child boundary. Pin each
+  local document, join its owner to the native child, translate the point and
+  finally forward-map through the original complete chain before input.
+- Preserve the leaf document/hit ref at the Android dispatcher instead of
+  requiring/replacing it with the root document. Validate qualified hit refs,
+  unique bounded chains ending at f0, root observation identity and exact root
+  coordinates. Missing, duplicate, changed or malformed pins refuse before any
+  wheel. Permit bounded negative content origins for partially clipped iframe
+  owners only when the point remains in proved visible content. Visual point
+  routing shares this corrected clipping rule; normal privacy/focus guards stay.
+- New runtime tests prove iframe routing reads no child content/URL/name, uses
+  literal trusted routing mode and retains local hit refs. Driver/dispatcher
+  tests cover root/child documents, complete chains, point/document/ref drift,
+  invalid ancestry, cancellation and clipped owners. Full sequential Node suite
+  passes 292/292 in 18.494 s (`.mdo/E60-node-fixed.log`). Actual WebView2 frame
+  fixture passes 224 checks, including new three-level/OOPIF scroll-point proof
+  with exact leaf identity and unchanged focus (`.mdo/E60-native-frames-fixed.log`).
+- Retain the separately committed E60 own-validation-capture wait fix and E61
+  shared root-parent normalization. Android protocol/input gates pass, with 315
+  actual Java/JNI/sequencer input checks (`.mdo/E61-snapshot-wire.log`); DOM/
+  events/provider remain doubled. Package roundtrip passes all eight checks and
+  22 files (`.mdo/E60-package-probe.log`). Shared C/JS/overlay/helper/JNI checks pass.
+- Refresh paired development artifacts in place: Windows 6,882,658 bytes,
+  SHA-256 `e0d51c6fbd43829372d6a4b588d37cfe8a4acf1d63b21d4c3e60d5d7d209777d`,
+  750 files/all 12 actual packed runtime checks; plugin 247,351 bytes,
+  SHA-256 `c6b74a2780f13d08570e61bdaf58cbcbc8c4678dc06ce0348de5e8a370ae5d41`;
+  complete development Android APK 6,350,145 bytes,
+  SHA-256 `850c38c8b70f02b7ecc584d398f928e300efca1f37a107f42e595a603a838a3e`.
+  Windows logs are `.mdo/E62-windows-development-{package,program}.log`; actual
+  Android SDK/D8/ABI/payload/signature build passes `.mdo/E63-android-build.log`.
+  Full Python regression passes 165/167 with two existing symlink skips in
+  52.385 s (`.mdo/E63-python-full.log`). Existing deployment HTTP 200, 3,418.8 MiB.
+- Goal remains active: native frame-chain capture, chooser/download transfers,
+  debugging/profile activation, installed main-UI/provider/event/normal-desktop
+  qualification and cross-platform unique-context audit are still open. Phone
+  remains deferred, provider/formal data unchanged, Agent automation disabled.
+  No model calls, external page browsing, extra app/Home copies or online release.

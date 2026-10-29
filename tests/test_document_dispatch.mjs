@@ -37,8 +37,8 @@ function coupled(){
     if(command==='capture_cancel'){captureCancellations.push(params);return{cancelled:true};}
     if(command==='input'){
       assert(downloads&&chooser,'Native input preceded interception acknowledgement');
-      assert.equal(params.input_document,doc);assert.equal(params.input_ref,'e7');assert.equal(params.navigation,7);
-      assert.deepEqual(params.frame_chain,[{frame:'f0',document:fd}]);
+      assert.equal(params.input_document,f.state.expectedNativeDocument||doc);assert.equal(params.input_ref,'e7');assert.equal(params.navigation,7);
+      assert.deepEqual(params.frame_chain,f.state.expectedChain||[{frame:'f0',document:fd}]);
       if(['focus','key','text'].includes(params.kind)){assert.equal(params.focus_document,doc);assert.equal(params.focus_ref,'e7');}
       inputs.push(params);if(typeof f.state.inputReply==='function')return f.state.inputReply(params,inputs);
       if(params.kind==='focus')focused=true;if(params.kind==='text')text=params.text;
@@ -103,6 +103,31 @@ test('Android hover sends one pinned native move with no focus, click or touch',
   assert(!Object.hasOwn(f.inputs[0],'focus_ref'));
   const preparations=f.state.calls.filter(row=>row.method==='prepare');assert(preparations.length>=2);
   assert(preparations.every(row=>row.options.op==='hover'));
+});
+
+test('Android scroll dispatch retains a child document and complete chain instead of substituting the root',async()=>{
+  const f=coupled(),local='d-00000000-0000-4000-8000-000000000002',child='f-00000000-0000-4000-8000-000000000002',childDoc='fd-00000000-0000-4000-8000-000000000002';
+  f.state.wheel=true;f.state.expectedNativeDocument=local;f.state.expectedChain=[{frame:child,document:childDoc},{frame:'f0',document:fd}];
+  const pageDriver={async read(method,options,control){if(method!=='scrollPoint')return f.driver.read(method,options,control);
+    return{ok:true,document:doc,point:options.point,hit_ref:`r1|${child}|${childDoc}|${local}|e7`,native_target:{document:local,ref:'e7'},frame_chain:f.state.expectedChain};}};
+  const out=await f.run('act',{op:'scroll',document:doc,dx:11,dy:70},{pageDriver});
+  assert(out.result.ok,JSON.stringify(out.result));assert.equal(f.inputs.length,1);assert.equal(f.inputs[0].kind,'wheel');
+  assert(!Object.hasOwn(f.inputs[0],'focus_ref'));assert.deepEqual(f.inputs[0].frame_chain,f.state.expectedChain);
+});
+
+test('Android scroll rejects incomplete, inconsistent or changed private pins before sending any wheel',async()=>{
+  for(const mode of ['root-document','missing-root','duplicate','wrong-ref','moved-point','nan-point']){
+    const f=coupled();f.state.wheel=true;
+    const pageDriver={async read(method,options,control){const out=await f.driver.read(method,options,control);if(method!=='scrollPoint'||!out.ok)return out;
+      if(mode==='root-document')out.document='d-00000000-0000-4000-8000-000000000009';
+      if(mode==='missing-root')out.frame_chain[0].frame='f-00000000-0000-4000-8000-000000000002';
+      if(mode==='duplicate')out.frame_chain.unshift({...out.frame_chain[0]});
+      if(mode==='wrong-ref')out.hit_ref+='forged';
+      if(mode==='moved-point')out.point={x:options.point.x+1,y:options.point.y};
+      if(mode==='nan-point')out.point={x:NaN,y:options.point.y};return out;}};
+    const out=await f.run('act',{op:'scroll',document:doc,dx:0,dy:70},{pageDriver});
+    assert.equal(out.result.error.code,'frame_response_invalid',mode);assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(f.inputs.length,0);
+  }
 });
 
 test('Android hover refuses target drift and cancelled preparation before native movement',async()=>{
