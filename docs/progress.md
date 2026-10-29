@@ -5609,3 +5609,28 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   installed main-UI/provider and cross-platform realm/production qualification.
   Phone remains deferred; current provider/formal data are preserved. No model
   calls, external page browsing or online publication. Goal remains active.
+
+## E60 — fix self-rejection while a visual validation screenshot is pending
+
+- Actual WebView2 frame regression caught a visual click failing before input
+  with `browser_busy` while its own validation screenshot was still running.
+  The wait loop's ordinary action guard rejected `capture_busy` after its first
+  40 ms poll. Prior fast captures could finish before that poll, masking the
+  deterministic ownership/plumbing error (`.mdo/E60-native-frames.log`).
+- Give only the outstanding read-only validation-capture wait a checkpoint that
+  tolerates native capture busy. Keep all original cancellation, takeover,
+  navigation, cleanup, deadline and authority checks. Initial admission, later
+  DOM reads and input keep the ordinary guard; foreign/pending screenshots
+  cannot authorize input. Finally cancel only the original capture key.
+- Add slow-100-ms-capture and wait-cancellation checks, plus real shared-guard
+  tests proving that only busy admission is relaxed and each other boundary
+  still refuses. Full sequential Node suite passes 292/292 in 18.494 s
+  (`.mdo/E60-node-fixed.log`). Stop/apply the reviewed shared host changes; actual
+  WebView2 frame suite passes 224 checks with no remaining upload reservation
+  (`.mdo/E60-native-frames-fixed.log`). Four of those checks exercise the
+  concurrent next-stage read-only nested scroll route, still pending its own
+  feature commit. Tests use local fixture pages and the single existing Home.
+- No model calls, external page browsing, provider changes or publication. This
+  fixes an observed race; Android/main-UI/normal-desktop visual and whole-goal
+  qualification remain incomplete. Refresh development artifacts with the next
+  tested shared-driver stage; goal remains active.

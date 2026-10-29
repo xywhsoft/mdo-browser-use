@@ -8,7 +8,7 @@ const frame=/^(?:f0|f-[a-f0-9-]{36})$/i,document=/^fd-[a-f0-9-]{36}$/i;
 // Fixed operation after shared C admission. Neither scripts nor native frame
 // pins can be supplied by the model; proofs come from a completed image only.
 export async function executeVisualAction({browser,params,view,read,guard,send,sendDrag,fail,deadline,action,setSnapshot,
-  store=visualSnapshots,render=prepareScreenshot}){
+  store=visualSnapshots,render=prepareScreenshot,captureCheckpoint=()=>guard(true)}){
   let key=null;
   try{
     if(!supported.has(params.op))return fail('unsupported_action','This visual path supports pointer gestures, wheel, dragging and focus-bound keys; use observed DOM targets for fields');
@@ -49,7 +49,10 @@ export async function executeVisualAction({browser,params,view,read,guard,send,s
       format:capture.format,max_bytes:capture.max_bytes,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
       .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
     while(!settled){
-      await Promise.race([pending,new Promise(resolve=>setTimeout(resolve,40))]);const boundary=await guard(true);if(boundary.handled)return boundary;
+      // This checkpoint only waits for our outstanding read-only capture. It
+      // retains all authority/lifetime/deadline checks; input and every later
+      // page read still use the ordinary guard and require capture cleanup.
+      await Promise.race([pending,new Promise(resolve=>setTimeout(resolve,40))]);const boundary=await captureCheckpoint();if(boundary.handled)return boundary;
     }
     if(failure)return fail('visual_validation_failed','The current native screenshot could not be validated; no visual input was sent');
     const after=await read('captureArea',proof.options);if(!after.ok)return{handled:true,result:after};

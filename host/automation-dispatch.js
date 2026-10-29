@@ -71,7 +71,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (result.value.blocked_by_popup) throw Object.assign(new Error("A new window interrupted page reading"), { popup: true });
     return result.value;
   };
-  const guard = async (force = false) => {
+  const guard = async (force = false, waitingCapture = false) => {
     let state;
     for (;;) {
       if (!alive()) return fail("context_changed", "The displaying device or window changed");
@@ -117,7 +117,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(checkpointNavigation!==state.navigation||state.loading){
         checkpointNavigation=state.navigation;downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
       }
-      if(performance.now()<downloadCheckpointUntil){await pause(20);return guard(true);}
+      if(performance.now()<downloadCheckpointUntil){await pause(20);return guard(true,waitingCapture);}
     }
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
@@ -127,7 +127,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       return fail('dialog_cleanup_failed','Native dialog cleanup was not confirmed; end this browser before further input');
     if (state.popup_cleanup_failed && (writing || command === 'capture') && !(command==='upload'&&params.action==='release'))
       return fail('popup_cleanup_failed','Native popup cleanup was not confirmed; end this browser before further input');
-    if (state.capture_busy && command==='act') return fail('browser_busy','The original native screenshot is still settling; wait for its cleanup before sending input');
+    if (state.capture_busy && command==='act'&&!waitingCapture) return fail('browser_busy','The original native screenshot is still settling; wait for its cleanup before sending input');
     if (command === "dialog") return state.dialog_capability ? { state } : fail("unsupported_capability", "This browser backend cannot inspect native dialogs");
     if (command === "chooser") {
       if(!state.chooser_capability)return fail("unsupported_capability","This browser backend cannot inspect native file pickers");
@@ -385,7 +385,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     if(params.target?.image){
       if(!pageDriver)return fail('unsupported_capability','This browser lacks isolated frame routing for visual input');
-      return await executeVisualAction({browser:writer,params,view,read,guard,send,sendDrag,fail,deadline,action,
+      return await executeVisualAction({browser:writer,params,view,read,guard,captureCheckpoint:()=>guard(true,true),send,sendDrag,fail,deadline,action,
         setSnapshot:(snapshot,root,chain)=>{inputFrameSnapshot=snapshot;inputFrameChain=chain||[{frame:root.frame,document:root.document}];}});
     }
     if (params.op === "drag") {

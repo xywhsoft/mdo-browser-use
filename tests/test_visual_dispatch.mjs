@@ -83,6 +83,25 @@ test('cancellation drains the original validation capture without publishing or 
   assert(f.state.native.some(row=>row.command==='capture_cancel'));assert(f.store.get('browser',f.reference.id));
 });
 
+test('a slow owned validation capture uses wait checkpoints and ordinary guards before input',async()=>{
+  const f=await fixture();let pending=false,waits=0,ordinaryDuringCapture=0;
+  const original=f.args.guard;
+  f.args.guard=async()=>{if(pending){ordinaryDuringCapture++;return f.args.fail('browser_busy','Foreign native capture');}return original();};
+  f.args.captureCheckpoint=async()=>{waits++;return original();};
+  f.args.view.execute=async(command,params)=>{f.state.native.push({command,params});if(command==='capture'){
+    pending=true;await new Promise(resolve=>setTimeout(resolve,100));pending=false;return{};}return{};};
+  const out=await f.run();assert(out.result.ok);assert(waits>=2);assert.equal(ordinaryDuringCapture,0);assert.equal(f.state.input.length,1);
+});
+
+test('owned capture wait cancellation still drains its original request without consuming the image',async()=>{
+  const f=await fixture();let pending=false,resolve;
+  f.args.view.execute=async(command,params)=>{f.state.native.push({command,params});if(command==='capture'){pending=true;return new Promise(done=>{resolve=done;});}
+    if(command==='capture_cancel'){pending=false;resolve?.({});}return{};};
+  f.args.captureCheckpoint=async()=>pending?f.args.fail('cancelled','Original call cancelled'):f.args.guard();
+  const out=await f.run();assert.equal(out.result.error.code,'cancelled');assert.equal(f.state.input.length,0);assert.equal(pending,false);
+  assert(f.store.get('browser',f.reference.id));assert.equal(f.state.native.filter(row=>row.command==='capture_cancel').length,1);
+});
+
 test('visual drag validates two image neighborhoods and sends one fully pinned gesture',async()=>{
   const f=await fixture();f.args.params.op='drag';f.args.params.destination={image:f.reference.id,x:100,y:100};
   const result=await f.run();assert(result.result.ok&&result.result.scene_validated);assert.equal(result.result.drag_kind,'pointer');
