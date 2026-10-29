@@ -17,6 +17,8 @@ def main():
     if os.name=='nt':
         script=Path(__file__).resolve().as_posix();script='/mnt/'+script[0].lower()+script[2:]
         subprocess.run(['wsl.exe','--exec','python3',script],cwd=ROOT,check=True);return
+    import resource
+    resource.setrlimit(resource.RLIMIT_CORE,(0,0))
     output=ROOT/'.mdo/qa/android-cdp-native';marker=output/'.browser-use-owner.json'
     expected={'purpose':'mdo-browser-use/android-cdp-native'}
     if output.is_symlink() or not output.resolve().is_relative_to((ROOT/'.mdo').resolve()):
@@ -34,11 +36,29 @@ def main():
     result=json.loads(text)
     if not result.get('passed') or result.get('allocations')!=result.get('releases'):
         raise RuntimeError('The native transport gate did not confirm balanced cleanup')
+    # Reuse the pinned host's own XRT source and this fixed output directory.
+    # This is a small protocol test executable, not another application/engine.
+    include=ROOT/'.mdo/native-source/lib'
+    flags=['-std=gnu11','-Wall','-Wextra','-Werror','-pthread','-O1','-g',
+           '-fno-omit-frame-pointer','-fsanitize=address,undefined','-I'+str(include)]
+    xrt=output/'xrt-websocket.o'
+    subprocess.run(['gcc',*flags,'-c',str(ROOT/'tests/fixtures/android-cdp-xrt.c'),'-o',str(xrt)],cwd=ROOT,check=True)
+    websocket=output/'websocket-test'
+    subprocess.run(['gcc',*flags,str(ROOT/'tests/fixtures/android-cdp-websocket.c'),str(xrt),'-o',str(websocket)],cwd=ROOT,check=True)
+    wire=json.loads(subprocess.check_output([str(websocket)],cwd=ROOT,env=environment,text=True,timeout=120))
+    if not wire.get('passed') or wire.get('allocations')!=wire.get('releases'):
+        raise RuntimeError('The native WebSocket gate did not confirm balanced cleanup')
+    result['websocket']=wire
     lock=json.loads((ROOT/'.mdo/native-source/tools/android/toolchain.lock.json').read_text())
     clang=ROOT/'.mdo/android-client-tools/sdk/ndk'/lock['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/clang'
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
         '-c',str(ROOT/'host/android/MdoBrowserCdpSocket.c'),'-o',str(output/'android-socket.o')],cwd=ROOT,check=True)
-    inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c','tests/fixtures/android-cdp-socket.c')
+    subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
+        '-DXRT_MODULE_WEBSOCKET_HANDSHAKE','-DXRT_MODULE_WEBSOCKET_MESSAGE','-DXRT_MODULE_RANDOM_SECURE','-I'+str(include),
+        '-c',str(ROOT/'host/android/MdoBrowserCdpWebSocket.c'),'-o',str(output/'android-websocket.o')],cwd=ROOT,check=True)
+    inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
+            'host/android/MdoBrowserCdpWebSocket.c','host/android/MdoBrowserCdpWebSocket.h',
+            'tests/fixtures/android-cdp-socket.c','tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c')
     result.update(source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},
                   address_sanitizer=True,undefined_sanitizer=True,android_api_compiled=lock['api'],
                   android_device_qualified=False,provider_qualified=False,debugging_enabled=False,model_calls=0)

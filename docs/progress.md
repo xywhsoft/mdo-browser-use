@@ -5179,3 +5179,34 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   integration, with activation policy and real provider checks still explicit.
   Android device/framework/automation flags and the full goal remain incomplete.
 
+## E49 — implement bounded persistent Android CDP WebSocket sessions
+
+- Add the private C session transport, using the pinned XRT handshake, frame,
+  message and UTF-8 implementations. Accept a bounded target ID only; derive
+  the page path and same-process abstract endpoint internally and verify kernel
+  PID/UID before request bytes. Validate a fresh secure nonce/101 response;
+  reject unsupported extensions, subprotocols, ambiguous headers and masking.
+- Keep at most eight opening/live/draining sessions. Never reuse handles;
+  serialize worker I/O and publish retirement before releasing I/O ownership.
+  Cancellation invalidates the handle and uses shutdown to wake blocked reads;
+  descriptor close/memory clearing wait for all borrowers. Treat failed writes
+  as uncertain delivery and retire the channel without replay.
+- Bound headers to 8 KiB, outbound text to 256 KiB and inbound messages to
+  4 MiB. Preserve partial reads across idle timeouts, but enforce a separate
+  absolute ten-second assembly budget across polls/continuations/control frames.
+  Use masked client frames, incremental UTF-8 validation, bounded ping/pong and
+  close handling. Clear full allocated capacities, request buffers and masks.
+- The actual Linux-kernel/XRT transport gate passes over 1,000 assertions under
+  ASan/UBSan, including fragmented Unicode/control frames, malformed/oversized
+  frames/headers, real ten-second partial-message expiry, forced partial-write
+  backpressure, OOM/growth failure, RNG failure, eight draining pinned sessions,
+  stale handles and 64 concurrent cancel/read cycles. Its 120 allocations and
+  descriptors balance; the previous discovery/JNI gate still passes 310 checks.
+  Both transport sources compile with the locked ARM64/API 26 compiler.
+  Evidence: `.mdo/E49-websocket.log`, `.mdo/android-cdp-socket-result.json`.
+- This stage does not yet expose the session JNI or bind a target to an owned
+  WebView; neither arbitrary protocol effects nor automation are enabled. Keep
+  existing development programs/current WebView and the deferred phone. Next:
+  package the private worker JNI, then owned target/epoch routing and frame/
+  transfer integration. Full-goal/device/provider qualification remains pending.
+

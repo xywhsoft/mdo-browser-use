@@ -241,6 +241,11 @@ const char* mdoCdpSocketCode(enum MdoCdpSocketCode Code)
     case MDO_CDP_SOCKET_HTTP:return "cdp_http_invalid";
     case MDO_CDP_SOCKET_LIMIT:return "cdp_response_limit";
     case MDO_CDP_SOCKET_MEMORY:return "cdp_allocation_failed";
+    case MDO_CDP_SOCKET_CLOSED:return "cdp_session_closed";
+    case MDO_CDP_SOCKET_PROTOCOL:return "cdp_websocket_invalid";
+    case MDO_CDP_SOCKET_BUSY:return "cdp_session_busy";
+    case MDO_CDP_SOCKET_RANDOM:return "cdp_random_unavailable";
+    case MDO_CDP_SOCKET_EXPIRED:return "cdp_message_timeout";
     default:return "cdp_local_io_failed";
     }
 }
