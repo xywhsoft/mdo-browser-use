@@ -1,0 +1,158 @@
+package org.xserver.android;
+
+import java.io.IOException;
+import java.lang.ref.WeakReference;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
+/** A fixed native housekeeping expression, not Agent/page-provided code. One
+ * instance belongs to one exact UI view/document generation. Its owner must
+ * close it before navigation, teardown, takeover or loss of host admission.
+ * Only a thread-safe lease crosses to the protocol worker; callbacks retain
+ * neither the native view nor its UI owner. */
+final class MdoBrowserCdpMarker implements AutoCloseable {
+    interface Ui {boolean onThread();boolean post(Runnable task);void remove(Runnable task);}
+    interface View {boolean current();void evaluate(String source,Reply reply);}
+    interface Reply {void done(String json);}
+    private static final class RandomHolder {static final SecureRandom VALUE=new SecureRandom();}
+    static final class Budget {
+        private final int limit;private final ArrayList<WeakReference<Cell>> cells=new ArrayList<>();
+        Budget(int limit){if(limit<1||limit>64)throw new IllegalArgumentException("Invalid marker budget");this.limit=limit;}
+        private void prune(){for(Iterator<WeakReference<Cell>> rows=cells.iterator();rows.hasNext();)if(rows.next().get()==null)rows.remove();}
+        synchronized boolean acquire(Cell cell){prune();if(cells.size()>=limit)return false;cells.add(new WeakReference<>(cell));return true;}
+        synchronized void release(Cell cell){for(Iterator<WeakReference<Cell>> rows=cells.iterator();rows.hasNext();)if(rows.next().get()==cell){rows.remove();break;}}
+        synchronized int used(){prune();return cells.size();}
+    }
+    static final class Lease {
+        private final WeakReference<MdoBrowserCdpMarker> owner;
+        private final AtomicBoolean live=new AtomicBoolean(true);
+        private final AtomicReference<AutoCloseable> channel=new AtomicReference<>();
+        Lease(MdoBrowserCdpMarker marker){owner=new WeakReference<>(marker);}
+        boolean current(){return live.get()&&owner.get()!=null;}
+        boolean busy(){return channel.get()!=null;}
+        void track(AutoCloseable next) throws IOException {
+            if(!current()){close(next);throw new IOException("cdp_binding_owner_changed");}
+            if(!channel.compareAndSet(null,next))throw new IOException("cdp_binding_busy");
+            if(!current()){untrack(next);close(next);throw new IOException("cdp_binding_owner_changed");}
+        }
+        void untrack(AutoCloseable original){channel.compareAndSet(original,null);}
+        void transfer(AutoCloseable original,AutoCloseable bound) throws IOException {
+            if(!current()||!channel.compareAndSet(original,bound)){close(bound);throw new IOException("cdp_binding_owner_changed");}
+            if(!current()){untrack(bound);close(bound);throw new IOException("cdp_binding_owner_changed");}
+        }
+        private static void close(AutoCloseable value){if(value!=null)try{value.close();}catch(Exception ignored){}}
+        void invalidate(){live.set(false);close(channel.getAndSet(null));}
+    }
+    static final class Ticket implements AutoCloseable {
+        // 0 queued, 1 native callback outstanding, 2 confirmed, 3 failed/cancelled.
+        final AtomicInteger state=new AtomicInteger();final String name,value,source;
+        final AtomicBoolean dispatched=new AtomicBoolean();
+        private final WeakReference<MdoBrowserCdpMarker> owner;
+        private final Cell cell;private final Runnable task;
+        private volatile String failure;
+        Ticket(MdoBrowserCdpMarker marker) {
+            owner=new WeakReference<>(marker);name="__mdo_cdp_"+nonce();value=nonce();
+            // The fixed source label reveals no identifier/token to resource
+            // profiling. No function/global-property/DOM hook is called.
+            source="let "+name+"=\""+value+"\";"+name+"\n//# sourceURL=mdo-native-binding.js";
+            cell=new Cell(this,marker.budget);task=new Start(this);
+        }
+        boolean pending(){return state.get()<2;}
+        boolean confirmed(){return state.get()==2;}
+        String failure(){return failure==null?"cdp_binding_cancelled":failure;}
+        private void fail(String code){failure=code;state.set(3);synchronized(this){notifyAll();}}
+        boolean await(int timeoutMs) throws IOException {
+            MdoBrowserCdpMarker marker=owner.get();
+            if(marker!=null&&marker.ui.onThread())throw new IOException("cdp_requires_background_thread");
+            long start=System.nanoTime();
+            synchronized(this){while(pending()) {
+                long left=timeoutMs-(System.nanoTime()-start)/1000000L;if(left<=0)return false;
+                try{wait(left);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();close();throw new IOException("cdp_binding_cancelled");}
+            }}return confirmed();
+        }
+        @Override public void close() {
+            int before=state.getAndSet(3);MdoBrowserCdpMarker marker=owner.get();
+            synchronized(this){notifyAll();}
+            if(marker==null)return;
+            marker.active.compareAndSet(this,null);
+            if(before==0) {
+                try {marker.ui.remove(task);marker.budget.release(cell);}catch(RuntimeException|Error ignored){}
+            }
+        }
+    }
+    private static final class Cell implements Reply {
+        final Ticket ticket;final Budget budget;final AtomicBoolean returned=new AtomicBoolean();
+        Cell(Ticket ticket,Budget budget){this.ticket=ticket;this.budget=budget;}
+        @Override public void done(String json) {
+            if(!returned.compareAndSet(false,true))return;
+            try {
+                MdoBrowserCdpMarker marker=ticket.owner.get();
+                if(marker==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!marker.view.current()) {
+                    ticket.fail("cdp_binding_owner_changed");return;
+                }
+                if(!("\""+ticket.value+"\"").equals(json)){ticket.fail("cdp_binding_marker_failed");return;}
+                ticket.state.compareAndSet(1,2);
+                synchronized(ticket){ticket.notifyAll();}
+            } catch(RuntimeException|Error failure){ticket.fail("cdp_binding_marker_failed");}
+            finally {budget.release(this);}
+        }
+    }
+    private static final class Start implements Runnable {
+        private final Ticket ticket;Start(Ticket ticket){this.ticket=ticket;}
+        @Override public void run() {
+            if(!ticket.state.compareAndSet(0,1))return;
+            MdoBrowserCdpMarker marker=ticket.owner.get();
+            try {
+                if(marker==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!marker.view.current()) {
+                    ticket.fail("cdp_binding_owner_changed");ticket.cell.budget.release(ticket.cell);return;
+                }
+                if(ticket.state.get()!=1){ticket.cell.budget.release(ticket.cell);return;}
+                if(marker.declarations>=16){ticket.fail("cdp_binding_document_limit");ticket.cell.budget.release(ticket.cell);return;}
+                marker.declarations++;
+                ticket.dispatched.set(true);
+                marker.view.evaluate(ticket.source,ticket.cell);
+            } catch(RuntimeException|Error failure) {
+                // The provider may already retain the callback before throwing.
+                // Keep its weak budget slot until completion or actual GC.
+                ticket.fail("cdp_binding_marker_failed");
+                if(!ticket.dispatched.get())ticket.cell.budget.release(ticket.cell);
+            }
+        }
+    }
+    private final Ui ui;private final View view;private final Budget budget;
+    private final Lease lease;private final AtomicReference<Ticket> active=new AtomicReference<>();
+    private int declarations;
+    MdoBrowserCdpMarker(Ui ui,View view,Budget budget) {
+        if(ui==null||view==null||budget==null||!ui.onThread())throw new IllegalArgumentException("Marker requires its owning UI thread");
+        this.ui=ui;this.view=view;this.budget=budget;lease=new Lease(this);
+    }
+    Lease lease(){return lease;}
+    Ticket request() throws IOException {
+        if(!lease.current())throw new IOException("cdp_binding_owner_changed");
+        Ticket ticket=new Ticket(this);
+        if(!active.compareAndSet(null,ticket))throw new IOException("cdp_binding_busy");
+        try {
+            if(!lease.current())throw new IOException("cdp_binding_owner_changed");
+            if(!budget.acquire(ticket.cell))throw new IOException("cdp_binding_callback_limit");
+            if(!ui.post(ticket.task))throw new IOException("cdp_binding_scheduler_failed");
+            return ticket;
+        } catch(IOException|RuntimeException|Error failure){ticket.close();throw failure;}
+    }
+    private static String nonce() {
+        byte[] bytes=new byte[16];char[] text=new char[32];
+        try {RandomHolder.VALUE.nextBytes(bytes);String hex="0123456789abcdef";
+            for(int i=0;i<bytes.length;i++){int n=bytes[i]&255;text[2*i]=hex.charAt(n>>>4);text[2*i+1]=hex.charAt(n&15);}return new String(text);
+        } finally {java.util.Arrays.fill(bytes,(byte)0);java.util.Arrays.fill(text,'\0');}
+    }
+    /** Never evaluate cleanup in a possibly replaced default UI document.
+     * Only the protocol binder can clear a proven unique context. Uncertain
+     * values/empty lexical slots remain bounded until document replacement. */
+    void discard(Ticket ticket) {
+        if(ticket!=null)ticket.close();
+    }
+    @Override public void close(){lease.invalidate();Ticket ticket=active.getAndSet(null);if(ticket!=null)ticket.close();}
+}

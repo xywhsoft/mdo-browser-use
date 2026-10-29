@@ -61,7 +61,8 @@ def main():
     import setup_android_json_test
     json_sources=setup_android_json_test.prepare()
     subprocess.run([str(java/'bin/javac'),'--release','8','-d',str(classes),
-                    *[str(ROOT/'host/android'/name) for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java')],
+                    *[str(ROOT/'host/android'/name) for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java',
+                                                               'MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java')],
                     *map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
@@ -73,6 +74,11 @@ def main():
     if not dispatch.get('passed') or dispatch.get('real_protocol_sessions')!=7:
         raise RuntimeError('The actual JNI protocol-session gate did not pass')
     result['jvm_dispatcher']=dispatch
+    binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
+    if not binding.get('passed') or not binding.get('real_jvm_jni_json'):
+        raise RuntimeError('The private native-view binding core gate did not pass')
+    result['jvm_binding']=binding
     lock=json.loads((ROOT/'.mdo/native-source/tools/android/toolchain.lock.json').read_text())
     clang=ROOT/'.mdo/android-client-tools/sdk/ndk'/lock['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/clang'
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
@@ -83,6 +89,7 @@ def main():
     inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
             'host/android/MdoBrowserCdpWebSocket.c','host/android/MdoBrowserCdpWebSocket.h',
             'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpSession.java',
+            'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java',
             'host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
             'tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c',
             *[p.relative_to(ROOT).as_posix() for p in javas])

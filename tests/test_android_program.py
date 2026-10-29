@@ -52,7 +52,7 @@ class ActualDexClassesTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
 
     def test_test_json_and_browser_runtime_definitions_cannot_ship(self):
-        for package in ('org.json','androidx.test','org.chromium'):
+        for package in ('android.os','org.json','androidx.test','org.chromium'):
             report=self.report().replace('</api>','<package name="'+package+'"><class name="Unexpected"/></package></api>')
             with self.subTest(package=package),self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
 

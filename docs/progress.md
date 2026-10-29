@@ -5289,3 +5289,53 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   routing, then trusted frame/transfer integration and activation policy. The
   broader physical/visual/lifetime/completion audit still applies; goal active.
 
+## E52 — implement and package the private native-view binding core
+
+- Inspect/pin Chromium primary-frame evaluation and callback retention, target
+  description metadata and its pinned V8 lexical-context APIs. Add the public
+  Handler/WebView adapter and a fixed random lexical marker for one exact UI
+  view/document generation. No URL/title/geometry match, caller debugger URL,
+  navigation replay, page function, DOM property or Debugger activation is used.
+  Retain only bounded target IDs; clear the discovery input after parsing.
+- The protocol worker probes candidate context metadata/name lists without
+  sending the random identifier to a nonmatching target. Require the native UI
+  callback, exact root/default context, a negative capability probe proving the
+  provider honors uniqueContextId, and a read of the independent marker value in
+  that unique context. Clear the primitive and compare root frame/loader again
+  before returning. Reject silent default-context fallback, wrong proof,
+  navigation/context loss and uncertain cleanup. Unavailable pre-match
+  candidates may be skipped; proof failures do not fall back or replay effects.
+- Bound 64 sequential candidates, a 100–15,000 ms total budget and 5,000 ms
+  phases. Bound native callback retention to 16 shared slots and lexical
+  declarations to 16 per adapter generation. Weak provider callbacks cannot hold
+  the UI owner or admit late results; retain uncertain callback charges until
+  actual return/GC. Empty lexical slots remain until document replacement;
+  failed cleanup targets a proven unique context once only. Do not target a
+  default UI document or replay uncertain cleanup; unconfirmed private values
+  remain bounded until document replacement. Transfer ownership
+  atomically to the completed binding, so UI invalidation closes I/O and clears
+  the controller event reference. The future UI registry must retain/reuse one
+  adapter per native document and close it before admission changes.
+- Actual JVM/JNI/strict JSON/adapter/binder/dispatcher checks pass: 474 binding
+  assertions with Android UI calls doubled and synthetic protocol metadata.
+  Cover ignored unique IDs, wrong targets/values, missing primitives, root loader
+  replacement before lifecycle delivery, queued cancellation, native callback
+  retention/late return, resource exhaustion and ownership loss. Retained
+  native/discovery/worker/dispatcher gates pass (`.mdo/E52-binding.log`). Actual
+  installed WebView binding is still unverified; do not qualify the provider.
+- Apply reviewed Java overlays only after stopping the single service. Reuse
+  the exact verified E51 ARM64 library and N5 app archive. Full APK: 6,321,473
+  bytes, SHA-256 `b624a7964dd7355f52df9f7283a392296a6bef9567323949f2eb315e01bb0719`
+  (`.mdo/E52-android-build.log`, adjacent receipt). Real SDK compilation, actual
+  binding class definitions, six native exports, exact payloads, private
+  manifest, ABI/alignment and signatures pass. Reject packaged android.* test
+  doubles as well as JSON/AndroidX/Chromium runtimes; add no runtime dependency.
+- Full Python regression passes 162/164 with two existing symlink skips
+  (`.mdo/E52-python-full.log`); the final private missing-method classification
+  and unique-context-only cleanup are additionally covered by the rerun binding
+  gate and actual APK rebuild.
+  Restore the same headless service. Keep current WebView/deferred phone and
+  false framework/provider/automation flags. Remaining work: actual UI lifecycle
+  registry/asynchronous host routing, frame/transfer semantics, activation/profile
+  qualification and the broader physical/visual/lifetime/full completion audit.
+

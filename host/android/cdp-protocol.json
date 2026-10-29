@@ -1,6 +1,6 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "private_dispatcher_jni_packaged",
+  "state": "private_binding_core_packaged_not_host_routed",
   "checked_date": "2026-10-29",
   "sources": [
     {
@@ -18,6 +18,25 @@
       "decoded_bytes": 1127,
       "decoded_sha256": "c115a41b09bac564f74e26cfb63c650ac2673e44dd691993b51a6b36969a06f8",
       "facts": ["Chromium's local endpoint admits same-UID callers under its native credential policy"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/web_contents/web_contents_android.cc?format=TEXT",
+      "decoded_bytes": 37344,
+      "decoded_sha256": "0ca5ba198d5d0cc5f789547776892038c634162e71efda0387580a820d73ea72",
+      "facts": ["Native evaluation forwards the supplied source to the primary main frame", "The requested Java callback is retained by a scoped global reference until native completion"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/android_webview/browser/aw_devtools_manager_delegate.cc?format=TEXT",
+      "decoded_bytes": 2904,
+      "decoded_sha256": "7af1a1321687df4ee09df0a21f333396a5e08319bf47996f449c8c63f2d58958",
+      "facts": ["Target description carries renderer geometry/attachment metadata, not a Java view identity"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/v8/v8/+/61ddd471ece346840bbebbb308dceb4b4ce31b28/src/inspector/v8-runtime-agent-impl.cc?format=TEXT",
+      "decoded_bytes": 47397,
+      "decoded_sha256": "0996446e46c8395ab1c5d19455eb59be6b7655076c58f64b23de20283050b4c5",
+      "chromium_deps_revision": "138.0.7204.0",
+      "facts": ["Global lexical names are enumerated through V8's native debug API", "Runtime evaluation resolves uniqueContextId instead of silently selecting a default context", "An invalid/missing unique context returns a distinct static InvalidParams message"]
     }
   ],
   "client_policy": {
@@ -84,6 +103,33 @@
     "test_json_runtime_packaged": false,
     "installed_provider_verified": false
   },
-  "remaining": ["owned asynchronous host routing", "owned target binding", "frame and transfer integration", "debugging activation policy", "installed provider qualification"],
+  "binding_core": {
+    "state": "core_and_public_framework_adapter_packaged",
+    "proof": ["native_primary_view_random_lexical_marker", "native_callback_value", "engine_root_frame_and_default_context", "lexical_name_enumeration", "proven_unique_context_value", "stable_root_loader_after_cleanup"],
+    "url_title_geometry_used_as_identity": false,
+    "caller_debugger_endpoint_used": false,
+    "debugger_enabled_by_binding": false,
+    "marker_name_sent_to_nonmatching_candidates": false,
+    "nonce_bits_each": 128,
+    "marker_and_value_independently_random": true,
+    "source_label_contains_nonce": false,
+    "candidate_target_limit": 64,
+    "candidate_connections_at_once": 1,
+    "total_timeout_ms": [100, 15000],
+    "native_phase_timeout_ms": 5000,
+    "shared_retained_callback_limit": 16,
+    "declarations_per_marker_generation": 16,
+    "lexical_slot_after_cleanup": "empty_until_document_replaced",
+    "failure_cleanup": "one_attempt_in_proven_unique_context_only",
+    "default_ui_document_cleanup": false,
+    "uncertain_marker_value": "bounded_until_document_replaced",
+    "callback_holds_native_ui_owner": false,
+    "unique_context_negative_probe_required": true,
+    "native_owner_lifecycle_close_required": true,
+    "native_owner_registry_and_router_integrated": false,
+    "framework_calls_doubled_in_jvm_gate": true,
+    "provider_verified": false
+  },
+  "remaining": ["owned UI lifecycle registry and asynchronous host routing", "frame and transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding qualification"],
   "android_automation_enabled": false
 }

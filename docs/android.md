@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E51)
+## Complete development host APK (E46/E52)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,313,281 bytes, SHA-256
-`f948cec4e293748f80a5d378a5d307b6705dcdb7aafa3c0dbfd5443eb918851a`.
+Current APK: 6,321,473 bytes, SHA-256
+`b624a7964dd7355f52df9f7283a392296a6bef9567323949f2eb315e01bb0719`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E51-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E51-python-full.log` (162/164 pass, two existing symlink skips).
+`.mdo/E52-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E52-python-full.log` (162/164 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -231,6 +231,84 @@ Owned content-WebView target/epoch binding, UI/host command routing, trusted
 frames/transfers, activation policy and actual device/provider verification
 remain pending. The production router does not call these private sessions.
 Keep debugging settings/current WebView unchanged and Android automation false.
+
+## Native-view binding core and UI adapter (E52)
+
+`MdoBrowserCdpView` adapts public Handler/WebView calls to the private binding
+core. A future UI lifecycle registry must retain **one adapter per exact native
+view/document generation**, with its original host-channel/epoch predicate, and
+close it before navigation, teardown, takeover or any admission loss. Protocol
+workers read only the adapter's atomic/weak lease. They never query UI objects.
+This registry/command-router integration is still pending; these classes alone
+do not enable Android Browser Use.
+
+The native UI writes a fresh random lexical identifier and independent random
+primitive value in the exact primary view. Both use 128 random bits. The fixed
+housekeeping expression calls no page function, creates no global-object/DOM
+property and changes no URL/navigation. Its fixed source label contains neither
+random value. The original native callback must confirm the expected primitive
+under the original ownership predicate.
+
+Discovery retains only bounded page IDs. The returned titles, URLs, geometry and
+debugger URLs do not establish identity and never become connection addresses.
+Probe at most 64 candidates sequentially over the same-PID transport. Before a
+match, use only Runtime context metadata, the engine's root frame and native
+global lexical-name enumeration. The random identifier is not sent in an
+expression to a nonmatching candidate. This lookup uses the V8 primitive pinned
+in `cdp-protocol.json`; it does not enable Debugger or pause candidate pages.
+
+Require a root default context with a unique ID. After finding the identifier
+in engine metadata, first run a harmless negative unique-context probe and
+require the exact known static rejection tag. Then confirm a harmless expression
+with the real unique ID before querying the primitive marker. A provider that
+ignores the unique-ID parameter cannot silently fall back to its current
+default document. The marker read requests side-effect checking. Successful
+binding clears the marker value through its proven unique context and checks
+the root frame **and loader** again before publishing a binding. Context loss,
+document replacement, wrong value or uncertain cleanup cannot grant admission.
+
+Failure cleanup is one bounded attempt on an already proven unique context
+only. Never send cleanup to a default UI document or resend uncertain cleanup.
+If the context cannot be proven or the channel is lost, the small private value
+may remain until document replacement. JavaScript lexical slots cannot be
+deleted by normal code, so empty names also remain; compiled source may remain
+under engine GC control.
+Bound declarations to 16 per marker generation rather than reloading a page or
+growing these slots without limit. Do not reset that counter by recreating an
+adapter in the same document. Keep at most 16 queued/retained native callbacks
+across adapters. A provider may retain its callback even after throwing or
+after cancellation: charge the weak callback slot until actual completion or
+actual callback reclamation. Retained callbacks hold only a small ticket and a
+weak owner, and cannot admit a late result into a replacement view. Failed
+cleanup is not reported as confirmed cleanup.
+
+Binding ownership moves atomically from the provisional peer to the completed
+binding. UI invalidation closes that binding, clears the forwarded controller
+reference and wakes I/O. Private errors distinguish missing protocol primitives
+from absent targets; pre-match metadata failures can skip an unavailable
+candidate. Never retry a proof failure against another target or replay a user
+operation. The overall binding budget is 100–15,000 ms, with each native phase
+at most 5,000 ms.
+
+The actual JVM/JNI strict reader, adapter/marker/binder/dispatcher pass 474 checks
+with **doubled Android UI calls and synthetic protocol peers**. Cover a wrong
+candidate with no identifier exposure, unavailable candidates, ignored unique
+IDs, wrong values, missing APIs/unique context, context/loader replacement,
+ownership loss, queued cancellation, late callbacks, retained-then-throw faults,
+callback quota and declaration exhaustion. Earlier native/worker/dispatcher
+gates also pass (`.mdo/E52-binding.log`). These prove the core state machine and
+JNI reader, not actual WebView execution or provider binding.
+
+The full APK compiles the real public-framework adapter against the locked
+Android SDK and verifies actual Marker/View/Binding DEX definitions. Fake
+`android.*`, JSON, AndroidX and Chromium class definitions cannot ship. The
+six existing native exports/library, N5 app archive and QA signer are reused;
+no native C rebuild is needed. Actual package/ABI/payload/manifest/alignment/
+signature checks pass (`.mdo/E52-android-build.log`); full Python regression
+passes 162/164 with two existing skips. Device/provider/automation flags stay
+false. Next integrate the UI ownership registry and asynchronous host routing,
+then isolated frame worlds/transfers, activation/profile policy and real-device
+verification while preserving the current WebView and deferred phone.
 
 ## Installed-WebView boundary foundation
 

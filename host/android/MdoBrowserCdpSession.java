@@ -23,7 +23,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     interface Clock {long now();}
     interface Events {void event(String method,String session,JSONObject params) throws IOException;}
     static final class Failure extends IOException {
-        final int protocolCode;final boolean effectMayHaveOccurred;
+        final int protocolCode;final boolean effectMayHaveOccurred;boolean uniqueContextRejected;
         Failure(String code,int protocolCode,boolean effect) {super(code);this.protocolCode=protocolCode;effectMayHaveOccurred=effect;}
     }
     private final Thread owner=Thread.currentThread();
@@ -127,8 +127,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 if(message.failed) {
                     // A protocol rejection is a complete reply, not a corrupt
                     // stream. Its provider message/data are intentionally omitted.
-                    throw new Failure(message.error==-32601?"cdp_method_unsupported":"cdp_command_rejected",
-                                      message.error,effect&&message.error!=-32601);
+                    Failure problem=new Failure(message.error==-32601?"cdp_method_unsupported":"cdp_command_rejected",
+                                                message.error,effect&&message.error!=-32601);
+                    problem.uniqueContextRejected=message.uniqueContextRejected;throw problem;
                 }
                 return message.value;
             }

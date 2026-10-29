@@ -27,7 +27,8 @@ OUTPUT=ROOT/'dist/mdo-browser-use-dev-android-arm64-v8a.apk'
 PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
 HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris',
-              'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession')
+              'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
+              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding')
 
 
 def sha(path):return native.sha(path)
@@ -125,7 +126,7 @@ def verify_dex_definitions(report):
             names.add(name)
     if not {'org.xserver.android.'+name for name in HOST_CLASSES}.issubset(names):
         raise RuntimeError('Actual host class definition missing from APK DEX')
-    if any(name.startswith(('org.json.','androidx.','org.chromium.')) for name in names):
+    if any(name.startswith(('android.','org.json.','androidx.','org.chromium.')) for name in names):
         raise RuntimeError('APK unexpectedly bundles platform/test/browser runtime classes')
     return names
 

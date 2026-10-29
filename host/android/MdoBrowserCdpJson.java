@@ -14,7 +14,7 @@ import org.json.JSONObject;
 final class MdoBrowserCdpJson {
     static final int SEND_MAX=262144,MESSAGE_MAX=4194304;
     static final class Message {
-        final int id,error;final boolean failed;
+        final int id,error;final boolean failed;boolean uniqueContextRejected;
         final String method,session;
         final JSONObject value;
         Message(int id,int error,boolean failed,String method,String session,JSONObject value) {
@@ -79,7 +79,9 @@ final class MdoBrowserCdpJson {
             JSONObject problem=(JSONObject)error;fields(problem,"code","message","data");
             int code=integer(problem.get("code"),Integer.MIN_VALUE,Integer.MAX_VALUE);Object message=problem.get("message");
             if(!(message instanceof String)||((String)message).length()>4096)throw invalid();
-            return new Message(id,code,true,null,session,null);
+            Message reply=new Message(id,code,true,null,session,null);
+            reply.uniqueContextRejected=code==-32602&&("invalid uniqueContextId".equals(message)||"uniqueContextId not found".equals(message));
+            return reply;
         } catch(JSONException failure){throw invalid();}
     }
     private static final class Budget {
