@@ -5868,3 +5868,19 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   data preserved. No model calls, external page browsing, extra app/Home/source
   copies or online release. Official Chromium source was consulted read-only for
   protocol/assignment research; no external page was operated by the browser.
+
+## E67D — retain reviewed native event diagnoses without exposing provider text
+
+- New chooser-event tests exposed that the protocol dispatcher flattened every
+  native event rejection into `cdp_event_failed`, hiding specific ambiguity and
+  source/arming failures. Add a typed internal event failure whose constructor
+  accepts only six explicit reviewed static chooser codes. Retire the original
+  stream and preserve that code and its original effect flag. Ordinary IOException,
+  runtime/error and provider messages retain the existing generic sanitized path.
+- The actual JVM/JNI/session/strict JSON dispatcher passes 4,310 checks across
+  seven protocol sessions, including retained typed read-only failure, unchanged
+  private-text masking, stream cleanup and refusal to construct an unreviewed
+  code (`.mdo/E67-event-diagnosis.log`). The next chooser-event implementation
+  uses this path and separately passes its initial 1,454 checks; that feature
+  still awaits its final regression, host build and commit. Android provider
+  qualification/admission remain false. No model calls or release.

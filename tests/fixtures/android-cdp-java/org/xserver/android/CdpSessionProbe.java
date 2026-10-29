@@ -98,6 +98,10 @@ public final class CdpSessionProbe {
         failure("cdp_transport_failed",false,()->failedRead.call("Runtime.enable",null,null,100,false));check(wire.sends==1&&wire.closes>0);wire.cleared();
         wire=new Wire("{\"method\":\"Runtime.event\",\"params\":{}}");final MdoBrowserCdpSession callback=session(wire,alive,(m,s,p)->{throw new IOException("private-event-detail");});
         failure("cdp_event_failed",true,()->callback.call("Runtime.evaluate",null,null,100,true));wire.cleared();
+        wire=new Wire("{\"method\":\"Page.fileChooserOpened\",\"params\":{}}");final MdoBrowserCdpSession typedEvent=session(wire,alive,(m,s,p)->{throw new MdoBrowserCdpSession.EventFailure("cdp_chooser_ambiguous");});
+        failure("cdp_chooser_ambiguous",false,()->typedEvent.call("Page.getFrameTree",null,null,100,false));wire.cleared();check(wire.closes>0);
+        try{new MdoBrowserCdpSession.EventFailure("cdp_chooser_private_provider_detail");throw new AssertionError("Unreviewed event code escaped");}
+        catch(IllegalArgumentException expected){check(expected.getMessage().equals("unsupported_native_event_code"));}
         wire=new Wire("{\"id\":1,\"result\":{}}");final MdoBrowserCdpSession arguments=session(wire,alive,IGNORE);
         failure("cdp_arguments_invalid",false,()->arguments.call("bad",null,null,100,true));check(wire.sends==0&&wire.closes==0);
         // Unsent rejected requests still consume an ID; it can never be reused.

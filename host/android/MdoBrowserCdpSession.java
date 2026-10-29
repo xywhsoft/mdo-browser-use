@@ -22,6 +22,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     interface Clock {long now();}
     interface Events {void event(String method,String session,JSONObject params) throws IOException;}
+    /** Only explicit native event diagnoses may cross the event callback.
+     * Ordinary exception/provider messages keep the generic sanitized result. */
+    static final class EventFailure extends IOException {
+        final String code;
+        static boolean allowed(String code){return Arrays.asList("cdp_chooser_arming_event","cdp_chooser_ambiguous","cdp_chooser_metadata_invalid",
+            "cdp_chooser_clock_invalid","cdp_chooser_frame_unproven","cdp_chooser_frame_unavailable").contains(code);}
+        private static String checked(String code){if(!allowed(code))throw new IllegalArgumentException("unsupported_native_event_code");return code;}
+        EventFailure(String code){super(checked(code));this.code=code;}
+    }
     static final class Failure extends IOException {
         final int protocolCode;final boolean effectMayHaveOccurred;boolean uniqueContextRejected;
         Failure(String code,int protocolCode,boolean effect) {super(code);this.protocolCode=protocolCode;effectMayHaveOccurred=effect;}
@@ -95,6 +104,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private void event(MdoBrowserCdpJson.Message message,boolean effect) throws IOException {
         guard(effect);
         try {events.event(message.method,message.session,message.value);}
+        catch(EventFailure failure){close();throw failure(failure.code,effect);}
         catch(IOException|RuntimeException|Error failure){close();throw failure("cdp_event_failed",effect);}
         guard(effect);
     }
