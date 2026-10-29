@@ -32,7 +32,8 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserUploadUris.java','host/android/MdoBrowserUploadProxy.java','host/android/MdoBrowserUploadUriRuntime.java',
         'host/android/MdoBrowserUploadProvider.java','host/android/browser-manifest.inc.py',
         'host/android/dev/BrowserUseUploadUriProbe.java','host/android/MdoBrowserManualChooser.java','host/android/browser-manual-chooser.inc.java',
-        'host/android/MdoBrowserPickerUris.java','host/android/MdoBrowserCdpNative.java')
+        'host/android/MdoBrowserPickerUris.java','host/android/MdoBrowserCdpNative.java',
+        'host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpSession.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
@@ -43,7 +44,7 @@ HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java
     'tools/android/MdoBrowserUploadStore.java','tools/android/MdoBrowserUploadQueue.java','tools/android/MdoBrowserUploadRuntime.java',
     'tools/android/MdoBrowserUploadUris.java','tools/android/MdoBrowserUploadProxy.java','tools/android/MdoBrowserUploadUriRuntime.java',
     'tools/android/MdoBrowserUploadProvider.java','tools/android/MdoBrowserManualChooser.java','tools/android/MdoBrowserPickerUris.java',
-    'tools/android/MdoBrowserCdpNative.java')
+    'tools/android/MdoBrowserCdpNative.java','tools/android/MdoBrowserCdpJson.java','tools/android/MdoBrowserCdpSession.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py','tools/android/build_apk.py')
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))

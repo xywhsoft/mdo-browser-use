@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E50)
+## Complete development host APK (E46/E51)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,309,185 bytes, SHA-256
-`d5d4e2ed983fb626aac34d741504e099289b014ac7ed7bb9cb9aaf08b673e573`.
+Current APK: 6,313,281 bytes, SHA-256
+`f948cec4e293748f80a5d378a5d307b6705dcdb7aafa3c0dbfd5443eb918851a`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E50-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E50-python-full.log` (158/160 pass, two existing symlink skips).
+`.mdo/E51-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E51-python-full.log` (162/164 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -171,6 +171,66 @@ frame/transfer integration and debugging activation policy remain pending.
 The production command router does not call this private session API yet.
 No debugging setting, provider or automation-admission flag is changed. Retain
 the deferred phone/current WebView; device/provider qualification remains false.
+
+## Private command/event dispatcher (E51)
+
+`MdoBrowserCdpSession` serializes one outstanding RPC on its native worker.
+Interleaved events are delivered inline to the private protocol controller;
+that callback cannot reenter I/O. No additional command/completion/event queue
+is created. The eventual Android UI controller must dispatch work off the UI
+thread and supply a thread-safe ownership/epoch snapshot as its fence.
+
+Allocate monotonically increasing IDs, match both reply ID and child session,
+and enforce one total command deadline across encoding, sending, events and
+receiving. Bound each RPC to 4,096 incoming packets. Unknown child sessions or
+mismatched replies retire the stream; never reconnect or replay a command.
+Report possible effects after a send attempt fails. Complete protocol errors
+retain stream validity, while public failure text contains only static codes,
+the numeric protocol error and an effect flag; provider message/data are omitted.
+
+Explicit trusted-controller admission allows at most 64 active child sessions
+and remembers at most 256 IDs over the connection lifetime. Retired IDs cannot
+be rebound. Drain known retired-child traffic without exposing it to a new
+owner or disrupting a different active operation. A detach of the child being
+operated on ends that operation instead of silently retargeting it. Ownership
+loss/cancellation also clears late byte arrays before any result/event delivery.
+
+`MdoBrowserCdpJson` validates bounded strict JSON through the pinned XRT reader
+before using Android's existing platform JSON objects. Reject duplicate keys at
+every depth, comments/trailing input, ambiguous IDs/envelopes, invalid session
+tokens and non-finite numbers. Limit depth to 64, values to 65,536 and container
+items to 8,192. Outgoing traversal also bounds nodes/characters and rejects
+cycles/unknown Java value types before stringification, avoiding unbounded
+serialization or an arbitrary object's `toString` call. Clear native validation
+copies on parse/allocation/JNI-copy errors; command routing still owns the
+original Java array and clears it on every exit.
+
+The desktop JVM gate compiles six small unmodified, hash-pinned
+[AOSP API-26 JSON sources](https://android.googlesource.com/platform/libcore/+/android-8.0.0_r1/json/src/main/java/org/json/)
+only as test references. They retain their Apache-2.0 headers in the one SDK
+cache; they are never packaged or used as an Android runtime dependency.
+The real JNI/local kernel peer gate passes 4,303 dispatcher assertions, including
+seven native transport sessions with **synthetic CDP responses**, plus timeout,
+event-flood, duplicate JSON, reentrancy, stale-child, owner-loss and failure
+cases. The separate native gate passes 1,141 checks/195 balanced transport-copy
+allocations under ASan/UBSan, including strict-reader/JNI faults. Earlier
+310-check discovery and 138-check real-JVM worker gates also pass. These do not
+qualify an installed Chromium provider (`.mdo/E51-dispatcher.log`).
+
+The full ARM64 library is 3,547,088 bytes, SHA-256
+`a21f1120fbaae36bcaa29a472e9eae3a61248a5ca270968fd62b1a677f6e7d90`.
+The complete development APK checks all six JNI exports and the SDK dexdump's
+actual class definitions, including the private Channel/codec/dispatcher.
+Class-name references cannot stand in for missing definitions. Reject bundled
+`org.json`, AndroidX or Chromium definitions while allowing platform references.
+The actual package passes exact payload, manifest, ABI, alignment/signature and
+no-extra-runtime gates (`.mdo/E51-native-build.log`, `.mdo/E51-android-build.log`).
+Full Python regression passes 162/164 with two existing symlink skips.
+
+Owned content-WebView target/epoch binding, UI/host command routing, trusted
+frames/transfers, activation policy and actual device/provider verification
+remain pending. The production router does not call these private sessions.
+Keep debugging settings/current WebView unchanged and Android automation false.
 
 ## Installed-WebView boundary foundation
 

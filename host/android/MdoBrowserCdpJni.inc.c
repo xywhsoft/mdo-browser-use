@@ -86,4 +86,31 @@ Java_org_xserver_android_MdoBrowserCdpNative_closeNative(JNIEnv* Env,jclass Type
 {
     (void)Env;(void)Type;mdoCdpWsClose((uint64_t)Handle);
 }
+
+/* Android's platform JSON reader is intentionally lenient. Admit only bounded,
+ * complete strict JSON, rejecting duplicates at every depth, before Java uses
+ * it to route protocol IDs/events. Reuse the pinned host parser, not another
+ * handwritten JSON grammar. No bytes are logged or returned by this gate. */
+JNIEXPORT void JNICALL
+Java_org_xserver_android_MdoBrowserCdpNative_validateNative(JNIEnv* Env,jclass Type,jbyteArray Bytes,jint Maximum)
+{
+    (void)Type;jsize Size=Bytes?(*Env)->GetArrayLength(Env,Bytes):0;
+    if ( (*Env)->ExceptionCheck(Env) ) return;
+    if ( (Maximum!=(jint)MDO_CDP_WS_SEND_MAX&&Maximum!=(jint)MDO_CDP_WS_MESSAGE) || Size<1 || Size>Maximum ) {
+        MdoCdpJniThrow(Env,MDO_CDP_SOCKET_JSON);return;
+    }
+    unsigned char* Data=MDO_CDP_ALLOC((size_t)Size);
+    if ( !Data ) {MdoCdpJniThrow(Env,MDO_CDP_SOCKET_MEMORY);return;}
+    (*Env)->GetByteArrayRegion(Env,Bytes,0,Size,(jbyte*)Data);
+    int Valid=0;
+    if ( !(*Env)->ExceptionCheck(Env) ) {
+        xjsonreadconfig Config;xrtJsonReadConfigInit(&Config);
+        Config.MaxInputBytes=(size_t)Maximum;Config.MaxStringBytes=(size_t)Maximum;
+        Config.MaxDepth=64;Config.MaxValues=65536;Config.MaxContainerItems=8192;
+        xvalue* Value=xrtJsonRead((xstrview){(const char*)Data,(size_t)Size},&Config);
+        Valid=Value!=NULL;xrtValueRelease(Value);
+    }
+    MdoCdpClear(Data,(size_t)Size);MDO_CDP_FREE(Data);
+    if ( !Valid ) MdoCdpJniThrow(Env,MDO_CDP_SOCKET_JSON);
+}
 #endif

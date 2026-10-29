@@ -3,7 +3,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    source=directory/'org/xserver/android/XsActivity.java'",
-      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    shutil.copy2(Path(__file__).with_name('MdoBrowserCdpNative.java'),source.with_name('MdoBrowserCdpNative.java'))"
+      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -1369,6 +1369,14 @@
     {
       "source": "host/android/MdoBrowserCdpNative.java",
       "target": "tools/android/MdoBrowserCdpNative.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpJson.java",
+      "target": "tools/android/MdoBrowserCdpJson.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpSession.java",
+      "target": "tools/android/MdoBrowserCdpSession.java"
     },
     {
       "source": "host/ui-wakeup.h",

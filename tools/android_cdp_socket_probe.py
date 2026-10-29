@@ -58,13 +58,21 @@ def main():
                     str(vmxrt),'-o',str(output/'libxs.so')],cwd=ROOT,check=True)
     classes=output/'classes';classes.mkdir(exist_ok=True)
     javas=sorted((ROOT/'tests/fixtures/android-cdp-java').rglob('*.java'))
+    import setup_android_json_test
+    json_sources=setup_android_json_test.prepare()
     subprocess.run([str(java/'bin/javac'),'--release','8','-d',str(classes),
-                    str(ROOT/'host/android/MdoBrowserCdpNative.java'),*map(str,javas)],cwd=ROOT,check=True)
+                    *[str(ROOT/'host/android'/name) for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java')],
+                    *map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not vm.get('passed') or not vm.get('real_jvm_jni'):
         raise RuntimeError('The actual JVM/JNI worker gate did not pass')
     result['jvm_worker']=vm
+    dispatch=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpSessionProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
+    if not dispatch.get('passed') or dispatch.get('real_protocol_sessions')!=7:
+        raise RuntimeError('The actual JNI protocol-session gate did not pass')
+    result['jvm_dispatcher']=dispatch
     lock=json.loads((ROOT/'.mdo/native-source/tools/android/toolchain.lock.json').read_text())
     clang=ROOT/'.mdo/android-client-tools/sdk/ndk'/lock['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/clang'
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
@@ -74,7 +82,8 @@ def main():
         '-c',str(ROOT/'host/android/MdoBrowserCdpWebSocket.c'),'-o',str(output/'android-websocket.o')],cwd=ROOT,check=True)
     inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
             'host/android/MdoBrowserCdpWebSocket.c','host/android/MdoBrowserCdpWebSocket.h',
-            'host/android/MdoBrowserCdpNative.java','tests/fixtures/android-cdp-socket.c',
+            'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpSession.java',
+            'host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
             'tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c',
             *[p.relative_to(ROOT).as_posix() for p in javas])
     result.update(source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},

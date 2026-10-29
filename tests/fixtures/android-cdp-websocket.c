@@ -2,6 +2,7 @@
 #define XRT_MODULE_WEBSOCKET_HANDSHAKE
 #define XRT_MODULE_WEBSOCKET_MESSAGE
 #define XRT_MODULE_RANDOM_SECURE
+#define XRT_MODULE_JSON_READ
 #include <assert.h>
 #include <dirent.h>
 #include <pthread.h>
@@ -94,6 +95,13 @@ static int ClientFrame(int Fd,unsigned Opcode,const void* Data,size_t Size)
     if ( Frame.Opcode!=Opcode || Frame.PayloadSize!=Size || !Read(Fd,Body,Size) || !xrtWsMask(Body,Size,Frame.Mask,0) ) return 0;
     return !Size || !memcmp(Body,Data,Size);
 }
+static int ClientCommand(int Fd,int Id,const char* Method,const char* Session)
+{
+    char Data[256];int Size=snprintf(Data,sizeof(Data),"{\"id\":%d,\"method\":\"%s\",\"params\":{}%s%s%s}",Id,Method,
+        Session?",\"sessionId\":\"":"",Session?Session:"",Session?"\"":"");
+    assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
+}
+static int Packet(int Fd,const char* Text){return ServerFrame(Fd,XWS_OPCODE_TEXT,1,Text,strlen(Text));}
 static int Handshake(Server* Fixture,int Fd)
 {
     char Request[1024]={0};size_t Used=0;
@@ -159,6 +167,32 @@ static void* Serve(void* Data)
     } else if ( Fixture->Mode==11 ) {
         Write(Fd,"\x81\x05he",4);atomic_store(&Fixture->Ready,1);
         char Byte;(void)recv(Fd,&Byte,1,0);
+    } else if ( Fixture->Mode>=20 && Fixture->Mode<=26 ) {
+        if ( Fixture->Mode==20 ) {
+            Fixture->Frames+=ClientCommand(Fd,1,"Runtime.enable",NULL);
+            Packet(Fd,"{\"method\":\"Runtime.executionContextCreated\",\"params\":{\"context\":{\"id\":41}}}");
+            Packet(Fd,"{\"id\":1,\"result\":{}}");
+            Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);
+            Packet(Fd,"{\"id\":2,\"result\":{\"result\":{\"type\":\"number\",\"value\":2}}}");
+        } else if ( Fixture->Mode==22 ) {
+            Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+            Packet(Fd,"{\"id\":1,\"error\":{\"code\":-32601,\"message\":\"private-provider-message\"}}");
+            Fixture->Frames+=ClientCommand(Fd,2,"Runtime.enable",NULL);Packet(Fd,"{\"id\":2,\"result\":{}}");
+            Fixture->Frames+=ClientCommand(Fd,3,"Runtime.evaluate",NULL);
+            Packet(Fd,"{\"id\":3,\"error\":{\"code\":0,\"message\":\"private-provider-message\"}}");
+            Fixture->Frames+=ClientCommand(Fd,4,"Runtime.enable",NULL);Packet(Fd,"{\"id\":4,\"result\":{}}");
+        } else if ( Fixture->Mode==24 ) {
+            Fixture->Frames+=ClientCommand(Fd,1,"Runtime.enable","child-001");
+            Packet(Fd,"{\"sessionId\":\"child-001\",\"method\":\"Runtime.executionContextCreated\",\"params\":{\"context\":{\"id\":71}}}");
+            Packet(Fd,"{\"id\":1,\"sessionId\":\"child-001\",\"result\":{}}");
+        } else {
+            Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+            if ( Fixture->Mode==21 ) Packet(Fd,"{\"id\":99,\"result\":{}}");
+            if ( Fixture->Mode==23 ) Packet(Fd,"{\"method\":\"Runtime.executionContextCreated\",\"sessionId\":\"foreign\",\"params\":{}}");
+            if ( Fixture->Mode==25 ) Packet(Fd,"{\"id\":1,\"id\":2,\"result\":{}}");
+            /* Mode 26 withholds the result until the command deadline. */
+        }
+        char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0; /* No effect replay. */
     } else if ( Fixture->Mode>=100 ) {
         static const unsigned char* Invalid[]={
             (const unsigned char*)"\x81\x80\0\0\0\0", /* masked server */
@@ -265,6 +299,22 @@ static void TestJniFaults(void)
         Check(!Java_org_xserver_android_MdoBrowserCdpNative_receiveNative(&Env,NULL,Handle,10)&&!JniPending);
         Java_org_xserver_android_MdoBrowserCdpNative_closeNative(&Env,NULL,Handle);Join(Thread,&Fixture);Check(Fixture.Frames==1);
     }
+    const char* Good="{\"id\":1,\"result\":{}}";
+    FakeBytes Json={(jsize)strlen(Good),(unsigned char*)Good};
+    for ( int I=0;I<64;I++ ) {
+        Java_org_xserver_android_MdoBrowserCdpNative_validateNative(&Env,NULL,(jbyteArray)&Json,MDO_CDP_WS_MESSAGE);Check(!JniPending);
+    }
+    const char* Duplicate="{\"id\":1,\"result\":{\"x\":1,\"x\":2}}";
+    Json.Size=(jsize)strlen(Duplicate);Json.Data=(unsigned char*)Duplicate;
+    Java_org_xserver_android_MdoBrowserCdpNative_validateNative(&Env,NULL,(jbyteArray)&Json,MDO_CDP_WS_MESSAGE);
+    Check(JniPending&&!strcmp(JniError,"cdp_json_invalid"));ResetJni();
+    Json.Size=(jsize)strlen(Good);Json.Data=(unsigned char*)Good;
+    JniFault=3;Java_org_xserver_android_MdoBrowserCdpNative_validateNative(&Env,NULL,(jbyteArray)&Json,MDO_CDP_WS_MESSAGE);
+    Check(JniPending&&!JniError[0]);ResetJni();
+    FailAllocation=1;Java_org_xserver_android_MdoBrowserCdpNative_validateNative(&Env,NULL,(jbyteArray)&Json,MDO_CDP_WS_MESSAGE);
+    Check(JniPending&&!strcmp(JniError,"cdp_allocation_failed"));ResetJni();
+    Java_org_xserver_android_MdoBrowserCdpNative_validateNative(&Env,NULL,(jbyteArray)&Json,123);
+    Check(JniPending&&!strcmp(JniError,"cdp_json_invalid"));ResetJni();
 }
 /* The actual JVM loads this small fixture library, not an xs engine copy.
  * Its only extra JNI methods control the local same-process test peer. */

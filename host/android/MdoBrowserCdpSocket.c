@@ -246,6 +246,7 @@ const char* mdoCdpSocketCode(enum MdoCdpSocketCode Code)
     case MDO_CDP_SOCKET_BUSY:return "cdp_session_busy";
     case MDO_CDP_SOCKET_RANDOM:return "cdp_random_unavailable";
     case MDO_CDP_SOCKET_EXPIRED:return "cdp_message_timeout";
+    case MDO_CDP_SOCKET_JSON:return "cdp_json_invalid";
     default:return "cdp_local_io_failed";
     }
 }

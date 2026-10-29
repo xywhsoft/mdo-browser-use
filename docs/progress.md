@@ -5246,3 +5246,46 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   epoch binding, frame/transfer integration, activation policy and the broader
   outstanding physical/visual/lifetime/full-goal audit. Do not mark complete.
 
+## E51 — implement and package bounded private CDP command/event dispatch
+
+- Add the owning-worker protocol dispatcher with one outstanding RPC, inline
+  event delivery, monotonic IDs, exact reply/session matching and one total
+  command deadline. Bound incoming packets per RPC to 4,096; reject reentrancy.
+  Retire uncertain/malformed/mismatched streams with static errors and an effect
+  flag. Do not reconnect/replay an effect. Retain complete protocol errors as
+  complete replies without forwarding provider message/data into exceptions.
+- Admit at most 64 trusted child sessions and remember at most 256 IDs for the
+  connection lifetime. Never rebind a retired ID. Drain explicitly retired
+  traffic without delivering it to another owner; reject unknown session IDs.
+  Detach of the operated child ends that operation. Fence result/event delivery
+  on ownership and clear returned/sent byte arrays on all exits, including
+  cancellation, parser errors, callback faults and allocation failures.
+- Use the pinned XRT strict JSON reader through one private JNI validation
+  entry, ahead of platform JSON materialization. Bound depth/values/container
+  items and reject duplicate keys, ambiguous envelopes and unsupported syntax.
+  Check outgoing object graphs for limits/cycles/unknown types before encoding.
+  Reuse six small hash-pinned, unmodified AOSP sources only for JVM tests in the
+  existing SDK cache, retaining license headers; no APK/runtime dependency.
+- Actual JVM/JNI/local kernel protocol tests pass 4,303 assertions across seven
+  transport sessions with synthetic CDP peers, plus deterministic deadline,
+  flood, ownership, stale-session and codec faults. The exact native gate now
+  passes 1,141 checks/195 balanced transport-copy allocations under ASan/UBSan,
+  including strict-parser/JNI-copy faults. Retained discovery/worker gates pass
+  310/138 checks. Evidence: `.mdo/E51-dispatcher.log` and transport receipt.
+  This is not an installed WebView/CDP provider qualification.
+- Review/apply overlays after stopping the same service and rebuild the locked
+  ARM64/API 26 host with pre/post source/ABI checks. Library: 3,547,088 bytes,
+  SHA-256 `a21f1120fbaae36bcaa29a472e9eae3a61248a5ca270968fd62b1a677f6e7d90`
+  (`.mdo/E51-native-build.log`). Full APK: 6,313,281 bytes, SHA-256
+  `f948cec4e293748f80a5d378a5d307b6705dcdb7aafa3c0dbfd5443eb918851a`
+  (`.mdo/E51-android-build.log`). Check all six native exports and actual SDK
+  DEX class definitions rather than descriptor references; reject accidentally
+  bundled JSON/test/browser runtimes. Exact payloads, provider/manifest, 16 KiB
+  ELF layout, alignment and signatures pass. Reuse the N5 app archive and signer.
+- Full Python regression: 162/164 pass, two existing symlink skips
+  (`.mdo/E51-python-full.log`). Keep the one headless service healthy. Current
+  WebView/deferred phone and all false device/provider/automation gates remain.
+  Next implement exact owned WebView target/epoch binding and asynchronous host
+  routing, then trusted frame/transfer integration and activation policy. The
+  broader physical/visual/lifetime/completion audit still applies; goal active.
+

@@ -35,4 +35,30 @@ class CompiledManifestTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):program.verify_private_provider(missing+peer)
 
 
+class ActualDexClassesTests(unittest.TestCase):
+    def report(self,names=None,extra=''):
+        if names is None:names=program.HOST_CLASSES
+        return '<api><package name="org.xserver.android">'+''.join('<class name="'+name+'"/>' for name in names)+extra+'</package></api>'
+
+    def test_platform_references_are_allowed_without_bundled_definitions(self):
+        report=self.report(extra='<class name="Helper"><method return="org.json.JSONObject"/></class>')
+        names=program.verify_dex_definitions(report)
+        self.assertIn('org.xserver.android.MdoBrowserCdpSession',names)
+        self.assertNotIn('org.json.JSONObject',names)
+
+    def test_class_reference_cannot_substitute_for_implementation(self):
+        report=self.report([name for name in program.HOST_CLASSES if name!='MdoBrowserCdpSession'],
+                           '<class name="Helper"><method return="org.xserver.android.MdoBrowserCdpSession"/></class>')
+        with self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
+
+    def test_test_json_and_browser_runtime_definitions_cannot_ship(self):
+        for package in ('org.json','androidx.test','org.chromium'):
+            report=self.report().replace('</api>','<package name="'+package+'"><class name="Unexpected"/></package></api>')
+            with self.subTest(package=package),self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
+
+    def test_invalid_or_duplicate_definition_reports_are_rejected(self):
+        for report in ('not XML','<api/>',self.report(extra='<class name="MdoBrowser"/>')):
+            with self.subTest(report=report),self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
+
+
 if __name__=='__main__':unittest.main()

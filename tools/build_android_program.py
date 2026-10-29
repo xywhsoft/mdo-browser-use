@@ -13,6 +13,7 @@ import struct
 import subprocess
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 
 import build_android_client as client
 import build_android_native as native
@@ -25,6 +26,8 @@ WORK=dev.ENV/'host/android-program'
 OUTPUT=ROOT/'dist/mdo-browser-use-dev-android-arm64-v8a.apk'
 PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
+HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris',
+              'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession')
 
 
 def sha(path):return native.sha(path)
@@ -108,6 +111,25 @@ def verify_private_provider(xml):
             raise RuntimeError('Compiled upload provider is not private')
 
 
+def verify_dex_definitions(report):
+    """Descriptor strings can be references. Require SDK-reported definitions."""
+    if len(report)>16*1024**2:raise RuntimeError('DEX report exceeds inspection budget')
+    try:root=ET.fromstring(report)
+    except ET.ParseError as error:raise RuntimeError('Invalid SDK DEX class-definition report') from error
+    if root.tag!='api':raise RuntimeError('Unexpected SDK DEX report root')
+    names=set()
+    for package in root.findall('package'):
+        for definition in package.findall('class'):
+            name=package.get('name','')+'.'+definition.get('name','')
+            if name in names or len(names)>=4096:raise RuntimeError('Invalid/oversized DEX class definitions')
+            names.add(name)
+    if not {'org.xserver.android.'+name for name in HOST_CLASSES}.issubset(names):
+        raise RuntimeError('Actual host class definition missing from APK DEX')
+    if any(name.startswith(('org.json.','androidx.','org.chromium.')) for name in names):
+        raise RuntimeError('APK unexpectedly bundles platform/test/browser runtime classes')
+    return names
+
+
 def apk_contents(plan):
     with zipfile.ZipFile(OUTPUT) as apk:
         entries=apk.infolist();names=[entry.filename for entry in entries]
@@ -124,10 +146,10 @@ def apk_contents(plan):
         runtime=json.loads(apk.read('assets/mdo-runtime.json'))
         if runtime.get('edition')!='lite' or runtime.get('build_id')!='1' or runtime.get('files')!=[]:
             raise RuntimeError('Development APK unexpectedly bundles command-line toolpacks')
-        dex=apk.read('classes.dex')
-        for name in ('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris','MdoBrowserUploadProvider','MdoBrowserCdpNative'):
-            if ('Lorg/xserver/android/'+name+';').encode() not in dex:
-                raise RuntimeError('Actual host class missing from APK DEX: '+name)
+        setup=json.loads((dev.ENV/'android-client-tools/receipt.json').read_text(encoding='utf-8'))
+        dexdump=dev.ENV/'android-client-tools/sdk/build-tools'/setup['build_tools']/'dexdump'
+        report=subprocess.check_output([str(dexdump),'-l','xml',str(OUTPUT)],text=True,timeout=30)
+        verify_dex_definitions(report)
         return {name:elf_facts(apk.read('lib/arm64-v8a/'+name)) for name in ('libxs.so','libmdo_command_worker.so')}
 
 
@@ -143,7 +165,7 @@ def assemble():
     toolchain=json.loads((native.NATIVE/'tools/android/toolchain.lock.json').read_text(encoding='utf-8'))
     nm=sdk/'ndk'/toolchain['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm'
     symbols=subprocess.check_output([str(nm),'--dynamic','--defined-only',str(library)],text=True)
-    for entry in ('discoverNative','openNative','sendNative','receiveNative','closeNative'):
+    for entry in ('discoverNative','openNative','sendNative','receiveNative','closeNative','validateNative'):
         if not re.search(r'\bT Java_org_xserver_android_MdoBrowserCdpNative_'+entry+r'$',symbols,re.M):
             raise RuntimeError('The Android host lacks a matching private CDP JNI entry')
     if plan['toolchain_lock_sha256']!=setup['lock_sha256']:raise RuntimeError('Android tooling lock changed')
@@ -179,7 +201,8 @@ def assemble():
                 artifact={'name':OUTPUT.name,'bytes':OUTPUT.stat().st_size,'sha256':sha(OUTPUT)},inputs=plan,
                 certificate_sha256=certs[0],native_elf=facts,production_activity_packaged=True,
                 command_worker_packaged=True,private_upload_provider_packaged=True,private_upload_manifest_verified=True,private_cdp_discovery_packaged=True,application_copies=0,
-                private_cdp_session_packaged=True,runtime_dependencies_added=False,device_qualified=False,framework_qualified=False,automation_qualified=False)
+                private_cdp_session_packaged=True,private_cdp_dispatcher_packaged=True,actual_dex_definitions_verified=True,
+                test_json_sources_bundled=False,runtime_dependencies_added=False,device_qualified=False,framework_qualified=False,automation_qualified=False)
     RECEIPT.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record['artifact'],indent=2),flush=True)
 

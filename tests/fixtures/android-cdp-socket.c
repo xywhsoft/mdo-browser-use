@@ -2,6 +2,7 @@
 #define XRT_MODULE_WEBSOCKET_HANDSHAKE
 #define XRT_MODULE_WEBSOCKET_MESSAGE
 #define XRT_MODULE_RANDOM_SECURE
+#define XRT_MODULE_JSON_READ
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>

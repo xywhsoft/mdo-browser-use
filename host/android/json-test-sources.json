@@ -1,0 +1,15 @@
+{
+  "purpose": "test_only_android_api26_json_on_desktop_jvm",
+  "revision": "android-8.0.0_r1",
+  "base_url": "https://android.googlesource.com/platform/libcore/+/android-8.0.0_r1/json/src/main/java/org/json/",
+  "license": "Apache-2.0; retain original source headers",
+  "production_packaged": false,
+  "files": {
+    "JSON.java": "a2cc5e4bf64bfe3edd73c6a14409f3200640454051d9947ee79f16a2396a19b1",
+    "JSONArray.java": "dd2e3db3deb9cd2b6b2b2d8e945c84a71ae9e353b9da1d3047bf1ea0dca9ea54",
+    "JSONException.java": "2c3ef7315003a16886ec43588534c0bac2371e052a30574065afb01579de1faf",
+    "JSONObject.java": "ea0e722f977844ee4c21da140b054150c3300520682dc16ce2332e196d7c6e9b",
+    "JSONStringer.java": "c3e7c8cf9195e01a6851fb9b9fdf1c6c57801778e20400f858def1ac65ebff77",
+    "JSONTokener.java": "ea70c92288cf8810b3077a68449ebbffdcafbcc28fc5fe20421e5dd3fd956ef7"
+  }
+}

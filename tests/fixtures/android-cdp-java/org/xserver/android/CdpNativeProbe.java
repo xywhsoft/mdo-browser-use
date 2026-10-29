@@ -15,6 +15,8 @@ public final class CdpNativeProbe {
     private static native int finish();
     private static native void fault(int allocation,boolean random);
     private static native void awaitRead();
+    static void fixtureStart(int mode){start(mode);}
+    static int fixtureFinish(){return finish();}
     private static int checks;
     private static void check(boolean value){if(!value)throw new AssertionError("JNI gate check "+(checks+1));checks++;}
     private interface Operation {void run() throws Exception;}

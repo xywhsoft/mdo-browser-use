@@ -1,6 +1,6 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "persistent_session_jni_packaged",
+  "state": "private_dispatcher_jni_packaged",
   "checked_date": "2026-10-29",
   "sources": [
     {
@@ -40,7 +40,7 @@
   "jni_boundary": {
     "class": "org.xserver.android.MdoBrowserCdpNative",
     "native_entry": "Java_org_xserver_android_MdoBrowserCdpNative_discoverNative",
-    "session_entries": ["openNative", "sendNative", "receiveNative", "closeNative"],
+    "session_entries": ["openNative", "sendNative", "receiveNative", "closeNative", "validateNative"],
     "compiled_and_packaged": true,
     "desktop_jvm_jni_worker_tested": true,
     "public_agent_method": false,
@@ -62,6 +62,28 @@
     "target_ownership_verified": false,
     "device_verified": false
   },
-  "remaining": ["owned asynchronous host routing", "owned target binding", "CDP dispatcher", "frame and transfer integration", "debugging activation policy", "installed provider qualification"],
+  "dispatcher": {
+    "state": "worker_codec_dispatcher_packaged_not_host_routed",
+    "outstanding_rpc_limit": 1,
+    "request_id_reuse": false,
+    "reply_match": ["id", "sessionId"],
+    "deadline": "one_absolute_command_budget",
+    "rpc_packet_limit": 4096,
+    "active_child_sessions": 64,
+    "lifetime_child_ids": 256,
+    "retired_child_id_reuse": false,
+    "retired_child_traffic": "drain_without_delivery",
+    "unknown_child_traffic": "retire_connection",
+    "automatic_replay": false,
+    "strict_json": "pinned_xrt_reader_before_platform_json",
+    "json_depth": 64,
+    "json_values": 65536,
+    "json_container_items": 8192,
+    "provider_errors_in_exception_text": false,
+    "actual_dex_definitions_verified": true,
+    "test_json_runtime_packaged": false,
+    "installed_provider_verified": false
+  },
+  "remaining": ["owned asynchronous host routing", "owned target binding", "frame and transfer integration", "debugging activation policy", "installed provider qualification"],
   "android_automation_enabled": false
 }

@@ -49,7 +49,12 @@ final class MdoBrowserCdpNative {
             throw new IOException("cdp_native_unavailable");
         } finally {Arrays.fill(id,(byte)0);}
     }
-    static final class Channel implements AutoCloseable {
+    static void validate(byte[] bytes,int maximum) throws IOException {
+        worker(10);
+        try {Library.ready();validateNative(bytes,maximum);}
+        catch(UnsatisfiedLinkError failure){throw new IOException("cdp_native_unavailable");}
+    }
+    static final class Channel implements MdoBrowserCdpSession.Wire {
         private final Thread owner;
         private final AtomicLong handle=new AtomicLong();
         private Channel(Thread owner){this.owner=owner;}
@@ -62,7 +67,7 @@ final class MdoBrowserCdpNative {
         }
         /** Caller exclusively owns this array for the duration of the call.
          * A failure can mean uncertain delivery. Never resend automatically. */
-        void send(byte[] bytes,int timeoutMs) throws IOException {
+        @Override public void send(byte[] bytes,int timeoutMs) throws IOException {
             long value=current(timeoutMs);
             if(bytes==null||bytes.length<1||bytes.length>262144)throw new IOException("cdp_arguments_invalid");
             sendNative(value,bytes,timeoutMs);
@@ -70,7 +75,7 @@ final class MdoBrowserCdpNative {
         }
         /** null is an idle timeout; every returned array must be cleared after
          * parsing. Partial packets are retained only in bounded native memory. */
-        byte[] receive(int timeoutMs) throws IOException {
+        @Override public byte[] receive(int timeoutMs) throws IOException {
             long value=current(timeoutMs);byte[] reply=receiveNative(value,timeoutMs);
             if(handle.get()!=value) {
                 if(reply!=null)Arrays.fill(reply,(byte)0);
@@ -89,4 +94,5 @@ final class MdoBrowserCdpNative {
     private static native void sendNative(long handle,byte[] bytes,int timeoutMs) throws IOException;
     private static native byte[] receiveNative(long handle,int timeoutMs) throws IOException;
     private static native void closeNative(long handle);
+    private static native void validateNative(byte[] bytes,int maximum) throws IOException;
 }
