@@ -14,6 +14,9 @@ final class MdoBrowserCdpView implements AutoCloseable {
     private static final MdoBrowserCdpMarker.Budget CALLBACKS=new MdoBrowserCdpMarker.Budget(16);
     private final MdoBrowserCdpMarker marker;
     MdoBrowserCdpView(WebView view,Owner owner) {
+        this(view,owner,new MdoBrowserCdpMarker.DocumentQuota());
+    }
+    MdoBrowserCdpView(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota document) {
         if(view==null||owner==null||Looper.myLooper()!=Looper.getMainLooper())throw new IllegalArgumentException("View marker requires its UI owner");
         WeakReference<WebView> weak=new WeakReference<>(view);Handler handler=new Handler(Looper.getMainLooper());
         marker=new MdoBrowserCdpMarker(new MdoBrowserCdpMarker.Ui(){
@@ -26,7 +29,7 @@ final class MdoBrowserCdpView implements AutoCloseable {
                 WebView current=weak.get();if(current==null||!owner.current(current))throw new IllegalStateException("Native marker owner changed");
                 current.evaluateJavascript(source,reply==null?null:reply::done);
             }
-        },CALLBACKS);
+        },CALLBACKS,document);
     }
     MdoBrowserCdpMarker marker(){return marker;}
     @Override public void close(){marker.close();}

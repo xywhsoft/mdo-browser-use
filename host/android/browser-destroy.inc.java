@@ -1,7 +1,7 @@
     void pause(){browserPaused=true;cancelPopups();cancelDialogs();blockDocuments(MdoBrowserDocument.BACKGROUND,true);views.background(true);}
     void resume(){browserPaused=false;views.background(false);blockDocuments(MdoBrowserDocument.BACKGROUND,false);}
     void destroy(){
-        stopped=true;channel.close();if(port!=null)port.close();
+        stopped=true;cdpViews.close();channel.close();if(port!=null)port.close();
         Map<WebView,MdoBrowserPopups<WebView>> popupRetiring=new IdentityHashMap<>();
         for(Map.Entry<String,MdoBrowserPopups<WebView>> entry:windows.entrySet()){
             WebView view=views.get(entry.getKey());entry.getValue().close();if(view!=null)popupRetiring.put(view,entry.getValue());}

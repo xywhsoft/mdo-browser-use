@@ -11,13 +11,18 @@ import java.util.function.LongSupplier;
  * Lifecycle input cleanup runs before the caller detaches/destroys its view. */
 final class MdoBrowserLifecycle<T> implements AutoCloseable {
     interface Factory<T> {MdoBrowserInput create(T view,LongSupplier epoch,BooleanSupplier admitted);}
+    interface Invalidated<T> {void changed(String key,T view,long epoch,String reason);}
     private final class Entry {
         final T view;MdoBrowserInput input;long epoch=1;double scale=Double.NaN;boolean hidden,manual,failed;
         Entry(T view){this.view=view;}
     }
-    private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;
+    private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;private final Invalidated<T> invalidated;
     private final Thread owner=Thread.currentThread();private boolean closed,cleanupFailed,background;
-    MdoBrowserLifecycle(Factory<T> factory){if(factory==null)throw new IllegalArgumentException("Missing native input factory");this.factory=factory;}
+    MdoBrowserLifecycle(Factory<T> factory){this(factory,(key,view,epoch,reason)->{});}
+    MdoBrowserLifecycle(Factory<T> factory,Invalidated<T> invalidated){
+        if(factory==null||invalidated==null)throw new IllegalArgumentException("Missing native input factory/observer");
+        this.factory=factory;this.invalidated=invalidated;
+    }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Browser lifecycle requires its owning UI thread");}
     private Entry current(String key,T view){Entry entry=entries.get(key);return !closed&&entry!=null&&entry.view==view?entry:null;}
     boolean owns(String key,T view){thread();return current(key,view)!=null;}
@@ -32,7 +37,9 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         for(Entry entry:entries.values())if(entry.view==view)throw new IllegalStateException("Native view is already owned");
         Entry entry=new Entry(view);
         entry.input=factory.create(view,()->entry.epoch,()->current(key,view)==entry&&!background&&!entry.hidden&&!entry.manual&&!entry.failed);
-        if(entry.input==null)throw new IllegalStateException("Missing native input binding");entries.put(key,entry);
+        if(entry.input==null)throw new IllegalStateException("Missing native input binding");
+        try{entry.input.observeInvalidation(reason->invalidated.changed(key,view,entry.epoch,reason));entries.put(key,entry);}
+        catch(RuntimeException|Error failure){entry.input.close();throw failure;}
     }
     private void settle(Entry entry,Runnable operation){
         try{operation.run();}catch(RuntimeException error){entry.failed=true;cleanupFailed=true;}

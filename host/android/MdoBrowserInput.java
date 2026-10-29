@@ -19,6 +19,7 @@ final class MdoBrowserInput implements AutoCloseable {
     interface Completion { void complete(Result result); }
     interface Checked {void complete(String rejection);}
     interface Guard {void check(long remainingMilliseconds,Checked complete);}
+    interface Invalidated {void changed(String reason);}
     static final class Result {
         final boolean ok,effectMayHaveOccurred,cleanupConfirmed;final String code;final int deliveredSteps;
         Result(String code,boolean sent,boolean clean,int delivered){this.ok=code==null;this.code=code;
@@ -27,7 +28,7 @@ final class MdoBrowserInput implements AutoCloseable {
     static final class Failure extends Exception {final String code;Failure(String code){super(code);this.code=code;}}
     static final int DOWN=0,UP=1,MOVE=2,CANCEL=3;
     private final Target target;private final Scheduler scheduler;private final Thread owner=Thread.currentThread();
-    private Pending active;private boolean closed,poisoned;
+    private Pending active;private boolean closed,poisoned;private Invalidated invalidated;
     MdoBrowserInput(Target target,Scheduler scheduler){
         if(target==null||scheduler==null)throw new IllegalArgumentException("Missing native input target/scheduler");
         this.target=target;this.scheduler=scheduler;
@@ -113,15 +114,22 @@ final class MdoBrowserInput implements AutoCloseable {
     }
     boolean busy(){thread();return active!=null;}
     boolean cleanupConfirmed(){thread();return !poisoned&&active==null;}
+    void observeInvalidation(Invalidated observer){thread();if(observer==null||invalidated!=null||closed)
+        throw new IllegalStateException("Invalid input observer binding");invalidated=observer;}
+    private void retire(String reason){
+        try{if(invalidated!=null)invalidated.changed(reason);}
+        catch(RuntimeException|Error failure){poisoned=true;throw failure;}
+        finally{if(active!=null)active.finish(reason);}
+    }
     void cancel(){invalidate("input_cancelled");}
     void invalidate(String reason){thread();
         if(!("frame_changed".equals(reason)||"input_cancelled".equals(reason)||"user_taken_control".equals(reason)||
              "input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"input_dialog_open".equals(reason)||
              "file_chooser_open".equals(reason)||"popup_pending".equals(reason)))
             throw new IllegalArgumentException("Invalid native input invalidation");
-        if(active!=null)active.finish(reason);
+        retire(reason);
     }
-    @Override public void close(){thread();if(closed)return;closed=true;if(active!=null)active.finish("input_closed");}
+    @Override public void close(){thread();if(closed)return;closed=true;try{retire("input_closed");}finally{invalidated=null;}}
     private final class Pending {
         final Completion complete;final boolean needsFocus;final long document;final int width,height;final Guard check;
         final Runnable timer=this::tick,watchdog=()->finish("input_timed_out");float[] points;String name,text;int modifiers,duration,index,delivered,ticket;

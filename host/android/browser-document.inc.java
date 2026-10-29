@@ -1,7 +1,19 @@
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
     private final MdoBrowserWorld.Budget worldBudget=new MdoBrowserWorld.Budget(32);
+    private final MdoBrowserCdpRegistry<WebView> cdpViews=new MdoBrowserCdpRegistry<>((view,document,current)->
+        new MdoBrowserCdpView(view,owned->owned==view&&current.getAsBoolean(),document).marker());
     private boolean browserPaused;
+    // Private admission only: no raw protocol/source/endpoint route is exposed.
+    // The async backend will consume this once frame/profile policy is ready.
+    private MdoBrowserCdpMarker cdpMarker(String key,WebView view){
+        final long epoch=views.epoch(key,view);final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
+        return cdpViews.marker(key,view,epoch,original,()->!stopped&&!browserPaused&&views.owns(key,view)&&
+            views.epoch(key,view)==epoch&&view.isShown()&&!manual.contains(key)&&!pageClosed.contains(key)&&
+            !loading.getOrDefault(key,true)&&channel.current()==original&&channel.active(original,host.getUrl())&&
+            dialogReady(key,view)&&chooserReady(dialogs.get(key))&&
+            (!windows.containsKey(key)||windows.get(key).clean()&&windows.get(key).snapshot()==null));
+    }
     private void bindDocument(String key,WebView view,boolean automation){
         if(documents.containsKey(key))closeDocument(key);
         documentFailures.remove(key);
@@ -22,6 +34,7 @@
         }
     }
     private boolean closeDocument(String key){
+        WebView owned=views.get(key);if(owned!=null)cdpViews.invalidate(key,owned,views.epoch(key,owned),"input_cancelled");
         MdoBrowserPopups<WebView> popup=windows.get(key);if(popup!=null)popup.close();
         navigationRequests.remove(key);
         MdoBrowserDialogTarget dialog=dialogs.get(key);if(dialog!=null)dialog.close();
@@ -31,6 +44,7 @@
         if(document==null)return dialog==null||dialog.dialogs.clean();document.close();return document.cleanupConfirmed()&&(dialog==null||dialog.dialogs.clean());
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
+        cdpViews.invalidate(key,view,views.epoch(key,view),"input_closed");
         MdoBrowserPopups<WebView> popup=windows.remove(key);if(popup!=null)popup.close();
         popupLinks.remove(key);pageClosed.remove(key);
         navigationRequests.remove(key);
@@ -57,6 +71,7 @@
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.loaded();
     }
     private void blockDocuments(int reason,boolean value){
+        if(value)cdpViews.invalidateAll();
         if(value)cancelCaptures();
         for(MdoBrowserDocument document:new ArrayList<>(documents.values()))document.block(reason,value);
     }

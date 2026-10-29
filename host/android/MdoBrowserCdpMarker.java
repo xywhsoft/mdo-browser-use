@@ -19,6 +19,14 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
     interface View {boolean current();void evaluate(String source,Reply reply);}
     interface Reply {void done(String json);}
     private static final class RandomHolder {static final SecureRandom VALUE=new SecureRandom();}
+    /** UI-owned document quota, shared across all short-lived admission leases.
+     * Hiding/reconnecting must not reset lexical declarations in the same DOM. */
+    static final class DocumentQuota implements AutoCloseable {
+        private final Thread owner=Thread.currentThread();private int declarations;private boolean retired;
+        private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Document quota requires its UI owner");}
+        boolean acquire(){thread();if(retired||declarations>=16)return false;declarations++;return true;}
+        @Override public void close(){thread();retired=true;}
+    }
     static final class Budget {
         private final int limit;private final ArrayList<WeakReference<Cell>> cells=new ArrayList<>();
         Budget(int limit){if(limit<1||limit>64)throw new IllegalArgumentException("Invalid marker budget");this.limit=limit;}
@@ -91,7 +99,8 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
             if(!returned.compareAndSet(false,true))return;
             try {
                 MdoBrowserCdpMarker marker=ticket.owner.get();
-                if(marker==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!marker.view.current()) {
+                View view=marker==null?null:marker.view;
+                if(view==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!view.current()) {
                     ticket.fail("cdp_binding_owner_changed");return;
                 }
                 if(!("\""+ticket.value+"\"").equals(json)){ticket.fail("cdp_binding_marker_failed");return;}
@@ -107,14 +116,14 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
             if(!ticket.state.compareAndSet(0,1))return;
             MdoBrowserCdpMarker marker=ticket.owner.get();
             try {
-                if(marker==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!marker.view.current()) {
+                View view=marker==null?null:marker.view;
+                if(view==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!view.current()) {
                     ticket.fail("cdp_binding_owner_changed");ticket.cell.budget.release(ticket.cell);return;
                 }
                 if(ticket.state.get()!=1){ticket.cell.budget.release(ticket.cell);return;}
-                if(marker.declarations>=16){ticket.fail("cdp_binding_document_limit");ticket.cell.budget.release(ticket.cell);return;}
-                marker.declarations++;
+                if(!marker.document.acquire()){ticket.fail("cdp_binding_document_limit");ticket.cell.budget.release(ticket.cell);return;}
                 ticket.dispatched.set(true);
-                marker.view.evaluate(ticket.source,ticket.cell);
+                view.evaluate(ticket.source,ticket.cell);
             } catch(RuntimeException|Error failure) {
                 // The provider may already retain the callback before throwing.
                 // Keep its weak budget slot until completion or actual GC.
@@ -123,12 +132,14 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
             }
         }
     }
-    private final Ui ui;private final View view;private final Budget budget;
+    private final Ui ui;private volatile View view;private final Budget budget;private final DocumentQuota document;
     private final Lease lease;private final AtomicReference<Ticket> active=new AtomicReference<>();
-    private int declarations;
     MdoBrowserCdpMarker(Ui ui,View view,Budget budget) {
-        if(ui==null||view==null||budget==null||!ui.onThread())throw new IllegalArgumentException("Marker requires its owning UI thread");
-        this.ui=ui;this.view=view;this.budget=budget;lease=new Lease(this);
+        this(ui,view,budget,new DocumentQuota());
+    }
+    MdoBrowserCdpMarker(Ui ui,View view,Budget budget,DocumentQuota document) {
+        if(ui==null||view==null||budget==null||document==null||!ui.onThread())throw new IllegalArgumentException("Marker requires its owning UI thread");
+        this.ui=ui;this.view=view;this.budget=budget;this.document=document;lease=new Lease(this);
     }
     Lease lease(){return lease;}
     Ticket request() throws IOException {
@@ -154,5 +165,5 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
     void discard(Ticket ticket) {
         if(ticket!=null)ticket.close();
     }
-    @Override public void close(){lease.invalidate();Ticket ticket=active.getAndSet(null);if(ticket!=null)ticket.close();}
+    @Override public void close(){view=null;lease.invalidate();Ticket ticket=active.getAndSet(null);if(ticket!=null)ticket.close();}
 }

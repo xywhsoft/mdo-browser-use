@@ -5353,3 +5353,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remain false. Host overlay/APK integration follows with the lifecycle stage;
   no formal installation, provider update or publication performed.
 
+## E54 — connect private CDP ownership to native UI lifetimes
+
+- Add an exact-instance, UI-owned registry (eight views maximum), with lazy
+  adapters only when privately requested. The native input observer revokes
+  bindings before completing cancellation, including direct dialog, chooser
+  and popup callbacks as well as navigation, visibility, takeover, background,
+  viewport changes, stop and destruction. Host channel blockers revoke all
+  leases. Marker retirement drops its UI predicate/view reference immediately.
+- Preserve a shared 16-declaration quota across adapter retirement/recreation
+  in the same document, including channel replacement; only an observed newer
+  navigation or native view destruction retires that quota. Reject silent epoch
+  replacement, key/view aliases, stale callbacks, cross-thread registry access,
+  closed admission and capacity overflow. Replacing a named-world wrapper does
+  not reset the underlying document quota. Add no public CDP route/debug toggle.
+- Actual registry/lifecycle/input/marker gate passes 107 checks; retained actual
+  JNI/strict JSON/binding gates pass 474 binding, 4,303 dispatcher, 138 worker,
+  1,141 WebSocket and 310 discovery checks. Input contracts retain their E53
+  pass. Evidence: `.mdo/E54-registry.log` and adjacent native receipt. UI calls
+  remain doubled; this does not qualify an installed WebView/provider.
+- Build the actual full Android host after stopping/applying reviewed overlays.
+  Reuse the verified ARM64 engine and N5 archive. APK: 6,325,569 bytes, SHA-256
+  `3bacd544738bc9a59aaf1ace21887ed892497f29c6ea40df47944038e3770c67`
+  (`.mdo/E54-android-build.log`). Real SDK compilation, actual registry DEX
+  definitions, package/manifest/signatures/native exports/payload checks pass;
+  seven positive/adversarial Android packaging unit tests pass. Retain false
+  device/provider/automation flags and the unchanged WebView. Next implement
+  bounded asynchronous worker dispatch, then frame/transfer/policy integration.
+
