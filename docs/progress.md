@@ -5721,3 +5721,43 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   qualification and cross-platform unique-context audit are still open. Phone
   remains deferred, provider/formal data unchanged, Agent automation disabled.
   No model calls, external page browsing, extra app/Home copies or online release.
+
+## E64 — withhold screenshots until their final isolated guard acknowledges
+
+- Extend the existing Android capture transaction from initial admission to a
+  second isolated guard after encoding and before image delivery. Reuse the
+  original guard, absolute deadline and weak native lease, adding phase/ticket
+  validation so an old/duplicate callback cannot authorize the final phase or a
+  replacement capture. This prepares the capture core for the native frame-graph
+  proof; connecting its capture context/composed masks remains the next stage.
+- Release the native bitmap after encoding while retaining the shared capture
+  reservation for the bounded private encoded image until validation settles.
+  Clear owned bytes after final guard error/cancel/navigation/timeout/close,
+  invalid encode, lost scheduling/allocation/delivery or cleanup failure. Keep
+  uncertain native cleanup poisoned. Successful output transfers to the caller;
+  no draw/encode is replayed and no guard receives a fresh extended timeout.
+- Adversarial snapshot-supplier tests exposed reentrant cancellation gaps:
+  an old guard could proceed to native readiness, native-ready cancellation
+  needed its terminal work acknowledgement, and encoded snapshot cancellation
+  needed to clear its local result before abandoning the Job. Fence exact active
+  Job/phase after those external calls and settle only the original work record.
+- Actual production Java capture core passes 304 checks, including final-guard
+  withholding/duplicate/old callbacks, all final error paths and clearing,
+  original remaining deadline, private-image global quotas, failed result
+  delivery/timer removal and reentrant snapshot cancellation at each stage,
+  plus retained lifetime/OOM/worker/cleanup tests (`.mdo/E64-capture-guard.log`).
+  Targets/scheduler/bitmaps are synthetic; no Android framework/provider pass.
+- Stop/apply reviewed overlays and rebuild the complete development Android APK
+  with the exercised E63 app archive and existing native engine/QA signer:
+  6,350,145 bytes, SHA-256
+  `bba4e663d088552238bea0e8f371cea02dade905fba634db7196e41685bfb297`
+  (`.mdo/E64-android-build.log`, adjacent receipt). SDK/D8, native ABI/payload,
+  private-provider, alignment/signatures and source/JNI checks pass. Full Python
+  regression passes 165/167 with two existing symlink skips in 65.829 s
+  (`.mdo/E64-python-full.log`). Single deployment HTTP 200, 3,419.0 MiB; Windows
+  program/plugin/JS contracts unchanged from the tested E63 payload.
+- Continue actual native frame-chain capture context, fixed per-frame/owner
+  geometry checks and shared C/JS mask routing, then transfer/activation/profile
+  and platform/realm audits. Keep phone/current provider/formal data unchanged,
+  no model calls/external browsing/publication, and Android automation disabled.
+  Full goal remains active.

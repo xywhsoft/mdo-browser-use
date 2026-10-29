@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** UI-owned capture transaction. Native readiness and worker bitmap ownership
  * outlive a cancelled client until their actual terminal acknowledgement. */
 final class MdoBrowserCapture implements AutoCloseable {
+    private static void clear(byte[] data){if(data!=null)java.util.Arrays.fill(data,(byte)0);}
     interface Scheduler {long now();void post(Runnable task,long milliseconds);void at(Runnable task,long deadline);void remove(Runnable task);}
     interface Worker {void execute(Runnable task);default void remove(Runnable task){}}
     interface Raster extends AutoCloseable {byte[] encode(String format,int maximumBytes);void close();}
@@ -60,11 +61,11 @@ final class MdoBrowserCapture implements AutoCloseable {
     }
     private static final class Lease {
         final WeakReference<MdoBrowserCapture> owner;final Scheduler scheduler;final Token token;
-        boolean visual,work,abandoned,returned,cleanupFailed;String code;byte[] data;
+        boolean visual,work,validating,abandoned,returned,cleanupFailed;String code;byte[] data;
         Lease(MdoBrowserCapture owner,Scheduler scheduler,Token token){this.owner=new WeakReference<>(owner);this.scheduler=scheduler;this.token=token;}
         synchronized boolean retained(){return !returned;}
         synchronized boolean cleanupFailed(){return cleanupFailed;}
-        void checked(String code){MdoBrowserCapture current=owner.get();if(current!=null)current.checked(this,code);else abandon();}
+        void checked(int phase,int ticket,String code){MdoBrowserCapture current=owner.get();if(current!=null)current.checked(this,phase,ticket,code);else abandon();}
         synchronized void waitVisual(){visual=true;}
         void ready(){
             MdoBrowserCapture current=owner.get();if(current!=null)current.thread();
@@ -72,32 +73,34 @@ final class MdoBrowserCapture implements AutoCloseable {
                 if(abandoned||current==null){finishIdle();return;}work=true;}
             current.visualReady(this);
         }
-        synchronized void abandon(){abandoned=true;data=null;finishIdle();}
-        synchronized void destroyed(){abandoned=true;visual=false;data=null;finishIdle();}
+        synchronized void abandon(){abandoned=true;validating=false;clear(data);data=null;finishIdle();}
+        synchronized void destroyed(){abandoned=true;visual=false;validating=false;clear(data);data=null;finishIdle();}
         private void finishIdle(){
             // A failed bitmap release cannot prove the native allocation is
             // gone. Keep that shared slot reserved until the runtime resets.
-            if(!visual&&!work&&!returned){returned=true;if(!cleanupFailed)token.release();}
+            if(!visual&&!work&&!validating&&!returned){returned=true;if(!cleanupFailed)token.release();}
         }
         void encoded(String failure,byte[] bytes){
-            synchronized(this){if(!work)return;work=false;code=failure;cleanupFailed="capture_cleanup_failed".equals(failure);data=abandoned?null:bytes;finishIdle();}
+            synchronized(this){if(!work){clear(bytes);return;}work=false;code=failure;cleanupFailed="capture_cleanup_failed".equals(failure);
+                if(abandoned)clear(bytes);data=abandoned?null:bytes;validating=!abandoned&&failure==null&&bytes!=null;finishIdle();}
             try{scheduler.post(this::deliver,0);}catch(RuntimeException|OutOfMemoryError error){
-                synchronized(this){data=null;code="capture_reply_unavailable";}}
+                synchronized(this){clear(data);data=null;validating=false;code="capture_reply_unavailable";finishIdle();}}
         }
         void deliver(){MdoBrowserCapture current=owner.get();if(current!=null)current.encoded(this);else abandon();}
-        synchronized Result take(Plan plan){byte[] bytes=data;data=null;return new Result(code,bytes,plan);}
+        synchronized Result take(Plan plan){byte[] bytes=data;data=null;
+            try{return new Result(code,bytes,plan);}catch(OutOfMemoryError error){clear(bytes);throw error;}}
     }
     private static final class Work implements Runnable {
         private final AtomicInteger state=new AtomicInteger();private final Raster raster;private final Lease lease;private final Plan plan;
         Work(Raster raster,Lease lease,Plan plan){this.raster=raster;this.lease=lease;this.plan=plan;}
         public void run(){
             if(!state.compareAndSet(0,1))return;String code=null;byte[] data=null;
-            try{data=raster.encode(plan.format,plan.maximumBytes);if(data==null||data.length<1||data.length>plan.maximumBytes){code="capture_byte_limit";data=null;}}
+            try{data=raster.encode(plan.format,plan.maximumBytes);if(data==null||data.length<1||data.length>plan.maximumBytes){code="capture_byte_limit";clear(data);data=null;}}
             catch(Limit error){code="capture_byte_limit";}
             catch(OutOfMemoryError error){code="capture_memory_limit";}
             catch(RuntimeException error){code="capture_encode_failed";}
             finally{
-                try{raster.close();}catch(RuntimeException|OutOfMemoryError error){code="capture_cleanup_failed";data=null;}
+                try{raster.close();}catch(RuntimeException|OutOfMemoryError error){code="capture_cleanup_failed";clear(data);data=null;}
                 state.set(2);lease.encoded(code,data);
             }
         }
@@ -124,44 +127,55 @@ final class MdoBrowserCapture implements AutoCloseable {
         if(busy())throw new Failure("capture_busy");if(poisoned)throw new Failure("capture_cleanup_failed");String code=changed(plan);if(code!=null)throw new Failure(code);
         Token token=budget.claim();if(token==null)throw new Failure("capture_resource_limit");
         Job job;
-        try{Lease lease=new Lease(this,scheduler,token);job=new Job(plan,complete,lease);retained=lease;active=job;}
+        try{Lease lease=new Lease(this,scheduler,token);job=new Job(plan,guard,complete,lease);retained=lease;active=job;}
         catch(RuntimeException|OutOfMemoryError error){token.release();throw new Failure("capture_memory_limit");}
         try{job.deadline=scheduler.now()+plan.timeout;scheduler.at(job.watchdog,job.deadline);}
         catch(RuntimeException|OutOfMemoryError error){job.finish("capture_timer_unavailable",null);return;}
         if(active!=job)return;
         code=job.check();if(code!=null){job.finish(code,null);return;}
-        long remaining;
+        requestGuard(job,0);
+    }
+    private void requestGuard(Job job,int phase){
+        if(active!=job||job.done)return;long remaining;
         try{remaining=job.deadline-scheduler.now();}catch(RuntimeException error){job.finish("capture_timer_unavailable",null);return;}
         if(remaining<=0){job.finish("capture_timed_out",null);return;}
-        try{guard.check(remaining,job.lease::checked);}
-        catch(RuntimeException|OutOfMemoryError error){if(active==job&&job.phase==0)job.finish("capture_guard_failed",null);}
+        final Lease lease=job.lease;final int ticket=++job.ticket;
+        // Retain only the weak lease and phase ticket in a provider callback,
+        // never the Job/guard/target. An old acknowledgement cannot admit the
+        // post-encode phase or retain a cancelled view and its encoded image.
+        try{job.guard.check(remaining,code->lease.checked(phase,ticket,code));}
+        catch(RuntimeException|OutOfMemoryError error){if(active==job&&job.phase==phase&&job.ticket==ticket)job.finish("capture_guard_failed",null);}
     }
     private final class Job {
-        final Plan plan;final Complete complete;final Lease lease;final Runnable watchdog=()->finish("capture_timed_out",null);
-        long deadline;int phase;boolean done;Work work;
-        Job(Plan plan,Complete complete,Lease lease){this.plan=plan;this.complete=complete;this.lease=lease;}
+        final Plan plan;final Guard guard;final Complete complete;final Lease lease;final Runnable watchdog=()->finish("capture_timed_out",null);
+        long deadline;int phase,ticket;boolean done;Work work;byte[] encoded;
+        Job(Plan plan,Guard guard,Complete complete,Lease lease){this.plan=plan;this.guard=guard;this.complete=complete;this.lease=lease;}
         String check(){
             if(closed||destroyed)return "capture_closed";
             try{if(scheduler.now()>=deadline)return "capture_timed_out";}catch(RuntimeException error){return "capture_timer_unavailable";}
             return changed(plan);
         }
         void finish(String code,byte[] data){
-            thread();if(done||active!=this)return;done=true;active=null;
-            try{scheduler.remove(watchdog);}catch(RuntimeException error){if(code==null){code="capture_timer_unavailable";data=null;}}
+            thread();if(done||active!=this)return;done=true;active=null;ticket++;
+            try{scheduler.remove(watchdog);}catch(RuntimeException|OutOfMemoryError error){if(code==null)code="capture_timer_unavailable";}
+            if(code!=null){clear(encoded);clear(data);data=null;}encoded=null;
             lease.abandon();if(code!=null)discardWork(this);
-            try{complete.complete(new Result(code,data,plan));}catch(RuntimeException ignored){}
+            try{complete.complete(new Result(code,data,plan));}catch(RuntimeException|OutOfMemoryError ignored){clear(data);}
         }
     }
-    private void checked(Lease lease,String code){
-        thread();Job job=active;if(job==null||job.lease!=lease||job.phase!=0)return;
+    private void checked(Lease lease,int phase,int ticket,String code){
+        thread();Job job=active;if(job==null||job.lease!=lease||job.phase!=phase||job.ticket!=ticket||phase!=0&&phase!=4)return;
         if(code!=null){job.finish(code.matches("[a-z][a-z0-9_]{0,63}")?code:"capture_guard_failed",null);return;}
-        code=job.check();if(code!=null){job.finish(code,null);return;}job.phase=1;lease.waitVisual();
+        code=job.check();if(code!=null){job.finish(code,null);return;}if(active!=job||job.done||job.phase!=phase||job.ticket!=ticket)return;
+        if(phase==4){byte[] data=job.encoded;job.encoded=null;job.finish(null,data);return;}
+        job.phase=1;lease.waitVisual();
         try{target.ready(lease::ready);}catch(RuntimeException|OutOfMemoryError error){if(active==job&&job.phase==1)job.finish("capture_ready_unconfirmed",null);}
     }
     private void visualReady(Lease lease){
         thread();Job job=active;
         if(job==null||job.lease!=lease||job.phase!=1){lease.encoded("capture_cancelled",null);return;}
         String code=job.check();if(code!=null){lease.encoded(code,null);job.finish(code,null);return;}
+        if(active!=job||job.done||job.phase!=1){lease.encoded("capture_cancelled",null);return;}
         job.phase=2;Raster raster=null;
         try{
             raster=target.draw(job.plan);if(raster==null)throw new IllegalStateException("Missing native capture raster");
@@ -183,9 +197,11 @@ final class MdoBrowserCapture implements AutoCloseable {
     }
     private void encoded(Lease lease){
         thread();if(lease.cleanupFailed())poisoned=true;Job job=active;if(job==null||job.lease!=lease||job.phase!=3){lease.abandon();return;}
-        Result result=lease.take(job.plan);String code=job.check();
+        Result result;try{result=lease.take(job.plan);}catch(OutOfMemoryError error){job.finish("capture_memory_limit",null);return;}
+        String code=job.check();if(active!=job||job.done||job.phase!=3){clear(result.data);return;}
         if(code==null)code=result.code;if(code==null&&(result.data==null||result.data.length<1||result.data.length>job.plan.maximumBytes))code="capture_reply_unavailable";
-        job.finish(code,code==null?result.data:null);
+        if(code!=null){clear(result.data);job.finish(code,null);return;}
+        job.encoded=result.data;job.phase=4;requestGuard(job,4);
     }
     boolean busy(){thread();if(retained!=null&&!retained.retained()){if(retained.cleanupFailed())poisoned=true;retained=null;}return active!=null||retained!=null;}
     boolean cleanupConfirmed(){thread();return !busy()&&!poisoned;}

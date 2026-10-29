@@ -42,20 +42,21 @@ public final class AndroidCaptureContractTest {
         }
     }
     static final class Encoder implements MdoBrowserCapture.Raster {
-        int encodes,closes;String mode="ok";Runnable during;
+        int encodes,closes;String mode="ok";Runnable during;byte[] data;
         public byte[] encode(String format,int maximum){encodes++;check("png".equals(format)&&maximum==128,"Encoder received changed plan");
             if(during!=null)during.run();
             if(mode.equals("oom"))throw new OutOfMemoryError("Synthetic encoding OOM");
             if(mode.equals("failure"))throw new IllegalStateException("Private encoder failure");
             if(mode.equals("limit"))throw new MdoBrowserCapture.Limit();
-            return mode.equals("empty")?new byte[0]:mode.equals("oversized")?new byte[129]:new byte[]{1,2,3};
+            return data=mode.equals("empty")?new byte[0]:mode.equals("oversized")?new byte[129]:new byte[]{1,2,3};
         }
         public void close(){closes++;if(mode.equals("cleanup"))throw new IllegalStateException("Synthetic bitmap release failure");}
     }
     static final class Surface implements MdoBrowserCapture.Target {
         String document=DOC;long navigation=7;int width=640,height=480,scrollX=20,scrollY=40,draws;double scale=2;
-        boolean visible=true,throwReady,afterReady,oomDraw,cleanupDraw;Runnable ready,duringDraw;final Encoder encoder=new Encoder();
-        public MdoBrowserCapture.Snapshot snapshot(){if(!visible)return null;return new MdoBrowserCapture.Snapshot(document,navigation,width,height,scrollX,scrollY,scale);}
+        boolean visible=true,throwReady,afterReady,oomDraw,cleanupDraw;Runnable ready,duringDraw,duringSnapshot;final Encoder encoder=new Encoder();
+        public MdoBrowserCapture.Snapshot snapshot(){Runnable callback=duringSnapshot;duringSnapshot=null;if(callback!=null)callback.run();
+            if(!visible)return null;return new MdoBrowserCapture.Snapshot(document,navigation,width,height,scrollX,scrollY,scale);}
         public void ready(Runnable complete){ready=complete;if(throwReady&&!afterReady)throw new IllegalStateException("Native readiness acknowledgement lost");
             if(afterReady)complete.run();if(throwReady)throw new IllegalStateException("Post-callback exception");}
         public MdoBrowserCapture.Raster draw(MdoBrowserCapture.Plan plan){draws++;if(cleanupDraw)throw new MdoBrowserCapture.Cleanup();if(oomDraw)throw new OutOfMemoryError("Synthetic bitmap allocation");if(duringDraw!=null)duringDraw.run();return encoder;}
@@ -75,7 +76,8 @@ public final class AndroidCaptureContractTest {
         MdoBrowserCapture.Plan plan(){return new MdoBrowserCapture.Plan(surface.snapshot(),10,20,200,100,.5,"png",128,100);}
         void begin()throws Exception {capture.capture(plan(),(remaining,complete)->{check(remaining==100,"Original deadline changed");guards.add(complete);},results::add);}
         void ready(){guards.get(guards.size()-1).complete(null);surface.ready.run();}
-        void finish(){worker.run();clock.advance(0);}
+        void encode(){worker.run();clock.advance(0);}
+        void finish(){int before=guards.size();encode();if(guards.size()>before)guards.get(guards.size()-1).complete(null);}
         void failed(String code){check(results.size()==1&&!results.get(0).ok&&code.equals(results.get(0).code)&&results.get(0).data==null,"Wrong failed capture receipt: "+code);}
         void clean(){check(!capture.busy()&&capture.cleanupConfirmed()&&budget.pending()==0&&clock.tasks.isEmpty(),"Original capture did not drain");}
     }
@@ -87,6 +89,46 @@ public final class AndroidCaptureContractTest {
         check(success.results.size()==1&&success.results.get(0).ok&&Arrays.equals(success.results.get(0).data,new byte[]{1,2,3}),"Capture lost encoded bytes");
         check(success.results.get(0).plan.outputWidth==100&&success.results.get(0).plan.outputHeight==50,"Output dimensions changed");
         check(success.surface.encoder.encodes==1&&success.surface.encoder.closes==1,"Raster was reused or released twice");success.clean();
+
+        Case post=new Case();post.begin();post.ready();post.encode();
+        check(post.guards.size()==2&&post.results.isEmpty()&&post.capture.busy(),"Encoded bytes escaped before the post-capture guard");
+        check(post.budget.pending()==1&&post.surface.encoder.closes==1,"Post guard lost its private-image reservation or retained the bitmap");
+        post.guards.get(0).complete(null);post.guards.get(0).complete("frame_changed");check(post.results.isEmpty(),"Old pre-capture callback admitted or rejected the post-capture phase");
+        post.guards.get(1).complete(null);post.guards.get(1).complete("late_failure");
+        check(post.results.size()==1&&post.results.get(0).ok,"Post-capture acknowledgement did not settle exactly once");post.clean();
+        for(String mode:new String[]{"reject","cancel","timeout","navigation","close"}){
+            Case withheld=new Case();withheld.begin();withheld.ready();withheld.encode();
+            byte[] held=withheld.surface.encoder.data;
+            if(mode.equals("reject"))withheld.guards.get(1).complete("frame_changed");
+            if(mode.equals("cancel"))withheld.capture.cancel();
+            if(mode.equals("timeout"))withheld.clock.advance(100);
+            if(mode.equals("navigation")){withheld.surface.navigation++;withheld.guards.get(1).complete(null);}
+            if(mode.equals("close"))withheld.capture.close();
+            withheld.failed(mode.equals("cancel")?"capture_cancelled":mode.equals("timeout")?"capture_timed_out":mode.equals("close")?"capture_closed":mode.equals("navigation")?"capture_changed":"frame_changed");
+            for(byte value:held)check(value==0,"Withheld encoded screenshot was not cleared");
+            withheld.guards.get(1).complete(null);check(withheld.results.size()==1,"Late post guard published a withheld screenshot");withheld.clean();
+        }
+        Case remainingPost=new Case();final List<Long> budgets=new ArrayList<>();
+        remainingPost.capture.capture(remainingPost.plan(),(remaining,complete)->{budgets.add(remaining);remainingPost.guards.add(complete);},remainingPost.results::add);
+        remainingPost.ready();remainingPost.clock.advance(40);remainingPost.encode();
+        check(budgets.equals(Arrays.asList(100L,60L)),"Post guard extended the original capture deadline");
+        remainingPost.clock.advance(60);remainingPost.failed("capture_timed_out");remainingPost.guards.get(1).complete(null);remainingPost.clean();
+        Case resultFailure=new Case();resultFailure.capture.capture(resultFailure.plan(),(remaining,complete)->complete.complete(null),result->{throw new OutOfMemoryError("Synthetic result allocation failure");});
+        resultFailure.surface.ready.run();resultFailure.encode();
+        for(byte value:resultFailure.surface.encoder.data)check(value==0,"Lost result delivery retained private source bytes");resultFailure.clean();
+        Case guardSnapshotCancel=new Case();guardSnapshotCancel.begin();guardSnapshotCancel.surface.duringSnapshot=guardSnapshotCancel.capture::cancel;
+        guardSnapshotCancel.guards.get(0).complete(null);guardSnapshotCancel.failed("capture_cancelled");
+        check(guardSnapshotCancel.surface.ready==null,"Reentrant snapshot cancellation still requested native readiness");guardSnapshotCancel.clean();
+        Case readySnapshotCancel=new Case();readySnapshotCancel.begin();readySnapshotCancel.guards.get(0).complete(null);
+        readySnapshotCancel.surface.duringSnapshot=readySnapshotCancel.capture::cancel;readySnapshotCancel.surface.ready.run();
+        readySnapshotCancel.failed("capture_cancelled");check(readySnapshotCancel.surface.draws==0,"Reentrant readiness snapshot cancellation still allocated a raster");
+        readySnapshotCancel.clock.advance(0);readySnapshotCancel.clean();
+        Case encodedSnapshotCancel=new Case();encodedSnapshotCancel.begin();encodedSnapshotCancel.ready();encodedSnapshotCancel.worker.run();
+        encodedSnapshotCancel.surface.duringSnapshot=encodedSnapshotCancel.capture::cancel;encodedSnapshotCancel.clock.advance(0);encodedSnapshotCancel.failed("capture_cancelled");
+        for(byte value:encodedSnapshotCancel.surface.encoder.data)check(value==0,"Reentrant encoded snapshot cancellation retained source bytes");encodedSnapshotCancel.clean();
+        Case finalSnapshotCancel=new Case();finalSnapshotCancel.begin();finalSnapshotCancel.ready();finalSnapshotCancel.encode();
+        finalSnapshotCancel.surface.duringSnapshot=finalSnapshotCancel.capture::cancel;finalSnapshotCancel.guards.get(1).complete(null);finalSnapshotCancel.failed("capture_cancelled");
+        for(byte value:finalSnapshotCancel.surface.encoder.data)check(value==0,"Reentrant final snapshot cancellation retained source bytes");finalSnapshotCancel.clean();
 
         Case noGuard=new Case();noGuard.begin();noGuard.clock.advance(100);noGuard.failed("capture_timed_out");
         noGuard.guards.get(0).complete(null);check(noGuard.surface.ready==null&&noGuard.surface.draws==0,"Late guard restarted timed-out capture");noGuard.clean();
@@ -160,6 +202,15 @@ public final class AndroidCaptureContractTest {
         a.capture.viewDestroyed();c.begin();check(shared.pending()==2,"Exact view destruction did not release one native slot");
         a.surface.ready.run();check(shared.pending()==2,"An old callback released its replacement's budget");
         b.surface.ready.run();c.capture.cancel();check(shared.pending()==0,"Shared readiness budget failed to drain");
+
+        MdoBrowserCapture.Budget privateImages=new MdoBrowserCapture.Budget(2);Case firstImage=new Case(privateImages),secondImage=new Case(privateImages),thirdImage=new Case(privateImages);
+        firstImage.begin();firstImage.ready();firstImage.encode();secondImage.begin();secondImage.ready();secondImage.encode();
+        refused("capture_resource_limit",thirdImage::begin);check(privateImages.pending()==2,"Post guards escaped the shared private-image quota");
+        firstImage.guards.get(1).complete(null);thirdImage.begin();thirdImage.ready();thirdImage.finish();
+        secondImage.capture.cancel();firstImage.clean();secondImage.clean();thirdImage.clean();
+        Case removeFailure=new Case();removeFailure.begin();removeFailure.ready();removeFailure.encode();removeFailure.clock.removeFailure=true;
+        removeFailure.guards.get(1).complete(null);removeFailure.failed("capture_timer_unavailable");
+        for(byte value:removeFailure.surface.encoder.data)check(value==0,"Failed deadline removal retained source bytes");removeFailure.clock.removeFailure=false;removeFailure.clean();
 
         Case encoding=new Case();encoding.begin();encoding.ready();CountDownLatch entered=new CountDownLatch(1),exit=new CountDownLatch(1);
         encoding.surface.encoder.during=()->{entered.countDown();try{exit.await();}catch(InterruptedException error){throw new IllegalStateException(error);}};

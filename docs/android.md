@@ -14,7 +14,7 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E63)
+## Complete development host APK (E46/E64)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -22,7 +22,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,350,145 bytes, SHA-256
-`850c38c8b70f02b7ecc584d398f928e300efca1f37a107f42e595a603a838a3e`.
+`bba4e663d088552238bea0e8f371cea02dade905fba634db7196e41685bfb297`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E63-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E63-python-full.log` (165/167 pass, two existing symlink skips).
+`.mdo/E64-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E64-python-full.log` (165/167 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -2015,3 +2015,42 @@ development update-channel prefix. SDK/D8 definitions, package/native ABI,
 alignment/private-provider attributes and signatures pass. Keep the original
 provider, deferred phone and overall Android automation gate unchanged. Continue
 frame-chain capture, transfers, activation/profile policy and platform audits.
+
+### Two-phase screenshot admission and final validation (E64)
+
+The native capture transaction invokes its original isolated guard before native
+visual readiness and again after bitmap encoding, before transferring any image
+bytes to the caller. Both inherit the same original absolute deadline. Keep the
+encoded bytes in the original bounded transaction while its final guard waits;
+release the bitmap but retain the shared capture reservation through final
+validation. Other views cannot accumulate unacknowledged private images outside
+that quota. Successful output ownership transfers to the completion callback.
+
+Each guard callback carries its exact weak lease, phase and monotonically
+changing ticket. Pre-capture or duplicate callbacks cannot authorize/reject the
+final phase, retain the cancelled Job/target or affect a newer capture. Recheck
+active Job/phase after calling the target's snapshot supplier: reentrant
+cancellation cannot request another visual callback, allocate a raster or retain
+an already encoded image. A received native-ready callback still settles its
+original work acknowledgement even if that snapshot call cancelled the job.
+
+Clear owned encoded bytes on final-guard rejection, navigation, cancellation,
+close/deadline, lost UI dispatch, failed delivery/allocation, invalid encoding or
+cleanup failure. A lost UI delivery releases its already terminal resource
+reservation after clearing the bytes; unconfirmed bitmap cleanup retains its
+existing poisoned reservation. Final validation never replays a draw/encode or
+extends a deadline. The current main-document guard uses this two-phase path;
+private native frame-graph capture context/combined-mask integration remains
+pending, and overall Android Agent admission stays disabled.
+
+`python tools/android_capture_probe.py` passes 304 actual Java-core checks with
+synthetic targets/schedulers/raster encoders. Added coverage includes final-guard
+withholding, old/duplicate callbacks, original remaining deadline, all final
+cancel/error paths, byte clearing, shared private-image quotas and cancellation
+reentrant from snapshots at each phase. Existing worker/native callback lifetime,
+OOM, cleanup and buffer limits remain covered (`.mdo/E64-capture-guard.log`).
+The actual SDK/D8/signature/ABI host build passes (`.mdo/E64-android-build.log`);
+full Python regression passes 165/167 with two existing symlink skips in 65.829 s
+(`.mdo/E64-python-full.log`). The current provider/phone remain deferred and
+framework drawing, installed-provider geometry and full frame capture are still
+unqualified. Windows program/paired plugin remain at the exercised E63 versions.
