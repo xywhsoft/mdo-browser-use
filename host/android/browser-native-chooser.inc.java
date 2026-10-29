@@ -26,7 +26,7 @@
         MdoBrowserDialogTarget target=dialogs.get(key);
         MdoBrowserChoosers binding=target instanceof MdoBrowserChooserTarget?((MdoBrowserChooserTarget)target).choosers:null;
         MdoBrowserChoosers.Snapshot pending=binding==null?null:binding.snapshot();
-        return state.put("chooser_capability",binding!=null).put("chooser_upload_capability",false)
+        return uploadState(state).put("chooser_capability",binding!=null).put("chooser_upload_capability",false)
             .put("chooser_armed",binding!=null&&binding.intercepting()).put("chooser_open",pending!=null)
             .put("chooser_cleanup_failed",binding!=null&&!binding.clean()).put("chooser_frame_identity_verified",false);
     }

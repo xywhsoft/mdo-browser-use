@@ -23,14 +23,17 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserDialogs.java','host/android/MdoBrowserDialogTarget.java','host/android/dev/BrowserUseDialogProbe.java',
         'host/android/MdoBrowserPopups.java','host/android/MdoBrowserWindowTarget.java','host/android/dev/BrowserUsePopupProbe.java',
         'host/android/MdoBrowserChoosers.java','host/android/MdoBrowserChooserTarget.java','host/android/browser-native-chooser.inc.java',
-        'host/android/dev/BrowserUseChooserProbe.java','host/android/MdoBrowserUploadFiles.java')
+        'host/android/dev/BrowserUseChooserProbe.java','host/android/MdoBrowserUploadFiles.java',
+        'host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserUploadRuntime.java',
+        'host/android/browser-native-upload.inc.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
     'tools/android/MdoBrowserCaptureBuffer.java','tools/android/MdoBrowserCaptureRuntime.java','tools/android/MdoBrowserCaptureTarget.java',
     'tools/android/MdoBrowserNativeCapture.java','tools/android/MdoBrowserDialogs.java','tools/android/MdoBrowserDialogTarget.java',
     'tools/android/MdoBrowserPopups.java','tools/android/MdoBrowserWindowTarget.java',
-    'tools/android/MdoBrowserChoosers.java','tools/android/MdoBrowserChooserTarget.java','tools/android/MdoBrowserUploadFiles.java')
+    'tools/android/MdoBrowserChoosers.java','tools/android/MdoBrowserChooserTarget.java','tools/android/MdoBrowserUploadFiles.java',
+    'tools/android/MdoBrowserUploadStore.java','tools/android/MdoBrowserUploadQueue.java','tools/android/MdoBrowserUploadRuntime.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py',)
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))
@@ -113,7 +116,8 @@ def main():
         'production_popup_bridge_compiled':True,'native_popup_fixture_compiled':True,'popup_framework_verified':False,'popup_world_qualified':False,
         'production_chooser_bridge_compiled':True,'native_chooser_fixture_compiled':True,
         'chooser_framework_verified':False,'chooser_assignment_supported':False,
-        'production_upload_staging_compiled':True,'private_upload_cache_authority_verified':False}
+        'production_upload_staging_compiled':True,'production_upload_queue_compiled':True,
+        'private_upload_cache_authority_verified':False,'upload_uri_assignment_verified':False}
     receipt_path.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))
 
 

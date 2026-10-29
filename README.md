@@ -298,8 +298,13 @@ taps and cancel/disarm/navigation cases, with no file URI grants or isolated
 world requirement. Current ADB has no phone; this gate is unavailable, not passed.
 
 `python tools/android_upload_probe.py` exercises real bounded directory-relative
-upload file primitives. It does not qualify Android cache authority, the pending
-ticket/URI bridge or the framework; these capabilities remain disabled.
+upload file primitives. `python tools/android_upload_queue_probe.py` checks the
+actual single worker, ticket deadlines, cache lease, byte staging and cleanup.
+`python tools/android_upload_ui_probe.py` connects the production native command
+fragment to that worker using UI/JSON doubles. Android cache authority, URI
+assignment and framework integration remain unqualified, and overall Android
+automation stays disabled. These staging commands accept bytes and metadata,
+never a task-host source path or an unverified chooser/frame target.
 
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next

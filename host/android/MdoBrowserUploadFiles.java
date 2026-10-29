@@ -3,6 +3,8 @@ package org.xserver.android;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.channels.OverlappingFileLockException;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
@@ -46,6 +48,10 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
     private final Path root;private final Object rootKey;
     private final SecureDirectoryStream<Path> directory;
     private final Leaf[] leaves=new Leaf[FILES];
+    private FileChannel cacheLease;private FileLock cacheLock;
+    private Leaf failedCreation;
+    static final String OWNER_FILE=".mdo-browser-upload-owner-v1";
+    private static final byte[] OWNER_BYTES="mdo-browser-use-private-upload-cache-v1\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
     private long reserved;private boolean closed,directoryClosed;
 
     MdoBrowserUploadFiles(Path root)throws IOException {
@@ -75,12 +81,13 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
         return directory.getFileAttributeView(path,BasicFileAttributeView.class,LinkOption.NOFOLLOW_LINKS).readAttributes();
     }
     Leaf create(long size,String sha256)throws IOException {
+        thread();failedCreation=null;
         active();if(size<0||size>FILE_BYTES||!hash(sha256))throw new Failure("upload_metadata_invalid");
         int slot=0;while(slot<leaves.length&&leaves[slot]!=null)slot++;
         if(slot==leaves.length||size>TOTAL_BYTES-reserved)throw new Failure("upload_budget_exceeded");
         // Allocate identity/metadata before touching disk. Once published, a
         // failed cleanup keeps its slot/byte reservation and can be retried.
-        Leaf leaf=new Leaf(slot,size,sha256);leaves[slot]=leaf;reserved+=size;
+        Leaf leaf=new Leaf(slot,size,sha256);leaves[slot]=leaf;reserved+=size;failedCreation=leaf;
         try{
             leaf.claimed=true;
             SeekableByteChannel channel;
@@ -90,7 +97,7 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
             if(!(channel instanceof FileChannel))throw new Failure("upload_file_channel_unsupported");
             BasicFileAttributes value=attributes(leaf.name);
             if(!value.isRegularFile()||value.isSymbolicLink()||value.fileKey()==null||value.size()!=0)throw new Failure("upload_file_changed");
-            leaf.fileKey=value.fileKey();return leaf;
+            leaf.fileKey=value.fileKey();failedCreation=null;return leaf;
         }catch(IOException|RuntimeException|Error failure){
             leaf.failed=true;
             try{leaf.close();}catch(IOException|RuntimeException ignored){}
@@ -101,10 +108,62 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
     }
     int reservations(){thread();int used=0;for(Leaf leaf:leaves)if(leaf!=null)used++;return used;}
     long reservedBytes(){thread();return reserved;}
+    Leaf takeFailedCreation(){thread();Leaf value=failedCreation;failedCreation=null;return value;}
+    void acquireCacheLease()throws IOException {
+        active();if(cacheLease!=null)throw new Failure("upload_cache_already_owned");
+        Path name=java.nio.file.Paths.get(OWNER_FILE);SeekableByteChannel opened=null;FileLock lock=null;boolean created=false;
+        try{
+            try{attributes(name);}
+            catch(NoSuchFileException absent){
+                try(SecureDirectoryStream<Path> inventory=directory.newDirectoryStream(java.nio.file.Paths.get("."),LinkOption.NOFOLLOW_LINKS)){
+                    if(inventory.iterator().hasNext())throw new Failure("upload_cache_owner_invalid");
+                }
+            }
+            try{opened=directory.newByteChannel(name,CREATE,PRIVATE);created=true;}
+            catch(FileAlreadyExistsException existing){
+                Set<OpenOption> options=new HashSet<OpenOption>(Arrays.asList(StandardOpenOption.READ,StandardOpenOption.WRITE,LinkOption.NOFOLLOW_LINKS));
+                opened=directory.newByteChannel(name,options);
+            }
+            if(!(opened instanceof FileChannel))throw new Failure("upload_file_channel_unsupported");
+            BasicFileAttributes value=attributes(name);
+            if(!value.isRegularFile()||value.isSymbolicLink()||value.fileKey()==null)throw new Failure("upload_cache_owner_invalid");
+            try{lock=((FileChannel)opened).tryLock();}catch(OverlappingFileLockException busy){throw new Failure("upload_cache_busy");}
+            if(lock==null)throw new Failure("upload_cache_busy");
+            if(created){
+                ByteBuffer bytes=ByteBuffer.wrap(OWNER_BYTES);
+                while(bytes.hasRemaining())if(opened.write(bytes)<=0)throw new Failure("upload_write_stalled");
+                ((FileChannel)opened).force(true);
+            }else{
+                if(opened.size()!=OWNER_BYTES.length)throw new Failure("upload_cache_owner_invalid");
+                ByteBuffer bytes=ByteBuffer.allocate(OWNER_BYTES.length);
+                while(bytes.hasRemaining())if(opened.read(bytes)<=0)throw new Failure("upload_cache_owner_invalid");
+                if(!Arrays.equals(bytes.array(),OWNER_BYTES))throw new Failure("upload_cache_owner_invalid");
+            }
+            // Do not silently reinterpret or erase a previous process's bytes.
+            // Recovery of orphaned staging is a separate explicit operation.
+            try(SecureDirectoryStream<Path> inventory=directory.newDirectoryStream(java.nio.file.Paths.get("."),LinkOption.NOFOLLOW_LINKS)){
+                int count=0;for(Path entry:inventory){
+                    if(++count>256)throw new Failure("upload_cache_inventory_limit");
+                    String leaf=entry.getFileName().toString();
+                    if(!OWNER_FILE.equals(leaf))throw new Failure(leaf.matches("mdo-bu-upload-[a-f0-9-]{36}\\.bin")?"upload_cache_recovery_required":"upload_cache_unrecognized");
+                }
+            }
+            cacheLease=(FileChannel)opened;cacheLock=lock;opened=null;lock=null;
+        }finally{
+            if(lock!=null)try{lock.release();}finally{if(opened!=null)opened.close();}
+            else if(opened!=null)opened.close();
+        }
+    }
+    void collectFailed()throws IOException {
+        thread();Throwable first=null;
+        for(Leaf leaf:leaves)if(leaf!=null&&leaf.failed)try{leaf.close();}catch(IOException|RuntimeException error){if(first==null)first=error;}
+        if(first!=null)throw new Failure("upload_cleanup_failed",first);
+    }
     @Override public void close()throws IOException {
         thread();closed=true;Throwable first=null;
         for(Leaf leaf:leaves)if(leaf!=null)try{leaf.close();}catch(IOException|RuntimeException failure){if(first==null)first=failure;}
         if(first!=null)throw new Failure("upload_cleanup_failed",first);
+        if(cacheLease!=null){try{if(cacheLock!=null)cacheLock.release();}finally{cacheLease.close();}cacheLock=null;cacheLease=null;}
         if(!directoryClosed){directory.close();directoryClosed=true;}
     }
 

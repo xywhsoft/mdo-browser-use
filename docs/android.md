@@ -1008,3 +1008,55 @@ E34's tiny QA APK is 262,547 bytes, SHA-256
 `ca4194bf99c954af593a2d2c1f885eb143b69e0107dbaf102ae2e6bc6efb9e1e`.
 It is not a complete mdo Android client. The remaining native transfer bridge,
 provider handoff and actual-device checks stay in the active development goal.
+
+## Native upload staging transactions (E35)
+
+The reviewed host now routes `upload` actions `begin`, `chunk`, `seal`, `status`,
+`cancel` and `release` through one persistent worker. Only the native application
+Context supplies cache authority: canonical app cache/data paths, the process
+UID, a dedicated private directory and an exclusive locked owner marker. The
+worker holds no Activity or WebView. Unknown directory contents, invalid owner
+markers and orphaned staging are preserved; orphan recovery is still pending.
+
+Each original WebView/navigation owns a non-serializable cancellation scope.
+The native response also retains its original main-document channel lease;
+late callbacks cannot attach to a replacement view or connection with reused
+IDs. Navigation, hiding, takeover, detach, close and destruction cancel scopes.
+Expiry cleanup runs independently of UI callbacks. A maximum of eight queued
+requests and nine unfinished deliveries bounds memory even if the UI stalls.
+
+The native commands accept only strict metadata and canonical base64 chunks.
+They reject source paths, frame targets, chooser identities and assignment
+actions. A manifest contains 1–16 files, at most 64 MiB total, with safe display
+names, exact sizes and SHA-256 hashes. The original deadline is at most 120s;
+repeating `begin` with the same key/manifest does not extend it. Identical
+last-chunk retries return metadata without rewriting bytes. A 64-entry ledger
+retains terminal operation identities until the original scope is cancelled.
+Writes/seals with uncertain outcomes cannot be resumed as successful uploads.
+
+Responses contain only ticket/file metadata, byte counts and cleanup state.
+They report `staged_only:true`, `assignment_supported:false` and no possible
+webpage effect. Cache paths and file bytes are never returned. `release`
+requires explicit confirmation; expiry/cancel/lifecycle loss also release
+staging. The existing public SDK gate still refuses Android upload before
+reading task files. Private cache authority, URI grants, source-frame binding
+and complete Android automation are separate, currently false qualifications.
+
+Verification:
+
+- `python tools/android_upload_probe.py`: 63 real-filesystem primitive checks.
+- `python tools/android_upload_queue_probe.py`: 89 real filesystem/worker
+  checks, including lease exclusion, scope/expiry cleanup, ticket reuse,
+  manifest/hash failures and bounded undelivered UI replies.
+- `python tools/android_upload_ui_probe.py`: 37 production-fragment checks
+  with UI/JSON/runtime-factory doubles. The file store and worker are real;
+  this does not verify the Android framework or native Context authority.
+- The actual pinned Activity and reviewed hooks compile against API 36 with
+  Java 8/min API 26. E35's tiny QA APK is 283,027 bytes, SHA-256
+  `34962643858912852ee6479e25adf076e42aeef0a5363304338dd51605a405b4`.
+
+Evidence is in `.mdo/E35-upload-files.log`, `.mdo/E35-upload-queue.log`,
+`.mdo/E35-upload-ui.log` and `.mdo/E35-android-build.log`. This APK is a QA client,
+not full mdo, and compilation is not a device pass. Preserve the current
+WebView. Remaining work includes orphan recovery, native URI/provider handoff,
+verified source/chooser/frame ownership and actual-device qualification.

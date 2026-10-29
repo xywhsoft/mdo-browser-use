@@ -1147,7 +1147,53 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadFiles.java'),source.with_name('MdoBrowserUploadFiles.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadFiles.java'),source.with_name('MdoBrowserUploadFiles.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadStore.java'),source.with_name('MdoBrowserUploadStore.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadQueue.java'),source.with_name('MdoBrowserUploadQueue.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadRuntime.java'),source.with_name('MdoBrowserUploadRuntime.java'))"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-native-upload.inc.java",
+      "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "private void cancelDialog(String key){cancelChooser(key);",
+      "after": "private void cancelDialog(String key){cancelUpload(key);cancelChooser(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "private void cancelDialogs(){cancelChoosers();",
+      "after": "private void cancelDialogs(){cancelUploads();cancelChoosers();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "private boolean closeDocument(String key){",
+      "after": "private boolean closeDocument(String key){cancelUpload(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "private boolean closeAndDestroyDocument(String key,WebView view){",
+      "after": "private boolean closeAndDestroyDocument(String key,WebView view){cancelUpload(key,view);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(value)cancelCaptures();",
+      "after": "if(value){cancelUploads();cancelCaptures();}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"chooser\".equals(command)){executeChooser(key,id,request);return;}",
+      "after": "            if(\"upload\".equals(command)){executeUpload(key,id,web,request);return;}\n            if(\"chooser\".equals(command)){executeChooser(key,id,request);return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(\"takeover\".equals(command)){cancelPopup(key);cancelCapture(key);}",
+      "after": "if(\"takeover\".equals(command)){cancelUpload(key);cancelPopup(key);cancelCapture(key);}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    void destroy(){",
+      "after": "    void destroy(){cancelUploads();"
     }
   ],
   "files": [
@@ -1366,6 +1412,18 @@
     {
       "source": "host/android/MdoBrowserUploadFiles.java",
       "target": "tools/android/MdoBrowserUploadFiles.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadStore.java",
+      "target": "tools/android/MdoBrowserUploadStore.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadQueue.java",
+      "target": "tools/android/MdoBrowserUploadQueue.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadRuntime.java",
+      "target": "tools/android/MdoBrowserUploadRuntime.java"
     }
   ]
 }

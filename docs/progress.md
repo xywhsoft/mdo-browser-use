@@ -4565,3 +4565,41 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   need implementation/verification. Every Android automation/assignment gate
   stays disabled; preserve the current WebView. The Windows N4 pair is unchanged.
 
+## E35 — original-scope Android upload staging transactions
+
+- Connect strict native upload begin/chunk/seal/status/cancel/release commands
+  to a single worker and real directory-relative storage. Only the native app
+  Context/UID can select the private cache; wire paths and assignment targets
+  are rejected. Own the cache through a locked marker. Preserve invalid or
+  unrecognized entries and report orphan recovery as required, not complete.
+- Bound batches to 64 MiB/16 files, operation identities to 64, queued work to
+  eight and unfinished UI deliveries to nine. Use immutable original deadlines
+  of at most 120s, metadata-checked begin deduplication and identical last-chunk
+  receipts without rewriting. Retain terminal identities until their original
+  native scope is cancelled. Failed I/O keeps cleanup ownership and reservations
+  until actual release, including file creation that failed after touching disk.
+- Bind each ticket to the exact WebView/navigation cancellation object and
+  every response to its original native channel lease. Navigation, takeover,
+  hide, detach, close and destruction invalidate the scope. Stale views or
+  reused tab/channel IDs cannot receive a successful response. Worker expiry
+  cleanup does not depend on UI progress. Replies expose metadata only and
+  explicitly distinguish local staging from webpage assignment/effects.
+- Pass 63 primitive filesystem checks and 89 real worker/filesystem checks;
+  also pass 37 checks through the actual production command fragment with
+  UI/JSON/runtime-factory doubles. Logs: `.mdo/E35-upload-files.log`,
+  `.mdo/E35-upload-queue.log`, `.mdo/E35-upload-ui.log`. These do not qualify
+  Android framework behavior, private native-cache authority or URI assignment.
+- All 275 JS checks pass. All 145/147 Python checks pass with two existing
+  symlink-privilege skips. Evidence: `.mdo/E35-js-full.log` and
+  `.mdo/E35-python-full.log`; reviewed deployed overlays match the source.
+- Actual pinned Activity/hooks and tiny QA APK compile; source receipt matches
+  current reviewed inputs. APK: 283,027 bytes, SHA-256
+  `34962643858912852ee6479e25adf076e42aeef0a5363304338dd51605a405b4`.
+  Evidence: `.mdo/E35-android-build.log`. The same headless service is healthy.
+  No extra app/Home/native object directory was created. Windows N4 deliverables
+  remain unchanged; all Android model/assignment gates stay disabled.
+- Still outstanding: durable orphan recovery, URI/provider handoff and verified
+  source/chooser/frame binding, device qualification, real physical-device
+  transport and desktop pixel qualification. Retain the installed WebView and
+  keep the full goal active; this is a tested staging milestone, not completion.
+
