@@ -243,6 +243,28 @@
     "evaluation_effect_flag": "conservative_for_trusted_host_script",
     "installed_ui_routing_verified": false
   },
-  "remaining": ["guarded native frame-chain input and capture integration", "chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
+  "frame_input": {
+    "state": "private_owned_webview_input_route_product_admission_disabled",
+    "kinds": [
+      "click",
+      "move",
+      "wheel",
+      "focus",
+      "text",
+      "key"
+    ],
+    "native_injection": "existing_owned_webview_sequencer_only",
+    "caller_script": false,
+    "immutable_parameters": true,
+    "native_chain_before_each_input_step": true,
+    "complete_snapshot_if_supplied": true,
+    "geometry": "root_native_scale_scroll_viewport_and_proven_parent_owner_mapping",
+    "focus": "exact_local_document_reference_and_every_parent_iframe",
+    "timeout_or_cancellation": "cancel_exact_pending_guard_lease_without_replay",
+    "pressed_state_cleanup": "existing_touch_cancel_and_key_up",
+    "installed_provider_input_verified": false,
+    "shared_android_subframe_scroll_dispatch": "pending"
+  },
+  "remaining": ["frame-chain capture integration and shared Android subframe scroll routing", "chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
   "android_automation_enabled": false
 }

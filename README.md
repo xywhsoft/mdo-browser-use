@@ -286,6 +286,13 @@ the actual WebView input target using the same tiny QA app. That new framework
 gate is currently unavailable because ADB reports no phone. The current provider
 is retained, and Android product automation remains disabled pending integration.
 
+The private Android host input bridge now consumes proved native frame chains,
+fixed isolated DOM guards and the same native input sequencer. Run
+`python tools/android_cdp_socket_probe.py` for its 300 new nested-frame input,
+pressed-state cleanup, cancellation and immutable-parameter checks, together
+with the retained protocol/ownership gates. DOM/provider/events are doubled;
+installed Android input and full automation remain unqualified.
+
 `python tools/android_chooser_probe.py` checks the production Android chooser
 controller and Chrome callback adapter: original callback retention, metadata,
 once-only cancellation and failure/lifecycle cleanup. It is a deterministic

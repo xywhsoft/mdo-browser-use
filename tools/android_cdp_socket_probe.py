@@ -66,7 +66,8 @@ def main():
                     *[str(ROOT/'host/android'/name) for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java',
                                                                'MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java',
                                                                'MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java',
-                                                               'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java')],
+                                                               'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java',
+                                                               'MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java')],
                     *map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
@@ -113,6 +114,11 @@ def main():
     if not request.get('passed') or not request.get('real_jvm_jni_json'):
         raise RuntimeError('The shared frame command grammar gate did not pass')
     result['jvm_frame_requests']=request
+    input_guard=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpInputProbe'],cwd=ROOT,env=environment,text=True,timeout=55))
+    if not input_guard.get('passed') or not input_guard.get('native_input_sequencer'):
+        raise RuntimeError('The native frame-chain input gate did not pass')
+    result['jvm_frame_input']=input_guard
     lock=json.loads((ROOT/'.mdo/native-source/tools/android/toolchain.lock.json').read_text())
     clang=ROOT/'.mdo/android-client-tools/sdk/ndk'/lock['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/clang'
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
@@ -125,7 +131,8 @@ def main():
             'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpSession.java',
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
-            'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/native-frames.inc.hpp','tools/update_android_owner_scripts.py',
+            'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java',
+            'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java',
             'host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
             'tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c',

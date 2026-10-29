@@ -30,6 +30,15 @@ This does not enable overall Android admission: its actual trusted-hover and
 full host-UI qualification remain unavailable. Native implementation/fixture
 details and pinned source references are in the Android verification document.
 
+The private Android input route now uses its native frame graph/unique isolated
+worlds instead of the older main-document provider bridge. Immutable input pins,
+exact ancestor/focus/geometry checks, optional complete visual frame snapshots
+and the existing owned-WebView input sequencer cover nested-frame click, hover,
+wheel, focus, text and keys in deterministic Java/JNI tests. The actual host APK
+compiles these adapters. This does not enable Android Agent admission or qualify
+installed-provider input. Shared subframe scroll dispatch, frame-chain capture,
+transfer/profile policy and physical/main-UI verification remain outstanding.
+
 Page document identities use cryptographic random bytes rather than relying on
 secure-context-only `randomUUID`; see the [Crypto interface](https://w3c.github.io/webcrypto/#Crypto-interface).
 Associated labels omit embedded controls/values, and focus verification follows

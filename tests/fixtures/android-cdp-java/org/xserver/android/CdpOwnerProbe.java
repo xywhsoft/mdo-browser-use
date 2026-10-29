@@ -79,7 +79,8 @@ public final class CdpOwnerProbe {
                     check(args.length()==2);JSONObject point=args.getJSONObject(1).getJSONObject("value");
                     value.put("point",new JSONObject().put("x",point.getDouble("x")+10).put("y",point.getDouble("y")+20)).put("focused",true)
                         .put("geometry",new JSONArray().put(1).put(2).put(30).put(40).put(1).put(2).put(30).put(40));
-                }else if(declaration.contains(MdoBrowserCdpOwnerScripts.CAPTURE)){check(args.length()==1);value.put("owner",new JSONObject().put("ok",true).put("ref","synthetic-owner"));}
+                }else if(declaration.contains(MdoBrowserCdpOwnerScripts.CAPTURE)){check(args.length()==1);value.put("owner",new JSONObject().put("ok",true).put("ref","synthetic-owner"))
+                    .put("painted",true).put("content",new JSONObject().put("x",10).put("y",20).put("width",300).put("height",200));}
                 else {check(args.length()==1&&declaration.contains(MdoBrowserCdpOwnerScripts.UPLOAD_POLICY));}
                 if(parentNavigation)wire.queue(event("Page.frameNavigated","child-session",new JSONObject().put("frame",new JSONObject().put("id","child-local").put("parentId","child-frame").put("loaderId","changed-parent-load"))));
                 if(timeout)host.clockOffset.addAndGet(20000);

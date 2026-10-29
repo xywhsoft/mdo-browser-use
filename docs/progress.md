@@ -5566,3 +5566,46 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   preserve its provider/formal data. No model calls, external pages or release;
   long-term goal remains active.
 
+
+## E59 — connect native frame-chain input to the owned WebView sequencer
+
+- Replace the actual host's main-document-only native input bridge with the
+  private worker/native frame/world path. Parse immutable bounded kind/target/
+  focus/geometry/text/key data and complete ancestor pins; reject caller code,
+  raw protocol identities and unknown fields. Validate optional complete visual
+  snapshots against every native ready isolated frame, including siblings.
+- Guard every click/hover/wheel/focus/text/key step using fixed isolated scripts,
+  exact local document/ref, root native viewport/scroll/scale, parent owner
+  mapping and full native ancestry. Require the exact mapped root point for
+  pointer events and focused local target/every ancestor for keyboard input.
+  Reverse/forward-map wheel points through original frame owners. Keep actual
+  input on the owned WebView's existing sequencer, with no CDP input, fallback,
+  target retargeting or automatic replay. Shared subframe scroll dispatch still
+  needs its complete pin; the native adapter is not a claim that flow is done.
+- Cancel the exact pending guard lease when input expires/is cancelled; ignore
+  late guards and release existing touch/key state. Preserve focus uncertainty,
+  original host-channel receipts and typed pre-dispatch admission failures.
+  Keep UI geometry/lease validation before and after asynchronous work.
+- New actual Java input/sequencer/frame/world/owner/worker/strict-JNI gate passes
+  300 checks: all six modes in root and nested process frames; immutable
+  parameters, malformed routing/geometry/focus/ancestry/snapshots; changed target
+  point, takeover and root layout; navigation after DOWN yields CANCEL without
+  a later UP; cancellation and watchdog expiry stop queued DOM focus and late
+  input. Retained protocol gates pass (`.mdo/E59-input-core.log`). Android DOM,
+  event targets and protocol eval peers are doubled, not provider qualification.
+- Nine Node fixed-script/shared-runtime iframe-hit checks pass. Full sequential
+  Node regression passes 283/283 in 17.810 s (`.mdo/E59-node-full.log`). Full
+  Python regression passes 165/167 with two existing symlink skips in 46.598 s
+  (`.mdo/E59-python-full.log`). Reviewed host/helper/native checks pass.
+- Stop/apply overlays and compile the actual complete development host with the
+  verified existing ARM64 engine, N5 application archive and QA signer. APK:
+  6,350,145 bytes, SHA-256
+  `78470a77eebd117834b5fd036264248439845cc53b9fe80299ac508d6750d74b`
+  (`.mdo/E59-android-build.log`, adjacent receipt). SDK/D8 definitions, payload,
+  private provider, ABI/16 KiB layout, alignment and signatures pass. Single
+  deployment HTTP 200; footprint 3,418.3 MiB. Windows program/plugin unchanged.
+- Keep product/global Android automation disabled. Continue frame-chain capture,
+  shared subframe scroll dispatch, chooser/download/profile/activation policy,
+  installed main-UI/provider and cross-platform realm/production qualification.
+  Phone remains deferred; current provider/formal data are preserved. No model
+  calls, external page browsing or online publication. Goal remains active.

@@ -28,6 +28,8 @@ public final class CdpWorldsProbe {
         Context(int id,String source,String frame,String name){this.id=id;this.source=source;this.frame=frame;this.name=name;unique="isolated-"+(source==null?"root":source)+"-"+id;}
     }
     static final class Engine implements CdpBindingProbe.Factory.Extra {
+        interface Evaluation {Object value(Context context,String expression)throws Exception;}
+        Evaluation evaluation;
         final Map<String,Context> contexts=new HashMap<>();final Map<String,Integer> ids=new HashMap<>();
         final ArrayDeque<JSONObject> pending=new ArrayDeque<>();String name;
         int created,createCalls,negative,proofs,evaluations;boolean seenPageCode;
@@ -81,7 +83,8 @@ public final class CdpWorldsProbe {
                 JSONObject reply=new JSONObject().put("result",new JSONObject().put("type","undefined"));if(proofException)reply.put("exceptionDetails",new JSONObject().put("text","private fixture detail"));
                 result(wire,request,reply);return true;
             }
-            check(expression.equals(SCRIPT));check(!params.getBoolean("throwOnSideEffect"));seenPageCode=true;evaluations++;
+            if(evaluation==null)check(expression.equals(SCRIPT));else value=evaluation.value(context,expression);
+            check(!params.getBoolean("throwOnSideEffect"));seenPageCode=true;evaluations++;
             if(lossDuringEval){wire.close();return true;}
             if(destroyDuringEval)destroy(wire,context);
             if(navigateDuringEval||parentDuringEval){

@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E58)
+## Complete development host APK (E46/E59)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,346,049 bytes, SHA-256
-`fb62fdc669592fe37127835b0fbc14b351ca96d4038a85bb8236fa83d695aad3`.
+Current APK: 6,350,145 bytes, SHA-256
+`78470a77eebd117834b5fd036264248439845cc53b9fe80299ac508d6750d74b`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E58-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E58-python-full.log` (165/167 pass, two existing symlink skips).
+`.mdo/E59-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E59-python-full.log` (165/167 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -1919,3 +1919,47 @@ policy, plus installed main-UI/shared JS/C testing. Review Windows' existing
 numeric/object realm selection against the same unique-context invariant during
 the cross-platform completion audit; no Windows realm qualification is inferred
 from Android's synthetic gate.
+
+### Native frame-chain input bridge (E59)
+
+The actual host input route now uses `MdoBrowserCdpInput` and the native frame
+map, replacing the main-document-only evaluation bridge. Copy and validate the
+kind, target, focus, coordinates, text/keys, native chain and optional complete
+frame snapshot before admission. Reject caller code, protocol IDs and unknown
+fields. The immutable chain must end at the original root; prove every native
+parent/document and (when supplied) the exact complete ready isolated-frame set.
+Caller aliases or a syntactically valid ancestry alone grant no authority.
+
+Before each native input step, the existing single protocol worker checks that
+chain, the root layout/scale/scroll/visual viewport and the original local
+runtime document/ref. Fixed scripts prepare the exact target without scrolling,
+reject a child-frame hit on a local ancestor element, and map its point through
+proved parent owners. Click/hover/wheel must still map to the requested root CSS
+point. Keyboard/focus additionally require exact DOM focus and every parent
+iframe to retain focus. Wheel guards reverse-map the root point through pinned
+owner geometry, verify the local original hit and map it forward again. The
+shared Agent subframe scroll dispatcher still needs to supply that complete pin;
+this native implementation alone does not claim that UI flow is finished.
+
+Only the original WebView receives framework events, through the existing
+sequencer. Recheck native UI layout/lease after asynchronous guards; do not send
+CDP input, target another view, use a default/page-world fallback or replay a
+possibly delivered step. Held touch/key cleanup remains the sequencer's cancel/
+key-up path. If an input times out or is cancelled with a queued/running guard,
+close that exact worker lease before completing; late callbacks cannot continue
+a gesture or leave a queued focus script to run against a replacement view.
+Focus retains effect uncertainty even when its later DOM acknowledgement fails.
+Return typed pre-dispatch failures and the ordinary accepted/effect/cleanup/
+delivered-step receipt for failed input admission as well as completed sequences.
+
+The 300-check actual Java sequencer/frame/world/worker/strict-JNI gate uses
+modeled native DOM/protocol peers and Android event targets. It covers root and
+nested process frames for all six input kinds, copied requests, wrong ancestry/
+snapshots, changed root points, failed focus, user takeover, navigation after
+pointer-down, touch cancel, queued cancellation and watchdog expiry with no late
+DOM focus or input continuation (`.mdo/E59-input-core.log`). Nine Node tests run
+the exact fixed Java scripts and a shared-runtime iframe-hit fixture; full Node
+regression passes 283/283 (`.mdo/E59-node-full.log`). The real SDK/D8/package/ABI/
+signature build passes (`.mdo/E59-android-build.log`). These are not installed
+provider geometry, trusted event or framework lifetime qualifications. Keep
+Agent automation disabled and the deferred phone/current WebView unchanged.
