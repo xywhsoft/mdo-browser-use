@@ -7,12 +7,16 @@ const root=new URL('../',import.meta.url),env=JSON.parse(await readFile(new URL(
 const origin=`http://127.0.0.1:${env.port}`,response=await fetch(origin+'/api/v1/bootstrap');
 const token=response.headers.get('x-mdo-write-token');await response.arrayBuffer();
 const context={extension:'browser-use-upload-sdk-qa',session:'public-upload-js'};
-const sdk={async call(method,params,scope=context){
-  const response=await fetch(origin+'/api/v1/application/call',{method:'POST',signal:AbortSignal.timeout(20000),
+const callInScope=async(method,params,scope=context,options={})=>{
+  const signal=options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(20000)]):AbortSignal.timeout(20000);
+  const response=await fetch(origin+'/api/v1/application/call',{method:'POST',signal,
     headers:{'Content-Type':'application/json','X-Mdo-Write-Token':token},body:JSON.stringify({method,params,context:scope})});
   const reply=await response.json();if(!response.ok)throw Object.assign(new Error(reply.error?.message||'SDK call failed'),{code:reply.error?.code});return reply.data;
-}};
+};
+const sdk={call:(method,params,options)=>callInScope(method,params,context,options)};
 const client=createBrowserUseClient(sdk),file=new URL('.mdo/qa/public-upload.bin',root),empty=new URL('.mdo/qa/public-upload-empty.bin',root);
+const output=new URL('.mdo/upload-client-result.json',root);
+await writeFile(output,'{"passed":false,"state":"running"}\n');
 const nativePath=url=>decodeURIComponent(url.pathname).replace(/^\/([A-Za-z]:)/,'$1');
 const hash=createHash('sha256').update(await readFile(file)).digest('hex');let browser,directoryBrowser,directoryClient;
 const reads=page=>JSON.parse(page.text.slice(page.text.indexOf('[{')));
@@ -41,7 +45,7 @@ try{
   const emptySelection=await client.upload(clearParams);assert.equal(emptySelection.changed,false);assert.equal(emptySelection.dispatched,false);
   await client.operation({action:'release',operation:clearOperation});
   assert.equal((await client.upload({browser:browser.id,action:'status',ticket})).verified,true);
-  await assert.rejects(sdk.call('browseruse.upload',{browser:browser.id,action:'status',ticket},{...context,session:'foreign'}),{code:'context_mismatch'});
+  await assert.rejects(callInScope('browseruse.upload',{browser:browser.id,action:'status',ticket},{...context,session:'foreign'}),{code:'context_mismatch'});
   await assert.rejects(client.upload({browser:browser.id,action:'release',ticket}),{code:'upload_confirmation_required'});
   assert.equal((await client.upload({browser:browser.id,action:'status',ticket})).retained,true);
   assert.equal((await client.upload({browser:browser.id,action:'release',ticket,confirmed:true})).released,true);
@@ -69,7 +73,7 @@ try{
   await client.operation({action:'release',operation:cancelOperation});
   const second=await openPicker();assert.equal(second.outcome,'file_chooser_open');
   const secondChooser=(await client.chooser({browser:browser.id,action:'list'})).choosers[0];assert.notEqual(secondChooser.id,chooser.id);
-  await assert.rejects(sdk.call('browseruse.chooser',{browser:browser.id,action:'cancel',chooser:secondChooser.id},{...context,session:'foreign'}),{code:'context_mismatch'});
+  await assert.rejects(callInScope('browseruse.chooser',{browser:browser.id,action:'cancel',chooser:secondChooser.id},{...context,session:'foreign'}),{code:'context_mismatch'});
   const pickerAssigned=await client.upload({browser:browser.id,action:'set',document:page.document,chooser:secondChooser.id,files:[{path:nativePath(empty),name:'picker-zero.txt'}]});
   assert.equal(pickerAssigned.verified,true);assert.equal((await client.chooser({browser:browser.id,action:'list'})).choosers.length,0);
   await client.waitFor({browser:browser.id,until:'text',text:'picker-zero.txt'});
@@ -89,7 +93,7 @@ try{
     await client.upload({browser:browser.id,action:'release',ticket:long.transfer.ticket,confirmed:true});
   }
   const directory=new URL('.mdo/qa/public-upload-directory/',root),directoryContext={...context,workspace:nativePath(directory).replace(/\/$/,'')};
-  directoryClient=createBrowserUseClient({call:(method,params)=>sdk.call(method,params,directoryContext)});
+  directoryClient=createBrowserUseClient({call:(method,params,options)=>callInScope(method,params,directoryContext,options)});
   directoryBrowser=await directoryClient.tabs({action:'create',client:clients[0].id,url:origin+'/__browser_use_upload__.html',key:'directory-js-native'});
   const dirPage=await directoryClient.observe({browser:directoryBrowser.id}),dirOperation='sdk-'+crypto.randomUUID().replaceAll('-','');
   const dirParams={browser:directoryBrowser.id,action:'set',document:dirPage.document,target:{css:'#directory'},directory:{path:'.',space:'workspace'},timeout_ms:15000};
@@ -113,18 +117,21 @@ try{
   assert.equal((await directoryClient.chooser({browser:directoryBrowser.id,action:'list'})).choosers.length,0);
   dirReads=reads(await directoryClient.observe({browser:directoryBrowser.id}));assert.equal(dirReads.length,2);assert(dirReads.at(-1).files.every(row=>row.path.startsWith('picker-directory/')));
   await directoryClient.upload({browser:directoryBrowser.id,action:'release',ticket:dirPicked.transfer.ticket,confirmed:true});
-  const rawDirectory=await sdk.call('browseruse.upload',{browser:directoryBrowser.id,action:'set',document:dirPage.document,target:{css:'#directory'},
+  const rawDirectory=await callInScope('browseruse.upload',{browser:directoryBrowser.id,action:'set',document:dirPage.document,target:{css:'#directory'},
     directory:{path:'.',name:'raw-c-directory'}},directoryContext);
   const rawDirectoryResult=await directoryClient.wait(rawDirectory);assert.equal(rawDirectoryResult.verification,'relative_file_list');
   await directoryClient.waitFor({browser:directoryBrowser.id,until:'text',text:'raw-c-directory/zero.txt'});
   await directoryClient.upload({browser:directoryBrowser.id,action:'release',ticket:rawDirectoryResult.transfer.ticket,confirmed:true});
-  await writeFile(new URL('.mdo/upload-client-result.json',root),JSON.stringify({passed:true,backend:'actual-c-service-js-client-webview2',
+  await writeFile(output,JSON.stringify({passed:true,backend:'actual-c-service-js-client-webview2',
     exact_binary_and_empty_bytes:true,retained_until_confirmed_release:true,durable_duplicate_once:true,foreign_scope_denied:true,raw_c_service:true,
     controlled_clear_once:true,clear_events_trusted:false,empty_clear_no_events:true,automatic_picker_interception:true,
     observed_picker_metadata:true,pending_picker_blocks_repeat_click:true,durable_cancel_once:true,chooser_bound_upload:true,
     long_native_cache_paths:true,long_ascii_and_unicode_names:longNames.map(name=>Buffer.byteLength(name)),
     source_directory_frozen_workspace:true,directory_relative_paths_and_hashes:true,directory_recovery_once:true,
     directory_picker:true,raw_c_directory:true})+'\n');
+}catch(error){
+  await writeFile(output,JSON.stringify({passed:false,state:'failed',code:error.code,message:String(error.message||error).slice(0,512)})+'\n');
+  throw error;
 }finally{
   if(directoryBrowser)await directoryClient.tabs({action:'close',browser:directoryBrowser.id});
   if(browser)await client.tabs({action:'close',browser:browser.id});

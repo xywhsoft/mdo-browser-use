@@ -8,9 +8,12 @@ const root=new URL('../',import.meta.url),env=JSON.parse(await readFile(new URL(
 const origin=`http://127.0.0.1:${env.port}`,boot=await fetch(origin+'/api/v1/bootstrap'),token=boot.headers.get('x-mdo-write-token');await boot.arrayBuffer();
 const directory=new URL('.mdo/qa/saved/',root);await mkdir(directory,{recursive:true});
 const context={extension:'browser-save-js-qa',project:'default',session:'save-public-js',namespace:'save-private',member:'save-worker',workspace:fileURLToPath(directory).replace(/[\\/]$/,'')};
-const sdk={async call(method,params,scope=context){const response=await fetch(origin+'/api/v1/application/call',{
- method:'POST',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'application/json','X-Mdo-Write-Token':token},body:JSON.stringify({method,params,context:scope})});
- const reply=await response.json();if(!response.ok)throw Object.assign(Error(reply.error?.message||'SDK failed'),{code:reply.error?.code});return reply.data;}};
+const callInScope=async(method,params,scope=context,options={})=>{
+ const signal=options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000);
+ const response=await fetch(origin+'/api/v1/application/call',{
+ method:'POST',signal,headers:{'Content-Type':'application/json','X-Mdo-Write-Token':token},body:JSON.stringify({method,params,context:scope})});
+ const reply=await response.json();if(!response.ok)throw Object.assign(Error(reply.error?.message||'SDK failed'),{code:reply.error?.code});return reply.data;};
+const sdk={call:(method,params,options)=>callInScope(method,params,context,options)};
 const client=createBrowserUseClient(sdk),url=process.argv[2],output=new URL('.mdo/save-client-result.json',root);
 const bytes=Buffer.from(Uint8Array.from({length:131075},(_,i)=>i%251)),hash=createHash('sha256').update(bytes).digest('hex');
 let browser,child,stage='startup';const paths=[];let saved=0;
@@ -36,8 +39,8 @@ try{
   assert.equal(result.transfer.cleanup_pending,false);
   await client.operation({action:'release',operation});saved++;
   stage='conflict:'+selector;await assert.rejects(client.save(params),{code:'sdk_file_exists'});assert.deepEqual(await readFile(destination),bytes);
-  await assert.rejects(sdk.call('browseruse.save',params,{...context,namespace:'foreign'}),{code:'context_mismatch'});
-  await assert.rejects(sdk.call('browseruse.save',params,{...context,workspace:fileURLToPath(root).replace(/[\\/]$/,'')}),{code:'context_mismatch'});
+  await assert.rejects(callInScope('browseruse.save',params,{...context,namespace:'foreign'}),{code:'context_mismatch'});
+  await assert.rejects(callInScope('browseruse.save',params,{...context,workspace:fileURLToPath(root).replace(/[\\/]$/,'')}),{code:'context_mismatch'});
   await client.download({browser:browser.id,action:'release',download:pending.id});page=await client.observe({browser:browser.id});
  }
  stage='popup';assert.equal((await client.act({browser:browser.id,document:page.document,op:'click',target:{css:'#post-popup'}})).outcome,'popup_open');

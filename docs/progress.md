@@ -71,6 +71,12 @@ Latest verified milestones:
   save. Exactly one POST is observed and the same headless deployment is
   restored. Authentication, physical devices and normal-desktop pixels remain
   separately unverified.
+- **Verifier P4:** align three executable C/JS transfer probes with the public
+  SDK's third-argument options contract, including the directory subclient.
+  Preserve task/private/workspace scope and propagate cancellation; use an
+  explicit QA-only helper for deliberate foreign-scope calls. Actual complete
+  upload/download/save gates pass with zero cache reservations, and all 275 JS
+  cases pass. Artifact/runtime payloads are unchanged.
 
 ## Working boundaries
 
@@ -4365,4 +4371,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   private-pipe bridge path; account/public relay/LAN/XRUDP/two-physical-device
   authentication, normal-desktop pixels, Android and remaining lifecycle/
   production qualification are not inferred from it. The full goal stays active.
+
+## P4 — executable transfer verification preserves the real SDK binding
+
+- Inspection after P3 finds three old probe adapters treating `sdk.call`'s third
+  argument as context rather than call options. Read-only actual C SDK tests
+  reproduce all three falling back to `local-client`; no browser/file effect is
+  needed to diagnose that context loss. Evidence:
+  `.mdo/P4-probe-sdk-before.log`.
+- Bind each public probe client to its original context, pass the caller's
+  cancellation signal with a bounded local transport timer, and move deliberate
+  foreign-scope calls to explicit `callInScope`. Correct the nested directory
+  client and raw C directory call too; the missed nested override first produces
+  a real empty-directory refusal, rather than falsely qualifying that path.
+- Reset the upload child receipt to running before effects and write failures
+  explicitly. A prior successful child result had remained readable during an
+  incomplete new run; the nonzero parent/child process status always prevents a
+  final pass. Use current-run receipts plus authoritative terminal process
+  evidence for subsequent claims.
+- All three actual C context/signal tests pass, including custom directory scope,
+  an already-aborted call and explicit foreign-context inspection. Complete
+  public C/JS plus managed Windows upload, download and save gates pass with
+  the updated SDK: byte/empty/directory hashes, picker lifecycle, long names,
+  durable duplicate suppression, raw services, owned read-only permissions,
+  retained POST/blob/unknown responses, target workspace, existing-target
+  protection and foreign task/private context rejection. Upload, download and
+  save cache reservations each return to zero with private ACL verification.
+- Logs: `.mdo/P4-probe-sdk-after.log`, `.mdo/P4-upload.log`,
+  `.mdo/P4-download.log`, `.mdo/P4-save.log`. All 275 JS cases pass
+  (`.mdo/P4-js-full.log`). This fixes verification adapters, not a newly claimed
+  product/native bridge defect. The production plugin/program pair and Android
+  provider remain unchanged. The same healthy headless deployment is restored;
+  authenticated physical-device paths, Android, normal-desktop pixels and
+  remaining full-goal qualification remain active.
 

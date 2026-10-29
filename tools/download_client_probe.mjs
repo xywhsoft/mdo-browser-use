@@ -7,10 +7,12 @@ const root=new URL('../',import.meta.url),env=JSON.parse(await readFile(new URL(
 const origin=`http://127.0.0.1:${env.port}`,bootstrap=await fetch(origin+'/api/v1/bootstrap');
 const token=bootstrap.headers.get('x-mdo-write-token');await bootstrap.arrayBuffer();
 const context={extension:'browser-use-download-sdk-qa',session:'public-download-js'};
-const sdk={async call(method,params,scope=context){
-  const response=await fetch(origin+'/api/v1/application/call',{method:'POST',signal:AbortSignal.timeout(25000),headers:{'Content-Type':'application/json','X-Mdo-Write-Token':token},body:JSON.stringify({method,params,context:scope})});
+const callInScope=async(method,params,scope=context,options={})=>{
+  const signal=options.signal?AbortSignal.any([options.signal,AbortSignal.timeout(25000)]):AbortSignal.timeout(25000);
+  const response=await fetch(origin+'/api/v1/application/call',{method:'POST',signal,headers:{'Content-Type':'application/json','X-Mdo-Write-Token':token},body:JSON.stringify({method,params,context:scope})});
   const reply=await response.json();if(!response.ok)throw Object.assign(Error(reply.error?.message||'SDK call failed'),{code:reply.error?.code});return reply.data;
-}};
+};
+const sdk={call:(method,params,options)=>callInScope(method,params,context,options)};
 const client=createBrowserUseClient(sdk),url=process.argv[2],initialOnly=process.argv.includes('--initial-only');
 await writeFile(new URL('.mdo/download-client-result.json',root),'{"passed":false,"state":"running"}\n');
 let stage='bootstrap';
@@ -55,7 +57,7 @@ try{
     const completed=await client.download({browser:browser.id,action:'wait',download:pending.id,timeout_ms:5000});
     assert.equal(completed.verified,true);assert.equal(completed.download.sha256,sha);assert.equal(completed.download.size,bytes.length);
     assert.deepEqual(await client.download(params,{operation,retain:true}),accepted,'Acceptance was replayed after completion');
-    await assert.rejects(sdk.call('browseruse.download',{browser:browser.id,action:'get',download:pending.id},{...context,session:'foreign'}),{code:'context_mismatch'});
+    await assert.rejects(callInScope('browseruse.download',{browser:browser.id,action:'get',download:pending.id},{...context,session:'foreign'}),{code:'context_mismatch'});
     const raw=await client.wait(await sdk.call('browseruse.download',{browser:browser.id,action:'get',download:pending.id}));
     assert.equal(raw.download.sha256,sha);
     await client.download({browser:browser.id,action:'release',download:pending.id});
