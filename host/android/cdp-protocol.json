@@ -1,8 +1,32 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "private_lifecycle_and_worker_packaged_not_automation_routed",
+  "state": "private_frame_graph_packaged_not_automation_routed",
   "checked_date": "2026-10-30",
   "sources": [
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/public/devtools_protocol/browser_protocol.pdl?format=TEXT",
+      "decoded_bytes": 491230,
+      "decoded_sha256": "83b904405b313eeee082a0db9b612577b5c3e3702d37129b225a9fba11a484fe",
+      "facts": ["setAutoAttach targets directly related targets and is recursive per attached source", "Flattened sessions label commands and events", "Frame metadata includes parent and loader IDs", "Frame detach distinguishes remove and process swap"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/inspector/inspector_page_agent.cc?format=TEXT",
+      "decoded_bytes": 81512,
+      "decoded_sha256": "8ccb46329cc4a898aea70b2b7c5dfb08058340c128845a898c86c34369afa321",
+      "facts": ["FrameTree omits non-local child frames", "Frame metadata includes a remote parent's native frame ID", "Isolated worlds default to no universal access"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/devtools/render_frame_devtools_agent_host.cc?format=TEXT",
+      "decoded_bytes": 40897,
+      "decoded_sha256": "a57d30f4520b06a5223ec36bddd127a5c70a049562fc8eb5c19ea3c4ad80d1d9",
+      "facts": ["A native frame target uses its devtools frame token as target ID"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/devtools/protocol/target_handler.cc?format=TEXT",
+      "decoded_bytes": 57881,
+      "decoded_sha256": "a986770776e0ae219c2d043fbc6a8487ccbe153ddc1b65eb74eea6015a7e2068",
+      "facts": ["Attachment metadata carries the native agent-host target ID", "Flat child sessions belong to the original root session", "Type filter entries exclude unmatched target types"]
+    },
     {
       "url": "https://developer.android.com/develop/ui/views/layout/webapps/debug-chrome-devtools",
       "facts": ["WebView debugging is enabled by the application", "The setting applies to all application WebViews"]
@@ -146,6 +170,22 @@
     "ui_callback_fault_isolated": true,
     "installed_framework_verified": false
   },
-  "remaining": ["typed automation routing with isolated frame backend", "frame and transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding qualification"],
+  "frame_graph": {
+    "state": "private_metadata_graph_and_session_routing_packaged",
+    "frame_limit": 32,
+    "session_limit_including_root": 64,
+    "lifetime_child_session_ids": 256,
+    "ancestry_depth_limit": 32,
+    "sources": "recursively_auto_attached_related_iframe_targets_only",
+    "join_proof": ["original_source_session", "native_frame_and_parent_ids", "stable_loader", "ancestry_reaches_proven_root"],
+    "public_identity": "opaque_frame_and_document_aliases_only",
+    "parent_navigation_retires_descendant_refs": true,
+    "short_load_without_commit_retains_document": true,
+    "raced_metadata_reads": "discard_then_bounded_read_only_refresh",
+    "arbitrary_target_attachment": false,
+    "world_execution_enabled": false,
+    "provider_qualified": false
+  },
+  "remaining": ["typed automation routing with isolated frame execution", "trusted frame owner and transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding and frame qualification"],
   "android_automation_enabled": false
 }

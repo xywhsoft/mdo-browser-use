@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E52)
+## Complete development host APK (E46/E56)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,321,473 bytes, SHA-256
-`b624a7964dd7355f52df9f7283a392296a6bef9567323949f2eb315e01bb0719`.
+Current APK: 6,333,761 bytes, SHA-256
+`6b4914e0cf9d8fbe1aad723cd1925a66c1508a2777bb375a1b33d107c80f991e`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E52-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E52-python-full.log` (162/164 pass, two existing symlink skips).
+`.mdo/E56-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E56-python-full.log` (162/164 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -273,7 +273,7 @@ If the context cannot be proven or the channel is lost, the small private value
 may remain until document replacement. JavaScript lexical slots cannot be
 deleted by normal code, so empty names also remain; compiled source may remain
 under engine GC control.
-Bound declarations to 16 per marker generation rather than reloading a page or
+Bound declarations to 16 per native document rather than reloading a page or
 growing these slots without limit. Do not reset that counter by recreating an
 adapter in the same document. Keep at most 16 queued/retained native callbacks
 across adapters. A provider may retain its callback even after throwing or
@@ -1782,3 +1782,40 @@ still under development. `android_automation_enabled`, installed framework and
 provider qualification remain false. The 107 registry and 167 worker checks use
 actual Java controllers/binding/strict JNI with doubled Android UI and synthetic
 protocol peers; they are not real-device passes. Keep the user's current WebView.
+
+### Native frame graph and process-session routing (E56)
+
+The private binding now routes explicit child sessions through the same strict,
+single-worker dispatcher. Only the owned native controller admits sessions;
+Agent/page callers cannot choose raw frame, target, session or context IDs.
+Root-context lifetime checks remain separate from child execution-context events.
+
+`MdoBrowserCdpFrames` reconstructs one WebView's hierarchy using `Page.getFrameTree`
+from each recursively auto-attached related iframe source. The pinned Chromium
+implementation omits non-local children from each renderer's snapshot. A child
+source's native target/frame ID and parent must join an existing frame inside
+the original auto-attachment source's subtree. The root frame and loader remain
+bound to the native-view proof. URLs, titles and opener hints are not proofs.
+Type-filter attachment to workers, unrelated ancestry, ambiguous sources,
+duplicate IDs, malformed trees and reused session IDs are rejected.
+
+Bound 32 frames, 64 sources including the root, 256 lifetime child-session IDs
+and ancestry depth 32. Publish opaque `f0`/`f-UUID` and `fd-UUID` aliases, retaining
+native IDs/loaders privately. A committed document/open event replaces its
+document identity and retires descendant references immediately; subtree detach
+also fences references before final removal. Process swap and reverse migration
+cannot reuse old document refs. Loading without a document commit temporarily
+blocks routing while preserving a proven unchanged loader/document afterward.
+Queued traffic from retired sessions is drained by the dispatcher, never handed
+to another owner. Discard raced metadata replies and bound read-only refresh;
+never replay an effect. Missing/empty loader identities cannot admit a route.
+
+This stage is metadata only: inventory continues to report `isolated:false`.
+It adds no page execution or Browser Use admission path, no arbitrary target
+attachment, universal-origin permission, browser-wide discovery or debug switch.
+The next stage must prove/create each exact frame's isolated unique context,
+then connect fixed execution/owner/transfer operations and activation policy.
+The frame gate exercises the actual Java graph, worker, binding, dispatcher and
+strict JNI reader with 172 checks, doubled Android UI and synthetic protocol peers; it does
+not qualify an installed provider. Preserve the current WebView and deferred
+phone, and keep global Android automation disabled.

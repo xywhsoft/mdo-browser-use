@@ -36,7 +36,9 @@ public final class CdpBindingProbe {
         try{return result.get(2,TimeUnit.SECONDS);}finally{Handler.drain();}
     }
     static final class Factory implements MdoBrowserCdpBinding.Factory {
+        interface Extra {boolean send(JSONObject request,Wire wire)throws Exception;}
         final WebView owned;final List<Wire> wires=new ArrayList<>();
+        Extra extra;
         boolean ignoreUnique,wrongProof,cleanupFails,missingUnique,emptyFirst,loseContext,failOpen,changedLoader,unsupportedLexical;
         Factory(WebView owned){this.owned=owned;}
         public MdoBrowserCdpBinding.Peer open(String id,int timeout,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException {
@@ -45,17 +47,20 @@ public final class CdpBindingProbe {
             MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,current,events,()->System.nanoTime()/1000000L);
             return new MdoBrowserCdpBinding.Peer(){
                 public JSONObject call(String method,JSONObject params,int wait)throws IOException{return session.call(method,params,null,wait,false);}
+                public JSONObject call(String method,JSONObject params,String child,int wait,boolean effect)throws IOException{return session.call(method,params,child,wait,effect);}
+                public void admitChild(String child)throws IOException{session.admitChild(child);}
+                public void retireChild(String child)throws IOException{session.retireChild(child);}
                 public void close(){session.close();}
             };
         }
         void balanced(){for(Wire wire:wires){check(wire.closed.get());check(!wire.otherSawName);wire.cleared();}}
     }
-    private static final class Wire implements MdoBrowserCdpSession.Wire {
+    static final class Wire implements MdoBrowserCdpSession.Wire {
         final Factory factory;final String id;final AtomicBoolean closed=new AtomicBoolean();
         final ArrayDeque<byte[]> replies=new ArrayDeque<>();final List<byte[]> packets=new ArrayList<>(),sent=new ArrayList<>();
         boolean otherSawName,proofRead;int frameQueries,cleanupAttempts;
         Wire(Factory factory,String id){this.factory=factory;this.id=id;}
-        private void queue(JSONObject value){replies.add(value.toString().getBytes(StandardCharsets.UTF_8));}
+        void queue(JSONObject value){replies.add(value.toString().getBytes(StandardCharsets.UTF_8));}
         private JSONObject result(String type,Object value)throws Exception{
             JSONObject result=new JSONObject().put("type",type);if(value!=null)result.put("value",value);return new JSONObject().put("result",result);
         }
@@ -63,6 +68,7 @@ public final class CdpBindingProbe {
             sent.add(data);
             try {
                 JSONObject request=new JSONObject(new String(data,StandardCharsets.UTF_8));int sequence=request.getInt("id");
+                if(factory.extra!=null&&factory.extra.send(request,this))return;
                 String method=request.getString("method");JSONObject params=request.getJSONObject("params"),reply=new JSONObject();
                 if("Runtime.enable".equals(method)) {
                     if(!("empty".equals(id)&&factory.emptyFirst)) {

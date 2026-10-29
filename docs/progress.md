@@ -5422,3 +5422,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   transfer semantics, activation/profile qualification and remaining physical,
   visual/lifetime/full requirement audit are still outstanding; goal active.
 
+## E56 — package native frame graph and related process-session routing
+
+- Verify/pin Chromium 138's protocol schema, renderer frame tree, native frame
+  target identity and related-target attachment implementation. Each renderer
+  omits remote children from its own snapshot. Reconstruct the owned WebView's
+  hierarchy from recursively auto-attached iframe sources, joining exact native
+  frame/parent/loader identities inside the original source's subtree. No URL,
+  title, opener, browser-wide discovery or arbitrary target attachment is used.
+- Extend the private binding with explicit session/effect routing, trusted
+  session admission/retirement and one worker-owned frame controller. Keep root
+  context lifetime checks separate from admitted child-context events. Publish
+  opaque frame/document aliases, with private native IDs and pinned ancestry.
+  Bound 32 frames, 64 sources including root, 256 lifetime child-session IDs,
+  depth 32 and metadata refresh rounds under the original operation deadline.
+- Fence references on document commit/open, subtree detach, process swap and
+  reverse migration. A parent commit invalidates descendant references even if
+  descendants have not delivered their detach yet. Block routes through loading
+  or unproven ancestors. Preserve a nonempty unchanged loader/document over a
+  short loading interval without a commit. Retired-session traffic is drained,
+  never redirected; raced metadata responses are discarded before bounded
+  read-only refresh. Never reconnect/replay a native effect within a job.
+- Actual Java graph/worker/binding/dispatcher/strict JNI tests pass 172 checks:
+  nested process trees with omitted remote anchors, stable aliases, private-ID
+  nonexposure, parent/target/source mismatch, wrong target type, duplicate nodes,
+  limits/depth, empty loaders, queued loading races, source detach during a read,
+  bidirectional process migration, stale ancestry, early subtree retirement,
+  old-session traffic/reuse and UI-thread rejection. Retained 167 worker, 107
+  registry, 474 binding, 4,303 dispatcher, 138 JNI-worker, 1,141 WebSocket and 310
+  discovery checks pass (`.mdo/E56-frames.log`, native receipt). Android UI and
+  protocol peers remain doubled/synthetic; this is not a provider/device pass.
+- Stop/apply reviewed Java overlays and build the complete Android host using
+  the same ARM64 engine/N5 app archive and persistent QA signer. APK: 6,333,761
+  bytes, SHA-256
+  `6b4914e0cf9d8fbe1aad723cd1925a66c1508a2777bb375a1b33d107c80f991e`
+  (`.mdo/E56-android-build.log`, adjacent verified receipt). Real SDK/D8 native
+  frame class definitions, package/manifest/signatures/payload/ABI checks pass.
+  Full Python regression passes 162/164 with two existing symlink skips, in
+  54.950 s (`.mdo/E56-python-full.log`). Source/native overlays match reviewed
+  inputs; the single development service is healthy, HTTP 200, 3,417.7 MiB.
+- Keep frame inventory `isolated:false` and Android automation disabled. This
+  stage performs metadata only; exact isolated unique-context execution, fixed
+  shared frame operations, native owner/input/transfer integration and debug/
+  profile activation remain, together with the physical/visual/lifetime/full
+  completion audit. Preserve current WebView, deferred phone and formal data;
+  no model calls, external page tests or publication. Goal remains active.
+

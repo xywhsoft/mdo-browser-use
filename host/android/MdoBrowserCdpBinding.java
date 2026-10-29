@@ -20,6 +20,11 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     interface Targets {List<String> discover(int timeoutMs) throws IOException;}
     interface Peer extends AutoCloseable {
         JSONObject call(String method,JSONObject params,int timeoutMs) throws IOException;
+        default JSONObject call(String method,JSONObject params,String child,int timeoutMs,boolean effect)throws IOException {
+            if(child!=null||effect)throw new IOException("cdp_session_routing_unsupported");return call(method,params,timeoutMs);
+        }
+        default void admitChild(String child)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default void retireChild(String child)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
     interface Factory {Peer open(String target,int timeoutMs,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException;}
@@ -27,6 +32,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession session=MdoBrowserCdpSession.open(target,timeout,current,events);
         try {return new Peer(){
                 public JSONObject call(String method,JSONObject params,int wait) throws IOException{return session.call(method,params,null,wait,false);}
+                public JSONObject call(String method,JSONObject params,String child,int wait,boolean effect)throws IOException{return session.call(method,params,child,wait,effect);}
+                public void admitChild(String child)throws IOException{session.admitChild(child);}
+                public void retireChild(String child)throws IOException{session.retireChild(child);}
                 public void close(){session.close();}
             };
         }catch(RuntimeException|Error failure){session.close();throw failure;}
@@ -68,7 +76,8 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         volatile boolean dirty;boolean unsupported;Context armed;volatile MdoBrowserCdpSession.Events forward;
         public void event(String method,String session,JSONObject params) throws IOException {
             try {
-                if(session!=null)throw problem("cdp_binding_context_invalid");
+                if(session!=null){MdoBrowserCdpSession.Events childReceiver=forward;
+                    if(childReceiver==null)throw problem("cdp_binding_context_invalid");childReceiver.event(method,session,params);return;}
                 if("Runtime.executionContextCreated".equals(method)) {
                     JSONObject value=params.getJSONObject("context");Object number=value.get("id");
                     if(!(number instanceof Integer)||((Integer)number)<=0||!seen.add((Integer)number)||seen.size()>256)throw problem("cdp_binding_context_invalid");
@@ -95,6 +104,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }
     }
     private final Peer peer;private final MdoBrowserCdpMarker.Lease lease;private final Contexts contexts;
+    private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     final String rootFrame,rootLoader,uniqueContext;final int contextId;
     private MdoBrowserCdpBinding(Peer peer,MdoBrowserCdpMarker.Lease lease,Contexts contexts,Context root) {
@@ -197,9 +207,24 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         if(used<0||used>timeout-10)throw problem("cdp_binding_timeout");return (int)Math.min(5000,timeout-used);
     }
     JSONObject call(String method,JSONObject params,int timeoutMs) throws IOException {
-        if(!lease.current()||contexts.dirty){close();throw problem("cdp_binding_owner_changed");}
+        current();
         return peer.call(method,params,timeoutMs);
     }
+    void current()throws IOException {
+        if(Thread.currentThread()!=owner)throw problem("cdp_wrong_worker");
+        if(closed.get()||!lease.current()||contexts.dirty){close();throw problem("cdp_binding_owner_changed");}
+    }
+    JSONObject call(String method,JSONObject params,String child,int timeoutMs,boolean effect)throws IOException {
+        current();return peer.call(method,params,child,timeoutMs,effect);
+    }
+    void admitChild(String child)throws IOException {current();peer.admitChild(child);}
+    void retireChild(String child)throws IOException {current();peer.retireChild(child);}
+    void observe(MdoBrowserCdpSession.Events controller)throws IOException {
+        current();if(controller==null||controllerInstalled)throw problem("cdp_controller_busy");controllerInstalled=true;
+        MdoBrowserCdpSession.Events original=contexts.forward;
+        contexts.forward=(method,session,params)->{if(original!=null)original.event(method,session,params);controller.event(method,session,params);};
+    }
+    MdoBrowserCdpFrames frames()throws IOException {current();if(frames==null)frames=new MdoBrowserCdpFrames(this);return frames;}
     @Override public void close(){if(closed.compareAndSet(false,true)){
         contexts.forward=null;contexts.dirty=true;lease.untrack(this);lease.untrack(peer);peer.close();
     }}
