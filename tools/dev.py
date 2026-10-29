@@ -13,6 +13,8 @@ import subprocess
 import sys
 import time
 
+from android_tooling import regular_bytes
+
 ROOT = Path(__file__).resolve().parents[1]
 ENV = ROOT / ".mdo"
 SOURCE = ENV / "source"
@@ -227,7 +229,7 @@ def status() -> None:
         code, _, _ = request("GET", "/api/v1/bootstrap")
     except OSError:
         code = 0
-    size = sum(p.stat().st_size for p in ENV.rglob("*") if p.is_file())
+    size = regular_bytes(ENV)
     print(json.dumps({"pid": current.get("pid"), "port": current["port"],
                       "http_status": code, "deployment_mib": round(size / 1048576, 1),
                       "source_commit": current["source_commit"]}, indent=2))

@@ -4935,3 +4935,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   WebView/user data and the N4 Windows pair, and leave the full goal active with
   the previous Android/physical-transport/visual/lifetime verification gaps.
 
+## E44 — prepare a bounded native Android compiler in the existing deployment
+
+- Add optional `tools/setup_android_client.py --native`, using the pinned SDK
+  lock and existing WSL JDK. Keep default setup limited to API/build-tools;
+  preserve an already installed native compiler on subsequent default runs.
+  No browser, additional source/Home tree or application runtime dependency is
+  installed. Preserve the current phone WebView as requested.
+- Bound each download by its locked size, verify its SHA-1 and record SHA-256,
+  preflight ZIP entry/expanded-byte budgets, and publish without overwriting an
+  existing cache entry. Interrupted/foreign partials and replacements are
+  preserved. Reuse the pinned installer's path/symlink extraction checks.
+- Install NDK 30.0.16248370 from the 738,633,529-byte locked Linux archive.
+  Tooling occupies 2,486.1 MiB including the existing API/build-tools. Verify
+  compiler identity/version and hashes in `.mdo/android-client-tools/native-receipt.json`.
+  Both default and native setup reruns finish with zero download bytes and
+  retain `ndk_installed: true` (`.mdo/E44-tools-reuse.log`).
+- Reproduce Windows status failure on an NDK Linux symlink exposed as a regular
+  reparse file. Account for regular files without following links, junctions or
+  reparse files. The same deployment returns HTTP 200 again and its status
+  reports 3,371.0 MiB (`.mdo/E44-status-final.log`).
+- Pass eight archive/accounting tests on Windows and WSL, including bounded
+  failures, preserved foreign entries/replacements, cache reuse and Windows
+  reparse-point traversal (`.mdo/E44-tooling-tests-final.log`,
+  `.mdo/E44-tooling-tests-wsl-final.log`). These are build-tool checks, not a full
+  Android host build or device qualification. Build the actual ARM64 host and
+  separate development APK next; keep all previous qualification gaps open.
+
