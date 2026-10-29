@@ -1020,6 +1020,14 @@ never trigger automatic assignment replay. The original frame/channel coordinato
 and physical data-owner lifecycle still need joining; automatic Android assignment
 and framework qualification remain false.
 
+E71 provides fixed native worker steps for the original frame/world's private
+picker: prepare/open/status/commit/dispose. It pins the original unique context
+and binding across steps; only its fixed opening expression uses user gesture.
+Its private nonce and object pins have no JSON/Agent command route. Immutable
+native receipts preserve a completed/partial handoff after a lost worker reply
+without replaying it. The UI/Android callback/data-owner coordinator still needs
+joining; these internal steps do not enable public Android file assignment.
+
 ## Intercepted file pickers
 
 The Windows dispatcher acknowledges native interception before Agent input. A

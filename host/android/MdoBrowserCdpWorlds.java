@@ -28,6 +28,12 @@ final class MdoBrowserCdpWorlds {
         final MdoBrowserCdpFrames.Route route;final Context context;
         World(MdoBrowserCdpFrames.Route route,Context context){this.route=route;this.context=context;}
     }
+    /** Native object pin, never serialized. Short upload steps must not create
+     * or adopt a replacement realm even when its frame/loader looks identical. */
+    static final class Pin {
+        private final MdoBrowserCdpWorlds owner;private final World world;
+        private Pin(MdoBrowserCdpWorlds owner,World world){this.owner=owner;this.world=world;}
+    }
     private final MdoBrowserCdpBinding binding;private final MdoBrowserCdpFrames frames;
     private final Map<String,Context> contexts=new HashMap<>();private final Set<String> seen=new HashSet<>(),qualified=new HashSet<>();
     private final Map<String,World> worlds=new HashMap<>();
@@ -124,13 +130,39 @@ final class MdoBrowserCdpWorlds {
         }catch(JSONException error){throw problem("cdp_world_metadata_invalid");}
     }
     JSONObject evaluate(MdoBrowserCdpFrames.Route route,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        validateScript(expression);
+        prepare(route,deadline);return evaluateWorld(worlds.get(route.frame),expression,effect,false,deadline);
+    }
+    Pin pin(MdoBrowserCdpFrames.Route route)throws IOException {
+        World world=worlds.get(route.frame);if(!active(world)||!world.route.document.equals(route.document))throw problem("cdp_world_context_changed");
+        return new Pin(this,world);
+    }
+    void validate(Pin pin)throws IOException {
+        if(pin==null||pin.owner!=this||worlds.get(pin.world.route.frame)!=pin.world||!active(pin.world))throw problem("cdp_world_context_changed");
+        guard(pin.world.route,pin.world.context);
+    }
+    JSONObject evaluatePinned(Pin pin,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        validateScript(expression);
+        validate(pin);JSONObject result=evaluateWorld(pin.world,expression,effect,false,deadline);validate(pin);return result;
+    }
+    JSONObject openPicker(Pin pin,String key,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        if(key==null||!key.matches("up-"+MdoBrowserCdpFrameChain.UUID))throw problem("cdp_upload_request_invalid");
+        validate(pin);
+        String expression="(p=>{const b=globalThis.__mdo_browser_use_upload_picker_v1;return b&&b.documentNode===document?b.open(p):{ok:false,error:{code:'upload_picker_runtime_unavailable'}};})({key:"+JSONObject.quote(key)+"})";
+        JSONObject result=evaluateWorld(pin.world,expression,true,true,deadline);validate(pin);return result;
+    }
+    private static void validateScript(String expression)throws IOException {
         if(expression==null||expression.isEmpty()||expression.length()>SCRIPT_LIMIT||expression.getBytes(StandardCharsets.UTF_8).length>SCRIPT_LIMIT)
             throw problem("cdp_world_script_invalid");
-        prepare(route,deadline);World world=worlds.get(route.frame);if(!active(world))throw problem("cdp_world_context_changed");
+    }
+    private JSONObject evaluateWorld(World world,String expression,boolean effect,boolean pickerGesture,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        if(!active(world))throw problem("cdp_world_context_changed");MdoBrowserCdpFrames.Route route=world.route;
         try{
             // DOM readers necessarily invoke DOM accessors; throwOnSideEffect
             // is used for the fixed capability probes only, never as a policy.
-            JSONObject reply=call(route,world.context,"Runtime.evaluate",evaluation(expression,world.context.unique,false,deadline),effect,deadline);
+            JSONObject params=evaluation(expression,world.context.unique,false,deadline);
+            if(pickerGesture)params.put("userGesture",true);
+            JSONObject reply=call(route,world.context,"Runtime.evaluate",params,effect,deadline);
             Object value=byValue(reply);
             JSONObject result=new JSONObject().put("ok",true).put("frame",route.frame).put("frame_document",route.document).put("value",value);
             if(result.toString().getBytes(StandardCharsets.UTF_8).length>RESULT_LIMIT)throw problem("cdp_world_result_limit");guard(route,world.context);return result;

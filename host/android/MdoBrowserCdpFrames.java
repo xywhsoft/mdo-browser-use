@@ -247,6 +247,16 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     JSONObject evaluate(String frame,String document,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         Route route=select(frame,document);refresh(deadline);validate(route);return worlds.evaluate(route,expression,effect,deadline);
     }
+    MdoBrowserCdpWorlds.Pin pinWorld(String frame,String document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        Route route=select(frame,document);refresh(deadline);validate(route);return worlds.pin(route);
+    }
+    void validateWorld(MdoBrowserCdpWorlds.Pin pin,MdoBrowserCdpWorker.Deadline deadline)throws IOException {refresh(deadline);worlds.validate(pin);}
+    JSONObject evaluatePinned(MdoBrowserCdpWorlds.Pin pin,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        refresh(deadline);return worlds.evaluatePinned(pin,expression,effect,deadline);
+    }
+    JSONObject openPrivatePicker(MdoBrowserCdpWorlds.Pin pin,String key,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        refresh(deadline);return worlds.openPicker(pin,key,deadline);
+    }
     JSONObject owner(String action,String frame,String document,JSONObject point,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         if(!("owner".equals(action)||"upload_policy".equals(action)||"capture_owner".equals(action)))throw problem("cdp_owner_action_invalid");
         JSONObject position=null;

@@ -6087,3 +6087,57 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   lifecycle and conservative lost-effect recovery. Android downloads/profile/
   activation/installed-provider/main-UI gates and Windows realm/intermittent input
   diagnostics remain. Goal stays active and Android automation/debug admission off.
+
+## E71 — execute private upload steps in their original native frame world
+
+- Add a native-only fixed upload worker component with immutable original local
+  document/ref/frame-chain/file manifest and original monotonic lease. Inspect
+  the actual native file node and parent policy before/after preparation. Return
+  only minimal step state; hand the nonce/mode to the original UI as a private
+  native object, never JSON/Agent parameters, raw script or native IDs/paths.
+- Pin the exact world manager/world object/unique context/native route and bind
+  later steps to the same original connection/worker. Never create or adopt a
+  replacement realm for status, assignment or cleanup. Foreign-worker/binding
+  attempts cannot poison the surviving operation. Preserve existing unique-ID
+  negative proofs and ordinary evaluation behavior. Only the fixed private
+  opening expression uses `userGesture:true`; no caller flag can request it.
+- Disarm native chooser event reporting after pinning the original target and
+  before private opening. Keep open/assignment once-only, pending selection a
+  bounded status wait, and partial synthetic-event results distinct from full
+  verification. Retain possible-effect flags after time, native clock, ownership,
+  realm or result loss. Cleanup ignores transient staging expiry/disabled
+  ancestors but still requires the original realm, with no fake confirmation.
+- Preserve immutable native handoff and cleanup receipts. Caller JSON mutation
+  cannot change them; a handoff followed by worker timeout remains inspectable
+  without another protocol call or effect. E70's original data grant must be
+  adopted by the future UI coordinator before commit and retained on uncertainty.
+  Generic worker exceptions retire bindings: attempt cleanup in the original
+  operation when possible, without reconnecting to replace a lost world.
+- Actual JNI/strict JSON/worker/graph/world/owner/chooser path passes 1,530 new
+  private-upload assertions (`.mdo/E71-native-complete.log`), including five native
+  frame routes, nonce/gesture isolation, source/realm/deadline/clock changes,
+  partial results, activation/cleanup faults, pending selection, original receipt
+  recovery and no effect replay. Existing dispatcher 4,310, graph 172, worlds 539,
+  owners 451, command grammar 49, input 315, capture 161, file inspection 625 and
+  chooser 1,624 checks pass, alongside ASan/UBSan native transport gates and API 26
+  compilation. DOM/provider peers are synthetic; no original Android callback or
+  URI/renderer assignment is joined and framework/provider qualifications stay
+  false. Initial fixture compilation and unarmed-event assertions are retained in
+  `.mdo/E71-native-initial.log`/`.mdo/E71-native-review.log`; final full gate passes.
+- Stop/apply reviewed overlays and include the real worker/Ready/Receipt/world
+  Pin classes in SDK/DEX/input-fingerprint verification. Full SDK/D8/DEX/ABI/app
+  payload/private-provider/alignment/v2/v3 signature checks pass
+  `.mdo/E71-android-build.log`: full development APK 6,382,913 bytes, SHA-256
+  `b4d9d33a914aa653fa98cd0d0ac56819f599109f51478a32dc6bf7c34c4bb981`.
+  Reuse unchanged verified Windows program/plugin. JS passes 319/319 in 19.819 s;
+  Python 167/169 with two existing symlink skips in 64.158 s
+  (`.mdo/E71-node-full.log`, `.mdo/E71-python-full.log`). Restore the same service.
+- Still join the original native view/channel/epoch/action/file-source owner,
+  Android callback, data retention and lifecycle, exact admission while ordinary
+  input is fenced, early callback ordering and original chooser cancellation.
+  Cleanup/gone/uncertain lifetime decisions must preserve potentially consumed
+  data without replay. Android downloads/profile/activation/installed-provider/
+  main-UI gates and Windows realm/intermittent input work remain. Goal stays
+  active; no phone/provider/formal data changes, model calls, external page
+  operations, extra app/Home/source copies or online release. Android automation
+  and debugging admission remain off.

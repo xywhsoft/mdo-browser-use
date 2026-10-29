@@ -13,19 +13,20 @@ Native file choosers also have bounded original-callback retention, listing and
 cancellation. A private native staging/URI backend and human document picking
 are implemented. E69 adds a native nonce/original-callback/file-lease gate and
 E70 adds native assigned-data retention independent of transient input leases.
-The DOM/frame verifier and complete upload coordinator are not joined yet.
+E71 joins the original native frame/world verifier to fixed private picker
+steps. The UI/callback/data-owner upload coordinator is not joined yet.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E70)
+## Complete development host APK (E46/E71)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,378,817 bytes, SHA-256
-`460157be0689c35ada10d990f6c9ab9db8205b242e055509035be0153d957ae5`.
+Current APK: 6,382,913 bytes, SHA-256
+`b4d9d33a914aa653fa98cd0d0ac56819f599109f51478a32dc6bf7c34c4bb981`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2423,3 +2424,74 @@ proofs still need joining. Android automation/debug admission remains false;
 keep installed-provider/main-UI/activation/profile/URI checks unqualified until
 device verification is possible. Windows realm/intermittent-input work and
 Android downloads remain open. No phone, provider, formal data or release change.
+
+### Fixed private picker steps in the original native world (E71)
+
+`MdoBrowserCdpUpload` now supplies the native UI coordinator with immutable,
+worker-only prepare/open/status/commit/dispose steps. Snapshot the original local
+file-input ref/document, native frame chain and complete file manifest. Inspect
+the actual native node and ancestor upload policy before preparation and inspect
+again before giving the UI its private nonce/mode. The nonce is a native `Ready`
+object field, never part of the ordinary result, JSON command grammar or Agent
+request. No caller supplies a script, activation flag, native context/node ID,
+URI or device path to this component.
+
+A native world `Pin` binds the exact world manager, immutable frame route,
+original world object and unique context. Every later step uses that original
+binding/worker/realm and native parent/chain guards, without creating a world or
+adopting another connection. Equal aliases/loader-looking metadata are not a
+replacement proof. Wrong-worker/connection attempts cannot mutate a surviving
+operation. Execution remains by unique context after the existing negative
+capability proof. Only the fixed native `open` expression uses `userGesture:true`;
+ordinary frame evaluation, installation, status, commit and cleanup do not.
+
+After the original target is pinned, disarm native chooser event reporting before
+opening the private picker, so its event is not a second original page candidate.
+The Android callback itself is still a separate UI responsibility. Open and
+assignment are once-only; a not-yet-selected input is only a bounded status wait.
+Preserve partial synthetic-event handoff results and possible effects after any
+lost/invalid reply, cancellation, native clock regression, original deadline,
+frame/parent change or world loss. Cleanup ignores expired staging/disabled
+ancestors, but still requires the original binding and world: no reconnect,
+replacement-world cleanup or invented confirmation is allowed. Its successful
+receipt is immutable and idempotent. An unconfirmed cleanup requires the UI
+coordinator's explicit reconciliation, not automatic assignment replay.
+
+The final handoff result is also retained as an immutable native `Receipt` before
+the worker can lose its completion. The original UI can read a fresh JSON copy
+without dispatching anything; later confirmed cleanup updates only its cleanup
+flag. A successful handoff followed by worker timeout therefore has one actual
+commit and a readable original result. This receipt grants no file permission
+and cannot restore a lost owner. The UI must adopt E70's exact data grant before
+submitting commit and preserve it when dispatch or reply is uncertain.
+
+`.mdo/E71-native-complete.log` passes the existing real JVM/JNI/strict JSON/
+worker/graph/world/owner/input/capture/file/chooser gates, plus 1,530 private
+upload-step assertions. These cover five root/local/related iframe routes,
+complete and partial results, native-only nonce/gesture, metadata/activation
+errors, failed cleanup, pending selection, duplicate effect refusal, wrong
+thread/binding, original deadline and clock loss, parent/context changes and
+lost assignment replies. Native protocol DOM behavior is synthetic; the original
+Android callback, URI consumer and renderer file assignment are **not joined or
+qualified** by this test. ASan/UBSan transport gates and Android API 26 compilation
+pass. No new runtime dependencies, app/Home/source copies or browser installs.
+
+Actual SDK/D8/DEX/ABI/app payload/private-provider/alignment/v2/v3 signature checks
+pass `.mdo/E71-android-build.log`; see the current complete APK above. JS passes
+319/319 in 19.819 s and Python 167/169 in 64.158 s, with two existing Windows
+symlink-privilege skips (`.mdo/E71-node-full.log`, `.mdo/E71-python-full.log`).
+Windows executable and paired plugin remain unchanged after archive verification;
+the same headless service is restored.
+
+Next join the original UI view/channel/epoch/action/file-source owner and retained
+Android callback to these steps, including the exact own-operation admission
+while ordinary input is fenced, early native callback ordering, original chooser
+cancellation, data-owner lifecycle and conservative cleanup/lost-reply recovery.
+A coordinator should attempt fixed cleanup in the original worker operation
+before propagating a step failure when possible: the generic worker retires a
+binding on an escaping exception. A replaced/lost realm must never be recreated
+to clean up an old operation. Native partial/gone/uncertain cases still require
+explicit UI lifetime decisions that preserve possibly consumed file bytes.
+Overall Android automation/debug admission stays false. Installed provider/main
+UI/profile/activation/URI behavior, Android downloads and Windows realm/input
+diagnostics remain open; the user has deferred phone verification.
