@@ -5087,3 +5087,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   before handing out current artifacts. Keep the user's deferred device/current
   WebView, visual/physical transport and broader lifetime/OOM scope unqualified.
 
+## F21 — refresh and verify both development artifacts with UI wakeup
+
+- Pack the current reviewed application in place, preserving/restoring QA
+  inputs and source hashes. Windows N5 contains 750 verified files including
+  the private C notifier/header, authenticated live decoder, serialized poll
+  pump and shell binding. Keep the same native host and paired 22-file plugin.
+- Windows development program: 6,881,951 bytes, SHA-256
+  `c618d7e990d5c7d178de2ad10325ddf72daca3763cc7e8cce0ab86a418ea218c`.
+  All ten actual packed-program checks pass, including same-Home archive boot,
+  installed/source/host plugin equality, default workspace review, real C/JS/
+  native observation/input/capture and network-error navigation recovery.
+  Evidence: `.mdo/F21-win-build.log`, `.mdo/F21-win-runtime.log` and adjacent
+  inventory/runtime receipt. No source copy or intervening service start is used.
+- Extract that exact N5 archive for the complete Android development host
+  (lite tool edition), reusing the E45 ARM64 library and existing QA signer.
+  APK: 6,292,801 bytes, SHA-256
+  `04dd7dbf1fb2a11305edcfb971e701057fb6ab573cef667862fe884254a9d66c`.
+  Native/app byte hashes, actual host DEX classes, compiled private provider,
+  package identity, ARM64/16 KiB layout, ZIP alignment and signatures pass.
+  Its receipt's source archive equals the Windows artifact exactly. Evidence:
+  `.mdo/F21-android-build.log` and adjacent APK receipt. Native and Java inputs
+  are unchanged; no fresh compiler download or native rebuild is needed.
+- The paired plugin remains 246,883 bytes, SHA-256
+  `ad8c4826ed3ed03c0cfc44ddce696ab0bb88b87d9628020e427bc094dd305912`.
+  Update current artifact instructions while preserving historical receipts in
+  this progress log. Restore the single headless deployment with HTTP 200.
+  No online publication, formal app replacement or WebView change occurs.
+  Android device/framework/automation fields remain false as the user defers
+  the phone; remaining physical/visual/lifetime/OOM and full-goal work continue.
+

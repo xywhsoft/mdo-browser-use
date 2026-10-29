@@ -40,7 +40,7 @@ def owner():
 
 
 def app_archive_identity():
-    """Verify current reviewed inputs against the already exercised N4 archive."""
+    """Verify current reviewed inputs against the already exercised app archive."""
     import apply_host
     apply_host.apply(check=True)
     artifact=program.OUTPUT

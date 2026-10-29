@@ -7,9 +7,9 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,880,852 bytes**, SHA-256
-`cb8d7a111b53e587b863b6436ab9bc732a90a91356071e9565c1ae7e6cd13a4f`.
-Its native inventory contains 748 files, including runtime 19, the shared
+The current refreshed preview (N5/F21) is **6,881,951 bytes**, SHA-256
+`c618d7e990d5c7d178de2ad10325ddf72daca3763cc7e8cce0ab86a418ea218c`.
+Its native inventory contains 750 files, including runtime 19, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
 E24's shared admission guard for uncertain native dialog cleanup, plus E27's
@@ -23,6 +23,15 @@ ten runtime checks, including actual default-directory SDK review, its packed C
 header/discovery contract, connection-reset reporting and recovery
 navigation from the error card. This is
 Windows verification; Android framework qualification remains unavailable.
+
+F20 also removes the fixed queue-delivery delay while the existing authenticated
+live connection is available. A coalesced, data-free hint wakes a serialized
+read of the original UI queue; fallback polling, frozen scope and intent
+journaling remain in place. The new program includes the C notifier, live
+decoder and guarded poll pump and passes all ten packed runtime checks. The
+same local eight-cycle workload measured median observe 1,654 → 242 ms, click
+1,932 → 500 ms and capture 1,712 → 247 ms. These include HTTP/receipt polling
+and are not general production or normal-desktop visual qualification.
 
 The paired plugin is **246,883 bytes**, SHA-256
 `ad8c4826ed3ed03c0cfc44ddce696ab0bb88b87d9628020e427bc094dd305912`.
