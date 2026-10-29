@@ -23,7 +23,7 @@ Latest verified milestones:
   input/upload/permission gates pass. F14 separately verifies the real 120s
   dialog lease and full native transfer cleanup. These are scoped results,
   not a claim of exhaustive OOM/performance qualification.
-- **Artifacts F16:** the refreshed Windows executable includes F15 and passes
+- **Artifacts F16/P2:** the refreshed Windows executable includes F15/P2 and passes
   ten packed runtime checks, including paired source/installed/host runtime
   equality. Refresh a stale portable `page/runtime.js`; native import/restart/
   export verifies all 22 files, and altered paired payloads are rejected before
@@ -35,8 +35,8 @@ Latest verified milestones:
   balanced-profile/decision-API/native-effect scenarios pass, including late
   grants, replay, stale documents and subsequent-tool recovery. Complete
   regression passes 144/146 Python cases (two symlink-privilege skips) and all
-  262 JS cases. Normal-desktop prompt pixels remain unverified; the executable
-  must be refreshed to include this app C fix.
+  262 JS cases. The refreshed paired executable passes all ten actual runtime
+  checks. Normal-desktop prompt pixels remain unverified.
 - **Android E30/E31:** implement retained original popup transport through the
   existing C/JS admission flow, correct ownership-query failure, and build the
   raw popup content/lifecycle device fixture. The controller/Chrome target pass
@@ -4211,4 +4211,21 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   generated C/JS contracts match. F16 artifacts still need refresh for the new
   app C code; the portable plugin payload is unchanged. The full goal remains
   active, with the installed Android provider preserved and automation disabled.
+
+## F17 — deliver the retained permission-admission outcome fix
+
+- Rebuild in place after P2: Windows executable 6,880,340 bytes, SHA-256
+  `25fdf76e6d9cfa1dbaa931a4f51731fcebfc551503949dbde56a459396da3494`.
+  All 748 native inventory entries match; the new outcome module is included.
+  The portable plugin remains byte-for-byte equal to the reviewed source and
+  F16's paired 243,663-byte payload. No native rebuild is needed for this app C
+  change.
+- The actual packed program passes ten runtime checks, including paired plugin,
+  default-workspace SDK, C/JS/native observation, Unicode/trusted input, capture,
+  network-error reporting and explicit recovery. Both `runtime_verified` and
+  `paired_plugin_verified` are true. Logs: `.mdo/P2-program-package.log`,
+  `.mdo/P2-program-runtime.log`.
+- Restore the same healthy headless deployment, about 1,118.6 MiB. No extra Home,
+  app copy or downloaded browser is created. The artifact is a development
+  preview; no website/update publication or complete-platform claim is made.
 
