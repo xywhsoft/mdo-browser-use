@@ -44,6 +44,7 @@ python tools/dev.py start
 python tools/install.py
 python tools/dev.py stop
 python tools/dev.py start
+python tools/build_remote_bridge_probe.py
 python -m unittest discover -s tests -v
 node --test --test-concurrency=1 (Get-ChildItem tests -Filter 'test_*.mjs' -File | Sort-Object Name | Select-Object -ExpandProperty FullName)
 python tools/native_probe.py

@@ -292,6 +292,28 @@ The loopback transport gate exercises actual C admission with a held HTTP reply
 and confirms that recovery returns exactly one original browser. Authenticated
 relay/direct-device qualification is a separate remaining gate.
 
+The native bridge gate can be reproduced without a second app or Home:
+
+```powershell
+python tools/build_remote_bridge_probe.py
+node --test --test-concurrency=1 tests/test_remote_bridge.mjs
+```
+
+It compiles the production remote bridge, receipt store, HTTP loopback and socket
+code against the pinned XRT, then connects the existing development service.
+The production JS remote transport runs through the bridge over a private pipe.
+Only host-server lease lookup is supplied by the fixture; transitive account and
+Home-writing APIs fail if called. File data is synthetic, created exclusively in
+the existing QA directory and removed with its original revision. No account or
+write token is logged or saved. Source/binary hashes are checked before launch.
+
+Actual C SDK scope, multi-chunk UTF-8 transfer, JS/native read-only guards and
+lost-write recovery by original transport/Browser Use receipts are covered.
+Bridge queues/workers/uploads and host leases must drain and the XRT engine must
+stop cleanly. Synthetic peers are already authorized by the private fixture;
+this does not verify account authentication, public relay sockets, LAN/XRUDP
+negotiation, two physical devices or native browser pixels over that path.
+
 ## C and raw SDK durable submission
 
 Call `mdoBrowserUseOperation(Context, Params, &Result, &Error)`, or JS

@@ -57,6 +57,13 @@ Latest verified milestones:
   All 268 JS cases pass. Refresh the paired plugin, verify its 22-file actual
   import/export, and pass all ten packed-program checks with the current pair.
   Authenticated relay/direct-device qualification remains separate.
+- **Transport R0:** run the production JS remote adapter through the actual C
+  bridge/receipt/loopback/socket code into this deployment's C SDK. Four gates
+  verify browser/task scope, original-receipt recovery after a lost completed
+  write, both read-only guards and multi-chunk UTF-8 file bytes. All 272 JS cases
+  pass. This private-pipe fixture has a host-lease seam and preauthorized peers;
+  account authentication, physical-device paths and headed browser operations
+  still need their own evidence.
 
 ## Working boundaries
 
@@ -4282,4 +4289,40 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   no device; preserve the user's WebView and leave Android automation disabled.
   This stage delivers the tested Windows pair while the full platform/remote/
   visual/lifecycle qualification remains active.
+
+## R0 — production native remote bridge against the existing C SDK
+
+- Add one bounded component executable using the actual pinned XRT and the
+  production bridge, HTTP loopback, receipt store and socket sources. The target
+  remains the single existing mdo/Home. A narrow host-server lease seam points
+  to that loopback port; unused transitive account/Home APIs fail rather than
+  reaching an account or filesystem. Private inherited pipes authorize the
+  synthetic peers, with no listener, test backdoor or authentication claim.
+- Compile once into the existing QA directory, reusing one header/compiler/
+  flags/object-hash-checked XRT object. Record all actual compiler dependencies
+  and binary SHA-256; refuse changed inputs before probe launch. No app/native
+  source/Home copy is made. The executable is about 4 MB; no runtime dependency
+  or browser engine is added to the product.
+- Run the production JS remote transport through actual C request admission,
+  upload hashes, response flow control and receipt lookup into the existing
+  Application SDK. Verify owned browser creation, exact original operation ID,
+  foreign-task rejection, confirmed completed transport receipt after a dropped
+  reply/disconnect, recovery of exactly one original browser, and JS plus native
+  read-only rejection. Do not replay the original submit.
+- Verify a 150,000-byte synthetic UTF-8 file across multiple binary upload and
+  response frames. Create only a fixed QA file exclusively and remove it with
+  its returned revision. Retained/unrelated entries are not overwritten. All
+  bridge worker/upload/packet counters drain, every host lease retires and the
+  private XRT engine stops cleanly.
+- Initial large-frame failures expose a saturated 16-entry fixture input queue;
+  add bounded pipe backpressure rather than dropping commands. This is a test
+  harness issue, not evidence of a product bridge defect. The first exclusive
+  create attempt also used an unregistered raw SDK method; use exclusive local
+  fixture creation followed by the actual remote stat/write/read/remove APIs.
+- All four native integration cases and all 272 JS cases pass. Logs:
+  `.mdo/R0-bridge-build.log`, `.mdo/R0-bridge-runtime.log`,
+  `.mdo/R0-js-full.log`. Existing program/plugin artifacts are unchanged.
+  Normal headed Browser Use through this transport, authenticated relay/direct
+  physical-device verification, Android, visual and remaining lifecycle gates
+  remain active; the component fixture alone cannot close them.
 
