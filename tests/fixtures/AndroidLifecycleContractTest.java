@@ -106,9 +106,16 @@ public final class AndroidLifecycleContractTest {
         scaled.views.scaleChanged("tab",scaledView,9);check(Double.isNaN(scaled.views.scale("tab",zoomReplacement)),"Old view scale changed a replacement");
         scaled.views.scaleChanged("tab",zoomReplacement,2);scaled.views.scaleChanged("tab",zoomReplacement,Double.NaN);
         check(Double.isNaN(scaled.views.scale("tab",zoomReplacement)),"Invalid scale remained usable");scaled.views.close();
-        Case modal=new Case();View modalView=new View();modal.views.put("tab",modalView);modal.press(modalView);
-        modal.input(modalView).invalidate("input_dialog_open");modal.terminated("input_dialog_open");
-        check(modalView.events.equals(Arrays.asList(0,3)),"Native dialog left a held pointer");modal.views.close();
+        for(String reason:new String[]{"input_dialog_open","file_chooser_open","popup_pending"}){
+            Case modal=new Case();View modalView=new View();modal.views.put("tab",modalView);modal.press(modalView);
+            rejects(()->modal.input(modalView).invalidate("unknown_modal"));
+            check(modal.results.isEmpty()&&modal.input(modalView).busy(),"Invalid reason partially cancelled input");
+            modal.input(modalView).invalidate(reason);modal.terminated(reason);
+            check(modalView.events.equals(Arrays.asList(0,3)),"Native modal left a held pointer");
+            modal.input(modalView).invalidate(reason);check(modal.results.size()==1,"Modal cancellation completed twice");
+            modal.clock.time+=1000;modal.clock.down();check(modalView.events.size()==2,"Cancelled input replayed after modal");
+            modal.views.close();
+        }
         final boolean[] thread={false};Thread other=new Thread(()->{try{identity.views.get("tab");}catch(IllegalStateException expected){thread[0]=true;}});
         other.start();other.join();check(thread[0],"Cross-thread lifecycle admitted");
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"android_device_verified\":false}");

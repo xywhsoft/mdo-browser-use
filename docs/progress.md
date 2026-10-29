@@ -5339,3 +5339,17 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   registry/asynchronous host routing, frame/transfer semantics, activation/profile
   qualification and the broader physical/visual/lifetime/full completion audit.
 
+## E53 — fix modal native-input cancellation reasons
+
+- Found actual host chooser/popup callbacks using `file_chooser_open` and
+  `popup_pending`, while the native input sequencer rejected both before
+  cancelling held input. Admit these two existing static reasons, retaining
+  strict rejection of unknown reasons and the existing cancellation receipts.
+- Exercise the actual lifecycle/input sequencer with a held pointer for dialog,
+  chooser and popup, duplicate cancellation and delayed timer delivery. Verify
+  exactly one completion, pointer cancellation and no replay. Java 8 contract
+  gate passes: input 177, lifecycle 105, channel 22, guard 63, wheel 66 and hover
+  82 checks (`.mdo/android-input-result.json`). Android framework/device checks
+  remain false. Host overlay/APK integration follows with the lifecycle stage;
+  no formal installation, provider update or publication performed.
+
