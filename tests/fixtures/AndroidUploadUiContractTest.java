@@ -64,6 +64,8 @@ public final class AndroidUploadUiContractTest {
             rejects("upload_field_unsupported",()->executeUpload("owned","request",view,begin("bad","one",1,digest).put("path","untrusted")));
             rejects("upload_field_unsupported",()->executeUpload("owned","request",view,begin("bad","one",1,digest).put("chooser","unproved")));
             rejects("upload_assignment_unsupported",()->executeUpload("owned","request",view,object("action","assign")));
+            rejects("upload_assignment_unsupported",()->executeUpload("owned","request",view,object("action","access")));
+            rejects("upload_assignment_unsupported",()->executeUpload("owned","request",view,object("action","read")));
             manual.add("owned");rejects("upload_owner_changed",()->executeUpload("owned","request",view,request));manual.clear();
             browserPaused=true;rejects("upload_owner_changed",()->executeUpload("owned","request",view,request));browserPaused=false;
             dialog=false;rejects("upload_document_unavailable",()->executeUpload("owned","request",view,request));dialog=true;

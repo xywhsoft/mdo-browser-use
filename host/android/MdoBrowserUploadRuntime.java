@@ -24,7 +24,8 @@ final class MdoBrowserUploadRuntime {
         if(queue!=null){if(!cache.equals(nextCache)||!data.equals(nextData))throw new IllegalStateException("upload_cache_authority_changed");return queue;}
         cache=nextCache;data=nextData;final File ownedCache=nextCache,ownedData=nextData;
         final Handler ui=new Handler(Looper.getMainLooper());
-        queue=new MdoBrowserUploadQueue(()->open(ownedCache,ownedData),task->ui.post(task),SystemClock::elapsedRealtime);return queue;
+        queue=new MdoBrowserUploadQueue(()->open(ownedCache,ownedData),task->ui.post(task),SystemClock::elapsedRealtime,
+            ()->Looper.myLooper()!=Looper.getMainLooper());return queue;
     }
     private static MdoBrowserUploadFiles open(File cache,File data)throws IOException {
         try{

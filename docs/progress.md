@@ -4701,3 +4701,41 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   source/frame/chooser/provider and broader delivery qualifications remain in
   the active goal; this is the ungranted staging recovery milestone only.
 
+## E39 — native-only sealed read leases and bounded background replies
+
+- Prepare a non-serializable read lease only after full sealed record/payload
+  revalidation. Bind original store-object identity, cancellation scope,
+  ticket/file and deadline. Reuse the exact live object without extending it;
+  refuse a revoked object. Leases own no View/Activity/thread/file handle.
+  Revoke before exact-file cleanup, including cleanup failure. The public JSON
+  bridge still has no `access/read` route; add explicit refusal checks.
+- Route payload ranges through the same owning worker. Bound each request to
+  64 KiB/five seconds and the shared inbox to eight tasks. Count four unfinished
+  native reads independently of UI reply slots. Timeout/interruption drops late
+  data and retains capacity until actual worker retirement. Reject worker self-
+  wait and bind the actual Android runtime's main-Looper blocking guard. Keep
+  body replies outside UI/JSON delivery; stalled UI replies cannot leak data or
+  grow a separate unbounded read inbox.
+- Ensure an unexpected worker unwind still retires its active read waiter in
+  `finally`. Whole-queue close, scope loss/expiry, explicit revocation and file
+  replacement cannot return late bytes. Preserve a foreign replacement and its
+  reservation until exact owned cleanup is possible. A full pre-access hash
+  check refuses same-size mutation before any read object is issued.
+- Pass 318 real file/worker checks, including full ranges/EOF/zero-byte files,
+  cross-store authority, unsealed data, range/wait bounds, blocked wait contexts,
+  timed-out outcome quotas, full shared inbox, nine stalled UI receipts,
+  cancellation/expiry, interruption, close, cleanup retry and injected worker
+  Error. Evidence: `.mdo/E39-native-read-final.log`. UI scheduling is doubled;
+  this is not Android UI/FUSE/provider qualification.
+- All 99 queue, 154 recovery, 39 production-native-fragment and 44 device-fixture
+  checks pass. Logs: `.mdo/E39-upload-queue.log`, `.mdo/E39-recovery.log`,
+  `.mdo/E39-upload-ui.log`, `.mdo/E39-upload-fixture.log`. Actual pinned Activity/
+  hooks compile; tiny QA APK is 311,699 bytes, SHA-256
+  `96d53b15ce5afe775fd16d0193a883f162efb8a120fc202918076b5318348385`.
+  Evidence: `.mdo/E39-android-build.log`. Keep the current WebView and disabled
+  assignment/automation gates; Windows product files are unaffected.
+- Still implement and qualify the native seekable URI/provider adapter, original
+  chooser/source/frame binding and complete device path. No raw cache path or
+  URI is exposed by this milestone. The full goal remains active, with the
+  previous device/desktop/physical-transport verification gaps intact.
+

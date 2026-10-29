@@ -3,6 +3,8 @@
   "sources": [
     "https://developer.android.com/reference/java/nio/file/SecureDirectoryStream",
     "https://developer.android.com/reference/java/nio/file/attribute/BasicFileAttributes",
+    "https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback",
+    "https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler)",
     "https://android.googlesource.com/platform/libcore/+/51b1b6997fd3f980076b8081f7f1165ccc2a4008/ojluni/src/main/java/sun/nio/fs/UnixFileKey.java",
     "https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-constraintlayout-release/android-35/sun/nio/fs/UnixFileSystemProvider.java"
   ],
@@ -21,6 +23,9 @@
     "workers": 1,
     "queued_requests": 8,
     "unfinished_ui_deliveries": 9,
+    "unfinished_native_reads": 4,
+    "native_read_bytes": 65536,
+    "native_read_wait_ms": 5000,
     "ticket_lifetime_ms": 120000
   },
   "cache_record": {
@@ -35,6 +40,18 @@
     "payload_range_api_excludes_header": true
   },
   "native_staging_actions": ["begin", "chunk", "seal", "status", "cancel", "release"],
+  "native_read_lease": {
+    "authority": "original-native-object",
+    "serialized": false,
+    "requires_sealed_and_revalidated_payload": true,
+    "bound_to": ["store-identity", "original-scope", "original-ticket", "file-index", "original-deadline"],
+    "revoked_before_cleanup": true,
+    "worker_and_android_ui_wait_forbidden": true,
+    "timeout_retains_reservation_until_worker_retirement": true,
+    "data_uses_ui_receipts": false,
+    "wire_actions": [],
+    "proxy_descriptor_implemented": false
+  },
   "staging_scope": ["original-webview", "original-navigation", "original-native-channel"],
   "native_cache_authority": "application-context-and-uid",
   "cache_lease_required": true,

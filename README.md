@@ -319,6 +319,13 @@ New private cache files contain a bounded ownership record before their payload;
 the range API returns payload bytes only. Unknown, replaced, legacy or incomplete
 records stay untouched. This does not qualify Android process/framework behavior.
 
+`python tools/android_upload_read_probe.py` checks native-only sealed read leases
+and bounded worker reads. Leases bind original native object identities and
+deadlines; release/cancellation revoke them before file cleanup. Byte results
+use background replies with four bounded unfinished reads, not UI/JSON receipts.
+The public upload bridge rejects `access/read`. URI/proxy/chooser integration is
+still pending, and this does not enable Android automation.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

@@ -52,18 +52,27 @@ final class MdoBrowserUploadStore implements AutoCloseable {
             state=job.retired?"released":job.closing?"cleanup_pending":job.failed?"failed":sealed?"sealed":"receiving";cleanupConfirmed=job.retired;
         }
     }
+    /** Native-only object authority. Never serialized, refreshed or restored.
+     * It owns no View/Activity/thread/file handle and is revoked before cleanup. */
+    static final class ReadLease {
+        final Scope scope;final Spec file;final long expires;
+        private final Object owner;private final String ticket;private final int index;private volatile boolean revoked;
+        private ReadLease(Object owner,Job job,int index){this.owner=owner;scope=job.scope;ticket=job.id;this.index=index;file=job.specs[index];expires=job.expires;}
+        boolean live(long now){return !revoked&&scope.live()&&now>=0&&now<expires;}
+        void revoke(){revoked=true;}
+    }
     private static final class Job {
         final String id="u-"+UUID.randomUUID(),key;final Scope scope;final long expires,size;final Spec[] specs;
-        final MdoBrowserUploadFiles.Leaf[] files;final long[] received,lastOffset;final byte[][] lastHash;final int[] lastSize;
+        final MdoBrowserUploadFiles.Leaf[] files;final ReadLease[] readers;final long[] received,lastOffset;final byte[][] lastHash;final int[] lastSize;
         boolean sealed,failed,closing,retired;
         Job(Scope scope,String key,Spec[] specs,long expires){
             this.scope=scope;this.key=key;this.specs=specs.clone();this.expires=expires;
-            files=new MdoBrowserUploadFiles.Leaf[specs.length];received=new long[specs.length];lastOffset=new long[specs.length];lastHash=new byte[specs.length][];lastSize=new int[specs.length];
+            files=new MdoBrowserUploadFiles.Leaf[specs.length];readers=new ReadLease[specs.length];received=new long[specs.length];lastOffset=new long[specs.length];lastHash=new byte[specs.length][];lastSize=new int[specs.length];
             long total=0;for(Spec spec:specs)total+=spec.size;size=total;
         }
         boolean same(Spec[] values){if(values.length!=specs.length)return false;for(int at=0;at<values.length;at++)if(!specs[at].same(values[at]))return false;return true;}
     }
-    private final Thread owner=Thread.currentThread();private final MdoBrowserUploadFiles files;private final LongSupplier clock;private final Job[] jobs=new Job[TICKETS];
+    private final Thread owner=Thread.currentThread();private final Object identity=new Object();private final MdoBrowserUploadFiles files;private final LongSupplier clock;private final Job[] jobs=new Job[TICKETS];
     private boolean closed;
     MdoBrowserUploadStore(MdoBrowserUploadFiles files,LongSupplier clock){if(files==null||clock==null)throw new IllegalArgumentException("Missing upload files/clock");this.files=files;this.clock=clock;}
     private static MdoBrowserUploadFiles.Failure fail(String code){return new MdoBrowserUploadFiles.Failure(code);}
@@ -80,6 +89,7 @@ final class MdoBrowserUploadStore implements AutoCloseable {
     }
     private boolean release(Job job){
         job.closing=true;boolean clean=true;
+        for(int at=0;at<job.readers.length;at++)if(job.readers[at]!=null){job.readers[at].revoke();job.readers[at]=null;}
         for(int at=0;at<job.files.length;at++)if(job.files[at]!=null)try{job.files[at].close();job.files[at]=null;}catch(IOException|RuntimeException failure){clean=false;}
         if(clean){job.retired=true;job.lastHash[0]=null;for(int at=1;at<job.lastHash.length;at++)job.lastHash[at]=null;}
         return clean;
@@ -127,6 +137,25 @@ final class MdoBrowserUploadStore implements AutoCloseable {
     Snapshot status(Scope scope,String id,long now)throws IOException {
         thread();try{collect(now);}catch(IOException ignored){/* Preserve independently inspectable ticket state. */}
         return new Snapshot(exact(scope,id));
+    }
+    ReadLease access(Scope scope,String id,int index)throws IOException {
+        Job job=exact(scope,id);writable(job);if(!job.sealed)throw fail("upload_not_sealed");
+        if(index<0||index>=job.files.length)throw fail("upload_range_invalid");
+        ReadLease old=job.readers[index];
+        if(old!=null){if(!old.live(clock.getAsLong()))throw fail("upload_read_lease_revoked");return old;}
+        try{
+            job.files[index].verify();live(scope,job.expires);ReadLease lease=new ReadLease(identity,job,index);job.readers[index]=lease;return lease;
+        }catch(IOException|RuntimeException|Error failure){job.failed=true;release(job);throw failure;}
+    }
+    byte[] read(ReadLease lease,long offset,int limit)throws IOException {
+        active();if(lease==null||lease.owner!=identity)throw fail("upload_read_lease_invalid");
+        Job job=exact(lease.scope,lease.ticket);writable(job);
+        if(!job.sealed||job.readers[lease.index]!=lease||!lease.live(clock.getAsLong()))throw fail("upload_read_lease_revoked");
+        if(offset<0||offset>lease.file.size||limit<1||limit>MdoBrowserUploadFiles.CHUNK)throw fail("upload_range_invalid");
+        try{
+            byte[] bytes=job.files[lease.index].read(offset,limit);live(lease.scope,lease.expires);
+            if(!lease.live(clock.getAsLong()))throw fail("upload_read_lease_revoked");return bytes;
+        }catch(IOException|RuntimeException|Error failure){job.failed=true;release(job);throw failure;}
     }
     Snapshot cancel(Scope scope,String id)throws IOException {Job job=exact(scope,id);if(!release(job))throw fail("upload_cleanup_failed");return new Snapshot(job);}
     void collect(long now)throws IOException {

@@ -1187,3 +1187,58 @@ Logs: `.mdo/E38-upload-files.log`, `.mdo/E38-upload-queue.log`,
 `.mdo/E38-android-build.log`. Preserve the current WebView. Native cache authority,
 source/chooser/frame ownership, provider URI handoff, real-device qualification
 and full Android automation stay separate and unqualified.
+
+## Native sealed read leases and bounded worker replies (E39)
+
+Add a native-only `ReadLease` after full sealed-payload/record revalidation. Its
+authority is the original store object identity, original native cancellation
+scope, ticket/file and original deadline. The lease owns no Activity, WebView,
+thread or file descriptor. Repeating preparation returns the same live object;
+revocation cannot resurrect it or extend its deadline. The object is never
+serialized. The public JSON bridge still accepts only the six staging actions
+and explicitly rejects both `access` and `read`.
+
+Only the original worker can read payload ranges through that lease. Check
+scope/deadline before and after I/O; revoke leases before releasing their files,
+even if cleanup later fails. Read errors retain the existing exact-file cleanup
+and reservation rules. Bad ranges do not poison a valid lease, and original
+store identity prevents cross-instance reads. Source hashes are revalidated
+before issuing the lease, including after a same-size cache mutation.
+
+Native background callers can request at most 64 KiB with one monotonic wait
+budget of at most five seconds. The inbox stays bounded to eight shared tasks;
+four unfinished native reads are counted independently of the nine UI replies.
+Timeout/interruption abandons the result but keeps its reservation until the
+actual worker retires it. Late results are discarded. Body replies do not depend
+on UI posting or UI receipt credits, so a stalled UI cannot create an unbounded
+read-result inbox. Worker self-wait is rejected. The actual Android runtime also
+binds a Looper predicate that rejects blocking on its main thread.
+
+This is the read backend for the planned seekable, read-only native proxy
+descriptor/ContentProvider adapter. That adapter is not implemented here. The
+platform requires exact requested bytes unless EOF; it must assemble bounded
+ranges and enforce a whole-callback deadline. Closing a future FD session must
+not implicitly revoke a still-live shared file lease. URI publication,
+original chooser/source-frame proof and assignment remain unavailable. See
+[the proxy callback contract](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback)
+and [StorageManager's proxy descriptor API](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler)).
+
+`python tools/android_upload_read_probe.py` passes 318 real file/worker checks:
+payload-only ranges/EOF/zero files, unsealed refusal, immutable/native ownership,
+revocation/release/expiry, full pre-access hash verification, range/wait limits,
+UI wait gate, worker self-wait, four timed-out outcomes held until retirement,
+full shared inbox, nine stalled UI replies, interrupted readers, close during
+read, failed exact-file cleanup and an injected worker Error. Even an unexpected
+worker unwind retires its current read waiter in `finally`. UI posting is a
+double; these checks do not qualify Android's actual UI, FUSE or provider.
+Evidence: `.mdo/E39-native-read-final.log`.
+
+The 99 queue, 154 restart/recovery, 39 production-fragment and 44 device-fixture
+checks also pass. Actual pinned Activity/hooks compile. Tiny QA APK:
+311,699 bytes, SHA-256
+`96d53b15ce5afe775fd16d0193a883f162efb8a120fc202918076b5318348385`.
+Logs: `.mdo/E39-upload-queue.log`, `.mdo/E39-recovery.log`,
+`.mdo/E39-upload-ui.log`, `.mdo/E39-upload-fixture.log`,
+`.mdo/E39-android-build.log`. This is not a full Android mdo build or a real-device
+pass. Keep the current WebView, false URI/assignment/automation qualifications
+and the full development goal.
