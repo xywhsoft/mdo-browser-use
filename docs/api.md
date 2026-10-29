@@ -275,6 +275,23 @@ Recovery never creates a replacement effect. A released/previous-process result
 returns `result_expired`/`uncertain`; inspect the tab before a deliberate new
 action. Cleanup errors never replace the original action outcome.
 
+JS calls accept `{signal, timeout}` as their last options argument. The finite
+nonnegative timeout covers admission, response-body reads and all polling;
+native `params.timeout_ms` remains a separate service-side limit. The client
+passes an AbortSignal to `sdk.call(method, params, options)` and also bounds an
+adapter that ignores it. Cancellation/release uses an independent one-second
+cleanup budget on that same SDK. A lost cleanup acknowledgement cannot hide a
+known success or the original page error.
+
+If the transport stops, keep `error.operation` for durable operations or
+`error.receipt` for UI-result reads. Cancellation cannot roll back admission or
+an effect that already reached the host, and an ignored/late transport can
+remain active underneath the bounded wrapper. Recover only the original ID on
+the original bound target/task; do not resubmit or switch to the local device.
+The loopback transport gate exercises actual C admission with a held HTTP reply
+and confirms that recovery returns exactly one original browser. Authenticated
+relay/direct-device qualification is a separate remaining gate.
+
 ## C and raw SDK durable submission
 
 Call `mdoBrowserUseOperation(Context, Params, &Result, &Error)`, or JS

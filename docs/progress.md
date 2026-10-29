@@ -50,6 +50,12 @@ Latest verified milestones:
   lifetime/OOM/performance qualification and normal-desktop visual checks;
   final delivery verification. Keep the full scope active and do not infer
   completion from green component or packaged smoke checks.
+- **Transport P3:** fix the shared JS client's unbounded in-flight admission,
+  response and cleanup waits. Preserve original operation/receipt IDs and known
+  terminal outcomes; never resubmit effects. Six new gates pass, including actual
+  C admission with a held loopback HTTP reply and original-browser recovery.
+  All 268 JS cases pass. The portable plugin/program pair needs refresh for this
+  SDK update; authenticated relay/direct-device qualification remains separate.
 
 ## Working boundaries
 
@@ -4228,4 +4234,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Restore the same healthy headless deployment, about 1,118.6 MiB. No extra Home,
   app copy or downloaded browser is created. The artifact is a development
   preview; no website/update publication or complete-platform claim is made.
+
+## P3 — bounded JS admission, result reads and cleanup over a stalled transport
+
+- Find that JS deadlines/cancellation were checked only between polls. A held
+  admission/result request or release acknowledgement could keep the caller
+  pending indefinitely. Four independent regressions fail on the old SDK,
+  including one through the actual C service (`.mdo/P3-client-before.log`).
+- Apply one timer budget across admission, response reads and every poll.
+  Forward an AbortSignal and race the adapter as well, so an ignored signal
+  cannot keep the public wrapper blocked. Validate timer durations before an
+  effect. Read-only tab/result and direct operation helpers use the same bound.
+- Use a separate bounded cleanup attempt on the same SDK; an expired caller's
+  signal cannot suppress cancellation. A stalled release cannot hide an observed
+  success or original page failure, nor cause a terminal result to be cancelled.
+  Preserve durable operation and UI receipt identities on transport failure.
+  Late admission/effects remain possible; never infer rollback or resubmit.
+- Six new cases pass: ignored-abort admission, held result/deadline, stuck
+  release with success/failure, stuck cancellation acknowledgement, combined
+  admission/read budget and invalid budgets, and original recovery after a lost
+  actual C admission reply. That HTTP fixture uses the same service/Home, no
+  second app, no model/external request, and no persisted test token. It verifies
+  exactly one original browser; owned browsers/receipts are cleaned afterwards.
+- The focused SDK suite passes 13 cases and all 268 JS cases pass. Logs:
+  `.mdo/P3-client-after.log`, `.mdo/P3-js-full.log`. This qualifies the shared JS
+  boundary with an actual loopback C endpoint, not authenticated native remote
+  relay/direct transport. Refresh the paired delivery next; the full goal and
+  installed-provider/Android/visual/lifecycle qualification remain active.
 
