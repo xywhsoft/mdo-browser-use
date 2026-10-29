@@ -4525,3 +4525,43 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   authenticated physical-device transport and remaining lifetime/production
   checks stay in the active full goal.
 
+## E34 — directory-relative Android upload byte staging primitives
+
+- Add worker-confined Java staging over the platform `SecureDirectoryStream`.
+  The native caller must supply an app-private cache root; no task-host or wire
+  path is accepted. Pin the directory identity, create opaque exclusive leaves
+  without following links and refuse further admission/I/O when the root's path
+  identity changes. Preserve a replaced leaf and retain its resource reservation
+  until actual cleanup is confirmed. Unknown directory contents stay untouched.
+- Bound each file to 32 MiB, each store to 128 MiB/16 files and each chunk/range
+  to 64 KiB. Require exact sequential offsets and complete SHA-256 verification;
+  seal into a read-only channel and provide full pre-grant revalidation. A lost
+  write/seal outcome poisons the leaf rather than permitting replay. This is a
+  file primitive, not the yet-to-be-integrated ticket/URI/chooser transaction.
+- Pass 63 real filesystem assertions in `.mdo/E34-upload-files.log`: bounded
+  streaming, zero-byte files, source mismatch and same-size mutation, byte/file
+  limits, replaced files/links, changed cache identity, owner thread and cleanup
+  accounting. The WSL/NTFS provider forbids renaming a directory with an open
+  child; `open_directory_rename_verified` remains false. Android framework and
+  private native-cache authority remain unverified. Do not infer either from
+  Java compilation or these filesystem checks.
+- Preserve earlier fixture failures in `.mdo/E34-upload-files-before.log` and
+  `.mdo/E34-upload-files-drvfs.log`. The initial root-rename case exposed an
+  `ENXIO` from directory-relative WSL/NTFS I/O; cleanup conservatively retained
+  its reservation. Add the root-identity admission fence, preserve primary
+  exceptions through fixture cleanup, and use atomic rename for the controlled
+  fixture's restoration. This is not evidence about Android's actual provider.
+- Reset verification receipts before preflight, preserve unknown/interrupted QA
+  outputs, and write explicit failed receipts. An injected existing-fixture
+  guard confirms a previous pass cannot survive the failure. The attempted
+  physical-directory removal command was rejected before execution; the final
+  negative gate changes no fixture directory (`.mdo/E34-upload-interrupted.log`).
+- Copy the reviewed primitive into the Android host build. The actual pinned
+  Activity/hooks and tiny QA APK compile against API 36/Java 8/min API 26 without
+  NDK or runtime dependencies. The APK is 262,547 bytes, SHA-256
+  `ca4194bf99c954af593a2d2c1f885eb143b69e0107dbaf102ae2e6bc6efb9e1e`.
+  Evidence: `.mdo/E34-android-build.log`. Runtime worker/ticket integration,
+  source/chooser binding, provider URI handoff and device qualification still
+  need implementation/verification. Every Android automation/assignment gate
+  stays disabled; preserve the current WebView. The Windows N4 pair is unchanged.
+

@@ -297,6 +297,10 @@ installed-provider callback gate in the tiny QA app. It uses synthetic native
 taps and cancel/disarm/navigation cases, with no file URI grants or isolated
 world requirement. Current ADB has no phone; this gate is unavailable, not passed.
 
+`python tools/android_upload_probe.py` exercises real bounded directory-relative
+upload file primitives. It does not qualify Android cache authority, the pending
+ticket/URI bridge or the framework; these capabilities remain disabled.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

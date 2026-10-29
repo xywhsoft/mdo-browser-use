@@ -978,3 +978,33 @@ QA APK is 250,259 bytes, SHA-256
 Current ADB has no device, so `.mdo/android-device-chooser-result.json` records
 `android_device_unavailable` with all qualification flags false. Keep the current
 installed WebView and existing mdo data.
+
+## Native upload file primitives (E34)
+
+`MdoBrowserUploadFiles` supplies worker-confined staging using Android API 26's
+public `SecureDirectoryStream` interface. Its native caller must provide an
+app-private cache directory. It does not resolve SDK workspace paths, accept a
+wire path, publish a URI or claim a chooser/frame binding. The pending native
+runtime must attest cache authority before exposing any upload capability.
+
+Each file uses an opaque exclusive name inside the pinned directory, with
+no-follow relative access. The root's original identity must remain current
+before create/write/read/seal. A foreign leaf is preserved rather than deleted;
+cleanup failure retains its slot and byte reservation. The primitive limits
+files to 32 MiB, stores to 128 MiB/16 files and chunks/ranges to 64 KiB. Sequential
+writes are verified against complete SHA-256 before sealing into a read-only
+channel. A separate full revalidation is required before future native grants.
+
+Run `python tools/android_upload_probe.py` for the 63 real-filesystem primitive
+checks. This uses the project's existing WSL JDK and QA directory. WSL/NTFS
+cannot perform the open-child directory rename case; that flag remains false.
+It also does not verify Android app-cache privacy, native ticket lifecycle,
+URI grants, website file consumption or framework integration. The current
+primitive is compiled into the reviewed Activity/QA build, with all those runtime
+capabilities still disabled. References/limits are recorded in
+`host/android/upload-protocol.json`. No provider update or dependency is needed.
+
+E34's tiny QA APK is 262,547 bytes, SHA-256
+`ca4194bf99c954af593a2d2c1f885eb143b69e0107dbaf102ae2e6bc6efb9e1e`.
+It is not a complete mdo Android client. The remaining native transfer bridge,
+provider handoff and actual-device checks stay in the active development goal.

@@ -1,0 +1,17 @@
+{
+  "format": "mdo.browser-use.android-upload-files.v1",
+  "sources": [
+    "https://developer.android.com/reference/java/nio/file/SecureDirectoryStream",
+    "https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-constraintlayout-release/android-35/sun/nio/fs/UnixFileSystemProvider.java"
+  ],
+  "checked_date": "2026-10-29",
+  "minimum_api": 26,
+  "directory_relative_io_required": true,
+  "caller_supplies_private_cache_authority": true,
+  "paths_from_wire": false,
+  "limits": {"file_bytes": 33554432, "cache_bytes_per_store": 134217728, "file_slots": 16, "chunk_bytes": 65536},
+  "hash": "SHA-256",
+  "uri_assignment_available": false,
+  "framework_verified": false,
+  "automation_enabled": false
+}
