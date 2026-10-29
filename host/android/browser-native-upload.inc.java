@@ -11,6 +11,7 @@
         return state.put("upload_staging_capability",true).put("upload_staging_ready",uploads!=null&&uploads.ready())
             .put("upload_staging_cleanup_failed",uploads!=null&&uploads.cleanupFailed()).put("upload_staging_files",uploads==null?0:uploads.activeFiles())
             .put("upload_staging_bytes",uploads==null?0:uploads.reservedBytes()).put("upload_capability",false)
+            .put("upload_staging_recovered_files",uploads==null?0:uploads.recoveredFiles()).put("upload_staging_recovered_bytes",uploads==null?0:uploads.recoveredBytes())
             .put("file_input_capability",false).put("file_clear_capability",false).put("directory_upload_capability",false);
     }
     private static long uploadNumber(JSONObject value,String key,long minimum,long maximum)throws JSONException {

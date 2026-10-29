@@ -45,7 +45,7 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     private final ArrayBlockingQueue<Work> queue=new ArrayBlockingQueue<>(8);private final Semaphore deliveries=new Semaphore(9);
     private final CountDownLatch stopped=new CountDownLatch(1);private final Thread worker;
     private MdoBrowserUploadStore store;private volatile boolean closing,ready,cleanupFailed;private volatile int activeFiles;
-    private volatile long reservedBytes;
+    private volatile long reservedBytes,recoveredBytes;private volatile int recoveredFiles;
     private final class Work {
         final MdoBrowserUploadStore.Scope scope;Request request;Completion completion;
         Work(MdoBrowserUploadStore.Scope scope,Request request,Completion completion){this.scope=scope;this.request=request;this.completion=completion;}
@@ -77,7 +77,10 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
             if(!"begin".equals(request.action))throw new MdoBrowserUploadFiles.Failure("upload_ticket_not_found");
             if(clock.getAsLong()>=request.expires)throw new MdoBrowserUploadFiles.Failure("upload_expired");
             MdoBrowserUploadFiles opened=factory.open();
-            try{store=new MdoBrowserUploadStore(opened,clock);ready=true;}
+            try{
+                int restoredFiles=opened.recoveredFiles();long restoredBytes=opened.recoveredBytes();
+                store=new MdoBrowserUploadStore(opened,clock);recoveredFiles=restoredFiles;recoveredBytes=restoredBytes;ready=true;
+            }
             catch(RuntimeException|Error failure){try{opened.close();}catch(IOException ignored){}throw failure;}
         }
         MdoBrowserUploadStore.Snapshot value;
@@ -127,6 +130,8 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     boolean cleanupFailed(){return cleanupFailed;}
     int activeFiles(){return activeFiles;}
     long reservedBytes(){return reservedBytes;}
+    int recoveredFiles(){return recoveredFiles;}
+    long recoveredBytes(){return recoveredBytes;}
     int unfinishedDeliveries(){return 9-deliveries.availablePermits();}
     @Override public void close(){closing=true;}
     boolean awaitStopped(long milliseconds)throws InterruptedException{return stopped.await(milliseconds,TimeUnit.MILLISECONDS);}

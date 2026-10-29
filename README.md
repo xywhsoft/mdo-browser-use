@@ -313,6 +313,12 @@ the unavailable receipt keeps native cache/URI/automation qualification false.
 `python tools/android_upload_fixture_probe.py` separately executes its exact
 device flow with UI/Context doubles and real file/worker behavior.
 
+`python tools/android_upload_recovery_probe.py` exercises actual abrupt JVM exits,
+cross-process cache leases and automatic recovery of recorded ungranted staging.
+New private cache files contain a bounded ownership record before their payload;
+the range API returns payload bytes only. Unknown, replaced, legacy or incomplete
+records stay untouched. This does not qualify Android process/framework behavior.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

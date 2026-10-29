@@ -1131,3 +1131,59 @@ Logs: `.mdo/E37-upload-files.log`, `.mdo/E37-upload-ui.log`,
 Android cache-authority or URI-assignment qualification. Keep the installed
 WebView and the overall automation gate off. Durable orphan cleanup remains
 the next upload recovery work; this fence does not claim to implement it.
+
+## Recover recorded ungranted staging after process exit (E38)
+
+New cache-managed leaves carry a fixed 1 KiB record before their payload. Force
+that complete record before accepting any source byte. It binds the original
+cache directory/file identities, opaque leaf name, expected payload size and
+SHA-256. A SHA-256 checksum detects damaged/torn metadata; it is not a MAC or
+authentication boundary. Native Context/UID/private-directory authority and the
+cache lease remain required. The reviewed persistent key encoding is limited
+to Android/OpenJDK's `sun.nio.fs.UnixFileKey`; other providers fail closed.
+See the pinned platform source in `host/android/upload-protocol.json`.
+
+Startup under the exclusive owner lease first validates the complete inventory:
+at most 16 leaves, 128 MiB declared payload plus at most 16 KiB of records.
+Before each unlink it rechecks the original owner marker and exact leaf record,
+identity and physical length through the pinned directory. Fully recorded
+partial, complete and zero-byte ungranted files can be removed. Interrupted
+cleanup is repeatable. It never resumes an old operation, restores a ticket,
+replays a webpage effect or follows a cache symlink.
+
+Unknown entries, changed identities/names/directories, malformed records, legacy
+raw leaves and records interrupted before their complete header remain intact
+with an explicit recovery error. Incomplete headers contain no accepted source
+bytes. Reclaiming these unproved entries still requires separate explicit
+recovery; this implementation does not broaden deletion to guess ownership.
+
+`Leaf.size/read/seal/verify` continue to operate on payload only. Sealing and
+pre-grant revalidation also check the original record. No raw cache path may be
+passed as an upload URI because it contains private metadata before the payload.
+Future provider handoff must use the bounded payload API and establish retained
+ownership before granting access; these ungranted records cannot be reused for
+published URIs. Assignment and URI grants are still unavailable.
+
+The worker exposes metadata-only `upload_staging_recovered_files` and
+`upload_staging_recovered_bytes`. Bytes count actual removed payload bytes,
+excluding record overhead and unwritten declared capacity. No source file data,
+cache path, record or persistent file identifier enters those receipts.
+
+`python tools/android_upload_recovery_probe.py` passes 154 checks, with 12 actual
+JVM `halt` exits and a separately live child holding the cache lease. It checks
+worker startup recovery followed by a fresh ticket, interrupted cleanup, maximum
+leaf count, bounded record parsing, checksum-valid invalid versions/lengths,
+payload-only reads, live metadata corruption and preservation of replacements,
+links, copied/renamed entries, changed directories, unknown/legacy/partial data.
+Evidence: `.mdo/E38-recovery-final.log`. This is real filesystem/process/worker
+evidence, not Android framework, native app privacy or actual device evidence.
+
+All 63 primitive, 99 queue, 37 production-fragment and 44 device-fixture-double
+checks also pass. Actual pinned Activity/hooks and tiny QA APK compile:
+307,603 bytes, SHA-256
+`8b53472aeeb6af85077a5fc5d6b72d89a82497adbf913bca4e2a23f178f7849f`.
+Logs: `.mdo/E38-upload-files.log`, `.mdo/E38-upload-queue.log`,
+`.mdo/E38-upload-ui.log`, `.mdo/E38-upload-fixture.log` and
+`.mdo/E38-android-build.log`. Preserve the current WebView. Native cache authority,
+source/chooser/frame ownership, provider URI handoff, real-device qualification
+and full Android automation stay separate and unqualified.

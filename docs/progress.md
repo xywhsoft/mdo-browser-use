@@ -4660,3 +4660,44 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   this is its ownership prerequisite, not a completed recovery implementation.
   The Windows pair is unaffected and the full goal remains active.
 
+## E38 — recover fully recorded ungranted upload staging
+
+- Add a fixed 1 KiB ownership record to each new cache-managed leaf and force
+  it before admitting payload bytes. Bind the exact original cache/leaf file
+  identities, opaque name, expected size/hash and metadata checksum. Keep the
+  payload API independent of that private prefix. Verify the original record
+  during seal/pre-grant checks. There is at most 16 KiB record overhead beyond
+  the 128 MiB payload capacity. No runtime dependency or secret is introduced.
+- Under the exclusive owner lease, validate the entire bounded inventory before
+  deleting anything, then revalidate owner/leaf identity, record and length for
+  each directory-relative unlink. Reclaim fully recorded ungranted partial,
+  sealed and empty files after process exit. Continue a partially completed
+  cleanup without restoring tickets or replaying page effects. The exact worker
+  startup flow cleans old files and can accept a fresh independent ticket.
+- Preserve unknown/legacy/partial/corrupted records, replacement files, symlinks,
+  moved names and mismatched directories. Unproved entries still require explicit
+  recovery; source bytes are not accepted until the record is complete. The
+  checksum detects damage, not malicious same-UID mutation. Native app-private
+  authority remains the boundary; only the reviewed Unix file-key encoding is
+  supported. References/limits are in `host/android/upload-protocol.json`.
+- Expose only recovered file/payload-byte counts in native state. Count actual
+  staged payload removed, excluding header overhead and unwritten capacity.
+  Future URI publication must establish retained ownership and use payload
+  ranges, never raw metadata-prefixed cache paths. URI assignment remains off.
+- Pass 154 real filesystem/process/worker checks with 12 actual JVM `halt`
+  exits and a live child proving cache-lock exclusion. Cover recorded partial/
+  complete/empty files, interrupted cleanup, worker startup/new ticket, full
+  capacity, record corruption, checksum-valid malformed fields and all stated
+  preservation boundaries. Evidence: `.mdo/E38-recovery-final.log`. Earlier
+  incremental evidence remains in `.mdo/E38-recovery.log`. This does not qualify
+  an Android process, framework, Context authority or device.
+- All 63 primitive, 99 queue, 37 native-fragment and 44 device-fixture-double
+  checks pass. Actual pinned Activity/hooks compile. Tiny QA APK: 307,603 bytes,
+  SHA-256 `8b53472aeeb6af85077a5fc5d6b72d89a82497adbf913bca4e2a23f178f7849f`.
+  Logs: `.mdo/E38-upload-files.log`, `.mdo/E38-upload-queue.log`,
+  `.mdo/E38-upload-ui.log`, `.mdo/E38-upload-fixture.log`,
+  `.mdo/E38-android-build.log`. Keep the current WebView and false Android
+  assignment/automation gates. Windows deliverables are unaffected. Full device,
+  source/frame/chooser/provider and broader delivery qualifications remain in
+  the active goal; this is the ungranted staging recovery milestone only.
+

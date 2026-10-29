@@ -3,6 +3,7 @@
   "sources": [
     "https://developer.android.com/reference/java/nio/file/SecureDirectoryStream",
     "https://developer.android.com/reference/java/nio/file/attribute/BasicFileAttributes",
+    "https://android.googlesource.com/platform/libcore/+/51b1b6997fd3f980076b8081f7f1165ccc2a4008/ojluni/src/main/java/sun/nio/fs/UnixFileKey.java",
     "https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-constraintlayout-release/android-35/sun/nio/fs/UnixFileSystemProvider.java"
   ],
   "checked_date": "2026-10-29",
@@ -22,13 +23,27 @@
     "unfinished_ui_deliveries": 9,
     "ticket_lifetime_ms": 120000
   },
+  "cache_record": {
+    "header_bytes": 1024,
+    "maximum_header_bytes_per_store": 16384,
+    "persistent_identity_provider": "sun.nio.fs.UnixFileKey",
+    "checksum": "SHA-256",
+    "not_an_authentication_mac": true,
+    "scope": "native-app-private-ungranted-staging",
+    "written_and_forced_before_payload": true,
+    "bound_to": ["cache-directory-identity", "leaf-file-identity", "opaque-leaf-name", "expected-payload-size", "expected-payload-sha256"],
+    "payload_range_api_excludes_header": true
+  },
   "native_staging_actions": ["begin", "chunk", "seal", "status", "cancel", "release"],
   "staging_scope": ["original-webview", "original-navigation", "original-native-channel"],
   "native_cache_authority": "application-context-and-uid",
   "cache_lease_required": true,
   "cache_owner_identity_rechecked_before_io": true,
   "unknown_cache_entries_preserved": true,
-  "orphan_recovery_implemented": false,
+  "orphan_recovery_implemented": true,
+  "orphan_recovery_scope": "fully-recorded-ungranted-staging-only",
+  "legacy_or_partial_records_preserved": true,
+  "whole_inventory_validated_before_recovery": true,
   "wire_source_or_frame_target_accepted": false,
   "private_cache_authority_verified": false,
   "hash": "SHA-256",
