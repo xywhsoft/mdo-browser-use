@@ -306,6 +306,13 @@ assignment and framework integration remain unqualified, and overall Android
 automation stays disabled. These staging commands accept bytes and metadata,
 never a task-host source path or an unverified chooser/frame target.
 
+`python tools/android_device_probe.py --mode native-upload` is the installed
+Android cache/worker gate. It needs no isolated world and uses only synthetic
+bytes inside the QA app's private cache. Current ADB has no authorized device;
+the unavailable receipt keeps native cache/URI/automation qualification false.
+`python tools/android_upload_fixture_probe.py` separately executes its exact
+device flow with UI/Context doubles and real file/worker behavior.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

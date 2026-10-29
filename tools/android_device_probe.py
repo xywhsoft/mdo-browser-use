@@ -23,6 +23,7 @@ MODES={
     'native-dialog':('android-device-dialog-result.json','native-dialog-framework-gate'),
     'native-popup':('android-device-popup-result.json','native-popup-transport-framework-gate'),
     'native-chooser':('android-device-chooser-result.json','native-chooser-cancellation-framework-gate'),
+    'native-upload':('android-device-upload-result.json','native-private-cache-staging-framework-gate'),
 }
 
 
@@ -32,7 +33,8 @@ def unverified(state,**fields):
         'native_capture_verified','guarded_native_capture_verified','capture_privacy_verified','native_dialog_verified',
         'before_unload_framework_verified','host_dialog_routing_verified','native_popup_verified','host_popup_routing_verified',
         'popup_world_qualified','native_chooser_verified','chooser_framework_verified','host_chooser_routing_verified',
-        'chooser_assignment_verified','chooser_frame_identity_verified'),False)
+        'chooser_assignment_verified','chooser_frame_identity_verified','native_upload_staging_verified',
+        'private_upload_cache_authority_verified','host_upload_routing_verified','upload_uri_assignment_verified'),False)
     result.update(state=state,existing_mdo_preserved=True);result.update(fields);return result
 
 
@@ -111,7 +113,10 @@ def main():
         result.setdefault('chooser_framework_verified',False)
         result.update({'host_popup_routing_verified':False,'popup_world_qualified':False})
         result.update({'host_chooser_routing_verified':False,'chooser_assignment_verified':False,'chooser_frame_identity_verified':False})
-        if args.mode in ('native-dialog','native-popup','native-chooser'):
+        result.update({'host_upload_routing_verified':False,'upload_uri_assignment_verified':False})
+        result.setdefault('native_upload_staging_verified',False)
+        result.setdefault('private_upload_cache_authority_verified',False)
+        if args.mode in ('native-dialog','native-popup','native-chooser','native-upload'):
             result.update({'automation_verified':False,'production_document_controller_verified':False,'world_isolation_verified':False})
         result_path.write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
         if not result.get('probe_verified'):raise RuntimeError('Installed provider gate failed: '+str(result.get('code')))

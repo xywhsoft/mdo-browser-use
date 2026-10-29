@@ -4603,3 +4603,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   transport and desktop pixel qualification. Retain the installed WebView and
   keep the full goal active; this is a tested staging milestone, not completion.
 
+## E36 — installed-runtime Android staging fixture
+
+- Add `native-upload` to the existing tiny QA client/nonce-bound runner. Reuse
+  the production native app-Context/UID cache factory, one worker and actual
+  file store. Use synthetic data only; no task files, system picker, URI grants,
+  webpage assignment or provider upgrade. Background/Activity loss cancels the
+  original scopes. Successful qualification is limited to cache/worker staging.
+- Exercise full chunk/tail and zero-byte files, Unicode metadata, original
+  operation/chunk deduplication, conflicts/foreign scopes, hash verification,
+  explicit release/terminal identities and autonomous cancellation/expiry.
+  Require zero final file/byte/UI-delivery reservations. Preserve stable failure
+  phase/cause codes without returning platform messages or private paths.
+- Execute that exact device fixture through real files/worker with UI/Context
+  doubles: 42 flow checks and two negative factory checks pass. Unsupported
+  secure-directory support and generic I/O errors cannot become a pass or leak
+  their platform text. Evidence: `.mdo/E36-upload-fixture.log`. Framework/native
+  Context authority stay unverified; these are deliberate doubles.
+- Actual pinned Activity/hooks and fixture compile with the existing API 36
+  tools, Java 8/min API 26, no NDK/runtime dependency or extra app/Home checkout.
+  Reused QA APK: 299,411 bytes, SHA-256
+  `261c5cbbe54292a2a0f53f35230613ff6e1344781e66b477b508eef3712c8ca8`.
+  Current source/APK hashes match. Evidence: `.mdo/E36-android-build.log`.
+- The real `--mode native-upload` gate is unavailable: ADB has no authorized
+  device. `.mdo/E36-device-upload.log` and
+  `.mdo/android-device-upload-result.json` keep all qualification flags false.
+  No install or WebView change was performed. Host upload routing, source/frame
+  identity, URI handoff and overall Android automation remain separate, false
+  qualifications. The Windows N4 pair is unaffected and the full goal stays active.
+

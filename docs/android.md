@@ -1060,3 +1060,45 @@ Evidence is in `.mdo/E35-upload-files.log`, `.mdo/E35-upload-queue.log`,
 not full mdo, and compilation is not a device pass. Preserve the current
 WebView. Remaining work includes orphan recovery, native URI/provider handoff,
 verified source/chooser/frame ownership and actual-device qualification.
+
+## Installed-runtime upload staging fixture (E36)
+
+The tiny QA client provides a `native-upload` mode:
+
+```powershell
+python tools/build_android_client.py
+python tools/android_device_probe.py --mode native-upload
+```
+
+It calls the production native application-Context cache factory and worker
+with fixed synthetic bytes only. No task file, chooser, system picker, content
+URI, webpage upload or network endpoint is used. It checks a Unicode name,
+zero-byte file, a full 64 KiB chunk plus tail, begin/last-chunk deduplication,
+conflicting chunks, foreign scopes, sealing, explicit release, retired keys,
+autonomous scope/expiry cleanup and a rejected full-hash mismatch. Final file,
+byte and unfinished UI-delivery counts must be zero. Backgrounding or closing
+the Activity cancels its scopes rather than continuing the check silently.
+
+Successful real-device execution would qualify native private-cache staging
+only. It cannot qualify host command routing, chooser source-frame identity,
+URI assignment or overall Android automation. Missing devices and every other
+preflight state retain distinct false flags. The fixture preserves stable
+failure phase/cause codes; arbitrary platform exception messages and cache
+paths do not enter its receipt.
+
+`python tools/android_upload_fixture_probe.py` passes 44 checks: the device
+flow's 42 checks using UI/Context doubles with real files/worker, plus two
+negative factory cases. These confirm unsupported secure-directory operations
+and generic I/O failures produce failed receipts, without exposing raw platform
+messages. This is not native Context authority or Android framework evidence.
+Log: `.mdo/E36-upload-fixture.log`.
+
+The pinned actual Activity/hooks and fixture compile. Current tiny QA APK:
+299,411 bytes, SHA-256
+`261c5cbbe54292a2a0f53f35230613ff6e1344781e66b477b508eef3712c8ca8`.
+Its exact source/APK receipts match. Logs: `.mdo/E36-android-build.log` and
+`.mdo/E36-device-upload.log`. The device gate is currently unavailable because
+ADB reports no authorized phone; `.mdo/android-device-upload-result.json`
+records `android_device_unavailable` and all qualification flags false. Keep
+the installed WebView and existing mdo apps/data. This is still a small QA app,
+not a complete Android mdo deliverable.
