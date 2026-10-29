@@ -14,6 +14,50 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
+## Complete development host APK (E46)
+
+`dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
+Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
+and private upload provider. This is a **complete host with the lite tool
+edition**, not a tiny diagnostic Activity and not a production release.
+
+Current APK: 6,292,801 bytes, SHA-256
+`f3fb3b2efe6753f532b60ffcc2e3d3c32379b0b72e0267542e34c24ecd12da71`.
+Use the adjacent receipt. It checks the actual DEX classes, exact native/app
+payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
+the compiled private provider attributes. No account, Home, QA page or signing
+key is included. The app archive is extracted from the already exercised N4
+Windows artifact and checked against every current reviewed source file; no
+application staging copy is created. Android selects its lite edition before
+the desktop macro in that platform-neutral source archive.
+
+```powershell
+python tools/setup_android_client.py --native
+python tools/build_android_native.py
+python tools/build_android_program.py
+```
+
+This build needs the current verified N4 Windows program/receipt and paired
+portable plugin already in `dist/`. The last command verifies/reuses the native
+host, current compiler/source receipts, existing SDK/JDK and persistent QA signer.
+It does not download a browser or bundle command-line toolpacks. Import the
+paired Browser Use extension JSON separately through mdo's extension installer.
+
+The app uses the existing QA ID `org.xleaves.mdo.browseruse.dev`, its development
+certificate and installation serial 1. Installing it replaces the tiny QA app's
+launcher while retaining that QA package's data. Installing the tiny probe APK
+again switches back to its diagnostic launcher. The user's formal
+`org.xleaves.mdo` package/data are separate. No production App Link or native
+update handler is registered by this development build.
+
+Build/ABI/manifest checks passed; installed main-UI, provider and browser behavior
+are **not yet qualified**. ADB has no device and the user has deferred connecting
+it. Preserve their current WebView. The overall automation gate remains false
+even on providers advertising isolated worlds. Existing framework/automatic
+assignment/frame/transfer and broader goal gaps are still open. Evidence:
+`.mdo/E46-program-build-final.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E46-python-full.log` (158/160 pass, two existing symlink skips).
+
 ## Installed-WebView boundary foundation
 
 `host/android/MdoBrowserWorld.java` is project-owned Java code which calls the

@@ -85,6 +85,13 @@ Latest verified milestones:
   compile; 554 picker/ingress, 513 chooser and 418 URI/provider checks pass with
   Android API doubles. Device/host-UI/automatic assignment and full automation
   remain unqualified/disabled; retain the current WebView. See E43 for evidence.
+- **Android E44–E46:** prepare the bounded pinned compiler in the existing cache,
+  build/verify the actual ARM64 engine and package the actual mdo Activity/service
+  as a separate development APK (complete host, lite tool edition). Signatures,
+  exact app/native payloads, DEX classes, ARM64/16 KiB alignment and compiled
+  private-provider attributes pass. Python passes 158/160 with two existing
+  symlink skips. The user deferred the currently unavailable phone; retain its
+  WebView and all framework/device/automation qualification gaps.
 
 ## Working boundaries
 
@@ -4986,4 +4993,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   validation qualifies Android framework/device behavior. Package the actual
   mdo Activity/service next; retain the previous unsupported automation flags,
   current WebView, paired Windows/plugin artifacts and open goal.
+
+## E46 — package the complete Android development host without another app tree
+
+- Add `tools/build_android_program.py`. Validate all current reviewed app files
+  and the native XRTPACK inventory against the exercised N4 program, then extract
+  its platform-neutral archive byte-for-byte. Reuse the verified E45 ARM64 host,
+  one existing SDK/JDK and the QA certificate. No source/Home copy, second native
+  checkout, model call, browser download or online publication is introduced.
+- Build actual `XsActivity`/`XsService`, the enhanced native browser/chooser/URI
+  code, `MdoRuntime` and ARM64 command worker into DEX/native payloads. Keep lite
+  tool configuration, QA package `org.xleaves.mdo.browseruse.dev`, serial 1 and
+  the same signer as the tiny QA APK; preserve formal mdo and QA data. The two
+  QA APKs are alternate launchers for that same test package. The paired portable
+  plugin remains a separate import, not an Android automation qualification.
+- Verify exact native/app hashes, DEX host classes, ELF AArch64 and 16 KiB load
+  alignment, ZIP alignment and v2/v3 signatures. Check actual aapt2-compiled
+  package/launcher, debug setting, one correctly named private provider with
+  `exported=false` and `grantUriPermissions=false`, and absence of production
+  App Links/native updater. Reject extra runtimes, local state or unknown APK
+  payload entries. Three compiled-provider tests include wrong identities,
+  duplicates, exposed permissions and a peer element supplying missing flags.
+- Current APK: `dist/mdo-browser-use-dev-android-arm64-v8a.apk`, 6,292,801 bytes,
+  SHA-256 `f3fb3b2efe6753f532b60ffcc2e3d3c32379b0b72e0267542e34c24ecd12da71`.
+  Evidence: `.mdo/E46-program-build-final.log`, adjacent artifact receipt and
+  `.mdo/E46-program-tests.log`. All 160 Python tests finish, 158 pass with two
+  existing symlink-privilege skips (`.mdo/E46-python-full.log`). Windows/plugin
+  artifacts are unchanged. Retain the existing Java 8/bootstrap-classpath and
+  deprecated-API compiler warnings; do not treat them as a device pass.
+- ADB detects zero devices (`.mdo/E46-device-inventory.json`); the user explicitly
+  defers connecting and asks to continue other development. Do not ask for a
+  WebView upgrade or pause the goal. Main-UI/framework/private-URI assignment,
+  Android frame/transfer integration, physical/authenticated transport, broader
+  lifetime/OOM/performance and final delivery remain open. All Android automation
+  and device/framework qualification fields remain false.
 
