@@ -77,11 +77,14 @@ Latest verified milestones:
   explicit QA-only helper for deliberate foreign-scope calls. Actual complete
   upload/download/save gates pass with zero cache reservations, and all 275 JS
   cases pass. Artifact/runtime payloads are unchanged.
-- **Android E32:** retain/list/cancel original native file-chooser callbacks,
-  with bounded metadata, a 120s lease, exact view/document ownership and once-only
-  cancellation. The actual Activity/hooks compile and 505 chooser contract
-  assertions pass. URI assignment, source-frame identity, framework qualification
-  and global Android automation remain disabled; retain the installed WebView.
+- **Android E32–E43:** implement native staging, restart recovery, sealed read
+  leases and a private seekable URI backend, plus human document picking.
+  Share URI validation between host/content WebViews; route ordinary host read
+  picks through the original callback controller. Fix loss of cancellation/
+  ownership during metadata checks or unblocking. The actual Activity/hooks
+  compile; 554 picker/ingress, 513 chooser and 418 URI/provider checks pass with
+  Android API doubles. Device/host-UI/automatic assignment and full automation
+  remain unqualified/disabled; retain the current WebView. See E43 for evidence.
 
 ## Working boundaries
 
@@ -4872,4 +4875,63 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   result is upgraded to a pass. Keep the single deployment healthy and the
   Windows N4 executable/plugin pair unchanged. The complete Android handoff,
   real-device/desktop/physical-transport verification and full goal remain open.
+
+## E43 — close both human-picker URI ingress paths and preserve handoff ownership
+
+- Compile/run the exact pinned native `FileChooserResult` parser and confirm
+  its scheme-only filter accepts the synthetic same-UID provider URI. Evidence:
+  `.mdo/E43-picker-baseline.log`. Its old assumption that the shell has no
+  private providers no longer applies after E40. This is a parser-boundary
+  reproduction, not evidence that an external app knew a live token or read
+  private payload bytes.
+- Extract `MdoBrowserPickerUris` and use it for both host and child human picker
+  results. Refuse same-UID/private-provider URIs and require an explicit URI
+  read grant for our actual PID/UID. Do not substitute the app's broad provider
+  permissions for a document selection. Bound URI/authority lengths and raw
+  selection counts; reject mixed invalid/private selections as a whole, without
+  falling back to another Intent field. Provider/permission lookup failures or
+  metadata OOM cancel the result. No descriptor, URI permission, path or body is
+  opened/persisted/logged by this filter. Cross-user authorities remain unsupported.
+- Route standard host read/open-multiple requests through the same original
+  Activity picker controller and namespace as child human picks. Bind the host
+  callback to the exact native host and channel. Keep nonstandard host modes
+  on the pinned native route, under the shared URI result filter. Do not change
+  its main export/save handler. This does not implement/qualify folder/save or
+  camera automation, nor automatically assign a staged private URI.
+- Track at most 128 still-live callback identities in that original controller,
+  using weak references and exact identity. Duplicate callbacks cannot launch
+  again or receive another result. Identity-bookkeeping allocation failure
+  preserves the last claimed callback and refuses further unknown identities;
+  quota exhaustion requires teardown rather than forgetting a live callback.
+- Reproduce result delivery after ownership loss during URI permission lookup
+  (`.mdo/E43-picker-handoff-before.log`, failed check 520). Keep the original
+  request until metadata processing finishes; allow cancellation/close to find
+  it and suppress duplicate/reentrant results. Recheck original ownership after
+  metadata and immediately after unblocking before delivering non-null URIs.
+  Loss of ownership yields one null reply without making a normal cancellation
+  a permanent controller failure.
+- Pass 554 actual-controller/URI-policy checks, including the pinned-parser
+  comparison, private-provider aliases, missing explicit grants, lookup/OOM
+  failures, bounded/mixed selections, live callback quota, duplicate identity,
+  ownership loss/cancel/close during metadata, ownership loss during unblock,
+  and reentrant result isolation. Android Activity/UID/permission/Looper calls
+  are doubles; this is not main-UI or device qualification. Evidence:
+  `.mdo/E43-picker-policy-final.log`. All 513 chooser, 418 URI/provider, 168 exact
+  device-URI-fixture-with-doubles and 39 native-upload-fragment checks pass;
+  `.mdo/E43-chooser.log`, `.mdo/E43-uri-contract.log`, `.mdo/E43-uri-fixture.log`,
+  `.mdo/E43-upload-ui.log`. Python: 145/147 pass, two existing symlink-privilege
+  skips (`.mdo/E43-python-full.log`).
+- Compile the actual pinned Activity with host/child hooks and shared policy.
+  Current tiny QA APK: 348,563 bytes, SHA-256
+  `feeaaf4a1b6936cae6868d3ee9e8696764f80f5a35416bd95529016a5e90b14a`;
+  `.mdo/E43-android-build-final.log`. Actual Activity classes are a compile gate,
+  not a full mdo APK or installed host-UI pass. Main-picker, manual-framework,
+  automatic-assignment and global-automation qualification fields stay false.
+- Recheck the normal-desktop route through the prescribed `@oai/sky` entry;
+  initialization still fails with `failed to write kernel assets` / OS error 3.
+  No app/window interaction occurs. Keep normal-desktop pixels unverified;
+  do not replace that evidence with native content captures or UIA scripts.
+  ADB still has no device. Keep the single deployment healthy, preserve current
+  WebView/user data and the N4 Windows pair, and leave the full goal active with
+  the previous Android/physical-transport/visual/lifetime verification gaps.
 

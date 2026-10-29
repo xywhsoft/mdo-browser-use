@@ -42,6 +42,7 @@ public final class BrowserUseDevActivity extends Activity {
         put("native_chooser_verified",false);put("chooser_framework_verified",false);put("host_chooser_routing_verified",false);
         put("chooser_assignment_verified",false);put("chooser_frame_identity_verified",false);
         put("manual_chooser_framework_verified",false);
+        put("main_picker_framework_verified",false);
         put("native_upload_staging_verified",false);put("private_upload_cache_authority_verified",false);
         put("host_upload_routing_verified",false);put("upload_uri_assignment_verified",false);
         put("native_upload_uri_proxy_verified",false);put("uri_proxy_framework_verified",false);put("upload_uri_revocation_verified",false);

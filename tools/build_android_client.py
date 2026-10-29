@@ -31,7 +31,8 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/browser-native-upload.inc.java','host/android/dev/BrowserUseUploadProbe.java',
         'host/android/MdoBrowserUploadUris.java','host/android/MdoBrowserUploadProxy.java','host/android/MdoBrowserUploadUriRuntime.java',
         'host/android/MdoBrowserUploadProvider.java','host/android/browser-manifest.inc.py',
-        'host/android/dev/BrowserUseUploadUriProbe.java','host/android/MdoBrowserManualChooser.java','host/android/browser-manual-chooser.inc.java')
+        'host/android/dev/BrowserUseUploadUriProbe.java','host/android/MdoBrowserManualChooser.java','host/android/browser-manual-chooser.inc.java',
+        'host/android/MdoBrowserPickerUris.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
@@ -41,7 +42,7 @@ HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java
     'tools/android/MdoBrowserChoosers.java','tools/android/MdoBrowserChooserTarget.java','tools/android/MdoBrowserUploadFiles.java',
     'tools/android/MdoBrowserUploadStore.java','tools/android/MdoBrowserUploadQueue.java','tools/android/MdoBrowserUploadRuntime.java',
     'tools/android/MdoBrowserUploadUris.java','tools/android/MdoBrowserUploadProxy.java','tools/android/MdoBrowserUploadUriRuntime.java',
-    'tools/android/MdoBrowserUploadProvider.java','tools/android/MdoBrowserManualChooser.java')
+    'tools/android/MdoBrowserUploadProvider.java','tools/android/MdoBrowserManualChooser.java','tools/android/MdoBrowserPickerUris.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py','tools/android/build_apk.py')
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))
@@ -148,6 +149,8 @@ def main():
         'production_popup_bridge_compiled':True,'native_popup_fixture_compiled':True,'popup_framework_verified':False,'popup_world_qualified':False,
         'production_chooser_bridge_compiled':True,'native_chooser_fixture_compiled':True,
         'production_manual_chooser_compiled':True,'manual_chooser_framework_verified':False,
+        'production_shared_picker_uri_policy_compiled':True,'main_picker_framework_verified':False,
+        'production_host_picker_read_routing_compiled':True,
         'chooser_framework_verified':False,'chooser_assignment_supported':False,
         'production_upload_staging_compiled':True,'production_upload_queue_compiled':True,'native_upload_fixture_compiled':True,
         'production_upload_uri_provider_compiled':True,'production_upload_uri_manifest_rendered':True,

@@ -87,5 +87,78 @@ public final class AndroidManualChooserContractTest {
         try(Fixture f=new Fixture()){f.picker.restore(saved);Reply reply=f.open();check(f.activity.code>old);f.picker.result(old,Activity.RESULT_OK,null);check(reply.calls==0);}
         try(Fixture f=new Fixture()){Bundle invalid=new Bundle();invalid.putInt("mdo.browser.manual.chooser.next",-1);f.picker.restore(invalid);Reply reply=f.open();check(reply.calls==1&&reply.value==null&&f.activity.launches==0);}
     }
-    public static void main(String[] args){normal();bounds();cancellation();restored();System.out.println("{\"passed\":true,\"checks\":"+checks+"}");}
+    private static boolean baselinePrivateUriAccepted(){
+        // Compile the exact pinned native parser, not a copy/reimplementation.
+        Intent data=new Intent("result");data.data=uri("content://private/object");
+        Uri[] accepted=FileChooserResult.parse(Activity.RESULT_OK,data,false);
+        check(accepted!=null&&accepted.length==1);return true;
+    }
+    private static void pickerUris(){
+        Activity app=new Activity();Intent data=new Intent("result");data.data=uri("content://docs/1");
+        check(MdoBrowserPickerUris.read(null,Activity.RESULT_OK,data,false)==null);
+        check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,null,false)==null);
+        check(MdoBrowserPickerUris.read(app,0,data,false)==null);
+        Uri[] normal=MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,false);check(normal!=null&&normal.length==1&&normal[0].equals(data.data));
+        for(String bad:new String[]{"content://private/object","content://private_alias/1","content://missing/1","content://invalid/1","content://denied/1","content://provider_failure/1","content://provider_oom/1","content://permission_failure/1","file:///private/data","data:text/plain,1","https://docs/1","content://10@docs/1","content:///1"}){
+            data.data=uri(bad);check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true)==null);
+        }
+        data.data=uri("content://docs/fallback");data.clip=new ClipData(uri("content://docs/1"),uri("content://private/2"));
+        check(FileChooserResult.parse(Activity.RESULT_OK,data,true).length==2);check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true)==null);
+        data.clip=new ClipData(uri("content://docs/1"),uri("content://docs/2"),uri("content://docs/1"));
+        check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true).length==2);check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,false)==null);
+        data.clip=new ClipData();check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true)==null);
+        data.clip=new ClipData((Uri)null);check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true)==null);
+        Uri[] many=new Uri[16];java.util.Arrays.fill(many,uri("content://docs/1"));data.clip=new ClipData(many);
+        check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true).length==1);
+        many=new Uri[17];java.util.Arrays.fill(many,uri("content://docs/1"));data.clip=new ClipData(many);check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true)==null);
+        data.clip=null;data.data=uri("content://docs/"+new String(new char[8192]).replace('\0','x'));check(MdoBrowserPickerUris.read(app,Activity.RESULT_OK,data,true)==null);
+    }
+    private static void callbackIdentity(){
+        try(Fixture f=new Fixture()){
+            Reply reply=f.open();int launches=f.activity.launches;
+            check(f.picker.open(f.view,reply,f.params,()->{throw new AssertionError("Duplicate owner evaluated");},()->{},()->{}));
+            check(reply.calls==0&&f.activity.launches==launches);f.result(uri("content://docs/1"));check(reply.calls==1);
+            check(f.picker.open(f.view,reply,f.params,()->false,()->{},()->{})&&reply.calls==1&&f.activity.launches==launches);
+            f.picker.close();check(f.picker.open(f.view,reply,f.params,()->true,()->{},()->{})&&reply.calls==1);
+        }
+        try(Fixture f=new Fixture()){
+            Reply[] retained=new Reply[128];for(int at=0;at<retained.length;at++){retained[at]=f.open();f.result(uri("content://docs/1"));check(retained[at].calls==1);}
+            Reply refused=new Reply();check(!f.picker.open(f.view,refused,f.params,()->true,()->{},()->{})&&refused.calls==0&&f.activity.launches==128);
+            check(!f.picker.clean()&&!f.picker.ready());
+            for(Reply old:retained)check(f.picker.open(f.view,old,f.params,()->true,()->{},()->{})&&old.calls==1);
+        }
+    }
+    private static void handoffOwnership(){
+        for(int fault=0;fault<3;fault++)try(Fixture f=new Fixture()){
+            Reply reply=f.open();final int kind=fault;
+            f.activity.duringPermission=()->{if(kind==0)f.owner=false;else if(kind==1)f.picker.cancel(f.view);else f.picker.close();};
+            f.result(uri("content://docs/original"));check(reply.calls==1&&reply.value==null&&f.blocks==0);
+        }
+        try(Fixture f=new Fixture()){
+            Reply reply=new Reply();check(f.picker.open(f.view,reply,f.params,()->f.owner,()->f.blocks++,()->{f.blocks--;f.owner=false;}));
+            f.result(uri("content://docs/original"));check(reply.calls==1&&reply.value==null&&f.blocks==0);
+        }
+        try(Fixture f=new Fixture()){
+            Reply reply=f.open();f.activity.duringPermission=()->f.result(uri("content://docs/reentrant"));
+            f.result(uri("content://docs/original"));check(reply.calls==1&&reply.value!=null&&reply.value[0].equals(uri("content://docs/original")));
+        }
+    }
+    private static void hostRouting(){
+        try(Fixture f=new Fixture()){
+            Reply reply=new Reply();check(Boolean.TRUE.equals(f.picker.openHost(f.view,reply,f.params,()->f.owner)));
+            int request=f.activity.code;f.result(uri("content://docs/host"));check(reply.calls==1&&reply.value!=null);
+            f.params.mode=2;check(Boolean.TRUE.equals(f.picker.openHost(f.view,reply,f.params,()->false))&&reply.calls==1&&f.activity.code==request);
+            check(Boolean.TRUE.equals(f.picker.openHost(f.view,reply,null,()->false))&&reply.calls==1);
+            Reply legacy=new Reply();check(f.picker.openHost(f.view,legacy,f.params,()->true)==null&&legacy.calls==0&&f.activity.launches==1);
+            f.params.mode=0;Reply fresh=new Reply();check(Boolean.TRUE.equals(f.picker.openHost(f.view,fresh,f.params,()->true))&&f.activity.launches==2);
+            f.picker.cancel(f.view);check(fresh.calls==1&&fresh.value==null);f.result(uri("content://docs/late"));
+        }
+        try(Fixture f=new Fixture()){
+            WebChromeClient.FileChooserParams bad=new WebChromeClient.FileChooserParams(){public int getMode(){throw new IllegalStateException("Synthetic metadata failure");}public String[] getAcceptTypes(){throw new AssertionError("Invalid mode admitted");}public boolean isCaptureEnabled(){return false;}};
+            Reply reply=new Reply();check(Boolean.TRUE.equals(f.picker.openHost(f.view,reply,bad,()->true))&&reply.calls==1&&reply.value==null&&f.activity.launches==0);
+            check(Boolean.TRUE.equals(f.picker.openHost(f.view,reply,bad,()->false))&&reply.calls==1);
+            check(Boolean.FALSE.equals(f.picker.openHost(f.view,new Reply(),null,()->true)));
+        }
+    }
+    public static void main(String[] args){boolean baseline=baselinePrivateUriAccepted();pickerUris();normal();bounds();cancellation();callbackIdentity();handoffOwnership();hostRouting();restored();System.out.println("{\"passed\":true,\"checks\":"+checks+",\"baseline_private_uri_accepted\":"+baseline+",\"shared_private_uri_blocked\":true}");}
 }

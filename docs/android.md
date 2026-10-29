@@ -10,8 +10,9 @@ on providers that advertise isolated execution worlds. Existing manual browsing
 remains available.
 
 Native file choosers also have bounded original-callback retention, listing and
-cancellation. URI assignment/grants and trusted source-frame identity remain
-unavailable; the chooser implementation does not enable automation.
+cancellation. A private native staging/URI backend and human document picking
+are implemented. Automatic chooser assignment and trusted source-frame identity
+remain unavailable; the chooser implementation does not enable automation.
 
 ## Installed-WebView boundary foundation
 
@@ -1398,3 +1399,55 @@ Evidence is in `.mdo/E42-*.log`. It contains diagnostic fixtures, not a complete
 Android mdo client. `manual_chooser_framework_verified` remains false; a real
 picker/URI/FUSE run is still required. Keep the current WebView and the false
 source/frame/automatic-assignment/global-automation gates.
+
+### Shared human URI ingress and result handoff (E43)
+
+Both human-picker entry points now use `MdoBrowserPickerUris`: the trusted host
+WebView and content WebViews. The exact pinned shell parser only checked the
+`content` scheme/authority and assumed there were no private providers. It
+accepts the synthetic same-UID URI in `.mdo/E43-picker-baseline.log`. This
+demonstrates the parser gap; it does not demonstrate an external app learning a
+live private token or obtaining its payload. E40 introduced a private provider,
+so no human picker may nominate that provider, another alias with our UID, or
+any other same-UID provider.
+
+Require an explicit URI read grant to the actual app PID/UID, in addition to
+the external provider identity. General provider access is intentionally not a
+substitute: [Context.checkUriPermission](https://developer.android.com/reference/android/content/Context#checkUriPermission(android.net.Uri,%20int,%20int,%20int))
+checks explicit grants, while [WebChromeClient](https://developer.android.com/reference/android/webkit/WebChromeClient#onShowFileChooser(android.webkit.WebView,%20android.webkit.ValueCallback%3Candroid.net.Uri[]%3E,%20android.webkit.WebChromeClient.FileChooserParams))
+leaves returned-URI validation to the app. Bound 16 raw selected entries,
+8,192 URI characters and 256 authority characters. Refuse mixed invalid/private
+selections as a whole; do not fall back from invalid ClipData to a different
+Intent URI. Lookup/permission failures or metadata allocation errors cancel the
+selection. Cross-user (`user@authority`) URIs remain unsupported. The validator
+opens no file/URL and mints/persists/logs no URI grant or path.
+
+Standard host modes 0/1 use the original callback controller with the exact
+host/channel identity and its native result namespace. Nonstandard host modes
+retain the pinned shell's existing launch route, now under the same URI result
+filter; its export/save request handler is separate. No new folder/save/camera
+automation is implied. Track at most 128 live callback identities with weak
+references; duplicates cannot relaunch or receive a second reply. If identity
+recording runs out of capacity/memory, preserve the original identity and
+require teardown rather than silently reusing it.
+
+The result handler retains its original request while URI metadata/permission
+checks run, so cancellation/close can still find it. Ignore duplicate reentrant
+results. Recheck the original owner after metadata and after releasing the
+chooser's block, immediately before handing non-null URIs to the native
+callback. A source change or normal cancellation drops the selected URI and
+replies once with null. `.mdo/E43-picker-handoff-before.log` retains the failing
+pre-fix ownership-loss case. All 554 controller/ingress checks pass after repair
+(`.mdo/E43-picker-policy-final.log`), using the actual policy/controller and
+pinned old parser with doubled Android Activity/permission/UID/Looper calls.
+These are not main-UI/device/framework qualifications.
+
+The actual pinned Activity/hooks and shared policy compile. Tiny QA APK:
+348,563 bytes, SHA-256
+`feeaaf4a1b6936cae6868d3ee9e8696764f80f5a35416bd95529016a5e90b14a`.
+Evidence: `.mdo/E43-android-build-final.log`. Main-picker and manual-framework
+qualifications remain false; the packaged diagnostic Activity is not the full
+mdo Android app. All 513 chooser, 418 URI/provider, 168 URI-fixture and 39 upload
+fragment checks pass; Python passes 145/147 with two existing symlink skips.
+No installed-device, automatic private-URI assignment or full-automation pass
+is claimed, and the existing WebView is retained.

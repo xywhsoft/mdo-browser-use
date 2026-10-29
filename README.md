@@ -384,3 +384,9 @@ automatic chooser interception is off. It retains original callback/result
 ownership and refuses private-provider URIs; 106 controller checks and 513
 chooser regression checks pass with Android API doubles. Real-device manual
 picker qualification and full Android automation remain pending.
+
+Human file results in both Android host/content WebViews now share a bounded
+URI policy: explicit read grants, external provider UID and original handoff
+ownership. The pinned old parser's same-UID acceptance and a defect in
+cancellation during metadata checks have reproductions; 554 controller/ingress checks pass after
+repair. These use Android API doubles; host-UI/device qualification stays false.

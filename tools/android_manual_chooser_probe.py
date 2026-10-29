@@ -16,7 +16,7 @@ MOCKS={**CHOOSER_MOCKS,
  'android/os/Process.java':'package android.os;public final class Process {public static int myUid(){return 10000;}public static int myPid(){return 123;}}',
  'android/content/pm/ProviderInfo.java':'package android.content.pm;public final class ProviderInfo {public ApplicationInfo applicationInfo=new ApplicationInfo();public static final class ApplicationInfo {public int uid;}}',
  'android/content/pm/PackageManager.java':'''package android.content.pm;public final class PackageManager {public static final int PERMISSION_GRANTED=0;
- public ProviderInfo resolveContentProvider(String a,int flags){if(a.equals("missing"))return null;ProviderInfo p=new ProviderInfo();if(a.equals("invalid"))p.applicationInfo=null;else p.applicationInfo.uid=a.equals("private")?10000:20000;return p;}}''',
+ public ProviderInfo resolveContentProvider(String a,int flags){if(a.equals("missing"))return null;if(a.equals("provider_failure"))throw new SecurityException("Synthetic resolver failure");if(a.equals("provider_oom"))throw new OutOfMemoryError("Synthetic metadata allocation");ProviderInfo p=new ProviderInfo();if(a.equals("invalid"))p.applicationInfo=null;else p.applicationInfo.uid=a.equals("private")||a.equals("private_alias")?10000:20000;return p;}}''',
  'android/content/ActivityNotFoundException.java':'package android.content;public final class ActivityNotFoundException extends RuntimeException {}',
  'android/content/Intent.java':'''package android.content;import android.net.Uri;public final class Intent {
  public static final String ACTION_OPEN_DOCUMENT="open_document",CATEGORY_OPENABLE="openable",EXTRA_ALLOW_MULTIPLE="multiple",EXTRA_MIME_TYPES="mimes";public static final int FLAG_GRANT_READ_URI_PERMISSION=1;
@@ -25,9 +25,9 @@ MOCKS={**CHOOSER_MOCKS,
  public Intent putExtra(String k,boolean v){multiple=v;return this;}public Intent putExtra(String k,String[] v){mimes=v;return this;}public Uri getData(){return data;}public ClipData getClipData(){return clip;}}''',
  'android/content/ClipData.java':'package android.content;import android.net.Uri;public final class ClipData {public final Uri[] items;public ClipData(Uri... values){items=values;}public int getItemCount(){return items.length;}public Item getItemAt(int i){return new Item(items[i]);}public static final class Item {final Uri uri;Item(Uri u){uri=u;}public Uri getUri(){return uri;}}}',
  'android/app/Activity.java':'''package android.app;import android.content.*;import android.content.pm.*;import android.net.Uri;public final class Activity {
- public static final int RESULT_OK=-1;public int launches,code;public Intent intent;public String fault="none";public Runnable during;private final PackageManager pm=new PackageManager();
+ public static final int RESULT_OK=-1;public int launches,code;public Intent intent;public String fault="none";public Runnable during,duringPermission;private final PackageManager pm=new PackageManager();
  public void startActivityForResult(Intent i,int c){launches++;intent=i;code=c;if(during!=null)during.run();if(fault.equals("missing"))throw new ActivityNotFoundException();if(fault.equals("uncertain"))throw new IllegalStateException("Uncertain platform launch");}
- public PackageManager getPackageManager(){return pm;}public int checkUriPermission(Uri u,int pid,int uid,int f){return "denied".equals(u.getAuthority())?-1:0;}}''',
+ public PackageManager getPackageManager(){return pm;}public int checkUriPermission(Uri u,int pid,int uid,int f){if(pid!=android.os.Process.myPid()||uid!=android.os.Process.myUid()||f!=Intent.FLAG_GRANT_READ_URI_PERMISSION)throw new AssertionError("Wrong native permission context");Runnable run=duringPermission;duringPermission=null;if(run!=null)run.run();if("permission_failure".equals(u.getAuthority()))throw new SecurityException("Synthetic permission failure");return "denied".equals(u.getAuthority())?-1:0;}}''',
 }
 
 
@@ -36,7 +36,8 @@ def main():
     classes=dev.ENV/'qa/android-manual-chooser/classes';classes.mkdir(parents=True,exist_ok=True)
     def linux(path):
         value=path.resolve().as_posix();return '/mnt/'+value[0].lower()+value[2:]
-    sources=[dev.ROOT/'host/android/MdoBrowserManualChooser.java',dev.ROOT/'tests/fixtures/AndroidManualChooserContractTest.java']
+    sources=[dev.ROOT/'host/android/MdoBrowserManualChooser.java',dev.ROOT/'host/android/MdoBrowserPickerUris.java',dev.ROOT/'tests/fixtures/AndroidManualChooserContractTest.java',
+        dev.ENV/'native-source/android/src/org/xserver/android/FileChooserResult.java']
     for name,value in MOCKS.items():
         path=classes.parent/'src'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(value,encoding='utf-8',newline='\n');sources.append(path)
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(p) for p in sources]],cwd=dev.ROOT,check=True,capture_output=True,text=True)

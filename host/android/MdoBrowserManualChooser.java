@@ -2,20 +2,17 @@ package org.xserver.android;
 
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
-import android.content.ClipData;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ProviderInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.Process;
 import android.os.SystemClock;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.function.BooleanSupplier;
 
@@ -25,7 +22,7 @@ final class MdoBrowserManualChooser implements AutoCloseable {
     private static final int FIRST=0x6000,LAST=0x7fff;private static int next=FIRST;
     private static final String SAVED="mdo.browser.manual.chooser.next";
     private static final class Pending {
-        final int code;final long deadline;final boolean multiple;WebView view;ValueCallback<Uri[]> reply;BooleanSupplier original;Runnable unblock;Runnable timer;
+        final int code;final long deadline;final boolean multiple;WebView view;ValueCallback<Uri[]> reply;BooleanSupplier original;Runnable unblock;Runnable timer;boolean handling;
         Pending(int code,WebView view,ValueCallback<Uri[]> reply,BooleanSupplier original,Runnable unblock,boolean multiple){
             this.code=code;this.view=view;this.reply=reply;this.original=original;this.unblock=unblock;this.multiple=multiple;deadline=SystemClock.uptimeMillis()+120000;
         }
@@ -36,7 +33,8 @@ final class MdoBrowserManualChooser implements AutoCloseable {
         public void run(){MdoBrowserManualChooser value=owner.get();if(value!=null)value.expire(code);}
     }
     private final Activity activity;private final Handler handler=new Handler(Looper.getMainLooper());
-    private Pending pending;private boolean closed,failed,resumed;
+    private final ArrayList<WeakReference<ValueCallback<Uri[]>>> seen=new ArrayList<>();private ValueCallback<Uri[]> last;
+    private Pending pending;private boolean closed,failed,resumed,identityUncertain;
     MdoBrowserManualChooser(Activity activity){this.activity=activity;}
     private void ui(){if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("Manual chooser requires UI");}
     void restore(Bundle saved){ui();if(saved!=null){int value=saved.getInt(SAVED,next);next=value<FIRST||value>LAST+1?LAST+1:Math.max(next,value);}}
@@ -47,10 +45,25 @@ final class MdoBrowserManualChooser implements AutoCloseable {
     boolean ready(){ui();return !closed&&!failed&&pending==null;}
     boolean clean(){ui();return !failed;}
     boolean awaitingResult(){ui();return pending!=null&&pending.reply==null;}
+    private boolean known(ValueCallback<Uri[]> reply){
+        if(last==reply)return true;
+        for(int at=seen.size()-1;at>=0;at--){ValueCallback<Uri[]> value=seen.get(at).get();if(value==null)seen.remove(at);else if(value==reply)return true;}
+        return false;
+    }
+    private boolean claim(ValueCallback<Uri[]> reply){
+        if(identityUncertain)return false;
+        if(seen.size()>=128){failed=true;identityUncertain=true;return false;}
+        last=reply;
+        try{seen.add(new WeakReference<>(reply));}catch(OutOfMemoryError failure){failed=true;identityUncertain=true;}
+        return true;
+    }
     private void complete(Pending value,Uri[] uris){
-        ValueCallback<Uri[]> reply=value.reply;Runnable unblock=value.unblock;value.reply=null;value.view=null;value.original=null;value.unblock=null;
+        ValueCallback<Uri[]> reply=value.reply;Runnable unblock=value.unblock;BooleanSupplier original=value.original;
+        value.reply=null;value.view=null;value.original=null;value.unblock=null;
         if(value.timer!=null){try{handler.removeCallbacks(value.timer);}catch(RuntimeException|OutOfMemoryError ignored){}value.timer=null;}
         if(unblock!=null)try{unblock.run();}catch(RuntimeException|OutOfMemoryError error){failed=true;uris=null;}
+        if(uris!=null)try{if(closed||failed||SystemClock.uptimeMillis()>=value.deadline||original==null||!original.getAsBoolean())uris=null;}
+        catch(RuntimeException|OutOfMemoryError lostOwner){uris=null;}
         if(reply!=null)try{reply.onReceiveValue(uris);}catch(RuntimeException|OutOfMemoryError error){failed=true;}
     }
     private boolean valid(Pending value){return !closed&&!failed&&value.reply!=null&&SystemClock.uptimeMillis()<value.deadline&&value.original!=null&&value.original.getAsBoolean();}
@@ -61,7 +74,8 @@ final class MdoBrowserManualChooser implements AutoCloseable {
     void cancel(WebView view){ui();if(pending!=null&&pending.view==view)complete(pending,null);}
     void invalidate(){ui();if(pending!=null)complete(pending,null);}
     boolean open(WebView view,ValueCallback<Uri[]> reply,WebChromeClient.FileChooserParams params,BooleanSupplier original,Runnable block,Runnable unblock){
-        ui();if(reply==null||view==null||params==null)return false;
+        ui();if(reply==null||view==null)return false;
+        if(known(reply))return true;if(params==null||!claim(reply))return false;
         if(closed||failed||!resumed||pending!=null||next>LAST){reject(reply);return true;}
         Pending value=null;boolean entered=false;
         try{
@@ -87,25 +101,20 @@ final class MdoBrowserManualChooser implements AutoCloseable {
             if(value==null)reject(reply);else if(value.reply!=null){if(pending==value){if(!entered)pending=null;complete(value,null);}else{value.reply=null;reject(reply);}}return true;
         }
     }
+    // Null means the pinned host may handle a nonstandard mode. A false
+    // admission is terminal, so it must never fall through to another picker.
+    Boolean openHost(WebView view,ValueCallback<Uri[]> reply,WebChromeClient.FileChooserParams params,BooleanSupplier original){
+        ui();if(view==null||reply==null)return Boolean.FALSE;if(known(reply))return Boolean.TRUE;if(params==null)return Boolean.FALSE;
+        try{int mode=params.getMode();if(mode!=0&&mode!=1)return null;}catch(RuntimeException|OutOfMemoryError invalidMetadata){}
+        return Boolean.valueOf(open(view,reply,params,original,()->{},()->{}));
+    }
     private void reject(ValueCallback<Uri[]> reply){try{reply.onReceiveValue(null);}catch(RuntimeException|OutOfMemoryError failure){failed=true;}}
-    private boolean permitted(Uri uri){
-        if(uri==null||uri.toString().length()>8192||!"content".equals(uri.getScheme()))return false;String authority=uri.getAuthority();
-        if(authority==null||authority.length()>256||!authority.matches("[A-Za-z0-9_.-]+"))return false;
-        ProviderInfo provider=activity.getPackageManager().resolveContentProvider(authority,0);
-        if(provider==null||provider.applicationInfo==null||provider.applicationInfo.uid==Process.myUid())return false;
-        return activity.checkUriPermission(uri,Process.myPid(),Process.myUid(),Intent.FLAG_GRANT_READ_URI_PERMISSION)==PackageManager.PERMISSION_GRANTED;
-    }
-    private Uri[] selected(Pending value,int result,Intent data){
-        if(result!=Activity.RESULT_OK||data==null)return null;LinkedHashSet<Uri> selected=new LinkedHashSet<>();ClipData clip=data.getClipData();
-        if(clip!=null){int size=clip.getItemCount();if(size>16||size<1||!value.multiple&&size>1)return null;
-            for(int at=0;at<size;at++){Uri uri=clip.getItemAt(at).getUri();if(!permitted(uri))return null;selected.add(uri);}}
-        if(selected.isEmpty()){Uri uri=data.getData();if(!permitted(uri))return null;selected.add(uri);}
-        return selected.toArray(new Uri[0]);
-    }
     boolean result(int request,int result,Intent data){
         ui();if(request<FIRST||request>LAST)return false;Pending value=pending;
-        if(value==null||value.code!=request)return true;pending=null;
-        Uri[] selected=null;try{if(valid(value))selected=selected(value,result,data);}catch(RuntimeException|OutOfMemoryError invalid){}
+        if(value==null||value.code!=request||value.handling)return true;value.handling=true;
+        Uri[] selected=null;try{if(valid(value)){selected=MdoBrowserPickerUris.read(activity,result,data,value.multiple);if(!valid(value))selected=null;}}
+        catch(RuntimeException|OutOfMemoryError invalid){}
+        finally{if(pending==value)pending=null;}
         complete(value,selected);return true;
     }
     @Override public void close(){ui();if(closed)return;closed=true;resumed=false;invalidate();}

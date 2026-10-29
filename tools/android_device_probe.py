@@ -36,7 +36,7 @@ def unverified(state,**fields):
         'popup_world_qualified','native_chooser_verified','chooser_framework_verified','host_chooser_routing_verified',
         'chooser_assignment_verified','chooser_frame_identity_verified','native_upload_staging_verified',
         'private_upload_cache_authority_verified','host_upload_routing_verified','upload_uri_assignment_verified',
-        'native_upload_uri_proxy_verified','uri_proxy_framework_verified','upload_uri_revocation_verified','manual_chooser_framework_verified'),False)
+        'native_upload_uri_proxy_verified','uri_proxy_framework_verified','upload_uri_revocation_verified','manual_chooser_framework_verified','main_picker_framework_verified'),False)
     result.update(state=state,existing_mdo_preserved=True);result.update(fields);return result
 
 
@@ -116,6 +116,7 @@ def main():
         result.update({'host_popup_routing_verified':False,'popup_world_qualified':False})
         result.update({'host_chooser_routing_verified':False,'chooser_assignment_verified':False,'chooser_frame_identity_verified':False})
         result['manual_chooser_framework_verified']=False
+        result['main_picker_framework_verified']=False
         result.update({'host_upload_routing_verified':False,'upload_uri_assignment_verified':False})
         result.setdefault('native_upload_staging_verified',False)
         result.setdefault('private_upload_cache_authority_verified',False)
