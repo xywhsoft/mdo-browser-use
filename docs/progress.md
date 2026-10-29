@@ -5145,3 +5145,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   all Android automation flags false. Preserve the user's deferred phone/current
   WebView and existing N5 development programs until the host integration is built.
 
+## E48 — compile and package the private discovery JNI in the actual Android host
+
+- Add the private `MdoBrowserCdpNative` facade and matching JNI entry. Refuse
+  UI-thread calls and invalid timeouts; accept no caller endpoint, path or CDP
+  effect. Clear native response storage even when Java allocation/copy fails;
+  report static bounded error codes. This does not enable debugging, expose an
+  Agent service or qualify a provider/automation backend.
+- Prepare reviewed additions in the one pinned native checkout with full
+  preflight/hash checks, preserved unknown edits/partials and an atomic receipt.
+  The WSL native build uses Windows Git to read that checkout's Windows object
+  alternates; do not rewrite the object store or add a checkout. Record the
+  initial cross-platform Git failure in `.mdo/E48-native-build.log`, then pass
+  preparation, pre/post exact source checks and the complete native/API build
+  (`.mdo/E48-native-build-final.log`).
+- Extend the exact real-kernel socket gate to 310 checks and 74 balanced
+  allocations under ASan/UBSan. The JNI ABI/function-table seams cover Java
+  allocation, copying, native allocation and class-lookup exceptions while
+  using the real socket underneath. These are conversion faults, not an
+  installed JVM/WebView/device qualification (`.mdo/E48-cdp-jni.log`).
+- Actual ARM64 library: 3,539,600 bytes, SHA-256
+  `88ad2aed743e22defc6706c49606567da3716a672450a1720c08139ac7f2ef9b`.
+  Package the actual Java class/JNI library, verify its dynamic JNI export,
+  exact app/native payloads, DEX, ARM64/16 KiB layout, compiled private provider
+  and signatures. Full APK: 6,309,185 bytes, SHA-256
+  `1011566a1abefc130ab6d9fc748a78c2860e6c32271a13ccb380a3666f02f803`
+  (`.mdo/E48-android-build.log`, adjacent receipts). Reuse the N5 app archive,
+  QA signer/package and one build/cache; no Windows/plugin refresh is needed.
+- Full Python regression finishes: 158/160 pass with the two existing symlink
+  skips (`.mdo/E48-python-full.log`). The single development service is healthy
+  and headless. Preserve the user's deferred phone/current WebView. Next work
+  is owned asynchronous routing/target binding and WebSocket/CDP frame/transfer
+  integration, with activation policy and real provider checks still explicit.
+  Android device/framework/automation flags and the full goal remain incomplete.
+

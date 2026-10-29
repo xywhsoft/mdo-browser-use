@@ -55,6 +55,8 @@ def main():
     if os.name=='nt':
         script=Path(__file__).resolve().as_posix();script='/mnt/'+script[0].lower()+script[2:]
         subprocess.run(['wsl.exe','--exec','python3',script,*sys.argv[1:]],cwd=ROOT,check=True);return
+    import prepare_android_cdp
+    prepare_android_cdp.apply(check=True)
     sys.path.insert(0,str(SOURCE/'tools'))
     import build_mdo
     lock=build_mdo.load_object(build_mdo.LOCK_PATH)

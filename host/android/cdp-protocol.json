@@ -1,6 +1,6 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "discovery_transport_only",
+  "state": "discovery_jni_packaged",
   "checked_date": "2026-10-29",
   "sources": [
     {
@@ -37,6 +37,13 @@
     "debug_setting_changed": false,
     "payloads_logged_or_persisted": false
   },
-  "remaining": ["JNI and actual host integration", "owned target binding", "WebSocket and CDP sessions", "frame and transfer integration", "debugging activation policy", "installed provider qualification"],
+  "jni_boundary": {
+    "class": "org.xserver.android.MdoBrowserCdpNative",
+    "native_entry": "Java_org_xserver_android_MdoBrowserCdpNative_discoverNative",
+    "compiled_and_packaged": true,
+    "public_agent_method": false,
+    "device_verified": false
+  },
+  "remaining": ["owned asynchronous host routing", "owned target binding", "WebSocket and CDP sessions", "frame and transfer integration", "debugging activation policy", "installed provider qualification"],
   "android_automation_enabled": false
 }

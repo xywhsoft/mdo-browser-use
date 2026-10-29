@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/F21)
+## Complete development host APK (E46/E48)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,292,801 bytes, SHA-256
-`04dd7dbf1fb2a11305edcfb971e701057fb6ab573cef667862fe884254a9d66c`.
+Current APK: 6,309,185 bytes, SHA-256
+`1011566a1abefc130ab6d9fc748a78c2860e6c32271a13ccb380a3666f02f803`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -33,6 +33,7 @@ the desktop macro in that platform-neutral source archive.
 
 ```powershell
 python tools/setup_android_client.py --native
+python tools/prepare_android_cdp.py
 python tools/build_android_native.py
 python tools/build_android_program.py
 ```
@@ -55,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/F21-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/F20-python-full.log` (158/160 pass, two existing symlink skips).
+`.mdo/E48-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E48-python-full.log` (158/160 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -82,13 +83,39 @@ descriptor and clear response/header buffers; do not log or persist target URLs.
 python tools/android_cdp_socket_probe.py
 ```
 
-The exact C transport passes 291 real Linux abstract-socket checks under ASan
+The original C transport gate passed 291 real Linux abstract-socket checks under ASan
 and UBSan, including wrong-process refusal before request bytes, fragmented
 responses, a slow-trickle absolute deadline, oversized/invalid headers/body,
 allocation failure, full-allocation clearing and 64 repeated connections with
 balanced descriptors. All 71 allocations are freed. It also compiles with the
 locked ARM64/API 26 compiler (`.mdo/E47-cdp-socket.log`). These are transport and
 compile results, not a real WebView/CDP session, frame or Android device pass.
+
+## Private discovery JNI packaged in the actual host (E48)
+
+The actual ARM64 `libxs.so` now exports the matching private discovery JNI
+entry; the complete APK includes `MdoBrowserCdpNative` in its DEX. The Java
+facade refuses UI-thread calls and out-of-range timeouts. It accepts no address,
+URL or effect command, returns private bytes only to its internal caller and
+does not change debugging settings. Owned target routing and the WebSocket/CDP
+session layer still need integration before this becomes an automation backend.
+
+JNI clears the native response on success and Java allocation/copy failures,
+and returns bounded error codes without payloads. Extend the exact C kernel
+gate to 310 checks/74 balanced allocations, using the real JNI ABI declarations
+and four Java function-table fault seams. The Android/JVM runtime is not
+simulated as a passing device. ASan/UBSan and the actual ARM64 build pass:
+`.mdo/E48-cdp-jni.log`, `.mdo/E48-native-build-final.log`.
+
+The native library is 3,539,600 bytes, SHA-256
+`88ad2aed743e22defc6706c49606567da3716a672450a1720c08139ac7f2ef9b`.
+The full-APK builder verifies its dynamic JNI export as well as the actual
+Java descriptor and exact library bytes; all previous package/ABI/manifest/
+signature checks still pass. It reuses the N5 app archive and existing QA
+signer. `prepare_android_cdp.py` preflights/records reviewed changes in the one
+native checkout; unreviewed source or interrupted files are preserved. WSL uses
+Windows Git for this checkout's Windows object alternates, without rewriting
+them or making another checkout.
 
 ## Installed-WebView boundary foundation
 

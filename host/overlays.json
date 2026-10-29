@@ -1,6 +1,11 @@
 {
   "changes": [
     {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    source=directory/'org/xserver/android/XsActivity.java'",
+      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    shutil.copy2(Path(__file__).with_name('MdoBrowserCdpNative.java'),source.with_name('MdoBrowserCdpNative.java'))"
+    },
+    {
       "path": "app/src/application/ui.c",
       "before": "#include \"internal.h\"",
       "after": "#include \"internal.h\"\n#include \"../api/browser_use_ui_wakeup.h\""
@@ -1361,6 +1366,10 @@
     }
   ],
   "files": [
+    {
+      "source": "host/android/MdoBrowserCdpNative.java",
+      "target": "tools/android/MdoBrowserCdpNative.java"
+    },
     {
       "source": "host/ui-wakeup.h",
       "target": "app/src/api/browser_use_ui_wakeup.h"

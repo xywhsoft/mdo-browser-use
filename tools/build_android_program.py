@@ -125,7 +125,7 @@ def apk_contents(plan):
         if runtime.get('edition')!='lite' or runtime.get('build_id')!='1' or runtime.get('files')!=[]:
             raise RuntimeError('Development APK unexpectedly bundles command-line toolpacks')
         dex=apk.read('classes.dex')
-        for name in ('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris','MdoBrowserUploadProvider'):
+        for name in ('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris','MdoBrowserUploadProvider','MdoBrowserCdpNative'):
             if ('Lorg/xserver/android/'+name+';').encode() not in dex:
                 raise RuntimeError('Actual host class missing from APK DEX: '+name)
         return {name:elf_facts(apk.read('lib/arm64-v8a/'+name)) for name in ('libxs.so','libmdo_command_worker.so')}
@@ -140,6 +140,11 @@ def assemble():
         raise RuntimeError('Android packaging inputs changed before assembly')
     tooling=dev.ENV/'android-client-tools';setup=json.loads((tooling/'receipt.json').read_text())
     sdk=tooling/'sdk';java=Path(setup['java_home']);tools=sdk/'build-tools'/setup['build_tools']
+    toolchain=json.loads((native.NATIVE/'tools/android/toolchain.lock.json').read_text(encoding='utf-8'))
+    nm=sdk/'ndk'/toolchain['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm'
+    symbols=subprocess.check_output([str(nm),'--dynamic','--defined-only',str(library)],text=True)
+    if not re.search(r'\bT Java_org_xserver_android_MdoBrowserCdpNative_discoverNative$',symbols,re.M):
+        raise RuntimeError('The Android host lacks the matching private discovery JNI entry')
     if plan['toolchain_lock_sha256']!=setup['lock_sha256']:raise RuntimeError('Android tooling lock changed')
     keystore=dev.ENV/'host/android-client/development.p12'
     if keystore.is_symlink() or not keystore.is_file():raise RuntimeError('Existing QA development signer is required; it will not be replaced')
@@ -172,7 +177,7 @@ def assemble():
     record=dict(format='mdo.browser-use.android-program-receipt.v1',phase='verified',package=PACKAGE,version_code=1,
                 artifact={'name':OUTPUT.name,'bytes':OUTPUT.stat().st_size,'sha256':sha(OUTPUT)},inputs=plan,
                 certificate_sha256=certs[0],native_elf=facts,production_activity_packaged=True,
-                command_worker_packaged=True,private_upload_provider_packaged=True,private_upload_manifest_verified=True,application_copies=0,
+                command_worker_packaged=True,private_upload_provider_packaged=True,private_upload_manifest_verified=True,private_cdp_discovery_packaged=True,application_copies=0,
                 runtime_dependencies_added=False,device_qualified=False,framework_qualified=False,automation_qualified=False)
     RECEIPT.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record['artifact'],indent=2),flush=True)

@@ -25,8 +25,10 @@ def main():
         raise RuntimeError('Unknown native transport output preserved')
     output.mkdir(parents=True,exist_ok=True);marker.write_text(json.dumps(expected)+'\n')
     fixture=ROOT/'tests/fixtures/android-cdp-socket.c';binary=output/'transport-test'
+    setup=json.loads((ROOT/'.mdo/android-client-tools/receipt.json').read_text(encoding='utf-8'));java=Path(setup['java_home'])
     subprocess.run(['gcc','-std=gnu11','-Wall','-Wextra','-Werror','-pthread','-O1','-g',
-        '-fno-omit-frame-pointer','-fsanitize=address,undefined',str(fixture),'-o',str(binary)],cwd=ROOT,check=True)
+        '-fno-omit-frame-pointer','-fsanitize=address,undefined','-I'+str(java/'include'),'-I'+str(java/'include/linux'),
+        str(fixture),'-o',str(binary)],cwd=ROOT,check=True)
     environment=dict(os.environ,ASAN_OPTIONS='detect_leaks=1:halt_on_error=1',UBSAN_OPTIONS='halt_on_error=1')
     text=subprocess.check_output([str(binary)],cwd=ROOT,env=environment,text=True,timeout=120)
     result=json.loads(text)
@@ -36,7 +38,7 @@ def main():
     clang=ROOT/'.mdo/android-client-tools/sdk/ndk'/lock['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/clang'
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
         '-c',str(ROOT/'host/android/MdoBrowserCdpSocket.c'),'-o',str(output/'android-socket.o')],cwd=ROOT,check=True)
-    inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','tests/fixtures/android-cdp-socket.c')
+    inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c','tests/fixtures/android-cdp-socket.c')
     result.update(source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},
                   address_sanitizer=True,undefined_sanitizer=True,android_api_compiled=lock['api'],
                   android_device_qualified=False,provider_qualified=False,debugging_enabled=False,model_calls=0)
