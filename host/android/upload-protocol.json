@@ -24,6 +24,9 @@
     "queued_requests": 8,
     "unfinished_ui_deliveries": 9,
     "unfinished_native_reads": 4,
+    "native_uri_grants": 16,
+    "native_proxy_descriptors": 64,
+    "native_proxy_request_bytes": 1048576,
     "native_read_bytes": 65536,
     "native_read_wait_ms": 5000,
     "ticket_lifetime_ms": 120000
@@ -50,7 +53,23 @@
     "timeout_retains_reservation_until_worker_retirement": true,
     "data_uses_ui_receipts": false,
     "wire_actions": [],
-    "proxy_descriptor_implemented": false
+    "proxy_descriptor_implemented": true
+  },
+  "uri_proxy": {
+    "scheme": "content",
+    "authority_suffix": ".mdo.browseruse.upload",
+    "canonical_path": "/v1/<native-random-uuid>",
+    "same_uid_only": true,
+    "manifest_exported": false,
+    "manifest_grant_uri_permissions": false,
+    "read_only": true,
+    "cache_path_exposed": false,
+    "native_tokens_persisted": false,
+    "descriptor_close_revokes_file_lease": false,
+    "failed_partial_reply_zeroed": true,
+    "uncertain_native_open_charged_until_original_release": true,
+    "framework_verified": false,
+    "chooser_assignment_implemented": false
   },
   "staging_scope": ["original-webview", "original-navigation", "original-native-channel"],
   "native_cache_authority": "application-context-and-uid",

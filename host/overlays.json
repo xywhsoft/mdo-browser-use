@@ -1147,7 +1147,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadFiles.java'),source.with_name('MdoBrowserUploadFiles.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadStore.java'),source.with_name('MdoBrowserUploadStore.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadQueue.java'),source.with_name('MdoBrowserUploadQueue.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadRuntime.java'),source.with_name('MdoBrowserUploadRuntime.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadFiles.java'),source.with_name('MdoBrowserUploadFiles.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadStore.java'),source.with_name('MdoBrowserUploadStore.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadQueue.java'),source.with_name('MdoBrowserUploadQueue.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadRuntime.java'),source.with_name('MdoBrowserUploadRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadUris.java'),source.with_name('MdoBrowserUploadUris.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadProxy.java'),source.with_name('MdoBrowserUploadProxy.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadUriRuntime.java'),source.with_name('MdoBrowserUploadUriRuntime.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserUploadProvider.java'),source.with_name('MdoBrowserUploadProvider.java'))"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -1194,6 +1194,22 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "    void destroy(){",
       "after": "    void destroy(){cancelUploads();"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "def apply(directory: Path):",
+      "after_file": "host/android/browser-manifest.inc.py",
+      "suffix": "\ndef apply(directory: Path):"
+    },
+    {
+      "path": "tools/android/build_apk.py",
+      "before": "from browser_overlay import apply as overlay_browser",
+      "after": "from browser_overlay import manifest as browser_manifest, apply as overlay_browser"
+    },
+    {
+      "path": "tools/android/build_apk.py",
+      "before": " </application>\n</manifest>'''",
+      "after": "  {browser_manifest(package)}\n </application>\n</manifest>'''"
     }
   ],
   "files": [
@@ -1424,6 +1440,22 @@
     {
       "source": "host/android/MdoBrowserUploadRuntime.java",
       "target": "tools/android/MdoBrowserUploadRuntime.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadUris.java",
+      "target": "tools/android/MdoBrowserUploadUris.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadProxy.java",
+      "target": "tools/android/MdoBrowserUploadProxy.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadUriRuntime.java",
+      "target": "tools/android/MdoBrowserUploadUriRuntime.java"
+    },
+    {
+      "source": "host/android/MdoBrowserUploadProvider.java",
+      "target": "tools/android/MdoBrowserUploadProvider.java"
     }
   ]
 }

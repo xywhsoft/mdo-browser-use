@@ -4739,3 +4739,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   URI is exposed by this milestone. The full goal remains active, with the
   previous device/desktop/physical-transport verification gaps intact.
 
+## E40 — native private ContentProvider and seekable read-only proxy
+
+- Implement original-object URI permissions and original FD callback sessions
+  over E39's worker reads. Keep URI tokens memory-only; accept only the original
+  queue's live lease and exact canonical package-bound URI. No cache path,
+  metadata prefix or raw cached descriptor is handed to a caller. File lease
+  permission survives closing one descriptor, until its original scope or
+  deadline ends. URI publication remains native-only, with no public JSON route.
+- Register the private provider in the actual mdo packager and tiny QA manifest.
+  Validate package authority/export/grant flags at attach, then enforce same UID
+  on all public entries. Expose bounded name/size/MIME metadata and exact `r`
+  opens; refuse writes, mutation methods and URI aliases. Use the app's default
+  process for its non-serializable queue/registry authority.
+- Bound 16 file grants, 64 descriptor sessions and one lazy callback thread.
+  Assemble at most 1 MiB requests from exact 64 KiB worker reads under one
+  callback deadline. Zero failed/revoked partial replies. Recover an allocation
+  failure on the original callback thread; do not replace live callback owners.
+- Retire reservations before native entry only when no native effect occurred.
+  Failed/null/uncertain opens or known-FD close failures stay charged until the
+  original release callback. Refuse more opens while uncertain. Preserve the
+  descriptor through cancellation-listener detachment/handoff failure, and
+  reject duplicate/late callbacks from retiring a new reused slot.
+- Execute 418 checks through the actual URI registry/provider/runtime/proxy with
+  real files and worker. Android Context/Binder/FD/FUSE/cursor/Looper calls are
+  doubled. Cover stated privacy, byte/range, lifetime, cancellation, capacity,
+  allocation and original-callback rules. Evidence:
+  `.mdo/E40-uri-contract-final.log`. No Android kernel/framework/device or actual
+  chooser assignment qualification is implied.
+- All 318 native-read, 154 restart/recovery, 99 queue, 39 native-fragment and 44
+  device-fixture-double checks pass. Python: 145/147 pass, two existing symlink
+  skips. Logs: `.mdo/E40-native-read.log`, `.mdo/E40-recovery.log`,
+  `.mdo/E40-upload-queue.log`, `.mdo/E40-upload-ui.log`,
+  `.mdo/E40-upload-fixture.log`, `.mdo/E40-python-full.log`.
+- Actual pinned Activity/hooks/provider compile; render/check the real mdo
+  packager manifest and package the QA declaration. Existing API 26/36 tools
+  need no NDK/runtime dependency. Tiny QA APK: 323,987 bytes, SHA-256
+  `f79cd265db0f6ae545404487602f9c66f0fec6f4789a277144306487cee8ac5e`.
+  Evidence: `.mdo/E40-android-build.log`. This is not a full Android mdo build.
+  Keep the current WebView and false device/frame/assignment/automation flags.
+- Still implement/execute the real ContentResolver/seek/revocation device gate,
+  original chooser/source-frame handoff and complete integration. Windows files
+  are unaffected; previous desktop/physical-transport gaps and the full active
+  goal remain. No source-user file, external site or real model was used.
+

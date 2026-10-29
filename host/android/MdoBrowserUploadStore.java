@@ -59,6 +59,7 @@ final class MdoBrowserUploadStore implements AutoCloseable {
         private final Object owner;private final String ticket;private final int index;private volatile boolean revoked;
         private ReadLease(Object owner,Job job,int index){this.owner=owner;scope=job.scope;ticket=job.id;this.index=index;file=job.specs[index];expires=job.expires;}
         boolean live(long now){return !revoked&&scope.live()&&now>=0&&now<expires;}
+        boolean belongs(Object identity){return owner==identity;}
         void revoke(){revoked=true;}
     }
     private static final class Job {
@@ -72,9 +73,10 @@ final class MdoBrowserUploadStore implements AutoCloseable {
         }
         boolean same(Spec[] values){if(values.length!=specs.length)return false;for(int at=0;at<values.length;at++)if(!specs[at].same(values[at]))return false;return true;}
     }
-    private final Thread owner=Thread.currentThread();private final Object identity=new Object();private final MdoBrowserUploadFiles files;private final LongSupplier clock;private final Job[] jobs=new Job[TICKETS];
+    private final Thread owner=Thread.currentThread();private final Object identity;private final MdoBrowserUploadFiles files;private final LongSupplier clock;private final Job[] jobs=new Job[TICKETS];
     private boolean closed;
-    MdoBrowserUploadStore(MdoBrowserUploadFiles files,LongSupplier clock){if(files==null||clock==null)throw new IllegalArgumentException("Missing upload files/clock");this.files=files;this.clock=clock;}
+    MdoBrowserUploadStore(MdoBrowserUploadFiles files,LongSupplier clock){this(files,clock,new Object());}
+    MdoBrowserUploadStore(MdoBrowserUploadFiles files,LongSupplier clock,Object identity){if(files==null||clock==null||identity==null)throw new IllegalArgumentException("Missing upload files/clock");this.files=files;this.clock=clock;this.identity=identity;}
     private static MdoBrowserUploadFiles.Failure fail(String code){return new MdoBrowserUploadFiles.Failure(code);}
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Upload tickets require their owning worker thread");}
     private void active()throws MdoBrowserUploadFiles.Failure {thread();if(closed)throw fail("upload_store_closed");}

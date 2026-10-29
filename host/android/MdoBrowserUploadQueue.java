@@ -52,6 +52,7 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     private final Factory factory;private final Ui ui;private final LongSupplier clock;private final BooleanSupplier blockingAllowed;
     private final ArrayBlockingQueue<Work> queue=new ArrayBlockingQueue<>(8);private final Semaphore deliveries=new Semaphore(9);
     private final Semaphore reads=new Semaphore(4);
+    private final Object readOwner=new Object();
     private final CountDownLatch stopped=new CountDownLatch(1);private final Thread worker;
     private MdoBrowserUploadStore store;private volatile boolean closing,ready,cleanupFailed;private volatile int activeFiles;
     private volatile long reservedBytes,recoveredBytes;private volatile int recoveredFiles;
@@ -144,7 +145,7 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
             MdoBrowserUploadFiles opened=factory.open();
             try{
                 int restoredFiles=opened.recoveredFiles();long restoredBytes=opened.recoveredBytes();
-                store=new MdoBrowserUploadStore(opened,clock);recoveredFiles=restoredFiles;recoveredBytes=restoredBytes;ready=true;
+                store=new MdoBrowserUploadStore(opened,clock,readOwner);recoveredFiles=restoredFiles;recoveredBytes=restoredBytes;ready=true;
             }
             catch(RuntimeException|Error failure){try{opened.close();}catch(IOException ignored){}throw failure;}
         }
@@ -201,6 +202,7 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     long recoveredBytes(){return recoveredBytes;}
     int unfinishedDeliveries(){return 9-deliveries.availablePermits();}
     int unfinishedReads(){return 4-reads.availablePermits();}
+    boolean owns(MdoBrowserUploadStore.ReadLease lease){return lease!=null&&lease.belongs(readOwner);}
     @Override public void close(){closing=true;}
     boolean awaitStopped(long milliseconds)throws InterruptedException{return stopped.await(milliseconds,TimeUnit.MILLISECONDS);}
 }

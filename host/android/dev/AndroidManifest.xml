@@ -3,6 +3,9 @@
  <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="36" />
  <application android:label="Mdo Browser Use Dev" android:allowBackup="false"
   android:debuggable="true" android:theme="@android:style/Theme.Material.NoActionBar">
+  <provider android:name="org.xserver.android.MdoBrowserUploadProvider"
+   android:authorities="org.xleaves.mdo.browseruse.dev.mdo.browseruse.upload"
+   android:exported="false" android:grantUriPermissions="false" />
   <activity android:name="org.xserver.android.BrowserUseDevActivity" android:exported="true">
    <intent-filter><action android:name="android.intent.action.MAIN" />
     <category android:name="android.intent.category.LAUNCHER" /></intent-filter>

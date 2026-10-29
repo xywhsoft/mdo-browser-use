@@ -326,6 +326,13 @@ use background replies with four bounded unfinished reads, not UI/JSON receipts.
 The public upload bridge rejects `access/read`. URI/proxy/chooser integration is
 still pending, and this does not enable Android automation.
 
+The native private ContentProvider and seekable read-only proxy backend are now
+implemented. `python tools/android_upload_uri_probe.py` executes their actual
+logic with real files/worker and Android system doubles. It checks same-UID URI
+access, original descriptor callbacks, bounded requests and failure accounting.
+The mdo/QA manifests register a private provider; actual Android/FUSE and chooser
+assignment still need qualification, so the public automation gate stays off.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

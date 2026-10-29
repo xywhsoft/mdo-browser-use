@@ -1242,3 +1242,71 @@ Logs: `.mdo/E39-upload-queue.log`, `.mdo/E39-recovery.log`,
 `.mdo/E39-android-build.log`. This is not a full Android mdo build or a real-device
 pass. Keep the current WebView, false URI/assignment/automation qualifications
 and the full development goal.
+
+## Private URI provider and original proxy descriptor ownership (E40)
+
+Implement the native ContentProvider, URI registry and `ProxyFileDescriptorCallback`
+adapter over E39's original read leases. Source-object authority stays native:
+URI publication accepts only the original queue's live object. Bind a canonical
+`content://<application-id>.mdo.browseruse.upload/v1/<random-uuid>` to it;
+queries/fragments/encoded aliases/foreign authorities cannot mint access. Tokens
+are memory-only and never enter public tool/UI JSON or logs. There is no raw
+cache path or raw cache descriptor handoff.
+
+Both the actual mdo packager and tiny QA manifest register the provider with
+`exported:false` and `grantUriPermissions:false` in the app's default process.
+The provider validates that declaration at attach time and independently
+enforces the calling UID on every public entry. It exposes display-name/size
+and MIME metadata, exact `r` mode and read-only virtual descriptors. Writes,
+insert/update/delete and noncanonical URIs are refused. Do not publish this
+stateful object registry in another Android process.
+
+Bound the registry to 16 file permissions and 64 original descriptor sessions.
+One lazy application callback thread handles native FD requests. Each request
+is at most 1 MiB and assembles exact bounded 64 KiB worker ranges under one
+five-second callback budget; EOF is the only permitted short successful reply.
+Failure or revocation zeroes the reply region. Closing an FD retires only that
+session, allowing later reads of the same still-live file permission. Original
+scope loss/release/expiry revokes data access and discards URI entries.
+
+Keep unknown native effects accounted for. Before the platform open is entered,
+an aborted reservation can be retired. After entry, an exception/null native
+result keeps a closed, uncertain session until that original callback's
+`onRelease`. Further opens are refused while uncertainty remains. A known FD is
+closed on cancellation or handoff failure; close failures likewise keep the
+reservation until the release acknowledgment. Duplicate/late old callbacks
+cannot retire a replacement session. Listener detachment is completed while
+the descriptor is still locally owned, and Handler allocation can recover on
+the same original live callback thread without spawning a second one.
+
+The data backend still owns the staged bytes while the proxy permission is
+live. No raw cached file FD is transferred or permission restored after process
+exit; old URI/queue/callback object identities are not reconstructed. Recorded
+logical staging can therefore be recovered by E38 after the old process ends.
+Previously delivered bytes are not made unread by permission revocation.
+
+`python tools/android_upload_uri_probe.py` passes 418 checks through the actual
+registry, provider, runtime and proxy code. Native files/worker are real;
+Context/UID, Binder, storage, descriptor, cursor, Looper and cancellation APIs
+are doubles. Cover full/partial/seek/empty ranges, descriptor capacity, retained
+file permission after FD close, original callback reuse, cross-queue authority,
+expiry, 16-file grants, partial-result wiping, deadlines, wrong UID, metadata,
+writes/modes/aliases, cancellation/listener failures, failed/null/early-release
+native opens, FD-close failures and allocation recovery. Evidence:
+`.mdo/E40-uri-contract-final.log`. This is not an Android/FUSE/device pass or a
+webpage assignment. References: [ContentProvider](https://developer.android.com/reference/android/content/ContentProvider),
+[proxy callback](https://developer.android.com/reference/android/os/ProxyFileDescriptorCallback)
+and [seekable proxy API](https://developer.android.com/reference/android/os/storage/StorageManager#openProxyFileDescriptor(int,%20android.os.ProxyFileDescriptorCallback,%20android.os.Handler)).
+
+All 318 read, 154 recovery, 99 queue, 39 native-fragment and 44 device-fixture
+checks pass. All 145/147 Python checks pass with two existing symlink-privilege
+skips. The actual pinned Activity/hooks and new provider compile. The real mdo
+packager's manifest expression is rendered and checked, and the private QA
+manifest is packaged. Tiny QA APK: 323,987 bytes, SHA-256
+`f79cd265db0f6ae545404487602f9c66f0fec6f4789a277144306487cee8ac5e`.
+Logs: `.mdo/E40-native-read.log`, `.mdo/E40-recovery.log`,
+`.mdo/E40-upload-queue.log`, `.mdo/E40-upload-ui.log`,
+`.mdo/E40-upload-fixture.log`, `.mdo/E40-python-full.log`,
+`.mdo/E40-android-build.log`. Keep the installed WebView and false framework,
+chooser/source-frame, assignment and full-automation qualifications. A real
+ContentResolver/seek/revocation device fixture and chooser handoff remain next.
