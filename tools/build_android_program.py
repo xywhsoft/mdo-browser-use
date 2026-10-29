@@ -52,6 +52,7 @@ def app_archive_identity():
     receipt=json.loads(artifact.with_suffix('.receipt.json').read_text())
     if (receipt.get('format')!='mdo.browser-use.program-receipt.v1' or receipt.get('baseline')!=dev.LOCK['commit']
             or not receipt.get('native_inventory_verified') or not receipt.get('runtime_verified')
+            or receipt.get('official_update_channel')!='disabled_development_preview'
             or sha(artifact)!=receipt['artifact']['sha256'] or artifact.stat().st_size!=receipt['artifact']['bytes']):
         raise RuntimeError('The verified Windows app archive is missing/changed; rebuild and exercise it first')
     allowed=program.allowed_files();files=receipt['files'];seen=set()
@@ -62,7 +63,7 @@ def app_archive_identity():
         relative=path.relative_to(program.APP).as_posix()
         if relative in files:
             data=path.read_bytes()
-            if relative==program.UNITY:data=b'#define MDO_PRODUCT_EDITION "desktop"\n'+data
+            if relative==program.UNITY:data=program.PROGRAM_PREFIX+data
             if len(data)!=files[relative]['bytes'] or hashlib.sha256(data).hexdigest()!=files[relative]['sha256']:
                 raise RuntimeError('App archive is stale: '+relative)
             seen.add(relative)

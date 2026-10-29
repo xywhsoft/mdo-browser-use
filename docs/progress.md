@@ -5650,3 +5650,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Keep automation disabled, current phone/provider/formal data preserved, and
   refresh the APK with the next shared driver phase. No model calls, external
   page browsing or publication; the full long-term goal remains active.
+
+## E62 — isolate development previews from the official update channel
+
+- Packed verification hit the production updater's correct `update_required`
+  gate: the fixed 0.7.0 preview had accepted an official minimum-0.8.0 manifest
+  (cache code 05000800/build 70000073). Boot/plugin/UI checks passed but a local
+  QA task could not be created (`.mdo/E62-windows-program.log`). Do not relabel
+  the preview as a newer official release or clear the accepted policy cache.
+- Give only these explicitly named development archives a compile-time preview
+  flag. The updater then reports development/disabled before reading or altering
+  official update state; it cannot install a stock release over the enhanced
+  preview or become subject to that channel. Ordinary builds without the flag
+  preserve their existing code path, semantic version and build identifiers.
+  Represent the conditional as a reviewed host overlay; retain the single
+  in-place packaging journal/restore rather than creating an app/Home copy.
+- Share the exact development prefix between Windows packaging and Android
+  archive verification. Include its explicit channel policy in the receipt and
+  require it before packed-program/Android archive reuse. Actual packed Windows
+  verification now passes all 12 checks (the former ten plus disabled official
+  updates and byte-identical existing policy), restores the headless deployment
+  and verifies paired plugin/C SDK/workspace/native-browser/network recovery
+  (`.mdo/E62-windows-development-package.log`,
+  `.mdo/E62-windows-development-program.log`).
+- The built app also contains the next shared scroll-driver stage, pending its
+  feature commit/artifact inventory update. Its Android build and full Python
+  regression pass: 165/167 with two existing symlink skips in 52.385 s
+  (`.mdo/E63-android-build.log`, `.mdo/E63-python-full.log`). No formal executable,
+  account/session data, official cache or server/release policy was changed.
+  No model calls or publication; goal remains active.

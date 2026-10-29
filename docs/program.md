@@ -7,6 +7,16 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
+Development archives explicitly define `MDO_BROWSER_USE_DEVELOPMENT=1`. In that
+build only, the updater reports `status:development`/`enabled:false` and does not
+load, alter, install from or become blocked by the official update channel.
+The fixed 0.7.0 preview must not claim to be an official newer version or be
+replaced by a stock package that lacks these enhancements. Existing official
+policy caches and version/build identifiers are preserved. Ordinary builds
+without the preview flag retain the original updater behavior. The actual
+packed-program gate checks the development status and unchanged cache hash.
+The Android development archive verifies and reuses this exact reviewed prefix.
+
 The current refreshed preview (N5/F21) is **6,881,951 bytes**, SHA-256
 `c618d7e990d5c7d178de2ad10325ddf72daca3763cc7e8cce0ab86a418ea218c`.
 Its native inventory contains 750 files, including runtime 19, the shared

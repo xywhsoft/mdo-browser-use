@@ -18,6 +18,7 @@ WORK = dev.ENV / "qa/program-package"
 STATE = dev.ENV / "program-package-state.json"
 OUTPUT = dev.ROOT / "dist/mdo-browser-use-dev-windows-x86_64.exe"
 UNITY = "generated/mdo_unity.c"
+PROGRAM_PREFIX = b'#define MDO_PRODUCT_EDITION "desktop"\n#define MDO_BROWSER_USE_DEVELOPMENT 1\n'
 
 
 def sha(path):
@@ -150,7 +151,7 @@ def main(recover=False):
         raise RuntimeError("Product configuration is not the portable loopback GUI")
     unity = APP / UNITY
     original = unity.read_bytes()
-    packed = b'#define MDO_PRODUCT_EDITION "desktop"\n' + original
+    packed = PROGRAM_PREFIX + original
     WORK.mkdir(parents=True, exist_ok=True)
     (WORK / "unity.original.c").write_bytes(original)
     state = {"format": "mdo.browser-use.program-package-state.v1", "phase": "prepared",
@@ -191,7 +192,8 @@ def main(recover=False):
                   "artifact": {"name": OUTPUT.name, "bytes": OUTPUT.stat().st_size, "sha256": sha(OUTPUT)},
                   "native_host_sha256": sha(packer), "files": included,
                   "excluded_qa_files": len(excluded), "application_copies": 0,
-                  "native_inventory_verified": True, "runtime_verified": False}
+                  "native_inventory_verified": True, "runtime_verified": False,
+                  "official_update_channel": "disabled_development_preview"}
         OUTPUT.with_suffix(".receipt.json").write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(result["artifact"], indent=2))
     finally:

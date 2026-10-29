@@ -58,6 +58,8 @@ def main():
     artifact = package_program.OUTPUT
     receipt_path = artifact.with_suffix(".receipt.json")
     receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if receipt.get('official_update_channel')!='disabled_development_preview':
+        raise RuntimeError('Development preview lacks explicit official-update isolation')
     if package_program.sha(artifact) != receipt["artifact"]["sha256"]:
         raise RuntimeError("Packaged program hash no longer matches its receipt")
     if (artifact.parent / "xs.json").exists() or (artifact.parent / "generated").exists():
@@ -78,6 +80,8 @@ def main():
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
     child = browser = workspace_browser = None;workspace_scope=None
+    policy=dev.HOME/'data/update/policy.json'
+    policy_before=package_program.sha(policy) if policy.exists() else None
     try:
         with (dev.ENV / "program-runtime.log").open("wb") as log:
             child = subprocess.Popen([str(artifact), "--port", str(original["port"]),
@@ -105,6 +109,10 @@ def main():
         if Path(info["home"]).resolve() != dev.HOME.resolve():
             raise RuntimeError("Packed program did not reuse the existing development Home")
         mark("self_contained_archive_boot_same_home")
+        status,_,raw=dev.request('GET','/api/v1/update');update=json.loads(raw).get('data',{})
+        if status!=200 or update.get('enabled') is not False or update.get('status')!='development':
+            raise RuntimeError('Development preview still inherits the official update channel')
+        mark('development_official_update_channel_disabled')
         deadline = time.monotonic() + 30
         while time.monotonic() < deadline:
             clients = dev.call("ui.clients")
@@ -185,6 +193,9 @@ def main():
         dev.call("browseruse.tabs", {"action": "close", "browser": browser}, SCOPE)
         browser = None
         mark("packed_browser_closed")
+        if (package_program.sha(policy) if policy.exists() else None)!=policy_before:
+            raise RuntimeError('Development preview changed the existing official update policy cache')
+        mark('existing_official_update_policy_preserved')
         report["state"] = "browser_checks_passed"
     except Exception as error:
         report.update(state="failed", error=str(error))

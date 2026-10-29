@@ -1374,6 +1374,11 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}",
       "after": "else if(\"frames\".equals(command)){executeFrames(key,id,web,request);return;}\n            else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}"
+    },
+    {
+      "path": "app/src/update/manager.c",
+      "before": "    snprintf(g_MdoUpdate.Status.Edition,sizeof(g_MdoUpdate.Status.Edition),\"%s\",MdoEdition());",
+      "after": "    snprintf(g_MdoUpdate.Status.Edition,sizeof(g_MdoUpdate.Status.Edition),\"%s\",MdoEdition());\n#if defined(MDO_BROWSER_USE_DEVELOPMENT) && MDO_BROWSER_USE_DEVELOPMENT\n    /* Preview archives are not official releases and must not install or be\n     * blocked by that channel. Keep its existing cached policy untouched. */\n    snprintf(g_MdoUpdate.Status.State,sizeof(g_MdoUpdate.Status.State),\"development\");\n    return true;\n#endif"
     }
   ],
   "files": [
