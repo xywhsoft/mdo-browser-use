@@ -5761,3 +5761,20 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and platform/realm audits. Keep phone/current provider/formal data unchanged,
   no model calls/external browsing/publication, and Android automation disabled.
   Full goal remains active.
+
+## E65T — distinguish queued admission from a completed lost effect in transport QA
+
+- The full sequential Node run exposed a race in the actual C/HTTP lost-admission
+  fixture: submission acknowledges the queued operation, so immediate cancellation
+  may correctly cancel it before the effect completes. The test wrongly required
+  successful recovery in that case. Retain the lost HTTP reply, inspect only the
+  original operation to a bounded terminal state, require success, then cancel
+  its waiting caller and verify exact-ID recovery without a second submission.
+  Queued cancellation/product SDK semantics are unchanged.
+- The focused transport suite passes 6/6 (`.mdo/E65-sdk-admission.log`). Full
+  sequential Node regression passes 299/299 in 19.655 s
+  (`.mdo/E65-node-fixed.log`); full Python regression passes 165/167 with two
+  existing symlink skips in 72.789 s (`.mdo/E65-python-full.log`). These runs also
+  cover the next native frame-capture changes, still pending their feature
+  commit, SDK build and artifact refresh. Keep the first failing log as evidence
+  (`.mdo/E65-node-full.log`). No model calls, provider changes or publication.

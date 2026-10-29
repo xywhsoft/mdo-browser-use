@@ -131,9 +131,20 @@ test("a lost actual C admission reply recovers the original browser without resu
       const chunks = []; for await (const part of request) chunks.push(part);
       const { method, params } = JSON.parse(Buffer.concat(chunks)); calls.push({ method, params });
       const value = await direct(method, params);
-      if (params.action === "submit") { submitted = true; admitted.resolve(); await heldReply.promise; }
+      if (params.action === "submit") {
+        submitted = true;
+        // Admission can return while the C operation is still queued. This
+        // case exercises a lost reply AFTER the original effect completes;
+        // aborting a queued operation is correctly allowed to cancel it.
+        let current=value;const deadline=performance.now()+5000;
+        while(current.state==='pending'&&performance.now()<deadline){
+          current=await direct('browseruse.operation',{action:'get',operation});
+          if(current.state==='pending')await delay(10);
+        }
+        admitted.resolve(current);await heldReply.promise;
+      }
       if (!response.destroyed) { response.writeHead(200, { "Content-Type": "application/json" }); response.end(JSON.stringify(value)); }
-    } catch { if (!response.destroyed) { response.writeHead(500); response.end("{}"); } }
+    } catch { admitted.resolve({state:'failed'});if (!response.destroyed) { response.writeHead(500); response.end("{}"); } }
   });
   await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
   const url = `http://127.0.0.1:${server.address().port}/application`;
@@ -145,7 +156,7 @@ test("a lost actual C admission reply recovers the original browser without resu
   const controller = new AbortController(), client = createBrowserUseClient(sdk);
   try {
     const pending = outcome(client.tabs({ action: "create", client: display, key: "held-admission" }, { operation, signal: controller.signal }));
-    await admitted.promise; controller.abort();
+    assert.equal((await admitted.promise).state,'succeeded','Original C effect must complete before its admission reply is lost');controller.abort();
     let early;
     try { early = await Promise.race([pending, delay(200).then(() => null)]); }
     finally { heldReply.resolve(); error = (await pending).error; }
