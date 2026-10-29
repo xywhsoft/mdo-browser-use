@@ -48,7 +48,7 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
     private final Path root;private final Object rootKey;
     private final SecureDirectoryStream<Path> directory;
     private final Leaf[] leaves=new Leaf[FILES];
-    private FileChannel cacheLease;private FileLock cacheLock;
+    private FileChannel cacheLease;private FileLock cacheLock;private Object cacheOwnerKey;
     private Leaf failedCreation;
     static final String OWNER_FILE=".mdo-browser-upload-owner-v1";
     private static final byte[] OWNER_BYTES="mdo-browser-use-private-upload-cache-v1\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
@@ -75,6 +75,11 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
             BasicFileAttributes current=Files.readAttributes(root,BasicFileAttributes.class,LinkOption.NOFOLLOW_LINKS);
             if(!current.isDirectory()||current.isSymbolicLink()||!rootKey.equals(current.fileKey()))throw new Failure("upload_cache_changed");
         }catch(Failure failure){throw failure;}catch(IOException failure){throw new Failure("upload_cache_changed",failure);}
+        if(cacheLease!=null)try{
+            BasicFileAttributes marker=attributes(java.nio.file.Paths.get(OWNER_FILE));
+            if(!cacheLease.isOpen()||cacheLock==null||!cacheLock.isValid()||cacheOwnerKey==null||!cacheOwnerKey.equals(marker.fileKey())||
+                !marker.isRegularFile()||marker.isSymbolicLink()||marker.size()!=OWNER_BYTES.length)throw new Failure("upload_cache_owner_changed");
+        }catch(Failure failure){throw failure;}catch(IOException failure){throw new Failure("upload_cache_owner_changed",failure);}
     }
     private static boolean hash(String value){return value!=null&&value.matches("[a-f0-9]{64}");}
     private BasicFileAttributes attributes(Path path)throws IOException {
@@ -148,7 +153,7 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
                     if(!OWNER_FILE.equals(leaf))throw new Failure(leaf.matches("mdo-bu-upload-[a-f0-9-]{36}\\.bin")?"upload_cache_recovery_required":"upload_cache_unrecognized");
                 }
             }
-            cacheLease=(FileChannel)opened;cacheLock=lock;opened=null;lock=null;
+            cacheLease=(FileChannel)opened;cacheLock=lock;cacheOwnerKey=value.fileKey();opened=null;lock=null;
         }finally{
             if(lock!=null)try{lock.release();}finally{if(opened!=null)opened.close();}
             else if(opened!=null)opened.close();
@@ -163,7 +168,7 @@ final class MdoBrowserUploadFiles implements AutoCloseable {
         thread();closed=true;Throwable first=null;
         for(Leaf leaf:leaves)if(leaf!=null)try{leaf.close();}catch(IOException|RuntimeException failure){if(first==null)first=failure;}
         if(first!=null)throw new Failure("upload_cleanup_failed",first);
-        if(cacheLease!=null){try{if(cacheLock!=null)cacheLock.release();}finally{cacheLease.close();}cacheLock=null;cacheLease=null;}
+        if(cacheLease!=null){try{if(cacheLock!=null)cacheLock.release();}finally{cacheLease.close();}cacheLock=null;cacheLease=null;cacheOwnerKey=null;}
         if(!directoryClosed){directory.close();directoryClosed=true;}
     }
 

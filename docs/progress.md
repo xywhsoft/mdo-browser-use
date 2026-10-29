@@ -4632,3 +4632,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   identity, URI handoff and overall Android automation remain separate, false
   qualifications. The Windows N4 pair is unaffected and the full goal stays active.
 
+## E37 — reject I/O after the cache owner marker changes
+
+- Reproduce a real file-store defect before changing production code. Move the
+  original locked marker, create a replacement marker and let a second store
+  acquire that marker's lock. The old store incorrectly creates a new file:
+  `.mdo/E37-owner-before.log` fails the required owner-change refusal. This is
+  an owned synthetic filesystem case, not evidence of a past user crash.
+- Retain the original marker's file identity with the original lease. Before
+  create/write/seal/verify/read, require that exact regular marker, open lease
+  channel and valid original lock. A moved/replaced/missing/linked marker is
+  refused as `upload_cache_owner_changed`. Exact owned-leaf cleanup remains
+  possible through the original pinned directory, without regaining admission.
+- All 99 worker/filesystem checks pass, including simultaneous replacement
+  owner, removal during receive/sealed states and final cleanup. Evidence:
+  `.mdo/E37-owner-after-final.log`. Preserve the initial post-fix fixture failure
+  in `.mdo/E37-owner-after.log`: renamed-marker metadata was checked while its
+  old WSL/NTFS handle was open; final preservation is checked after closing it.
+- All 63 primitive checks, 37 production-native-fragment checks and 44 exact
+  device-fixture checks with UI/Context doubles pass. Actual pinned Activity/
+  hooks compile. Logs: `.mdo/E37-upload-files.log`, `.mdo/E37-upload-ui.log`,
+  `.mdo/E37-upload-fixture.log`, `.mdo/E37-android-build.log`. Reused QA APK:
+  299,411 bytes, SHA-256
+  `65a9e6489bbc63ca9b9926a63f9e43408fcc265e893b2f21432ddf022b902203`.
+- Device authority/URI/frame qualification and full Android automation remain
+  false. Preserve the current WebView. Durable orphan recovery is still pending;
+  this is its ownership prerequisite, not a completed recovery implementation.
+  The Windows pair is unaffected and the full goal remains active.
+

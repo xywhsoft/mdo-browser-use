@@ -1102,3 +1102,32 @@ ADB reports no authorized phone; `.mdo/android-device-upload-result.json`
 records `android_device_unavailable` and all qualification flags false. Keep
 the installed WebView and existing mdo apps/data. This is still a small QA app,
 not a complete Android mdo deliverable.
+
+## Cache owner replacement fence (E37)
+
+An actual filesystem regression reproduced two live stores holding locks on
+different owner-marker inodes after the original marker was moved/replaced.
+The older store could still create a file. The cache lease now retains its
+original marker identity; every admitted create/write/seal/verify/read also
+requires the marker to remain that exact regular file and its original lock
+and channel to remain valid. Missing/replaced/linked markers produce
+`upload_cache_owner_changed` before further I/O. Cleanup can still release
+the original owned leaves through the original pinned directory.
+
+The worker/filesystem gate now passes 99 checks, including replacement by a
+second live owner, marker removal while receiving/sealed files exist, refused
+reads/writes and successful exact-leaf cleanup. Evidence:
+`.mdo/E37-owner-before.log` and `.mdo/E37-owner-after-final.log`. The initial
+post-fix fixture checked renamed-marker metadata while its old handle remained
+open on WSL/NTFS; that check failed. The final preservation check runs after
+closing that handle. Its evidence is kept in `.mdo/E37-owner-after.log`.
+
+The 63 primitive, 37 production-fragment and 44 device-fixture-double checks
+also pass. The actual pinned Activity/hooks compile. E37's tiny QA APK is
+299,411 bytes, SHA-256
+`65a9e6489bbc63ca9b9926a63f9e43408fcc265e893b2f21432ddf022b902203`.
+Logs: `.mdo/E37-upload-files.log`, `.mdo/E37-upload-ui.log`,
+`.mdo/E37-upload-fixture.log`, `.mdo/E37-android-build.log`. None is an actual
+Android cache-authority or URI-assignment qualification. Keep the installed
+WebView and the overall automation gate off. Durable orphan cleanup remains
+the next upload recovery work; this fence does not claim to implement it.

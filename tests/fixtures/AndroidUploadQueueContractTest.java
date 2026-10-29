@@ -66,6 +66,39 @@ public final class AndroidUploadQueueContractTest {
             refused("upload_owner_changed",()->store.begin(scope,"changed",specs,6000));
         }
     }
+    static void replacedOwnerLease()throws Exception {
+        Path root=directory("lease-replacement"),marker=root.resolve(MdoBrowserUploadFiles.OWNER_FILE),saved=base.resolve("retired-owner-marker");
+        MdoBrowserUploadFiles original=new MdoBrowserUploadFiles(root),replacement=null;
+        try{
+            original.acquireCacheLease();Files.move(marker,saved,java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            Files.write(marker,"mdo-browser-use-private-upload-cache-v1\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII),java.nio.file.StandardOpenOption.CREATE_NEW);
+            replacement=new MdoBrowserUploadFiles(root);replacement.acquireCacheLease();
+            refused("upload_cache_owner_changed",()->original.create(0,sha(new byte[0])));
+            check(original.reservations()==0&&original.reservedBytes()==0);
+            MdoBrowserUploadFiles.Leaf current=replacement.create(0,sha(new byte[0]));current.seal();check(current.sealed());current.close();
+        }finally{
+            try{if(replacement!=null)replacement.close();}finally{original.close();}
+            Files.delete(marker);Files.delete(saved);
+        }
+    }
+    static void lostOwnerIo()throws Exception {
+        Path root=directory("lease-io"),marker=root.resolve(MdoBrowserUploadFiles.OWNER_FILE),saved=base.resolve("lease-io-original-marker");
+        MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(root);MdoBrowserUploadFiles.Leaf receiving=null,sealed=null;
+        try{
+            files.acquireCacheLease();receiving=files.create(1,sha(new byte[]{1}));sealed=files.create(1,sha(new byte[]{2}));sealed.append(0,new byte[]{2});sealed.seal();
+            Files.move(marker,saved,java.nio.file.StandardCopyOption.ATOMIC_MOVE);
+            final MdoBrowserUploadFiles.Leaf first=receiving,second=sealed;
+            refused("upload_cache_owner_changed",()->first.append(0,new byte[]{1}));
+            refused("upload_cache_owner_changed",first::seal);refused("upload_cache_owner_changed",second::verify);
+            refused("upload_cache_owner_changed",()->second.read(0,1));
+            check(files.reservations()==2&&files.reservedBytes()==2);
+            // Exact owned leaves may still be released through the original
+            // pinned directory; cleanup must not require regaining authority.
+            receiving.close();sealed.close();check(files.reservations()==0&&files.reservedBytes()==0);
+            files.close();
+            check(Files.isRegularFile(saved)&&!Files.exists(marker));
+        }finally{files.close();Files.delete(saved);}
+    }
     static void limitsAndBadBytes()throws Exception{
         Path root=directory("limits");AtomicLong now=new AtomicLong(1);String empty=sha(new byte[0]);
         try(MdoBrowserUploadStore store=new MdoBrowserUploadStore(new MdoBrowserUploadFiles(root),now::get)){
@@ -140,7 +173,7 @@ public final class AndroidUploadQueueContractTest {
     }
     public static void main(String[] args)throws Exception{
         base=Paths.get(args[0]);Files.createDirectory(base);Throwable primary=null;
-        try{ownerLease();tickets();limitsAndBadBytes();queueFlow();inboxLimit();cancellationAndLostReply();}
+        try{ownerLease();replacedOwnerLease();lostOwnerIo();tickets();limitsAndBadBytes();queueFlow();inboxLimit();cancellationAndLostReply();}
         catch(Exception|Error failure){primary=failure;throw failure;}
         finally{
             try{for(int at=directories.size()-1;at>=0;at--)Files.delete(directories.get(at));Files.delete(base);}

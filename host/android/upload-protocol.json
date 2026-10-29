@@ -2,6 +2,7 @@
   "format": "mdo.browser-use.android-upload-files.v1",
   "sources": [
     "https://developer.android.com/reference/java/nio/file/SecureDirectoryStream",
+    "https://developer.android.com/reference/java/nio/file/attribute/BasicFileAttributes",
     "https://android.googlesource.com/platform/prebuilts/fullsdk/sources/+/refs/heads/androidx-constraintlayout-release/android-35/sun/nio/fs/UnixFileSystemProvider.java"
   ],
   "checked_date": "2026-10-29",
@@ -25,6 +26,7 @@
   "staging_scope": ["original-webview", "original-navigation", "original-native-channel"],
   "native_cache_authority": "application-context-and-uid",
   "cache_lease_required": true,
+  "cache_owner_identity_rechecked_before_io": true,
   "unknown_cache_entries_preserved": true,
   "orphan_recovery_implemented": false,
   "wire_source_or_frame_target_accepted": false,
