@@ -1,6 +1,88 @@
 {
   "changes": [
     {
+      "path": "app/src/application/ui.c",
+      "before": "#include \"internal.h\"",
+      "after": "#include \"internal.h\"\n#include \"../api/browser_use_ui_wakeup.h\""
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "    bool Ok=true;",
+      "after": "    bool Ok=true,Wake=false;"
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "xrtValueObjectSetNew(Action->Value,XRT_STR_LITERAL(\"context\"),Scope);*R=xrtValueClone(Action->Value);",
+      "after": "xrtValueObjectSetNew(Action->Value,XRT_STR_LITERAL(\"context\"),Scope);*R=xrtValueClone(Action->Value);Wake=true;"
+    },
+    {
+      "path": "app/src/application/ui.c",
+      "before": "done:xrtMutexUnlock(SdkUi.Lock);return Ok;",
+      "after": "done:xrtMutexUnlock(SdkUi.Lock);if(Ok&&Wake)MdoApiLiveUiNotify();return Ok;"
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "#include \"internal.h\"",
+      "after": "#include \"internal.h\"\n#include \"browser_use_ui_wakeup.h\""
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "    uint64 Selection, Cursor, Revision, StateRevision;",
+      "after": "    uint64 Selection, Cursor, Revision, StateRevision, UiRevision;"
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "    uint64 Revision, StateRevision;",
+      "after": "    uint64 Revision, StateRevision, UiRevision;"
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "void MdoApiLiveChanged(void* Data)",
+      "after_file": "host/ui-wakeup-native.inc.c",
+      "suffix": "void MdoApiLiveChanged(void* Data)"
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "        uint64 Now = MdoMonotonicUs(), StateRevision;",
+      "after": "        uint64 Now = MdoMonotonicUs(), StateRevision, UiRevision;"
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "        Stop = g_MdoLive.Stopping; StateRevision = g_MdoLive.StateRevision;",
+      "after": "        Stop = g_MdoLive.Stopping; StateRevision = g_MdoLive.StateRevision; UiRevision = g_MdoLive.UiRevision;"
+    },
+    {
+      "path": "app/src/api/live.c",
+      "before": "            Tick = MdoMonotonicUs() + MDO_LIVE_TICK_US;",
+      "after": "            if ( Client->UiRevision != UiRevision ) {\n                if ( !MdoLiveText(Client, \"{\\\"type\\\":\\\"ui_pending\\\"}\") ) break;\n                Client->UiRevision = UiRevision;\n            }\n            Tick = MdoMonotonicUs() + MDO_LIVE_TICK_US;"
+    },
+    {
+      "path": "app/web/js/api/live.js",
+      "before": "} else if (healthy && event.type === \"changed\") publish(event);",
+      "after": "} else if (healthy && (event.type === \"changed\" || event.type === \"ui_pending\")) publish(event);"
+    },
+    {
+      "path": "app/web/js/features/shell/application-sdk.js",
+      "before": "import { createPluginLoader } from \"./plugin-loader.js\";",
+      "after": "import { createPluginLoader } from \"./plugin-loader.js\";\nimport { liveConnection } from \"../../api/live.js\";\nimport { createUiPollPump } from \"./ui-poll-pump.js\";"
+    },
+    {
+      "path": "app/web/js/features/shell/application-sdk.js",
+      "before": "  let stopped = false, timer = null, registered = false, registeredScope = \"\";",
+      "after": "  let stopped = false, registered = false, registeredScope = \"\";"
+    },
+    {
+      "path": "app/web/js/features/shell/application-sdk.js",
+      "before": "    finally { if (!stopped) timer = setTimeout(poll, document.hidden ? 10000 : 1500); }\n  };\n  void poll();",
+      "after_file": "host/ui-poll-bind.inc.js",
+      "suffix": ""
+    },
+    {
+      "path": "app/web/js/features/shell/application-sdk.js",
+      "before": "stopped = true; clearTimeout(timer); clearInterval(leaseTimer);",
+      "after": "stopped = true; pump.stop(); stopHints(); document.removeEventListener(\"visibilitychange\", pump.wake); window.removeEventListener(\"focus\", pump.wake); clearInterval(leaseTimer);"
+    },
+    {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "      if (command === \"capabilities\")",
       "after_file": "host/reveal-action-view.js",
@@ -1279,6 +1361,14 @@
     }
   ],
   "files": [
+    {
+      "source": "host/ui-wakeup.h",
+      "target": "app/src/api/browser_use_ui_wakeup.h"
+    },
+    {
+      "source": "host/ui-poll-pump.mjs",
+      "target": "app/web/js/features/shell/ui-poll-pump.js"
+    },
     {
       "source": "host/ui-cancel.inc.c",
       "target": "app/src/application/browser_use_cancel.inc.c"

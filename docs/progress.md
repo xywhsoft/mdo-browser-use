@@ -5053,3 +5053,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   real visual/authenticated physical-transport and broader lifetime/OOM/
   performance/final delivery scope remain active.
 
+## F20 — wake the serialized UI queue through the existing authenticated socket
+
+- Trace the F19 latency to the application shell's fixed 1,500 ms queue poll
+  delay (10,000 ms when hidden). Publish a coalesced `ui_pending` hint through
+  the existing authenticated live socket when a UI action is queued, after
+  releasing the UI mutex. Keep a separate sequence from product/session changes:
+  the hint contains no action, arguments, task identity, credentials or receipt.
+  No additional socket, waiter, dependency or faster idle polling loop is added.
+- The shell re-reads its original client queue on a hint/reconnect/focus change.
+  Keep the existing fallback intervals, frozen ownership, cancellation/deadline
+  checks and intent journal. Serialize drains and coalesce hints while one is
+  running, preventing an in-flight action from being executed concurrently.
+  Guard stale timer generations, dispose listeners/timers and ignore retired
+  sockets/owners. A lost hint remains a read/latency fallback, not a resubmission.
+- Pass seven pump/live-decoder tests, all 282 JS tests and 158/160 Python tests
+  (the same two symlink skips). Evidence: `.mdo/F20-wakeup-tests.log`,
+  `.mdo/F20-js-full.log`, `.mdo/F20-python-full.log`. The actual public
+  C/workbench/OOPIF gate passes 26 operations, including nested input/capture,
+  file/directory uploads, chooser cancellation and read-only denial, with zero
+  transfer reservations (`.mdo/F20-public-frames.log`).
+- Run the identical F19 probe (SHA-256
+  `cd3f1ea8b40d693ffc30c590805e5f2b9071a3a50e8b64207118f284c30c88f7`):
+  eight cycles still verify one trusted click per page and all 40 released
+  receipts become unreadable. Median initial observe 1,654.26 → 241.79 ms,
+  fill 2,018.85 → 561.32 ms, click 1,931.99 → 499.85 ms, verification observe
+  1,512.42 → 77.04 ms and capture 1,712.45 → 246.77 ms. Harness service calls
+  fall from 1,225 to 365; these exclude the UI client's own socket/HTTP traffic
+  and are not a total-network or general production benchmark. Evidence:
+  `.mdo/F20-browser-cycles.log`, `.mdo/F20-comparison.json`; retain F19 baseline.
+- Restore the same headless deployment. The product change is in reviewed host
+  overlays; refresh/exercise the matching program and Android development APK
+  before handing out current artifacts. Keep the user's deferred device/current
+  WebView, visual/physical transport and broader lifetime/OOM scope unqualified.
+
