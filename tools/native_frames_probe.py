@@ -1,14 +1,16 @@
 """Read actual cross-site/OOPIF frame contexts in the one native deployment."""
 import json
+import argparse
 import subprocess
 import sys
 import time
 import dev
+import update_android_upload_broker
 from frame_fixture import FrameFixture
 from upload_cache_probe import inspect_cache
 
 
-def main():
+def main(upload_broker_only=False):
     output=dev.ENV/'native-frames-result.json';output.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
     scope={'extension':'browser-frame-qa'};fixture=FrameFixture().start();page=dev.SOURCE/'app/web/__browser_use_native_frames__.html'
     before={p.name:(p.stat().st_size,p.stat().st_mtime_ns) for p in (dev.ENV/'host').glob('crash_*')}
@@ -20,7 +22,9 @@ def main():
         if runtime.count('export function browserRuntime(')!=1:raise RuntimeError('Frame runtime export changed')
         runtime=runtime.replace('export function browserRuntime(','function browserRuntime(')
         script=(dev.ROOT/'tools/native_frames_probe.js').read_text(encoding='utf-8')
-        for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime,'FRAME_UPLOAD_WORKSPACE':str(dev.ROOT)}.items():
+        update_android_upload_broker.verify()
+        broker=update_android_upload_broker.installer(update_android_upload_broker.SOURCE.read_text(encoding='utf-8'))
+        for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime,'FRAME_UPLOAD_WORKSPACE':str(dev.ROOT),'FRAME_UPLOAD_BROKER_SOURCE':broker,'FRAME_BROKER_ONLY':upload_broker_only}.items():
             if script.count(marker)!=1:raise RuntimeError('Frame probe placeholder changed')
             script=script.replace(marker,json.dumps(value).replace('<','\\u003c'))
         subprocess.run(['node','--input-type=module','--check'],input=script,text=True,encoding='utf-8',capture_output=True,check=True,cwd=dev.ROOT)
@@ -49,5 +53,6 @@ def main():
         dev.stop();dev.start();fixture.close()
 
 if __name__=='__main__':
-    try:main()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--upload-broker-only',action='store_true');args=parser.parse_args()
+    try:main(args.upload_broker_only)
     except (RuntimeError,OSError,ValueError,subprocess.SubprocessError) as error:print(error,file=sys.stderr);raise SystemExit(1)

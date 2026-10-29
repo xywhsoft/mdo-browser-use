@@ -15,15 +15,15 @@ are implemented. Native frame/input-node evidence is collected separately; it
 is not yet joined to the original Android callback. Automatic chooser assignment
 remains unavailable and the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E67)
+## Complete development host APK (E46/E68)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,366,529 bytes, SHA-256
-`e40ca681586f10cf9d6134548ba7296985d5f0fb6f50b2416d8b5f050af10f9a`.
+Current APK: 6,370,625 bytes, SHA-256
+`45789ecf19ab2977d6fcb1a3771868253ade47531b4f4c945ad9471ae2b615c6`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2220,3 +2220,70 @@ not be passed directly as complete, correctly named payload files.
 
 Android automation/debug admission and actual file assignment remain disabled.
 No phone/WebView/formal data changes, model calls or online release occurred.
+
+### Private native picker and FileList handoff helper (E68)
+
+`host/upload-picker-broker.js` is one self-contained isolated-world helper,
+generated into the private `MdoBrowserCdpUploadScripts.INSTALL` Java constant.
+The generator checks source shape/size and preserves unknown edits. Both the
+actual native browser fixture and Android compilation consume the same installer.
+There is no added runtime dependency and no new public Agent/UI command.
+
+Prepare binds one current local document/reference and exact file-name/size
+manifest, captures the original target object and its initial File objects,
+and creates a plain input inside a closed shadow root. A fresh 128-bit nonce in
+its custom MIME accept string is returned **only to the future native upload
+controller**. The private node getter has the same restriction. Never publish
+either through frame actions, tool results, persistent receipts or logs. Ordinary
+page DOM traversal and page-world prototype overrides cannot expose this input.
+Status/commit/dispose never contain the nonce, raw native IDs or filesystem paths.
+
+One operation keeps its original monotonic deadline (at most 120 seconds), at
+most 16 files/32 MiB each/64 MiB total, and one active reservation. Retired keys
+remain retired; a frame world retains at most 64 operation records. The exact
+connected target/document/ref, capacity/disabled/inert state and original File
+objects are checked before assignment and after each event. Key reuse cannot
+change the target/manifest or renew the lease. Native picker activation errors
+have static codes; failed/uncertain opening or assignment is not replayed.
+
+Keep the browser-selected native `FileList`; do not rebuild bytes as Blob/File
+or treat the opaque provider URI/staging pathname as a correctly named payload.
+Use the native files setter and exactly one synthetic input/change pair,
+explicitly reporting `events_trusted:false`. Verification is local File object
+handoff, not website acceptance. Page handlers that clear/replace the target
+produce an accepted/dispatched but unverified partial result, and no remaining
+event or assignment is repeated.
+
+Actual Chromium testing caught two shared-FileList hazards: clearing the private
+input's value also clears the real target; and comparing two live FileLists can
+falsely verify a page handler clearing their shared backing list. Pin a separate
+array of the original native File objects for verification. At cleanup, detach
+the private input onto a fresh native empty input's FileList before removing its
+original host; never clear the shared selected list. Failed cleanup poisons that
+reservation until exact cleanup succeeds. Native staging/URI permissions must
+remain governed by their separate original leases/consumption receipts.
+
+The loopback-only actual WebView2 fixture passes 30 focused and 254 full native
+checks (`.mdo/E68-windows-broker-only.log`, `.mdo/E68-windows-final.log`). It uses
+the **trusted WebView2 host evaluation** as its activation source; it is not an
+Android Runtime.evaluate/userGesture or hardware-input qualification. It verifies
+the real intercepted native picker, closed-shadow/nonce privacy under page-world
+overrides, original Unicode/delimiter basename and all 131,075 payload bytes by
+SHA-256, event trust/count, shared-list-safe cleanup, page reset detection, receipt
+replay protection and zero retained staging reservations. Controlled VM tests
+cover failure/cancellation/deadline/resource paths and execute the generated
+Java installer too; they do not replace actual browser/framework checks.
+
+Final JS passes 319/319. Python passes 167/169 with two existing symlink skips,
+and generated-script checks pass again after the final helper changes. Actual
+JVM/JNI/protocol/worker tests, SDK/D8/DEX/native ABI/payload/private-provider/
+alignment/signatures pass (`.mdo/E68-native-full.log`, `.mdo/E68-android-build.log`).
+The complete development APK above contains the helper, **but its original
+Android callback/URI delivery controller is not joined or admitted yet**. E67
+native parent/chain/world checks must still surround that future controller;
+this local DOM helper cannot replace them. Provider/device/main-UI checks and
+Windows unique-context/realm audit remain open. Earlier full native runs also
+had intermittent input-focus/drag-cleanup interruptions; retain their logs and
+investigate rather than treating one subsequent full pass as their root-cause fix.
+Android automation/debug admission stays disabled; phone/WebView/formal data,
+model services and online releases are unchanged.

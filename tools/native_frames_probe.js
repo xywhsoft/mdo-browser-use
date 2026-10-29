@@ -4,10 +4,12 @@ import {createFrameReader} from '/js/features/workbench/frame-reader.js';
 import {createFrameDriver} from '/js/features/workbench/frame-driver.js';
 import {executeBrowserAutomation} from '/js/features/workbench/automation-dispatch.js';
 const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE,uploadWorkspace=FRAME_UPLOAD_WORKSPACE;
+const uploadBroker=FRAME_UPLOAD_BROKER_SOURCE,brokerOnly=FRAME_BROKER_ONLY;
 const bridge=createNativeBrowserBridge(),api=createLocalApplicationClient(()=>({extension:'browser-frame-qa'})),browser='browser-frame-native-qa',foreign='browser-frame-foreign-qa';
 const filesApi=createLocalApplicationClient(()=>({extension:'browser-frame-qa',workspace:uploadWorkspace}));
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence;
 const assert=(value,text)=>{checks++;if(!value)throw Error(text);};
+const exactEvents=(events,trust)=>Array.isArray(events)&&events.length===trust.length&&events.every((event,i)=>event.type===(i%2?'change':'input')&&event.trusted===trust[i]);
 async function until(fn,text,ms=15000){const end=performance.now()+ms;while(performance.now()<end){if(await fn())return;await pause(40);}throw Error(text);}
 const call=(command,params={},target=browser)=>bridge.call(command,{browser:target,...params});
 const frames=async(target=browser)=>{lastInventory=await call('frames',{action:'list',agent:true},target);return lastInventory;};
@@ -18,7 +20,79 @@ async function navigate(url){
   const before=(await call('state')).navigation;await call('navigate',{url});
   await until(async()=>{const state=await call('state');return state.navigation!==before&&state.url===url&&!state.loading;},'Requested navigation did not reach its own ready document');
 }
+async function privateUploadBroker(dispatch){
+  stage='private-upload-broker';const sourcePath='.mdo/qa/frame-upload-qa.bin',sourceBytes=Uint8Array.from({length:131075},(_,i)=>i%251);
+  const expectedHash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',sourceBytes)),n=>n.toString(16).padStart(2,'0')).join('');
+  await navigate(origin+'/upload-broker');
+  const brokerRoot=(await frames()).frames.find(row=>row.id==='f0');
+  const brokerPage=await dispatch('observe',{limit:20,max_bytes:1024});assert(brokerPage.result.ok,'Broker page observation failed');
+  const brokerPin=await evaluate(brokerRoot,`(()=>{const r=(${runtime})({local_frame:true});return r.pinUploadNode(document.querySelector('#target'))})()`);
+  assert(brokerPin.ok&&brokerPin.value.ok,'Private broker target could not be pinned');
+  const brokerArgs={key:'native-broker-qa',document:brokerPin.value.document,ref:brokerPin.value.element.ref,files:[{name:'payload-内容 #% +.bin',size:sourceBytes.length}],timeout_ms:30000};
+  // Only this trusted fixture receives the nonce. Do not write it to evidence.
+  const preparedBroker=await evaluate(brokerRoot,`${uploadBroker}.prepare(${JSON.stringify(brokerArgs)})`);
+  assert(preparedBroker.ok&&preparedBroker.value.ok&&/^application\/x-mdo-browseruse-[a-f0-9]{32}$/.test(preparedBroker.value.nonce),'Private picker was not prepared in its original isolated world');
+  const brokerCall=async(method,key=brokerArgs.key)=>evaluate(brokerRoot,`globalThis.__mdo_browser_use_upload_picker_v1.${method}({key:${JSON.stringify(key)}})`);
+  assert((await brokerCall('commit')).value.error.code==='upload_picker_pending','The broker assigned files before a native picker selection');
+  const armedBroker=await call('chooser',{action:'arm',agent:true});assert(armedBroker.ok&&armedBroker.armed,'Broker chooser reporting did not arm');
+  // WebView2 ExecuteScript is the trusted host gesture source for this fixture.
+  // Do not claim Android Runtime.evaluate/userGesture or device input coverage.
+  const activation=await call('evaluate',{script:'navigator.userActivation.isActive'});
+  assert(activation.ok&&activation.value===true,'Trusted host evaluation did not provide picker activation');
+  const openedBroker=await brokerCall('open');geometryEvidence.brokerOpen=openedBroker;
+  assert(openedBroker.ok&&openedBroker.value.ok&&openedBroker.value.opened,'Native private picker did not open');
+  let brokerChooser;await until(async()=>{const listed=await call('chooser',{action:'list',agent:true});brokerChooser=listed.choosers?.[0];return listed.ok&&brokerChooser;},'Private input did not produce a native picker event');
+  assert(brokerChooser.frame===brokerRoot.id&&brokerChooser.frame_document===brokerRoot.document,'Private picker changed its native frame identity');
+  const brokerUpload=await dispatch('upload',{action:'set',document:brokerPage.result.document,chooser:brokerChooser.id,files:[{path:sourcePath,space:'workspace',name:brokerArgs.files[0].name}],timeout_ms:15000});
+  assert(brokerUpload.result.ok&&brokerUpload.result.verified&&brokerUpload.result.transfer.retained,'Native browser did not deliver real files to the private picker');
+  assert((await brokerCall('status')).value.selected===true,'Private native FileList did not match its original manifest');
+  const brokerCommitted=await brokerCall('commit');assert(brokerCommitted.ok&&brokerCommitted.value.completed&&brokerCommitted.value.verified&&brokerCommitted.value.events_trusted===false,'Native FileList handoff did not verify');
+  assert((await brokerCall('commit')).value.outcome==='file_list_confirmed','Repeated handoff lost its original receipt');
+  await until(async()=>{const result=await call('evaluate',{script:"document.querySelector('#digest').textContent"});return result.value===expectedHash;},'Real target did not consume the complete original native file bytes');
+  const brokerEvidence=await call('evaluate',{script:'({...brokerEvidence,private_marker:typeof globalThis.__mdo_browser_use_upload_picker_v1,private_inputs:document.querySelectorAll("input").length})'});
+  assert(brokerEvidence.ok&&!brokerEvidence.value.leaked&&brokerEvidence.value.private_marker==='undefined'&&brokerEvidence.value.private_inputs===1,'Page script discovered the private picker or its accept nonce');
+  assert(exactEvents(brokerEvidence.value.events,[false,false]),'FileList handoff duplicated events or misreported their trust');
+  assert(brokerEvidence.value.files.length===1&&brokerEvidence.value.files[0].name===brokerArgs.files[0].name&&brokerEvidence.value.files[0].size===sourceBytes.length&&brokerEvidence.value.files[0].sha256===expectedHash,'Handoff lost the original Unicode/delimiter filename or complete bytes');
+  assert((await brokerCall('dispose')).value.cleanup_confirmed,'Private picker native cleanup did not complete');
+  assert((await call('evaluate',{script:"document.querySelector('#target').files.length"})).value===1,'Private picker cleanup cleared the actual target files');
+  assert((await brokerCall('commit')).value.completed,'Disposed handoff lost its original completion receipt');
+  assert((await call('upload',{action:'release',ticket:brokerUpload.result.transfer.ticket,confirmed:true})).released,'Consumed private picker staging was not released');
+  assert((await brokerCall('dispose')).value.cleanup_confirmed,'Private picker repeated cleanup was not idempotent');
+  stage='private-upload-page-reset';
+  const resetting=await call('evaluate',{script:`(()=>{const target=document.querySelector('#target');target.value='';brokerEvidence.events=[];brokerEvidence.files=[];document.querySelector('#digest').textContent='';target.addEventListener('input',()=>{target.value=''},{once:true});return true})()`});
+  assert(resetting.ok&&resetting.value,'Page-reset fixture could not initialize');
+  const resetArgs={...brokerArgs,key:'native-broker-page-reset'};
+  const resetPrepared=await evaluate(brokerRoot,`globalThis.__mdo_browser_use_upload_picker_v1.prepare(${JSON.stringify(resetArgs)})`);
+  assert(resetPrepared.ok&&resetPrepared.value.ok,'Second private picker preparation failed');
+  assert((await call('evaluate',{script:'navigator.userActivation.isActive'})).value===true,'Second trusted host picker activation failed');
+  assert((await brokerCall('open',resetArgs.key)).value.opened,'Page-reset picker did not open');
+  let resetChooser;await until(async()=>{const listed=await call('chooser',{action:'list',agent:true});resetChooser=listed.choosers?.[0];return listed.ok&&resetChooser;},'Page-reset native picker event missing');
+  const resetUpload=await dispatch('upload',{action:'set',document:brokerPage.result.document,chooser:resetChooser.id,files:[{path:sourcePath,space:'workspace',name:resetArgs.files[0].name}],timeout_ms:15000});
+  assert(resetUpload.result.ok&&resetUpload.result.verified,'Native files did not reach the second private picker');
+  const resetCommit=await brokerCall('commit',resetArgs.key);
+  assert(resetCommit.value.ok&&resetCommit.value.dispatched&&!resetCommit.value.completed&&!resetCommit.value.verified&&resetCommit.value.outcome==='target_changed_after_input','A page clearing the shared FileList was falsely verified');
+  assert((await brokerCall('commit',resetArgs.key)).value.outcome===resetCommit.value.outcome,'Repeated partial handoff lost its original receipt');
+  const resetEvidence=await call('evaluate',{script:'({events:brokerEvidence.events,files:document.querySelector("#target").files.length})'});
+  assert(exactEvents(resetEvidence.value.events,[false])&&resetEvidence.value.files===0,'Page reset still received a change event or a second file assignment');
+  assert((await brokerCall('dispose',resetArgs.key)).value.cleanup_confirmed,'Page-reset private input cleanup failed');
+  assert((await call('upload',{action:'release',ticket:resetUpload.result.transfer.ticket,confirmed:true})).released,'Page-reset private staging was not released');
+}
 try{
+  if(brokerOnly){
+    geometryEvidence={};
+    await call('create',{url:origin+'/foreign',visible:true,bounds:{x:0,y:50,width:1000,height:650,scale:1}});
+    await until(async()=>!(await call('state')).loading,'Broker-only view did not load');
+    const view={execute:(command,params)=>call(command,params)},driver=createFrameDriver(view);let counter=0;
+    const dispatch=(command,params)=>executeBrowserAutomation({command,params,browser,view,pageDriver:driver,action:{id:'broker-only-'+(++counter)},api:{call:(method,params)=>{
+      if(method==='ui.result')return Promise.resolve({state:'pending'});
+      if(method==='files.digest'||method==='files.read')return filesApi.call(method,params);
+      throw Error('Unexpected private broker fixture SDK call');
+    }}});
+    await privateUploadBroker(dispatch);
+    report={passed:true,checks,backend:'actual-webview2-private-picker',private_native_picker:true,private_picker_activation:'webview2-trusted-host-evaluation',
+      closed_shadow_nonce_hidden:true,page_world_overrides_ignored:true,native_filelist_handoff:true,handoff_original_filename_and_sha256:true,handoff_exact_synthetic_event_pair:true,
+      handoff_receipt_without_replay:true,private_picker_cleanup:true,page_reset_stops_change_and_is_not_verified:true,android_callback_or_uri_qualification:false};
+  }else{
   await call('create',{url:origin+'/root',visible:true,bounds:{x:0,y:50,width:1000,height:650,scale:1}});
   await until(async()=>!(await call('state')).loading,'Root page did not load');
   assert((await call('state')).frame_automation===true,'The native view did not advertise its runtime-supported frame automation');
@@ -195,6 +269,7 @@ try{
   assert((await evaluate(replacementLeaf,'document.activeElement.id')).value===originalFocus,'Read-only scroll routing changed DOM focus');
   stage='frame-dispatch';
   const filled=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text:'Frame 🦉 input'});
+  geometryEvidence.filled=filled;
   assert(filled.result.ok&&filled.result.verification==='field_state','Routed nested fill did not complete');
   assert((await evaluate(replacementLeaf,`document.querySelector('#field').value`)).value==='Frame 🦉 input','Routed native Unicode text did not reach its exact nested input');
   await call('evaluate',{script:`(()=>{document.querySelector('#root-focus').focus();return true})()`});
@@ -272,7 +347,6 @@ try{
   await until(async()=>{const result=await evaluate(replacementLeaf,'document.body.dataset.uploadHash');return result.ok&&result.value===expectedHash;},'Nested document did not consume the exact complete file bytes');
   const uploadEvents=await evaluate(replacementLeaf,'JSON.parse(document.body.dataset.uploadEvents)');
   geometryEvidence.uploadEvents=uploadEvents;
-  const exactEvents=(events,trust)=>Array.isArray(events)&&events.length===trust.length&&events.every((event,i)=>event.type===(i%2?'change':'input')&&event.trusted===trust[i]);
   assert(exactEvents(uploadEvents.value,[true,true]),'Native framed upload did not deliver exactly one trusted event pair');
   const cleared=await dispatch('upload',{action:'clear',...uploadOptions,timeout_ms:15000});
   geometryEvidence.cleared=cleared;
@@ -477,7 +551,9 @@ try{
   assert(settledImage.result.ok&&settledImage.result.visual_reference&&settledImage.result.region.width===900,'A bounded native viewport retry did not return the new stable image');
   assert(captureRequests-beforeResizeCapture===2,'Viewport settling did not use exactly two native captures in its original operation');
   assert(settledImage.result.document===capturePage.result.document&&!(await call('state')).capture_busy,'Viewport settling changed document or retained a native capture slot');
+  await privateUploadBroker(dispatch);
   report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
+    private_native_picker:true,private_picker_activation:'webview2-trusted-host-evaluation',closed_shadow_nonce_hidden:true,page_world_overrides_ignored:true,native_filelist_handoff:true,handoff_original_filename_and_sha256:true,handoff_exact_synthetic_event_pair:true,handoff_receipt_without_replay:true,private_picker_cleanup:true,page_reset_stops_change_and_is_not_verified:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
     routed_dispatcher:true,native_nested_scroll_point:true,scroll_route_retains_leaf_identity:true,scroll_route_does_not_focus:true,
@@ -491,6 +567,7 @@ try{
     cross_frame_capture_pixels:true,nested_input_pixels_masked:true,nested_element_image_crop:true,changed_frame_image_withheld:true,
     internal_visual_pointer_once:true,consumed_image_rejected:true,changed_visual_tile_rejected:true,masked_visual_point_denied:true,
     viewport_capture_retries_in_same_operation:true,only_stable_viewport_image_published:true};
+  }
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
 finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

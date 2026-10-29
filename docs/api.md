@@ -998,6 +998,16 @@ Android transfer support remains unfinished. Windows directory uploads,
 OOPIF uploads/pickers and intercepted downloads have separate real-browser gates.
 Unsupported devices fail before source reads; there is no browser-device path fallback.
 
+E68 adds an **internal, not yet admitted Android delivery helper**: one private
+nonce picker can retain a native FileList and hand it to a pinned original input.
+The native-only nonce/node APIs are not frame/tool parameters or results. Its
+event pair is explicitly synthetic (`events_trusted:false`); page handlers that
+clear/change the target return a dispatched but unverified partial result.
+Cleanup detaches the private input onto an independent empty native FileList,
+so it cannot clear the target's shared list. Original Android ValueCallback/URI
+association and native frame/lease validation remain required before admission.
+See [Android implementation boundaries](android.md).
+
 ## Intercepted file pickers
 
 The Windows dispatcher acknowledges native interception before Agent input. A

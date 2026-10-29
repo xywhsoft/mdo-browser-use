@@ -5931,3 +5931,56 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and the Windows unique-context/realm audit also remain. Goal stays active,
   phone/provider/formal data unchanged and Android automation/debugging disabled.
   No model calls, external page operation, extra app/Home/source copies or release.
+
+## E68 — private picker and native FileList handoff, shared Android script
+
+- Add one native-controller-only isolated helper with a closed-shadow file input
+  and a fresh 128-bit custom MIME nonce. Bind one exact original local DOM
+  document/ref/input, initial File objects and name/size manifest. Keep the
+  original deadline, single active reservation and bounded lifetime history.
+  No nonce/node/paths/native protocol IDs enter Agent/UI results or evidence.
+  Preserve explicit unsupported/cancel/expiry/target-change/cleanup and static
+  activation failure results, without automatic effect replay.
+- Retain the native browser FileList and deliver it through the native files
+  setter with one explicitly synthetic input/change pair. Return local handoff
+  verification only; a page changing its input during handlers is a dispatched,
+  unverified partial outcome and stops further events. Do not reconstruct bytes
+  as File/Blob or pass header-bearing staging/opaque URI paths to CDP assignment.
+- Actual browser tests exposed that Blink shares FileList backing state: clearing
+  the private input also cleared the real target, and comparing two live shared
+  lists could miss a page clearing both. Fix both before integration: verify a
+  pinned array of original File objects, and detach the private input onto a
+  new empty native FileList at cleanup. Failed cleanup retains its poisoned
+  reservation; success leaves the real target's selection intact.
+- Generate the exact canonical installer into private Java, include it in the
+  reviewed overlay/compile/DEX/input-hash checks, and execute that installer in
+  the same native fixture. No added runtime/toolchain dependency or public raw
+  script operation. Original Android ValueCallback/URI joining is still the next
+  delivery stage, not implemented by the helper or inferred from event timing.
+- Actual loopback WebView2 passes 30 focused checks and final full 254 checks
+  (`.mdo/E68-windows-broker-only.log`, `.mdo/E68-windows-final.log`): native
+  intercepted picker, page-world override/closed-shadow/nonce isolation,
+  Unicode/delimiter name, all 131,075 bytes/SHA-256, exact untrusted event pair,
+  no receipt replay, selection-preserving cleanup, page-reset partial result
+  and zero native staging reservations/new crash diagnostics. Activation for
+  this fixture comes from trusted WebView2 host evaluation; it does not prove
+  Android Runtime.evaluate/userGesture or hardware-input activation.
+- JS passes 319/319 in 21.053 s (`.mdo/E68-node-final.log`). Python passes
+  167/169 with two existing symlink skips in 67.788 s; final generator checks
+  pass again after helper identity handling changes (`.mdo/E68-python-full.log`,
+  `.mdo/E68-codegen-final.log`). Actual Java/JNI/transport/worker/frame/world/
+  input/capture/file/chooser gates pass (`.mdo/E68-native-full.log`), retaining
+  explicit false device/provider/debug flags. SDK/D8/DEX/ABI/payload/private
+  provider/zip alignment/v2/v3 signature build passes `.mdo/E68-android-build.log`.
+  Full Android development APK: 6,370,625 bytes, SHA-256
+  `45789ecf19ab2977d6fcb1a3771868253ade47531b4f4c945ad9471ae2b615c6`.
+- Unchanged Windows E66 program/source/archive and plugin are reused after
+  current-source/receipt verification. Restore the same headless deployment.
+  Preserve earlier full-run failures in `.mdo/E68-windows-broker.log` (drag
+  cleanup after child navigation) and `.mdo/E68-windows-full.log` (nested fill).
+  These intermittent harness/input interruptions are not root-cause-resolved by
+  the final pass; continue their diagnostics and the Windows unique-context/
+  realm audit. Android original callback/URI delivery, downloads, activation/
+  profile policy and installed-provider/main-UI qualification also remain open.
+  Goal stays active; no phone/provider/formal data changes, model calls, external
+  page operations, extra application/Home/source copies or online release.
