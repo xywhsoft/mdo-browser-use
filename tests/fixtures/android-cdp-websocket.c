@@ -12,14 +12,15 @@
 #include <string.h>
 #include <stdio.h>
 
-static int Allocated,Freed,FailAllocation,FailRandom,Checks;
+static atomic_int Allocated,Freed,FailAllocation,FailRandom;
+static int Checks;
 static void* Allocate(size_t Size);
 static void Release(void* Data);
 static int RandomBytes(void* Data,size_t Size);
 #define MDO_CDP_ALLOC Allocate
 #define MDO_CDP_FREE Release
 #define MDO_CDP_RANDOM RandomBytes
-#include "../../host/android/MdoBrowserCdpWebSocket.c"
+#include "../../host/android/MdoBrowserCdpJni.inc.c"
 
 typedef struct Allocation {size_t Size;unsigned char Data[];} Allocation;
 static void* Allocate(size_t Size)
@@ -204,6 +205,98 @@ static void* BlockedRead(void* Data)
     uint64_t Handle=*(uint64_t*)Data;MdoCdpDiscovery Reply=mdoCdpWsReceive(Handle,5000);
     assert(Reply.Code==MDO_CDP_SOCKET_CLOSED);mdoCdpDiscoveryFree(&Reply);return NULL;
 }
+/* Fault the actual JNI conversion functions while retaining the real socket
+ * underneath. JVM tests below additionally execute the normal JNI ABI path. */
+typedef struct FakeBytes {jsize Size;unsigned char* Data;} FakeBytes;
+static int JniPending,JniFault;static FakeBytes* JniOut;static char JniError[64];
+static jclass JniFind(JNIEnv* Env,const char* Name)
+{(void)Env;assert(!strcmp(Name,"java/io/IOException"));return (jclass)(uintptr_t)1;}
+static jint JniThrow(JNIEnv* Env,jclass Type,const char* Text)
+{(void)Env;assert(Type==(jclass)(uintptr_t)1);JniPending=1;snprintf(JniError,sizeof(JniError),"%s",Text);return 0;}
+static void JniDelete(JNIEnv* Env,jobject Type){(void)Env;assert(Type==(jobject)(uintptr_t)1);}
+static jboolean JniException(JNIEnv* Env){(void)Env;return JniPending?JNI_TRUE:JNI_FALSE;}
+static jsize JniLength(JNIEnv* Env,jarray Value){(void)Env;assert(Value);return ((FakeBytes*)Value)->Size;}
+static jbyteArray JniNew(JNIEnv* Env,jsize Size)
+{
+    (void)Env;if ( JniFault==1 ) {JniPending=1;return NULL;}
+    assert(Size>=0&&Size<=(jsize)MDO_CDP_WS_MESSAGE);JniOut=calloc(1,sizeof(*JniOut));assert(JniOut);
+    JniOut->Size=Size;JniOut->Data=calloc(1,Size?(size_t)Size:1);assert(JniOut->Data);return (jbyteArray)JniOut;
+}
+static void JniSet(JNIEnv* Env,jbyteArray Value,jsize Begin,jsize Size,const jbyte* Data)
+{
+    (void)Env;assert(!Begin&&Value==(jbyteArray)JniOut&&Size==JniOut->Size);
+    if ( JniFault==2 ) {JniPending=1;return;}memcpy(JniOut->Data,Data,(size_t)Size);
+}
+static void JniGet(JNIEnv* Env,jbyteArray Value,jsize Begin,jsize Size,jbyte* Data)
+{
+    (void)Env;assert(!Begin&&Value&&Size==((FakeBytes*)Value)->Size);
+    if ( JniFault==3 ) {JniPending=1;return;}memcpy(Data,((FakeBytes*)Value)->Data,(size_t)Size);
+}
+static const struct JNINativeInterface_ JniTable={.FindClass=JniFind,.ThrowNew=JniThrow,.DeleteLocalRef=JniDelete,
+    .ExceptionCheck=JniException,.GetArrayLength=JniLength,.NewByteArray=JniNew,
+    .SetByteArrayRegion=JniSet,.GetByteArrayRegion=JniGet};
+static void ResetJni(void)
+{
+    if ( JniOut ) {MdoCdpClear(JniOut->Data,(size_t)JniOut->Size);free(JniOut->Data);free(JniOut);JniOut=NULL;}
+    JniPending=JniFault=0;JniError[0]=0;
+}
+static void TestJniFaults(void)
+{
+    JNIEnv Env=&JniTable;
+    for ( int Fault=1;Fault<=2;Fault++ ) {
+        Server Fixture;pthread_t Thread=Start(&Fixture,4,NULL);uint64_t Handle=Open();JniFault=Fault;
+        Check(!Java_org_xserver_android_MdoBrowserCdpNative_receiveNative(&Env,NULL,(jlong)Handle,1000));
+        Check(JniPending);Check(mdoCdpWsSend(Handle,(const unsigned char*)"x",1,100)==MDO_CDP_SOCKET_CLOSED);
+        ResetJni();Join(Thread,&Fixture);
+    }
+    FakeBytes Id={8,(unsigned char*)"test-001"},Command={2,(unsigned char*)"ok"};
+    JniFault=3;Check(!Java_org_xserver_android_MdoBrowserCdpNative_openNative(&Env,NULL,(jbyteArray)&Id,100));Check(JniPending);ResetJni();
+    for ( int Fault=0;Fault<=1;Fault++ ) {
+        Server Fixture;pthread_t Thread=Start(&Fixture,3,NULL);uint64_t Handle=Open();
+        if ( Fault ) FailAllocation=1;else JniFault=3;
+        Java_org_xserver_android_MdoBrowserCdpNative_sendNative(&Env,NULL,(jlong)Handle,(jbyteArray)&Command,100);
+        Check(JniPending);if ( Fault ) Check(!strcmp(JniError,"cdp_allocation_failed"));
+        Check(mdoCdpWsSend(Handle,(const unsigned char*)"x",1,100)==MDO_CDP_SOCKET_CLOSED);ResetJni();Join(Thread,&Fixture);
+    }
+    {
+        Server Fixture;pthread_t Thread=Start(&Fixture,7,NULL);
+        jlong Handle=Java_org_xserver_android_MdoBrowserCdpNative_openNative(&Env,NULL,(jbyteArray)&Id,1000);Check(Handle>0&&!JniPending);
+        Java_org_xserver_android_MdoBrowserCdpNative_sendNative(&Env,NULL,Handle,(jbyteArray)&Command,1000);Check(!JniPending);
+        Check(!Java_org_xserver_android_MdoBrowserCdpNative_receiveNative(&Env,NULL,Handle,10)&&!JniPending);
+        Java_org_xserver_android_MdoBrowserCdpNative_closeNative(&Env,NULL,Handle);Join(Thread,&Fixture);Check(Fixture.Frames==1);
+    }
+}
+/* The actual JVM loads this small fixture library, not an xs engine copy.
+ * Its only extra JNI methods control the local same-process test peer. */
+#ifdef MDO_CDP_JVM_FIXTURE
+static Server VmServer;static pthread_t VmThread;static int VmRunning,VmBaseline;
+JNIEXPORT void JNICALL Java_org_xserver_android_CdpNativeProbe_start(JNIEnv* Env,jclass Type,jint Mode)
+{
+    (void)Env;(void)Type;assert(!VmRunning);VmBaseline=Fds();VmThread=Start(&VmServer,Mode,NULL);VmRunning=1;
+}
+JNIEXPORT jint JNICALL Java_org_xserver_android_CdpNativeProbe_finish(JNIEnv* Env,jclass Type)
+{
+    (void)Env;(void)Type;assert(VmRunning);Join(VmThread,&VmServer);VmRunning=0;
+    assert(Fds()==VmBaseline);assert(Allocated==Freed);
+    for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) assert(!MdoCdpWsSlots[I].Reserved);
+    return VmServer.Valid+(VmServer.Frames<<8);
+}
+JNIEXPORT void JNICALL Java_org_xserver_android_CdpNativeProbe_fault(JNIEnv* Env,jclass Type,jint Allocation,jboolean Random)
+{(void)Env;(void)Type;FailAllocation=Allocation;FailRandom=Random;}
+JNIEXPORT void JNICALL Java_org_xserver_android_CdpNativeProbe_awaitRead(JNIEnv* Env,jclass Type)
+{
+    (void)Env;(void)Type;uint64_t End=Clock()+1000;
+    while ( Clock()<End ) {
+        int Busy=0;pthread_mutex_lock(&MdoCdpWsGate);
+        for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) if ( MdoCdpWsSlots[I].Session ) {
+            int Got=pthread_mutex_trylock(&MdoCdpWsSlots[I].Session->Io);
+            if ( Got ) Busy=1;else pthread_mutex_unlock(&MdoCdpWsSlots[I].Session->Io);
+        }
+        pthread_mutex_unlock(&MdoCdpWsGate);if ( Busy ) return;usleep(1000);
+    }
+    assert(!"JVM worker did not enter the actual native read");
+}
+#endif
 int main(void)
 {
     signal(SIGPIPE,SIG_IGN);int Before=Fds();uint64_t Handle=77;
@@ -327,7 +420,8 @@ int main(void)
     Check(mdoCdpWsOpen("test-001",8,1000,&Handle)==MDO_CDP_SOCKET_PEER&&!Handle);ssize_t N=-1;assert(read(Observed[0],&N,sizeof(N))==sizeof(N));Check(N==0);
     close(Sync[0]);close(Observed[0]);int Status;assert(waitpid(Child,&Status,0)==Child);Check(WIFEXITED(Status)&&!WEXITSTATUS(Status));
     FailAllocation=1;Check(mdoCdpWsOpen("test-001",8,100,&Handle)==MDO_CDP_SOCKET_MEMORY&&!Handle);FailAllocation=0;
+    TestJniFaults();
     Check(Fds()==Before);Check(Allocated==Freed);
     for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) Check(!MdoCdpWsSlots[I].Reserved);
-    printf("{\"passed\":true,\"checks\":%d,\"allocations\":%d,\"releases\":%d,\"cancel_cycles\":64,\"descriptor_balanced\":true,\"xrt_rfc6455\":true,\"jni_integrated\":false,\"device_qualified\":false}\n",Checks,Allocated,Freed);return 0;
+    printf("{\"passed\":true,\"checks\":%d,\"allocations\":%d,\"releases\":%d,\"cancel_cycles\":64,\"descriptor_balanced\":true,\"xrt_rfc6455\":true,\"jni_compiled\":true,\"device_qualified\":false}\n",Checks,(int)Allocated,(int)Freed);return 0;
 }

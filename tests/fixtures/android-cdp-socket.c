@@ -1,4 +1,7 @@
 #define _GNU_SOURCE
+#define XRT_MODULE_WEBSOCKET_HANDSHAKE
+#define XRT_MODULE_WEBSOCKET_MESSAGE
+#define XRT_MODULE_RANDOM_SECURE
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>

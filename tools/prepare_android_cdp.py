@@ -10,7 +10,7 @@ import sys
 
 ROOT=Path(__file__).resolve().parents[1]
 NATIVE=ROOT/'.mdo/native-source'
-FILES=('MdoBrowserCdpSocket.h','MdoBrowserCdpSocket.c','MdoBrowserCdpJni.inc.c')
+FILES=('MdoBrowserCdpSocket.h','MdoBrowserCdpSocket.c','MdoBrowserCdpWebSocket.h','MdoBrowserCdpWebSocket.c','MdoBrowserCdpJni.inc.c')
 
 
 def digest(text):return hashlib.sha256(text.encode('utf-8')).hexdigest()

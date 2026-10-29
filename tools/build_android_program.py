@@ -143,8 +143,9 @@ def assemble():
     toolchain=json.loads((native.NATIVE/'tools/android/toolchain.lock.json').read_text(encoding='utf-8'))
     nm=sdk/'ndk'/toolchain['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm'
     symbols=subprocess.check_output([str(nm),'--dynamic','--defined-only',str(library)],text=True)
-    if not re.search(r'\bT Java_org_xserver_android_MdoBrowserCdpNative_discoverNative$',symbols,re.M):
-        raise RuntimeError('The Android host lacks the matching private discovery JNI entry')
+    for entry in ('discoverNative','openNative','sendNative','receiveNative','closeNative'):
+        if not re.search(r'\bT Java_org_xserver_android_MdoBrowserCdpNative_'+entry+r'$',symbols,re.M):
+            raise RuntimeError('The Android host lacks a matching private CDP JNI entry')
     if plan['toolchain_lock_sha256']!=setup['lock_sha256']:raise RuntimeError('Android tooling lock changed')
     keystore=dev.ENV/'host/android-client/development.p12'
     if keystore.is_symlink() or not keystore.is_file():raise RuntimeError('Existing QA development signer is required; it will not be replaced')
@@ -178,7 +179,7 @@ def assemble():
                 artifact={'name':OUTPUT.name,'bytes':OUTPUT.stat().st_size,'sha256':sha(OUTPUT)},inputs=plan,
                 certificate_sha256=certs[0],native_elf=facts,production_activity_packaged=True,
                 command_worker_packaged=True,private_upload_provider_packaged=True,private_upload_manifest_verified=True,private_cdp_discovery_packaged=True,application_copies=0,
-                runtime_dependencies_added=False,device_qualified=False,framework_qualified=False,automation_qualified=False)
+                private_cdp_session_packaged=True,runtime_dependencies_added=False,device_qualified=False,framework_qualified=False,automation_qualified=False)
     RECEIPT.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record['artifact'],indent=2),flush=True)
 

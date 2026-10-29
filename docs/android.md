@@ -14,7 +14,7 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E48)
+## Complete development host APK (E46/E50)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -22,7 +22,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,309,185 bytes, SHA-256
-`1011566a1abefc130ab6d9fc748a78c2860e6c32271a13ccb380a3666f02f803`.
+`d5d4e2ed983fb626aac34d741504e099289b014ac7ed7bb9cb9aaf08b673e573`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E48-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E48-python-full.log` (158/160 pass, two existing symlink skips).
+`.mdo/E50-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E50-python-full.log` (158/160 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -116,6 +116,61 @@ signer. `prepare_android_cdp.py` preflights/records reviewed changes in the one
 native checkout; unreviewed source or interrupted files are preserved. WSL uses
 Windows Git for this checkout's Windows object alternates, without rewriting
 them or making another checkout.
+
+## Persistent native-worker sessions (E49/E50)
+
+`MdoBrowserCdpWebSocket.c` adds persistent private connections using the pinned
+XRT RFC 6455 primitives. A target ID becomes a fixed page path; no caller URL,
+address, redirect or TCP fallback is accepted. The same-process kernel check
+precedes every opening request. Each connection has a fresh secure nonce;
+reject extensions, subprotocols and ambiguous upgrade/framing responses. Mask
+all client frames and validate incoming framing, fragmented text and UTF-8.
+
+Eight slots cover opening, live and draining sessions. Handles never repeat.
+One worker owns each channel's I/O; another reader/writer gets BUSY before
+touching the stream. Cancellation invalidates the handle and wakes blocked I/O
+with shutdown; close/free wait for every borrowed reference. Publish retirement
+before releasing worker ownership. Failed sends retire the connection, even
+when delivery may be partial; never replay an effect automatically.
+
+Bound outbound text to 256 KiB and inbound messages to 4 MiB. Idle reads return
+null to Java without publishing partial data. Keep decoder state across short
+polls, but enforce an independent absolute ten-second assembly deadline; fresh
+polls, fragments and control frames cannot extend it. Support bounded ping/pong
+and close processing. Native buffers are cleared at full allocated capacity.
+The caller must also clear Java byte arrays after parsing and keep protocol
+content/target lists out of logs, persistent storage and Agent results.
+
+The private `Channel` is AutoCloseable and thread-bound. Allocate its wrapper
+before opening so Java OOM cannot lose a native handle. Its close method may
+run on the cancelling/UI thread and does not wait for the I/O worker. If a JNI
+result allocation/copy fails, retire the session because the dispatcher has
+lost a reply/event. JNI send-copy failures clear native copies and close the
+channel. Real Android controller/epoch teardown still needs to call this API.
+
+The C gate passes over 1,000 assertions under ASan/UBSan, with 129 balanced
+allocations, real ten-second assembly expiry, forced partial-send backpressure,
+native/JNI conversion faults, stale/eight draining handles and 64 cancel/read
+cycles. The separate discovery gate passes 310 checks. An actual desktop JVM
+loads the exact JNI implementation, executes the actual Java facade under
+`-Xcheck:jni`, and passes 138 checks/16 more cancellation cycles. Only Android's
+Looper identity is doubled there; this is not Android framework/provider proof.
+Evidence: `.mdo/E50-jni.log`, `.mdo/android-cdp-socket-result.json`.
+
+The actual ARM64 host packages all five matching JNI exports and the Java
+facade/Channel. Library: 3,546,560 bytes, SHA-256
+`7f5d050ee5011efc62743cb55f2ddef34b22eabee8d568a691fb3bc29f7f3170`.
+Exact pre/post native source/compiler/ABI checks, actual APK payload/DEX,
+private manifest, alignment and signatures pass (`.mdo/E50-native-build.log`,
+`.mdo/E50-android-build.log`). Reuse the N5 app archive and existing QA signer.
+The tiny diagnostic APK remains at its earlier source stamp and is not rebuilt.
+
+This transport does **not** establish that a discovered target belongs to an
+owned content WebView. Owned-target/epoch binding, the CDP dispatcher, trusted
+frame/transfer integration and debugging activation policy remain pending.
+The production command router does not call this private session API yet.
+No debugging setting, provider or automation-admission flag is changed. Retain
+the deferred phone/current WebView; device/provider qualification remains false.
 
 ## Installed-WebView boundary foundation
 

@@ -5210,3 +5210,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   package the private worker JNI, then owned target/epoch routing and frame/
   transfer integration. Full-goal/device/provider qualification remains pending.
 
+## E50 — package the private worker session JNI and exercise it on a real JVM
+
+- Integrate the persistent transport in the private native JNI translation
+  unit. Add bounded target-ID/open, send-copy, read and close entries, using
+  static error codes only. Clear all native copies on success/exceptions.
+  Retire a session on a dropped Java result or failed JNI command copy; never
+  let the eventual dispatcher continue after silently losing an event/reply.
+- Add the package-private AutoCloseable Java Channel. Allocate its wrapper
+  before opening, bind I/O to the opening worker, enforce timeout/size checks,
+  and allow idempotent cross-thread cancellation. Check cancellation after JNI
+  return and clear any late returned array. Do not activate debugging or expose
+  raw protocol operations to Agent/extensions or the production command router.
+- The exact C transport/JNI gate passes 1,073 checks with 129 balanced
+  allocations under ASan/UBSan, plus the retained 310-check discovery gate.
+  JNI allocation/copy faults use actual kernel sockets. A small local fixture
+  library also loads the exact JNI into the existing real desktop JVM under
+  `-Xcheck:jni`; the actual Java facade passes 138 checks and 16 cross-thread
+  cancel/read cycles. Only Android Looper identity is doubled; no app/engine/
+  Home copy or runtime dependency is added. Evidence: `.mdo/E50-jni.log`.
+- Apply reviewed overlays after stopping the one service; preserve/hash-check
+  all existing native edits. The locked ARM64/API 26 complete host builds and
+  passes pre/post source/ABI/compiler checks: 3,546,560 bytes, SHA-256
+  `7f5d050ee5011efc62743cb55f2ddef34b22eabee8d568a691fb3bc29f7f3170`
+  (`.mdo/E50-native-build.log`). Verify all five dynamic JNI exports in the
+  actual APK, Java classes, exact payloads, private provider, 16 KiB layout,
+  alignment and signatures. Full development APK remains 6,309,185 bytes,
+  SHA-256 `d5d4e2ed983fb626aac34d741504e099289b014ac7ed7bb9cb9aaf08b673e573`
+  (`.mdo/E50-android-build.log`, adjacent artifact receipt). Reuse the N5
+  Windows/app archive and persistent QA signer; no Windows/plugin rebuild.
+- Full Python regression: 158/160 pass, two existing symlink skips
+  (`.mdo/E50-python-full.log`). The single headless service is healthy. Preserve
+  the user's current WebView/deferred phone and false device/framework/provider/
+  automation qualifications. Next work remains CDP dispatch/owned target and
+  epoch binding, frame/transfer integration, activation policy and the broader
+  outstanding physical/visual/lifetime/full-goal audit. Do not mark complete.
+
