@@ -14,6 +14,11 @@ final class MdoBrowserCdpFileInput {
         "if(v.document!==p.document||v.element?.ref!==p.ref||r.uploadNode(o)!==element)return {ok:false,code:'target_changed'};"+
         "return {ok:true,document:p.document,ref:p.ref,multiple:element.multiple,directory:Boolean(element.webkitdirectory),hidden:v.element.hidden};}";
     final String document,ref;final MdoBrowserCdpFrameChain pins;
+    static final String PIN="function(element,p){const r=globalThis.__mdo_browser_use_local_frame_v1;"+
+        "if(!r||r.documentNode!==document||r.document!==p.document||!element||element.ownerDocument!==document||!element.isConnected)return {ok:false,code:'target_changed'};"+
+        "const v=r.pinUploadNode(element);if(!v.ok)return {ok:false,code:v.error?.code||'target_changed'};"+
+        "if(v.document!==p.document||r.uploadNode({document:p.document,target:{ref:v.element?.ref}})!==element)return {ok:false,code:'target_changed'};"+
+        "return {ok:true,document:p.document,ref:v.element.ref,multiple:element.multiple,directory:Boolean(element.webkitdirectory),hidden:v.element.hidden};}";
     private MdoBrowserCdpFileInput(String document,String ref,MdoBrowserCdpFrameChain pins){this.document=document;this.ref=ref;this.pins=pins;}
     static MdoBrowserCdpFileInput parse(JSONObject request)throws IOException {
         Object document=request.opt("local_document"),ref=request.opt("ref");
@@ -23,7 +28,7 @@ final class MdoBrowserCdpFileInput {
         if(!leaf.frame.equals(request.opt("frame"))||!leaf.document.equals(request.opt("document")))throw new IOException("cdp_file_input_request_invalid");
         return new MdoBrowserCdpFileInput((String)document,(String)ref,pins);
     }
-    private void parents(MdoBrowserCdpFrames frames,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+    static void parents(MdoBrowserCdpFrameChain pins,MdoBrowserCdpFrames frames,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         for(int i=0;i+1<pins.chain.size();i++){
             MdoBrowserCdpFrameChain.Pin child=pins.chain.get(i),parent=pins.chain.get(i+1);
             JSONObject response=frames.owner("upload_policy",child.frame,child.document,null,deadline),value=response.optJSONObject("value");
@@ -32,8 +37,8 @@ final class MdoBrowserCdpFileInput {
         }
     }
     JSONObject inspect(MdoBrowserCdpFrames frames,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
-        pins.validate(frames,deadline);parents(frames,deadline);
+        pins.validate(frames,deadline);parents(pins,frames,deadline);
         MdoBrowserCdpFrameChain.Pin leaf=pins.chain.get(0);JSONObject result=frames.fileInput(leaf.frame,leaf.document,document,ref,deadline);
-        pins.validate(frames,deadline);parents(frames,deadline);pins.validate(frames,deadline);return result;
+        pins.validate(frames,deadline);parents(pins,frames,deadline);pins.validate(frames,deadline);return result;
     }
 }

@@ -5884,3 +5884,50 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   uses this path and separately passes its initial 1,454 checks; that feature
   still awaits its final regression, host build and commit. Android provider
   qualification/admission remain false. No model calls or release.
+
+## E67 — prove native chooser event sources and pin their original input nodes
+
+- Request `Page.fileChooserOpened` reporting on every proved renderer session,
+  including related iframes, without enabling CDP chooser suppression/interception.
+  Add private typed arm/list/disarm/target commands. Acknowledged event listening
+  is separate from an actual verified event. Preserve the last native frame route
+  when an event precedes a getFrameTree reply, and require refreshed validation
+  before consuming it. Do not infer frame ownership from URL/name/active frame.
+- Bound the worker ledger to one original candidate/120-second monotonic lease.
+  Repeated arm is idempotent and never extends that lease. Reject arming/duplicate,
+  malformed/wrong-source, changed-document, expired and invalid-clock evidence
+  without replacing the original candidate. Expose random scoped handles and
+  aliases only. Disarm removes metadata/listening; no Android callback is cancelled
+  or answered by this class, and no file data authority is minted.
+- Resolve the event node on its native source into the original frame world;
+  require empty-unique-context rejection, same-world argument proof and an exact
+  native node description/backend match before fixed local pinning. Check the
+  original chain, ancestor upload policy and candidate before/after preparation.
+  Native protocol IDs/scripts/paths are not caller parameters or public results.
+  Preserve explicit `assignment_supported:false` until original callback/URI
+  delivery is implemented. Reuse E67D's reviewed event errors without forwarding
+  arbitrary event/provider text.
+- Actual Java/JNI/JSON/worker/frame/world/owner/event path passes 1,624 checks;
+  the unchanged direct-file-input path passes 625 and dispatcher 4,310 across
+  seven protocol sessions (`.mdo/E67-native-full.log`). DOM/event peers are
+  synthetic and no Android callback is joined/no files delivered. Production
+  helper strings also execute in Node VM tests. Full sequential Node passes
+  306/306 in 21.682 s (`.mdo/E67-node-full.log`); Python passes 165/167 with two
+  existing symlink skips in 64.774 s (`.mdo/E67-python-full.log`).
+- Stop/apply reviewed overlays, verify canonical owner/JNI helpers, and build the
+  full development Android APK with actual SDK/D8/DEX/ABI/payload/private-provider/
+  alignment/signature checks (`.mdo/E67-android-build.log`): 6,366,529 bytes,
+  SHA-256 `e40ca681586f10cf9d6134548ba7296985d5f0fb6f50b2416d8b5f050af10f9a`.
+  Reuse unchanged verified E66 Windows 6,883,440-byte archive, SHA-256
+  `f5a65dd2753fdf7b6eb39630ad6886b15480cf5922ae55277d5e5a5011fbf050`,
+  and unchanged plugin, validating the current source/receipts rather than
+  making another app copy. Restore the same headless deployment.
+- Pinned official Chromium source research found that existing opaque URI
+  basenames and header-bearing staging files cannot be treated as correctly named
+  plain payload paths. Record source fingerprints in the chooser contract. The
+  next stage must prove a private nonce-bound native callback/URI delivery and
+  exact original DOM target; matching event/callback timing or URLs is insufficient.
+  Downloads, activation/profile policy, installed-provider/main-UI verification
+  and the Windows unique-context/realm audit also remain. Goal stays active,
+  phone/provider/formal data unchanged and Android automation/debugging disabled.
+  No model calls, external page operation, extra app/Home/source copies or release.

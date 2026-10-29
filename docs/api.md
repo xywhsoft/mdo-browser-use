@@ -58,6 +58,14 @@ before source digest/read/staging. This read-only stage neither reads selected
 files nor assigns them. Actual Android payload/chooser/download delivery and
 installed-provider qualification remain outstanding; admission stays disabled.
 
+The private Android native frame bridge also records original chooser-event
+source/node evidence and can pin its exact input in the proved isolated world.
+It separates requested event listening from an observed candidate, bounds one
+candidate to its original lease and refuses duplicates rather than replacing
+the target. Disarming this metadata is not callback cancellation. Raw native IDs
+never become caller authority, and these results explicitly do not support file
+assignment yet: an original Android callback/URI delivery proof is still required.
+
 The shared private frame driver now resolves scroll points through exact native
 iframe owners, passing each local document identity and the final leaf hit plus
 complete ancestor chain to Android input. It never substitutes the root DOM

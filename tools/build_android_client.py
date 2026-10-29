@@ -35,7 +35,7 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserPickerUris.java','host/android/MdoBrowserCdpNative.java',
         'host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpSession.java','host/android/MdoBrowserCdpMarker.java',
         'host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
-        'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java',
+        'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java',
         'host/android/browser-frame-router.inc.java','tools/update_android_owner_scripts.py')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
@@ -49,7 +49,7 @@ HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java
     'tools/android/MdoBrowserUploadProvider.java','tools/android/MdoBrowserManualChooser.java','tools/android/MdoBrowserPickerUris.java',
     'tools/android/MdoBrowserCdpNative.java','tools/android/MdoBrowserCdpJson.java','tools/android/MdoBrowserCdpSession.java',
     'tools/android/MdoBrowserCdpMarker.java','tools/android/MdoBrowserCdpView.java','tools/android/MdoBrowserCdpBinding.java','tools/android/MdoBrowserCdpRegistry.java','tools/android/MdoBrowserCdpWorker.java','tools/android/MdoBrowserCdpFrames.java','tools/android/MdoBrowserCdpWorlds.java',
-    'tools/android/MdoBrowserCdpOwnerScripts.java','tools/android/MdoBrowserCdpFrameRequest.java','tools/android/MdoBrowserCdpFrameChain.java','tools/android/MdoBrowserCdpInput.java','tools/android/MdoBrowserCdpCapture.java','tools/android/MdoBrowserCdpFileInput.java')
+    'tools/android/MdoBrowserCdpOwnerScripts.java','tools/android/MdoBrowserCdpFrameRequest.java','tools/android/MdoBrowserCdpFrameChain.java','tools/android/MdoBrowserCdpInput.java','tools/android/MdoBrowserCdpCapture.java','tools/android/MdoBrowserCdpFileInput.java','tools/android/MdoBrowserCdpChoosers.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py','tools/android/build_apk.py')
 NATIVE_INPUTS=tuple('android/src/org/xserver/android/'+name+'.java' for name in
     ('XsActivity','XsService','PageLocation','PackageInstall','NativeHost','FileChooserResult','BackgroundLeases'))

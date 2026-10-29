@@ -13,18 +13,20 @@ function constant(name,next){
   }
   assert.equal(body.slice(offset).trim(),'');return parts.join('');
 }
-const node=constant('NODE','static final String INFO'),info=constant('INFO','final String document'),documentId='d-00000000-0000-4000-8000-000000000001';
+const node=constant('NODE','static final String INFO'),info=constant('INFO','final String document'),pinNode=constant('PIN','private MdoBrowserCdpFileInput'),documentId='d-00000000-0000-4000-8000-000000000001';
 function fixture(){
   const document={},pin={document:documentId,ref:'e7'},state={infoCalls:0,nodeCalls:0,fail:null,substitute:false};
   const element={ownerDocument:document,isConnected:true,multiple:true,webkitdirectory:false,
     get files(){throw Error('Inspection cannot read selected files');},set value(_){throw Error('Inspection cannot assign');},dispatchEvent(){throw Error('Inspection cannot dispatch');}};
   const runtime={documentNode:document,document:documentId,
+    pinUploadNode(candidate){assert.equal(candidate,element);return runtime.uploadInfo({document:documentId,target:{ref:'e7'}});},
     uploadNode(options){state.nodeCalls++;assert.deepEqual(JSON.parse(JSON.stringify(options)),{document:documentId,target:{ref:'e7'}});return state.substitute?{}:element;},
     uploadInfo(options){state.infoCalls++;assert.deepEqual(JSON.parse(JSON.stringify(options)),{document:documentId,target:{ref:'e7'}});
       return state.fail||{ok:true,document:documentId,element:{ref:'e7',hidden:true,privateField:'private-selected-file-name'}};}};
   const context=vm.createContext({document,__mdo_browser_use_local_frame_v1:runtime,pin,element});
   return{context,document,runtime,element,pin,state,node:()=>vm.runInContext(`${node}(pin)`,context),
-    info:()=>JSON.parse(JSON.stringify(vm.runInContext(`(${info})(element,pin)`,context)))};
+    info:()=>JSON.parse(JSON.stringify(vm.runInContext(`(${info})(element,pin)`,context))),
+    pinNode:()=>JSON.parse(JSON.stringify(vm.runInContext(`(${pinNode})(element,{document:pin.document})`,context)))};
 }
 
 test('file input helpers return only the pinned native object and bounded public flags without reading files or dispatching',()=>{
@@ -46,5 +48,15 @@ test('disconnected, foreign, disabled, inert or substituted file inputs cannot p
     if(mode==='blocked')f.state.fail={ok:false,error:{code:'element_disabled'}};if(mode==='substituted')f.state.substitute=true;
     assert.deepEqual(f.info(),{ok:false,code:mode==='blocked'?'element_disabled':'target_changed'});
     if(mode==='disconnected'||mode==='foreign')assert.equal(f.state.infoCalls+f.state.nodeCalls,0);
+  }
+});
+
+test('a native chooser backend pins only its resolved original file object in the exact isolated document',()=>{
+  const f=fixture();assert.deepEqual(f.pinNode(),f.info());assert(!JSON.stringify(f.pinNode()).includes('private-selected'));
+  for(const mode of ['document','owner','disconnected','foreign','blocked','substituted']){
+    const f=fixture();if(mode==='document')f.runtime.document='changed';if(mode==='owner')f.runtime.documentNode={};
+    if(mode==='disconnected')f.element.isConnected=false;if(mode==='foreign')f.element.ownerDocument={};
+    if(mode==='blocked')f.state.fail={ok:false,error:{code:'element_disabled'}};if(mode==='substituted')f.state.substitute=true;
+    assert.deepEqual(f.pinNode(),{ok:false,code:mode==='blocked'?'element_disabled':'target_changed'});
   }
 });

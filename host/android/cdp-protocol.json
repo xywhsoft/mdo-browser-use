@@ -233,7 +233,7 @@
   },
   "frame_commands": {
     "state": "actual_host_route_packaged_product_admission_disabled",
-    "actions": ["list", "evaluate", "owner", "upload_policy", "capture_owner", "file_input"],
+    "actions": ["list", "evaluate", "owner", "upload_policy", "capture_owner", "file_input", "chooser_arm", "chooser_list", "chooser_disarm", "chooser_target"],
     "agent_literal_required": true,
     "caller_raw_protocol_ids": false,
     "immutable_queued_parameters": true,
@@ -294,6 +294,22 @@
     "files_assigned": false,
     "shared_android_target_preflight": "before_source_digest_read_or_staging",
     "object_group_cleanup": "exact_original_source_or_binding_retired",
+    "installed_provider_verified": false
+  },
+  "chooser_events": {
+    "state": "private_native_event_and_node_route_callback_join_pending",
+    "sources": "every_proven_renderer_session_including_related_iframes",
+    "enable_parameter": "enableFileChooserOpenedEvent",
+    "native_interception_changed": false,
+    "candidate_limit": 1,
+    "original_lease_ms": 120000,
+    "ambiguous_or_arming_events": "retire_stream_no_candidate_replacement",
+    "rearming": "idempotent_without_extending_candidate_lease",
+    "native_target": "exact_event_backend_node_then_unique_world_argument_proof_and_native_node_identity",
+    "caller_ids_or_scripts": false,
+    "native_ids_returned": false,
+    "original_android_callback_joined": false,
+    "files_delivered": false,
     "installed_provider_verified": false
   },
   "remaining": ["chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/drawing/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],

@@ -6,7 +6,7 @@
     "https://developer.android.com/reference/android/webkit/WebChromeClient#onShowFileChooser(android.webkit.WebView,%20android.webkit.ValueCallback%3Candroid.net.Uri[]%3E,%20android.webkit.WebChromeClient.FileChooserParams)",
     "https://developer.android.com/reference/android/webkit/WebChromeClient.FileChooserParams"
   ],
-  "checked_date": "2026-10-29",
+  "checked_date": "2026-10-30",
   "limits": {
     "pending_per_view": 1,
     "lease_ms": 120000,
@@ -27,13 +27,23 @@
     "request_code_last": 32767,
     "request_codes_reused_in_process": false,
     "restored_state": "monotonic-request-counter-only",
-    "bound_to": ["original-webview-object", "original-navigation", "original-native-channel"],
+    "bound_to": [
+      "original-webview-object",
+      "original-navigation",
+      "original-native-channel"
+    ],
     "requires_external_uid_provider": true,
     "requires_read_uri_permission": true,
     "requires_explicit_read_uri_grant": true,
     "human_result_policy": "MdoBrowserPickerUris",
-    "human_result_policy_applies_to": ["host-webview", "content-webview"],
-    "host_read_modes_use_original_callback_controller": [0, 1],
+    "human_result_policy_applies_to": [
+      "host-webview",
+      "content-webview"
+    ],
+    "host_read_modes_use_original_callback_controller": [
+      0,
+      1
+    ],
     "other_host_modes_keep_pinned_native_route_with_uri_validation": true,
     "owner_rechecked_after_metadata_and_unblock": true,
     "original_result_held_during_metadata": true,
@@ -45,5 +55,41 @@
   },
   "uri_assignment_available": false,
   "frame_identity_verified": false,
-  "automation_enabled": false
+  "automation_enabled": false,
+  "native_event_sources": [
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/inspector/inspector_page_agent.cc?format=TEXT",
+      "decoded_bytes": 81512,
+      "decoded_sha256": "8ccb46329cc4a898aea70b2b7c5dfb08058340c128845a898c86c34369afa321"
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/fileapi/file.h?format=TEXT",
+      "decoded_bytes": 12127,
+      "decoded_sha256": "601ae495f2e03ad4ea851460e0be152069e4b3384c0aed33b5631049ac4da6d5"
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/fileapi/file.cc?format=TEXT",
+      "decoded_bytes": 14667,
+      "decoded_sha256": "90cbc42b8cc71f8f873c3224ea358a48ba2212248a88efb4416c6c1861aedd2c"
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/base/files/file_path.cc?format=TEXT",
+      "decoded_bytes": 68018,
+      "decoded_sha256": "8bf330cd52a7edc4259edbe11271884580cf99bd51a509c1d294c6b1c4f7c4c0"
+    }
+  ],
+  "native_cdp_events": {
+    "state": "private_event_and_target_route_original_android_callback_not_joined",
+    "event": "Page.fileChooserOpened",
+    "request": "Page.enable(enableFileChooserOpenedEvent=true)",
+    "interception_or_suppression_changed": false,
+    "pending_per_binding": 1,
+    "original_lease_ms": 120000,
+    "duplicate_event": "refuse_without_replacement",
+    "native_backend_node_ids_returned": false,
+    "target": "exact_native_event_node_resolved_in_proven_unique_world_with_original_frame_chain",
+    "native_callback_authority": false,
+    "uri_assignment_available": false,
+    "provider_qualified": false
+  }
 }

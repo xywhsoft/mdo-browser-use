@@ -23,14 +23,14 @@ public final class CdpFileInputProbe {
     private static void rejects(String code,Checked task)throws Exception {
         try{task.run();throw new AssertionError("Missing file-input rejection");}catch(IOException error){check(code==null||code.equals(error.getMessage()));}
     }
-    private static final class ObjectRef {
+    static final class ObjectRef {
         final String group,source;final CdpWorldsProbe.Context context;
         ObjectRef(String group,String source,CdpWorldsProbe.Context context){this.group=group;this.source=source;this.context=context;}
     }
-    private static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
+    static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
         final CdpOwnerProbe.Case peer=new CdpOwnerProbe.Case();final Map<String,JSONObject> nodes=new HashMap<>();
         final Map<String,ObjectRef> objects=new HashMap<>();final Set<String> groups=new HashSet<>();
-        String failure="",navigationAt="",raw;int getters,proofs,helpers,describes,releases,disconnects;
+        String failure="",navigationAt="",raw;int getters,proofs,helpers,describes,releases,disconnects,fileBackend=77;
         Case()throws Exception {
             peer.host.plan.extra=this;
             peer.host.run((binding,deadline)->{MdoBrowserCdpFrames graph=binding.frames();JSONObject inventory=graph.inventory(deadline);
@@ -72,7 +72,7 @@ public final class CdpFileInputProbe {
                 describes++;ObjectRef object=objects.get(params.getString("objectId"));check(object!=null&&Objects.equals(object.source,source));
                 check(params.length()==3&&params.getInt("depth")==0&&!params.getBoolean("pierce"));
                 JSONObject node=new JSONObject().put("nodeType",1).put("nodeName",failure.equals("tag")?"SPAN":failure.equals("lowercase")?"input":"INPUT")
-                    .put("localName",failure.equals("tag")?"span":"input").put("backendNodeId",failure.equals("backend")?-1:77);
+                    .put("localName",failure.equals("tag")?"span":"input").put("backendNodeId",failure.equals("backend")?-1:fileBackend);
                 navigate(wire,"describe",source);result(wire,request,new JSONObject().put("node",node));return true;
             }
             if(method.equals("Runtime.callFunctionOn")&&params.optString("objectGroup").startsWith("mdo-file-input-")){
@@ -91,11 +91,13 @@ public final class CdpFileInputProbe {
                     proofs++;check(declaration.equals("function(element){return 0;}")&&args.length()==1);
                     result(wire,request,new JSONObject().put("result",new JSONObject().put("type","number").put("value",0)));return true;
                 }
-                helpers++;check(declaration.equals(MdoBrowserCdpFileInput.INFO)&&args.length()==2);
-                JSONObject pin=args.getJSONObject(1).getJSONObject("value");check(pin.getString("document").equals(DOC)&&pin.getString("ref").equals("e7"));
+                boolean pinNode=declaration.equals(MdoBrowserCdpFileInput.PIN);
+                helpers++;check((pinNode||declaration.equals(MdoBrowserCdpFileInput.INFO))&&args.length()==2);
+                JSONObject pin=args.getJSONObject(1).getJSONObject("value");check(pin.getString("document").equals(DOC)&&(pinNode?!pin.has("ref"):pin.getString("ref").equals("e7")));
                 JSONObject info=new JSONObject().put("ok",true).put("document",DOC).put("ref","e7").put("multiple",true).put("directory",false).put("hidden",true);
                 if(failure.equals("blocked"))info=new JSONObject().put("ok",false).put("code","element_disabled");
                 if(failure.equals("ref"))info.put("ref","e8");if(failure.equals("document"))info.put("document","d-00000000-0000-4000-8000-000000000002");
+                if(failure.equals("invalid_ref"))info.put("ref","e0");if(failure.equals("single"))info.put("multiple",false);
                 if(failure.equals("flag"))info.put("hidden","false");
                 JSONObject reply=new JSONObject().put("result",new JSONObject().put("type","object").put("value",info));
                 if(failure.equals("helper_exception"))reply.put("exceptionDetails",new JSONObject().put("text","private DOM detail"));

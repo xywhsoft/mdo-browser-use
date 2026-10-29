@@ -11,18 +11,19 @@ remains available.
 
 Native file choosers also have bounded original-callback retention, listing and
 cancellation. A private native staging/URI backend and human document picking
-are implemented. Automatic chooser assignment and trusted source-frame identity
-remain unavailable; the chooser implementation does not enable automation.
+are implemented. Native frame/input-node evidence is collected separately; it
+is not yet joined to the original Android callback. Automatic chooser assignment
+remains unavailable and the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E66)
+## Complete development host APK (E46/E67)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,362,433 bytes, SHA-256
-`4a980cf2e5011ed6e5b275def5d33c32f2f4fb5990ed002adbd0959983c9e6b7`.
+Current APK: 6,366,529 bytes, SHA-256
+`e40ca681586f10cf9d6134548ba7296985d5f0fb6f50b2416d8b5f050af10f9a`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2156,3 +2157,66 @@ integration remain in progress. Android Agent/debug admission stays disabled;
 the phone/current WebView and formal package/data remain unchanged. Installed
 DOM/geometry/file-event/UI qualification remains outstanding. No model calls,
 external page browsing, extra app/Home/source copies or online release.
+
+### Native chooser event and input-node evidence (E67)
+
+Private `frames` commands now include `chooser_arm`, `chooser_list`,
+`chooser_disarm` and `chooser_target`. Request native events on every proved
+renderer session, including OOPIF sources, with
+`Page.enable(enableFileChooserOpenedEvent=true)`. This does not set native CDP
+interception/suppression or answer any Android callback. An acknowledged enable
+request alone is not proof that a provider emits the event: listings distinguish
+`events_requested` from a positively observed `event_verified` candidate.
+
+Retain at most one original `Page.fileChooserOpened` candidate per native binding.
+Validate its frame/source membership, native loader/ancestor route, positive
+backend node and single/multiple mode. Only a random `nc-` handle and safe native
+frame aliases/metadata leave the worker. Events while arming and repeated events
+refuse without replacing the candidate. An idempotent arm preserves the original
+120-second monotonic lease; it never renews an existing candidate. Expired,
+changed-source, regressed-clock and malformed events cannot provide a target.
+Disarm retires this metadata/listening state; it does not claim to cancel an
+Android file chooser callback. These handles cannot be restored across bindings.
+
+Resolve the event's native backend node on its original renderer into the proved
+frame world. The protocol's numeric-context resolve operation is followed by
+empty-unique-context rejection and a native same-world argument proof before
+any fixed DOM helper runs. Re-describe the node and require the exact backend
+identity, then pin only that connected file input through the local runtime.
+Check native ancestry/upload policy before and after, plus the original chooser
+and native chain at delivery. Return bounded input flags/reference only; no raw
+object/context/backend/session IDs, arbitrary scripts or paths are admitted.
+The result explicitly retains `assignment_supported:false`.
+
+Event rejection initially lost its cause in `cdp_event_failed`. E67D introduces
+an internal typed failure with six reviewed static codes. The dispatcher retires
+the original stream and preserves only those codes and the original effect flag;
+ordinary exceptions and provider messages remain generically sanitized. Its
+actual JVM/JNI/session/strict JSON suite passes 4,310 checks across seven sessions.
+
+The native event/target path passes 1,624 actual Java/JNI/graph/world/owner checks
+with synthetic event/DOM peers (`.mdo/E67-native-full.log`): root/same-process/
+OOPIF routes, transient getFrameTree event ordering, single/multiple selection,
+wrong source/realm/node, duplicate and arming events, immutable queued pins,
+expiration/clock overflow/regression, cancellation, cleanup and original-ID
+non-disclosure. Production pin helpers execute in Node VM tests without reading
+selected files, assigning values or dispatching events. Full sequential Node
+passes 306/306; Python passes 165/167 with two existing symlink skips. Full
+SDK/D8/DEX/native ABI/payload/private-provider/alignment/signature build passes
+`.mdo/E67-android-build.log`. The unchanged E66 Windows archive and paired plugin
+are reused only after current-source/receipt validation; no extra app copy.
+
+This is native event/node evidence, **not authority to answer an Android
+ValueCallback**. Original callback association and URI delivery are still open;
+installed provider/frame/file-event/main-UI qualification remains false. In
+particular, do not join event/callback authority using timing, URL or active-frame
+hints alone. The next delivery stage must prove a private nonce-bound native
+callback and preserve exact target identity, cancellation and data cleanup.
+Pinned Chromium source fingerprints are recorded in `chooser-protocol.json`:
+its Page agent supports event reporting without suppressing the native chooser,
+while direct path-based file assignment derives the default filename from the
+path basename. Existing opaque URI names and header-bearing staging files must
+not be passed directly as complete, correctly named payload files.
+
+Android automation/debug admission and actual file assignment remain disabled.
+No phone/WebView/formal data changes, model calls or online release occurred.

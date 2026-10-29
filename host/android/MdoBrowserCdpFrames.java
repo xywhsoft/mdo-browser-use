@@ -21,7 +21,7 @@ import org.json.JSONObject;
 final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     private static final int FRAME_LIMIT=32,SESSION_LIMIT=64,DEPTH_LIMIT=32;
     private static final class Source {
-        final String session,target,parent;boolean armed,started,ready;
+        final String session,target,parent;boolean armed,started,ready,chooserEvents;
         final Map<String,Boolean> loading=new LinkedHashMap<>();
         Source(String session,String target,String parent){this.session=session;this.target=target;this.parent=parent;}
     }
@@ -35,13 +35,13 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         Route(Node node,List<String> ancestors){raw=node.raw;frame=node.alias;document=node.document;session=node.session;loader=node.loader;this.ancestors=ancestors;}
     }
     private final MdoBrowserCdpBinding binding;private final Thread owner=Thread.currentThread();
-    private final MdoBrowserCdpWorlds worlds;
+    private final MdoBrowserCdpWorlds worlds;private final MdoBrowserCdpChoosers choosers;
     private final Map<String,Source> sources=new LinkedHashMap<>();private final Map<String,Node> nodes=new LinkedHashMap<>();
     private final Set<String> seenSessions=new LinkedHashSet<>();private long revision;private String fault;
     MdoBrowserCdpFrames(MdoBrowserCdpBinding binding)throws IOException {
         if(binding==null)throw problem("cdp_frame_arguments_invalid");this.binding=binding;
         sources.put(null,new Source(null,binding.rootFrame,null));
-        nodes.put(binding.rootFrame,new Node(binding.rootFrame,null,binding.rootLoader,null,true));worlds=new MdoBrowserCdpWorlds(binding,this);binding.observe(this);
+        nodes.put(binding.rootFrame,new Node(binding.rootFrame,null,binding.rootLoader,null,true));worlds=new MdoBrowserCdpWorlds(binding,this);choosers=new MdoBrowserCdpChoosers(this);binding.observe(this);
     }
     private static IOException problem(String code){return new IOException(code);}
     private void current()throws IOException {
@@ -82,6 +82,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         current();Source source=source(session);
         try{
             if(method.startsWith("Runtime.")){worlds.event(method,session,params);return;}
+            if("Page.fileChooserOpened".equals(method)){choosers.event(session,params);return;}
             if("Target.attachedToTarget".equals(method)){
                 String child=id(params,"sessionId");JSONObject target=params.getJSONObject("targetInfo");String raw=id(target,"targetId");
                 if(!source.armed||!"iframe".equals(target.opt("type"))||!Boolean.FALSE.equals(params.opt("waitingForDebugger"))||raw.equals(binding.rootFrame))
@@ -168,7 +169,8 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         current();try{
             for(int round=0;round<=SESSION_LIMIT;round++){
                 for(Source source:new ArrayList<>(sources.values()))if(!source.started){
-                    call(source,"Page.enable",new JSONObject(),deadline);
+                    source.chooserEvents=choosers.requested();
+                    if(source.chooserEvents)chooserEvents(source,true,deadline);else call(source,"Page.enable",new JSONObject(),deadline);
                     if(source.session!=null)call(source,"Runtime.enable",new JSONObject(),deadline);
                     source.armed=true;
                     call(source,"Target.setAutoAttach",new JSONObject().put("autoAttach",true).put("waitForDebuggerOnStart",false).put("flatten",true)
@@ -209,9 +211,20 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     }
     Route select(String frame,String document)throws IOException {
         current();Node selected=null;for(Node node:nodes.values())if(node.alias.equals(frame)&&node.document.equals(document))selected=node;
-        if(selected==null)throw problem("cdp_frame_stale");List<String> chain=new ArrayList<>();Node node=selected;
+        if(selected==null)throw problem("cdp_frame_stale");return route(selected,true);
+    }
+    Route eventRoute(String raw,String session)throws IOException {
+        current();Node selected=nodes.get(raw);
+        if(selected==null||!Objects.equals(selected.session,session))throw problem("cdp_chooser_frame_unproven");
+        // A Page event may precede a getFrameTree reply while source.ready is
+        // transiently false. Preserve the last native route; every consumer
+        // refreshes/revalidates it before using the event's metadata.
+        return route(selected,false);
+    }
+    private Route route(Node selected,boolean ready)throws IOException {
+        List<String> chain=new ArrayList<>();Node node=selected;
         for(int depth=0;node!=null&&depth<DEPTH_LIMIT;depth++){
-            Source source=sources.get(node.session);if(source==null||!source.ready||node.loading||node.swapped||node.loader.isEmpty())throw problem("cdp_frame_not_ready");
+            Source source=sources.get(node.session);if(source==null||ready&&!source.ready||node.loading||node.swapped||node.loader.isEmpty())throw problem("cdp_frame_not_ready");
             chain.add(node.alias);chain.add(node.document);if(node.raw.equals(binding.rootFrame))return new Route(selected,chain);node=nodes.get(node.parent);
         }throw problem("cdp_frame_parent_unproven");
     }
@@ -249,5 +262,32 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     }
     JSONObject fileInput(String frame,String document,String localDocument,String ref,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         Route route=select(frame,document);refresh(deadline);validate(route);return worlds.fileInput(route,localDocument,ref,deadline);
+    }
+    JSONObject armChoosers(MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        current();boolean start=choosers.begin();refresh(deadline);
+        for(Source source:new ArrayList<>(sources.values()))if(!source.chooserEvents){source.chooserEvents=true;chooserEvents(source,true,deadline);}
+        refresh(deadline);if(start)choosers.armed();return choosers.snapshot();
+    }
+    private void chooserEvents(Source source,boolean enabled,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        try{call(source,"Page.enable",new JSONObject().put("enableFileChooserOpenedEvent",enabled),deadline);}
+        catch(MdoBrowserCdpSession.Failure failure){if(failure.protocolCode==-32601||failure.protocolCode==-32602)throw problem("cdp_chooser_events_unsupported");throw failure;}
+        catch(JSONException error){throw problem("cdp_chooser_request_invalid");}
+    }
+    JSONObject disarmChoosers(MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        current();choosers.disable();
+        for(Source source:new ArrayList<>(sources.values()))if(source.chooserEvents){source.chooserEvents=false;chooserEvents(source,false,deadline);}
+        return choosers.snapshot();
+    }
+    JSONObject listChoosers(MdoBrowserCdpWorker.Deadline deadline)throws IOException {refresh(deadline);return choosers.snapshot();}
+    void validateChooser(String id)throws IOException {choosers.require(id);}
+    JSONObject chooserTarget(String id,MdoBrowserCdpFrameChain.Pin pin,String document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        refresh(deadline);MdoBrowserCdpChoosers.Candidate candidate=choosers.require(id);
+        if(!pin.frame.equals(candidate.route.frame)||!pin.document.equals(candidate.route.document))throw problem("cdp_chooser_changed");
+        JSONObject result=worlds.chooserInput(candidate.route,candidate.backend,document,deadline);choosers.validate(candidate);
+        try{
+            JSONObject value=result.getJSONObject("value"),element=value.getJSONObject("element");
+            if(!element.getBoolean("directory")&&element.getBoolean("multiple")!=candidate.mode.equals("selectMultiple"))throw problem("cdp_chooser_target_changed");
+            value.put("assignment_supported",false);return result.put("chooser",candidate.id);
+        }catch(JSONException error){throw problem("cdp_chooser_result_invalid");}
     }
 }
