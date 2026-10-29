@@ -64,6 +64,13 @@ Latest verified milestones:
   pass. This private-pipe fixture has a host-lease seam and preauthorized peers;
   account authentication, physical-device paths and headed browser operations
   still need their own evidence.
+- **Transport R1:** the same production JS/native bridge now drives the actual
+  C plugin/workbench/WebView2 browser through eight complete workflows, including
+  frozen private task binding, trusted input, capture, cancellation/recovery,
+  stale documents and full-hash upload/retained-POST download/exact workspace
+  save. Exactly one POST is observed and the same headless deployment is
+  restored. Authentication, physical devices and normal-desktop pixels remain
+  separately unverified.
 
 ## Working boundaries
 
@@ -4309,7 +4316,7 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   foreign-task rejection, confirmed completed transport receipt after a dropped
   reply/disconnect, recovery of exactly one original browser, and JS plus native
   read-only rejection. Do not replay the original submit.
-- Verify a 150,000-byte synthetic UTF-8 file across multiple binary upload and
+- Verify a 155,000-byte synthetic UTF-8 file across multiple binary upload and
   response frames. Create only a fixed QA file exclusively and remove it with
   its returned revision. Retained/unrelated entries are not overwritten. All
   bridge worker/upload/packet counters drain, every host lease retires and the
@@ -4325,4 +4332,37 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Normal headed Browser Use through this transport, authenticated relay/direct
   physical-device verification, Android, visual and remaining lifecycle gates
   remain active; the component fixture alone cannot close them.
+
+## R1 — production remote bridge drives the actual Windows browser workflow
+
+- Add a headed workflow using the existing deployment, Home, compiled remote
+  component and installed plugin. Use one fixed owned full-access task with
+  immutable custom workspace/namespace/member binding. The production remote JS
+  transport and C bridge call the actual C SDK/plugin, mounted workbench and
+  native WebView2; no fake UI acknowledgement supplies browser results.
+- Pass eight workflows: observe real loopback content and original task scope;
+  Unicode fill plus exactly one trusted native click; bounded synthetic PNG;
+  cancellation of an observed dispatched wait followed by another observation;
+  navigation/stale-document refusal and recovery; frozen-workspace upload with
+  the page's complete SHA-256; retained original POST download and exact target
+  workspace save; browser closure and drained native bridge requests/workers/
+  uploads/packets. The output file is removed only if its bytes still match the
+  fixed synthetic response. Unrelated existing destinations are preserved.
+- Upload/download each verifies 131,075 bytes, SHA-256
+  `f6589d93167a38ddd6bd9337c012f163142839caf8667ce80e012469649e58fb`.
+  The fixture sees exactly one POST, proving no repeat download request in this
+  workflow. The PNG is recorded only by byte count/hash; no page/image content
+  enters the durable report. There are zero model or external-site calls.
+- Initial save verification used the wrong top-level metadata field; correct
+  the assertion to the public `file.size`/`file.sha256` contract and rerun the
+  complete headed workflow. This is a probe assumption issue, not a newly
+  claimed product defect. Preflight fixture paths before service mutation and
+  restore the same headless service even when headed setup fails.
+- All eight gates pass. Evidence: `.mdo/R1-remote-browser.log`,
+  `.mdo/remote-browser-result.json`. R0's all-272-JS result remains current for
+  production code; R1 adds two standalone probe files and documentation. No
+  artifact payload or production source changes. This is the preauthorized
+  private-pipe bridge path; account/public relay/LAN/XRUDP/two-physical-device
+  authentication, normal-desktop pixels, Android and remaining lifecycle/
+  production qualification are not inferred from it. The full goal stays active.
 

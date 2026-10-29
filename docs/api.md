@@ -314,6 +314,18 @@ stop cleanly. Synthetic peers are already authorized by the private fixture;
 this does not verify account authentication, public relay sockets, LAN/XRUDP
 negotiation, two physical devices or native browser pixels over that path.
 
+`python tools/remote_browser_probe.py` adds the headed production workflow in
+that same deployment. The remote JS SDK/transport and production C bridge drive
+the actual C plugin, mounted workbench and Windows native browser. It verifies
+original task/private-member/workspace binding, observation, trusted Unicode
+fill/click, synthetic PNG, cancel/continue, stale-document refusal, full-hash
+upload, retained original POST download and exact save to the target workspace.
+The fixture verifies exactly one POST, closes owned browsers, drains bridge work
+and restores headless mode. No model/external-site request is involved.
+Authentication and physical relay/direct-device checks remain distinct from
+this preauthorized private-pipe transport integration; a native page capture is
+also not a normal-desktop toolbar/prompt pixel inspection.
+
 ## C and raw SDK durable submission
 
 Call `mdoBrowserUseOperation(Context, Params, &Result, &Error)`, or JS
