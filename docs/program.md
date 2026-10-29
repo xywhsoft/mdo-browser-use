@@ -7,8 +7,8 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current refreshed preview is **6,880,340 bytes**, SHA-256
-`25fdf76e6d9cfa1dbaa931a4f51731fcebfc551503949dbde56a459396da3494`.
+The current refreshed preview is **6,880,852 bytes**, SHA-256
+`cb8d7a111b53e587b863b6436ab9bc732a90a91356071e9565c1ae7e6cd13a4f`.
 Its native inventory contains 748 files, including runtime 19, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
@@ -16,7 +16,8 @@ E24's shared admission guard for uncertain native dialog cleanup, plus E27's
 shared Android hover capability/preparation path and E28/E29's reviewed default
 workspace SDK/download UI, E30's shared popup cleanup guard and F15's retained
 screenshot/callback ownership and allocation-failure cleanup, plus P2's accurate
-managed-tool cancellation and retained permission-admission marker. Included module
+managed-tool cancellation and retained permission-admission marker, and N3's
+confirmed-new-navigation recovery after a content renderer exit. Included module
 hashes match the reviewed deployment. The actual packed-program gate passes all
 ten runtime checks, including actual default-directory SDK review, its packed C
 header/discovery contract, connection-reset reporting and recovery

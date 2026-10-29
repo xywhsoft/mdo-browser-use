@@ -4498,3 +4498,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   object directory. The Windows artifact must be refreshed before this fix is
   claimed in its deliverable. Android's current provider is unchanged.
 
+## N4 — refresh the Windows preview with confirmed renderer recovery
+
+- Refresh the existing self-contained Windows development program with N3:
+  6,880,852 bytes, SHA-256
+  `cb8d7a111b53e587b863b6436ab9bc732a90a91356071e9565c1ae7e6cd13a4f`.
+  Verify the native inventory and matching current host. The paired 22-file
+  plugin is unchanged at 246,883 bytes, SHA-256
+  `ad8c4826ed3ed03c0cfc44ddce696ab0bb88b87d9628020e427bc094dd305912`.
+- All ten packed runtime checks pass, including paired source/installed/host
+  runtime identity, actual C/JS observation, native Unicode input/trusted click,
+  capture, page-network error/recovery and close. Both `runtime_verified` and
+  `paired_plugin_verified` are true. Logs: `.mdo/N4-program-package.log`,
+  `.mdo/N4-program-runtime.log`. N3 separately verifies the actual renderer
+  stop/manual-reload case in this deployment; these ten packed smoke checks do
+  not claim to repeat every failure injection.
+- Restore the same healthy headless service and one Home, about 1,130 MiB, with
+  one native object directory and no extra application copy. Reviewed overlays
+  match. The current 250,259-byte Android QA APK still matches its exact build
+  sources/hash, and chooser framework qualification remains false. No WebView
+  change, real model call or online release is performed.
+- A fresh attempt to initialize the documented desktop Computer Use tool still
+  fails with `failed to write kernel assets` / OS error 3. Normal-desktop pixel
+  checks remain unverified; native browser images are not substituted for that
+  evidence. Android frame/transfer integration and device qualification, actual
+  authenticated physical-device transport and remaining lifetime/production
+  checks stay in the active full goal.
+
