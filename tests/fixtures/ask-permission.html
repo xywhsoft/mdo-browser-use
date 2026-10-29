@@ -1,0 +1,10 @@
+<!doctype html><meta charset="utf-8"><title>Browser Use ask permission fixture</title>
+<style>body{margin:24px;font:16px sans-serif}button{display:block;width:200px;height:54px;margin:20px 0}</style>
+<h1>Ask permission fixture</h1><button id="apply">Apply fixture action</button>
+<output id="effects">Applied 0 trusted:none</output>
+<script>
+let applied=0;
+document.querySelector('#apply').onclick=event=>{
+  document.querySelector('#effects').textContent=`Applied ${++applied} trusted:${event.isTrusted}`;
+};
+</script>

@@ -1067,6 +1067,36 @@
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogTarget.java'),source.with_name('MdoBrowserDialogTarget.java'))",
       "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserDialogTarget.java'),source.with_name('MdoBrowserDialogTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserPopups.java'),source.with_name('MdoBrowserPopups.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "#include \"browser_use_tool_admission.inc.c\"",
+      "after": "#include \"browser_use_tool_admission.inc.c\"\n#include \"browser_use_tool_outcome.inc.c\""
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "typedef struct SdkToolExecution {const mdo_sdk_context_v1* Caller;const xvalue* Params;xvalue* Result;} SdkToolExecution;",
+      "after": "typedef struct SdkToolExecution {const mdo_sdk_context_v1* Caller;const xvalue* Params;xvalue* Result;BuToolBoundary* Boundary;} SdkToolExecution;"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    MdoSessionRuntimeOptions Options;MdoSessionRuntimeOptionsInit(&Options);MdoApplicationInvocation* I=C->Opaque;Options.Cancel=I?I->Cancel:NULL;Options.Deadline=C->Deadline?C->Deadline:MDO_DEADLINE_NEVER;Options.OnPermission=MdoApprovalOnPermission;Options.UseRunPermissionScope=true;",
+      "after": "    SdkToolExecution Execution={C,P,NULL,BuToolBoundaryCreate()};\n    if(!Execution.Boundary)return MdoApplicationError(E,\"sdk_allocation_failed\",\"Cannot retain tool execution boundary\",\"tool_admission\",503,false);\n    MdoSessionRuntimeOptions Options;MdoSessionRuntimeOptionsInit(&Options);MdoApplicationInvocation* I=C->Opaque;Options.Cancel=I?I->Cancel:NULL;Options.Deadline=C->Deadline?C->Deadline:MDO_DEADLINE_NEVER;Options.OnPermission=MdoApprovalOnPermission;Options.UseRunPermissionScope=true;\n    Options.OnHook=BuToolBoundaryHook;Options.HookUserData=Execution.Boundary;\n    Options.OwnerUserData=Execution.Boundary;Options.OnOwnerRetain=BuToolBoundaryRetain;Options.OnOwnerRelease=BuToolBoundaryRelease;"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    if(!Session)return MdoApplicationError(E,Error.eCode==XWORK_ERROR_CANCELLED?\"sdk_cancelled\":Error.eCode==XWORK_ERROR_TIMEOUT?\"sdk_deadline_expired\":Error.eCode==XWORK_ERROR_CONTEXT&&!strcmp(Error.sMessage,\"session already has an active runtime\")?\"sdk_tool_busy\":\"sdk_tool_execution_failed\",Error.sMessage,\"tool_admission\",Error.eCode==XWORK_ERROR_CANCELLED?499:Error.eCode==XWORK_ERROR_TIMEOUT?504:409,false);",
+      "after": "    if(!Session){BuToolBoundaryRelease(Execution.Boundary);return MdoApplicationError(E,Error.eCode==XWORK_ERROR_CANCELLED?\"sdk_cancelled\":Error.eCode==XWORK_ERROR_TIMEOUT?\"sdk_deadline_expired\":Error.eCode==XWORK_ERROR_CONTEXT&&!strcmp(Error.sMessage,\"session already has an active runtime\")?\"sdk_tool_busy\":\"sdk_tool_execution_failed\",Error.sMessage,\"tool_admission\",Error.eCode==XWORK_ERROR_CANCELLED?499:Error.eCode==XWORK_ERROR_TIMEOUT?504:409,false);}"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    SdkToolExecution Execution={C,P,NULL};bool Ok=",
+      "after": "    bool Ok="
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    return Ok||MdoApplicationError(E,\"sdk_tool_execution_failed\",Error.sMessage,\"tool\",409,Execution.Result!=NULL);",
+      "after": "    bool Report=Ok||BuToolExecutionFailure(C,Execution.Boundary,Execution.Result!=NULL,&Error,E);\n    BuToolBoundaryRelease(Execution.Boundary);return Report;"
     }
   ],
   "files": [
@@ -1269,6 +1299,10 @@
     {
       "source": "host/android/MdoBrowserWindowTarget.java",
       "target": "tools/android/MdoBrowserWindowTarget.java"
+    },
+    {
+      "source": "host/tool-outcome.inc.c",
+      "target": "app/src/application/browser_use_tool_outcome.inc.c"
     }
   ]
 }

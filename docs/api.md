@@ -442,6 +442,20 @@ Managed tools `browser_tabs/observe/wait/dialog/screenshot` are read-only; `brow
 use the existing external-service permission. Full access adds no second
 approval system. Ordinary tool failures remain feedback for the Agent.
 
+The managed `tool.call` boundary preserves cancellation as `sdk_cancelled`
+(499) and deadline expiry as `sdk_deadline_expired` (504), rather than a generic
+executor failure. Cancellation before permission admission has
+`may_have_completed:false`. After the before-tool hook, a missing executor
+result conservatively retains `may_have_completed:true`; inspect effects before
+retrying. The hook marker is retained with the Agent owner, including delegated
+work. Cancelling a pending approval removes that prompt; a late decision cannot
+dispatch it. A run-scoped grant ends with its original native invocation.
+
+`tools/ask_permission_probe.py` checks the actual balanced-profile executor,
+decision API and trusted native clicks against loopback content, including
+denial, decision/operation replay, cancellation before and after dispatch, stale
+documents and subsequent-tool recovery. It is not visual approval-dialog QA.
+
 Page data is untrusted. Observations omit form values; public receipts omit
 stored arguments; page results/screenshots are ephemeral in the UI journal.
 The operation journal retains identity/scope metadata instead of private results.

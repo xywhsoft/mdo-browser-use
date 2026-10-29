@@ -29,6 +29,14 @@ Latest verified milestones:
   export verifies all 22 files, and altered paired payloads are rejected before
   application launch. E28/E29's reviewed canonical workspace
   SDK/download UI passed legacy, existing-root and missing-root native gates.
+- **Permissions P1/P2:** fix managed-tool cancellation being reported as a
+  generic executor failure. A retained before-tool marker separates cancellation
+  before permission admission from possible dispatched effects. All nine actual
+  balanced-profile/decision-API/native-effect scenarios pass, including late
+  grants, replay, stale documents and subsequent-tool recovery. Complete
+  regression passes 144/146 Python cases (two symlink-privilege skips) and all
+  262 JS cases. Normal-desktop prompt pixels remain unverified; the executable
+  must be refreshed to include this app C fix.
 - **Android E30/E31:** implement retained original popup transport through the
   existing C/JS admission flow, correct ownership-query failure, and build the
   raw popup content/lifecycle device fixture. The controller/Chrome target pass
@@ -38,7 +46,7 @@ Latest verified milestones:
   worlds. Overall Android automation stays disabled, including on newer
   providers until adapter integration and qualification are complete.
 - **Remaining full-goal work:** Android frame/transfer integration and installed
-  provider checks; remote transport and real ask-profile interaction; broader
+  provider checks; remote transport and visual ask-profile interaction; broader
   lifetime/OOM/performance qualification and normal-desktop visual checks;
   final delivery verification. Keep the full scope active and do not infer
   completion from green component or packaged smoke checks.
@@ -4166,4 +4174,41 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   browser engine exists. Android E31 is unchanged and no device is available.
   Current WebView/disabled automation and remaining full-goal requirements are
   preserved. No online release or full production/platform completion claimed.
+
+## P1/P2 — real managed approval flow and accurate cancelled tool outcomes
+
+- Reproduce a pending balanced-profile approval cancelled by its parent SDK
+  operation. The old host reports `failed`, `sdk_tool_execution_failed`, 409,
+  despite cancellation. Preserve the failing actual-host receipt and regression
+  (`.mdo/P2-managed-cancel-before.json`,
+  `.mdo/P2-cancel-regression-before.log`).
+- Add a small atomically retained marker at the actual before-tool hook, after
+  permission admission. Bind its lifetime to the Agent owner so retained
+  delegated work cannot call a stack pointer. Keep the existing permission
+  callback and live run scope. Classify explicit cancellation as 499 and deadline
+  expiry as 504, preserving the executor cause. Before admission, no tool was
+  dispatched; after admission, a lost executor result retains possible effects.
+- Pass 21 controlled production-C assertions for allocation failure, hook order,
+  retained-owner lifetime, cancellation/deadline priority, cause and uncertainty.
+  The actual SDK cancellation regression now passes and the next managed read
+  succeeds (`.mdo/P2-cancel-regression-after.log`).
+- Add one headed workflow using a fixed owned balanced-profile QA session and
+  synthetic loopback page. Match each decision to the exact original operation,
+  tool, arguments, workspace and external-browser resource; never approve
+  unrelated pending requests. Verify denial before creation, approved native
+  creation, denied input, an approved trusted click exactly once, idempotent and
+  conflicting decisions, original operation replay, cancelled approval/late
+  grant, dispatched wait cancellation/drained UI work, run-scope retirement,
+  document changes during approval, and a fresh approved recovery action.
+- All nine scenarios pass (194 checks in this run), no model/external requests,
+  owned operations/browsers cleaned and the same headless deployment restored.
+  Evidence: `.mdo/P1-ask-permission-dispatch.log`,
+  `.mdo/ask-permission-result.json`. The decision API drives the synthetic user
+  choices; `visual_prompt_verified:false` explicitly remains recorded.
+- Complete regression passes 144/146 Python cases and all 262 JS cases. Two
+  existing Windows symlink-privilege cases remain skipped. Logs:
+  `.mdo/P2-python-full.log`, `.mdo/P2-js-full.log`. Reviewed host overlays and
+  generated C/JS contracts match. F16 artifacts still need refresh for the new
+  app C code; the portable plugin payload is unchanged. The full goal remains
+  active, with the installed Android provider preserved and automation disabled.
 
