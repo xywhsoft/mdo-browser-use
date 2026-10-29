@@ -10,7 +10,7 @@ import java.util.function.LongSupplier;
 
 /** Chrome callbacks retain only framework-provided transport and exact view.
  * onCreateWindow exposes no trusted requested URL or originating frame. */
-final class MdoBrowserWindowTarget extends MdoBrowserDialogTarget {
+class MdoBrowserWindowTarget extends MdoBrowserDialogTarget {
     interface Windows {
         boolean create(WebView source,boolean userGesture,MdoBrowserPopups.Transport<WebView> transport);
         void close(WebView source);

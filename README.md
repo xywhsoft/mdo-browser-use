@@ -286,6 +286,12 @@ the actual WebView input target using the same tiny QA app. That new framework
 gate is currently unavailable because ADB reports no phone. The current provider
 is retained, and Android product automation remains disabled pending integration.
 
+`python tools/android_chooser_probe.py` checks the production Android chooser
+controller and Chrome callback adapter: original callback retention, metadata,
+once-only cancellation and failure/lifecycle cleanup. It is a deterministic
+contract gate; URI assignment, frame identity and installed-framework support
+remain unqualified and do not enable Android automation.
+
 `drag_lifetime_probe.py` exercises an original POST download during a held
 pointer, preserving the source DOM, then verifies observer removal and the next
 trusted gesture. It checks exact response bytes/hash, one POST, one release per

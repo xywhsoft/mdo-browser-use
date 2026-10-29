@@ -1,0 +1,21 @@
+{
+  "format": "mdo.browser-use.android-chooser-contract.v1",
+  "api": "android.webkit.WebChromeClient.onShowFileChooser",
+  "minimum_api": 21,
+  "sources": [
+    "https://developer.android.com/reference/android/webkit/WebChromeClient#onShowFileChooser(android.webkit.WebView,%20android.webkit.ValueCallback%3Candroid.net.Uri[]%3E,%20android.webkit.WebChromeClient.FileChooserParams)",
+    "https://developer.android.com/reference/android/webkit/WebChromeClient.FileChooserParams"
+  ],
+  "checked_date": "2026-10-29",
+  "limits": {
+    "pending_per_view": 1,
+    "lease_ms": 120000,
+    "accept_entries": 16,
+    "accept_utf8_bytes": 256,
+    "retained_live_callback_identities": 128
+  },
+  "native_cancel_value": null,
+  "uri_assignment_available": false,
+  "frame_identity_verified": false,
+  "automation_enabled": false
+}

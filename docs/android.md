@@ -9,6 +9,10 @@ or verification. Overall Android Browser Use admission stays disabled, including
 on providers that advertise isolated execution worlds. Existing manual browsing
 remains available.
 
+Native file choosers also have bounded original-callback retention, listing and
+cancellation. URI assignment/grants and trusted source-frame identity remain
+unavailable; the chooser implementation does not enable automation.
+
 ## Installed-WebView boundary foundation
 
 `host/android/MdoBrowserWorld.java` is project-owned Java code which calls the
@@ -916,3 +920,38 @@ The actual Activity and fixture compile; QA APK is now 225,683 bytes, SHA-256
 `f633c927fb3df4107a83df7bf29f1fe45f7611c1eda10f9c519f2533de22e431`.
 Current ADB has no device: `.mdo/android-device-popup-result.json` records
 `android_device_unavailable` and all popup/framework/automation flags false.
+
+## Retained native file chooser (E32)
+
+`MdoBrowserChoosers` owns one original native callback per exact UI-thread view.
+`MdoBrowserChooserTarget` uses public `onShowFileChooser`; interception is off by
+default, preserving normal manual browsing. When explicitly armed, list/cancel
+uses an opaque original identity, navigation epoch and immutable metadata:
+mode/multiple/directory/capture, at most 16 accept entries of 256 UTF-8 bytes.
+There is a 120s monotonic lease. Cancelling sends only `null` to the original
+callback. No file URI, content URI, filename hint or script-generated path can
+grant access through this controller.
+
+The native host exposes `chooser` actions `set_interception`, `list` and `cancel`.
+It reports `assignment_supported:false` and
+`frame_scope:"owned-webview-unidentified-frame"`; the callback identifies the
+owned WebView but does not prove its originating subframe. Other chooser actions
+are explicitly unsupported. The public C/JS Android automation gate stays off.
+
+Pending callbacks block the document, native input and capture. Lifecycle loss
+or disarm cancels once. Retired live callbacks are remembered by identity with
+bounded retention. A native response exception retains possible-effect
+uncertainty without replay, and exact view destruction is required to resolve
+unclean state. Readiness refreshes expiry before evaluating cleanup and remains
+false while a reentrant response is still returning.
+
+Run `python tools/android_chooser_probe.py` for 471 controller and 34 Chrome
+target contract checks. They include metadata/Unicode limits, duplicates, wrong
+identities/views/threads, timer/result/OOM faults, callback retention capacity,
+ownership/navigation and reentrant teardown. These use framework doubles, not
+the installed provider. Reviewed references and limits are in
+`host/android/chooser-protocol.json`. Actual production Activity/hooks compile
+against API 36. E32's tiny QA APK is 237,971 bytes, SHA-256
+`583d92abd26845ae06e5271f3906e02a8d81e70fbea9c15de3b8760a68c495df`.
+Framework, source-frame identity and URI-transfer checks remain outstanding.
+Preserve the installed WebView and disabled overall automation admission.

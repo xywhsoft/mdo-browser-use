@@ -77,6 +77,11 @@ Latest verified milestones:
   explicit QA-only helper for deliberate foreign-scope calls. Actual complete
   upload/download/save gates pass with zero cache reservations, and all 275 JS
   cases pass. Artifact/runtime payloads are unchanged.
+- **Android E32:** retain/list/cancel original native file-chooser callbacks,
+  with bounded metadata, a 120s lease, exact view/document ownership and once-only
+  cancellation. The actual Activity/hooks compile and 505 chooser contract
+  assertions pass. URI assignment, source-frame identity, framework qualification
+  and global Android automation remain disabled; retain the installed WebView.
 
 ## Working boundaries
 
@@ -4404,4 +4409,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   provider remain unchanged. The same healthy headless deployment is restored;
   authenticated physical-device paths, Android, normal-desktop pixels and
   remaining full-goal qualification remain active.
+
+## E32 — original Android chooser retention and cancellation
+
+- Add a UI-thread controller and actual `onShowFileChooser` target using only
+  public framework APIs. Preserve ordinary manual behavior until explicitly
+  armed. Retain one original callback per exact view, with an opaque identity,
+  navigation epoch, bounded immutable accept metadata and a 120s monotonic lease.
+  The controller has no URI assignment/grant API. Do not infer a source frame
+  from the callback's view or its URL.
+- Wire list/arm/cancel into the reviewed native host, and block document/input/
+  capture admission while a chooser is pending. Navigation, ownership loss,
+  hiding/background/channel detach, disarm and close cancel the original callback
+  once. Track retired live callback identities without replay; result loss and
+  capacity/allocation uncertainty require exact view teardown before reuse.
+- Refresh lazy expiry before checking readiness. A successful native callback
+  followed by a failed document-unblock listener must not certify cleanup;
+  a reentrant callback still returning must not appear ready either.
+- Pass 471 controller and 34 actual-target callback contract assertions using
+  deterministic framework doubles (`.mdo/E32-chooser-contract.log`). Existing
+  dialog 95+68, popup 78+25 and document 85/native-budget 18 gates pass. These
+  are Java contract checks, not installed-framework verification. All 275 JS
+  checks and 144/146 Python checks pass (two symlink-privilege skips).
+- Compile the actual pinned Activity and reviewed hooks against Android API 36,
+  Java 8/min API 26, reusing the one SDK/build directory and signer. The tiny
+  QA APK is 237,971 bytes, SHA-256
+  `583d92abd26845ae06e5271f3906e02a8d81e70fbea9c15de3b8760a68c495df`.
+  Evidence: `.mdo/E32-android-build.log`, `.mdo/E32-python-full.log`,
+  `.mdo/E32-js-full.log`. The same headless service is healthy. This APK is not
+  a complete mdo client. Device/frame/URI-transfer qualification stays false,
+  overall Android automation stays unavailable, and the current provider is
+  preserved as requested. The Windows pair is unaffected by these Java changes.
 

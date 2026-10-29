@@ -1097,6 +1097,57 @@
       "path": "app/src/application/tools.c",
       "before": "    return Ok||MdoApplicationError(E,\"sdk_tool_execution_failed\",Error.sMessage,\"tool\",409,Execution.Result!=NULL);",
       "after": "    bool Report=Ok||BuToolExecutionFailure(C,Execution.Boundary,Execution.Result!=NULL,&Error,E);\n    BuToolBoundaryRelease(Execution.Boundary);return Report;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-native-chooser.inc.java",
+      "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "MdoBrowserDialogTarget target=new MdoBrowserWindowTarget(view,",
+      "after": "MdoBrowserDialogTarget target=new MdoBrowserChooserTarget(view,"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "},windowCallbacks(key,view));",
+      "after": "},windowCallbacks(key,view),blocked->chooserBlocked(key,view,blocked));"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "target.dialogs.clean()&&target.dialogs.snapshot()==null;",
+      "after": "target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "private void cancelDialog(String key){",
+      "after": "private void cancelDialog(String key){cancelChooser(key);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "private void cancelDialogs(){",
+      "after": "private void cancelDialogs(){cancelChoosers();"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "return state.put(\"dialog_capability\",",
+      "after": "return chooserState(key,state).put(\"dialog_capability\","
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"dialog\".equals(command)){executeDialog(key,id,request);return;}",
+      "after": "            if(\"chooser\".equals(command)){executeChooser(key,id,request);return;}\n            if(\"dialog\".equals(command)){executeDialog(key,id,request);return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(document==null)return dialog==null||dialog.dialogs.clean();document.close();return document.cleanupConfirmed()&&(dialog==null||dialog.dialogs.clean());",
+      "after": "if(document==null)return (dialog==null||dialog.dialogs.clean())&&chooserClean(dialog);document.close();return document.cleanupConfirmed()&&(dialog==null||dialog.dialogs.clean())&&chooserClean(dialog);"
+    },
+    {
+      "path": "tools/android/browser_overlay.py",
+      "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))",
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowserWindowTarget.java'),source.with_name('MdoBrowserWindowTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChoosers.java'),source.with_name('MdoBrowserChoosers.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserChooserTarget.java'),source.with_name('MdoBrowserChooserTarget.java'))"
     }
   ],
   "files": [
@@ -1303,6 +1354,14 @@
     {
       "source": "host/tool-outcome.inc.c",
       "target": "app/src/application/browser_use_tool_outcome.inc.c"
+    },
+    {
+      "source": "host/android/MdoBrowserChoosers.java",
+      "target": "tools/android/MdoBrowserChoosers.java"
+    },
+    {
+      "source": "host/android/MdoBrowserChooserTarget.java",
+      "target": "tools/android/MdoBrowserChooserTarget.java"
     }
   ]
 }

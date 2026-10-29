@@ -99,6 +99,11 @@ public final class AndroidDocumentContractTest {
             document.block(MdoBrowserDocument.NAVIGATION,false);denied(document,"dialog_open");
             document.block(MdoBrowserDocument.DIALOG,false);
             check(resumedIdentity.equals(document.identity())&&document.ready(),"Cancelled before-unload lost the original DOM/peer identity");
+            completed=results.size();document.evaluate("chooser interrupted guard",100,results::add);
+            document.block(MdoBrowserDocument.CHOOSER,true);
+            check(results.size()==completed+1&&results.get(completed).code.equals("file_chooser_open"),"Chooser did not stop outstanding evaluation");
+            denied(document,"file_chooser_open");document.block(MdoBrowserDocument.CHOOSER,false);
+            check(resumedIdentity.equals(document.identity())&&document.ready(),"Chooser settlement changed the original document");
             completed=results.size();invoke("late",new Class<?>[]{});check(results.size()==completed,"Cancelled request replayed an interrupted evaluation");
             document.block(MdoBrowserDocument.NAVIGATION,true);
             document.navigation();epoch.incrementAndGet();denied(document,"world_not_ready");
