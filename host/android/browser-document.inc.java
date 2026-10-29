@@ -1,8 +1,9 @@
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
     private final MdoBrowserWorld.Budget worldBudget=new MdoBrowserWorld.Budget(32);
+    private final MdoBrowserCdpWorker cdpWorker=new MdoBrowserCdpWorker();
     private final MdoBrowserCdpRegistry<WebView> cdpViews=new MdoBrowserCdpRegistry<>((view,document,current)->
-        new MdoBrowserCdpView(view,owned->owned==view&&current.getAsBoolean(),document).marker());
+        new MdoBrowserCdpView(view,owned->owned==view&&current.getAsBoolean(),document).marker(),cdpWorker::cancel);
     private boolean browserPaused;
     // Private admission only: no raw protocol/source/endpoint route is exposed.
     // The async backend will consume this once frame/profile policy is ready.

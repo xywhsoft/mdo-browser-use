@@ -10,16 +10,20 @@ import java.util.function.BooleanSupplier;
  * lexical quota until an observed navigation or native view destruction. */
 final class MdoBrowserCdpRegistry<T> implements AutoCloseable {
     interface Factory<T> {MdoBrowserCdpMarker create(T view,MdoBrowserCdpMarker.DocumentQuota document,BooleanSupplier current);}
+    interface Retired {void changed(MdoBrowserCdpMarker.Lease lease);}
     private final class Entry {
         final T view;long epoch;Object channel;MdoBrowserCdpMarker marker;
         MdoBrowserCdpMarker.DocumentQuota document=new MdoBrowserCdpMarker.DocumentQuota();
         Entry(T view,long epoch){this.view=view;this.epoch=epoch;}
-        void invalidate(){MdoBrowserCdpMarker old=marker;marker=null;channel=null;if(old!=null)old.close();}
+        void invalidate(){MdoBrowserCdpMarker old=marker;marker=null;channel=null;if(old!=null){old.close();retired.changed(old.lease());}}
         void retire(){try{invalidate();}finally{document.close();}}
     }
-    private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;
+    private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;private final Retired retired;
     private final Thread owner=Thread.currentThread();private boolean closed;
-    MdoBrowserCdpRegistry(Factory<T> factory){if(factory==null)throw new IllegalArgumentException("Missing CDP view factory");this.factory=factory;}
+    MdoBrowserCdpRegistry(Factory<T> factory){this(factory,lease->{});}
+    MdoBrowserCdpRegistry(Factory<T> factory,Retired retired){
+        if(factory==null||retired==null)throw new IllegalArgumentException("Missing CDP view factory/retirement hook");this.factory=factory;this.retired=retired;
+    }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("CDP registry requires its UI owner");}
     MdoBrowserCdpMarker marker(String key,T view,long epoch,Object channel,BooleanSupplier admitted){
         thread();if(closed||key==null||key.isEmpty()||key.length()>100||view==null||epoch<=0||channel==null||admitted==null||!admitted.getAsBoolean())

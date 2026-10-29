@@ -1747,3 +1747,38 @@ mdo Android app. All 513 chooser, 418 URI/provider, 168 URI-fixture and 39 uploa
 fragment checks pass; Python passes 145/147 with two existing symlink skips.
 No installed-device, automatic private-URI assignment or full-automation pass
 is claimed, and the existing WebView is retained.
+
+### Private CDP lifecycle and asynchronous dispatch (E54–E55)
+
+`MdoBrowserCdpRegistry` now follows exact managed native view/document objects,
+not reusable tab names. The native input observer invalidates its lease before
+completing input cancellation, including navigation, hide, takeover, background,
+zoom, stop, dialogs, choosers, popups and close. Host channel blockers invalidate
+all leases. Retiring a marker drops its UI view/predicate reference. Rebinding
+after a short admission loss retains the same 16-declaration document quota;
+only observed navigation or native view destruction retires that quota. Manual
+browsing does not activate CDP or create a protocol worker thread.
+
+`MdoBrowserCdpWorker` is a private typed-operation bridge: one persistent worker
+owns cached protocol bindings. At most eight operations are retained, including
+results awaiting the UI, with one operation per lease and no caller-runs policy.
+The 100–15,000 ms operation budget includes queue/binding time. Native effects
+are never implicitly reconnected/replayed. UI lifecycle retirement cancels queued
+work, wakes native binding/I/O through the lease, and posts a single cancellation
+receipt rather than reentering a controller during teardown. Work that has
+started an effect is conservatively reported as potentially effective.
+
+UI results are bounded to 1 MiB each and valid only during their synchronous
+completion callback; copy/parse a required value within that callback. Buffers
+are cleared on delivery, cancellation, stale-owner discard, oversize, callback
+failure and shutdown. A failed UI scheduler retires the worker and all of its
+leases, clears pending callbacks/results and refuses further submission. A
+throwing UI completion retires its binding without breaking other operations.
+
+These private pieces are compiled into the actual development APK, but no raw
+protocol/endpoint/source command or debug activation switch is exposed. The
+typed isolated-frame automation backend and its profile/transfer policy are
+still under development. `android_automation_enabled`, installed framework and
+provider qualification remain false. The 107 registry and 167 worker checks use
+actual Java controllers/binding/strict JNI with doubled Android UI and synthetic
+protocol peers; they are not real-device passes. Keep the user's current WebView.

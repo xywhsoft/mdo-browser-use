@@ -5381,3 +5381,44 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   device/provider/automation flags and the unchanged WebView. Next implement
   bounded asynchronous worker dispatch, then frame/transfer/policy integration.
 
+## E55 — package bounded asynchronous private CDP dispatch
+
+- Add one persistent, lazily started protocol worker; preserve thread ownership
+  across cached bindings. Bound eight pending jobs including UI delivery and one
+  job per lease, with no caller-runs fallback. Include queue/binding time in one
+  100–15,000 ms operation deadline. Retire failed bindings; never reconnect/replay
+  within a submitted operation. Report potential effects conservatively once a
+  declared effect operation has started, including cancellation/late failure.
+- Wire registry retirement into queued/running dispatch cancellation. Drop work
+  that has not started, close the original marker/transport to wake a binding or
+  native I/O, and post one UI receipt rather than synchronously reenter teardown.
+  Reject cross-thread UI submission, invalid budgets, busy leases and capacity
+  overflow. Keep queued/published results within the same pending-job bound.
+- Bound UI output to 1 MiB/job; clear returned buffers on delivery/discard,
+  cancellation, oversize, callback failure and shutdown. Clear pending callbacks
+  on teardown or failed UI scheduling; stop the worker and refuse reuse if its
+  scheduler fails. A throwing completion retires its binding and cannot break
+  another job. Workers/queued jobs hold weak marker references; retired markers
+  have already dropped UI view/controller predicates.
+- Actual worker/registry/binder/strict JNI gate passes 167 worker checks,
+  covering cached thread affinity, queue saturation, queue deadline, cancellation
+  during binding/effects, late native/UI results, callback faults, synthetic OOM,
+  oversize output and scheduler rejection/throw/teardown. Retained 107 registry,
+  474 binding, 4,303 dispatcher, 138 JNI-worker, 1,141 WebSocket and 310 discovery
+  checks pass (`.mdo/E55-worker.log`, native receipt). Android UI/provider calls
+  remain doubled/synthetic; no installed-device qualification is implied.
+- Rebuild the complete development APK using the exact existing ARM64 engine
+  and N5 app archive, after stopping/applying the reviewed host. APK: 6,329,665
+  bytes, SHA-256
+  `5d513d5892024b457972b88874e2396fcd889ffc4989b987afeaa5f4dff460a9`
+  (`.mdo/E55-android-build.log`, adjacent verified receipt). Actual SDK/D8 class
+  definitions, payload/package/native exports/manifest/alignment/signatures pass.
+  Full Python regression passes 162/164 with two existing symlink skips, in
+  43.640 s (`.mdo/E55-python-full.log`). Overlays/native transport match reviewed
+  inputs; the one headless deployment is healthy at HTTP 200, 3,417.5 MiB.
+- Keep current WebView/deferred phone, original formal data and all false
+  provider/framework/automation qualification flags. No model calls, external
+  browsing or publication performed. Typed isolated-frame automation routing,
+  transfer semantics, activation/profile qualification and remaining physical,
+  visual/lifetime/full requirement audit are still outstanding; goal active.
+

@@ -28,7 +28,7 @@ PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
 HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
-              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpRegistry')
+              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpRegistry','MdoBrowserCdpWorker')
 
 
 def sha(path):return native.sha(path)

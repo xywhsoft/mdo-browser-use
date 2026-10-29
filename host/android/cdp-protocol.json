@@ -1,7 +1,7 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "private_binding_core_packaged_not_host_routed",
-  "checked_date": "2026-10-29",
+  "state": "private_lifecycle_and_worker_packaged_not_automation_routed",
+  "checked_date": "2026-10-30",
   "sources": [
     {
       "url": "https://developer.android.com/develop/ui/views/layout/webapps/debug-chrome-devtools",
@@ -118,7 +118,8 @@
     "total_timeout_ms": [100, 15000],
     "native_phase_timeout_ms": 5000,
     "shared_retained_callback_limit": 16,
-    "declarations_per_marker_generation": 16,
+    "declarations_per_native_document": 16,
+    "admission_reconnect_resets_document_quota": false,
     "lexical_slot_after_cleanup": "empty_until_document_replaced",
     "failure_cleanup": "one_attempt_in_proven_unique_context_only",
     "default_ui_document_cleanup": false,
@@ -126,10 +127,25 @@
     "callback_holds_native_ui_owner": false,
     "unique_context_negative_probe_required": true,
     "native_owner_lifecycle_close_required": true,
-    "native_owner_registry_and_router_integrated": false,
+    "native_owner_registry_integrated": true,
+    "native_lifecycle_invalidates_before_input_completion": true,
+    "native_automation_router_integrated": false,
     "framework_calls_doubled_in_jvm_gate": true,
     "provider_verified": false
   },
-  "remaining": ["owned UI lifecycle registry and asynchronous host routing", "frame and transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding qualification"],
+  "async_dispatch": {
+    "state": "private_dispatch_and_lifecycle_hooks_packaged",
+    "persistent_worker_threads": 1,
+    "pending_jobs_including_ui_delivery": 8,
+    "pending_jobs_per_lease": 1,
+    "ui_result_bytes_per_job": 1048576,
+    "queue_wait_in_deadline": true,
+    "caller_runs_fallback": false,
+    "reconnect_or_replay_within_job": false,
+    "result_bytes_cleared_after_callback_or_discard": true,
+    "ui_callback_fault_isolated": true,
+    "installed_framework_verified": false
+  },
+  "remaining": ["typed automation routing with isolated frame backend", "frame and transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding qualification"],
   "android_automation_enabled": false
 }

@@ -3,7 +3,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    source=directory/'org/xserver/android/XsActivity.java'",
-      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpRegistry.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
+      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -1393,6 +1393,10 @@
     {
       "source": "host/android/MdoBrowserCdpRegistry.java",
       "target": "tools/android/MdoBrowserCdpRegistry.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpWorker.java",
+      "target": "tools/android/MdoBrowserCdpWorker.java"
     },
     {
       "source": "host/ui-wakeup.h",

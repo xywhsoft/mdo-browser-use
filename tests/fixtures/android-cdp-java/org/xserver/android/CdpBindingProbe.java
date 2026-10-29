@@ -35,7 +35,7 @@ public final class CdpBindingProbe {
         while(!result.isDone()&&System.nanoTime()<end){Handler.drain();Thread.sleep(1);}
         try{return result.get(2,TimeUnit.SECONDS);}finally{Handler.drain();}
     }
-    private static final class Factory implements MdoBrowserCdpBinding.Factory {
+    static final class Factory implements MdoBrowserCdpBinding.Factory {
         final WebView owned;final List<Wire> wires=new ArrayList<>();
         boolean ignoreUnique,wrongProof,cleanupFails,missingUnique,emptyFirst,loseContext,failOpen,changedLoader,unsupportedLexical;
         Factory(WebView owned){this.owned=owned;}
