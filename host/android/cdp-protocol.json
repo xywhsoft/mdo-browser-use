@@ -1,0 +1,42 @@
+{
+  "format": "mdo.browser-use.android-cdp-foundation.v1",
+  "state": "discovery_transport_only",
+  "checked_date": "2026-10-29",
+  "sources": [
+    {
+      "url": "https://developer.android.com/develop/ui/views/layout/webapps/debug-chrome-devtools",
+      "facts": ["WebView debugging is enabled by the application", "The setting applies to all application WebViews"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/android_webview/browser/aw_devtools_server.cc?format=TEXT",
+      "decoded_bytes": 5209,
+      "decoded_sha256": "48b6a7ca96a396c2aa57a1ce1492a3c06b94f6a97da36cb427455215af12a969",
+      "facts": ["Default abstract socket is webview_devtools_remote_<pid>", "The socket server uses CanUserConnectToDevTools"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/android/devtools_auth.cc?format=TEXT",
+      "decoded_bytes": 1127,
+      "decoded_sha256": "c115a41b09bac564f74e26cfb63c650ac2673e44dd691993b51a6b36969a06f8",
+      "facts": ["Chromium's local endpoint admits same-UID callers under its native credential policy"]
+    }
+  ],
+  "client_policy": {
+    "address": "abstract_unix_own_pid_only",
+    "peer_pid": "must_equal_getpid",
+    "peer_uid": "must_equal_getuid",
+    "credential_check": "before_request_bytes",
+    "http_request": "GET /json/list",
+    "timeouts_ms": [10, 5000],
+    "timeout_scope": "one_absolute_monotonic_budget",
+    "headers_bytes": 8192,
+    "body_bytes": 262144,
+    "tcp_fallback": false,
+    "redirects": false,
+    "transfer_encoding": false,
+    "duplicate_content_length": false,
+    "debug_setting_changed": false,
+    "payloads_logged_or_persisted": false
+  },
+  "remaining": ["JNI and actual host integration", "owned target binding", "WebSocket and CDP sessions", "frame and transfer integration", "debugging activation policy", "installed provider qualification"],
+  "android_automation_enabled": false
+}

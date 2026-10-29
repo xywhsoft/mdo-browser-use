@@ -5117,3 +5117,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android device/framework/automation fields remain false as the user defers
   the phone; remaining physical/visual/lifetime/OOM and full-goal work continue.
 
+## E47 — implement the app-private local discovery transport for Android CDP
+
+- Reassess the missing Android frame/transfer primitives against the published
+  WebView boundary. Start a DevTools backend using the existing WebView, to
+  supply the shared Browser Use semantics without another browser/runtime.
+  Verify and pin Chromium 138's socket naming/authentication code and Android's
+  process-wide debugging-setting behavior in `host/android/cdp-protocol.json`.
+  Do not enable debugging, upgrade WebView or advertise automation at this stage.
+- Implement the private C discovery transport: derive the abstract Unix socket
+  from `getpid()`, verify kernel peer PID/UID before sending, and allow only the
+  fixed read-only target-list request. No caller address/path, TCP fallback,
+  redirect, credentials or effect command is accepted. Use nonblocking I/O with
+  one absolute monotonic 10–5,000 ms budget, 8 KiB headers and 256 KiB body.
+  Reject ambiguous framing and non-JSON content types. Clear header/allocated
+  response storage and close the owned descriptor on every exit.
+- The exact implementation passes 291 checks using actual Linux abstract
+  sockets, ASan/UBSan and a foreign-process impersonator. Confirm zero request
+  bytes are disclosed to that foreign PID, absolute timeout under trickle input,
+  bounded invalid/large/partial replies, allocation-fault cleanup/full clearing,
+  64 repeated connections and balanced descriptors/71 allocations. The locked
+  ARM64/API 26 compile also passes. Evidence: `.mdo/E47-cdp-socket.log` and
+  `.mdo/android-cdp-socket-result.json`.
+- This is a transport foundation, not an installed-provider/CDP-command pass.
+  Integrate JNI and the actual host next, then owned target/session/frame and
+  transfer routing. Keep activation policy/device qualification explicit and
+  all Android automation flags false. Preserve the user's deferred phone/current
+  WebView and existing N5 development programs until the host integration is built.
+

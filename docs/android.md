@@ -58,6 +58,38 @@ assignment/frame/transfer and broader goal gaps are still open. Evidence:
 `.mdo/F21-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
 receipt and `.mdo/F20-python-full.log` (158/160 pass, two existing symlink skips).
 
+## Private local DevTools transport foundation (E47)
+
+The current provider-boundary adapter cannot yet supply all trusted frame and
+transfer contracts. A local DevTools backend is being implemented to connect
+the existing WebView to the shared Browser Use semantics. It adds no browser,
+AndroidX, Node or Playwright runtime. The installed provider is not changed.
+
+The Android [debugging API](https://developer.android.com/develop/ui/views/layout/webapps/debug-chrome-devtools)
+affects all application WebViews. Activation policy and installed-provider
+qualification are still pending; this stage **does not enable debugging or
+automation**. Pin the examined Chromium 138 endpoint/authentication sources in
+`host/android/cdp-protocol.json`. No upstream implementation is copied.
+
+`MdoBrowserCdpSocket.c` connects only to this process's abstract Unix endpoint.
+Check kernel peer PID and UID before sending any request, never follow a TCP URL
+or redirect, and issue only `GET /json/list`. Bound the complete operation by one
+10–5,000 ms monotonic deadline, headers by 8 KiB and body by 256 KiB. Reject
+ambiguous/truncated HTTP framing and non-JSON media types. Close every owned
+descriptor and clear response/header buffers; do not log or persist target URLs.
+
+```powershell
+python tools/android_cdp_socket_probe.py
+```
+
+The exact C transport passes 291 real Linux abstract-socket checks under ASan
+and UBSan, including wrong-process refusal before request bytes, fragmented
+responses, a slow-trickle absolute deadline, oversized/invalid headers/body,
+allocation failure, full-allocation clearing and 64 repeated connections with
+balanced descriptors. All 71 allocations are freed. It also compiles with the
+locked ARM64/API 26 compiler (`.mdo/E47-cdp-socket.log`). These are transport and
+compile results, not a real WebView/CDP session, frame or Android device pass.
+
 ## Installed-WebView boundary foundation
 
 `host/android/MdoBrowserWorld.java` is project-owned Java code which calls the
