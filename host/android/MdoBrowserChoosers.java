@@ -92,6 +92,9 @@ final class MdoBrowserChoosers implements AutoCloseable {
         thread();return token!=null&&!known(token)&&intercepting()&&claim(token);
     }
     boolean claimManual(Object token){thread();return token!=null&&!closed&&!destroyed&&!enabled&&!failed&&!known(token)&&claim(token);}
+    // Private native picker rejection/delivery shares this same once-only
+    // callback ledger, including late callbacks after close but before teardown.
+    boolean claimPrivate(Object token){thread();return token!=null&&!destroyed&&!known(token)&&claim(token);}
     void rejectionFailed(){thread();if(!destroyed){failed=true;block();}}
     boolean open(Object token,Response response,int mode,String[] accept,boolean capture){
         thread();if(known(token))return true;

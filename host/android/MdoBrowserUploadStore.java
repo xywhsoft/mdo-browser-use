@@ -57,9 +57,13 @@ final class MdoBrowserUploadStore implements AutoCloseable {
     static final class ReadLease {
         final Scope scope;final Spec file;final long expires;
         private final Object owner;private final String ticket;private final int index;private volatile boolean revoked;
+        // A plain native identity, never a View/Activity/controller. A callback
+        // handoff cannot reuse/revoke permissions granted by an older picker.
+        private final java.util.concurrent.atomic.AtomicReference<Object> picker=new java.util.concurrent.atomic.AtomicReference<>();
         private ReadLease(Object owner,Job job,int index){this.owner=owner;scope=job.scope;ticket=job.id;this.index=index;file=job.specs[index];expires=job.expires;}
         boolean live(long now){return !revoked&&scope.live()&&now>=0&&now<expires;}
         boolean belongs(Object identity){return owner==identity;}
+        boolean claimPicker(Object identity,long now){return identity!=null&&live(now)&&(picker.get()==identity||picker.compareAndSet(null,identity))&&live(now);}
         void revoke(){revoked=true;}
     }
     private static final class Job {

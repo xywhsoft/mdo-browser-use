@@ -8,9 +8,13 @@ from android_popup_probe import MOCKS as POPUP_MOCKS
 
 
 MOCKS={**POPUP_MOCKS,
+ 'android/content/Context.java':'package android.content;public class Context {public Context getApplicationContext(){return this;}}',
  'android/net/Uri.java':'package android.net; public final class Uri {}',
  'android/webkit/ValueCallback.java':'package android.webkit; public interface ValueCallback<T>{void onReceiveValue(T value);}',
+ 'org/xserver/android/MdoBrowserUploadUriRuntime.java':'package org.xserver.android;final class MdoBrowserUploadUriRuntime {static android.net.Uri publish(android.content.Context c,Object l)throws java.io.IOException{throw new java.io.IOException("No URI grant in chooser-only fixture");}}',
 }
+MOCKS['android/webkit/WebView.java']=MOCKS['android/webkit/WebView.java'].replace('public final class WebView {','public final class WebView {public android.content.Context getContext(){return new android.content.Context();}')
+MOCKS['android/os/SystemClock.java']=MOCKS['android/os/SystemClock.java'].replace('public static long uptimeMillis()', 'public static long elapsedRealtime(){return time;}public static long uptimeMillis()')
 MOCKS['android/webkit/WebChromeClient.java']=MOCKS['android/webkit/WebChromeClient.java'].rsplit('}',1)[0]+'''
  public static abstract class FileChooserParams {
   public abstract int getMode();public abstract String[] getAcceptTypes();public abstract boolean isCaptureEnabled();
@@ -26,7 +30,8 @@ def main():
         value=path.resolve().as_posix();return '/mnt/'+value[0].lower()+value[2:]
     output=dev.ENV/'android-chooser-result.json'
     output.write_text('{"passed":false,"state":"running","framework_verified":false}\n',encoding='utf-8')
-    sources=[dev.ROOT/name for name in ('host/android/MdoBrowserChoosers.java','host/android/MdoBrowserChooserTarget.java',
+    sources=[dev.ROOT/name for name in ('host/android/MdoBrowserChoosers.java','host/android/MdoBrowserChooserTarget.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserPrivatePickerReply.java',
+        'host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadQueue.java',
         'host/android/MdoBrowserDialogs.java','host/android/MdoBrowserDialogTarget.java','host/android/MdoBrowserPopups.java',
         'host/android/MdoBrowserWindowTarget.java','tests/fixtures/AndroidChooserContractTest.java','tests/fixtures/AndroidChooserTargetContractTest.java')]
     for name,text in MOCKS.items():

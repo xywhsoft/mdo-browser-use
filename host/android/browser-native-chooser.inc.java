@@ -1,7 +1,8 @@
     private boolean chooserReady(MdoBrowserDialogTarget target){
         if(!(target instanceof MdoBrowserChooserTarget))return true;
         MdoBrowserChoosers binding=((MdoBrowserChooserTarget)target).choosers;
-        return binding.ready()&&manualChooser.ready();
+        MdoBrowserPrivatePicker privatePicker=((MdoBrowserChooserTarget)target).privatePicker;
+        return binding.ready()&&privatePicker.clean()&&!privatePicker.pending()&&manualChooser.ready();
     }
     private void chooserBlocked(String key,WebView view,boolean blocked){
         // A retired target must not update a replacement document with the same key.
@@ -12,26 +13,28 @@
     private void cancelChooser(String key){
         MdoBrowserDialogTarget target=dialogs.get(key);
         if(target!=null)manualChooser.cancel(target.view);
-        if(target instanceof MdoBrowserChooserTarget)((MdoBrowserChooserTarget)target).choosers.cancel();
+        if(target instanceof MdoBrowserChooserTarget){((MdoBrowserChooserTarget)target).privatePicker.cancel();((MdoBrowserChooserTarget)target).choosers.cancel();}
     }
     private void cancelChoosers(){
         for(MdoBrowserDialogTarget target:new ArrayList<>(dialogs.values()))
-            if(target instanceof MdoBrowserChooserTarget)((MdoBrowserChooserTarget)target).choosers.cancel();
+            if(target instanceof MdoBrowserChooserTarget){((MdoBrowserChooserTarget)target).privatePicker.cancel();((MdoBrowserChooserTarget)target).choosers.cancel();}
     }
     private boolean chooserClean(MdoBrowserDialogTarget target){
         if(!(target instanceof MdoBrowserChooserTarget))return true;
         MdoBrowserChoosers binding=((MdoBrowserChooserTarget)target).choosers;
-        return binding.ready()&&manualChooser.ready();
+        MdoBrowserPrivatePicker privatePicker=((MdoBrowserChooserTarget)target).privatePicker;
+        return binding.ready()&&privatePicker.clean()&&!privatePicker.pending()&&manualChooser.ready();
     }
     private JSONObject chooserState(String key,JSONObject state)throws JSONException {
         MdoBrowserDialogTarget target=dialogs.get(key);
         MdoBrowserChoosers binding=target instanceof MdoBrowserChooserTarget?((MdoBrowserChooserTarget)target).choosers:null;
         MdoBrowserChoosers.Snapshot pending=binding==null?null:binding.snapshot();
+        MdoBrowserPrivatePicker privatePicker=target instanceof MdoBrowserChooserTarget?((MdoBrowserChooserTarget)target).privatePicker:null;
         return uploadState(state).put("chooser_capability",binding!=null).put("chooser_upload_capability",false)
-            .put("chooser_armed",binding!=null&&binding.intercepting()).put("chooser_open",pending!=null||target!=null&&manualChooser.busy(target.view))
+            .put("chooser_armed",binding!=null&&binding.intercepting()).put("chooser_open",pending!=null||privatePicker!=null&&privatePicker.pending()||target!=null&&manualChooser.busy(target.view))
             .put("manual_chooser_supported",true).put("manual_chooser_open",target!=null&&manualChooser.busy(target.view))
             .put("manual_chooser_awaiting_result",manualChooser.awaitingResult())
-            .put("chooser_cleanup_failed",binding!=null&&!binding.clean()||!manualChooser.clean()).put("chooser_frame_identity_verified",false);
+            .put("chooser_cleanup_failed",binding!=null&&!binding.clean()||privatePicker!=null&&!privatePicker.clean()||!manualChooser.clean()).put("chooser_frame_identity_verified",false);
     }
     private void executeChooser(String key,String id,JSONObject request)throws JSONException {
         MdoBrowserDialogTarget original=dialogs.get(key);

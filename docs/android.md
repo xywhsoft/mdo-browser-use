@@ -11,19 +11,20 @@ remains available.
 
 Native file choosers also have bounded original-callback retention, listing and
 cancellation. A private native staging/URI backend and human document picking
-are implemented. Native frame/input-node evidence is collected separately; it
-is not yet joined to the original Android callback. Automatic chooser assignment
-remains unavailable and the chooser implementation does not enable automation.
+are implemented. E69 adds a native nonce/original-callback/file-lease gate; its
+DOM/frame verifier and the complete upload coordinator are not joined yet.
+Automatic chooser assignment remains unavailable and these components do not
+enable automation.
 
-## Complete development host APK (E46/E68)
+## Complete development host APK (E46/E69)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,370,625 bytes, SHA-256
-`45789ecf19ab2977d6fcb1a3771868253ade47531b4f4c945ad9471ae2b615c6`.
+Current APK: 6,374,721 bytes, SHA-256
+`e217f27f8d78f7bd6b9d15a4cc7bc1cff3c9ac20cd2012ce2307d21e11745b80`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2287,3 +2288,79 @@ had intermittent input-focus/drag-cleanup interruptions; retain their logs and
 investigate rather than treating one subsequent full pass as their root-cause fix.
 Android automation/debug admission stays disabled; phone/WebView/formal data,
 model services and online releases are unchanged.
+
+### Original private callback rendezvous and native URI permission gate (E69)
+
+The actual Chrome target now routes the reserved private MIME namespace through
+`MdoBrowserPrivatePicker`, sharing the existing chooser's once-only callback
+identity ledger. Ordinary manual picking and cancellation retain their own
+routes. A pending native-only lease admits exactly one original view/callback,
+one exact nonce/mode, no capture, and a single accept type. Unexpected/late,
+malformed and duplicate distinct callbacks receive no file data; old callback
+identities are not answered twice. Native metadata errors are cancelled through
+the same retained response path. Expose only pending/cleanup state, not the nonce,
+callback, raw URI, path or serialized permission.
+
+`begin` requires actual sealed read-lease objects owned by the original queue and
+identical scope, an original-owner predicate and a native frame/world verifier.
+Clone the source array and retain immutable file specifications. The verifier
+must succeed before URI publication and before the native response. A synchronous
+success is held until check submission itself returns, so success followed by an
+exception grants nothing. Revalidate ownership, native epoch, queue/scope/files
+and the original monotonic deadline. The deadline is clamped to the earliest file
+expiry, never renewed, and scheduled from elapsed realtime onto the UI uptime
+queue. All callbacks/acknowledgements remain on their original UI thread.
+
+A read lease has a once-only picker claim containing a plain native identity,
+never a View/Activity/controller. A later operation cannot steal or revoke an
+earlier grant, even through another gate with the same numeric epoch. Partial
+claim/publication failure revokes only this operation's newly owned permissions.
+Native SDK replies mint private provider URIs from those exact leases, not caller
+paths/URI strings. The real provider supplies original name/size and header-free
+bytes. URI preparation failure that explicitly returned null is a known clean
+cancellation; it is distinct from an uncertain native response. Uncertain sends
+and completion failures are never replayed and require teardown when the native
+view still exists.
+
+Cancellation is itself a native response: defer the completion until its return,
+including reentrant close/cancel/destroy and exceptions. Weak original-ID timers
+and result callbacks cannot retain a retired UI owner. Cap records at 64 per view
+and share the existing 128-live-callback ledger. Lifecycle cancellation/close/
+destruction also retire this gate. Generic chooser readiness stays blocked while
+the private rendezvous is pending; no broad CDP admission exception is added.
+
+`.mdo/E69-private-picker-final.log` passes 2,046 private callback checks plus 418
+existing URI checks. Production queue, file channels, read leases, provider and
+proxy are real; Android types, system calls and the native DOM verifier are
+controlled doubles. The production Chrome adapter receives the exact original
+test callback. Checks include a Unicode/delimiter basename and all 131,075 bytes/
+SHA-256, zero-size files, partial publication rollback preserving older grants,
+scope/epoch/clock/deadline losses, mismatched metadata, duplicate/late callbacks,
+native response/completion/allocation faults, cancellation ACK ordering,
+reentrant teardown, thread rejection and both lifetime quotas. This **does not
+prove actual Android WebView association, selection, DOM assignment or URI
+consumer behavior**. Framework/device/URI-assignment flags remain false.
+
+Regression passes chooser lifetime/Chrome callback 471/42 checks, manual chooser
+554 checks, and the device-URI fixture with resolver/FD/looper doubles 168 checks
+(`.mdo/E69-chooser-final.log`, `.mdo/E69-manual-chooser.log`,
+`.mdo/E69-uri-fixture.log`). JS passes 319/319; final Python passes 167/169 with two
+existing symlink skips. The full SDK/D8/DEX/ABI/payload/private-provider/alignment/
+v2/v3 signature build passes `.mdo/E69-android-final.log`; use the current complete
+development APK/receipt above. Windows and plugin artifacts are unchanged and
+reused only after current-source/archive verification.
+
+The next coordinator must freeze the original view/channel/epoch/UI action and
+file-source owner; supply actual native parent/graph/world validation; execute
+the fixed E68 prepare/open/status/commit/dispose operations; keep its own CDP lease
+admitted while fencing ordinary actions; and deliver/recover only the original
+operation's results. Nonce extraction stays private, and userGesture is permitted
+only for the fixed native private-picker opening. Existing source/input scopes
+and read leases cancel/expire within 120 seconds: assigned-data lifetime must be
+separated where the common upload contract requires retention across navigation,
+cancellation and staging expiry until confirmed release or browser close. Do not
+enable upload capability or treat the current gate as a complete upload path
+before these joins and retention rules are implemented and verified. The Windows
+realm audit, broader intermittent input diagnostics, Android downloads/profile/
+activation and installed-provider/main-UI qualification also remain open. No
+phone/provider/formal data change, model call, external-page operation or release.

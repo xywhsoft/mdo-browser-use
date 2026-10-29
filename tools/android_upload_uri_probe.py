@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 import dev
+from android_chooser_probe import MOCKS as CHOOSER_MOCKS
 
 OUTPUT=dev.ENV/'android-upload-uri-result.json'
 MOCKS={
@@ -58,6 +59,19 @@ MOCKS={
  'android/webkit/MimeTypeMap.java':'package android.webkit;public final class MimeTypeMap {private static final MimeTypeMap MAP=new MimeTypeMap();public static MimeTypeMap getSingleton(){return MAP;}public String getMimeTypeFromExtension(String e){return "txt".equals(e)?"text/plain":null;}}',
  'org/xserver/android/MdoBrowserUploadRuntime.java':'package org.xserver.android;final class MdoBrowserUploadRuntime {static MdoBrowserUploadQueue queue;static MdoBrowserUploadQueue get(android.content.Context c){return queue;}}',
 }
+# Keep the existing URI framework doubles and add the actual Chrome callback
+# adapter. The original URI tests run with no UI looper; the picker fixture binds
+# its exact UI Thread explicitly. No emulator/device qualification is implied.
+for _name in ('android/os/Message.java','android/webkit/JsResult.java','android/webkit/JsPromptResult.java',
+              'android/webkit/WebChromeClient.java','android/webkit/ValueCallback.java'):
+    MOCKS[_name]=CHOOSER_MOCKS[_name]
+MOCKS['android/webkit/WebView.java']=CHOOSER_MOCKS['android/webkit/WebView.java'].replace(
+    'public android.content.Context getContext(){return new android.content.Context();}',
+    'private final android.content.Context context;public WebView(){this(new android.content.Context());}public WebView(android.content.Context value){context=value;}public android.content.Context getContext(){return context;}')
+MOCKS['android/os/Looper.java']='package android.os;public final class Looper {private static final Looper MAIN=new Looper();public static Thread ui;public static Looper getMainLooper(){return MAIN;}public static Looper myLooper(){return Thread.currentThread()==ui?MAIN:null;}}'
+MOCKS['android/os/SystemClock.java']=MOCKS['android/os/SystemClock.java'].replace('public static long elapsedRealtime()', 'public static long uptimeMillis(){return now;}public static long elapsedRealtime()')
+MOCKS['android/os/Handler.java']=CHOOSER_MOCKS['android/os/Handler.java'].replace('public final class Handler {','public final class Handler {public static boolean failNext;').replace(
+    'public Handler(Looper looper){this.looper=looper;}', 'public Handler(Looper looper){if(failNext){failNext=false;throw new OutOfMemoryError("Synthetic handler allocation");}this.looper=looper;}')
 
 
 def main():
@@ -71,14 +85,17 @@ def main():
     if root.exists():raise RuntimeError('Interrupted URI fixture preserved')
     def linux(path):
         value=path.resolve().as_posix();return '/mnt/'+value[0].lower()+value[2:]
-    names=('MdoBrowserUploadFiles','MdoBrowserUploadStore','MdoBrowserUploadQueue','MdoBrowserUploadUris','MdoBrowserUploadProxy','MdoBrowserUploadUriRuntime','MdoBrowserUploadProvider')
-    sources=[dev.ROOT/'host/android'/f'{name}.java' for name in names]+[dev.ROOT/'tests/fixtures/AndroidUploadUriContractTest.java']
+    names=('MdoBrowserUploadFiles','MdoBrowserUploadStore','MdoBrowserUploadQueue','MdoBrowserUploadUris','MdoBrowserUploadProxy','MdoBrowserUploadUriRuntime','MdoBrowserUploadProvider',
+           'MdoBrowserChoosers','MdoBrowserChooserTarget','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply','MdoBrowserDialogs','MdoBrowserDialogTarget','MdoBrowserPopups','MdoBrowserWindowTarget')
+    sources=[dev.ROOT/'host/android'/f'{name}.java' for name in names]+[dev.ROOT/'tests/fixtures/AndroidUploadUriContractTest.java',dev.ROOT/'tests/fixtures/AndroidPrivatePickerContractTest.java']
     for name,value in MOCKS.items():
         path=directory/'src'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(value,encoding='utf-8');sources.append(path)
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(p) for p in sources]],cwd=dev.ROOT,check=True,capture_output=True,text=True)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidUploadUriContractTest',linux(root)],cwd=dev.ROOT,check=True,capture_output=True,text=True)
     result=json.loads(run.stdout.strip());result.update(scope='production-uri-state-provider-and-proxy-with-android-doubles',
         compiled_source_sha256=hashlib.sha256(b''.join(p.read_bytes() for p in sources)).hexdigest())
+    picker=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidPrivatePickerContractTest',linux(root)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=60)
+    result['private_picker']=json.loads(picker.stdout.strip());result['passed']=result['passed'] and result['private_picker']['passed']
     OUTPUT.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
 
 

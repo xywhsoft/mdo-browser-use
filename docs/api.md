@@ -1008,6 +1008,14 @@ so it cannot clear the target's shared list. Original Android ValueCallback/URI
 association and native frame/lease validation remain required before admission.
 See [Android implementation boundaries](android.md).
 
+E69 routes the reserved private picker namespace through an original-callback
+gate sharing the normal chooser's once-only ledger. Native queue/scope/read-lease
+objects and a successful native verifier are required before private URI delivery.
+Known null cancellation is separate from uncertain response; neither is replayed.
+This is an internal SDK/permission component, **not a new public upload action**.
+The original frame/channel coordinator and assigned-file retention still need
+joining; automatic Android assignment and framework qualification remain false.
+
 ## Intercepted file pickers
 
 The Windows dispatcher acknowledges native interception before Agent input. A

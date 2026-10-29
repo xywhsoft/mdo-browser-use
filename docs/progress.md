@@ -5984,3 +5984,56 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   profile policy and installed-provider/main-UI qualification also remain open.
   Goal stays active; no phone/provider/formal data changes, model calls, external
   page operations, extra application/Home/source copies or online release.
+
+## E69 — original private chooser callbacks and native read-permission delivery
+
+- Add a UI-only private picker rendezvous and native SDK reply adapter. Route the
+  reserved MIME namespace in the actual Chrome target, sharing normal chooser
+  callback identities. Match the exact view, native callback, nonce/mode and
+  capture/accept metadata; never join on URL/timing/current frame. Keep nonce,
+  native callbacks, URI/path and object authority out of public results/commands.
+- Require real queue-owned sealed read leases with identical scope, an original
+  native-owner predicate and a successful frame/world verifier before answering.
+  Freeze the source array and original deadline, clamped to file expiry. Schedule
+  elapsed-time expiry on the UI uptime queue and retain weak exact-ID timers.
+  Synchronous verifier success cannot grant before submission returns; callback
+  duplication, stale proofs, clock/owner/scope/queue/epoch changes grant no data.
+- Give native read leases a once-only plain-object picker claim. Another operation
+  or gate cannot reuse/revoke a prior grant. Partial claim and URI publication
+  failure revoke only newly claimed permissions. The native reply publishes
+  private provider URIs from these exact objects, never caller strings/paths.
+  Distinguish confirmed null cancellation during grant preparation from uncertain
+  native response/completion; only uncertainty poisons a surviving native view.
+- Ensure cancellation completion follows the original native callback's return,
+  including metadata failure and reentrant close/cancel/destroy. No callback is
+  answered twice. Add native lifecycle cancellation, pending/cleanup state and
+  actual SDK/DEX/input-fingerprint inclusion. Keep generic chooser admission
+  closed during the rendezvous; do not add a broad exemption or advertise upload.
+- Real Java/file queue/store/read leases/provider/proxy pass 2,046 private-picker
+  cases plus 418 existing URI cases (`.mdo/E69-private-picker-final.log`). The
+  production Chrome adapter receives original callback objects, while Android
+  types/system calls and the DOM verifier are doubles. Verify original Unicode/
+  delimiter name and 131,075 bytes/SHA-256, prior grants surviving partial failure,
+  zero-size, cancellation ACK ordering, mismatch/duplicate/late callback refusal,
+  time/owner/thread changes, response/OOM/completion faults, no replay and 64/128
+  resource bounds. Framework/device/URI-assignment qualifications stay false.
+- Existing chooser controller/Chrome cases pass 471/42, manual chooser 554 and
+  device resolver/FD/looper fixture 168 (`.mdo/E69-chooser-final.log`,
+  `.mdo/E69-manual-chooser.log`, `.mdo/E69-uri-fixture.log`). JS passes 319/319 in
+  19.666 s (`.mdo/E69-node-full.log`); final Python passes 167/169 with two existing
+  symlink skips in 54.810 s (`.mdo/E69-python-final.log`). Actual SDK/D8/DEX/ABI/
+  payload/private-provider/alignment/v2/v3 signature build passes
+  `.mdo/E69-android-final.log`: complete development APK 6,374,721 bytes,
+  SHA-256 `e217f27f8d78f7bd6b9d15a4cc7bc1cff3c9ac20cd2012ce2307d21e11745b80`.
+  Reuse unchanged verified Windows E66 program and paired plugin, without extra
+  app/Home/source copies. Restore the same headless development service.
+- Still required: the original view/channel/epoch/action/file-source coordinator,
+  its scoped CDP admission while ordinary input is blocked, actual native graph/
+  world validation, private nonce extraction/opening and E68 DOM handoff/cleanup.
+  Upfront source/input leases expire/cancel; separate assigned-data lifetime to
+  satisfy retention across navigation/cancellation/staging expiry until confirmed
+  release or browser close. Do not equate this component with a completed Android
+  upload path. Windows realm audit/intermittent input diagnostics and Android
+  downloads/profile/activation/installed-provider/main-UI gates also remain open.
+  Goal stays active; no phone/provider/formal data changes, model calls, external
+  page operation or online release. Android automation/debug admission stays off.
