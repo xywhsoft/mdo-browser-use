@@ -30,7 +30,8 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserUploadRuntime.java',
         'host/android/browser-native-upload.inc.java','host/android/dev/BrowserUseUploadProbe.java',
         'host/android/MdoBrowserUploadUris.java','host/android/MdoBrowserUploadProxy.java','host/android/MdoBrowserUploadUriRuntime.java',
-        'host/android/MdoBrowserUploadProvider.java','host/android/browser-manifest.inc.py')
+        'host/android/MdoBrowserUploadProvider.java','host/android/browser-manifest.inc.py',
+        'host/android/dev/BrowserUseUploadUriProbe.java')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
@@ -110,7 +111,8 @@ def main():
         if result.returncode:raise RuntimeError(f'{Path(str(args[0])).name} failed: '+(result.stderr or result.stdout)[-1800:])
     sources=[ROOT/INPUTS[0],ROOT/INPUTS[1],ROOT/'host/android/dev/BrowserUseInputProbe.java',ROOT/'host/android/dev/BrowserUseCaptureProbe.java',
         ROOT/'host/android/dev/BrowserUseDialogProbe.java',ROOT/'host/android/dev/BrowserUsePopupProbe.java',
-        ROOT/'host/android/dev/BrowserUseChooserProbe.java',ROOT/'host/android/dev/BrowserUseUploadProbe.java',*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
+        ROOT/'host/android/dev/BrowserUseChooserProbe.java',ROOT/'host/android/dev/BrowserUseUploadProbe.java',
+        ROOT/'host/android/dev/BrowserUseUploadUriProbe.java',*[ROOT/'.mdo/source'/name for name in HOST_INPUTS]]
     run(java/'javac','-encoding','UTF-8','-source','8','-target','8','-classpath',platform,'-d',classes,*sources)
     # Compile the actual pinned Activity with its reviewed hooks as well. These
     # classes are a compile gate only, never a second APK/service or runtime.
@@ -148,6 +150,7 @@ def main():
         'chooser_framework_verified':False,'chooser_assignment_supported':False,
         'production_upload_staging_compiled':True,'production_upload_queue_compiled':True,'native_upload_fixture_compiled':True,
         'production_upload_uri_provider_compiled':True,'production_upload_uri_manifest_rendered':True,
+        'native_upload_uri_fixture_compiled':True,'uri_proxy_framework_verified':False,'upload_uri_revocation_verified':False,
         'private_upload_cache_authority_verified':False,'upload_uri_assignment_verified':False}
     receipt_path.write_text(json.dumps(receipt,indent=2)+'\n');print(json.dumps(receipt,indent=2))
 

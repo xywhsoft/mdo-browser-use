@@ -4783,3 +4783,44 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   are unaffected; previous desktop/physical-transport gaps and the full active
   goal remain. No source-user file, external site or real model was used.
 
+## E41 — installed private-provider URI test entry and outcome/teardown gates
+
+- Add `native-upload-uri` to the existing tiny Android QA client. This mode
+  does not construct a WebView or require isolated worlds/provider upgrades.
+  Use the actual app Context/UID cache factory, staging queue, native read
+  leases, private URI runtime and ContentResolver, with two fixed synthetic
+  files (150,001 bytes and empty). No chooser, user/source file, external page,
+  model or raw cache descriptor is used.
+- On one owned background consumer, query Unicode name/size/MIME, read the full
+  payload/EOF, seek across a chunk boundary and near EOF, close/reopen the same
+  still-live file, read the empty file, and reject writes/noncanonical aliases.
+  Revoke the original scope, then reject metadata/new opens and reads on a fresh
+  unread descriptor. This deliberately makes no claim about retracting bytes
+  already delivered or cached by a consumer. Require zero original descriptor
+  sessions/grants, staged files/bytes and pending UI receipts before success.
+- Activity pause/destroy/timeout cancels the original scope and in-flight open,
+  and closes only the exact owned stream. No UI join or blocking file read is
+  introduced. Late consumer completions cannot finish a closed fixture. Do not
+  close/replace the process-owned proxy callback thread or registry.
+- Execute the exact fixture in six separate original-static JVM runs, with real
+  staging/file/worker/provider/proxy code and Android Resolver/FD/UID/Looper
+  doubles: 168 checks, including 49 successful-path fixture checks, corrupted
+  bytes, absent original release acknowledgment, close-before-start, close
+  during read and cancellation during Resolver open. Require consumer/owned-FD
+  retirement; unacknowledged native sessions stay counted until the original
+  callback. Evidence: `.mdo/E41-uri-fixture.log`. These are not Android/FUSE or
+  cache-authority qualifications.
+- The actual SDK compiles the pinned Activity/hooks/provider and packages the
+  new fixture. Tiny QA APK: 340,371 bytes, SHA-256
+  `964579f4eca1d42dac9eb16320d86503546ee7f68656b607b694fe5b368a8d57`.
+  Evidence: `.mdo/E41-android-build.log`. This is not a full Android mdo build.
+  Python: 145/147 pass, two existing symlink-privilege skips
+  (`.mdo/E41-python-full.log`). Windows executable/plugin are unchanged.
+- Attempt the real device entry once; ADB has no authorized device. Persist
+  `android_device_unavailable` with all framework/assignment/automation flags
+  false (`.mdo/E41-device-uri.log`,
+  `.mdo/android-device-upload-uri-result.json`). Keep the installed WebView.
+  Real provider/seek/revocation, original chooser/source/frame handoff and full
+  product Android integration remain unverified; retain the previous desktop
+  and physical-transport gaps. The full goal remains active.
+

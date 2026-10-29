@@ -372,3 +372,9 @@ inspection remains unverified because the desktop capture helper timed out.
 publishing 32 MiB, hard-stops and restarts this same Home, then verifies retained
 destination/operation intent, exact bytes and reconciliation without recreating
 the file. Test data is removed after success; no extra deployment is created.
+The Android QA client also provides a `native-upload-uri` test mode through the
+actual private ContentResolver/seekable-proxy API, without WebView upgrades.
+Its six outcome/teardown scenarios pass 168 checks with Android API doubles;
+the installed-device gate remains unavailable while ADB has no device. See
+[Android verification](docs/android.md) for the distinct framework, chooser
+assignment and full-automation gates.

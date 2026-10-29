@@ -1310,3 +1310,48 @@ Logs: `.mdo/E40-native-read.log`, `.mdo/E40-recovery.log`,
 `.mdo/E40-android-build.log`. Keep the installed WebView and false framework,
 chooser/source-frame, assignment and full-automation qualifications. A real
 ContentResolver/seek/revocation device fixture and chooser handoff remain next.
+
+### Installed private URI test entry (E41)
+
+The existing tiny QA APK now includes `native-upload-uri`. It runs through the
+actual app cache factory and private provider, without constructing a WebView;
+the current installed System WebView can remain unchanged. Run
+`python tools/android_device_probe.py --mode native-upload-uri` with exactly one
+authorized device. The runner verifies the current source/build/APK receipt,
+touches only its recognized development package, and saves the nonce-bound
+result to `.mdo/android-device-upload-uri-result.json`. URI tokens, data paths
+and platform exception messages never enter the report.
+
+The fixture stages only 150,001 deterministic bytes and an empty file. One
+background consumer uses ContentResolver metadata and read-only seekable FDs
+to verify exact payload, Unicode name, MIME, size, EOF, chunk-boundary/random
+seek and close/reopen. Writes and URI aliases must be refused. Cancel the exact
+original scope, refuse subsequent metadata/opens, and require a newly opened,
+previously unread descriptor to fail its first read. Already delivered bytes
+are outside this revocation claim. A successful receipt also requires actual
+original release callbacks and zero descriptor/grant/file/byte/UI-receipt
+reservations. Pause/destroy/timeout cancel the original operation and close its
+exact owned stream; late completion is ignored, with no UI join/read.
+
+`native_upload_uri_proxy_verified`, `uri_proxy_framework_verified` and
+`upload_uri_revocation_verified` are separate from chooser assignment, original
+source/frame identity, host routing and full automation. The latter gates stay
+false even if this isolated provider fixture succeeds. A missing device is an
+explicit unavailable result with all qualification fields false.
+
+`python tools/android_upload_uri_fixture_probe.py` executes the exact fixture
+against the real worker/staging/provider/proxy and doubled Android Resolver,
+descriptor, UID and Looper APIs. Six original-static JVM runs pass 168 checks:
+success (49 fixture checks), corrupted bytes, missing release acknowledgment,
+closed-before-start, cancellation during read and cancellation during open.
+These doubles verify fixture outcomes and owned cleanup; they do not establish
+Android kernel/FUSE, cache authority or webpage upload behavior.
+
+The current QA APK compiles against the existing SDK: 340,371 bytes, SHA-256
+`964579f4eca1d42dac9eb16320d86503546ee7f68656b607b694fe5b368a8d57`.
+The actual pinned Activity/hooks and provider also compile. All 145/147 Python
+checks pass with two existing symlink-privilege skips. Evidence:
+`.mdo/E41-uri-fixture.log`, `.mdo/E41-android-build.log`,
+`.mdo/E41-python-full.log`. The device attempt is unavailable (zero ADB devices),
+recorded in `.mdo/E41-device-uri.log`; no installed-device qualification, mdo
+release or Windows package change is claimed.

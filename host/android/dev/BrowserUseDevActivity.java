@@ -27,6 +27,7 @@ public final class BrowserUseDevActivity extends Activity {
     private BrowserUsePopupProbe popupProbe;
     private BrowserUseChooserProbe chooserProbe;
     private BrowserUseUploadProbe uploadProbe;
+    private BrowserUseUploadUriProbe uploadUriProbe;
     private TextView status;private String nonce;private boolean finished,loaded,started;
     private final Runnable timeout=()->finishProbe(false,"device_probe_timed_out");
     private final Runnable readiness=()->maybeEvaluate();
@@ -42,10 +43,18 @@ public final class BrowserUseDevActivity extends Activity {
         put("chooser_assignment_verified",false);put("chooser_frame_identity_verified",false);
         put("native_upload_staging_verified",false);put("private_upload_cache_authority_verified",false);
         put("host_upload_routing_verified",false);put("upload_uri_assignment_verified",false);
+        put("native_upload_uri_proxy_verified",false);put("uri_proxy_framework_verified",false);put("upload_uri_revocation_verified",false);
         LinearLayout layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
         status=new TextView(this);status.setText("Checking the installed WebView provider…");layout.addView(status);
         setContentView(layout);handler.postDelayed(timeout,15000);
         try{
+            if("native-upload-uri".equals(getIntent().getStringExtra("mode"))){
+                status.setText("Checking the private upload URI provider…");
+                uploadUriProbe=new BrowserUseUploadUriProbe(this,handler,(ok,code,checks)->{
+                    put("native_upload_uri_checks",checks);put("native_upload_staging_verified",ok);put("private_upload_cache_authority_verified",ok);
+                    put("native_upload_uri_proxy_verified",ok);put("uri_proxy_framework_verified",ok);put("upload_uri_revocation_verified",ok);finishProbe(ok,code);
+                });uploadUriProbe.run();return;
+            }
             view=new WebView(this);layout.addView(view,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,0,1));
             PackageInfo info=WebView.getCurrentWebViewPackage();
             if(info!=null){put("provider_package",info.packageName);put("provider_version",info.versionName);}
@@ -156,12 +165,13 @@ public final class BrowserUseDevActivity extends Activity {
         if(popupProbe!=null)popupProbe.close();
         if(chooserProbe!=null)chooserProbe.close();
         if(uploadProbe!=null)uploadProbe.close();
+        if(uploadUriProbe!=null)uploadUriProbe.close();
         if(world!=null){world.close();put("cleanup_confirmed",world.cleanupConfirmed());}
         if(view!=null){view.stopLoading();if(view.getParent() instanceof ViewGroup)((ViewGroup)view.getParent()).removeView(view);view.destroy();if(captureProbe!=null)captureProbe.viewDestroyed();if(dialogProbe!=null)dialogProbe.viewDestroyed();if(popupProbe!=null)popupProbe.viewDestroyed();if(chooserProbe!=null)chooserProbe.viewDestroyed();if(world!=null){world.viewDestroyed(view);put("cleanup_confirmed",world.cleanupConfirmed());}view=null;}
         put("owned_view_destroyed",true);status.setText(report.optBoolean("automation_verified")?"Isolated world verified.":"Provider result: "+code);
         Log.i("MdoBrowserUseProbe",report.toString());
     }
-    @Override protected void onPause(){if(uploadProbe!=null&&!finished)finishProbe(false,"upload_activity_backgrounded");if(chooserProbe!=null&&!finished)finishProbe(false,"chooser_activity_backgrounded");if(popupProbe!=null&&!finished)finishProbe(false,"popup_activity_backgrounded");if(dialogProbe!=null&&!finished)finishProbe(false,"dialog_activity_backgrounded");if(captureProbe!=null&&!finished)finishProbe(false,"capture_activity_backgrounded");if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
+    @Override protected void onPause(){if(uploadUriProbe!=null&&!finished)finishProbe(false,"upload_uri_activity_backgrounded");if(uploadProbe!=null&&!finished)finishProbe(false,"upload_activity_backgrounded");if(chooserProbe!=null&&!finished)finishProbe(false,"chooser_activity_backgrounded");if(popupProbe!=null&&!finished)finishProbe(false,"popup_activity_backgrounded");if(dialogProbe!=null&&!finished)finishProbe(false,"dialog_activity_backgrounded");if(captureProbe!=null&&!finished)finishProbe(false,"capture_activity_backgrounded");if(inputProbe!=null)inputProbe.pause();if(world!=null&&!finished)world.block(MdoBrowserDocument.BACKGROUND,true);super.onPause();}
     @Override protected void onResume(){super.onResume();if(inputProbe!=null)inputProbe.resume();if(world!=null&&!finished){world.block(MdoBrowserDocument.BACKGROUND,false);maybeEvaluate();}}
     @Override protected void onDestroy(){
         if(!finished)finishProbe(false,"activity_destroyed");handler.removeCallbacksAndMessages(null);super.onDestroy();
