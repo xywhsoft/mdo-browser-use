@@ -39,7 +39,10 @@ final class MdoBrowserCdpFrameChain {
                 for(int i=0;i<rows.length();i++){
                     JSONObject row=rows.optJSONObject(i);if(row==null||row.length()!=3||!frame(row.opt("frame"))||!document(row.opt("document"))||!row.has("parent"))throw invalid();
                     String frame=row.getString("frame"),parent=null;Object value=row.opt("parent");
-                    if(frame.equals("f0")){if(value!=JSONObject.NULL)throw invalid();}
+                    // The shared visual dispatcher uses an empty root-parent
+                    // string for the Windows wire contract; native inventories
+                    // use JSON null. Both mean only this explicitly named root.
+                    if(frame.equals("f0")){if(value!=JSONObject.NULL&&!"".equals(value))throw invalid();}
                     else{if(!frame(value)||frame.equals(value))throw invalid();parent=(String)value;}
                     if(!seen.add(frame))throw invalid();snapshot.add(new Pin(frame,row.getString("document"),parent));
                 }

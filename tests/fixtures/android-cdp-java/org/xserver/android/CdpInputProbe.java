@@ -173,8 +173,22 @@ public final class CdpInputProbe {
             check(sample.peer.host.worker.pending()==0);check(sample.target.sent.equals(Arrays.asList("focus")));check(sample.scripts.stream().noneMatch(value->value.startsWith(MdoBrowserCdpInput.TARGET+"(")));
         }
     }
+    private static void sharedVisualSnapshot()throws Exception {
+        try(Case sample=new Case()){
+            JSONObject request=sample.request("leaf-frame","click",true);JSONArray rows=request.getJSONArray("frame_snapshot");
+            JSONObject root=null,child=null;for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);if(row.getString("frame").equals("f0"))root=row;else child=row;}
+            check(root!=null&&child!=null);root.put("parent","");
+            MdoBrowserCdpInput operation=MdoBrowserCdpInput.parse(request,sample.layout);
+            check(operation.frames.snapshot.stream().filter(pin->pin.frame.equals("f0")).allMatch(pin->pin.parent==null));
+            root.put("parent","caller-changed-after-admission");sample.deliver(operation);check(sample.results.get(0).ok);
+            root.put("parent","");child.put("parent","");
+            rejects("cdp_input_frame_pins_invalid",()->MdoBrowserCdpInput.parse(request,sample.layout));
+            child.put("parent","f0");root.put("parent","f-00000000-0000-4000-8000-000000000009");
+            rejects("cdp_input_frame_pins_invalid",()->MdoBrowserCdpInput.parse(request,sample.layout));
+        }
+    }
     public static void main(String[] args)throws Exception {
-        Looper.getMainLooper();System.loadLibrary("xs");modes();immutableAndFailures();ancestryAndGrammar();cancelPending(false);cancelPending(true);
+        Looper.getMainLooper();System.loadLibrary("xs");modes();immutableAndFailures();ancestryAndGrammar();cancelPending(false);cancelPending(true);sharedVisualSnapshot();
         System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"native_input_sequencer\":true,\"native_ui_calls_doubled\":true,\"protocol_peers_synthetic\":true,\"provider_qualified\":false}");
     }
 }

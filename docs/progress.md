@@ -5634,3 +5634,19 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   fixes an observed race; Android/main-UI/normal-desktop visual and whole-goal
   qualification remain incomplete. Refresh development artifacts with the next
   tested shared-driver stage; goal remains active.
+
+## E61 — accept the shared visual snapshot's explicit root-parent representation
+
+- Cross-end audit found the shared visual dispatcher emits `parent:""` for f0,
+  while the new Android parser accepted only JSON null. That would reject valid
+  visual input when Android admission becomes available. Normalize either exact
+  root representation to the same immutable null parent. Do not accept empty
+  child parents, foreign root ancestors, missing fields or invalid native trees.
+- Add an actual shared-wire-shaped snapshot through the Java worker/frame/world/
+  owner/JNI/native-input sequencer gate. Mutating the original JSON after parse
+  cannot alter its pins; invalid child/root parents still refuse before input.
+  Full retained protocol gates pass (`.mdo/E61-snapshot-wire.log`); native input
+  checks increase from 300 to 315. DOM/events/provider remain doubled/unqualified.
+- Keep automation disabled, current phone/provider/formal data preserved, and
+  refresh the APK with the next shared driver phase. No model calls, external
+  page browsing or publication; the full long-term goal remains active.

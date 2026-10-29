@@ -1963,3 +1963,20 @@ regression passes 283/283 (`.mdo/E59-node-full.log`). The real SDK/D8/package/AB
 signature build passes (`.mdo/E59-android-build.log`). These are not installed
 provider geometry, trusted event or framework lifetime qualifications. Keep
 Agent automation disabled and the deferred phone/current WebView unchanged.
+
+### Shared visual snapshot root-parent normalization (E61)
+
+The shared visual dispatcher emits an empty root-parent string, matching the
+existing Windows input wire contract. Native inventories use JSON null. Accept
+both only for the explicitly named `f0` snapshot row and normalize them to the
+same immutable null parent before native comparison. Child parents still must
+be exact frame aliases and form a complete rooted native tree; missing parents,
+empty child parents and caller-picked root ancestors remain invalid.
+
+The Android input gate now includes a snapshot in the actual shared-dispatch
+wire shape, queues it through the real worker/frame/isolated-world/sequencer
+core and verifies a later caller mutation cannot replace its admitted pins.
+This fixes a shared-to-Android format mismatch; it does not enable Android
+Agent admission or qualify installed framework input. Evidence is retained in
+`.mdo/E61-snapshot-wire.log`; development APK refresh follows with the shared
+scroll-driver stage.
