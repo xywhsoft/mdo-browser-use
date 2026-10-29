@@ -3,7 +3,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    source=directory/'org/xserver/android/XsActivity.java'",
-      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
+      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java','MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -1363,6 +1363,17 @@
       "path": "tools/android/browser_overlay.py",
       "before": "      'callback.onReceiveValue(FileChooserResult.parse(result, data, chooserMultiple));':'callback.onReceiveValue(MdoBrowserPickerUris.read(XsActivity.this, result, data, chooserMultiple));',",
       "after": "      'callback.onReceiveValue(FileChooserResult.parse(result, data, chooserMultiple));':'callback.onReceiveValue(MdoBrowserPickerUris.read(XsActivity.this, result, data, chooserMultiple));',\n      '                if (chooser != null) chooser.onReceiveValue(null);\\n                chooser = callback;\\n                chooserMultiple = params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;\\n                Intent intent = params.createIntent().addCategory(Intent.CATEGORY_OPENABLE)\\n                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, chooserMultiple);\\n                try { startActivityForResult(intent, PICK_FILE); } catch (ActivityNotFoundException failure) { chooser.onReceiveValue(null); chooser = null; }\\n                return true;':'                if (mdoBrowser != null) {\\n                    Boolean mdoPicked = mdoBrowser.openHostChooser(view, callback, params);\\n                    if (mdoPicked != null) return mdoPicked;\\n                }\\n                if (chooser != null) chooser.onReceiveValue(null);\\n                chooser = callback;\\n                chooserMultiple = params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE;\\n                Intent intent = params.createIntent().addCategory(Intent.CATEGORY_OPENABLE)\\n                    .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, chooserMultiple);\\n                try { startActivityForResult(intent, PICK_FILE); } catch (ActivityNotFoundException failure) { chooser.onReceiveValue(null); chooser = null; }\\n                return true;',"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-frame-router.inc.java",
+      "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}",
+      "after": "else if(\"frames\".equals(command)){executeFrames(key,id,web,request);return;}\n            else if(\"automation\".equals(command)){executeDocument(key,id,request);return;}"
     }
   ],
   "files": [
@@ -1405,6 +1416,14 @@
     {
       "source": "host/android/MdoBrowserCdpWorlds.java",
       "target": "tools/android/MdoBrowserCdpWorlds.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpOwnerScripts.java",
+      "target": "tools/android/MdoBrowserCdpOwnerScripts.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpFrameRequest.java",
+      "target": "tools/android/MdoBrowserCdpFrameRequest.java"
     },
     {
       "source": "host/ui-wakeup.h",

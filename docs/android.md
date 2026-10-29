@@ -14,15 +14,15 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E57)
+## Complete development host APK (E46/E58)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,341,953 bytes, SHA-256
-`0cde1c740c629f458853d69babd7eba47e6cb69a7d979888c5233607f56c405d`.
+Current APK: 6,346,049 bytes, SHA-256
+`fb62fdc669592fe37127835b0fbc14b351ca96d4038a85bb8236fa83d695aad3`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -56,8 +56,8 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E57-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E57-python-full.log` (162/164 pass, two existing symlink skips).
+`.mdo/E58-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E58-python-full.log` (165/167 pass, two existing symlink skips).
 
 ## Private local DevTools transport foundation (E47)
 
@@ -1872,3 +1872,50 @@ and strict JNI with doubled Android UI/synthetic evaluation peers. Real DOM
 execution, owner geometry, native input/transfer integration, activation/profile
 policy and installed-provider/framework qualification remain. Keep the current
 WebView, deferred phone and global Android automation disabled.
+
+### Shared frame commands and parent-owner queries (E58)
+
+The actual native `frames` command now routes list/evaluate/owner/upload-policy/
+capture-owner requests through the bounded worker and proved native graph.
+Product/profile admission still runs first and stays disabled; there is no
+request flag to enable debugging or bypass it. Require literal `agent:true`,
+opaque frame/document aliases and action-specific fields. Reject caller-picked
+target/session/context/object IDs and unknown fields. Copy script/point data
+before queueing. Preserve the original host channel and view epoch when replying;
+cancelled or retired views cannot deliver a success for a replacement view.
+
+Replies distinguish stale frames, cancellation, timeout, unsupported capability
+and resource limits while retaining a bounded static `native_code`. They never
+expose raw provider exception details or protocol identifiers. Trusted-host
+script evaluation conservatively retains effect uncertainty; read-only owner
+metadata queries do not claim a website mutation. This command bridge implements
+the shared JS/C transport shape, not completed Agent/product qualification.
+
+Owner queries resolve the child frame's native owner node **on the pinned parent
+source**. DOM node resolution needs a numeric context parameter; that number is
+never used to select the function's execution realm. Instead call functions in
+the parent's proved unique context and pass the node as an object argument. The
+pinned engine checks that argument's context/isolate before running the function.
+Require negative unique-ID rejection and a harmless same-world argument proof
+before DOM helper execution. Never use an object's own/default realm as fallback.
+Guard both child and parent around every phase, including cleanup.
+
+Geometry, parent upload policy and capture-owner helpers come from the existing
+reviewed `host/native-frames.inc.hpp` bodies, using generated Java constants.
+`python tools/update_android_owner_scripts.py --check` runs before protocol tests
+and Android source hashing/build. Missing/ambiguous/oversize/stale helpers fail
+the check; unknown generated edits/pending writes are preserved. This adds no
+runtime generator/dependency and leaves the Windows helper implementation intact.
+
+Every query has one random temporary object group. Release it on the exact
+original source before publishing a result. On uncertain cleanup or lost budget,
+retire the binding, retain timeout/cancellation causes and withhold success; do
+not extend cleanup deadlines, retarget or replay a DOM query. The 451 owner and
+49 command-grammar checks use actual Java graph/world/worker/strict JNI with
+modeled DOM and native argument-world checks. Three Python generation contracts
+check shared-source parity. These are not Android DOM, UI or provider passes.
+Next complete frame-chain native input/capture, transfers and activation/profile
+policy, plus installed main-UI/shared JS/C testing. Review Windows' existing
+numeric/object realm selection against the same unique-context invariant during
+the cross-platform completion audit; no Windows realm qualification is inferred
+from Android's synthetic gate.

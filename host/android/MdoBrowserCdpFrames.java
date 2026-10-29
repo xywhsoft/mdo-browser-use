@@ -234,4 +234,17 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     JSONObject evaluate(String frame,String document,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         Route route=select(frame,document);refresh(deadline);validate(route);return worlds.evaluate(route,expression,effect,deadline);
     }
+    JSONObject owner(String action,String frame,String document,JSONObject point,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        if(!("owner".equals(action)||"upload_policy".equals(action)||"capture_owner".equals(action)))throw problem("cdp_owner_action_invalid");
+        JSONObject position=null;
+        if("owner".equals(action)){
+            if(point==null||point.length()!=2||!(point.opt("x") instanceof Number)||!(point.opt("y") instanceof Number))throw problem("cdp_owner_point_invalid");
+            double x=((Number)point.opt("x")).doubleValue(),y=((Number)point.opt("y")).doubleValue();
+            if(!Double.isFinite(x)||!Double.isFinite(y)||x<0||y<0||x>32768||y>32768)throw problem("cdp_owner_point_invalid");
+            try{position=new JSONObject().put("x",x).put("y",y);}catch(JSONException error){throw problem("cdp_owner_point_invalid");}
+        }else if(point!=null)throw problem("cdp_owner_point_invalid");
+        Route child=select(frame,document);refresh(deadline);validate(child);Node node=nodes.get(child.raw),parent=nodes.get(node.parent);
+        if(parent==null)throw problem("cdp_owner_root_unavailable");Route ancestor=select(parent.alias,parent.document);
+        return worlds.owner(child,ancestor,action,position,deadline);
+    }
 }

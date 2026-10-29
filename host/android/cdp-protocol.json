@@ -1,8 +1,14 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
-  "state": "private_isolated_frame_execution_packaged_not_agent_routed",
+  "state": "private_frame_owner_and_command_route_packaged_admission_disabled",
   "checked_date": "2026-10-30",
   "sources": [
+    {
+      "url": "https://chromium.googlesource.com/v8/v8/+/61ddd471ece346840bbebbb308dceb4b4ce31b28/src/inspector/injected-script.cc?format=TEXT",
+      "decoded_bytes": 52122,
+      "decoded_sha256": "d5cd666ab0fe962642c5386e2fd3db2f0f35c3aba3c44c35b38badd43ee43d05",
+      "facts": ["Remote-object arguments must belong to the selected native context and isolate", "Argument identity is checked before the target function runs"]
+    },
     {
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/renderer/core/inspector/main_thread_debugger.cc?format=TEXT",
       "decoded_bytes": 23239,
@@ -66,7 +72,7 @@
       "decoded_bytes": 47397,
       "decoded_sha256": "0996446e46c8395ab1c5d19455eb59be6b7655076c58f64b23de20283050b4c5",
       "chromium_deps_revision": "138.0.7204.0",
-      "facts": ["Global lexical names are enumerated through V8's native debug API", "Runtime evaluation resolves uniqueContextId instead of silently selecting a default context", "An invalid/missing unique context returns a distinct static InvalidParams message"]
+      "facts": ["Global lexical names are enumerated through V8's native debug API", "Runtime evaluation resolves uniqueContextId instead of silently selecting a default context", "An invalid/missing unique context returns a distinct static InvalidParams message", "callFunctionOn selects object, numeric context or unique context exclusively and resolves arguments in that selected context"]
     }
   ],
   "client_policy": {
@@ -193,7 +199,7 @@
     "provider_qualified": false
   },
   "frame_worlds": {
-    "state": "private_isolated_execution_packaged_not_agent_routed",
+    "state": "private_frame_command_route_packaged_product_admission_disabled",
     "world_names": "fresh_binding_namespace_and_native_source_frame_loader_proof",
     "names_per_ui_document_generation": 256,
     "name_budget_survives_lease_replacement": true,
@@ -212,6 +218,31 @@
     "automatic_effect_replay": false,
     "installed_provider_execution_verified": false
   },
-  "remaining": ["typed Agent routing and fixed shared frame operations", "trusted frame owner and native input/transfer integration", "debugging activation policy and profile qualification", "installed provider target-binding and isolated DOM execution qualification"],
+  "frame_owners": {
+    "state": "private_geometry_upload_policy_capture_owner_packaged",
+    "canonical_scripts": "host/native-frames.inc.hpp",
+    "generated_scripts_checked_before_compile": true,
+    "owner_relation": "native_child_frame_id_to_parent_backend_node",
+    "execution_target": "parent_unique_context_with_same_world_object_argument",
+    "object_or_numeric_id_selects_function_realm": false,
+    "negative_and_positive_function_probes": true,
+    "temporary_objects": "one_random_group_per_operation_on_original_source",
+    "cleanup_before_result": true,
+    "cleanup_after_deadline": "retire_binding_without_extending_or_retargeting",
+    "provider_geometry_qualified": false
+  },
+  "frame_commands": {
+    "state": "actual_host_route_packaged_product_admission_disabled",
+    "actions": ["list", "evaluate", "owner", "upload_policy", "capture_owner"],
+    "agent_literal_required": true,
+    "caller_raw_protocol_ids": false,
+    "immutable_queued_parameters": true,
+    "original_view_epoch_and_host_channel_reply": true,
+    "legacy_default_document_fallback": false,
+    "static_native_error_code_preserved": true,
+    "evaluation_effect_flag": "conservative_for_trusted_host_script",
+    "installed_ui_routing_verified": false
+  },
+  "remaining": ["guarded native frame-chain input and capture integration", "chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
   "android_automation_enabled": false
 }

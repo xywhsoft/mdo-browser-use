@@ -131,15 +131,67 @@ final class MdoBrowserCdpWorlds {
             // DOM readers necessarily invoke DOM accessors; throwOnSideEffect
             // is used for the fixed capability probes only, never as a policy.
             JSONObject reply=call(route,world.context,"Runtime.evaluate",evaluation(expression,world.context.unique,false,deadline),effect,deadline);
-            JSONObject remote=reply.optJSONObject("result");
-            if(reply.has("exceptionDetails")||remote==null||!remote.has("value")||remote.has("unserializableValue"))throw problem("cdp_world_evaluation_failed");
-            Object value=remote.get("value"),type=remote.opt("type");boolean valid=
-                "object".equals(type)&&(value==JSONObject.NULL||value instanceof JSONObject||value instanceof org.json.JSONArray)||
-                "string".equals(type)&&value instanceof String||"boolean".equals(type)&&value instanceof Boolean||
-                "number".equals(type)&&value instanceof Number&&Double.isFinite(((Number)value).doubleValue());
-            if(!valid)throw problem("cdp_world_result_invalid");
+            Object value=byValue(reply);
             JSONObject result=new JSONObject().put("ok",true).put("frame",route.frame).put("frame_document",route.document).put("value",value);
             if(result.toString().getBytes(StandardCharsets.UTF_8).length>RESULT_LIMIT)throw problem("cdp_world_result_limit");guard(route,world.context);return result;
         }catch(JSONException error){throw problem("cdp_world_result_invalid");}
+    }
+    private static Object byValue(JSONObject reply)throws IOException,JSONException {
+        JSONObject remote=reply.optJSONObject("result");
+        if(reply.has("exceptionDetails")||remote==null||!remote.has("value")||remote.has("unserializableValue"))throw problem("cdp_world_evaluation_failed");
+        Object value=remote.get("value"),type=remote.opt("type");boolean valid=
+            "object".equals(type)&&(value==JSONObject.NULL||value instanceof JSONObject||value instanceof org.json.JSONArray)||
+            "string".equals(type)&&value instanceof String||"boolean".equals(type)&&value instanceof Boolean||
+            "number".equals(type)&&value instanceof Number&&Double.isFinite(((Number)value).doubleValue());
+        if(!valid)throw problem("cdp_world_result_invalid");return value;
+    }
+    private JSONObject ownerCall(MdoBrowserCdpFrames.Route child,MdoBrowserCdpFrames.Route parent,Context context,String method,JSONObject params,
+                                 MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        frames.validate(child);JSONObject reply=call(parent,context,method,params,false,deadline);frames.validate(child);return reply;
+    }
+    private JSONObject function(String source,String unique,org.json.JSONArray args,String group,boolean proof)throws JSONException {
+        // Never select a realm using an object/numeric ID. The native engine
+        // resolves the unique context and checks argument IDs in that world.
+        return new JSONObject().put("functionDeclaration",source).put("uniqueContextId",unique).put("arguments",args)
+            .put("returnByValue",true).put("awaitPromise",false).put("silent",true).put("throwOnSideEffect",proof).put("objectGroup",group);
+    }
+    JSONObject owner(MdoBrowserCdpFrames.Route child,MdoBrowserCdpFrames.Route parent,String action,JSONObject point,
+                     MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        frames.validate(child);prepare(parent,deadline);World world=worlds.get(parent.frame);if(!active(world))throw problem("cdp_world_context_changed");
+        Context context=world.context;String group="mdo-frame-owner-"+java.util.UUID.randomUUID();boolean groupDeclared=false;IOException failure=null;JSONObject result=null;
+        try{
+            JSONObject owner=ownerCall(child,parent,context,"DOM.getFrameOwner",new JSONObject().put("frameId",child.raw),deadline);
+            int backend=number(owner.opt("backendNodeId"));groupDeclared=true;
+            JSONObject resolved=ownerCall(child,parent,context,"DOM.resolveNode",new JSONObject().put("backendNodeId",backend)
+                .put("executionContextId",context.id).put("objectGroup",group),deadline).optJSONObject("object");
+            if(resolved==null||!"object".equals(resolved.opt("type"))||!"node".equals(resolved.opt("subtype"))||!(resolved.opt("objectId") instanceof String))
+                throw problem("cdp_owner_node_invalid");
+            String object=resolved.getString("objectId");if(object.isEmpty()||object.length()>2048)throw problem("cdp_owner_node_invalid");
+            org.json.JSONArray args=new org.json.JSONArray().put(new JSONObject().put("objectId",object));
+            boolean uniqueRejected=false;
+            try{ownerCall(child,parent,context,"Runtime.callFunctionOn",function("function(element){return 0;}","",args,group,true),deadline);}
+            catch(MdoBrowserCdpSession.Failure error){if(error.uniqueContextRejected)uniqueRejected=true;else throw error;}
+            if(!uniqueRejected)throw problem("cdp_owner_unique_context_unsupported");
+            Object proof=byValue(ownerCall(child,parent,context,"Runtime.callFunctionOn",function("function(element){return 0;}",context.unique,args,group,true),deadline));
+            if(!(proof instanceof Number)||((Number)proof).doubleValue()!=0)throw problem("cdp_owner_world_proof_failed");
+            String body="owner".equals(action)?MdoBrowserCdpOwnerScripts.GEOMETRY:"upload_policy".equals(action)?MdoBrowserCdpOwnerScripts.UPLOAD_POLICY:MdoBrowserCdpOwnerScripts.CAPTURE;
+            if("owner".equals(action))args.put(new JSONObject().put("value",point));
+            Object value=byValue(ownerCall(child,parent,context,"Runtime.callFunctionOn",function("function(element,point){return ("+body+").call(element,point);}",context.unique,args,group,false),deadline));
+            if(!(value instanceof JSONObject)||!(((JSONObject)value).opt("ok") instanceof Boolean))throw problem("cdp_owner_result_invalid");
+            result=new JSONObject().put("ok",true).put("frame",child.frame).put("frame_document",child.document).put("parent",parent.frame)
+                .put("parent_document",parent.document).put("value",value);
+            if(result.toString().getBytes(StandardCharsets.UTF_8).length>RESULT_LIMIT)throw problem("cdp_world_result_limit");
+        }catch(JSONException error){failure=problem("cdp_owner_result_invalid");}
+        catch(IOException error){failure=error;}
+        catch(RuntimeException|Error error){failure=problem("cdp_owner_failed");}
+        finally{
+            if(groupDeclared)try{
+                // Release this exact random group on its original source even
+                // if the document pin changed. No cleanup eval or retargeting.
+                binding.call("Runtime.releaseObjectGroup",new JSONObject().put("objectGroup",group),parent.session,Math.min(5000,deadline.remaining()),false);
+            }catch(IOException|JSONException|RuntimeException|Error error){binding.close();if(failure==null){
+                String code=error.getMessage();failure=problem("cdp_worker_timeout".equals(code)||"cdp_worker_cancelled".equals(code)?code:"cdp_owner_cleanup_failed");}}
+        }
+        if(failure!=null)throw failure;frames.validate(child);guard(parent,context);return result;
     }
 }

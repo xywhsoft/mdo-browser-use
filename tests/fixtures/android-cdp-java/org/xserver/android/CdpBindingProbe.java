@@ -36,7 +36,7 @@ public final class CdpBindingProbe {
         try{return result.get(2,TimeUnit.SECONDS);}finally{Handler.drain();}
     }
     static final class Factory implements MdoBrowserCdpBinding.Factory {
-        interface Extra {boolean send(JSONObject request,Wire wire)throws Exception;}
+        interface Extra {boolean send(JSONObject request,Wire wire)throws Exception;default void closed(Wire wire){}}
         final WebView owned;final List<Wire> wires=new ArrayList<>();
         Extra extra;
         boolean ignoreUnique,wrongProof,cleanupFails,missingUnique,emptyFirst,loseContext,failOpen,changedLoader,unsupportedLexical;
@@ -114,7 +114,8 @@ public final class CdpBindingProbe {
             if(closed.get())throw new IOException("cdp_session_closed");byte[] value=replies.pollFirst();if(value!=null)packets.add(value);
             else try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IOException("cdp_binding_cancelled");}return value;
         }
-        public void close(){closed.set(true);while(!replies.isEmpty())Arrays.fill(replies.removeFirst(),(byte)0);}
+        public void close(){if(closed.compareAndSet(false,true)){
+            try{if(factory.extra!=null)factory.extra.closed(this);}finally{while(!replies.isEmpty())Arrays.fill(replies.removeFirst(),(byte)0);}}}
         void cleared(){for(byte[] bytes:sent)zero(bytes);for(byte[] bytes:packets)zero(bytes);}
         private void zero(byte[] bytes){boolean clear=true;for(byte b:bytes)if(b!=0)clear=false;check(clear);}
     }

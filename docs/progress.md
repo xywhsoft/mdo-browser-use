@@ -5522,3 +5522,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   phone/current WebView/formal data. No model calls, external page tests or
   publication performed; goal remains active.
 
+## E58 — route shared frame commands and prove parent-owner queries
+
+- Route the actual Android host's private `frames` command through the existing
+  bounded worker, native frame graph and isolated worlds. Preserve original
+  channel/view/epoch on delivery. Product/profile admission still runs first;
+  no request can enable debugging or bypass disabled automation admission.
+- Add an immutable action-specific command grammar for list/evaluate/owner/
+  upload-policy/capture-owner. Require literal Agent mode and opaque aliases;
+  refuse unknown protocol/debug/profile fields, malformed Unicode, invalid
+  points and budgets. Copy geometry before queuing. Retain bounded static native
+  causes in typed errors and conservative effect uncertainty for script calls.
+- Resolve each child owner on its pinned parent's native source. Resolve the
+  node in the parent's isolated world, then select execution by unique context
+  and pass the node only as a same-world checked object argument. Require
+  negative unique-ID rejection plus harmless same-world argument proof before
+  executing a fixed DOM helper. Pin the examined V8 argument context/isolate
+  checks; never select execution by object or numeric context fallback.
+- Generate Android geometry/upload-policy/capture-owner constants from the
+  unchanged reviewed Windows helper bodies. Verify exact parity before native
+  tests and APK source hashing. Release every temporary object group on its
+  original source within the original deadline; retire binding and withhold
+  success after uncertain cleanup. Guard both child and parent throughout.
+- Actual Java/JNI/protocol gate passes 451 owner and 49 command checks, plus all
+  retained discovery/WebSocket/worker/binding/graph/world gates. New fixtures
+  cover nested process parents, wrong-realm objects, ignored unique IDs,
+  navigation, cleanup loss and deadline/cancellation, immutable parameters,
+  malformed routing and error/effect receipts (`.mdo/E58-owner-router.log`).
+  DOM/provider/UI peers remain modeled, not an installed-provider pass. Three
+  Python generation contracts pass; complete regression passes 165/167 with two
+  existing symlink skips in 46.781 s (`.mdo/E58-python-full.log`).
+- Stop/apply reviewed overlays and rebuild the complete development APK using
+  the verified existing native engine, N5 app archive and QA signer. APK:
+  6,346,049 bytes, SHA-256
+  `fb62fdc669592fe37127835b0fbc14b351ca96d4038a85bb8236fa83d695aad3`
+  (`.mdo/E58-android-build.log`, adjacent receipt). SDK/D8 classes, native ABI,
+  manifest/payload/signatures and reviewed source/native/helper checks pass.
+  Single development deployment remains HTTP 200, 3,418.0 MiB.
+- Keep global Android automation disabled. Continue native frame-chain input/
+  capture, chooser/download/activation policy and installed main-UI/shared C/JS
+  qualification. Audit Windows numeric/object realm selection against the same
+  unique-context invariant before cross-platform completion. Phone is deferred;
+  preserve its provider/formal data. No model calls, external pages or release;
+  long-term goal remains active.
+

@@ -23,11 +23,11 @@ public final class CdpWorldsProbe {
     private static JSONObject event(String method,String source,JSONObject params)throws Exception {
         JSONObject event=new JSONObject().put("method",method).put("params",params);if(source!=null)event.put("sessionId",source);return event;
     }
-    private static final class Context {
+    static final class Context {
         final int id;final String source,frame,name,unique;
         Context(int id,String source,String frame,String name){this.id=id;this.source=source;this.frame=frame;this.name=name;unique="isolated-"+(source==null?"root":source)+"-"+id;}
     }
-    private static final class Engine implements CdpBindingProbe.Factory.Extra {
+    static final class Engine implements CdpBindingProbe.Factory.Extra {
         final Map<String,Context> contexts=new HashMap<>();final Map<String,Integer> ids=new HashMap<>();
         final ArrayDeque<JSONObject> pending=new ArrayDeque<>();String name;
         int created,createCalls,negative,proofs,evaluations;boolean seenPageCode;

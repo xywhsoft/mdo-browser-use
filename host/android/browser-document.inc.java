@@ -5,8 +5,8 @@
     private final MdoBrowserCdpRegistry<WebView> cdpViews=new MdoBrowserCdpRegistry<>((view,document,current)->
         new MdoBrowserCdpView(view,owned->owned==view&&current.getAsBoolean(),document).marker(),cdpWorker::cancel);
     private boolean browserPaused;
-    // Private admission only: no raw protocol/source/endpoint route is exposed.
-    // The async backend will consume this once frame/profile policy is ready.
+    // Exact private ownership for the asynchronous frame command route.
+    // Product/profile admission is required before requesting this marker.
     private MdoBrowserCdpMarker cdpMarker(String key,WebView view){
         final long epoch=views.epoch(key,view);final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
         return cdpViews.marker(key,view,epoch,original,()->!stopped&&!browserPaused&&views.owns(key,view)&&

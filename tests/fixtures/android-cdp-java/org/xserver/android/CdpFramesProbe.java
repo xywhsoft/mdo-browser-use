@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -44,6 +45,7 @@ public final class CdpFramesProbe {
         String childLoader="child-load",leafParent="child-local",attachType="iframe";
         boolean badChildRoot,badParent,duplicateTree,rootWithParent,includeLocal=true,extraSource,omitChild,navigateDuringSnapshot,detachDuringSnapshot,cycle;
         int extraFrames,extraSessions,depth;int snapshotCount;boolean treeRaced;
+        public void closed(CdpBindingProbe.Wire wire){if(extra!=null)extra.closed(wire);}
         JSONObject tree(String source)throws Exception {
             if(source==null){
                 JSONObject tree=frame("frame-owned",rootWithParent?"foreign":null,"load-owned");JSONArray children=new JSONArray();
@@ -91,6 +93,7 @@ public final class CdpFramesProbe {
     }
     static final class Case {
         boolean lastEffect;
+        final AtomicLong clockOffset=new AtomicLong();
         final WebView view=new WebView();final MdoBrowserCdpMarker marker=new MdoBrowserCdpView(view,v->v==view).marker();
         final Plan plan=new Plan();final List<CdpBindingProbe.Factory> peers=new ArrayList<>();
         final MdoBrowserCdpWorker worker=new MdoBrowserCdpWorker(new MdoBrowserCdpWorker.Ui(){
@@ -100,7 +103,7 @@ public final class CdpFramesProbe {
             CdpBindingProbe.Factory peer=new CdpBindingProbe.Factory(view);peers.add(peer);
             MdoBrowserCdpBinding binding=MdoBrowserCdpBinding.bind(owned,budget,(method,session,params)->{},timeout->Arrays.asList("owned"),peer);
             plan.armed.clear();peer.extra=plan;return binding;
-        },()->System.nanoTime()/1000000L);
+        },()->System.nanoTime()/1000000L+clockOffset.get());
         JSONObject run(Operation operation)throws Exception {
             return run(false,operation);
         }
