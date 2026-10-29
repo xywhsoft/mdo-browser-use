@@ -5028,3 +5028,28 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   lifetime/OOM/performance and final delivery remain open. All Android automation
   and device/framework qualification fields remain false.
 
+## F19 — bounded public Windows lifecycle and latency measurement
+
+- Add `tools/browser_cycles_probe.py`. Use the one deployment/Home and actual
+  preauthorized public C SDK, workbench and WebView2 for eight sequential
+  loopback browser cycles. Each creates/observes a page, fills through native
+  input, verifies exactly one trusted click, captures a native PNG and closes.
+  No model/external site, additional application/Home or persisted screenshot
+  is used. Restore the same deployment to headless mode in `finally`.
+- All eight cycles pass. Release 40 terminal UI receipts and verify each
+  original ID subsequently returns HTTP 410 `sdk_ui_receipt_expired`. Preserve
+  baseline tabs after every close, with zero pending owned receipts and zero
+  transfer reservations. Evidence: `.mdo/F19-browser-cycles.log` and
+  `.mdo/browser-cycles-result.json`.
+- Measured median wall times: create 14.68 ms, initial observe 1,654.26 ms,
+  native fill 2,018.85 ms, click 1,931.99 ms, verification observe 1,512.42 ms,
+  capture 1,712.45 ms and close 35.95 ms. These include Python bootstrap/HTTP
+  and 50 ms receipt polling, cover eight local samples only and are not a
+  production performance budget. Investigate the repeated 1.5–2 second
+  completion latency before attributing it to native browser execution.
+- Sample the actual native host process: handles 387 → 388 (maximum 391),
+  private bytes 32,387,072 → 35,950,592. Chromium child processes are excluded;
+  this cold-start/caching sample is not a memory-leak qualification. Android,
+  real visual/authenticated physical-transport and broader lifetime/OOM/
+  performance/final delivery scope remain active.
+
