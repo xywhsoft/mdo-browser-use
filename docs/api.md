@@ -36,8 +36,18 @@ exact ancestor/focus/geometry checks, optional complete visual frame snapshots
 and the existing owned-WebView input sequencer cover nested-frame click, hover,
 wheel, focus, text and keys in deterministic Java/JNI tests. The actual host APK
 compiles these adapters. This does not enable Android Agent admission or qualify
-installed-provider input. Frame-chain capture,
-transfer/profile policy and physical/main-UI verification remain outstanding.
+installed-provider input. Its private capture route now consumes the shared
+`android-native-frames-v1` context: complete native graph, exact unique worlds,
+local documents and parent-owner geometry are checked before draw and after
+encoding within one original deadline. The trusted shared renderer still
+composes privacy masks and keeps unreadable subtrees opaque. Android captures
+only the original visible viewport, using a bounded lossless PNG source; an
+offscreen/full-page region is explicitly unsupported. Rejection/cancellation
+withholds and clears private encoded bytes. The complete native frame adapter
+can issue a scoped visual reference, while the old main-document adapter cannot.
+These are packaged implementation/fixture results, not installed-provider
+capture qualification. Transfer/profile policy and physical/main-UI verification
+remain outstanding; global Android automation is disabled.
 
 The shared private frame driver now resolves scroll points through exact native
 iframe owners, passing each local document identity and the final leaf hit plus

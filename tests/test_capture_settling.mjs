@@ -7,7 +7,10 @@ for(const [name,path] of [['executeDownloadSave, downloadSaveState','download-sa
   source=source.replace(`import { ${name} } from "./${path}";`,`import {${name}} from ${JSON.stringify(new URL('../host/'+path,import.meta.url).href)};`);
 }
 source=source.replace('import { browserRuntime } from "./automation-runtime.js";','function browserRuntime(){}')
-  .replace('import { prepareScreenshot } from "./capture-image.js";',`async function prepareScreenshot(native,area,after){globalThis.__captureSettlingRenders++;return{image:{width:area.region.width,height:area.region.height,bytes:12},redaction:'fixture'}}`)
+  .replace('import { prepareScreenshot } from "./capture-image.js";',`async function prepareScreenshot(native,area,after,params,inspect={}){
+    globalThis.__captureSettlingRenders++;const {width,height}=area.region;
+    if(inspect.raster)await inspect.raster({width,height,getContext:()=>({getImageData:(x,y,w,h)=>({data:new Uint8ClampedArray(w*h*4)})})});
+    return{image:{width,height,bytes:12},redaction:'fixture'}}`)
   .replace('import { executeFileUpload } from "./upload-dispatch.js";','async function executeFileUpload(){throw Error("Unexpected upload")}')
   .replace('import { executeBrowserDownload } from "./download-dispatch.js";','async function executeBrowserDownload(){throw Error("Unexpected download")}');
 const {executeBrowserAutomation}=await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
@@ -25,7 +28,10 @@ function fixture(areas,mode=''){
       return value;
     }},view:{async execute(command,options){
       if(command==='state')return{loading:false,automation:true,capture_capability:true,navigation:state.navigation,manual:state.manual};
-      if(command==='capture'){state.captures.push(options);return{data:'private-invalidated-native-capture',...(state.sourceFormat!==undefined?{format:state.sourceFormat}:{})};}
+      if(command==='capture'){state.captures.push(options);return{data:'private-invalidated-native-capture',
+        ...(options.capture_context?{ok:true,document:options.capture_context.document,native_document:options.capture_context.native_document,
+          navigation:options.capture_context.navigation,capture_key:options.capture_key}:{}),
+        ...(state.sourceFormat!==undefined?{format:state.sourceFormat}:{}),...state.captureReply};}
       throw Error('Unexpected native operation '+command);
     }}};
   return{args,state,run:()=>executeBrowserAutomation(args)};
@@ -72,6 +78,29 @@ test('public screenshot codecs retain a separate bounded lossless native source'
     const out=await f.run();assert(out.result.ok);assert.equal(f.state.captures.length,1);
     assert.equal(f.state.captures[0].format,'png');assert.equal(f.state.captures[0].max_bytes,262144);
     assert.equal(f.args.params.format,format);assert.equal(f.args.params.max_bytes,8192);
+  }
+});
+
+test('only a complete native frame adapter can issue Android visual references',async()=>{
+  for(const adapter of ['android-native-frames-v1','android-main-document-v1']){
+    const first=area(),context={adapter,native_document:'fd-00000000-0000-4000-8000-000000000001',document:doc,navigation:1,
+      viewport:{width:100,height:100},scroll:{x:0,y:0},device_pixel_ratio:1,frame_stamp:first.frame_stamp};
+    first.native_capture=context;first.frame_scope=adapter==='android-native-frames-v1'?'native-frame-tree':'main-document';
+    first.limitations=['android-visible-viewport-only'];
+    const f=fixture([first,first],adapter);f.state.navigation=1;
+    const out=await f.run();assert(out.result.ok);assert.deepEqual(f.state.captures[0].capture_context,context);
+    assert.equal(Boolean(out.result.visual_reference),adapter==='android-native-frames-v1');
+    assert.equal(out.result.frame_scope,first.frame_scope);assert(!JSON.stringify(out.result).includes('native_capture'));
+  }
+});
+
+test('Android native screenshot errors and mismatched echoes cannot reach the shared raster renderer',async()=>{
+  for(const mode of ['failed','navigation','document','capture_key']){
+    const first=area();first.native_capture={adapter:'android-native-frames-v1',native_document:'fd-00000000-0000-4000-8000-000000000001',document:doc,navigation:1};
+    const f=fixture([first,first],mode);f.state.navigation=1;
+    f.state.captureReply=mode==='failed'?{ok:false,error:{code:'capture_changed'}}:{[mode]:'changed'};
+    const out=await f.run();assert.equal(out.result.error.code,'capture_changed');assert.equal(globalThis.__captureSettlingRenders,0);
+    assert(!Object.hasOwn(out.result,'image'));assert.equal(out.result.error.effect_may_have_occurred,false);
   }
 });
 

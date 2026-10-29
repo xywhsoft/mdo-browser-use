@@ -26,6 +26,8 @@ public final class CdpOwnerProbe {
         ObjectRef(String source,String group,String child,CdpWorldsProbe.Context context){this.source=source;this.group=group;this.child=child;this.context=context;}
     }
     static final class Server implements CdpBindingProbe.Factory.Extra {
+        interface OwnerValue {JSONObject value(String child,JSONObject value)throws Exception;}
+        OwnerValue ownerValue;
         final CdpWorldsProbe.Engine worlds;final CdpFramesProbe.Case host;final Map<String,ObjectRef> objects=new HashMap<>();
         final Map<Integer,String> backends=new HashMap<>();String pendingChild;int queries,resolves,negative,proofs,helpers,releases,disconnects;
         boolean badBackend,badNode,wrongRealm,ignoreUnique,helperException,badValue,resolveNavigation,parentNavigation,releaseFailure,timeout;
@@ -84,6 +86,7 @@ public final class CdpOwnerProbe {
                 else {check(args.length()==1&&declaration.contains(MdoBrowserCdpOwnerScripts.UPLOAD_POLICY));}
                 if(parentNavigation)wire.queue(event("Page.frameNavigated","child-session",new JSONObject().put("frame",new JSONObject().put("id","child-local").put("parentId","child-frame").put("loaderId","changed-parent-load"))));
                 if(timeout)host.clockOffset.addAndGet(20000);
+                if(ownerValue!=null)value=ownerValue.value(object.child,value);
                 if(badValue)value.put("ok","ambiguous");JSONObject reply=new JSONObject().put("result",new JSONObject().put("type","object").put("value",value));
                 if(helperException)reply.put("exceptionDetails",new JSONObject().put("text","private owner detail"));result(wire,request,reply);return true;
             }

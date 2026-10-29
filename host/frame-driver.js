@@ -9,7 +9,9 @@ const pointValid=point=>point&&[point.x,point.y].every(number=>Number.isFinite(n
 
 // The final dispatcher uses fixed methods only. Script and process/context IDs
 // cannot be supplied by a model. Route metadata is for native adapters alone.
-export function createFrameDriver({execute,checkpoint=async()=>{}}){
+export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=null}){
+  if(nativeCapture&&(!Number.isSafeInteger(nativeCapture.navigation)||nativeCapture.navigation<1))throw issue('capture_context_invalid','The Android capture owner has no exact navigation');
+  const captureOwner=nativeCapture?Object.freeze({navigation:nativeCapture.navigation}):null;
   async function read(method,options={},control={}){
     let possibleEffect=false,interruption=null;
     const deadline=performance.now()+Math.min(60000,Math.max(1,Number(options.timeout_ms)||10000));
@@ -157,7 +159,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{}}){
         return{...target,document:options.document,element:{...target.element,frame:route.frame,ref:`r1|${route.frame}|${route.frame_document}|${meta.document}|${target.element.ref}`},
           native_target:{document:meta.document,ref:target.element.ref,frame_chain:chain}};
       }
-      if(method==='captureArea')return await prepareFrameCapture({options,native,evaluate,
+      if(method==='captureArea')return await prepareFrameCapture({options,native,evaluate,nativeCapture:captureOwner,
         describe:args=>fromReader('describe',args),locate:args=>fromReader('locate',args)});
       const found=await fromReader('locate',{document:options.document,target:options.target,_upload:method==='uploadInfo'});
       if(!found.ok)return found;

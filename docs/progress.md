@@ -5778,3 +5778,47 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   cover the next native frame-capture changes, still pending their feature
   commit, SDK build and artifact refresh. Keep the first failing log as evidence
   (`.mdo/E65-node-full.log`). No model calls, provider changes or publication.
+
+## E65 — connect shared privacy composition to native frame-graph capture
+
+- Freeze the shared Android native navigation and send the complete composed
+  frame stamp with root native/local identities, viewport/scroll/DPR. Preserve
+  all existing shared masks and Windows wire behavior. Parse/copy immutable
+  native capture requests with strict fields/rooted ancestry, safe navigation,
+  bounded embedded JSON before recursive parsing and exact end-of-input.
+- Connect the original owned-WebView raster transaction to the existing bounded
+  private worker/native graph/unique worlds. Before draw and after encode, prove
+  every readable local document plus parent-owned reference/geometry, then root
+  world and complete graph again. Keep exact view/epoch/channel and one absolute
+  deadline. Cancel only the original pending lease; withhold/clear private bytes
+  on failure and clear after encoded handoff. Unreadable subtrees stay opaque.
+  Offscreen/full-page regions are explicitly unsupported on Android; preserve
+  native PNG/262,144-byte/4,194,304-pixel caps and existing global capture quotas.
+- Allow scoped visual references only for the complete native frame adapter,
+  carrying its exact context/receipt through subsequent image validation. Fix
+  visual validation's private source to PNG/262,144 bytes independent of public
+  JPEG/small-output settings. Changed/failed/lossy replies dispatch no input.
+- Actual Java/JNI/JSON/frame-world-owner-worker/capture transaction passes 161
+  checks with synthetic protocol peers/UI/raster, retaining balanced cleanup and
+  no provider qualification (`.mdo/E65-native-frame-capture-final.log`). Full
+  Node passes 299/299 in 19.655 s; full Python passes 165/167 with two existing
+  symlink skips in 72.789 s; final Android contracts pass 20/20. Actual Windows
+  WebView2 frame checks pass 224 with no crash diagnostics/private reservations;
+  portable package import/restart/roundtrip passes 8; packed runtime passes 12.
+  Logs: `.mdo/E65-node-fixed.log`, `.mdo/E65-python-full.log`,
+  `.mdo/E65-android-contracts-final.log`, `.mdo/E65-native-frames.log`,
+  `.mdo/E65-package-probe.log`, `.mdo/E65-windows-{package,program}.log`.
+- Refresh the same artifacts in place. Windows: 6,883,165 bytes, SHA-256
+  `6b9d858c0d713ee4ba7543060e0f341b56d9d0accb26b3f9edd86aa3625900b6`,
+  750 files; plugin unchanged at 247,351 bytes, SHA-256
+  `c6b74a2780f13d08570e61bdaf58cbcbc8c4678dc06ce0348de5e8a370ae5d41`;
+  complete Android development APK: 6,358,337 bytes, SHA-256
+  `5e5edfd69a0044e1b9407261d81a1a144fc43808b5d7a86411c26992d5158aa6`.
+  SDK/D8/DEX/native ABI/payload/private-provider/alignment/signature build passes
+  (`.mdo/E65-android-build.log`). Reuse the same native engine, QA signer, Home
+  and source checkout. Official update caches/formal data unchanged.
+- Goal remains active. Continue chooser/source/download transfers, activation/
+  profile policy and installed-provider/main-UI/drawing qualification, plus the
+  remaining Windows unique-context/realm audit. Phone/current WebView stay
+  deferred; Android automation/debugging remain disabled. No model calls,
+  external page browsing, extra app/Home copies or online release.

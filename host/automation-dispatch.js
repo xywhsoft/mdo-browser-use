@@ -286,7 +286,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         }
         if (["x","y","width","height"].some(key=>Math.abs(area.region[key]-after.region[key])>0.5)) return fail("capture_changed", "The screenshot region changed during capture; request a fresh image");
         let raster;
-        const image = await prepareScreenshot(native,area,after,params,pageDriver&&!area.native_capture?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
+        const image = await prepareScreenshot(native,area,after,params,pageDriver&&(!area.native_capture||area.native_capture.adapter==='android-native-frames-v1')?{raster:async canvas=>{raster=await hashVisualRaster(canvas);}}:{});
         checked = await guard(true);if (checked.handled) return checked;
         const visual=raster?visualSnapshots.issue(writer,{document:area.document,navigation,frame_stamp:area.frame_stamp,
           region:area.region,options,redactions:[...area.redactions,...after.redactions],device_pixel_ratio:area.device_pixel_ratio,

@@ -265,6 +265,22 @@
     "installed_provider_input_verified": false,
     "shared_android_subframe_scroll_dispatch": "implemented_in_shared_runtime_20_not_provider_qualified"
   },
-  "remaining": ["frame-chain capture integration", "chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
+  "frame_capture": {
+    "state": "private_owned_webview_capture_route_product_admission_disabled",
+    "context_adapter": "android-native-frames-v1",
+    "immutable_parameters": true,
+    "embedded_stamp_limit": {"characters": 65536, "depth": 8, "containers": 512, "frames": 32},
+    "native_complete_graph_and_unique_world_guards": "before_draw_and_after_encode_same_deadline",
+    "owner_binding": "exact_native_parent_and_local_reference_plus_geometry",
+    "privacy_masks": "existing_trusted_shared_frame_composition_opaque_subtrees_preserved",
+    "raster_scope": "original_visible_viewport_only",
+    "source_format": "lossless_png",
+    "source_bytes_max": 262144,
+    "raster_pixels_max": 4194304,
+    "private_bytes_cleared_on_rejection": true,
+    "shared_visual_reference": "native_frame_adapter_only_not_legacy_main_document",
+    "installed_provider_capture_verified": false
+  },
+  "remaining": ["chooser/source/download transfer integration", "debugging activation policy and profile qualification", "installed provider DOM/geometry/drawing/main-UI qualification", "shared JS/C end-to-end qualification and cross-platform realm audit"],
   "android_automation_enabled": false
 }

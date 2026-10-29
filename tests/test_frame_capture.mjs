@@ -66,6 +66,17 @@ test('unsupported transforms retain the exact opaque parent mask and stop descen
   await assert.rejects(f.run({mode:'element',target:{ref:'qualified'}}),error=>error.code==='frame_capture_unsupported');
 });
 
+test('Android capture context carries opaque masks without claiming unreadable descendants',async()=>{
+  const f=fixture();f.args.nativeCapture={navigation:3};
+  f.owners[child]={ok:false,owner:{document:doc(1),ref:'e9'},error:{code:'unsupported_geometry'}};
+  const out=await f.run(),stamp=JSON.parse(out.native_capture.frame_stamp);assert(out.ok);
+  assert.equal(stamp[1][5],'opaque_geometry');assert.equal(stamp[2][5],'opaque_ancestor');
+  assert.equal(stamp[1][6],null);assert.equal(stamp[2][9],null);
+  assert.deepEqual(stamp[1][9],{owner:{document:doc(1),ref:'e9'}});
+  assert(out.redactions.some(box=>JSON.stringify(box)===JSON.stringify(rect(100.5,300.25,300,200))));
+  assert.equal(out.native_capture.navigation,3);assert.equal(out.native_capture.frame_stamp,out.frame_stamp);
+});
+
 test('unreadable or excessive child scans stay opaque without bypassing cancellation',async()=>{
   for(const kind of ['budget','unreadable']){
     const f=fixture();f.state.beforeArea=route=>{if(route.frame===child){if(kind==='budget')return{ok:false,error:{code:'capture_preparation_failed'}};throw Object.assign(Error('Frame vanished'),{code:'frame_evaluation_failed'});}};

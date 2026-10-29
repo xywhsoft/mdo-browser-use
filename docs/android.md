@@ -1,7 +1,7 @@
 # Android Browser Use adapter
 
 The Android implementation is in progress. Reviewed overlays extend the pinned
-manual WebView with isolated main-document execution, guarded native input,
+manual WebView with private isolated native-frame execution, guarded native input,
 capture and retained dialogs. These compile and have deterministic contract
 checks; actual framework and full host-UI qualification remain incomplete.
 Frames, transfers and remaining input capabilities still need implementation
@@ -14,19 +14,19 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. Automatic chooser assignment and trusted source-frame identity
 remain unavailable; the chooser implementation does not enable automation.
 
-## Complete development host APK (E46/E64)
+## Complete development host APK (E46/E65)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,350,145 bytes, SHA-256
-`bba4e663d088552238bea0e8f371cea02dade905fba634db7196e41685bfb297`.
+Current APK: 6,358,337 bytes, SHA-256
+`5e5edfd69a0044e1b9407261d81a1a144fc43808b5d7a86411c26992d5158aa6`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
-key is included. The app archive is extracted from the already exercised E63
+key is included. The app archive is extracted from the already exercised E65
 Windows artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -2039,9 +2039,9 @@ close/deadline, lost UI dispatch, failed delivery/allocation, invalid encoding o
 cleanup failure. A lost UI delivery releases its already terminal resource
 reservation after clearing the bytes; unconfirmed bitmap cleanup retains its
 existing poisoned reservation. Final validation never replays a draw/encode or
-extends a deadline. The current main-document guard uses this two-phase path;
-private native frame-graph capture context/combined-mask integration remains
-pending, and overall Android Agent admission stays disabled.
+extends a deadline. E64 first used this path with the main-document guard; E65
+below replaces that guard with the private complete native-frame proof. Overall
+Android Agent admission stays disabled.
 
 `python tools/android_capture_probe.py` passes 304 actual Java-core checks with
 synthetic targets/schedulers/raster encoders. Added coverage includes final-guard
@@ -2054,3 +2054,57 @@ full Python regression passes 165/167 with two existing symlink skips in 65.829 
 (`.mdo/E64-python-full.log`). The current provider/phone remain deferred and
 framework drawing, installed-provider geometry and full frame capture are still
 unqualified. Windows program/paired plugin remain at the exercised E63 versions.
+
+### Native frame-graph screenshot transaction (E65)
+
+The shared frame driver now freezes the Android native navigation owner and
+passes an `android-native-frames-v1` capture context: exact root native/local
+documents, viewport/scroll/DPR and the complete composed frame stamp. Windows
+keeps its existing wire format. The trusted renderer retains its original
+per-frame masks, including opaque geometry/ancestors and unreadable subtrees;
+the native guard does not remove masks or infer child identity from URLs/names.
+
+`MdoBrowserCdpCapture` copies the admitted primitives, validates rooted unique
+frame rows and bounds the embedded stamp before recursive JSON parsing (65,536
+characters, depth 8, 512 containers, 32 frames, no second/trailing value). Caller
+scripts, raw protocol IDs, old context adapters and lossy sources are rejected.
+Native and context navigation use the same positive JavaScript-safe integer.
+The original visible native viewport must match the root CSS scale/scroll.
+Offscreen/full-page regions fail explicitly; no hidden scrolling is performed.
+The source remains PNG, at most 262,144 encoded bytes and 4,194,304 output pixels.
+
+Before drawing and again after encoding, the existing bounded worker checks the
+complete native graph, exact unique isolated world/local document of each
+readable frame, parent-owned local iframe reference, geometry and viewport/scroll.
+Opaque geometry must remain the same known unsupported geometry. Recheck root
+world and graph at each terminal barrier; retain one original deadline. Bind
+delivery to the original native view, epoch and host channel. Closing/cancelling
+the guard cancels its exact pending native lease; no draw/input is replayed.
+E64's core withholds/clears private PNG bytes on rejection and releases its
+bounded reservation only after final validation. The host clears delivered bytes
+after base64 handoff; shared mask composition and postcapture scanning still run.
+
+The complete Android frame adapter can issue the existing scoped visual reference;
+the legacy main-document adapter still cannot. Subsequent image actions carry
+that exact native capture context and require its echoed receipt. Their private
+validation source now always requests PNG/262,144 bytes, independently of the
+public JPEG or small output limit. Lossy/changed/failed receipts dispatch no input.
+
+Verification: actual production Java/JNI/graph/world/owner/worker plus capture
+transaction pass 161 checks (`.mdo/E65-native-frame-capture-final.log`). This uses
+real JNI/JSON/socket transport, but protocol peers, UI/scheduler and raster are
+synthetic; it does not qualify an Android framework/provider. Coverage includes
+child document/owner changes before/after encode, opaque descendants, immutable
+caller data, cancellation, byte clearing, original deadlines/cleanup and bounded
+malformed/deep/trailing stamps. The existing core's 304 two-phase/lifetime checks
+remain in E64. Node passes 299/299; Python passes 165/167 with two symlink skips;
+final Android contracts pass 20/20. Actual Windows WebView2 frame regression
+passes 224, package roundtrip 8, refreshed packed Windows runtime 12. The complete
+SDK/D8/ABI/payload/private-provider/alignment/signature APK build passes
+`.mdo/E65-android-build.log`; the artifact hash is recorded at the top of this file.
+
+No device/provider update or installation took place. Native chooser assignment,
+download/source transfers, activation/profile policy, installed DOM/drawing/input/
+main-UI checks and the cross-platform unique-context audit remain outstanding.
+Android Agent admission/debugging stay disabled, with the existing manual
+browser and formal package/data preserved. No model calls or online publication.

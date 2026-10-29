@@ -13,11 +13,11 @@ const {createFrameDriver}=await import(url(driver));
 const guid=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const doc='d-'+guid(1),local='d-'+guid(2),child='f-'+guid(2),fd='fd-'+guid(2),rootFd='fd-'+guid(1);
 
-function fixture(){
+function fixture(nativeCapture=null){
   const rows=[{id:'f0',document:rootFd,parent:null,isolated:true,loading:false,url:'https://root.test'},
     {id:child,document:fd,parent:'f0',isolated:true,loading:false,url:'https://child.test'}];
   const state={calls:[],effect:0,parentFocused:true,parentInert:false,onRead:null,checkpoint:null,pickers:[{id:'chooser-fixture',supported:true,frame:child,frame_document:fd}]};
-  const api=createFrameDriver({checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
+  const api=createFrameDriver({nativeCapture,checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
     state.calls.push({...params,command});
     if(command==='chooser'){
       if(params.action==='list')return{ok:true,choosers:structuredClone(state.pickers)};
@@ -68,6 +68,20 @@ test('prepare maps a qualified target and pins the complete document chain',asyn
   assert.deepEqual(out.point,{x:120,y:210});assert.equal(out.geometry.length,16);
   assert.deepEqual(out.frame_chain,[{frame:child,document:fd},{frame:'f0',document:rootFd}]);
   assert.deepEqual(out.native_target,{document:local,ref:'e1'});
+});
+
+test('Android frame capture freezes its native navigation and retains the complete shared privacy stamp',async()=>{
+  const context={navigation:7},f=fixture(context);context.navigation=999;
+  const out=await f.api.read('captureArea',{document:doc,mode:'viewport'});
+  assert(out.ok);assert.deepEqual(out.native_capture,{adapter:'android-native-frames-v1',native_document:rootFd,document:doc,navigation:7,
+    viewport:out.viewport,scroll:out.scroll,device_pixel_ratio:out.device_pixel_ratio,frame_stamp:out.frame_stamp});
+  const stamp=JSON.parse(out.frame_stamp);assert.equal(stamp.length,2);assert.equal(stamp[0][2],null);assert.equal(stamp[1][6],local);
+  assert.equal(stamp[1][9].owner.ref,'e9');assert.equal(out.frame_scope,'native-frame-tree');
+  assert.deepEqual(out.limitations,['android-visible-viewport-only']);assert.equal(out.redactions.length,2);
+  const windows=await fixture().api.read('captureArea',{document:doc,mode:'viewport'});assert(windows.ok);
+  assert(!Object.hasOwn(windows,'native_capture'));assert.equal(windows.frame_stamp,out.frame_stamp);
+  for(const navigation of [0,-1,1.5,'7',NaN,Infinity,Number.MAX_SAFE_INTEGER+1])
+    assert.throws(()=>fixture({navigation}),error=>error.code==='capture_context_invalid');
 });
 
 test('visual points bind the exact root or child owner without DOM selector guesses',async()=>{

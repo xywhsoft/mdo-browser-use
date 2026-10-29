@@ -13,7 +13,7 @@ const intersect=(a,b)=>{
 const sameRect=(a,b)=>a&&b&&['x','y','width','height'].every(key=>Math.abs(a[key]-b[key])<.05);
 const samePoint=(a,b)=>point(a)&&point(b)&&Math.abs(a.x-b.x)<.05&&Math.abs(a.y-b.y)<.05;
 
-export async function prepareFrameCapture({options,describe,locate,evaluate,native}){
+export async function prepareFrameCapture({options,describe,locate,evaluate,native,nativeCapture=null}){
   const mode=options.mode||'viewport';
   if(!['viewport','full_page','element'].includes(mode))throw issue('capture_mode_invalid','Choose a supported capture mode');
   const meta=await describe({document:options.document});if(!meta.ok)return meta;
@@ -124,6 +124,9 @@ export async function prepareFrameCapture({options,describe,locate,evaluate,nati
       record.area?.document,record.area?.scroll,record.area?.viewport,record.edge];
   }));
   return{ok:true,document:meta.document,region,redactions,device_pixel_ratio:base.device_pixel_ratio,scroll:base.scroll,viewport:base.viewport,
+    ...(nativeCapture?{native_capture:{adapter:'android-native-frames-v1',native_document:root.document,document:meta.document,navigation:nativeCapture.navigation,
+      viewport:{width:base.viewport.width,height:base.viewport.height},scroll:{x:base.scroll.x,y:base.scroll.y},device_pixel_ratio:base.device_pixel_ratio,frame_stamp},
+      frame_scope:'native-frame-tree',limitations:['android-visible-viewport-only']}:{}),
     redaction:'form-controls-and-opaque-content',frame_stamp,visited:usedNodes,
     frame_masks:{readable:[...records.values()].filter(record=>record.area).length,opaque:[...records.values()].filter(record=>!record.area&&record.status!=='outside_capture'&&record.status!=='not_painted').length}};
 }

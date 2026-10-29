@@ -46,7 +46,8 @@ export async function executeVisualAction({browser,params,view,read,guard,send,s
     const scale=Math.min(1,capture.max_width/(area.region.width*area.device_pixel_ratio),capture.max_height/(area.region.height*area.device_pixel_ratio));
     let settled=false,native,failure;key=action.id+'-visual';
     const pending=view.execute('capture',{agent:true,navigation:proof.navigation,capture_key:key,clip:{...area.region,scale},
-      format:capture.format,max_bytes:capture.max_bytes,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
+      ...(area.native_capture?{capture_context:area.native_capture}:{}),
+      format:'png',max_bytes:262144,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))})
       .then(value=>{native=value;settled=true;},error=>{failure=error;settled=true;});
     while(!settled){
       // This checkpoint only waits for our outstanding read-only capture. It
@@ -55,6 +56,11 @@ export async function executeVisualAction({browser,params,view,read,guard,send,s
       await Promise.race([pending,new Promise(resolve=>setTimeout(resolve,40))]);const boundary=await captureCheckpoint();if(boundary.handled)return boundary;
     }
     if(failure)return fail('visual_validation_failed','The current native screenshot could not be validated; no visual input was sent');
+    if(area.native_capture&&(native?.native_document!==area.native_capture.native_document||native?.navigation!==area.native_capture.navigation||
+       native?.document!==area.document||native?.capture_key!==key))return fail('capture_changed','The validation screenshot reply lost its original native context');
+    if(area.native_capture&&native.ok!==true){const code=native.ok===false&&/^[a-z][a-z0-9_]{0,63}$/.test(native.error?.code||'')?native.error.code:'capture_failed';
+      return fail(code,'The original native validation screenshot was not confirmed');}
+    if(native?.format!==undefined&&native.format!=='png')return fail('capture_source_invalid','Visual validation requires its original lossless screenshot source');
     const after=await read('captureArea',proof.options);if(!after.ok)return{handled:true,result:after};
     if(!same(after)||masked(after.redactions))return fail('visual_context_changed','The scene or privacy coverage changed during visual validation; request a fresh image');
     let unchanged=false;

@@ -38,6 +38,32 @@ test('a validated image point maps through crop/scroll and consumes its exact le
   assert(!JSON.stringify(out).includes('hashes'));assert(!JSON.stringify(out).includes('frame_stamp'));
 });
 
+test('visual validation keeps a lossless private source for public JPEG and small output limits',async()=>{
+  for(const format of ['png','jpeg']){
+    const f=await fixture(),proof={...f.proof,capture:{...f.proof.capture,format,max_bytes:8192}};
+    const reference=f.store.issue('browser',proof,await hashVisualRaster(f.canvas));f.args.params.target.image=reference.id;
+    const result=await f.run();assert(result.result.ok);const capture=f.state.native.find(row=>row.command==='capture');
+    assert.equal(capture.params.format,'png');assert.equal(capture.params.max_bytes,262144);
+    assert.equal(proof.capture.format,format);assert.equal(proof.capture.max_bytes,8192);
+  }
+});
+
+test('Android visual validation carries its exact native frame context and refuses changed or failed receipts',async()=>{
+  for(const mode of ['ok','document','native_document','navigation','capture_key','failed','lossy']){
+    const f=await fixture(),context={adapter:'android-native-frames-v1',native_document:fd,document:doc,navigation:7,
+      viewport:f.state.area.viewport,scroll:f.state.area.scroll,device_pixel_ratio:1,frame_stamp:f.state.area.frame_stamp};
+    f.state.area.native_capture=context;f.args.view.execute=async(command,params)=>{
+      f.state.native.push({command,params});if(command!=='capture')return{};assert.deepEqual(params.capture_context,context);
+      const reply={ok:true,document:doc,native_document:fd,navigation:7,capture_key:params.capture_key,format:'png'};
+      if(['document','native_document','capture_key'].includes(mode))reply[mode]='changed';
+      if(mode==='navigation')reply.navigation=8;if(mode==='failed'){reply.ok=false;reply.error={code:'capture_changed'};}
+      if(mode==='lossy')reply.format='jpeg';return reply;
+    };
+    const out=await f.run();assert.equal(out.result.ok,mode==='ok',mode);assert.equal(f.state.input.length,mode==='ok'?1:0);
+    if(mode!=='ok')assert.equal(out.result.error.code,mode==='lossy'?'capture_source_invalid':'capture_changed');
+  }
+});
+
 test('foreign, expired, wrong-document, unsupported and out-of-image points dispatch no input',async()=>{
   for(const mode of ['foreign','expired','document','navigation','unsupported','negative','edge','fractional','field']){
     const f=await fixture();let overrides={};
