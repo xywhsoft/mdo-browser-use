@@ -23,7 +23,7 @@ Latest verified milestones:
   input/upload/permission gates pass. F14 separately verifies the real 120s
   dialog lease and full native transfer cleanup. These are scoped results,
   not a claim of exhaustive OOM/performance qualification.
-- **Artifacts F16/P2:** the refreshed Windows executable includes F15/P2 and passes
+- **Artifacts F16/F18:** the refreshed Windows executable includes F15/P2 and passes
   ten packed runtime checks, including paired source/installed/host runtime
   equality. Refresh a stale portable `page/runtime.js`; native import/restart/
   export verifies all 22 files, and altered paired payloads are rejected before
@@ -54,8 +54,9 @@ Latest verified milestones:
   response and cleanup waits. Preserve original operation/receipt IDs and known
   terminal outcomes; never resubmit effects. Six new gates pass, including actual
   C admission with a held loopback HTTP reply and original-browser recovery.
-  All 268 JS cases pass. The portable plugin/program pair needs refresh for this
-  SDK update; authenticated relay/direct-device qualification remains separate.
+  All 268 JS cases pass. Refresh the paired plugin, verify its 22-file actual
+  import/export, and pass all ten packed-program checks with the current pair.
+  Authenticated relay/direct-device qualification remains separate.
 
 ## Working boundaries
 
@@ -4261,4 +4262,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   boundary with an actual loopback C endpoint, not authenticated native remote
   relay/direct transport. Refresh the paired delivery next; the full goal and
   installed-provider/Android/visual/lifecycle qualification remain active.
+
+## F18 — refresh and verify the bounded-transport plugin pair
+
+- Refresh the portable plugin with P3: 246,883 bytes, SHA-256
+  `ad8c4826ed3ed03c0cfc44ddce696ab0bb88b87d9628020e427bc094dd305912`.
+  Actual ecosystem import/trust/plan/enable/restart/export/reinstall passes eight
+  gates and matches every decoded byte in all 22 files. Logs:
+  `.mdo/P3-plugin-package.log`, `.mdo/P3-plugin-runtime.log`.
+- Repackage the Windows executable in place. Its app/native bytes are unchanged
+  from F17 (6,880,340 bytes, SHA-256
+  `25fdf76e6d9cfa1dbaa931a4f51731fcebfc551503949dbde56a459396da3494`);
+  this JS SDK change belongs to the paired plugin. Pass all ten actual packed
+  checks against the refreshed installed/source/plugin inventory. Both delivery
+  flags are true with the exact new paired hash. Logs:
+  `.mdo/P3-program-package.log`, `.mdo/P3-program-runtime.log`.
+- The same headless Home/service is healthy after restoration. No app/Home copy,
+  external-site/model call or online release is made. Current ADB inventory has
+  no device; preserve the user's WebView and leave Android automation disabled.
+  This stage delivers the tested Windows pair while the full platform/remote/
+  visual/lifecycle qualification remains active.
 

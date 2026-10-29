@@ -23,8 +23,10 @@ header/discovery contract, connection-reset reporting and recovery
 navigation from the error card. This is
 Windows verification; Android framework qualification remains unavailable.
 
-The paired plugin is **243,663 bytes**, SHA-256
-`3b9a4b949ac94ef8cbecba786ba45793ed47b9e1356ae75fcb7f941ba32e76a6`.
+The paired plugin is **246,883 bytes**, SHA-256
+`ad8c4826ed3ed03c0cfc44ddce696ab0bb88b87d9628020e427bc094dd305912`.
+It includes P3's whole-call JS transport timeout/cancellation and independent
+bounded cleanup, preserving original recovery identities and known outcomes.
 Its 22-file native import/export roundtrip passes. The program gate now refuses
 a stale paired plugin before launching the app, verifies the actual installed
 manifest/inventory in the same Home, and requires the packed host and plugin
