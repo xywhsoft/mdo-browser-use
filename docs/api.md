@@ -6,6 +6,13 @@ downloads, task-workspace saves, nested cross-origin frame routing and explicit
 recovery controls. Android and the remaining vision/lifecycle gates are in progress. No additional
 browser engine, Node, Python or Playwright runtime is shipped.
 
+After a Windows content renderer exits, automation remains blocked until a new
+native navigation completes successfully. Explicit manual reload can restore
+that view and subsequent isolated execution; an old or failed navigation cannot
+clear the failure. A browser-process exit requires closing and recreating the
+view. No earlier action is automatically replayed. See Microsoft's
+[process failure recovery guidance](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/process-related-events).
+
 Android's native capability descriptor separately reports provider features and
 Browser Use readiness. The last inspected WebView 138 lacks isolated execution worlds;
 the current Android adapter also remains incomplete on providers that have them.

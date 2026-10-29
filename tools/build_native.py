@@ -216,6 +216,18 @@ def main():
     for before,after in creation_hooks:
         if base.count(before)!=1:raise RuntimeError('Native creation hook no longer unique: '+before)
         base=base.replace(before,after,1)
+    process_hooks=[
+        ('struct xb_view{',(dev.ROOT/'host/native-process-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{\n  xb_process_failure_state processFailure;'),
+        ('COREWEBVIEW2_PROCESS_FAILED_KIND kind;args->get_ProcessFailedKind(&kind);',
+         'COREWEBVIEW2_PROCESS_FAILED_KIND kind=COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;if(FAILED(args->get_ProcessFailedKind(&kind)))kind=COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;'),
+        ('active->loading=false;active->failed=true;active->error="Browser process stopped; reload to restore the page";active->errorCode=static_cast<int>(kind);',
+         'active->loading=false;active->failed=true;active->automationContext=0;active->processFailure.record(kind==COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED,active->navigation);active->error=kind==COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED?"The page renderer stopped; reload or reopen this browser to recover":"The browser process stopped; close and reopen this browser to recover";active->errorCode=static_cast<int>(kind);'),
+        ('BOOL success=FALSE;args->get_IsSuccess(&success);active->loading=false;',
+         'BOOL success=FALSE;args->get_IsSuccess(&success);active->loading=false;if(active->processFailure.completed(navigation,success!=FALSE)){active->failed=false;active->error.clear();active->errorCode=0;}'),
+    ]
+    for before,after in process_hooks:
+        if base.count(before)!=1:raise RuntimeError('Native process recovery hook no longer unique: '+before)
+        base=base.replace(before,after,1)
     creation_start=base.index('    auto* environment=xb_cb<')
     creation_end=base.index('\n  if(command=="close")',creation_start)
     creation_body=base[creation_start:creation_end]

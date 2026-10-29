@@ -4468,3 +4468,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   This is fixture implementation and compile evidence, not a framework pass or
   Android automation completion. Windows product code/artifacts are unchanged.
 
+## N3 — clear a failed renderer only after confirmed new navigation
+
+- Reproduce a real native defect: stop exactly one newly created renderer of
+  the owned QA host, observe `process_failed`, manually reload the original
+  synthetic page, and confirm the page works while the failure flag remains
+  true. That stale flag permanently blocks subsequent isolated automation.
+  Evidence: `.mdo/N3-renderer-before.log`; this does not identify the cause of
+  any earlier user screenshot or of the vendor renderer exit itself.
+- Add an allocation-free native recovery state. Record the failure's navigation
+  identity; only a later started navigation and its matching successful native
+  completion clear renderer failure. Stale, failed, duplicate and pre-failure
+  completions cannot recover it. A browser-process exit or unavailable failure
+  classification still requires closing/recreating the view. Correct the native
+  recovery message accordingly. No navigation or previous operation is replayed.
+- The actual same-Home renderer gate now passes all five checks, including
+  restored isolated evaluation after explicit manual reload. Process selection
+  requires exactly one new owned renderer; creation time, parent and ancestry
+  are rechecked immediately before stopping it. No user browser process, model,
+  external site or account data is touched. Desktop pixels remain unverified.
+  Evidence: `.mdo/N3-renderer-after.log`.
+- Both native navigation contract tests pass, including the recovery state;
+  all 145/147 Python checks pass with two symlink-privilege skips. The complete
+  real WebView2 gate passes 1,369 assertions, with no new native diagnostics and
+  private upload/download caches returning to zero reservations. Evidence:
+  `.mdo/N3-navigation-contract.log`, `.mdo/N3-python-full.log`,
+  `.mdo/N3-native-full.log`. Reviewed app overlays match; the same headless
+  service is healthy and the deployment remains about 1,130 MiB with one native
+  object directory. The Windows artifact must be refreshed before this fix is
+  claimed in its deliverable. Android's current provider is unchanged.
+

@@ -10,7 +10,7 @@ static std::string xb_navigation_events(const std::shared_ptr<xb_view>& view){
 static bool xb_navigation_start(const std::shared_ptr<xb_view>& view,UINT64 id,bool blank){
   xb_navigation_record(view,"start",id,blank);
   if(view->initialNavigationPending&&blank)return false;
-  view->navigation=id;view->initialNavigationStarted=true;return true;
+  view->navigation=id;view->processFailure.started(id);view->initialNavigationStarted=true;return true;
 }
 static bool xb_navigation_complete(const std::shared_ptr<xb_view>& view,UINT64 id){
   xb_navigation_record(view,"complete",id);

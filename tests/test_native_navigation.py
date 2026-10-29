@@ -16,8 +16,10 @@ class NativeNavigationTests(unittest.TestCase):
 #include <memory>
 #include <string>
 #include <vector>
+#include <cstdint>
 using UINT64=unsigned long long;
-struct xb_view{UINT64 navigation=0;bool initialNavigationPending=true,initialNavigationStarted=false;std::vector<std::string> navigationEvents;};
+'''+(dev.ROOT/'host/native-process-state.inc.hpp').read_text(encoding='utf-8')+r'''
+struct xb_view{UINT64 navigation=0;xb_process_failure_state processFailure;bool initialNavigationPending=true,initialNavigationStarted=false;std::vector<std::string> navigationEvents;};
 static std::string xb_quote(const std::string& value){return "\""+value+"\"";}
 '''+source+r'''
 int main(){
@@ -42,6 +44,33 @@ int main(){
         compiler=Path("E:/software/w64devkit/bin/g++.exe")
         subprocess.run([str(compiler),"-std=c++17","-O2","-s",str(cpp),"-o",str(binary)],check=True,capture_output=True)
         subprocess.run([str(binary)],env=dict(os.environ,PATH=str(compiler.parent)+os.pathsep+os.environ.get("PATH","")),check=True,capture_output=True)
+
+    def test_renderer_recovery_requires_a_new_successful_navigation(self):
+        program='#include <cstdint>\n'+(dev.ROOT/'host/native-process-state.inc.hpp').read_text(encoding='utf-8')+r'''
+int main(){
+  xb_process_failure_state state;
+  if(state.completed(1,true))return 1;
+  state.record(true,7);
+  if(state.completed(7,true)||state.completed(8,true))return 2;
+  state.started(7);if(state.completed(7,true))return 3;
+  state.started(0);if(state.completed(0,true))return 4;
+  state.started(8);if(state.completed(7,true)||state.completed(9,true))return 5;
+  if(state.completed(8,false)||state.completed(8,true))return 6;
+  state.started(9);if(!state.completed(9,true)||state.completed(9,true))return 7;
+  state.record(true,10);state.started(11);state.record(true,11);
+  if(state.completed(11,true))return 8;
+  state.started(12);if(!state.completed(12,true))return 9;
+  state.record(false,12);state.started(13);if(state.completed(13,true))return 10;
+  state.record(true,14);state.started(15);state.started(16);
+  if(state.completed(15,true)||!state.completed(16,true))return 11;
+  return 0;
+}
+'''
+        directory=dev.ENV/'qa';directory.mkdir(exist_ok=True)
+        cpp=directory/'native-process.cpp';binary=directory/'native-process.exe'
+        cpp.write_text(program,encoding='utf-8',newline='\n');compiler=Path('E:/software/w64devkit/bin/g++.exe')
+        subprocess.run([str(compiler),'-std=c++17','-O2','-s',str(cpp),'-o',str(binary)],check=True,capture_output=True)
+        subprocess.run([str(binary)],env=dict(os.environ,PATH=str(compiler.parent)+os.pathsep+os.environ.get('PATH','')),check=True,capture_output=True)
 
 
 if __name__=="__main__":unittest.main()
