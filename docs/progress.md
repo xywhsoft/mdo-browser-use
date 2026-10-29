@@ -4962,3 +4962,28 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android host build or device qualification. Build the actual ARM64 host and
   separate development APK next; keep all previous qualification gaps open.
 
+## E45 — compile and verify the actual reusable Android ARM64 host
+
+- Add `tools/build_android_native.py`, reusing the existing native checkout,
+  locked compiler, compact profile and one `.mdo/host/android-native` output.
+  Hash exact bytes of all 9,562 tracked/additional native inputs, the dependency
+  lock, profile and compiler binaries. On WSL, Windows Python reads that same
+  checkout to avoid repeated DrvFS path-resolution RPCs; the pre/post source
+  digest is identical across both readers. No source/application/Home copy is made.
+- Compile the pinned ARM64 TCC runtime/SDK, selected extensions, JNI and actual
+  native engine. Pass the mdo dependency checks and complete host-receipt/API
+  validation before marking the state verified. The resulting `libxs.so` is
+  3,535,872 bytes, SHA-256
+  `e9df8cf571bd0022fbeeeda710d3ec6c812459503cfb29912bf579116d0da2e3`.
+  Evidence: `.mdo/E45-native-build-final.log` and the adjacent native/build receipts.
+- An explicitly stopped first run reached compilation but not final source
+  verification. Keep its state unqualified and log in `.mdo/E45-native-build.log`;
+  the subsequent complete build and `--reuse` verification succeed. Partial
+  state, changed source/compiler/profile and modified binary reuse are rejected
+  by two behavior tests (`.mdo/E45-native-tests.log`, `.mdo/E45-native-reuse.log`).
+- Retain all intermediate native outputs in that one reusable directory (about
+  21 MiB); no further toolchain download is needed. Neither compiling nor ABI
+  validation qualifies Android framework/device behavior. Package the actual
+  mdo Activity/service next; retain the previous unsupported automation flags,
+  current WebView, paired Windows/plugin artifacts and open goal.
+
