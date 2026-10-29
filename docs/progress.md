@@ -6037,3 +6037,53 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   downloads/profile/activation/installed-provider/main-UI gates also remain open.
   Goal stays active; no phone/provider/formal data changes, model calls, external
   page operation or online release. Android automation/debug admission stays off.
+
+## E70 — keep assigned file data independent of transient input leases
+
+- Mint a native-only `PickerGrant` after the original callback returns. The worker
+  checks the exact queue, ordered complete sealed manifest, original source scope,
+  private picker claims and current file hashes before returning provisional data
+  retention. Native status/release use object authority, never JSON/restored IDs.
+  Duplicate delivery preserves original ownership; equal numeric scopes and
+  foreign queues/proofs/owners cannot adopt or release another operation's data.
+- Add an explicit native adoption boundary immediately before future DOM dispatch.
+  Preparation still expires/cancels with its source. After adoption, data survives
+  input cancellation, navigation and staging expiry while consuming the existing
+  file/byte budget. Confirmed release, physical browser-owner destruction or worker
+  close revokes/reclaims it. Keep immutable cleanup receipts after ticket reaping.
+  Data objects retain no native View/Activity/channel. Physical-owner/coordinator
+  lifecycle wiring is still required; this stage does not enable product upload.
+- Serialize transient picker cleanup with adoption; avoid revoking adopted reads
+  through a stale pre-adoption check. Make UI result delivery one-shot even when
+  an implementation posts a late task after refusing it. Drop/throw/OOM before
+  native handoff reclaims provisional data, while existing ownership/adoption and
+  read-only status survive failed duplicate observers or lost replies. Unknown
+  assignment outcomes must be retained, not automatically replayed.
+- `.mdo/E70-retention-complete.log` passes 418 URI/2,046 private callback checks
+  plus 410 recorded retention assertions, including a real 131,075-byte Unicode/
+  delimiter file/SHA-256, multiple/empty files, concurrency, scope/TTL loss,
+  response faults, original authority and release/teardown. Android/system/DOM
+  peers are doubles; renderer/URI assignment and framework qualification stay
+  false. `.mdo/E70-recovery.log` passes 161 checks and 13 abrupt JVM exits,
+  including adopted data after source cancellation. Recovery reclaims verified
+  owned bytes without restoring prior native permission.
+- Sequential existing native gates pass reads 318, worker 99, chooser/Chrome
+  471/42, manual chooser 554, resolver/FD fixture 168 and upload UI fragment 39
+  (`.mdo/E70-android_*_probe.log`). JS passes 319/319 in 26.752 s and Python
+  167/169 with two existing symlink skips in 65.541 s (`.mdo/E70-node-final.log`,
+  `.mdo/E70-python-full.log`). Initial `.mdo/E70-node-full.log` records loopback
+  connection refusal from running JS after stop/apply; restart the same deployment
+  and pass the full final run. Retain that failure as a test-ordering diagnosis.
+- Stop/apply reviewed overlays and verify generators; actual SDK/D8/DEX/ABI/app
+  payload/private-provider/alignment/v2/v3 signature checks pass
+  `.mdo/E70-android-build.log`: full development APK 6,378,817 bytes, SHA-256
+  `460157be0689c35ada10d990f6c9ab9db8205b242e055509035be0153d957ae5`.
+  Reuse unchanged verified Windows E66 program and paired plugin. Restore the same
+  headless service. No extra app/Home/source copies, phone/provider/formal data
+  changes, model calls, external page operation or online release.
+- Next: original frame/channel/epoch/action/file-source coordinator; its exact
+  scoped CDP admission while ordinary input is fenced; fixed native prepare/open/
+  status/commit/dispose and original world/ref preservation; physical data-owner
+  lifecycle and conservative lost-effect recovery. Android downloads/profile/
+  activation/installed-provider/main-UI gates and Windows realm/intermittent input
+  diagnostics remain. Goal stays active and Android automation/debug admission off.

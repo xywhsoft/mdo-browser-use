@@ -1013,8 +1013,12 @@ gate sharing the normal chooser's once-only ledger. Native queue/scope/read-leas
 objects and a successful native verifier are required before private URI delivery.
 Known null cancellation is separate from uncertain response; neither is replayed.
 This is an internal SDK/permission component, **not a new public upload action**.
-The original frame/channel coordinator and assigned-file retention still need
-joining; automatic Android assignment and framework qualification remain false.
+E70 adds native-only provisional/adopted data retention, preserving exact provider
+read leases across transient input cancellation and staging expiry after possible
+dispatch. Confirmed release/browser-owner teardown revokes it; uncertain replies
+never trigger automatic assignment replay. The original frame/channel coordinator
+and physical data-owner lifecycle still need joining; automatic Android assignment
+and framework qualification remain false.
 
 ## Intercepted file pickers
 

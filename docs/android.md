@@ -11,20 +11,21 @@ remains available.
 
 Native file choosers also have bounded original-callback retention, listing and
 cancellation. A private native staging/URI backend and human document picking
-are implemented. E69 adds a native nonce/original-callback/file-lease gate; its
-DOM/frame verifier and the complete upload coordinator are not joined yet.
+are implemented. E69 adds a native nonce/original-callback/file-lease gate and
+E70 adds native assigned-data retention independent of transient input leases.
+The DOM/frame verifier and complete upload coordinator are not joined yet.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E69)
+## Complete development host APK (E46/E70)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,374,721 bytes, SHA-256
-`e217f27f8d78f7bd6b9d15a4cc7bc1cff3c9ac20cd2012ce2307d21e11745b80`.
+Current APK: 6,378,817 bytes, SHA-256
+`460157be0689c35ada10d990f6c9ab9db8205b242e055509035be0153d957ae5`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2364,3 +2365,61 @@ before these joins and retention rules are implemented and verified. The Windows
 realm audit, broader intermittent input diagnostics, Android downloads/profile/
 activation and installed-provider/main-UI qualification also remain open. No
 phone/provider/formal data change, model call, external-page operation or release.
+
+### Native assigned-data retention, separate from transient input (E70)
+
+After the original private callback returns successfully, its result carries a
+native-only `PickerGrant` for the exact queue-owned, claimed read-lease objects.
+The worker verifies the entire ordered sealed manifest, source scope and hashes
+before returning a provisional `Retention`. Neither object has a JSON action or
+serialized reconstruction path. Equal numeric navigation values, another queue,
+another source proof or another data owner cannot adopt or release that grant.
+
+Preparation remains bound to the original scope and staging deadline. The
+future coordinator must freeze one `RetentionOwner` per physical browser
+generation, verify the original frame/channel/action and call `adopt()` directly
+before possible DOM dispatch. Adoption uses its native monotonic clock and
+serializes with transient picker cancellation. Once adopted, file bytes and
+provider permissions survive input cancellation, navigation and staging expiry;
+the existing file/byte budgets remain charged. A missing/uncertain effect reply
+must not replay the assignment or discard these possibly consumed bytes.
+
+Explicit confirmed release, actual browser/data-owner destruction or worker
+shutdown revokes permissions and reclaims the original owned leaves. Merely
+closing a transient input gate preserves adopted data. Native status/release
+can use the original object after its input scope expires, and a successful
+cleanup receipt remains inspectable after the worker reaps the ticket. Snapshot
+arrays are copied; no live UI/Activity/channel reference is retained in the data
+capability. Failed native UI handoff reclaims an unowned provisional grant, while
+failed duplicate/status delivery cannot revoke an already owned/adopted grant.
+OOM at the post-preparation result boundary follows the same rule.
+
+`.mdo/E70-retention-complete.log` passes the 418 existing URI and 2,046 private
+callback checks plus 410 recorded retention assertions. The latter include
+concurrent adoption/cancellation, dropped/throwing/refused/late UI completion,
+snapshot allocation faults, original-owner/queue rejection, Unicode/delimiter
+names, all 131,075 bytes/SHA-256 and a multi-file grant containing an empty file.
+The production file queue/provider/proxy are real; Android types/system calls
+and DOM verification are doubles. No actual renderer assignment is qualified.
+`.mdo/E70-recovery.log` passes 161 checks and 13 actual abrupt JVM exits,
+including an adopted file whose input scope is already cancelled. Process
+restart discards native authority and reclaims only verified owned cache data.
+It does not restore an old provider grant or prove Android framework behavior.
+
+Read/worker regressions pass 318/99 checks; chooser lifetime/Chrome callbacks
+471/42, manual chooser 554, resolver/FD fixture 168, upload UI fragment 39.
+Sequential JS passes 319/319; Python passes 167/169 with two existing Windows
+symlink-privilege skips (`.mdo/E70-node-final.log`, `.mdo/E70-python-full.log`).
+Full SDK/D8/DEX/ABI/payload/provider/alignment/v2/v3 signature checks pass
+`.mdo/E70-android-build.log`; use the current APK/receipt above. The first JS
+attempt in `.mdo/E70-node-full.log` ran while the development service was stopped
+and failed with loopback connection refusal; the final complete run used the
+restored same deployment. Windows executable and plugin payloads are unchanged.
+
+The retention API is not yet wired to a product upload coordinator or its
+physical browser/data-owner lifecycle. Own-operation CDP admission, fixed private
+picker opening/selection/DOM handoff/cleanup and original frame/channel/action
+proofs still need joining. Android automation/debug admission remains false;
+keep installed-provider/main-UI/activation/profile/URI checks unqualified until
+device verification is possible. Windows realm/intermittent-input work and
+Android downloads remain open. No phone, provider, formal data or release change.

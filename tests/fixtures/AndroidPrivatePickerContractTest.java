@@ -52,10 +52,12 @@ public final class AndroidPrivatePickerContractTest {
     static final class Fixture implements AutoCloseable {
         final Path root;final Context context=new Context();final MdoBrowserUploadProvider provider=new MdoBrowserUploadProvider();
         final ConcurrentLinkedQueue<Runnable> ui=new ConcurrentLinkedQueue<>();final MdoBrowserUploadQueue queue;
+        volatile boolean refusePost,latePost;
+        final AtomicReference<Runnable> clockHook=new AtomicReference<>();
         MdoBrowserUploadStore.Scope scope;MdoBrowserUploadStore.ReadLease reader;String ticket;int epoch;byte[] data;
         Fixture(Path root)throws Exception {
             this.root=root;Files.createDirectory(root);
-            queue=new MdoBrowserUploadQueue(()->{MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(root);files.acquireCacheLease();return files;},task->{ui.add(task);return true;},SystemClock::elapsedRealtime);
+            queue=new MdoBrowserUploadQueue(()->{MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(root);files.acquireCacheLease();return files;},task->{if(refusePost){if(latePost)ui.add(task);return false;}ui.add(task);return true;},()->{Runnable hook=clockHook.get();if(hook!=null)hook.run();return SystemClock.elapsedRealtime();});
             MdoBrowserUploadRuntime.queue=queue;ProviderInfo info=new ProviderInfo();info.authority=context.getPackageName()+".mdo.browseruse.upload";provider.attachInfo(context,info);
         }
         MdoBrowserUploadQueue.Outcome call(MdoBrowserUploadQueue.Request request)throws Exception {
@@ -95,7 +97,7 @@ public final class AndroidPrivatePickerContractTest {
         Reply reply=new Reply();Params params=new Params();check(g.target.onShowFileChooser(g.view,reply,params));check(reply.calls==0&&g.proof.get()!=null&&g.picker().pending());
         params.fail=true;check(g.target.onShowFileChooser(g.view,reply,params)&&reply.calls==0);g.proof.get().done(true);
         check(reply.calls==1&&reply.files!=null&&reply.files.length==1&&g.completions.size()==1&&!g.picker().pending());
-        MdoBrowserPrivatePicker.Result result=g.picker().status(lease);check(result.ok&&result.filesGranted&&result.callbackAnswered&&result.cleanupConfirmed);
+        MdoBrowserPrivatePicker.Result result=g.picker().status(lease);check(result.ok&&result.filesGranted&&result.callbackAnswered&&result.cleanupConfirmed&&result.grant!=null);
         g.proof.get().done(true);check(reply.calls==1&&g.completions.size()==1);f.consume(reply.files[0]);
         // Neither another operation nor another native gate may steal/revoke an
         // already granted original read lease, even with equal numeric epochs.

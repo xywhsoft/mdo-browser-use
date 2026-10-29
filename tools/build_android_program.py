@@ -29,7 +29,8 @@ RECEIPT=OUTPUT.with_suffix('.receipt.json')
 HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoRuntime','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
               'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpRegistry','MdoBrowserCdpWorker','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
-              'MdoBrowserCdpOwnerScripts','MdoBrowserCdpFrameRequest','MdoBrowserCdpFrameChain','MdoBrowserCdpInput','MdoBrowserCdpCapture','MdoBrowserCdpFileInput','MdoBrowserCdpChoosers','MdoBrowserCdpUploadScripts','MdoBrowserCapture','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply')
+              'MdoBrowserCdpOwnerScripts','MdoBrowserCdpFrameRequest','MdoBrowserCdpFrameChain','MdoBrowserCdpInput','MdoBrowserCdpCapture','MdoBrowserCdpFileInput','MdoBrowserCdpChoosers','MdoBrowserCdpUploadScripts','MdoBrowserCapture','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply',
+              'MdoBrowserUploadStore$RetentionOwner','MdoBrowserUploadStore$Retention','MdoBrowserUploadStore$PickerGrant')
 
 
 def sha(path):return native.sha(path)

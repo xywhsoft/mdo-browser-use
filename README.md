@@ -313,6 +313,16 @@ assignment and framework integration remain unqualified, and overall Android
 automation stays disabled. These staging commands accept bytes and metadata,
 never a task-host source path or an unverified chooser/frame target.
 
+`python tools/android_upload_uri_probe.py` additionally checks original private
+callback/file-lease delivery and native provisional/adopted data retention through
+the real file queue/provider/proxy, with Android/DOM peers doubled. Adopted bytes
+survive transient input cancellation and staging expiry until confirmed release
+or browser-owner destruction. `python tools/android_upload_recovery_probe.py`
+verifies actual abrupt JVM exit and owned-cache recovery, including adopted data;
+old native authority is never restored. These internal components still need the
+original frame/channel coordinator and physical data-owner lifecycle, and do not
+enable Android automatic upload or qualify installed WebView behavior.
+
 `python tools/android_device_probe.py --mode native-upload` is the installed
 Android cache/worker gate. It needs no isolated world and uses only synthetic
 bytes inside the QA app's private cache. Current ADB has no authorized device;

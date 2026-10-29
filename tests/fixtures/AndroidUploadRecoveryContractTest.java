@@ -70,6 +70,22 @@ public final class AndroidUploadRecoveryContractTest {
             if(System.in.read()!=1)throw new AssertionError("Missing owner release");
         }
     }
+    private static void retainedWriter(Path root)throws Exception {
+        MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(root);files.acquireCacheLease();
+        MdoBrowserUploadStore store=new MdoBrowserUploadStore(files,()->System.nanoTime()/1000000L);
+        MdoBrowserUploadStore.Scope scope=new MdoBrowserUploadStore.Scope(1);byte[] bytes=data();
+        MdoBrowserUploadStore.Snapshot job=store.begin(scope,"retained-before-process-exit",new MdoBrowserUploadStore.Spec[]{new MdoBrowserUploadStore.Spec("retained.bin",bytes.length,sha(bytes))},System.nanoTime()/1000000L+60000);
+        store.chunk(scope,job.ticket,0,0,Arrays.copyOf(bytes,65536));store.chunk(scope,job.ticket,0,65536,Arrays.copyOfRange(bytes,65536,bytes.length));store.seal(scope,job.ticket);
+        MdoBrowserUploadStore.ReadLease reader=store.access(scope,job.ticket,0);Object nativeClaim=new Object();
+        if(!reader.claimPicker(nativeClaim,System.nanoTime()/1000000L))throw new AssertionError("Native fixture claim refused");
+        MdoBrowserUploadStore.PickerGrant grant=MdoBrowserUploadStore.pickerGrant(new MdoBrowserUploadStore.ReadLease[]{reader},nativeClaim,System.nanoTime()/1000000L);
+        MdoBrowserUploadStore.Retention retained=store.retain(grant,new MdoBrowserUploadStore.RetentionOwner());
+        if(!retained.adopt())throw new AssertionError("Native fixture adoption refused");scope.cancel();store.collect(System.nanoTime()/1000000L);
+        if(!Arrays.equals(store.read(reader,65536,65536),Arrays.copyOfRange(bytes,65536,bytes.length)))throw new AssertionError("Adopted data lost before exit");
+        // Deliberately no finally/close. Recovery must discard prior native
+        // object authority and reclaim owned bytes after actual process death.
+        System.out.println("abrupt-staging-writer-ready");System.out.flush();Runtime.getRuntime().halt(0);
+    }
     private static void crossProcessLease()throws Exception {
         Path root=root("live-owner");Process child=new ProcessBuilder(Paths.get(System.getProperty("java.home"),"bin/java").toString(),"-cp",System.getProperty("java.class.path"),
             AndroidUploadRecoveryContractTest.class.getName(),"holder",root.toString(),"normal").redirectErrorStream(true).start();
@@ -86,8 +102,11 @@ public final class AndroidUploadRecoveryContractTest {
         recovered(root,0,0);
     }
     private static void crash(Path root,boolean limit)throws Exception {
+        crash(root,limit?"limit":"normal");
+    }
+    private static void crash(Path root,String mode)throws Exception {
         Process child=new ProcessBuilder(Paths.get(System.getProperty("java.home"),"bin/java").toString(),"-cp",System.getProperty("java.class.path"),
-            AndroidUploadRecoveryContractTest.class.getName(),"writer",root.toString(),limit?"limit":"normal").redirectErrorStream(true).start();
+            AndroidUploadRecoveryContractTest.class.getName(),"writer",root.toString(),mode).redirectErrorStream(true).start();
         try{
             if(!child.waitFor(10,TimeUnit.SECONDS))throw new AssertionError("Owned staging writer did not terminate");
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(InputStream input=child.getInputStream()){
@@ -148,6 +167,7 @@ public final class AndroidUploadRecoveryContractTest {
     }
     private static void restarts()throws Exception {
         Path root=root("restart");crash(root,false);check(leaves(root).size()==3);recovered(root,3,65539);
+        Path retained=root("retained-restart");crash(retained,"retained");check(leaves(retained).size()==1);recovered(retained,1,65539);
         Path limit=root("limit");crash(limit,true);check(leaves(limit).size()==16);recovered(limit,16,0);
         Path partial=root("interrupted-cleanup");crash(partial,false);
         for(Path entry:leaves(partial))if(Files.size(entry)==MdoBrowserUploadFiles.HEADER_BYTES+3)Files.delete(entry);
@@ -212,7 +232,7 @@ public final class AndroidUploadRecoveryContractTest {
         try(MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(root)){files.acquireCacheLease();check(files.recoveredFiles()==0);}removeEmpty(root);
     }
     public static void main(String[] args)throws Exception {
-        if(args.length==3&&"writer".equals(args[0])){writer(Paths.get(args[1]),"limit".equals(args[2]));return;}
+        if(args.length==3&&"writer".equals(args[0])){if("retained".equals(args[2]))retainedWriter(Paths.get(args[1]));else writer(Paths.get(args[1]),"limit".equals(args[2]));return;}
         if(args.length==3&&"holder".equals(args[0])){holder(Paths.get(args[1]));return;}
         base=Paths.get(args[0]);Files.createDirectory(base);
         streaming();liveRecordChange();crossProcessLease();restarts();foreignAndDamage();replacedAndLinked();namesAndRoots();malformedRecords();unprovedHeaders();workerStartup();Files.delete(base);

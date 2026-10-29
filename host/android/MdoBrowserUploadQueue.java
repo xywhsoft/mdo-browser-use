@@ -17,8 +17,14 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     interface Completion {void complete(Outcome result);}
     static final class Request {
         final String action,key,ticket,base64;final MdoBrowserUploadStore.Spec[] specs;final long expires,offset;final int index;
+        final MdoBrowserUploadStore.PickerGrant grant;final MdoBrowserUploadStore.RetentionOwner retainer;final MdoBrowserUploadStore.Retention retention;
         private Request(String action,String key,String ticket,String base64,MdoBrowserUploadStore.Spec[] specs,long expires,int index,long offset){
+            this(action,key,ticket,base64,specs,expires,index,offset,null,null,null);
+        }
+        private Request(String action,String key,String ticket,String base64,MdoBrowserUploadStore.Spec[] specs,long expires,int index,long offset,
+                        MdoBrowserUploadStore.PickerGrant grant,MdoBrowserUploadStore.RetentionOwner retainer,MdoBrowserUploadStore.Retention retention){
             this.action=action;this.key=key;this.ticket=ticket;this.base64=base64;this.specs=specs==null?null:specs.clone();this.expires=expires;this.index=index;this.offset=offset;
+            this.grant=grant;this.retainer=retainer;this.retention=retention;
         }
         static Request begin(String key,MdoBrowserUploadStore.Spec[] specs,long expires)throws IOException {
             MdoBrowserUploadStore.manifest(specs);if(!MdoBrowserUploadStore.bounded(key,100))throw new MdoBrowserUploadFiles.Failure("upload_metadata_invalid");
@@ -41,11 +47,27 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
             Request valid=ticket("status",ticket);if(index<0||index>=16)throw new MdoBrowserUploadFiles.Failure("upload_range_invalid");
             return new Request("access",null,valid.ticket,null,null,0,index,0);
         }
+        static Request retain(MdoBrowserUploadStore.PickerGrant grant,MdoBrowserUploadStore.RetentionOwner owner)throws IOException {
+            if(grant==null||owner==null)throw new MdoBrowserUploadFiles.Failure("upload_retention_invalid");
+            return new Request("retain",null,null,null,null,0,0,0,grant,owner,null);
+        }
+        static Request retained(MdoBrowserUploadStore.Retention value,boolean release)throws IOException {
+            if(value==null)throw new MdoBrowserUploadFiles.Failure("upload_retention_invalid");
+            return new Request(release?"retained_release":"retained_status",null,null,null,null,0,0,0,null,null,value);
+        }
     }
     static final class Outcome {
         final String code,cause;final MdoBrowserUploadStore.Snapshot value;final boolean stagingMayHaveChanged;final MdoBrowserUploadStore.ReadLease reader;
+        final MdoBrowserUploadStore.Retention retention;final MdoBrowserUploadStore.RetainedSnapshot retainedValue;
+        final boolean retentionHandoff;
         Outcome(String code,String cause,MdoBrowserUploadStore.Snapshot value,boolean changed){this(code,cause,value,changed,null);}
-        Outcome(String code,String cause,MdoBrowserUploadStore.Snapshot value,boolean changed,MdoBrowserUploadStore.ReadLease reader){this.code=code;this.cause=cause;this.value=value;stagingMayHaveChanged=changed;this.reader=reader;}
+        Outcome(String code,String cause,MdoBrowserUploadStore.Snapshot value,boolean changed,MdoBrowserUploadStore.ReadLease reader){this(code,cause,value,changed,reader,null,null);}
+        Outcome(String code,String cause,MdoBrowserUploadStore.Snapshot value,boolean changed,MdoBrowserUploadStore.ReadLease reader,MdoBrowserUploadStore.Retention retention,MdoBrowserUploadStore.RetainedSnapshot retainedValue){
+            this(code,cause,value,changed,reader,retention,retainedValue,false);
+        }
+        Outcome(String code,String cause,MdoBrowserUploadStore.Snapshot value,boolean changed,MdoBrowserUploadStore.ReadLease reader,MdoBrowserUploadStore.Retention retention,MdoBrowserUploadStore.RetainedSnapshot retainedValue,boolean handoff){
+            this.code=code;this.cause=cause;this.value=value;stagingMayHaveChanged=changed;this.reader=reader;this.retention=retention;this.retainedValue=retainedValue;retentionHandoff=handoff;
+        }
         boolean ok(){return code==null;}
     }
     private static final Outcome FAILED=new Outcome("upload_worker_failed",null,null,true),CLOSED=new Outcome("upload_worker_closed",null,null,false);
@@ -58,14 +80,17 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     private volatile long reservedBytes,recoveredBytes;private volatile int recoveredFiles;
     private final class Work {
         final MdoBrowserUploadStore.Scope scope;final ReadCall read;Request request;Completion completion;
+        final java.util.concurrent.atomic.AtomicBoolean delivered=new java.util.concurrent.atomic.AtomicBoolean();
         Work(MdoBrowserUploadStore.Scope scope,Request request,Completion completion){this.scope=scope;this.request=request;this.completion=completion;read=null;}
         Work(ReadCall read){this.read=read;scope=read.lease.scope;}
         void deliver(Outcome value){
             Completion callback=completion;completion=null;request=null;
             try{
-                if(ui.post(()->{try{callback.complete(value);}catch(RuntimeException|OutOfMemoryError ignored){}finally{deliveries.release();}}))return;
+                if(ui.post(()->{if(!delivered.compareAndSet(false,true))return;boolean accepted=false;
+                    try{callback.complete(value);accepted=true;}catch(RuntimeException|OutOfMemoryError ignored){}
+                    finally{if(value.retentionHandoff&&value.retention!=null){if(accepted)value.retention.acknowledge();else value.retention.abandonUndelivered();}deliveries.release();}}))return;
             }catch(RuntimeException|OutOfMemoryError ignored){}
-            deliveries.release();
+            if(delivered.compareAndSet(false,true)){if(value.retentionHandoff&&value.retention!=null)value.retention.abandonUndelivered();deliveries.release();}
         }
     }
     private final class ReadCall {
@@ -138,6 +163,21 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     private Outcome execute(Work work)throws IOException {
         Request request=work.request;
         if(closing)return CLOSED;
+        // These native-only object capabilities have no JSON action route.
+        // Historical status/release and idempotent retention can outlive the
+        // transient input scope; the store still proves exact queue ownership.
+        if("retain".equals(request.action)){
+            if(work.scope!=request.grant.scope())throw new MdoBrowserUploadFiles.Failure("upload_retention_scope_invalid");
+            if(store==null)throw new MdoBrowserUploadFiles.Failure("upload_retention_invalid");
+            MdoBrowserUploadStore.Retention kept=store.retain(request.grant,request.retainer);
+            try{return new Outcome(null,null,null,true,null,kept,store.retained(kept,false),true);}
+            catch(IOException|RuntimeException|Error error){kept.abandonUndelivered();throw error;}
+        }
+        if(request.retention!=null){
+            if(work.scope!=request.retention.scope())throw new MdoBrowserUploadFiles.Failure("upload_retention_scope_invalid");
+            if(store==null)throw new MdoBrowserUploadFiles.Failure("upload_retention_invalid");
+            return new Outcome(null,null,null,!"retained_status".equals(request.action),null,request.retention,store.retained(request.retention,"retained_release".equals(request.action)));
+        }
         if(!work.scope.live())throw new MdoBrowserUploadFiles.Failure("upload_owner_changed");
         if(store==null){
             if(!"begin".equals(request.action))throw new MdoBrowserUploadFiles.Failure("upload_ticket_not_found");
@@ -160,7 +200,8 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
             case "seal":value=store.seal(work.scope,request.ticket);break;
             case "access":return new Outcome(null,null,null,false,store.access(work.scope,request.ticket,request.index));
             case "status":value=store.status(work.scope,request.ticket,clock.getAsLong());break;
-            case "cancel":case "release":value=store.cancel(work.scope,request.ticket);break;
+            case "cancel":value=store.cancel(work.scope,request.ticket);break;
+            case "release":value=store.releaseConfirmed(work.scope,request.ticket);break;
             default:throw new MdoBrowserUploadFiles.Failure("upload_action_unsupported");
         }
         return new Outcome(null,null,value,!"status".equals(request.action));

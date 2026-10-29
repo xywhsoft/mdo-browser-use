@@ -87,7 +87,7 @@ def main():
         value=path.resolve().as_posix();return '/mnt/'+value[0].lower()+value[2:]
     names=('MdoBrowserUploadFiles','MdoBrowserUploadStore','MdoBrowserUploadQueue','MdoBrowserUploadUris','MdoBrowserUploadProxy','MdoBrowserUploadUriRuntime','MdoBrowserUploadProvider',
            'MdoBrowserChoosers','MdoBrowserChooserTarget','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply','MdoBrowserDialogs','MdoBrowserDialogTarget','MdoBrowserPopups','MdoBrowserWindowTarget')
-    sources=[dev.ROOT/'host/android'/f'{name}.java' for name in names]+[dev.ROOT/'tests/fixtures/AndroidUploadUriContractTest.java',dev.ROOT/'tests/fixtures/AndroidPrivatePickerContractTest.java']
+    sources=[dev.ROOT/'host/android'/f'{name}.java' for name in names]+[dev.ROOT/'tests/fixtures/AndroidUploadUriContractTest.java',dev.ROOT/'tests/fixtures/AndroidPrivatePickerContractTest.java',dev.ROOT/'tests/fixtures/AndroidUploadRetentionContractTest.java']
     for name,value in MOCKS.items():
         path=directory/'src'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(value,encoding='utf-8');sources.append(path)
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(p) for p in sources]],cwd=dev.ROOT,check=True,capture_output=True,text=True)
@@ -96,6 +96,8 @@ def main():
         compiled_source_sha256=hashlib.sha256(b''.join(p.read_bytes() for p in sources)).hexdigest())
     picker=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidPrivatePickerContractTest',linux(root)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=60)
     result['private_picker']=json.loads(picker.stdout.strip());result['passed']=result['passed'] and result['private_picker']['passed']
+    retention=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidUploadRetentionContractTest',linux(root)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=60)
+    result['retention']=json.loads(retention.stdout.strip());result['passed']=result['passed'] and result['retention']['passed']
     OUTPUT.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))
 
 

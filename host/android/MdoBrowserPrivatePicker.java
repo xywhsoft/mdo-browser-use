@@ -25,8 +25,12 @@ final class MdoBrowserPrivatePicker implements AutoCloseable {
     static CancelledGrant cancelledGrant(boolean ownerChanged){return new CancelledGrant(ownerChanged);}
     static final class Result {
         final boolean ok,callbackAnswered,filesGranted,effectMayHaveOccurred,cleanupConfirmed;final String code;
+        final MdoBrowserUploadStore.PickerGrant grant;
         Result(boolean ok,String code,boolean answered,boolean granted,boolean effect,boolean clean){
-            this.ok=ok;this.code=code;callbackAnswered=answered;filesGranted=granted;effectMayHaveOccurred=effect;cleanupConfirmed=clean;
+            this(ok,code,answered,granted,effect,clean,null);
+        }
+        Result(boolean ok,String code,boolean answered,boolean granted,boolean effect,boolean clean,MdoBrowserUploadStore.PickerGrant grant){
+            this.ok=ok;this.code=code;callbackAnswered=answered;filesGranted=granted;effectMayHaveOccurred=effect;cleanupConfirmed=clean;this.grant=grant;
         }
     }
     static final class Lease {
@@ -145,8 +149,10 @@ final class MdoBrowserPrivatePicker implements AutoCloseable {
         Response response=lease.response;lease.response=null;lease.phase=3;lease.attempted=true;boolean answered=false;
         try{response.send(files,()->live(lease));answered=true;
             if(!live(lease)){revoke(lease);retire(lease,new Result(false,"upload_picker_owner_changed",true,false,true,true));return;}
-            retire(lease,new Result(true,null,true,true,true,true));
+            MdoBrowserUploadStore.PickerGrant grant=MdoBrowserUploadStore.pickerGrant(lease.files,lease.claim,scheduler.now());
+            retire(lease,new Result(true,null,true,true,true,true,grant));
         }catch(CancelledGrant error){revoke(lease);retire(lease,new Result(false,error.code,true,false,false,!failed));}
+        catch(IOException error){revoke(lease);retire(lease,new Result(false,"upload_picker_owner_changed",answered,false,true,!failed));}
         catch(RuntimeException|OutOfMemoryError error){revoke(lease);poison();retire(lease,new Result(false,"upload_picker_response_uncertain",answered,false,true,false));}
     }
     private static void revoke(Lease lease){for(MdoBrowserUploadStore.ReadLease file:lease.files)file.revoke();}
@@ -158,7 +164,9 @@ final class MdoBrowserPrivatePicker implements AutoCloseable {
         if(complete!=null)try{complete.done(result);}catch(RuntimeException|OutOfMemoryError error){revoke(lease);poison();lease.result=new Result(false,"upload_picker_completion_failed",result.callbackAnswered,false,result.effectMayHaveOccurred,false);}
     }
     private void abort(Lease lease,String code){
-        if(!original(lease))return;lease.cancelled=true;revoke(lease);
+        if(!original(lease))return;lease.cancelled=true;
+        if(lease.phase==4){for(MdoBrowserUploadStore.ReadLease file:lease.files)file.revokeStaging();}
+        else revoke(lease);
         if(lease.phase==3)return; // Native response may reenter close/cancel. Never answer it again.
         if(lease.phase==4){if(lease.result.ok)lease.result=new Result(false,code,lease.result.callbackAnswered,false,lease.result.effectMayHaveOccurred,lease.result.cleanupConfirmed);return;}
         Response response=lease.response;lease.response=null;
