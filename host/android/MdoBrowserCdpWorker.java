@@ -39,7 +39,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     private final AtomicBoolean closed=new AtomicBoolean();
     private final Map<MdoBrowserCdpMarker.Lease,Job> jobs=new ConcurrentHashMap<>();
     private final Map<MdoBrowserCdpMarker.Lease,MdoBrowserCdpBinding> bindings=new ConcurrentHashMap<>();
-    MdoBrowserCdpWorker(){this(framework(),(marker,timeout)->MdoBrowserCdpBinding.bind(marker,timeout,(method,session,params)->{}),()->System.nanoTime()/1000000L);}
+    MdoBrowserCdpWorker(){this(framework(),(marker,timeout)->MdoBrowserCdpBinding.bind(marker,timeout,(method,session,params)->{}),android.os.SystemClock::elapsedRealtime);}
     MdoBrowserCdpWorker(Ui ui,Connector connector,LongSupplier clock){
         if(ui==null||connector==null||clock==null||!ui.onThread())throw new IllegalArgumentException("CDP worker requires its UI owner");
         this.ui=ui;this.connector=connector;this.clock=clock;

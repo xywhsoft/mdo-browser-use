@@ -6840,3 +6840,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   plus actionable Windows evidence (historical intermittent input faults remain
   unattributed). Do not replace missing device/visual evidence with these peers,
   enable the global gate early or repeat the unchanged desktop visual failure.
+
+## E77a — preserve the production worker deadline across device sleep
+
+- The actual default CDP worker still measured admission/queued work with
+  `System.nanoTime`, although the upload coordinator already uses elapsed
+  realtime. Android documents that nanoTime stops in deep sleep whereas
+  elapsedRealtime includes it. A queued input could therefore start after its
+  original elapsed deadline on resume. Use the platform elapsed clock in the
+  production constructor; retain explicit private test clocks.
+- Add a deterministic production-constructor gate: advance only the controlled
+  Android elapsed clock after admission. The prior worker fails check 188
+  (`.mdo/E77-worker-clock-red.log`); the fix returns `cdp_worker_timeout` before
+  discovery/binding/marker evaluation or effect dispatch. No actual sleep,
+  phone/provider behavior or historical failure cause is inferred.
+- Focused worker 191 and the complete sequential native/JNI/frame/world/upload/
+  clear/ASan/UBSan/API 26 gates pass (`.mdo/E77-worker-clock-fixed.log`,
+  `.mdo/E77-worker-native-full.log`). Same output/Home/source, no phone/model/
+  external page action. This source fix is not yet packaged into the E76b APK;
+  audit the lower native clocks and package the follow-on stage together.
+- Goal active. User explicitly defers phone connection/provider changes; leave
+  global Android automation disabled and keep all device qualification false.

@@ -177,8 +177,27 @@ public final class CdpWorkerProbe {
         rejects("cdp_worker_binding_unavailable",()->sample.worker.submitExisting(marker,1000,false,(binding,deadline)->value(),result->{}));
         check(sample.connects.get()==1);sample.close();
     }
+    private static void frameworkSleepDeadline()throws Exception {
+        // Use the actual production constructor/clock. Advance only Android's
+        // elapsed clock after admission; no real device sleep is claimed.
+        android.os.SystemClock.now=1000;
+        MdoBrowserCdpWorker worker=new MdoBrowserCdpWorker();WebView view=new WebView();
+        MdoBrowserCdpMarker marker=new MdoBrowserCdpView(view,v->true).marker();
+        List<MdoBrowserCdpWorker.Result> results=new ArrayList<>();AtomicInteger effects=new AtomicInteger();
+        android.os.SystemClock.afterRead=()->android.os.SystemClock.now=17000;
+        try{
+            worker.submit(marker,1000,true,(binding,deadline)->{effects.incrementAndGet();return value();},results::add);
+            waitFor(()->results.size()==1);
+            check("cdp_worker_timeout".equals(results.get(0).code));
+            check(!results.get(0).effectMayHaveOccurred&&results.get(0).bytes==null&&effects.get()==0);
+            check(worker.pending()==0&&view.evaluations==0);
+        }finally{
+            android.os.SystemClock.afterRead=null;android.os.SystemClock.now=1000;
+            worker.close();marker.close();waitFor(worker::terminated);Handler.drain();
+        }
+    }
     public static void main(String[] ignored)throws Exception {
-        Looper.getMainLooper();System.loadLibrary("xs");reuse();capacity();queueDeadline();cancelAndLate();failures();bindingCancellation();invalidAdmission();scheduler();existingOnly();
+        Looper.getMainLooper();System.loadLibrary("xs");reuse();capacity();queueDeadline();cancelAndLate();failures();bindingCancellation();invalidAdmission();scheduler();existingOnly();frameworkSleepDeadline();
         System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false}");
     }
 }
