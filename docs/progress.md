@@ -7447,3 +7447,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   overall Android automation/interception admission stays disabled. Phone and
   provider update deferred as requested; no install, formal data edit, model/
   external page action, extra app/Home/source copy or online publication.
+
+## E84a — claim and drain original response bodies on the native worker
+
+- Add opaque native Body/BodyResult/BodyChunk objects. Only an original frozen
+  candidate callback can issue the fixed stream claim; ordinary callback RPC
+  reentry stays forbidden. Validate the asynchronous stream ACK and reject
+  reused handles. Exact body ownership, eight active slots and unchanged
+  boot-elapsed lifetime prevent selectors/rebinding/replay or capacity eviction.
+- Sequential reads cap each chunk at 64 KiB and each body at 64 MiB. Validate
+  canonical base64/UTF-8, EOF, result fields and exact remaining byte bounds;
+  erase buffers on failure/caller release. Expiry/cancel cleanup has an independent
+  bounded budget. EOF success requires original IO.close and Fetch.failRequest
+  ACKs. Lost read/cleanup replies retire the connection, preserving uncertain
+  effects and separate stream/request cleanup flags. Immutable first receipts
+  are never upgraded after close/cancel. Pre-send quota rejection still permits
+  the native caller to abort the current original event.
+- New body gate passes 571 assertions with actual strict codec/JNI validation and
+  three real local kernel sessions: original POST binary/Unicode body, explicit
+  cancellation and withheld read reply with no replay. Entire transport/control/
+  cooperation/binding/frame/world/input/chooser/upload/clear, ASan/UBSan/API 26
+  gates pass `.mdo/E84-native-full.log` / `.mdo/E84-native-current.json`; all
+  recorded input hashes match. Python passes 173/175 in 63.761 s, only the two
+  existing Windows symlink privilege skips (`.mdo/E84-python-full.log`). The
+  114-file reviewed overlay composes without writes. No JS changes this phase.
+- Goal active. Private cache/hash/storage, body service/idle expiry, actual
+  product list/permission/accept/cancel/save and installed-provider/main-UI
+  qualification remain open. Require the three actual body DEX definitions in
+  the full development APK next. No new runtime dependency, app/Home/source copy,
+  phone/provider update, formal data edit, external page/model action or release.

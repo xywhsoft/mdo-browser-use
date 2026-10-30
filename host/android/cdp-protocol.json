@@ -4,6 +4,10 @@
   "checked_date": "2026-10-30",
   "sources": [
     {
+      "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/IO.pdl",
+      "facts": ["IO.read returns bounded data and an EOF flag with optional base64 encoding", "Omitting offset performs sequential reads", "IO.close discards temporary stream storage"]
+    },
+    {
       "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Fetch.pdl",
       "facts": ["Response stage is identified by responseStatusCode or responseErrorReason", "Response headers are an ordered HeaderEntry array; resourceType and original request metadata accompany the paused event", "Redirect body capture is unavailable; taking the original response stream prevents unchanged continuation"]
     },
@@ -309,6 +313,27 @@
     "native_download_intent_qualified": false,
     "response_body_retention": false,
     "provider_qualified": false
+  },
+  "original_response_body": {
+    "state": "private_native_permits_and_bounded_sequential_reads_not_product_integrated",
+    "claim": "one_fixed_inline_takeResponseBodyAsStream_for_exact_frozen_candidate",
+    "source": "original_root_session_only_no_caller_request_or_stream_selectors",
+    "active_body_limit_per_connection": 8,
+    "read_chunk_bytes": 65536,
+    "maximum_body_bytes": 67108864,
+    "deadline_ms": [1000, 600000],
+    "deadline_clock": "original_suspend_inclusive_boot_elapsed_including_claim_wait",
+    "cleanup_budget_ms": 5000,
+    "completion": "EOF_then_original_IO_close_and_Fetch_failRequest_ACKs",
+    "receipt": "first_terminal_immutable_no_wire_ids_with_separate_stream_close_and_request_abort_proof",
+    "cancel": "atomic_revoke_then_original_worker_cleanup_not_an_immediate_success",
+    "lost_read_or_cleanup_reply": "retire_connection_preserve_uncertainty_never_replay",
+    "data_validation": "bounded_canonical_base64_or_valid_UTF8_and_strict_EOF_fields",
+    "offset_or_url_refetch": false,
+    "private_cache_and_product_accept_cancel_integrated": false,
+    "automatic_idle_expiry_pump_integrated": false,
+    "provider_qualified": false,
+    "product_downloads_activated": false
   },
   "frame_graph": {
     "state": "private_metadata_graph_and_session_routing_packaged",

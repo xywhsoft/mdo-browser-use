@@ -3081,3 +3081,41 @@ stream claim/body storage and accept/cancel must be connected before activation.
 The 295-check metadata gate and 1,986-check physical-binding gate use the exact
 dispatcher/codec/JNI validator with controlled event/provider peers. They do not
 qualify an installed WebView, framework UI or full Android download behavior.
+
+## Original response body permits and sequential reads (E84a)
+
+The private physical-network facade can claim a classified original response
+inside its exact paused callback. This fixed inline operation uses the frozen
+native request/source; it accepts no supplied wire selector. Each original
+event is single-use across claim/continue/abort. The asynchronous ACK must
+provide one bounded native stream handle. Duplicate lifetime handles, malformed
+replies, mismatched sources and lost ACKs retire the connection without replay.
+Only the original root session is supported by this private body path.
+
+An opaque native Body retains that original association, at most eight per
+connection. The owning worker reads sequentially with fixed IO.read parameters
+and no offset. Chunks are at most 64 KiB, byte budgets at most 64 MiB, and the
+unchanged 1,000–600,000 ms boot-elapsed deadline includes claim waiting and all
+reads. Canonical base64 or valid UTF-8 is required; unknown result fields,
+oversized/ambiguous chunks and invalid EOF flags are rejected. Returned native
+buffers must be erased by their caller. Content-Length remains declared
+metadata; actual validated byte counts do not claim HTTP representation equality.
+
+EOF alone is insufficient for success. Independently bounded cleanup requires
+ACKs for closing the exact stream and aborting its original intercepted request.
+The [original stream protocol](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Fetch.pdl)
+prevents unchanged continuation after claiming. The pinned Chromium interceptor
+also accepts aborting the taken original response; this path never reissues its
+URL, request body or consumed read. Connection close alone does not confirm
+stream closure or request denial. Cancel only revokes admission until that
+worker cleanup returns. First terminal receipts retain separate uncertainty,
+EOF/validated-byte count and both cleanup flags; late activity cannot rewrite
+them. A cancelled/retired source cannot publish another chunk.
+
+Exact Java/JSON/JNI checks and three local kernel-peer sessions cover binary/
+Unicode chunks, exact byte boundaries, active capacity, scoped ownership,
+callback reentry, UI cancellation, timeouts, malformed/provider replies and
+lost read/cleanup ACKs. These do not verify installed-provider behavior. The
+product still continues original responses: private cache/storage/hash checks,
+automatic idle expiry/service pumping, permission/accept/cancel/list/save joins
+and device qualification remain unfinished; overall automation stays disabled.

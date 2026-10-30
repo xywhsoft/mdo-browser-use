@@ -111,6 +111,11 @@ static int ClientFetchControlId(int Fd,int Id,int Abort,const char* Session)
 }
 static int ClientFetchControl(int Fd,int Abort,const char* Session){return ClientFetchControlId(Fd,2,Abort,Session);}
 static int Packet(int Fd,const char* Text){return ServerFrame(Fd,XWS_OPCODE_TEXT,1,Text,strlen(Text));}
+static int ClientBodyCommand(int Fd,int Id,const char* Method,const char* Params)
+{
+    char Data[512];int Size=snprintf(Data,sizeof(Data),"{\"id\":%d,\"method\":\"%s\",\"params\":%s}",Id,Method,Params);
+    assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
+}
 static int Handshake(Server* Fixture,int Fd)
 {
     char Request[1024]={0};size_t Used=0;
@@ -194,6 +199,25 @@ static void* Serve(void* Data)
         Packet(Second,"{\"id\":1,\"result\":{}}");Packet(Fd,"{\"id\":1,\"result\":{}}");
         char Byte;if ( recv(Fd,&Byte,1,0)>0 || recv(Second,&Byte,1,0)>0 ) Fixture->Valid=0;
         close(Second);
+    } else if ( Fixture->Mode>=35 && Fixture->Mode<=37 ) {
+        Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+        Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\",\"url\":\"https://private.invalid/one-shot\",\"postData\":\"private-body\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment; filename=private.bin\"}]}}");
+        Fixture->Frames+=ClientBodyCommand(Fd,2,"Fetch.takeResponseBodyAsStream","{\"requestId\":\"interception-job-7.0\"}");
+        Packet(Fd,"{\"id\":2,\"result\":{\"stream\":\"stream-7.0\"}}");Packet(Fd,"{\"id\":1,\"result\":{}}");
+        if ( Fixture->Mode!=36 ) {
+            Fixture->Frames+=ClientBodyCommand(Fd,3,"IO.read","{\"handle\":\"stream-7.0\",\"size\":64}");
+            if ( Fixture->Mode==37 ) goto BodyDone;
+            Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"AAH/gA==\",\"base64Encoded\":true,\"eof\":false}}");
+            Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.read","{\"handle\":\"stream-7.0\",\"size\":60}");
+            Packet(Fd,"{\"id\":4,\"result\":{\"data\":\"\\u4e2d\",\"eof\":true}}");
+        }
+        int CloseId=Fixture->Mode==36?3:5,AbortId=CloseId+1;
+        Fixture->Frames+=ClientBodyCommand(Fd,CloseId,"IO.close","{\"handle\":\"stream-7.0\"}");
+        char Reply[64];snprintf(Reply,sizeof(Reply),"{\"id\":%d,\"result\":{}}",CloseId);Packet(Fd,Reply);
+        Fixture->Frames+=ClientFetchControlId(Fd,AbortId,1,NULL);
+        snprintf(Reply,sizeof(Reply),"{\"id\":%d,\"result\":{}}",AbortId);Packet(Fd,Reply);
+BodyDone:
+        {char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;} /* No read/request replay. */
     } else if ( Fixture->Mode>=28 && Fixture->Mode<=33 ) {
         const char* Session=Fixture->Mode==30||Fixture->Mode==31?"child-001":NULL;
         Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);

@@ -116,6 +116,11 @@ def main():
     if not responses.get('passed') or not responses.get('original_event_snapshot') or responses.get('provider_qualified') is not False or responses.get('body_retention_activated') is not False:
         raise RuntimeError('The bounded original-response metadata gate did not pass')
     result['jvm_response_metadata']=responses
+    bodies=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpBodyProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
+    if not bodies.get('passed') or not bodies.get('original_body_permits') or bodies.get('real_body_sessions')!=3 or bodies.get('provider_qualified') is not False or bodies.get('product_downloads_activated') is not False:
+        raise RuntimeError('The original paused-response stream gate did not pass')
+    result['jvm_response_body']=bodies
     binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not binding.get('passed') or not binding.get('real_jvm_jni_json'):

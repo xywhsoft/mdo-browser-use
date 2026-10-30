@@ -31,6 +31,10 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         default MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpResponse pausedResponse()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.Body takePausedBody(long limit,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default void cancelBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default int pendingBodies()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default int pendingControls()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
@@ -48,6 +52,10 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
                 public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
                 public MdoBrowserCdpResponse pausedResponse()throws IOException{return session.pausedResponse();}
+                public MdoBrowserCdpSession.Body takePausedBody(long limit,int timeout)throws IOException{return session.takePausedBody(limit,timeout);}
+                public MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{return session.readBody(body,timeout);}
+                public void cancelBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{session.cancelBody(body,timeout);}
+                public int pendingBodies()throws IOException{return session.pendingBodies();}
                 public int pendingControls()throws IOException{return session.pendingControls();}
                 public void close(){session.close();}
             };
@@ -253,6 +261,10 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {control();return bound.peer.continuePausedRequest();}
         MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {control();return bound.peer.abortPausedRequest();}
         MdoBrowserCdpResponse pausedResponse()throws IOException {control();return bound.peer.pausedResponse();}
+        MdoBrowserCdpSession.Body takePausedBody(long maxBytes,int timeoutMs)throws IOException {control();return bound.peer.takePausedBody(maxBytes,timeoutMs);}
+        MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeoutMs)throws IOException {active();return bound.peer.readBody(body,timeoutMs);}
+        void cancelBody(MdoBrowserCdpSession.Body body,int timeoutMs)throws IOException {active();bound.peer.cancelBody(body,timeoutMs);}
+        int pendingBodies()throws IOException {bound.current();return bound.peer.pendingBodies();}
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
         boolean cleanupConfirmed(){return bound.closed.get()&&!bound.cleanupFailed.get();}
         @Override public void close(){bound.close();}
