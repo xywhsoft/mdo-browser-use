@@ -17,8 +17,8 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (W1, including E66/F21) is **6,883,440 bytes**, SHA-256
-`aaa2b5acd6f8f558d5b6b4db65bb2e5ac8a90458756fc9e7c4b43eb03c5fd2c0`.
+The current refreshed preview (W2, including W1/E66/F21) is **6,902,384 bytes**, SHA-256
+`03317793d7d0ae865ed0b546a4814ecb7de727583b99f305403cc25a3f03471f`.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
@@ -48,6 +48,22 @@ fence before retirement, replacement-document recovery and exactly one later
 explicit click; the packaged program passes its twelve runtime checks.
 Earlier intermittent nested-fill/child-navigation-drag failures and the Windows
 realm audit remain open; this scoped recovery is not proof of their full cause.
+
+W2 binds classic root-page script execution to its original native unique
+context, with private randomized world names, native metadata correlation and
+negative/positive provider capability probes. Numeric renderer-local context IDs
+remain metadata on this path and cannot select a replacement execution world.
+Same-name worlds instantiated in same-origin children do not overwrite or retire
+the root pin; an identical native refresh cannot revive a retired pin. A
+surviving original response/download reuses its world only after a fresh native
+frame/loader match, with bounded preparation and world-name history.
+The actual-method fault gate passes 45 checks, including numeric reuse before
+its native event arrives and no execution fallback/replay. Real WebView2 passes
+14 root-world checks, 1,376 full browser checks and 260 frame checks; the actual
+packed program passes its twelve checks. This is a root-path hardening stage:
+numeric-only frame evaluation/focus/owner, drag and upload/chooser paths still
+need their original-realm migration. Android remains at its separately verified
+E75 build and the earlier intermittent Windows input failures remain open.
 
 F20 also removes the fixed queue-delivery delay while the existing authenticated
 live connection is available. A coalesced, data-free hint wakes a serialized

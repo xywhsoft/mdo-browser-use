@@ -1479,3 +1479,53 @@ Windows program also passes all twelve packed runtime checks; Android is unchang
 This confirms the scoped recovery defect, not every earlier intermittent nested
 fill or drag failure. The Windows realm audit and platform qualifications remain
 in progress; no online release or model/provider/phone change occurred.
+
+## Original root execution worlds (W2)
+
+The private Windows `automation` command now retains an original native context
+object rather than using its renderer-local numeric ID as an execution selector.
+Native Runtime events must originate from this view's root session and agree
+with the requested randomized world name, native frame, isolated/non-default
+type, unique context ID and creation reply. Before admitting caller script, a
+fixed side-effect-free probe must reject an empty unique ID with the expected
+protocol error; a second fixed probe must succeed in the original unique ID.
+Every caller evaluation uses `uniqueContextId`, with original pin/control checks
+before dispatch and on completion. There is no numeric/default-world fallback,
+automatic action retry or replacement-realm reconnection. The distinction between
+numeric and unique IDs follows the [native CDP Runtime contract](https://github.com/ChromeDevTools/devtools-protocol/blob/master/json/js_protocol.json).
+
+A context destruction/clear or changed original identity retires its pin;
+legitimate numeric ID reuse may create a different pin with a new unique ID,
+but cannot rebind or revive the old object. Reading a same-origin WindowProxy
+can instantiate the same named world in its child: such native events do not
+match the root frame and grant no root authority. A byte-equivalent identity
+refresh is idempotent only for the same still-live pin. A different unique
+identity for an admitted name is rejected. The actual full-browser gate records
+one same-name child context without invalidating the original root.
+
+Preparation has a 3-second deadline, at most 32 waiters/live retained names,
+32 created world names per positively identified native document and 1,024
+world names/unique identities per content view. Closing the view drains waiters
+and removes listeners/timers. A navigation token alone does not prove DOM loss:
+after an original-response/download navigation, reuse requires a fresh matching
+nonempty native loader and frame plus the still-live original unique context.
+Persistent identity/event/provider errors require manual control or reopening
+the view; a new action must not silently fall back to numeric execution.
+
+Native state exposes `automation_unique_world` (the current root pin is admitted),
+`automation_world_error` and bounded `automation_world_metadata` counters
+(`other_frame_contexts`, `original_context_refreshes`). These are diagnostic
+facts, not raw world IDs or an SDK authority. No public C/JS tool signature or
+Agent script/CDP capability is added. `automation_unique_world:false` before
+first admission is not a global provider qualification result.
+
+Run `python tools/native_worlds_probe.py` for actual root navigation/reload and
+page-world isolation checks. The compiled production-method gate additionally
+injects numeric reuse before its native event, stale replies, identity rebinding,
+missing/late metadata, capability failures, timeout, allocation failure and
+throwing delivery callbacks; its numeric-only negative control demonstrates the
+fixture's redirection behavior, while the new path has zero wrong-realm effects.
+Frame evaluation/focus/owner, retained drag observation and upload/chooser
+execution still have numeric-only paths and remain under audit. W2 does not
+establish the cause of earlier intermittent frame input failures or qualify
+Android's outstanding provider/framework behavior.

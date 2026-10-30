@@ -6421,3 +6421,72 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   of historical flakes or full platform qualification. Phone/provider/formal data
   unchanged; no model calls, external page actions, extra app/Home/source copies,
   online release or unchanged desktop-visual-gate retry.
+
+## W2 — bind original root execution to native unique context identities
+
+- Continue the Windows realm audit with a scoped product change. The classic
+  root `automation` path previously created a fixed named world and selected
+  execution by a cached numeric context ID. Across renderer/process reuse,
+  numeric metadata cannot identify the originally admitted execution realm.
+  Retain an explicit native context object with a private randomized name,
+  native frame/loader and unique context identity. Subscribe to root Runtime
+  lifecycle events before enabling Runtime, correlate the creation reply, then
+  require both a rejected empty-unique-ID probe and successful original-unique-ID
+  probe before evaluating any caller script. Use the original unique ID for
+  dispatch and verify the same live pin at callback delivery. Never map an old
+  numeric ID to a new context, use the page/default world, retry the action or
+  report an uncertain delivered effect as a confirmed success.
+- Bound preparation to three seconds/32 waiters, 32 retained names and created
+  names per original document, and 1,024 names/unique identities per view.
+  Preserve original-response/download DOM lifetimes: reuse only a surviving
+  original world after fresh matching nonempty native loader/frame evidence,
+  not merely a navigation token or URL. Close drains waiters/listeners/timers;
+  timer allocation/dispatch faults and throwing reply deliveries cannot replay
+  or abandon other waiting callers. Build fingerprints cover the new reviewed
+  native state/helper files. Public C/JS signatures and plugin content unchanged.
+- Preserve `.mdo/W2-native-full-failure.json` and `.mdo/W2-native-full.log`:
+  the first W2 candidate over-rejected normal same-origin child traversal on
+  its first structured observation (check 18, no native exception diagnostic).
+  Real WebView2 instantiates this named world in a same-origin child when its
+  WindowProxy is accessed. Those native frame identities cannot authorize or
+  overwrite the requested root pin. Ignore them for root admission; accept an
+  identical native refresh only for a still-live original object. Different
+  unique identity on an admitted name and attempted retired-pin revival remain
+  rejected. The fixed actual full gate records `other_frame_contexts:1`,
+  `original_context_refreshes:0`, and a healthy original unique root binding.
+  This was an integration failure in the new W2 candidate, not an attributed
+  cause of the historical E68 failures.
+- `.mdo/W2-worlds-focused.log`: compile actual registry, preparation, deadline
+  and caller-dispatch methods with the pinned JSON parser; 45 controlled checks
+  pass. Inject numeric ID reuse before its native event arrives: the original
+  unique ID is rejected without effects, world creation or fallback. A separate
+  numeric-only negative control redirects into the replacement exactly once,
+  demonstrating that the fixture exercises the risk. Also check fresh numeric
+  reuse after retirement, stale destruction/late replies, same-name child/refresh,
+  rebound identity, limits, absent/late metadata, unsupported probes, close,
+  original-response reuse, native-timer allocation fault and throwing waiter.
+- Final native build `.mdo/W2-native-frame-events-build.log` uses the same source,
+  objects and Home. Actual WebView2 passes 14 focused root checks
+  (`.mdo/W2-root-current.log`/`.json`), 1,376 full browser checks
+  (`.mdo/W2-native-frame-events.log`, `.mdo/W2-native-full-fixed.json`) and 260
+  frame checks (`.mdo/W2-frames-final.log`/`.json`). Native upload/download caches
+  have zero reservations and no new exception diagnostics. The prior W1
+  original-source drag recovery witness still passes. Cross-site navigation and
+  reload retire the old root state; page-world code cannot access its private
+  isolated state. Actual numeric reuse is separately fault-injected, not claimed
+  as an observed renderer reuse in these native navigation runs.
+- Package in place (`.mdo/W2-package.log`): Windows preview 6,902,384 bytes,
+  SHA-256 `03317793d7d0ae865ed0b546a4814ecb7de727583b99f305403cc25a3f03471f`.
+  Inventory verifies all 750 files; actual program/paired unchanged 22-file
+  plugin passes all twelve runtime checks (`.mdo/W2-program-probe.log`). JS
+  319/319 in 19.557 s; Python 168/170 in 64.943 s with the same two Windows symlink
+  skips (`.mdo/W2-node-full.log`, `.mdo/W2-python-full.log`). Restore the same
+  headless service. No formal data/provider/WebView change, model call, external
+  page action, extra application/Home/source copy or online release.
+- Keep the goal active. This stage migrates root caller evaluation only.
+  Frame evaluation/focus/owner, drag-observer cleanup and upload/chooser execution
+  still need their original-realm migration; historical intermittent nested
+  input failures remain unattributed. Android stays at E75 with phone validation
+  deferred by the user; provider/profile/URI/main-UI/clear/directory/download
+  qualification remains outstanding. Do not retry the unchanged desktop visual
+  gate or claim complete platform qualification.

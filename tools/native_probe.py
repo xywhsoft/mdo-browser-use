@@ -89,10 +89,14 @@ try {
     const result=await bridge.call('automation',{browser,agent:true,script:JSON.stringify(value)});
     assert(result.ok&&Object.is(result.value,value),'Isolated CDP primitive lost its JSON type or escaping');
   }
+  const rootWorld=await bridge.call('state',{browser});
+  assert(rootWorld.automation_unique_world===true&&!rootWorld.automation_world_error,'The root isolated runtime lacks confirmed original unique-context binding');
   const forgedVersion=Number(runtimeSource.match(/const version = (\d+);/)[1]);
   await evaluate(`(()=>{Object.defineProperty(globalThis,'__mdo_browser_use_runtime_v1',{value:{version:${forgedVersion},documentNode:document,observe:()=>({ok:true,text:'forged observation'})},configurable:false});return true})()`);
   assert(await evaluate('globalThis.__mdo_browser_use_runtime_v1.version')===forgedVersion,'Matching-version page-world spoof was not installed');
   const first = await engine('observe({})');
+  const observedWorld=await bridge.call('state',{browser});
+  assert(observedWorld.automation_unique_world===true&&!observedWorld.automation_world_error,'Reading same-origin child frames invalidated the original root world');
   assert(first.ok && first.document,'No structured observation');
   assert(first.text.includes('Readable fixture text'),'Missing readable text');
   assert(!first.text.includes('forged observation'),'Page-world runtime spoofed isolated observations');
@@ -626,8 +630,9 @@ try {
   assert((await bridge.call('popups',{browser,action:'list'})).popups.length===0,'A closed native view retained its pending popup');
   const downloadCleanup=await runDownloadCleanupProbe({bridge,assert,pause,origin:downloadOrigin});
   report={passed:true,elements:first.elements.length,frames:first.frames.length,
-    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,native_downloads:true,download_cleanup:downloadCleanup,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
+    screenshot_base64_bytes:image.data.length,checks,backend:'actual-webview2',isolated_world:true,native_unique_root_world:true,root_world_metadata:observedWorld.automation_world_metadata,native_input:true,native_dialogs:true,native_popups:true,native_upload_staging:true,native_file_inputs:true,native_file_clear:true,native_file_chooser:true,native_downloads:true,download_cleanup:downloadCleanup,dialog_expiry_ms:dialogExpiryMs,replacement_ready_ms:replacementReadyMs};
 } catch(error) { report={passed:false,error:String(error.stack||error),last_native_command:lastNativeCommand,checks};
+  if(lastNativeCommand?.command==='automation')try{report.native_world_state=await bridge.call('state',{browser},{timeout:2000});}catch{}
   if(lastNativeCommand?.command==='create'){
     const failedBrowser=lastNativeCommand.browser,started=performance.now();report.creation_observation=[];
     // Read the same identity only. Late readiness is evidence, never a retry or

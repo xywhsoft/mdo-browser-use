@@ -25,6 +25,7 @@ static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
 static bool xb_automation_live(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation){
   return host->alive&&!view->closed&&!view->requestedClose&&!view->failed&&!view->manual&&!view->dialog&&!xb_popup_blocked(view)&&view->navigation==navigation;
 }
+#include "xs_browser_worlds.inc.hpp"
 static void xb_automation_reply(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                                 const std::string& id,const std::string& result,const std::string& error=""){
   if(view->automationRequests.erase(id))host->reply(id,result,error);
@@ -40,32 +41,19 @@ static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared
   if(view->automationRequests.size()>=32){host->reply(id,"","Native automation request limit reached");return;}
   view->automationRequests[id]=true;
   const auto navigation=view->navigation;
-  const auto evaluate=[host,view,id,script,navigation](int context){
+  const auto evaluate=[host,view,id,script,navigation](std::shared_ptr<xb_world_context> context){
     if(!view->automationRequests.count(id))return;
-    if(!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Browser control or document changed");return;}
-    const auto params="{\"expression\":"+xb_quote(script)+",\"contextId\":"+std::to_string(context)+
+    if(!xb_automation_live(host,view,navigation)||!xb_world_live(view,context)){xb_automation_reply(host,view,id,"","The original isolated browser world is unavailable; observe the current page before another action");return;}
+    const auto params="{\"expression\":"+xb_quote(script)+","+xb_world_selector(context)+
       ",\"returnByValue\":true,\"awaitPromise\":false,\"timeout\":3000}";
-    xb_cdp(view,L"Runtime.evaluate",params,[host,view,id,navigation](bool ok,const std::string& result){
-      if(!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Browser control or document changed during evaluation");return;}
+    xb_cdp(view,L"Runtime.evaluate",params,[host,view,id,navigation,context](bool ok,const std::string& result){
+      if(!xb_automation_live(host,view,navigation)||!xb_world_live(view,context)){xb_automation_reply(host,view,id,"","The original browser world changed during evaluation; inspect any delivered effects");return;}
       const auto value=xb_cdp_value(xb_get(result,"result"));
-      if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty())xb_automation_reply(host,view,id,"","Isolated page evaluation failed");
+      if(!ok||!xb_get(result,"error").empty()||!xb_get(result,"exceptionDetails").empty()||value.empty())xb_automation_reply(host,view,id,"","Isolated page evaluation failed; inspect any delivered effects");
       else xb_automation_reply(host,view,id,"{\"ok\":true,\"value\":"+value+"}");
     });
   };
-  if(view->automationContext){evaluate(view->automationContext);return;}
-  xb_cdp(view,L"Page.getFrameTree","{}",[host,view,id,navigation,evaluate](bool ok,const std::string& tree){
-    if(!view->automationRequests.count(id))return;
-    if(!ok||!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Cannot resolve current document");return;}
-    const auto frame=xb_get(xb_get(xb_get(tree,"frameTree"),"frame"),"id");
-    if(frame.empty()){xb_automation_reply(host,view,id,"","Current document has no frame identity");return;}
-    xb_cdp(view,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(frame)+",\"worldName\":\"mdo.browser-use.v1\"}",
-      [host,view,id,navigation,evaluate](bool ready,const std::string& result){
-        int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-        if(!view->automationRequests.count(id))return;
-        if(!ready||context<=0||!xb_automation_live(host,view,navigation)){xb_automation_reply(host,view,id,"","Cannot create isolated browser world");return;}
-        view->automationContext=context;evaluate(context);
-      });
-  });
+  xb_world_root(host,view,navigation,evaluate);
 }
 
 // BROWSER_FRAME_INPUT_GUARD_BEGIN

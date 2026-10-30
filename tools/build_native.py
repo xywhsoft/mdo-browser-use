@@ -198,6 +198,15 @@ def main():
     for before,after in frame_hooks:
         if base.count(before)!=1:raise RuntimeError('Native frame hook no longer unique: '+before)
         base=base.replace(before,after,1)
+    world_hooks=[
+        ('struct xb_view{',(dev.ROOT/'host/native-world-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{'),
+        ('int automationContext=0;', 'int automationContext=0;std::shared_ptr<xb_world_context> automationWorld;std::shared_ptr<xb_world_state> worlds;'),
+        ('active->automationContext=0;', 'active->automationContext=0;active->automationWorld.reset();'),
+        ('\\"frame_automation\\":', '\\"automation_unique_world\\":"+std::string(xb_world_live(view,view->automationWorld)?"true":"false")+",\\"automation_world_error\\":"+xb_quote(view->worlds?view->worlds->error:"")+",\\"automation_world_metadata\\":{\\"other_frame_contexts\\":"+std::to_string(view->worlds?view->worlds->otherFrames:0)+",\\"original_context_refreshes\\":"+std::to_string(view->worlds?view->worlds->refreshes:0)+"},\\"frame_automation\\":'),
+    ]
+    for before,after in world_hooks:
+        if base.count(before)!=1:raise RuntimeError('Native world hook no longer unique: '+before)
+        base=base.replace(before,after,1)
     creation_hooks=[
         ('struct xb_view{',(dev.ROOT/'host/native-creation-state.inc.hpp').read_text(encoding='utf-8')+'\nstruct xb_view{\n  std::string creationRequest;xb_creation_state creation;'),
         ('struct xb_host{','struct xb_host{\n  std::shared_ptr<xb_creation_budget> creations=std::make_shared<xb_creation_budget>();'),
@@ -222,7 +231,7 @@ def main():
         ('COREWEBVIEW2_PROCESS_FAILED_KIND kind;args->get_ProcessFailedKind(&kind);',
          'COREWEBVIEW2_PROCESS_FAILED_KIND kind=COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;if(FAILED(args->get_ProcessFailedKind(&kind)))kind=COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED;'),
         ('active->loading=false;active->failed=true;active->error="Browser process stopped; reload to restore the page";active->errorCode=static_cast<int>(kind);',
-         'active->loading=false;active->failed=true;active->automationContext=0;active->processFailure.record(kind==COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED,active->navigation);active->error=kind==COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED?"The page renderer stopped; reload or reopen this browser to recover":"The browser process stopped; close and reopen this browser to recover";active->errorCode=static_cast<int>(kind);'),
+         'active->loading=false;active->failed=true;active->automationContext=0;active->automationWorld.reset();active->processFailure.record(kind==COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED,active->navigation);active->error=kind==COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED?"The page renderer stopped; reload or reopen this browser to recover":"The browser process stopped; close and reopen this browser to recover";active->errorCode=static_cast<int>(kind);'),
         ('BOOL success=FALSE;args->get_IsSuccess(&success);active->loading=false;',
          'BOOL success=FALSE;args->get_IsSuccess(&success);active->loading=false;if(active->processFailure.completed(navigation,success!=FALSE)){active->failed=false;active->error.clear();active->errorCode=0;}'),
     ]
@@ -307,6 +316,12 @@ def main():
         current=frames_path.read_text(encoding='utf-8')
         if current!=frames and hashlib.sha256(current.encode()).hexdigest()!=record.get('frames'):
             raise RuntimeError('Unreviewed native frame helper edit preserved')
+    worlds=(dev.ROOT/'host/native-worlds.inc.hpp').read_text(encoding='utf-8')
+    worlds_path=target.with_name('xs_browser_worlds.inc.hpp')
+    if worlds_path.exists():
+        current=worlds_path.read_text(encoding='utf-8')
+        if current!=worlds and hashlib.sha256(current.encode()).hexdigest()!=record.get('worlds'):
+            raise RuntimeError('Unreviewed native world helper edit preserved')
     target.write_text(base, encoding="utf-8", newline="\n")
     helper_path.write_text(helper, encoding="utf-8", newline="\n")
     popup_path.write_text(popups, encoding="utf-8", newline="\n")
@@ -318,12 +333,14 @@ def main():
     chooser_path.write_text(chooser, encoding="utf-8", newline="\n")
     download_path.write_text(download, encoding="utf-8", newline="\n")
     frames_path.write_text(frames,encoding='utf-8',newline='\n')
+    worlds_path.write_text(worlds,encoding='utf-8',newline='\n')
     hashes = {"browser": hashlib.sha256(base.encode()).hexdigest(), "helper": hashlib.sha256(helper.encode()).hexdigest(),
               "popups": hashlib.sha256(popups.encode()).hexdigest(),"capture": hashlib.sha256(capture.encode()).hexdigest(),"drag":hashlib.sha256(drag.encode()).hexdigest(),"navigation":hashlib.sha256(navigation_helper.encode()).hexdigest(),"upload":hashlib.sha256(upload.encode()).hexdigest()}
     hashes["upload_assign"] = hashlib.sha256(upload_assign.encode()).hexdigest()
     hashes["chooser"] = hashlib.sha256(chooser.encode()).hexdigest()
     hashes["download"] = hashlib.sha256(download.encode()).hexdigest()
     hashes['frames']=hashlib.sha256(frames.encode()).hexdigest()
+    hashes['worlds']=hashlib.sha256(worlds.encode()).hexdigest()
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

@@ -391,6 +391,7 @@ static void xb_frames_navigation(const std::shared_ptr<xb_view>& view){
   if(state->error=="frame_limit"||state->error=="frame_session_limit"||state->error=="frame_event_limit"||state->error=="frame_identity_unavailable")state->error.clear();
 }
 static void xb_frames_close(const std::shared_ptr<xb_view>& view){
+  xb_worlds_close(view);
   if(!view->frames)return;auto state=view->frames;state->closed=true;auto jobs=state->jobs;
   for(auto& item:jobs)item.second->finish("","frame_interrupted");state->receivers.clear();view->frames.reset();
   KillTimer(view->window,xb_frames_timer);xb_frame_views.erase(view->window);
