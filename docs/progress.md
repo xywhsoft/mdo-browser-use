@@ -6192,3 +6192,56 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   work remain. Goal stays active and Android automation/debug admission off;
   no phone/provider/formal data changes, model calls, external page operation,
   extra app/Home/source copies or online release.
+
+## E73 — join original native upload steps, callback and file retention
+
+- Add an internal UI coordinator over the existing file queue, private picker
+  and fixed original-world CDP operations. Capture exact native objects, source
+  scope/ticket, immutable target and original bounded deadline. Use existing-only
+  worker submission throughout; never reconnect, replace a realm or replay an
+  effect. A native assignment claim prevents a second coordinator from consuming
+  or cancelling another coordinator's staged source. Claims have no JSON route
+  and retain no view/channel/controller references in the file worker.
+- Register the nonce-bound original callback before opening. Defer a callback
+  arriving ahead of the native open receipt until that original operation has
+  completed; verify through the original frame/world before releasing read
+  authority. Wait for selected files, retain the original grant, adopt it before
+  dispatch, and commit only once. Cancellation or an uncertain commit preserves
+  adopted data and immutable handoff evidence; explicit release or the native
+  data owner remains responsible for its eventual lifetime.
+- Bound lost-result waiting. A missing provisional-retention UI reply cannot
+  leave the coordinator waiting forever. Failed/dropped source cleanup replies
+  yield an unconfirmed cleanup receipt after a bounded retirement wait. Reject
+  pre-assignment data through the exact native claim; do not cancel an unrelated
+  source. Keep native cleanup evidence separately from a lost worker reply and
+  contain a throwing/OOM final UI callback without revoking adopted files.
+- Combined actual JVM/JNI/frame/world/CDP/file-worker/native-callback-core gate
+  passes 426 assertions (`.mdo/E73-native-final.log`), covering five frame routes,
+  early callbacks, duplicate claims, wrong mode, native response/completion faults,
+  partial dispatch, cancellation, expiry and dropped file/retention replies.
+  Re-read real Unicode-named and empty files after input cancellation and original
+  staging expiry; explicit release returns quotas to zero. The callback and DOM
+  surroundings are synthetic; this is not installed-framework/URI/renderer
+  assignment qualification. Existing native gates, ASan/UBSan and API 26 compile
+  pass. Preserve `.mdo/E73-native-full.log`: its new dropped-retention fixture
+  advanced a synthetic clock after worker cleanup but before UI timer registration.
+  Wait for the actual UI timer before advancing; focused review passes 426 without
+  relaxing product timeouts (`.mdo/E73-coordinator-review.log`).
+- File URI/private-picker/retention gates pass 418/2,046/409 assertions, read 318,
+  queue 99, exact staging UI 39 and recovery 161 with 13 abrupt JVM exits
+  (`.mdo/E73-android_upload_*.log`). Register coordinator source in overlays, both
+  reviewed/deployed build fingerprints and DEX verification. Stop/apply/check the
+  same deployment; full SDK/D8/DEX/ABI/app/private-provider/alignment/v2/v3 signing
+  checks pass `.mdo/E73-android-build.log`: APK 6,391,105 bytes, SHA-256
+  `eb672e409a00330c791ea0deee9ff732ca3810e48655a40b02ccbc70a31f57d2`.
+  Verify/reuse unchanged Windows executable and paired plugin. JS 319/319 in
+  23.325 s; Python 167/169 in 64.923 s with two existing Windows symlink skips
+  (`.mdo/E73-node-full.log`, `.mdo/E73-python-full.log`). Same service restored.
+- Next wire the actual product route, exact per-view/channel/epoch operation and
+  physical browser data-owner lifecycle; this class alone does not expose upload
+  assignment. Public intercepted-chooser mapping, Android download/profile/
+  activation/provider/main-UI qualification and Windows realm/intermittent-input
+  work remain. Goal stays active; Android automation/debug admission stays off.
+  Phone remains deferred by the user, preserving the current WebView/formal data.
+  No model calls, external page operations, extra app/Home/source copies or
+  online release.

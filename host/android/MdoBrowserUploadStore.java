@@ -141,7 +141,7 @@ final class MdoBrowserUploadStore implements AutoCloseable {
     private static final class Job {
         final String id="u-"+UUID.randomUUID(),key;final Scope scope;final long expires,size;final Spec[] specs;
         final MdoBrowserUploadFiles.Leaf[] files;final ReadLease[] readers;final long[] received,lastOffset;final byte[][] lastHash;final int[] lastSize;
-        boolean sealed,failed,closing,retired,inputCancelled;Retention retention;
+        boolean sealed,failed,closing,retired,inputCancelled;Retention retention;Object assigner;
         Job(Scope scope,String key,Spec[] specs,long expires){
             this.scope=scope;this.key=key;this.specs=specs.clone();this.expires=expires;
             files=new MdoBrowserUploadFiles.Leaf[specs.length];readers=new ReadLease[specs.length];received=new long[specs.length];lastOffset=new long[specs.length];lastHash=new byte[specs.length][];lastSize=new int[specs.length];
@@ -216,6 +216,14 @@ final class MdoBrowserUploadStore implements AutoCloseable {
     Snapshot status(Scope scope,String id,long now)throws IOException {
         thread();try{collect(now);}catch(IOException ignored){/* Preserve independently inspectable ticket state. */}
         return new Snapshot(exact(scope,id));
+    }
+    Snapshot claim(Scope scope,String id,Object assigner)throws IOException {
+        Job job=exact(scope,id);writable(job);if(!job.sealed)throw fail("upload_not_sealed");
+        if(assigner==null)throw fail("upload_assignment_owner_invalid");
+        if(job.assigner!=null&&job.assigner!=assigner)throw fail("upload_already_assigning");job.assigner=assigner;return new Snapshot(job);
+    }
+    Snapshot cancelClaim(Scope scope,String id,Object assigner)throws IOException {
+        Job job=exact(scope,id);if(assigner==null||job.assigner!=assigner)throw fail("upload_assignment_owner_changed");return cancel(scope,id);
     }
     ReadLease access(Scope scope,String id,int index)throws IOException {
         Job job=exact(scope,id);writable(job);if(!job.sealed)throw fail("upload_not_sealed");

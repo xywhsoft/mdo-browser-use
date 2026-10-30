@@ -35,6 +35,7 @@ public final class CdpUploadProbe {
         final java.util.Set<String> events=new java.util.HashSet<>();
         String failure="",hookAt="",nativeKey,source,realm;boolean selected=true,opened,assigned,cleaned;
         int installs,prepared,opens,statuses,commits,disposals,disabled;boolean failureCleanup;
+        Runnable onOpen,onCommit;
         Case(String frame)throws Exception {
             peer.peer.host.plan.extra=this;peer.peer.server.worlds.evaluation=this::evaluate;
             JSONObject request=peer.request(frame);MdoBrowserCdpFileInput target=MdoBrowserCdpFileInput.parse(request);MdoBrowserUploadStore.Spec[] specs=manifest();
@@ -74,11 +75,11 @@ public final class CdpUploadProbe {
                 if(action.equals("dispose")&&nativeKey==null)return new JSONObject().put("ok",false).put("error",new JSONObject().put("code","upload_picker_changed"));
                 check(params.length()==1&&params.getString("key").equals(nativeKey));
                 if(action.equals("open")){
-                    opens++;check(events.isEmpty()&&!opened);opened=true;result=metadata("opening");
+                    opens++;check(events.isEmpty()&&!opened);opened=true;result=metadata("opening");if(onOpen!=null)onOpen.run();
                     if(failure.equals("activation"))result=new JSONObject().put("ok",false).put("error",new JSONObject().put("code","upload_picker_activation_required"));
                 }else if(action.equals("status")){statuses++;result=metadata(selected?"selected":"opening").put("selected",selected);}
                 else if(action.equals("commit")){
-                    commits++;check(opened&&selected&&!assigned);assigned=true;boolean complete=!failure.equals("partial");
+                    commits++;check(opened&&selected&&!assigned);assigned=true;if(onCommit!=null)onCommit.run();boolean complete=!failure.equals("partial");
                     result=metadata("committed").put("accepted",true).put("completed",complete).put("verified",complete)
                         .put("verification","file_list_handoff").put("outcome",complete?"file_list_confirmed":"target_changed_after_input");
                     if(failure.equals("trusted"))result.put("events_trusted",true);

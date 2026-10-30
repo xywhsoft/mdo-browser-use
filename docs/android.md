@@ -15,20 +15,22 @@ are implemented. E69 adds a native nonce/original-callback/file-lease gate and
 E70 adds native assigned-data retention independent of transient input leases.
 E71 joins the original native frame/world verifier to fixed private picker
 steps; E72 preserves an idle original connection for strictly scoped chooser
-metadata while ordinary operations remain fenced. The UI/callback/data-owner
-upload coordinator is not joined yet.
+metadata while ordinary operations remain fenced. E73 adds an internal UI
+coordinator joining the original native callback, file queue and fixed-world
+steps. Its product route and physical browser data-owner lifecycle are not yet
+wired; it does not enable automatic assignment in the main interface.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E72)
+## Complete development host APK (E46/E73)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,387,009 bytes, SHA-256
-`a3b4d97eb072f7a617f07be735824f6243d6fa29512d229ced5137b1f766d7c8`.
+Current APK: 6,391,105 bytes, SHA-256
+`eb672e409a00330c791ea0deee9ff732ca3810e48655a40b02ccbc70a31f57d2`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2564,3 +2566,52 @@ association or completed upload path. Android automation/debug admission stays
 off; installed-provider/main-UI/profile/activation/URI/download and Windows
 realm/intermittent-input work remain. No phone/provider/formal data or release
 changes, external page operations, model calls or extra app/Home/source copies.
+
+### Original UI upload coordinator core (E73)
+
+`MdoBrowserUploadCoordinator` now joins the original native file queue/scope,
+private picker and E71 fixed-world steps. It is an internal object API, not a
+public assignment route. The host must still prove exact native view/channel/
+epoch/operation ownership and provide the physical browser data owner's lifetime.
+The main-interface automatic upload flags remain false.
+
+A sealed source gets a native object claim: another coordinator cannot consume
+it or cancel its owner. The claim carries no View/Activity/channel reference or
+serializable authority. The coordinator captures immutable original target and
+deadline, uses existing-binding-only worker submissions, registers the nonce
+callback before opening, and defers an early callback's verifier until the open
+operation completes. Only the original frame/world verifier can approve files.
+After selection, retain the original callback grant, adopt immediately before a
+single commit, and preserve adopted data on cancellation or uncertain delivery.
+Do not retry a lost handoff or create another isolated world to recover it.
+
+The coordinator bounds a missing file/provisional-retention UI completion and
+source cleanup acknowledgement. An unconfirmed cleanup is reported as such;
+a second claimant cannot cancel the original staging job. Native handoff and
+cleanup evidence survives lost worker replies. Final UI callback exceptions/OOM
+do not revoke adopted data. Data-owner destruction/explicit release still govern
+retained files; transient input expiry is not permission to delete them.
+
+The combined actual JVM/JNI/CDP/graph/world/file-worker/native-callback-core gate
+passes 426 assertions (`.mdo/E73-native-final.log`): five frame routes, early
+callback ordering, duplicate claims, mode/response/completion faults, partial
+handoff, cancellation and dropped file/retention replies. Real Unicode-named and
+empty file contents remain readable after input cancellation/staging expiry,
+and explicit native release returns reservations to zero. Android callback/DOM
+surroundings are synthetic. No ContentProvider/installed-WebView assignment is
+qualified by this combined fixture. Separate URI/provider/proxy/private-picker/
+retention doubles pass 418/2,046/409, read 318, queue 99, staging UI 39 and recovery
+161/13 abrupt JVM exits. The new dropped-retention fixture initially advanced its
+fake clock between worker cleanup and UI timer registration; preserve the failure
+log `.mdo/E73-native-full.log`. Waiting for actual timer registration fixes the
+fixture, with no product timeout change. ASan/UBSan/native/API 26 gates pass.
+
+Include the coordinator and immutable result in overlay/fingerprint/DEX checks.
+Full SDK/D8/native/app/provider/alignment/signature checks pass
+`.mdo/E73-android-build.log` (current APK above); reuse unchanged Windows and paired
+plugin artifacts. JS 319/319 and Python 167/169 (two existing Windows symlink skips)
+pass `.mdo/E73-node-full.log`/`.mdo/E73-python-full.log`. The same service is restored.
+Next implement the product route and physical data owner lifecycle, intercepted
+chooser mapping and outstanding platform qualification. Phone remains deferred,
+current provider/formal data unchanged, Android automation/debugging disabled.
+No model calls, external page actions, online release or extra app/Home copies.

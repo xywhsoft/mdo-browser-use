@@ -18,13 +18,15 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     static final class Request {
         final String action,key,ticket,base64;final MdoBrowserUploadStore.Spec[] specs;final long expires,offset;final int index;
         final MdoBrowserUploadStore.PickerGrant grant;final MdoBrowserUploadStore.RetentionOwner retainer;final MdoBrowserUploadStore.Retention retention;
+        final Object assigner;
         private Request(String action,String key,String ticket,String base64,MdoBrowserUploadStore.Spec[] specs,long expires,int index,long offset){
-            this(action,key,ticket,base64,specs,expires,index,offset,null,null,null);
+            this(action,key,ticket,base64,specs,expires,index,offset,null,null,null,null);
         }
         private Request(String action,String key,String ticket,String base64,MdoBrowserUploadStore.Spec[] specs,long expires,int index,long offset,
-                        MdoBrowserUploadStore.PickerGrant grant,MdoBrowserUploadStore.RetentionOwner retainer,MdoBrowserUploadStore.Retention retention){
+                        MdoBrowserUploadStore.PickerGrant grant,MdoBrowserUploadStore.RetentionOwner retainer,MdoBrowserUploadStore.Retention retention,Object assigner){
             this.action=action;this.key=key;this.ticket=ticket;this.base64=base64;this.specs=specs==null?null:specs.clone();this.expires=expires;this.index=index;this.offset=offset;
             this.grant=grant;this.retainer=retainer;this.retention=retention;
+            this.assigner=assigner;
         }
         static Request begin(String key,MdoBrowserUploadStore.Spec[] specs,long expires)throws IOException {
             MdoBrowserUploadStore.manifest(specs);if(!MdoBrowserUploadStore.bounded(key,100))throw new MdoBrowserUploadFiles.Failure("upload_metadata_invalid");
@@ -49,11 +51,15 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
         }
         static Request retain(MdoBrowserUploadStore.PickerGrant grant,MdoBrowserUploadStore.RetentionOwner owner)throws IOException {
             if(grant==null||owner==null)throw new MdoBrowserUploadFiles.Failure("upload_retention_invalid");
-            return new Request("retain",null,null,null,null,0,0,0,grant,owner,null);
+            return new Request("retain",null,null,null,null,0,0,0,grant,owner,null,null);
         }
         static Request retained(MdoBrowserUploadStore.Retention value,boolean release)throws IOException {
             if(value==null)throw new MdoBrowserUploadFiles.Failure("upload_retention_invalid");
-            return new Request(release?"retained_release":"retained_status",null,null,null,null,0,0,0,null,null,value);
+            return new Request(release?"retained_release":"retained_status",null,null,null,null,0,0,0,null,null,value,null);
+        }
+        static Request claim(String ticket,Object assigner,boolean cancel)throws IOException {
+            Request valid=ticket("status",ticket);if(assigner==null)throw new MdoBrowserUploadFiles.Failure("upload_assignment_owner_invalid");
+            return new Request(cancel?"cancel_claim":"claim",null,valid.ticket,null,null,0,0,0,null,null,null,assigner);
         }
     }
     static final class Outcome {
@@ -163,6 +169,10 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
     private Outcome execute(Work work)throws IOException {
         Request request=work.request;
         if(closing)return CLOSED;
+        if("cancel_claim".equals(request.action)){
+            if(store==null)throw new MdoBrowserUploadFiles.Failure("upload_ticket_not_found");
+            return new Outcome(null,null,store.cancelClaim(work.scope,request.ticket,request.assigner),true);
+        }
         // These native-only object capabilities have no JSON action route.
         // Historical status/release and idempotent retention can outlive the
         // transient input scope; the store still proves exact queue ownership.
@@ -199,6 +209,7 @@ final class MdoBrowserUploadQueue implements AutoCloseable {
                 value=store.chunk(work.scope,request.ticket,request.index,request.offset,bytes);break;
             case "seal":value=store.seal(work.scope,request.ticket);break;
             case "access":return new Outcome(null,null,null,false,store.access(work.scope,request.ticket,request.index));
+            case "claim":value=store.claim(work.scope,request.ticket,request.assigner);break;
             case "status":value=store.status(work.scope,request.ticket,clock.getAsLong());break;
             case "cancel":value=store.cancel(work.scope,request.ticket);break;
             case "release":value=store.releaseConfirmed(work.scope,request.ticket);break;
