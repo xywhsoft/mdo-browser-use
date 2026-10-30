@@ -7839,3 +7839,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   provider/main-UI qualification. Phone/provider update remain deferred. No
   install, formal-data edit, model/external-page action, extra app/Home/source
   copy or online publication.
+
+
+## E89c — verify the controller and idle-worker fix in the full APK
+
+- With the existing service stopped, apply all 117 reviewed files and assemble
+  the actual QA Activity/service/lite-tool APK. Reuse the unchanged verified
+  ARM64 engine and exercised app archive/paired plugin. Verify actual controller/
+  Snapshot/Release/Budget/Row DEX implementations, six JNI entries, private
+  provider, current source/native/app payloads, 16 KiB alignment and v2-v3 signing
+  (`.mdo/E89-android-build.log`). Preserve QA identity/signer/serial.
+- APK 6,440,257 bytes, SHA-256
+  `4b30e75e27f2ed7855a9a4f2182ecf3aef51f57fdd19fe365550a843fd6ac1b7`.
+  Recheck current APK/source/archive and Windows runtime/paired-plugin identities,
+  every E89 native input hash and false device/framework/automation flags.
+  Seven current APK contracts pass (`.mdo/E89-apk-contract.log`). Restore the
+  same headless deployment to HTTP 200 on 63625, about 3,436.0 MiB. Shared JS and
+  Windows/plugin outputs are unchanged.
+- Goal active. Native controller/core parking is implemented and packaged, but
+  main Activity callback/commands, Context/UID service authority and product
+  lifecycle/read/save integration remain open, together with frozen display
+  filename/MIME, original navigation/popup association, unsupported text/blob
+  handling and installed provider/main-UI qualification. Phone/WebView update
+  remain deferred. No installation, formal-data edit, actual model/external-page
+  action, extra application/Home/source copy or publication.
