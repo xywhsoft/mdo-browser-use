@@ -912,7 +912,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "if(web!=null){views.remove(key);root.removeView(web);web.destroy();}",
-      "after": "boolean worldClean=web==null?closeDocument(key):true;if(web!=null){views.remove(key);worldClean=closeAndDestroyDocument(key,web);}"
+      "after": "boolean worldClean=web==null?closeDocument(key):true;if(web!=null){worldClean=closeAndDestroyDocument(key,web);}"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -1256,11 +1256,6 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "private boolean closeDocument(String key){",
       "after": "private boolean closeDocument(String key){cancelUpload(key);"
-    },
-    {
-      "path": "tools/android/MdoBrowser.java",
-      "before": "private boolean closeAndDestroyDocument(String key,WebView view){",
-      "after": "private boolean closeAndDestroyDocument(String key,WebView view){cancelUpload(key,view);"
     },
     {
       "path": "tools/android/MdoBrowser.java",

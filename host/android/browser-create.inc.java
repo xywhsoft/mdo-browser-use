@@ -1,4 +1,5 @@
             if("create".equals(command)) {
+                nativeCreationAdmission();
                 if(web!=null){
                     PopupLink link=popupLinks.get(key);
                     if(request.has("popup")&&(link==null||link.view!=web||!link.id.equals(request.optString("popup"))||!link.opener.equals(request.optString("opener"))))
@@ -41,7 +42,7 @@
                             try{url(address);return false;}catch(IllegalArgumentException rejected){return true;}
                         }
                         @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){
-                            if(!views.owns(key,view))return true;views.remove(key);manual.remove(key);loading.put(key,false);errors.put(key,"Browser process stopped; reload to restore the page");crashed.add(key);closeAndDestroyDocument(key,view);return true;
+                            if(!views.owns(key,view))return true;manual.remove(key);loading.put(key,false);errors.put(key,"Browser process stopped; reload to restore the page");crashed.add(key);closeAndDestroyDocument(key,view);return true;
                         }
                     });
                     crashed.remove(key);pageClosed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);loading.put(key,true);
@@ -60,8 +61,11 @@
                     // Once a transport may have been sent, preserve its exact
                     // child until consumption/explicit close. Never reload a URL.
                     if(!popupLinks.containsKey(key)){
-                        if(views.owns(key,createdView))views.remove(key);
-                        closeAndDestroyDocument(key,createdView);
+                        try{if(!closeAndDestroyDocument(key,createdView))throw new IllegalStateException("native_view_cleanup_failed");}
+                        catch(RuntimeException cleanup){
+                            IllegalStateException combined=new IllegalStateException("native_view_cleanup_failed",failure);
+                            combined.addSuppressed(cleanup);throw combined;
+                        }
                     }
                     throw failure;
                 }

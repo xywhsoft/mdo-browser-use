@@ -1,3 +1,10 @@
+    private boolean nativeViewCleanupFailed;
+    private final Set<WebView> nativeRetiringViews=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
+    private void nativeCreationAdmission(){
+        if(stopped)throw new IllegalStateException("native_browser_closed");
+        if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
+        if(!nativeRetiringViews.isEmpty())throw new IllegalStateException("native_view_retirement_busy");
+    }
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
     private final MdoBrowserWorld.Budget worldBudget=new MdoBrowserWorld.Budget(32);
@@ -51,19 +58,26 @@
         if(document==null)return dialog==null||dialog.dialogs.clean();document.close();return document.cleanupConfirmed()&&(dialog==null||dialog.dialogs.clean());
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
-        cdpViews.invalidate(key,view,views.epoch(key,view),"input_closed");
-        MdoBrowserPopups<WebView> popup=windows.remove(key);if(popup!=null)popup.close();
-        popupLinks.remove(key);pageClosed.remove(key);
-        navigationRequests.remove(key);
-        MdoBrowserDialogTarget dialog=dialogs.remove(key);if(dialog!=null)dialog.close();
-        CaptureEntry capture=captures.remove(key);if(capture!=null)capture.capture.close();
-        MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
-        if(document!=null)document.close();root.removeView(view);view.destroy();retireUploadData(view);
-        if(popup!=null)popup.viewDestroyed(view);
-        if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
-        if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
-        if(document!=null)document.viewDestroyed(view);
-        return document==null||document.cleanupConfirmed();
+        boolean reserved=false;
+        try{
+            if(!nativeRetiringViews.add(view))return false;reserved=true;
+            long epoch=views.epoch(key,view);cancelUpload(key,view);
+            if(views.owns(key,view))views.remove(key);
+            cdpViews.invalidate(key,view,epoch,"input_closed");
+            MdoBrowserPopups<WebView> popup=windows.remove(key);if(popup!=null)popup.close();
+            popupLinks.remove(key);pageClosed.remove(key);
+            navigationRequests.remove(key);
+            MdoBrowserDialogTarget dialog=dialogs.remove(key);if(dialog!=null)dialog.close();
+            CaptureEntry capture=captures.remove(key);if(capture!=null)capture.capture.close();
+            MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
+            if(document!=null)document.close();root.removeView(view);view.destroy();retireUploadData(view);
+            if(popup!=null)popup.viewDestroyed(view);
+            if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
+            if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
+            if(document!=null)document.viewDestroyed(view);
+            boolean clean=document==null||document.cleanupConfirmed();if(!clean)nativeViewCleanupFailed=true;return clean;
+        }catch(RuntimeException|Error failure){nativeViewCleanupFailed=true;throw failure;}
+        finally{if(reserved)nativeRetiringViews.remove(view);}
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;
@@ -88,6 +102,7 @@
             .put("phase",document==null?documentFailures.getOrDefault(key,"world_unavailable"):document.phase())
             .put("pending",document==null?0:document.pending()).put("native_outstanding",document==null?0:document.outstanding())
             .put("native_budget_used",worldBudget.used()).put("native_budget_limit",worldBudget.limit())
+            .put("native_view_cleanup_failed",nativeViewCleanupFailed).put("native_view_retiring",nativeRetiringViews.size())
             .put("native_document",document==null||document.identity()==null?JSONObject.NULL:document.identity())
             .put("adapter","android-main-document-v1")
             .put("profile_isolation",document!=null&&document.profileAssigned());

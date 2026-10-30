@@ -6995,3 +6995,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   rather than treating an erased UI map entry as confirmed native release. Then
   package E78 with all source/build receipts. E77 APK unchanged for now; phone,
   WebView/provider, formal data and online release remain untouched.
+
+## E78c — retain native cleanup uncertainty and reserve retirement callbacks
+
+- A failed original destroy was reported only as a generic cleanup exception,
+  and an erased lifecycle map allowed another physical view even though native
+  resource release was unconfirmed (`.mdo/E78-cleanup-red.log`). Add a sticky
+  per-host native-cleanup fence and expose it in capabilities/document state.
+  New creation/reattachment is refused until a fresh host lifecycle; existing
+  state/close controls are not disguised as successful cleanup.
+- Reserve the exact retiring view before upload/input cancellation and lifecycle
+  removal. The helper now owns removal too, so creation cannot reenter from an
+  input or UI cleanup callback. Recursive retirement of that same physical view
+  returns unconfirmed without another destroy attempt. Normal completed cleanup
+  releases the reservation and permits an explicit later creation.
+- Move native cancellation into the reviewed method rather than injecting it
+  ahead of reservation. Update close/render-failure/create callers to use the
+  sole retirement owner. Any thrown cleanup error or unconfirmed final document
+  cleanup sets the host fence; OOM preserves it as well. Create failures give
+  cleanup uncertainty priority and retain the original primary cause plus cleanup
+  exception privately, without exposing provider text in the top-level code.
+- Exact product-fragment Java 8 gate passes 70 checks
+  (`.mdo/E78-cleanup-lifetime.log`), including failed detach/destroy/document
+  cleanup/OOM, reentrant UI and input completion, duplicate retirement, sticky
+  resource admission after erased UI bindings, stopped-host refusal, eight-view
+  quota before allocation and exactly one reclaimed slot after confirmed cleanup.
+  Earlier 39-case evidence is `.mdo/E78-cleanup-fixed.log`. UI/native peers are
+  controlled; no actual provider/framework/physical resource release is qualified.
+- Goal active. Run the complete native/public gates, apply only with the one
+  service stopped and package E78. No device/provider/model/online changes;
+  E77 artifact remains current until the replacement receipt passes.

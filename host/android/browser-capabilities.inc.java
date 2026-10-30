@@ -15,6 +15,7 @@
     }
     JSONObject capabilities() throws JSONException {
         return new JSONObject().put("native",true).put("snapshot",true).put("screenshot",true)
+            .put("native_view_cleanup_failed",nativeViewCleanupFailed).put("native_view_retiring",nativeRetiringViews.size())
             .put("input",true).put("profile_isolation",false).put("browser_use",browserUseSupport());
     }
     void automationAdmission(JSONObject request) throws JSONException {

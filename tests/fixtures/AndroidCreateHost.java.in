@@ -49,12 +49,13 @@ final class AndroidCreateHost {
         WebSettings getSettings(){return new WebSettings(this);}void setWebViewClient(WebViewClient client){this.client=client;}
         void loadUrl(String target){loads++;if(host.fault.equals("load"))throw new IllegalStateException("fixture navigation dispatch failure");}
         void setVisibility(int value){}
-        void destroy(){destroys++;if(host.fault.equals("destroy"))throw new IllegalStateException("fixture destroy acknowledgement lost");}
+        void destroy(){destroys++;if(host.cleanupFault.equals("oom"))throw new OutOfMemoryError("fixture destroy allocation failure");if(host.fault.equals("destroy")||host.cleanupFault.equals("destroy"))throw new IllegalStateException("fixture destroy acknowledgement lost");}
     }
     static final class Root {
         final Set<WebView> children=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());int removes;
+        Runnable beforeRemove;
         void addView(WebView view){children.add(view);if(view.host.fault.equals("attach"))throw new IllegalStateException("fixture attach acknowledgement lost");}
-        void removeView(WebView view){removes++;children.remove(view);}
+        void removeView(WebView view){removes++;Runnable hook=beforeRemove;beforeRemove=null;if(hook!=null)hook.run();if(view.host.cleanupFault.equals("detach"))throw new IllegalStateException("fixture detach failed");children.remove(view);}
     }
     static final class MdoBrowserWorld {
         static final class Failure extends Exception {final String code;Failure(String code){super(code);this.code=code;}}
@@ -67,7 +68,7 @@ final class AndroidCreateHost {
             view=(WebView)raw;view.host.profileRequests.add(profile);
             if(profile!=null||view.host.fault.equals("manual_world"))throw new MdoBrowserWorld.Failure(profile==null?"isolated_world_unsupported":"browser_profile_unconfirmed");
         }
-        void block(int reason,boolean value){}void close(){closes++;}boolean cleanupConfirmed(){return true;}
+        void block(int reason,boolean value){}void close(){closes++;}boolean cleanupConfirmed(){return !view.host.cleanupFault.equals("document");}
         void viewDestroyed(Object original){if(original!=view)throw new AssertionError("Wrong document view");destroyed++;}
         static final int BACKGROUND=1,CHANNEL=2;
     }
@@ -92,7 +93,7 @@ final class AndroidCreateHost {
     final Map<String,Object> navigationRequests=new HashMap<>();final Map<String,Boolean> loading=new HashMap<>();
     final Map<String,String> errors=new HashMap<>(),locations=new HashMap<>();final Map<String,Integer> errorCodes=new HashMap<>();
     final Set<String> pageClosed=new HashSet<>(),crashed=new HashSet<>(),manual=new HashSet<>();
-    boolean stopped,browserPaused;String fault="";int replies,retired;JSONObject lastReply;
+    boolean stopped,browserPaused;String fault="",cleanupFault="";int replies,retired;JSONObject lastReply;
     final MdoBrowserLifecycle<WebView> views=new MdoBrowserLifecycle<>((view,epoch,admitted)->{
         if(fault.equals("input"))throw new IllegalStateException("fixture input allocation failure");
         return new MdoBrowserInput(new MdoBrowserInput.Target(){
@@ -107,8 +108,13 @@ final class AndroidCreateHost {
     void cancelNavigationRequest(String key,WebView view){}void cancelCapture(String key){}
     void documentNavigation(String key,WebView view){}void documentLoaded(String key,WebView view){}void notifyPopup(String key){}
     boolean closeDocument(String key){return true;}void retireUploadData(WebView view){retired++;}
+    void cancelUpload(String key,WebView view){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
     void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){replies++;lastReply=result;}
+    private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",false);}
+    boolean retire(String key,WebView view){return closeAndDestroyDocument(key,view);}
+    @@CREATION_GUARD@@
+    @@CAPABILITIES@@
     @@BIND@@
     @@CLOSE@@
     void create(String key,JSONObject request)throws Exception{
