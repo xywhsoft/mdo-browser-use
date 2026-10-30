@@ -32,7 +32,7 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E78)
+## Complete development host APK (E46/E79)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -40,11 +40,12 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,403,393 bytes, SHA-256
-`c4c8f55377303c6142898e0a2c0434a0711d2343c43d579debeb2b38f5807fd7`.
+`30d39890aad191da9b2619933585920638399e55ac0924d971fe3b05aa4bd3ed`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
-`MdoBrowserCdpFileInput$BeforeClear` and `MdoBrowser$ClearAction` definitions. No account, Home, QA page or signing
+`MdoBrowserCdpFileInput$BeforeClear`, `MdoBrowser$ClearAction` and native
+`MdoBrowserCdpSession$ControlReceipt`/`ControlResult` definitions. No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
@@ -2916,3 +2917,13 @@ downloads or public Agent methods. Persistent pre-navigation network ownership,
 event pumping, response classification/stream handling, safe storage and
 accept/cancel integration still need implementation and qualification. The user
 has deferred the phone; preserve their WebView and keep overall automation off.
+
+E79's complete development APK includes this private foundation. Actual receipt
+and result DEX definitions are mandatory; a method signature referencing a
+missing class is insufficient. The seven packaging-contract tests and all 175
+Python regressions pass (173 executed, two existing Windows symlink skips),
+`.mdo/E79-apk-contract.log` and `.mdo/E79-python-full.log`. Complete source/ABI/
+manifest/DEX/alignment/v2-v3-signature verification passes
+`.mdo/E79-android-build.log`. Current source/builder/native/paired-plugin hashes
+match their receipts. The same headless service is restored; no installation,
+provider change, external page/model action or online publication was performed.

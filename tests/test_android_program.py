@@ -47,9 +47,11 @@ class ActualDexClassesTests(unittest.TestCase):
         self.assertNotIn('org.json.JSONObject',names)
 
     def test_class_reference_cannot_substitute_for_implementation(self):
-        report=self.report([name for name in program.HOST_CLASSES if name!='MdoBrowserCdpSession'],
-                           '<class name="Helper"><method return="org.xserver.android.MdoBrowserCdpSession"/></class>')
-        with self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
+        for required in ('MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult'):
+            self.assertIn(required,program.HOST_CLASSES)
+            report=self.report([name for name in program.HOST_CLASSES if name!=required],
+                               '<class name="Helper"><method return="org.xserver.android.'+required+'"/></class>')
+            with self.subTest(required=required),self.assertRaises(RuntimeError):program.verify_dex_definitions(report)
 
     def test_test_json_and_browser_runtime_definitions_cannot_ship(self):
         for package in ('android.os','org.json','androidx.test','org.chromium'):

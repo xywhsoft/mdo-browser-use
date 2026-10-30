@@ -7148,3 +7148,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   pre-navigation network owner/pump remain unfinished. No device/provider update,
   model/external page action, formal data change or publication; global Android
   automation stays disabled. Do not ask again for the deferred phone.
+
+## E79b — package fixed native control receipts and verify deployment
+
+- Compose all 112 overlays read-only, stop the same development service and
+  apply the reviewed source (`.mdo/E79-apply.log`). Reuse the unchanged E77 ARM64
+  library and verified W4 app archive/paired plugin, without another app/Home
+  copy. Require actual `ControlReceipt` and `ControlResult` definitions in the
+  complete APK, not only DEX references. The packaging regressions explicitly
+  remove each definition while retaining a reference and confirm refusal.
+- Seven packaging-contract checks pass `.mdo/E79-apk-contract.log`. Complete
+  APK compiler/actual-DEX/ABI/private-provider/manifest/alignment/v2-v3-signature
+  verification passes `.mdo/E79-android-build.log`. Artifact 6,403,393 bytes,
+  SHA-256 `30d39890aad191da9b2619933585920638399e55ac0924d971fe3b05aa4bd3ed`.
+  QA package/signer/installation serial stay stable. Builder/current Android
+  source and all `.mdo/E79-native-current.json` inputs match their receipts;
+  device/framework/automation qualification flags remain false.
+- Full Python regression passes 173/175 in 55.217 s, with only the two existing
+  Windows symlink privilege skips (`.mdo/E79-python-full.log`). Public JS/app
+  runtime sources did not change in E79; their E78 331/331 result remains the
+  prior relevant evidence. The full current native gate is E79a's result above.
+  Restore the same headless service on port 63625 and verify HTTP 200.
+- Goal active. Original-response stream/download storage and persistent physical
+  network ownership/event pumping are the next unfinished development areas.
+  Preserve the deferred phone/current provider and formal data; Android overall
+  automation remains disabled. No device install, runtime dependency or online
+  release is introduced by this packaging phase.
