@@ -32,15 +32,15 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E86)
+## Complete development host APK (E46/E87)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,427,969 bytes, SHA-256
-`e618095e67c9e2cca881d3112f383fa8a9409f47482d4c140740d9019acc5e94`.
+Current APK: 6,432,065 bytes, SHA-256
+`21445c965817d12c14cc5e68715b80c81af9401da90a734bc23d96c60c16ecdf`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new

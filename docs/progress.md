@@ -7695,3 +7695,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   installed provider/main-UI qualification remain unfinished. Phone/WebView
   update stay deferred. No install, formal-data edit, model/external-page
   action, extra application/Home/source copy or publication.
+
+
+## E87b — verify the original-body/file-worker join in the full APK
+
+- Apply all 116 reviewed overlay files with the development service stopped;
+  assemble the actual QA Activity/service/lite-tool APK with current session,
+  storage and queue code. Reuse the unchanged verified ARM64 engine and current
+  exercised app archive/paired plugin. Verify actual Queue/Ticket/Snapshot DEX
+  definitions, six JNI entries, private provider, source/native/app payloads,
+  16 KiB alignment and v2-v3 signing (`.mdo/E87-android-build.log`). Preserve QA
+  identity/signer/serial. APK 6,432,065 bytes, SHA-256
+  `21445c965817d12c14cc5e68715b80c81af9401da90a734bc23d96c60c16ecdf`.
+- Recheck APK/current source/archive identities and Windows runtime/paired-plugin
+  receipt, every E87 native-gate source hash and false device/framework/
+  automation flags. Restore the same headless service to HTTP 200 on 63625,
+  approximately 3,435.6 MiB. Native 126-check queue and complete current Python/
+  native gates are recorded above. Shared JS and Windows/plugin outputs remain
+  unchanged.
+- Goal active: the native body/storage worker join is implemented and packaged;
+  Context/UID authority, product ownership/list/permissions/actions/read/save,
+  unsupported text handling and installed provider/main-UI qualification remain
+  open. Phone and provider update stay deferred. No installation, formal-data
+  edit, actual model/external-page action, app/Home/source copy or publication.
