@@ -6284,3 +6284,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   remain. Goal stays active. Phone/provider/formal data remain untouched per the
   user's deferral. No model calls, external page operations, extra app/Home/source
   copies or online release.
+
+## E75a — keep native upload steps on the original elapsed deadline
+
+- Confirm a clock-domain bug in the upload coordinator: its UI/file scope used
+  Android elapsed realtime, while the fixed native upload steps silently started
+  a separate `System.nanoTime` deadline. Those clocks can diverge across device
+  suspend; worker-side expiry must not be extended by a new clock domain.
+- Pass the original native clock into `MdoBrowserCdpUpload`. Keep its source
+  deadline clamp, same original frame/world guards, one-shot commit and cleanup
+  rules. No caller flag or provider setting is introduced.
+- Add a queued-native-expiry regression: the worker observes the original elapsed
+  deadline passing before another UI admission sample. The old implementation
+  performs page work and fails check 340 (`.mdo/E75-clock-before-fix.log`). With
+  the shared clock, no picker opens or file commit occurs and staging is reclaimed.
+  The complete real JVM/JNI/file/callback coordinator gate passes 444 checks,
+  plus existing native/ASan/UBSan/API 26 gates (`.mdo/E75-native-complete.log`).
+  UI/DOM peers remain synthetic; this is not physical suspend/Doze qualification.
+- Commit this confirmed timing defect separately from the product upload route
+  being integrated in E75b. The development APK still needs its next host rebuild;
+  no release, provider, phone, formal data, model call or external page change.

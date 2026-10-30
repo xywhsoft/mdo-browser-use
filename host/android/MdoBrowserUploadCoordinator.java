@@ -75,7 +75,7 @@ final class MdoBrowserUploadCoordinator implements AutoCloseable {
         manifest=source.files.clone();readers=new MdoBrowserUploadStore.ReadLease[manifest.length];access();
     }
     private void access()throws IOException {
-        live();if(index==readers.length){nativeUpload=new MdoBrowserCdpUpload(target,manifest,remaining());send(Step.PREPARE);return;}
+        live();if(index==readers.length){nativeUpload=new MdoBrowserCdpUpload(target,manifest,remaining(),clock);send(Step.PREPARE);return;}
         final int next=index;queue(MdoBrowserUploadQueue.Request.access(ticket,next),outcome->{
             if(stopping||finished){settle();return;}live();MdoBrowserUploadStore.ReadLease reader=outcome.reader;
             if(!outcome.ok()||reader==null||reader.scope!=scope||!files.owns(reader)||!reader.live(clock.getAsLong())||!reader.file.same(manifest[next]))throw new IOException(outcome.code==null?"upload_source_changed":outcome.code);

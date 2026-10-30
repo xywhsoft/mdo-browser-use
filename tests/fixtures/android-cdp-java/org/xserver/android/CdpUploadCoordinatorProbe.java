@@ -25,6 +25,7 @@ public final class CdpUploadCoordinatorProbe {
         final MdoBrowserPrivatePicker picker;final MdoBrowserChoosers ledger;final byte[] bytes=new byte[131075];
         final AtomicLong now=new AtomicLong(1000);final AtomicReference<Throwable> callbackFailure=new AtomicReference<>();
         final List<String> events=new ArrayList<>();final List<MdoBrowserUploadCoordinator.Result> completed=new ArrayList<>();
+        final Thread ui=Thread.currentThread();volatile boolean expiredNativeClock;
         MdoBrowserUploadCoordinator coordinator;String ticket,mode="";boolean current=true,dropFileReplies,callback=true,select=true;int responses,grants;long epoch=1;
         MdoBrowserUploadStore.ReadLease[] delivered;
         Case(String frame)throws Exception {
@@ -54,7 +55,7 @@ public final class CdpUploadCoordinatorProbe {
             return new MdoBrowserUploadCoordinator(queue,scope,ticket,dataOwner,nativePeer.peer.peer.host.worker,nativePeer.peer.peer.host.marker,picker,
                 MdoBrowserCdpFileInput.parse(nativePeer.peer.request(nativePeer.peer.raw)),()->current,new MdoBrowserUploadCoordinator.Scheduler(){
                     public void at(Runnable task,long due){timers.put(task,due);}public void remove(Runnable task){timers.remove(task);}
-                },now::get,timeout,completion);
+                },()->expiredNativeClock&&Thread.currentThread()!=ui?121001:now.get(),timeout,completion);
         }
         void start()throws Exception {coordinator=create(120000,result->{events.add("done");completed.add(result);if(mode.equals("completion-throws"))throw new OutOfMemoryError("Synthetic UI completion loss");});coordinator.start();}
         void opened()throws Exception {
@@ -115,6 +116,13 @@ public final class CdpUploadCoordinatorProbe {
         }
     }
     private static void cancellationAndLostReplies()throws Exception {
+        try(Case sample=new Case("leaf-frame")){
+            // The queued worker observes expiry before another UI admission
+            // sample. A fresh worker-local timer cannot authorize page effects.
+            sample.expiredNativeClock=true;sample.start();sample.until(()->sample.coordinator.done());
+            check(!sample.coordinator.result().ok&&sample.nativePeer.opens==0&&sample.nativePeer.commits==0&&!sample.coordinator.result().retained);
+            sample.until(()->sample.queue.activeFiles()==0);
+        }
         try(Case sample=new Case("leaf-frame")){
             sample.start();sample.coordinator.close();sample.until(()->sample.coordinator.done());check(!sample.coordinator.result().ok&&sample.nativePeer.opens==0&&sample.nativePeer.commits==0);
             sample.until(()->sample.queue.activeFiles()==0);
