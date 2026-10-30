@@ -144,9 +144,9 @@ static int Handshake(Server* Fixture,int Fd)
 static void* Serve(void* Data)
 {
     Server* Fixture=Data;int Fd=accept(Fixture->Listener,NULL,NULL);assert(Fd>=0);Fixture->Accepted=Fd;
-    if ( Fixture->Mode!=34 ) close(Fixture->Listener);
+    if ( Fixture->Mode!=34 && Fixture->Mode!=38 ) close(Fixture->Listener);
     struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
-    if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 ) close(Fixture->Listener);goto Done;}
+    if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 || Fixture->Mode==38 ) close(Fixture->Listener);goto Done;}
     if ( Fixture->Mode<=1 ) {
         Fixture->Frames+=ClientFrame(Fd,XWS_OPCODE_TEXT,"{\"id\":1}",8);
         const unsigned char First[]={0xE4,0xBD},Second[]={0xA0,'!'};
@@ -199,6 +199,20 @@ static void* Serve(void* Data)
         Packet(Second,"{\"id\":1,\"result\":{}}");Packet(Fd,"{\"id\":1,\"result\":{}}");
         char Byte;if ( recv(Fd,&Byte,1,0)>0 || recv(Second,&Byte,1,0)>0 ) Fixture->Valid=0;
         close(Second);
+    } else if ( Fixture->Mode==38 ) {
+        int Page=accept(Fixture->Listener,NULL,NULL);assert(Page>=0);close(Fixture->Listener);assert(Handshake(Fixture,Page));
+        Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+        Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment\"}]}}");
+        Fixture->Frames+=ClientBodyCommand(Fd,2,"Fetch.takeResponseBodyAsStream","{\"requestId\":\"interception-job-7.0\"}");
+        Packet(Fd,"{\"id\":2,\"result\":{\"stream\":\"stream-7.0\"}}");Packet(Fd,"{\"id\":1,\"result\":{}}");
+        Fixture->Frames+=ClientBodyCommand(Fd,3,"IO.read","{\"handle\":\"stream-7.0\",\"size\":64}");
+        /* A synchronous body wait on the common worker would prevent this
+         * independent page command from ever being sent. */
+        Fixture->Frames+=ClientCommand(Page,1,"Runtime.evaluate",NULL);Packet(Page,"{\"id\":1,\"result\":{}}");
+        Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"AAH/gA==\",\"base64Encoded\":true,\"eof\":true}}");
+        Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.close","{\"handle\":\"stream-7.0\"}");Packet(Fd,"{\"id\":4,\"result\":{}}");
+        Fixture->Frames+=ClientFetchControlId(Fd,5,1,NULL);Packet(Fd,"{\"id\":5,\"result\":{}}");
+        char Byte;if ( recv(Fd,&Byte,1,0)>0 || recv(Page,&Byte,1,0)>0 ) Fixture->Valid=0;close(Page);
     } else if ( Fixture->Mode>=35 && Fixture->Mode<=37 ) {
         Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
         Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\",\"url\":\"https://private.invalid/one-shot\",\"postData\":\"private-body\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment; filename=private.bin\"}]}}");

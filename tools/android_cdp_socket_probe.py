@@ -118,7 +118,7 @@ def main():
     result['jvm_response_metadata']=responses
     bodies=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpBodyProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
-    if not bodies.get('passed') or not bodies.get('original_body_permits') or bodies.get('real_body_sessions')!=3 or bodies.get('provider_qualified') is not False or bodies.get('product_downloads_activated') is not False:
+    if not bodies.get('passed') or not bodies.get('original_body_permits') or bodies.get('real_body_sessions')!=3 or bodies.get('real_async_body_pairs')!=1 or bodies.get('provider_qualified') is not False or bodies.get('product_downloads_activated') is not False:
         raise RuntimeError('The original paused-response stream gate did not pass')
     result['jvm_response_body']=bodies
     binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

@@ -63,12 +63,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         private final AtomicBoolean cancelled=new AtomicBoolean();
         private String stream;private long received;private boolean eof,streamClosed,requestAborted,claimMayHaveOccurred;
         private boolean encodingKnown,binary;
+        private boolean readRequested,readPending,closePending,abortPending,cleaning;
+        private long cleanupBorn;private String cleanupCode;private int readSize;
+        private BodyChunk chunk;
         private Body(MdoBrowserCdpSession owner,PausedEvent original,long born,long limit,int timeout){
             this.owner=owner;this.original=original;this.born=born;this.limit=limit;this.timeout=timeout;
         }
         BodyResult result(){return outcome.get();}
         boolean ready(){synchronized(owner.controlGate){return outcome.get()==null&&stream!=null;}}
-        void cancel(){synchronized(owner.controlGate){if(outcome.get()==null)cancelled.set(true);}}
+        void cancel(){if(outcome.get()==null)cancelled.set(true);}
     }
     static final class BodyResult {
         final boolean ok,claimMayHaveOccurred,eof,streamCloseConfirmed,requestAbortConfirmed;final String code;final long bytes;
@@ -84,6 +87,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         @Override public void close(){Arrays.fill(data,(byte)0);}
     }
     private static final int CONTROL_LIMIT=256,CONTROL_HISTORY=4096,CONTROL_TIMEOUT=5000;
+    private static final int FLOW=0,CLAIM=1,BODY_READ=2,BODY_CLOSE=3,BODY_ABORT=4;
     private static final ControlResult CONTROL_CANCELLED=new ControlResult(false,"cdp_control_cancelled",0,true);
     private static final ControlResult CONTROL_TIMEOUT_RESULT=new ControlResult(false,"cdp_control_timeout",0,true);
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
@@ -102,8 +106,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         }
     }
     private static final class Control {
-        final int id;final String session;final long born;final ControlReceipt receipt;final Body body;
-        Control(int id,String session,long born,ControlReceipt receipt,Body body){this.id=id;this.session=session;this.born=born;this.receipt=receipt;this.body=body;}
+        final int id;final String session;final long born;final ControlReceipt receipt;final Body body;final int kind,timeout;
+        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout){this.id=id;this.session=session;this.born=born;this.receipt=receipt;this.body=body;this.kind=kind;this.timeout=timeout;}
     }
     /** Only explicit native event diagnoses may cross the event callback.
      * Ordinary exception/provider messages keep the generic sanitized result. */
@@ -131,7 +135,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Body[] bodies=new Body[8];private final Set<String> streamIds=new HashSet<>();
     private PausedEvent paused;private long activeStarted;private int activeTimeout;private String controlFault;
     private volatile Wire wire;
-    private int serial;private boolean busy;
+    private int serial,bodyCursor;private boolean busy;
 
     private MdoBrowserCdpSession(BooleanSupplier current,Events events,Clock clock) {
         this.current=Objects.requireNonNull(current);this.events=Objects.requireNonNull(events);this.clock=Objects.requireNonNull(clock);
@@ -247,7 +251,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 int bodySlot=-1;if(body!=null){for(int i=0;i<bodies.length;i++)if(bodies[i]==null){bodySlot=i;break;}if(bodySlot<0)throw new EventFailure("cdp_body_limit");}
                 org.json.JSONObject params=new org.json.JSONObject().put("requestId",original.request);
                 if(abort)params.put("errorReason","Aborted");
-                ControlReceipt receipt=body==null?new ControlReceipt():body.claim;row=new Control(++serial,original.session,clock.now(),receipt,body);
+                ControlReceipt receipt=body==null?new ControlReceipt():body.claim;row=new Control(++serial,original.session,clock.now(),receipt,body,body==null?FLOW:CLAIM,CONTROL_TIMEOUT);
                 bytes=MdoBrowserCdpJson.encode(row.id,body!=null?"Fetch.takeResponseBodyAsStream":abort?"Fetch.failRequest":"Fetch.continueRequest",params,original.session);
                 budget=remaining(activeStarted,activeTimeout,false);original.used=true;controlKeys.add(original.key);
                 int slot=0;while(controls[slot]!=null)slot++;controls[slot]=row;controlCount++;receipt.issued=true;
@@ -263,9 +267,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean expired=false;
         try{synchronized(controlGate){
             if(controlCount==0)return;long now=clock.now();
-            for(Control row:controls)if(row!=null){long used=now-row.born;if(used<0||used>=CONTROL_TIMEOUT){row.receipt.finish(CONTROL_TIMEOUT_RESULT);expired=true;}}
+            for(Control row:controls)if(row!=null){long used=now-row.born;if(used<0||used>=row.timeout){
+                if(row.kind==BODY_READ&&used>=0){beginBodyCleanup(row.body,"cdp_body_timeout",now);continue;}
+                row.receipt.finish(CONTROL_TIMEOUT_RESULT);expired=true;
+                if(row.kind>=BODY_CLOSE){finishBody(row.body,false,"cdp_body_cleanup_unconfirmed");controlFault="cdp_body_cleanup_unconfirmed";}
+            }}
         }}catch(RuntimeException|Error error){controlFault="cdp_control_clock_failed";close();throw failure(controlFault,effect);}
-        if(expired){controlFault="cdp_control_timeout";close();throw failure(controlFault,effect);}
+        if(expired){if(controlFault==null)controlFault="cdp_control_timeout";close();throw failure(controlFault,effect);}
     }
     private boolean controlReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
         ControlResult result=null;
@@ -277,7 +285,11 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                     result=new ControlResult(false,"cdp_control_reply_mismatch",0,true);
                 }else result=new ControlResult(!message.failed,message.failed?(message.error==-32601?"cdp_control_method_unsupported":"cdp_control_rejected"):null,
                         message.failed?message.error:0,!message.failed||message.error!=-32601);
-                if(row.body!=null){
+                if(row.kind>=BODY_READ&&Objects.equals(row.session,message.session)){
+                    controls[i]=null;controlCount--;row.receipt.finish(result);
+                    bodyReply(row,message,result,effect);return true;
+                }
+                if(row.kind==CLAIM){
                     Body body=row.body;
                     if(result.ok){Object stream=message.value.opt("stream");
                         if(message.value.length()!=1||!(stream instanceof String)||!streamHandle((String)stream))
@@ -326,11 +338,121 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private void finishBody(Body body,boolean success,String code){
         synchronized(controlGate){
             if(body.outcome.get()!=null)return;
-            if(body.cancelled.get()){success=false;code="cdp_body_cancelled";}
+            if(body.cancelled.get()){success=false;if(code==null||"cdp_body_connection_closed".equals(code))code="cdp_body_cancelled";}
+            if(body.chunk!=null){body.chunk.close();body.chunk=null;}
             BodyResult result;try{result=new BodyResult(success,code,body);}catch(RuntimeException|Error unavailable){result=BODY_UNKNOWN;}
             body.outcome.compareAndSet(null,result);body.stream=null;body.original=null;
             for(int i=0;i<bodies.length;i++)if(bodies[i]==body)bodies[i]=null;
         }
+    }
+    private void beginBodyCleanup(Body body,String code,long now){
+        if(body.outcome.get()!=null||body.cleaning)return;
+        body.cleaning=true;body.cleanupBorn=now;body.cleanupCode=code;body.readRequested=false;
+        if(body.chunk!=null){body.chunk.close();body.chunk=null;}
+    }
+    private void acceptBodyData(Body body,JSONObject reply)throws IOException {
+        byte[] data=null;
+        try{
+            data=bodyData(reply,body.readSize);boolean binary=Boolean.TRUE.equals(reply.opt("base64Encoded"));
+            if(body.encodingKnown&&body.binary!=binary)throw new IOException("cdp_body_encoding_changed");
+            body.encodingKnown=true;body.binary=binary;
+            if(!binary&&!body.original.response.exactTextLength)throw new IOException("cdp_body_text_integrity_unavailable");
+            if(data.length>body.limit-body.received)throw new IOException("cdp_body_limit");
+            body.received+=data.length;body.eof=reply.optBoolean("eof",false);
+            if(body.eof&&!binary&&body.received!=body.original.response.declaredLength)throw new IOException("cdp_body_length_mismatch");
+            body.chunk=new BodyChunk(data,body.eof);data=null;
+        }finally{if(data!=null)Arrays.fill(data,(byte)0);}
+    }
+    private void bodyReply(Control row,MdoBrowserCdpJson.Message message,ControlResult result,boolean effect)throws Failure {
+        Body body=row.body;
+        if(body.outcome.get()!=null){controlFault="cdp_body_reply_after_terminal";close();throw failure(controlFault,effect);}
+        if(row.kind==BODY_READ){
+            body.readPending=false;
+            if(!body.cleaning&&!body.cancelled.get()){
+                if(!result.ok)beginBodyCleanup(body,result.protocolCode==-32601?"cdp_body_read_unsupported":"cdp_body_read_rejected",clock.now());
+                else try{acceptBodyData(body,message.value);}
+                catch(IOException failure){String code=failure.getMessage();
+                    if(code.equals("cdp_body_text_integrity_unavailable")||code.equals("cdp_body_length_mismatch")||code.equals("cdp_body_limit"))beginBodyCleanup(body,code,clock.now());
+                    else{finishBody(body,false,code);controlFault=code;close();throw failure(code,effect);}
+                }
+            }
+        }else{
+            if(row.kind==BODY_CLOSE)body.closePending=false;else body.abortPending=false;
+            if(!result.ok||message.value.length()!=0){finishBody(body,false,"cdp_body_cleanup_unconfirmed");controlFault="cdp_body_cleanup_unconfirmed";close();throw failure(controlFault,effect);}
+            if(row.kind==BODY_CLOSE)body.streamClosed=true;else body.requestAborted=true;
+        }
+        if(body.cleaning&&body.streamClosed&&body.requestAborted&&!body.readPending)finishBody(body,body.cleanupCode==null,body.cleanupCode);
+    }
+    /** Request/consume at most one chunk. Neither call performs socket I/O.
+     * Native consumers must wait for BodyResult as well as final chunk EOF. */
+    void requestBodyRead(Body body)throws IOException {
+        bodyGuard(body);synchronized(controlGate){
+            if(body.cancelled.get())throw failure("cdp_body_cancelled",false);
+            if(body.cleaning||body.eof)throw failure("cdp_body_finishing",false);
+            if(body.readRequested||body.readPending||body.chunk!=null)throw failure("cdp_body_read_pending",false);
+            body.readRequested=true;
+        }
+    }
+    BodyChunk takeBodyChunk(Body body)throws IOException {
+        guard(false);if(body==null||body.owner!=this)throw failure("cdp_body_owner_mismatch",false);
+        if(busy)throw failure("cdp_session_busy",false);
+        synchronized(controlGate){
+            guard(false);BodyResult result=body.outcome.get();
+            if(result!=null){if(!result.ok)throw failure(result.code,result.claimMayHaveOccurred);return null;}
+            if(body.cancelled.get()||body.cleaning&&body.cleanupCode!=null)return null;
+            BodyChunk chunk=body.chunk;body.chunk=null;return chunk;
+        }
+    }
+    /** One bounded send per turn, no response wait. A stalled read remains
+     * associated with its exact row while other connections/jobs can progress. */
+    boolean serviceBodies(int sendTimeoutMs)throws IOException {
+        guard(false);if(busy)throw failure("cdp_session_busy",false);
+        if(sendTimeoutMs<10||sendTimeoutMs>5000)throw failure("cdp_body_arguments_invalid",false);
+        try{Body selected=null;int kind=0;synchronized(controlGate){
+            long now=clock.now();
+            for(Body body:bodies)if(body!=null){
+                long used=now-body.born;
+                if(used<0){finishBody(body,false,"cdp_body_clock_invalid");close();throw failure("cdp_body_clock_invalid",true);}
+                if(body.cancelled.get())beginBodyCleanup(body,"cdp_body_cancelled",now);
+                else if(used>body.timeout-10)beginBodyCleanup(body,"cdp_body_timeout",now);
+                else if(body.eof&&body.chunk==null&&!body.readPending)beginBodyCleanup(body,null,now);
+                if(body.cleaning&&(now<body.cleanupBorn||now-body.cleanupBorn>=5000)){
+                    finishBody(body,false,"cdp_body_cleanup_unconfirmed");close();throw failure("cdp_body_cleanup_unconfirmed",true);
+                }
+            }
+            for(int n=0;n<bodies.length;n++){
+                int index=bodyCursor;bodyCursor=(bodyCursor+1)%bodies.length;Body body=bodies[index];if(body==null||body.stream==null)continue;
+                if(body.cleaning){
+                    if(!body.streamClosed&&!body.closePending){selected=body;kind=BODY_CLOSE;break;}
+                    if(body.streamClosed&&!body.requestAborted&&!body.abortPending){selected=body;kind=BODY_ABORT;break;}
+                }else if(body.readRequested&&!body.readPending&&body.chunk==null){selected=body;kind=BODY_READ;break;}
+            }
+        }if(selected==null)return false;sendBody(selected,kind,sendTimeoutMs);return true;}
+        catch(Failure failure){throw failure;}
+        catch(IOException|RuntimeException|Error failure){close();throw failure("cdp_body_service_failed",true);}
+    }
+    private void sendBody(Body body,int kind,int timeoutMs)throws IOException {
+        byte[] bytes=null;Control row=null;boolean attempted=false;busy=true;
+        try{int left;synchronized(controlGate){
+            guard(false);if(serial==Integer.MAX_VALUE||controlCount>=CONTROL_LIMIT)throw failure("cdp_body_control_limit",false);
+            if(kind==BODY_READ&&body.cancelled.get()){beginBodyCleanup(body,"cdp_body_cancelled",clock.now());return;}
+            long now=clock.now();int ttl=kind==BODY_READ?bodyRemaining(body,body.timeout):(int)(5000-(now-body.cleanupBorn));
+            if(ttl<10)throw failure("cdp_body_cleanup_unconfirmed",false);
+            JSONObject params=new JSONObject();String method;
+            if(kind==BODY_READ){body.readSize=(int)Math.min(65536,Math.max(1,body.limit-body.received));params.put("handle",body.stream).put("size",body.readSize);method="IO.read";}
+            else if(kind==BODY_CLOSE){params.put("handle",body.stream);method="IO.close";}
+            else{params.put("requestId",body.original.request).put("errorReason","Aborted");method="Fetch.failRequest";}
+            row=new Control(++serial,body.original.session,now,new ControlReceipt(),body,kind,ttl);
+            bytes=MdoBrowserCdpJson.encode(row.id,method,params,row.session);
+            left=remaining(now,Math.min(ttl,timeoutMs),false);
+            int slot=0;while(controls[slot]!=null)slot++;controls[slot]=row;controlCount++;row.receipt.issued=true;
+            if(kind==BODY_READ){body.readPending=true;body.readRequested=false;}
+            else if(kind==BODY_CLOSE)body.closePending=true;else body.abortPending=true;
+        }guard(false);attempted=true;wire.send(bytes,left);
+        }catch(IOException|org.json.JSONException|RuntimeException|Error failure){
+            String code=kind==BODY_READ?(failure instanceof IOException?"cdp_transport_failed":"cdp_dispatch_failed"):"cdp_body_cleanup_unconfirmed";
+            if(row!=null)row.receipt.finish(CONTROL_SEND_FAILED);finishBody(body,false,code);close();throw failure(code,attempted);
+        }finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
     }
     private static IOException bodyDataInvalid(){return new IOException("cdp_body_data_invalid");}
     private static byte[] bodyData(JSONObject reply,int maximum)throws IOException {
@@ -356,62 +478,42 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         }
         return text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
-    /** Sequential fixed read on this exact claim. A lost reply advances an
-     * uncertain stream and therefore retires it; never resend the read. */
+    /** Convenience drain on top of the asynchronous machine. Product pumps use
+     * requestBodyRead/takeBodyChunk/serviceBodies and never wait in this loop. */
     BodyChunk readBody(Body body,int timeoutMs)throws IOException {
         if(timeoutMs<10||timeoutMs>5000)throw failure("cdp_body_arguments_invalid",false);
-        bodyGuard(body);byte[] data=null;
+        bodyGuard(body);BodyChunk chunk=null;
         try{
-            if(body.cancelled.get()){cleanupBody(body,5000,false,"cdp_body_cancelled");throw failure("cdp_body_cancelled",false);}
-            int budget=bodyRemaining(body,timeoutMs);int size=(int)Math.min(65536,Math.max(1,body.limit-body.received));
-            JSONObject params=new JSONObject().put("handle",body.stream).put("size",size);
-            JSONObject reply=call("IO.read",params,body.original.session,budget,true);
-            bodyGuard(body);bodyRemaining(body,10);
-            if(body.cancelled.get()){cleanupBody(body,5000,false,"cdp_body_cancelled");throw failure("cdp_body_cancelled",true);}
-            data=bodyData(reply,size);boolean binary=Boolean.TRUE.equals(reply.opt("base64Encoded"));
-            if(body.encodingKnown&&body.binary!=binary)throw new IOException("cdp_body_encoding_changed");
-            body.encodingKnown=true;body.binary=binary;
-            if(!binary&&!body.original.response.exactTextLength)throw new IOException("cdp_body_text_integrity_unavailable");
-            if(data.length>body.limit-body.received)throw new IOException("cdp_body_limit");
-            synchronized(controlGate){bodyGuard(body);body.received+=data.length;body.eof=reply.optBoolean("eof",false);}
-            if(body.eof&&!binary&&body.received!=body.original.response.declaredLength)throw new IOException("cdp_body_length_mismatch");
-            BodyChunk chunk=new BodyChunk(data,body.eof);
-            if(body.cancelled.get()){cleanupBody(body,5000,false,"cdp_body_cancelled");throw failure("cdp_body_cancelled",true);}
-            if(body.eof){cleanupBody(body,5000,true,null);if(body.outcome.get()==null||!body.outcome.get().ok)throw failure("cdp_body_cleanup_unconfirmed",true);}
-            synchronized(controlGate){
-                guard(true);if(!body.eof){bodyGuard(body);if(body.cancelled.get())throw failure("cdp_body_cancelled",true);}
-                data=null;return chunk;
+            if(body.cancelled.get()){cancelBody(body,5000);throw failure("cdp_body_cancelled",false);}
+            requestBodyRead(body);long started=clock.now();
+            for(;;){
+                chunk=takeBodyChunk(body);if(chunk!=null)break;
+                bodyStep(body,started,timeoutMs,false);
             }
-        }catch(Failure failure){
-            if(body.outcome.get()==null){if("cdp_body_timeout".equals(failure.getMessage())||"cdp_body_cancelled".equals(failure.getMessage()))try{cleanupBody(body,5000,false,failure.getMessage());}catch(IOException|RuntimeException|Error ignored){}
-                if(body.outcome.get()==null){finishBody(body,false,failure.getMessage());close();}}
-            throw failure;
-        }catch(IOException failure){
-            String code=failure.getMessage();
-            if("cdp_body_text_integrity_unavailable".equals(code)||"cdp_body_length_mismatch".equals(code)){
-                cleanupBody(body,5000,false,code);throw failure(code,true);
-            }
-            finishBody(body,false,"cdp_body_encoding_changed".equals(code)?code:"cdp_body_limit".equals(code)?code:"cdp_body_data_invalid");close();throw failure;
-        }
-        catch(org.json.JSONException|RuntimeException|Error failure){finishBody(body,false,"cdp_body_read_failed");close();throw failure("cdp_body_read_failed",true);}
-        finally{if(data!=null)Arrays.fill(data,(byte)0);}
+            if(chunk.eof){BodyResult result=awaitBody(body,5000);if(!result.ok)throw failure(result.code,result.claimMayHaveOccurred);}
+            guard(true);BodyChunk valid=chunk;chunk=null;return valid;
+        }finally{if(chunk!=null)chunk.close();}
     }
     void cancelBody(Body body,int timeoutMs)throws IOException {
         if(timeoutMs<10||timeoutMs>5000)throw failure("cdp_body_arguments_invalid",false);
-        bodyGuard(body);body.cancel();cleanupBody(body,timeoutMs,false,"cdp_body_cancelled");
+        bodyGuard(body);body.cancel();BodyResult result=awaitBody(body,timeoutMs);
+        if(!result.streamCloseConfirmed||!result.requestAbortConfirmed||!"cdp_body_cancelled".equals(result.code))
+            throw failure(result.code==null?"cdp_body_cleanup_unconfirmed":result.code,result.claimMayHaveOccurred);
     }
-    /** Independent bounded cleanup on the original stream/request. ACKs for
-     * both operations are required; connection close alone proves neither. */
-    private void cleanupBody(Body body,int timeout,boolean success,String code)throws IOException {
-        bodyGuard(body);long started=clock.now();
-        try{
-            JSONObject closed=call("IO.close",new JSONObject().put("handle",body.stream),body.original.session,remaining(started,timeout,true),true);
-            if(closed.length()!=0)throw new IOException("cdp_body_cleanup_invalid");body.streamClosed=true;
-            JSONObject aborted=call("Fetch.failRequest",new JSONObject().put("requestId",body.original.request).put("errorReason","Aborted"),body.original.session,remaining(started,timeout,true),true);
-            if(aborted.length()!=0)throw new IOException("cdp_body_cleanup_invalid");body.requestAborted=true;
-            finishBody(body,success,code);
-        }catch(IOException|org.json.JSONException|RuntimeException|Error failure){finishBody(body,false,"cdp_body_cleanup_unconfirmed");close();
-            throw failure("cdp_body_cleanup_unconfirmed",true);}
+    private BodyResult awaitBody(Body body,int timeoutMs)throws IOException {
+        long started=clock.now();BodyResult result;
+        while((result=body.outcome.get())==null)bodyStep(body,started,timeoutMs,true);return result;
+    }
+    private int bodyStepRemaining(Body body,long started,int timeout,boolean cleanup)throws Failure {
+        long used=clock.now()-started;
+        if(used<0||used>timeout-10){String code=cleanup?"cdp_body_cleanup_unconfirmed":"cdp_command_timeout";
+            finishBody(body,false,code);close();throw failure(code,true);}
+        return timeout-(int)used;
+    }
+    private void bodyStep(Body body,long started,int timeout,boolean cleanup)throws IOException {
+        int left=bodyStepRemaining(body,started,timeout,cleanup);serviceBodies(Math.min(100,left));
+        if(body.outcome.get()!=null||!cleanup&&body.chunk!=null)return;
+        left=bodyStepRemaining(body,started,timeout,cleanup);poll(Math.min(20,left),Math.min(250,left));
     }
     /** Serialized RPC. A sent effect may have occurred even if its reply is
      * lost. Failure never retries. Rejected caller arguments leave I/O alone. */

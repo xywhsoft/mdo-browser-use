@@ -325,7 +325,7 @@
     "provider_qualified": false
   },
   "original_response_body": {
-    "state": "private_native_permits_and_bounded_sequential_reads_not_product_integrated",
+    "state": "private_nonblocking_body_machine_in_shared_worker_not_product_integrated",
     "claim": "one_fixed_inline_takeResponseBodyAsStream_for_exact_frozen_candidate",
     "source": "original_root_session_only_no_caller_request_or_stream_selectors",
     "active_body_limit_per_connection": 8,
@@ -344,7 +344,12 @@
     "unknown_or_compressed_nonbinary_text_supported": false,
     "offset_or_url_refetch": false,
     "private_cache_and_product_accept_cancel_integrated": false,
-    "automatic_idle_expiry_pump_integrated": false,
+    "automatic_idle_expiry_pump_integrated": true,
+    "read_reply_wait": "original_body_deadline_not_the_ordinary_five_second_RPC_wait",
+    "read_dispatch_blocks_common_worker": false,
+    "buffered_chunks_per_body": 1,
+    "consumer_backpressure_includes_eof": true,
+    "pending_read_cleanup": "require_original_cleanup_ACKs_and_drain_original_read_row_or_retire_connection",
     "provider_qualified": false,
     "product_downloads_activated": false
   },

@@ -73,7 +73,10 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
                 if(selected.cancelled.get()||!selected.lease.current()){selected.finish("cdp_network_cancelled");return;}
                 MdoBrowserCdpBinding.Network connection=selected.connection;
                 if(connection==null)throw new IOException("cdp_network_binding_invalid");
-                if(connection.idle())connection.poll(20,250);
+                if(connection.idle()){
+                    connection.serviceBodies(100);connection.poll(20,250);
+                    if(connection.idle())connection.serviceBodies(100);
+                }
             }catch(IOException error){selected.finish(safe(error.getMessage()));}
             catch(RuntimeException|Error error){selected.finish("cdp_network_worker_failed");}
         }finally{servicing=false;}

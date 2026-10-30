@@ -7526,3 +7526,32 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   qualification remain open. Phone and provider update remain deferred. No
   installation, formal data edit, actual model/external page action, application/
   Home/source copy, new runtime dependency or online publication.
+
+## E85a — service body replies without blocking the common worker
+
+- Replace ordinary waiting reads/cleanup with fixed asynchronous native rows.
+  Original body deadlines govern stalled reads; short polls do not renew them.
+  Join one bounded send/turn to the existing physical-network/cooperative pump,
+  with no executor, UI socket wait or automatic read/request replay. Retain
+  blocking diagnostic helpers over the same machine, not a second data path.
+- Keep one buffered chunk per body and wait for consumer handoff even at EOF.
+  Service idle expiry, atomic cancellation and staged cleanup; retain a pending
+  read association until its reply drains or the connection must retire. Wipe
+  unconsumed data before failed/cancelled cleanup. Close can interrupt an actual
+  send without waiting on the control gate. Exact native rows still route amid
+  other outstanding commands and cannot be retargeted by supplied wire IDs.
+- Body gate passes 855 checks, three original kernel body sessions and one real
+  two-connection asynchronous pair. The peer withholds the read until another
+  page command arrives, proving that common-worker progress is possible.
+  Controlled tests cover >5 s read wait, original idle/cleanup deadlines, late
+  cancelled success/error replies, withheld replies, backpressure and UI close.
+  Full control/cooperation/binding/frame/world/input/upload/clear/ASan/UBSan/API26
+  gates pass `.mdo/E85-native-final.log` / `.mdo/E85-native-current.json` with
+  matching recorded hashes. Python 173/175 in 50.296 s; only existing Windows
+  symlink privilege skips (`.mdo/E85-python-full.log`). Overlay composes 114 files.
+- Goal active. Source inspection then identified pinned native EOF/close finishing
+  details that need the next compatibility fix before packaging. E84 artifacts
+  remain the current built outputs. Cache/hash/storage, product permissions/list/
+  accept/cancel/save and provider/main-UI qualification remain unfinished. No
+  phone/provider update, application/Home/source copy, formal data edit, actual
+  model/external page action, runtime dependency or online publication.

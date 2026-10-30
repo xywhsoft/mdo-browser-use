@@ -60,6 +60,9 @@ public final class CdpBindingProbe {
                 public MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{return session.readBody(body,timeout);}
                 public void cancelBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{session.cancelBody(body,timeout);}
                 public int pendingBodies()throws IOException{return session.pendingBodies();}
+                public void requestBodyRead(MdoBrowserCdpSession.Body body)throws IOException{session.requestBodyRead(body);}
+                public MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException{return session.takeBodyChunk(body);}
+                public boolean serviceBodies(int timeout)throws IOException{return session.serviceBodies(timeout);}
                 public int pendingControls()throws IOException{return session.pendingControls();}
                 public void close(){session.close();}
             };

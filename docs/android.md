@@ -3148,3 +3148,30 @@ local kernel sessions. Controlled text cases include correct Unicode, the split
 prefix/suffix loss, absent length, content coding and changed per-stream encoding.
 Existing native/frame/world/upload/clear gates remain green. Device/provider and
 actual download cache/product UI qualification remain open.
+
+## Nonblocking body service on the original protocol worker (E85a)
+
+The physical-network pump now services fixed body operations without waiting
+for their replies. A read uses its original body lifetime, not a new five-second
+ordinary-RPC deadline. Requesting a chunk and taking its completed buffer perform
+no socket I/O; one bounded send is serviced per body turn. The common worker can
+continue other native jobs/connections while a body reply is outstanding.
+E84's blocking helpers now use this same asynchronous machine only as diagnostic
+convenience; product consumers use requestBodyRead/takeBodyChunk/serviceBodies.
+
+Each body holds at most one unconsumed 64 KiB chunk, including final EOF. The
+consumer must take the last chunk before successful cleanup can begin. Idle
+expiry and atomic UI cancellation are observed by the existing pump; staged
+close/abort operations retain their original five-second cleanup budget.
+Pending read replies remain associated with their original rows during cleanup,
+and late cancelled data is discarded. Buffered bytes are erased on cancellation,
+expiry, failure or owner close. No UI gate is held over socket send/receive.
+
+855 checks and an actual two-connection JNI/kernel pair verify that the original
+read can wait for an independent page command on the same worker without
+deadlock. Controlled clocks cover a read beyond five seconds, idle expiry and
+the original cleanup deadline. Full native/frame/world/upload/clear gates pass.
+These remain transport/worker checks, not installed-provider qualification.
+Pinned stream EOF flag behavior and cancellation replies still need a finishing
+compatibility pass before packaging this source. Cache/product UI joins remain
+unfinished; the existing E84 artifact has not yet been replaced at this commit.
