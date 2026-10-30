@@ -233,9 +233,10 @@ try{
   await rejectInput(chain);
   await rejectSnapshot(snapshot);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
-  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,fileRequests=0,captureRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,dragRequests=0,fileRequests=0,captureRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
   const routedView={execute:async(command,params)=>{
     if(command==='input')inputRequests++;
+    if(command==='drag')dragRequests++;
     if(command==='capture')captureRequests++;
     const result=await call(command,params);
     if(command==='capture'&&afterCapture){const next=afterCapture;afterCapture=null;await next();}
@@ -535,6 +536,29 @@ try{
   assert(unsupportedCapture.ok&&!unsupportedCapture.value.ok&&unsupportedCapture.value.error.code==='unsupported_geometry'&&unsupportedCapture.value.owner.ref===rootMasks[0].frame_ref,'Unsupported capture geometry lost the exact opaque-mask identity');
   await call('evaluate',{script:`(()=>{document.querySelector('#outer').style.transform='none';return true})()`});
   const oldCapture=await captureOwner(newLeaf);assert(!oldCapture.ok&&oldCapture.error.code==='stale_frame','A capture owner accepted an earlier child document');
+  stage='drag-retired-source-cleanup';
+  // Controlled private-world failure, not a page-world override. No native
+  // press can start when its original observer cannot be armed/cleaned.
+  const originalObserverSource=dragReplacement;
+  const poisonedWatch=await evaluate(dragReplacement,`(()=>{Object.defineProperty(globalThis,'__mdo_native_drag_watch_v1',{configurable:true,get(){throw Error('controlled native observer unavailability')}});return true})()`);
+  assert(poisonedWatch.ok&&poisonedWatch.value,'The controlled original-world observer failure did not install');
+  const beforeObserverDrag=dragRequests;
+  const failedObserverDrag=await dispatch('act',{op:'drag',document:page.result.document,target:{name:'Nested field'},destination:{name:'Nested geometry action'},timeout_ms:3000});
+  geometryEvidence.failedObserverDrag=failedObserverDrag;
+  assert(!failedObserverDrag.result.ok&&!failedObserverDrag.result.error.effect_may_have_occurred&&dragRequests===beforeObserverDrag+1,'The controlled observer failure did not reach exactly one native gesture before input');
+  await until(async()=>{const current=await call('state');geometryEvidence.failedObserverState=current;return current.input_busy&&current.drag_cleanup_failed;},'An unconfirmed original observer did not retain its input fence');
+  await frames();
+  assert((await call('state')).input_busy,'A metadata refresh without source retirement cleared the native input fence');
+  dragReplacement=await advanceLeaf('after-observer-unavailable');
+  await until(async()=>{const current=await call('state');geometryEvidence.retiredObserverState=current;return !current.input_busy&&!current.drag_cleanup_failed;},'A positively replaced original source retained its completed drag input fence');
+  assert((await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===0,'Retired observer cleanup sent input into the replacement document');
+  const afterObserver=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'},timeout_ms:5000});
+  assert(afterObserver.result.ok&&(await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===1,'Native input did not recover after original-source retirement');
+  const dragRecoveryEvidence={original_action_ok:failedObserverDrag.result.ok,original_effect_may_have_occurred:failedObserverDrag.result.error.effect_may_have_occurred,
+    native_drag_requests:dragRequests-beforeObserverDrag,quarantined_input_busy:geometryEvidence.failedObserverState.input_busy,
+    quarantined_cleanup_failed:geometryEvidence.failedObserverState.drag_cleanup_failed,source_document_changed:originalObserverSource.document!==dragReplacement.document,
+    recovered_input_busy:geometryEvidence.retiredObserverState.input_busy,recovered_cleanup_failed:geometryEvidence.retiredObserverState.drag_cleanup_failed,
+    fresh_click_ok:afterObserver.result.ok,fresh_click_count:1};
   stage='capture-document-change';afterCapture=()=>advanceLeaf('after-screenshot');
   const changedImage=await dispatch('capture',{document:page.result.document,max_width:500,max_height:400,timeout_ms:15000});
   geometryEvidence.changedImage={ok:changedImage.result.ok,error:changedImage.result.error,hasImage:!!changedImage.result.image};
@@ -552,7 +576,7 @@ try{
   assert(captureRequests-beforeResizeCapture===2,'Viewport settling did not use exactly two native captures in its original operation');
   assert(settledImage.result.document===capturePage.result.document&&!(await call('state')).capture_busy,'Viewport settling changed document or retained a native capture slot');
   await privateUploadBroker(dispatch);
-  report={passed:true,checks,backend:'actual-webview2-frame-sessions',frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
+  report={passed:true,checks,backend:'actual-webview2-frame-sessions',retired_drag_source_recovery:dragRecoveryEvidence,frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     private_native_picker:true,private_picker_activation:'webview2-trusted-host-evaluation',closed_shadow_nonce_hidden:true,page_world_overrides_ignored:true,native_filelist_handoff:true,handoff_original_filename_and_sha256:true,handoff_exact_synthetic_event_pair:true,handoff_receipt_without_replay:true,private_picker_cleanup:true,page_reset_stops_change_and_is_not_verified:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,
@@ -569,5 +593,8 @@ try{
     viewport_capture_retries_in_same_operation:true,only_stable_viewport_image_published:true};
   }
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
-finally{for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();}
+finally{
+  try{const current=await call('state');report.native_input_final={input_busy:current.input_busy,drag_cleanup_failed:current.drag_cleanup_failed,upload_cleanup_failed:current.upload_cleanup_failed,navigation:current.navigation,process_failed:current.process_failed};}catch{}
+  for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();
+}
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

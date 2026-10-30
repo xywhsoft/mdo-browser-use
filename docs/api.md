@@ -1455,3 +1455,27 @@ to this frozen binding. The actual UI gate confirms one retained response is
 accepted, bound to its original task and saved without another download request.
 The binding, private scope and physical pin survive restart; the tab returns
 suspended and requires normal explicit browser reattachment.
+
+## Completed native drag cleanup after source retirement (W1)
+
+Windows keeps an uncertain drag input fence when the original observer cannot be
+confirmed. W1 separates that observer uncertainty from an unacknowledged native
+mouse/interception cleanup. A completed, fully drained job with no native cleanup
+failure can leave quarantine after a changed nonempty native loader proves its
+original frame document was replaced. An alias rotation, absent inventory,
+unfinished cleanup or active callback cannot authorize recovery. A known retired
+source is not evaluated again for observer removal. The existing command entry
+performs only inert bookkeeping, without another timer, CDP command, world,
+input, reconnect or gesture replay. The original failed receipt remains failed.
+
+A controlled private-world observer failure reproduces indefinite input-busy state
+in the actual old WebView2 host even after child-document replacement. The fixed
+actual host passes 260 frame checks: one rejected native submission/no input,
+quarantine before retirement, later idle/clean state, no input in the replacement
+until a new explicit click, and exactly one such click. See the structured
+`.mdo/W1-retired-source-red.json` and `.mdo/W1-frames-final.json` evidence. The
+actual-method C++ gate covers 23 cleanup ownership/recovery cases. The refreshed
+Windows program also passes all twelve packed runtime checks; Android is unchanged.
+This confirms the scoped recovery defect, not every earlier intermittent nested
+fill or drag failure. The Windows realm audit and platform qualifications remain
+in progress; no online release or model/provider/phone change occurred.

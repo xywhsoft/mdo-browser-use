@@ -78,6 +78,7 @@ def main():
             raise RuntimeError("Native capture hook no longer unique: " + before)
         base = base.replace(before, after, 1)
     drag_hooks = [
+        ('  auto view=found->second;auto* core=view->core;', '  auto view=found->second;xb_reap_retired_drag(view);auto* core=view->core;'),
         ('if(command=="capture_cancel"){', 'if(command=="drag_cancel"){auto job=view->drag;if(job&&job->key==xb_get(json,"drag_key"))job->stop("Native drag was cancelled; inspect delivered effects");host->reply(id,"{}");return;}\n  if(command=="drag"){xb_drag(host,view,id,json);return;}\n  if(command=="capture_cancel"){'),
         ('const bool mutation=command!="capture"', 'const bool mutation=command!="drag_cancel"&&command!="capture"'),
         ('\\"advanced_mouse\\":true,', '\\"advanced_mouse\\":true,\\"drag_capability\\":true,\\"drag_cleanup_failed\\":"+std::string(view->drag&&view->drag->cleanupFailed?"true":"false")+",'),

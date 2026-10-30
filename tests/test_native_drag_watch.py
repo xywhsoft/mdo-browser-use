@@ -50,7 +50,7 @@ static void xb_frame_cdp(const std::shared_ptr<xb_view>&,const std::string& sess
 struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
  std::shared_ptr<xb_host> host=std::make_shared<xb_host>();std::shared_ptr<xb_view> view=std::make_shared<xb_view>();
  xb_input_frame_guard sourceGuard={{"f0","fd-original"}};std::string sourceRaw="root",sourceLoader="original-loader",sourceSession,key="owned-job",error;
- UINT64 navigation=1,nextAt=0;int watchContext=0;bool done=false,inFlight=false,watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false,cleanupFailed=false,intercepted=false;
+ UINT64 navigation=1,nextAt=0;int watchContext=0;unsigned cleanup=0;bool done=false,inFlight=false,watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false,cleanupFailed=false,watchCleanupFailed=false,nativeCleanupFailed=false,intercepted=false;
  xb_drag_job(){view->frames->nodes["root"]={};}
  void stop(const std::string& value){if(error.empty())error=value;}
 '''+methods+r'''
@@ -61,7 +61,7 @@ int main(){
  auto retained=fixture();retained->view->navigation=2;retained->view->ready=false;retained->view->frames->nodes.clear();retained->clearWatch();
  if(!onlyRetained()||retained->cleanupFailed||!retained->watchCleared)return 1;
  auto absent=fixture();absent->view->navigation=2;response="number:0";absent->clearWatch();if(!onlyRetained()||absent->cleanupFailed)return 2;
- auto replaced=fixture();replaced->view->navigation=2;replaced->view->frames->nodes["root"].loader="replacement-loader";fail=true;replaced->clearWatch();if(!onlyRetained()||replaced->cleanupFailed)return 3;
+ auto replaced=fixture();replaced->view->navigation=2;replaced->view->frames->nodes["root"].loader="replacement-loader";fail=true;replaced->clearWatch();if(!commands.empty()||replaced->cleanupFailed)return 3;
  auto rotated=fixture();rotated->view->navigation=2;rotated->view->frames->nodes["root"].document="rotated-alias";fail=true;rotated->clearWatch();if(!rotated->cleanupFailed||!onlyRetained())return 4;
  auto unknown=fixture();unknown->view->navigation=2;unknown->view->frames->nodes.clear();fail=true;unknown->clearWatch();if(!unknown->cleanupFailed||!onlyRetained())return 5;
  auto uncreated=fixture();uncreated->watchContext=0;uncreated->clearWatch();if(!commands.empty()||uncreated->cleanupFailed)return 6;
@@ -71,6 +71,19 @@ int main(){
  fail=false;lost->clearWatch();if(lost->cleanupFailed||commands.size()!=3||commands.back().method!=L"Runtime.evaluate")return 11;
  auto malformed=fixture();response="wrong-type";malformed->clearWatch();if(!malformed->cleanupFailed||!onlyRetained())return 12;
  auto closed=fixture();closed->view->closed=true;closed->clearWatch();if(!commands.empty()||closed->cleanupFailed)return 13;
+ auto quarantine=fixture();quarantine->done=true;quarantine->cleanup=5;quarantine->cleanupFailed=true;quarantine->watchCleanupFailed=true;quarantine->error="original failure";
+ if(quarantine->reapRetiredSource()||!quarantine->cleanupFailed||!commands.empty())return 14;
+ quarantine->view->frames->nodes["root"].document="alias-only";
+ if(quarantine->reapRetiredSource()||!quarantine->cleanupFailed)return 15;
+ quarantine->view->frames->nodes.clear();if(quarantine->reapRetiredSource()||!quarantine->cleanupFailed)return 16;
+ quarantine->view->frames->nodes["root"]={};quarantine->view->frames->nodes["root"].loader="new-native-loader";
+ quarantine->nativeCleanupFailed=true;if(quarantine->reapRetiredSource()||!quarantine->cleanupFailed)return 17;
+ quarantine->nativeCleanupFailed=false;quarantine->inFlight=true;if(quarantine->reapRetiredSource())return 18;
+ quarantine->inFlight=false;quarantine->cleanup=4;if(quarantine->reapRetiredSource())return 19;
+ quarantine->cleanup=5;quarantine->done=false;if(quarantine->reapRetiredSource())return 20;
+ quarantine->done=true;if(!quarantine->reapRetiredSource()||quarantine->cleanupFailed||quarantine->watchCleanupFailed||quarantine->error!="original failure"||!commands.empty())return 21;
+ auto other=fixture();other->nativeCleanupFailed=true;other->cleanupFailed=true;other->clearWatch();if(!other->cleanupFailed||other->watchCleanupFailed||!onlyRetained())return 22;
+ auto observed=fixture();observed->watchCleanupFailed=true;observed->cleanupFailed=true;observed->clearWatch();if(observed->cleanupFailed||observed->watchCleanupFailed||!onlyRetained())return 23;
  return 0;
 }
 '''

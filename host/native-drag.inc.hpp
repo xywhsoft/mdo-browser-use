@@ -24,7 +24,7 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   std::string id,key,error,dragData,sourceSession,eventSession,sourceRaw,sourceLoader;xb_input_frame_guard sourceGuard,destinationGuard;xb_input_frame_snapshot frameSnapshot;UINT64 navigation=0;ULONGLONG expires=0,nextAt=0;
   double x=0,y=0,toX=0,toY=0,currentX=0,currentY=0;unsigned phase=0,moved=0,cleanup=0;
   LONG width=0,height=0;
-  bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,sourceIntercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false;
+  bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,sourceIntercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false,watchCleanupFailed=false,nativeCleanupFailed=false;
   int watchContext=0;bool watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false;
   ~xb_drag_job(){if(receiver){if(subscribed)receiver->remove_DevToolsProtocolEventReceived(token);receiver->Release();}}
   bool live()const{return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,sourceGuard)&&xb_input_frames_live(view,destinationGuard)&&xb_input_snapshot_live(view,frameSnapshot)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
@@ -50,7 +50,7 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     xb_frame_cdp(view,session,method,params,[self](bool ok,const std::string& result){
       self->inFlight=false;if(self->done)return;
       if(!ok||!xb_get(result,"error").empty()){
-        if(self->cleanup)self->cleanupFailed=true;
+        if(self->cleanup){self->nativeCleanupFailed=true;self->cleanupFailed=true;}
         self->stop("Native drag delivery was not confirmed; inspect before repeating");
       }
       self->nextAt=GetTickCount64()+20;
@@ -104,17 +104,29 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     watch("(()=>{const s="+watchLookup()+";return!s||s.key!=="+xb_quote(key)+"||!s.seen?0:s.active?2:1})()",
       [self](bool ok,const std::string& value){
         if(!self->sourceLive()){self->watchCleared=true;return;}
-        if(!ok||(value!="1"&&value!="2")){self->cleanupFailed=true;self->stop("The original drag source state is unconfirmed");return;}
+        if(!ok||(value!="1"&&value!="2")){self->watchCleanupFailed=true;self->cleanupFailed=true;self->stop("The original drag source state is unconfirmed");return;}
         self->watchActive=value=="2";
       });
   }
   void clearWatch(){
     watchCleared=true;if(!watchHostAlive()||watchContext<=0)return;auto self=shared_from_this();
+    if(sourceReplaced()){watchCleanupFailed=false;cleanupFailed=nativeCleanupFailed;return;}
     // Pure removal may run in the retained original context after its navigation
     // token changes (including original-response downloads). It must never create
     // a new world or send input, and only removes this job's exact keyed record.
     watch("(()=>{const s="+watchLookup()+";if(!s||s.key!=="+xb_quote(key)+")return 0;const active=s.active;s.dispose();return active?2:1})()",
-      [self](bool ok,const std::string& value){if(!self->sourceReplaced()&&(!ok||(value!="0"&&value!="1"&&value!="2")||(self->intercepted&&value=="2"))){self->cleanupFailed=true;self->stop("Native drag source cleanup was not confirmed");}},true);
+      [self](bool ok,const std::string& value){
+        if(!self->sourceReplaced()&&(!ok||(value!="0"&&value!="1"&&value!="2")||(self->intercepted&&value=="2"))){
+          self->watchCleanupFailed=true;self->cleanupFailed=true;self->stop("Native drag source cleanup was not confirmed");
+        }else{self->watchCleanupFailed=false;self->cleanupFailed=self->nativeCleanupFailed;}
+      },true);
+  }
+  bool reapRetiredSource(){
+    // Only a fully drained, inert job can leave quarantine. A source-document
+    // change says nothing about an unacknowledged native mouse/interception
+    // cleanup, an active provider callback, or an unfinished cleanup step.
+    if(!done||inFlight||cleanup!=5||!watchCleanupFailed||nativeCleanupFailed||!sourceReplaced())return false;
+    watchCleanupFailed=false;cleanupFailed=false;return true;
   }
   void receive(const std::string& json){
     if(done||intercepted)return;
@@ -186,6 +198,9 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
     }
   }
 };
+static void xb_reap_retired_drag(const std::shared_ptr<xb_view>& view){
+  auto job=view->drag;if(job&&job->reapRetiredSource()&&view->drag==job)view->drag.reset();
+}
 static void CALLBACK xb_drag_tick(HWND window,UINT,UINT_PTR,DWORD){
   auto found=xb_drag_jobs.find(window);if(found==xb_drag_jobs.end()){KillTimer(window,xb_drag_timer);return;}
   auto job=found->second.lock();if(!job){xb_drag_jobs.erase(found);KillTimer(window,xb_drag_timer);return;}

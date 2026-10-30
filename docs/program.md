@@ -17,8 +17,8 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (E66/F21) is **6,883,440 bytes**, SHA-256
-`f5a65dd2753fdf7b6eb39630ad6886b15480cf5922ae55277d5e5a5011fbf050`.
+The current refreshed preview (W1, including E66/F21) is **6,883,440 bytes**, SHA-256
+`aaa2b5acd6f8f558d5b6b4db65bb2e5ac8a90458756fc9e7c4b43eb03c5fd2c0`.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
@@ -35,6 +35,19 @@ packed-program gate passes all twelve runtime checks, including actual default-d
 header/discovery contract, connection-reset reporting and recovery
 navigation from the error card. This is
 Windows verification; Android framework qualification remains unavailable.
+
+W1 also recovers an inert native drag quarantined solely for an unconfirmed
+original-source observer. Native mouse/interception cleanup must have drained
+without an unacknowledged result, and a changed nonempty native loader must prove
+the original frame document was replaced. A metadata refresh, rotated public
+alias, missing inventory or active callback is insufficient. Recovery releases
+only the completed input fence: it sends no protocol work, does not replay the
+failed drag and does not turn its saved failure into success. Real WebView2
+regression passes 260 checks, including the controlled observer fault, retained
+fence before retirement, replacement-document recovery and exactly one later
+explicit click; the packaged program passes its twelve runtime checks.
+Earlier intermittent nested-fill/child-navigation-drag failures and the Windows
+realm audit remain open; this scoped recovery is not proof of their full cause.
 
 F20 also removes the fixed queue-delivery delay while the existing authenticated
 live connection is available. A coalesced, data-free hint wakes a serialized

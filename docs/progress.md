@@ -6364,3 +6364,60 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   than treating later green runs as a root-cause fix. No phone/provider/formal
   data changes, model calls, external page actions, extra app/Home/source copies
   or online release.
+
+## W1 — recover a completed drag after positive original-source retirement
+
+- Return to actual Windows reliability evidence. The unchanged native WebView2
+  frame regression passes 254 checks (`.mdo/W1-frames-before.log`/`.json`); this
+  does not explain away E68's intermittent nested-fill and child-navigation-drag
+  failures. Keep those original failures open rather than attributing them to a
+  later green run.
+- Confirm an independent product defect: an unknown original drag-observer
+  cleanup sets one undifferentiated failure flag, finishes cleanup, kills its
+  timer and keeps the input slot indefinitely. A later positive native document
+  replacement cannot release the inert job. Reproduce in the actual WebView2
+  private world with a controlled observer-access failure, distinct endpoints and
+  exactly one native drag submission. No press is delivered. After an actual
+  child-document replacement, the old binary remains input-busy/cleanup-failed
+  (`.mdo/W1-retired-source-red.json`, check 223). This reproduces the stuck-slot
+  behavior; it is not evidence that all historical E68 failures share that cause.
+- Separate observer cleanup uncertainty from unacknowledged native mouse/drag
+  interception cleanup. Reap only a completed, non-in-flight job after all five
+  cleanup phases, with no native cleanup failure and a positive original native
+  source-loader replacement. Keep missing inventory, alias-only changes,
+  unfinished steps and unacknowledged native cleanup fenced. Confirmed disposal
+  of the original observer can also resolve observer-only uncertainty. Once the
+  source is already retired, skip observer evaluation entirely; do not create a
+  world or remove state in a replacement document.
+- Reap inert state at the existing native command entry, with no new timer,
+  protocol command, input, reconnect or gesture retry. Keep the original failure
+  receipt/error; only an explicitly new action can use the new document. Existing
+  actual-method C++ gate now covers 23 cases, including absent/alias-only sources,
+  positive native loader replacement, in-flight/unfinished/native-failure fences,
+  no protocol work and original-error preservation
+  (`.mdo/W1-drag-watch-focused.log`).
+- Rebuild the same native host (`.mdo/W1-native-build.log`). Actual WebView2
+  regression passes 260 checks twice (`.mdo/W1-frames-fixed.json`,
+  `.mdo/W1-frames-final.json`). Final structured evidence records one rejected
+  native drag/no input effect, a busy unconfirmed fence, changed source document,
+  recovered idle/clean state, and exactly one fresh explicit click. No native
+  exception diagnostic or private upload reservation remains. Capture final input
+  state before fixture teardown; do not mistake browser close for recovery.
+  Preserve `.mdo/W1-retired-source-before.json`: the first fixture used identical
+  endpoints and was correctly rejected before native submission. Distinct
+  endpoints and an actual native-submission counter establish the real red test.
+- Package in place with no app/Home copy (`.mdo/W1-package.log`). Windows preview
+  6,883,440 bytes, SHA-256
+  `aaa2b5acd6f8f558d5b6b4db65bb2e5ac8a90458756fc9e7c4b43eb03c5fd2c0`.
+  The actual packed program/paired plugin passes all 12 runtime checks
+  (`.mdo/W1-program-probe.log`); reuse the unchanged 22-file plugin. JS 319/319 in
+  29.273 s; Python 167/169 in 82.274 s with the same two Windows symlink skips
+  (`.mdo/W1-node-full.log`, `.mdo/W1-python-full.log`). Restore the same headless
+  service, HTTP 200. Previous E75 Android APK remains unchanged/verified at that
+  stage; this update changes only the Windows native host.
+- Goal remains active. Next finish the Windows original-realm audit and gather
+  actionable evidence for the remaining intermittent input failures, then resume
+  outstanding Android/provider/platform work. Do not claim permanent resolution
+  of historical flakes or full platform qualification. Phone/provider/formal data
+  unchanged; no model calls, external page actions, extra app/Home/source copies,
+  online release or unchanged desktop-visual-gate retry.
