@@ -156,7 +156,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         final String code;
         static boolean allowed(String code){return Arrays.asList("cdp_chooser_arming_event","cdp_chooser_ambiguous","cdp_chooser_metadata_invalid",
             "cdp_chooser_clock_invalid","cdp_chooser_frame_unproven","cdp_chooser_frame_unavailable",
-            "cdp_control_event_invalid","cdp_control_duplicate","cdp_control_limit","cdp_body_not_candidate","cdp_body_limit","cdp_body_source_unsupported").contains(code);}
+            "cdp_control_event_invalid","cdp_control_duplicate","cdp_control_limit","cdp_body_not_candidate","cdp_body_limit","cdp_body_source_unsupported",
+            "download_frame_metadata_invalid","download_frame_parent_unproven","download_frame_root_changed","download_frame_limit","download_frame_lifetime_limit","download_frame_session_unproven").contains(code);}
         private static String checked(String code){if(!allowed(code))throw new IllegalArgumentException("unsupported_native_event_code");return code;}
         EventFailure(String code){super(checked(code));this.code=code;}
     }

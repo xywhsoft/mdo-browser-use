@@ -13,12 +13,12 @@ import org.json.JSONObject;
  * Only explicit attachments/known binary Document responses are candidates;
  * native download-intent/provider qualification remains a separate gate. */
 final class MdoBrowserCdpResponse {
-    final String kind,reason,name,mime;final int status;final long declaredLength;final boolean exactTextLength;
+    final String kind,reason,name,mime,frame;final int status;final long declaredLength;final boolean exactTextLength;
     private MdoBrowserCdpResponse(String kind,String reason,int status,long length,boolean exactTextLength){
-        this(kind,reason,status,length,exactTextLength,"download.bin","");
+        this(kind,reason,status,length,exactTextLength,"download.bin","",null);
     }
-    private MdoBrowserCdpResponse(String kind,String reason,int status,long length,boolean exactTextLength,String name,String mime){
-        this.kind=kind;this.reason=reason;this.status=status;declaredLength=length;this.exactTextLength=exactTextLength;this.name=name;this.mime=mime;
+    private MdoBrowserCdpResponse(String kind,String reason,int status,long length,boolean exactTextLength,String name,String mime,String frame){
+        this.kind=kind;this.reason=reason;this.status=status;declaredLength=length;this.exactTextLength=exactTextLength;this.name=name;this.mime=mime;this.frame=frame;
     }
     private static MdoBrowserCdpResponse pass(String reason,int status){return new MdoBrowserCdpResponse("pass",reason,status,-1,false);}
     private static MdoBrowserCdpResponse invalid(){return new MdoBrowserCdpResponse("invalid","response_metadata_invalid",0,-1,false);}
@@ -159,7 +159,7 @@ final class MdoBrowserCdpResponse {
         boolean attachment="attachment".equals(disposition);
         boolean binary="application/octet-stream".equals(type)||"application/x-download".equals(type)||"application/force-download".equals(type);
         if(attachment||binary)return new MdoBrowserCdpResponse("candidate",attachment?"attachment":"binary_document",status,declared,hasLength&&identityEncoding&&!transferEncoded,
-            filename(dispositionValue),type!=null&&type.length()<=128?type:"");
+            filename(dispositionValue),type!=null&&type.length()<=128?type:"",MdoBrowserCdpNetworkFrames.identity(event.opt("frameId"))?(String)event.opt("frameId"):null);
         return pass("document",status);
     }
 }

@@ -71,15 +71,55 @@ public final class CdpDownloadsProbe {
             await(()->{test.host.ui.drain();return test.host.states.size()>initial;});check(test.host.states.get(initial).ready);
         }
         String offer(String id)throws Exception{
-            int before=controller.list().length;context.wire().queue(new JSONObject().put("method","Fetch.requestPaused").put("params",CdpBodyProbe.paused(id)));
+            return offer(id,"frame-owned");
+        }
+        String offer(String id,String frame)throws Exception{
+            int before=controller.list().length;context.wire().queue(new JSONObject().put("method","Fetch.requestPaused").put("params",CdpBodyProbe.paused(id).put("frameId",frame)));
             await(()->{try{return controller.list().length==before+1;}catch(IOException failure){throw new AssertionError(failure);}});
             return controller.list()[before].id;
         }
         boolean state(String id,String value){try{return controller.get(id).state.equals(value);}catch(IOException failure){throw new AssertionError(failure);}}
+        MdoBrowserCdpDownloads.Snapshot snapshot(String id){try{return controller.get(id);}catch(IOException failure){throw new AssertionError(failure);}}
         void complete(String id)throws Exception{await(()->state(id,"completed"));}
         void release(String id)throws Exception{MdoBrowserCdpDownloads.Release release=controller.release(id);await(release::finished);check(release.released()&&release.snapshot().cacheCleanupConfirmed&&release.snapshot().sourceCleanupConfirmed);}
     }
     static void ownBase(Path owned){base=owned;}
+    private static void page(Source source,String method,JSONObject params)throws Exception{source.context.wire().queue(new JSONObject().put("method",method).put("params",params));}
+    private static void attach(Source source,String frame,String parent)throws Exception{page(source,"Page.frameAttached",new JSONObject().put("frameId",frame).put("parentFrameId",parent));}
+    private static void frameOrigins()throws Exception{
+        try(Case test=new Case("frame-origins")){
+            Source source=test.source();attach(source,"child-a","frame-owned");attach(source,"child-b","child-a");
+            String id=source.offer("nested-original-download","child-b");MdoBrowserCdpDownloads.Snapshot row=source.controller.get(id);
+            check(!row.root&&row.frameCurrent&&row.sourceFrame.startsWith("nf-")&&row.sourceDocument.startsWith("nd-"));
+            check(!row.json().toString().contains("child-b")&&!row.json().toString().contains("frame-owned"));
+            source.chunks.add(chunk("AQ==",true));source.controller.accept(id,8,60000);source.complete(id);
+            page(source,"Page.frameNavigated",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","root-next")));
+            await(()->!source.snapshot(id).frameCurrent);check(source.controller.get(id).verified&&source.controller.get(id).state.equals("completed"));
+            MdoBrowserDownloadQueue.Read read=source.controller.read(id,0,1);await(read::finished);byte[] bytes=read.take();check(bytes.length==1&&bytes[0]==1);Arrays.fill(bytes,(byte)0);
+            source.release(id);String next=source.offer("new-root-download");MdoBrowserCdpDownloads.Snapshot fresh=source.controller.get(next);
+            check(fresh.root&&fresh.frameCurrent&&!fresh.sourceDocument.equals(row.sourceDocument));source.controller.cancel(next);await(()->source.state(next,"cancelled"));source.release(next);
+        }
+        try(Case test=new Case("pending-frame-removed")){
+            Source source=test.source();attach(source,"child","frame-owned");String id=source.offer("stale-pending-source","child");
+            page(source,"Page.frameNavigated",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","parent-next")));
+            await(()->source.state(id,"failed"));MdoBrowserCdpDownloads.Snapshot failed=source.controller.get(id);
+            check(failed.error.equals("download_frame_changed")&&failed.failureSource.equals("native_frame")&&!failed.frameCurrent&&failed.sourceCleanupConfirmed);
+            check(source.controller.accept(id,8,60000).state.equals("failed")&&source.claims.get()==0&&source.reads.get()==0&&source.aborts.get()==1);source.release(id);
+        }
+        try(Case test=new Case("receiving-frame-removed")){
+            Source source=test.source();attach(source,"child","frame-owned");String id=source.offer("partial-source-removed","child");
+            source.chunks.add(chunk("Ag==",false));source.controller.accept(id,8,60000);
+            await(()->source.snapshot(id).received==1&&source.reads.get()>=2);
+            page(source,"Page.frameDetached",new JSONObject().put("frameId","child").put("reason","remove"));await(()->source.state(id,"failed"));
+            MdoBrowserCdpDownloads.Snapshot failed=source.controller.get(id);check(failed.error.equals("download_frame_changed")&&failed.failureSource.equals("native_frame")&&failed.cacheCleanupConfirmed&&failed.sourceCleanupConfirmed);
+            check(test.files.reservations()==0&&source.closes.get()==1&&source.aborts.get()==1);source.release(id);
+        }
+        for(boolean missing:new boolean[]{false,true})try(Case test=new Case("unproved-frame-"+missing)){
+            Source source=test.source();JSONObject event=CdpBodyProbe.paused("unproved-source");if(!missing)event.put("frameId","unowned-frame");
+            page(source,"Fetch.requestPaused",event);await(()->source.aborts.get()==1);check(source.controller.list().length==0&&source.controller.failure().equals("download_frame_unproven"));
+            check(source.claims.get()==0&&source.reads.get()==0&&test.budget.used()==0&&test.files.reservations()==0);
+        }
+    }
     private static void originalSuccess()throws Exception{
         try(Case test=new Case("success")){
             Source source=test.source();String id=source.offer("original-controller-1.0");MdoBrowserCdpDownloads.Snapshot pending=source.controller.get(id);
@@ -134,7 +174,7 @@ public final class CdpDownloadsProbe {
     private static void globalLimit()throws Exception{
         try(Case test=new Case("limit")){
             Source source=test.source();for(int i=0;i<32;i++)check(test.budget.acquire());
-            source.context.wire().queue(new JSONObject().put("method","Fetch.requestPaused").put("params",CdpBodyProbe.paused("over-budget")));
+            source.context.wire().queue(new JSONObject().put("method","Fetch.requestPaused").put("params",CdpBodyProbe.paused("over-budget").put("frameId","frame-owned")));
             await(()->source.aborts.get()==1);check(source.controller.list().length==0&&source.controller.failure().equals("download_receipt_limit")&&source.controller.pending());
             check(source.claims.get()==0&&test.files.reservations()==0);for(int i=0;i<32;i++)test.budget.release();
         }
@@ -145,7 +185,7 @@ public final class CdpDownloadsProbe {
             check(source.controller.get(id).received==0&&source.controller.get(id).json().getLong("size")==0&&test.files.reservedBytes()==0);source.release(id);
         }
         try(Case test=new Case("known-limit")){
-            Source source=test.source();JSONObject params=CdpBodyProbe.paused("oversized-download");
+            Source source=test.source();JSONObject params=CdpBodyProbe.paused("oversized-download").put("frameId","frame-owned");
             params.getJSONArray("responseHeaders").put(new JSONObject().put("name","Content-Length").put("value","9"));
             source.context.wire().queue(new JSONObject().put("method","Fetch.requestPaused").put("params",params));
             await(()->{try{return source.controller.list().length==1;}catch(IOException failure){throw new AssertionError(failure);}});
@@ -181,12 +221,16 @@ public final class CdpDownloadsProbe {
         }
     }
     private static void verificationSurvivesDisconnect(boolean tamper)throws Exception{
+        verificationSurvivesScopeChange(tamper,false);
+    }
+    private static void verificationSurvivesScopeChange(boolean tamper,boolean navigation)throws Exception{
         VerifyBarrier barrier=new VerifyBarrier();
-        try(Case test=new Case(tamper?"verification-tamper":"verification-loss",barrier)){
+        try(Case test=new Case((navigation?"navigation-":"")+(tamper?"verification-tamper":"verification-loss"),barrier)){
             try{
                 Source source=test.source();String id=source.offer("complete-source-verifying");source.chunks.add(chunk("BQ==",true));source.controller.accept(id,8,60000);
                 check(barrier.entered.await(3,TimeUnit.SECONDS));check(source.controller.get(id).state.equals("verifying")&&source.controller.get(id).sourceCleanupConfirmed);
-                test.host.worker.cancelNetwork(source.context.adapter.marker().lease());await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});
+                if(navigation){page(source,"Page.frameNavigated",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","parent-after-source")));await(()->!source.snapshot(id).frameCurrent);}
+                else{test.host.worker.cancelNetwork(source.context.adapter.marker().lease());await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});}
                 check(!source.controller.get(id).verified);
                 if(tamper)try(java.util.stream.Stream<Path> paths=Files.list(test.root)){
                     Path leaf=paths.filter(path->path.getFileName().toString().startsWith("mdo-bu-download-")).findFirst().get();
@@ -204,7 +248,7 @@ public final class CdpDownloadsProbe {
     }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();base=Paths.get(args[0]);if(Files.exists(base))throw new AssertionError("Interrupted download controller evidence preserved");Files.createDirectory(base);
-        if(args.length>1){verificationSurvivesDisconnect(false);verificationSurvivesDisconnect(true);}else{originalSuccess();cancellationAndPass();commonWorkerAndOwners();disconnectPreservesReceipts();globalLimit();emptyAndKnownLimit();partialConnectionLoss();verificationSurvivesDisconnect(false);verificationSurvivesDisconnect(true);}Files.delete(base);
+        if(args.length>1){verificationSurvivesDisconnect(false);verificationSurvivesDisconnect(true);}else{originalSuccess();cancellationAndPass();commonWorkerAndOwners();disconnectPreservesReceipts();globalLimit();emptyAndKnownLimit();partialConnectionLoss();verificationSurvivesDisconnect(false);verificationSurvivesDisconnect(true);frameOrigins();verificationSurvivesScopeChange(false,true);verificationSurvivesScopeChange(true,true);}Files.delete(base);
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"actual_download_controller\":true,\"shared_protocol_worker\":true,\"real_guarded_files\":true,\"native_receipts_preserved\":true,\"framework_verified\":false,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
 }

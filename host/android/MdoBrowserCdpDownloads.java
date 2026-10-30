@@ -21,17 +21,19 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     }
     static final class Snapshot {
         final String id,name,mime,state,error,sha256,failureSource;final long received,expected,maximum,sequence;
-        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed;
+        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed,frameCurrent,root;final String sourceFrame,sourceDocument;
         private Snapshot(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
             id=row.id;name=row.offer.metadata().name;mime=row.offer.metadata().mime;sequence=row.sequence;expected=row.expected;maximum=row.maximum;this.state=state;this.error=error;received=bytes;sha256=hash;
             this.verified=verified;cacheCleanupConfirmed=cacheClean;sourceCleanupConfirmed=sourceClean;failureSource=source;
+            frameCurrent=row.origin.current();root=row.origin.root;sourceFrame=row.origin.frame;sourceDocument=row.origin.document;
         }
         boolean terminal(){return state.equals("completed")||state.equals("failed")||state.equals("cancelled");}
         JSONObject json()throws JSONException {
             JSONObject out=new JSONObject().put("id",id).put("name",name).put("mime",mime).put("state",state)
                 .put("received",received).put("expected_size",expected<0?JSONObject.NULL:expected).put("max_bytes",maximum)
                 .put("interrupt_reason",0).put("failure_source",failureSource==null?"":failureSource).put("error",error==null?"":error)
-                .put("native",new JSONObject().put("cache_cleanup_confirmed",cacheCleanupConfirmed).put("source_cleanup_confirmed",sourceCleanupConfirmed));
+                .put("native",new JSONObject().put("cache_cleanup_confirmed",cacheCleanupConfirmed).put("source_cleanup_confirmed",sourceCleanupConfirmed)
+                    .put("source_frame",sourceFrame).put("source_document",sourceDocument).put("source_is_root",root).put("source_current",frameCurrent));
             if(verified&&state.equals("completed"))out.put("size",received).put("sha256",sha256);return out;
         }
     }
@@ -44,10 +46,11 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     }
     private static final class Row {
         final String id="d-"+UUID.randomUUID();final long sequence,expected;final MdoBrowserCdpSession.Offer offer;
+        final MdoBrowserCdpNetworkFrames.Origin origin;
         volatile Snapshot snapshot;volatile MdoBrowserDownloadQueue.Ticket ticket;volatile boolean releaseDone;
         long maximum=33554432;boolean accepted,cancelled,releasing,reading,eof,charged=true,retired;Release release;
         MdoBrowserCdpSession.Body body;String error,failureSource;
-        Row(long sequence,MdoBrowserCdpSession.Offer offer){this.sequence=sequence;this.offer=offer;expected=offer.metadata().declaredLength;}
+        Row(long sequence,MdoBrowserCdpSession.Offer offer,MdoBrowserCdpNetworkFrames.Origin origin){this.sequence=sequence;this.offer=offer;this.origin=origin;expected=offer.metadata().declaredLength;}
     }
     private final Object gate=new Object();private final Row[] rows=new Row[32];
     private final MdoBrowserDownloadQueue.Ticket[] retiring=new MdoBrowserDownloadQueue.Ticket[32];
@@ -72,6 +75,9 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
         if(!response.kind.equals("candidate")){network.continuePausedRequest();return;}
         // Child download identity requires its separate frame association.
         if(child!=null){failure="download_frame_unproven";network.abortPausedRequest();return;}
+        MdoBrowserCdpNetworkFrames.Origin origin;
+        try{origin=network.pausedOrigin();}
+        catch(IOException error){if(!"download_frame_unproven".equals(error.getMessage()))throw error;failure="download_frame_unproven";network.abortPausedRequest();return;}
         boolean declined=false;synchronized(gate){
             int slot=0;while(slot<rows.length&&rows[slot]!=null)slot++;
             if(slot==rows.length||!budget.acquire()){failure="download_receipt_limit";declined=true;}
@@ -79,7 +85,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
                 MdoBrowserCdpSession.Offer offer=null;boolean published=false;
                 try{
                     if(network.pendingOffers()>=8){failure="download_pending_limit";declined=true;}
-                    else{offer=network.retainPausedResponse();Row row=new Row(++serial,offer);publish(row,"pending",null,0,null,false,true,false,null);rows[slot]=row;published=true;}
+                    else{offer=network.retainPausedResponse();Row row=new Row(++serial,offer,origin);publish(row,"pending",null,0,null,false,true,false,null);rows[slot]=row;published=true;}
                 }finally{if(!published){budget.release();if(offer!=null)offer.cancel();}}
             }
         }
@@ -103,6 +109,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     Snapshot accept(String id,long maximum,int timeoutMs)throws IOException {
         synchronized(gate){Row row=find(id);summarize(row);if(row.snapshot.terminal()||row.accepted||row.cancelled||row.releasing)return row.snapshot;
             if(disconnected)throw new IOException("download_connection_closed");
+            if(!row.origin.current()){revokeFrame(row);summarize(row);throw new IOException("download_frame_changed");}
             try{row.offer.accept(maximum,timeoutMs);}catch(IOException failure){
                 if(!"cdp_offer_byte_limit".equals(failure.getMessage()))throw failure;
                 row.maximum=maximum;row.accepted=true;row.error="download_limit";row.failureSource="policy";row.offer.cancel();
@@ -135,7 +142,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     private void publish(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
         Snapshot old=row.snapshot;
         if(old!=null&&old.maximum==row.maximum&&old.state.equals(state)&&Objects.equals(old.error,error)&&old.received==bytes&&Objects.equals(old.sha256,hash)&&
-            old.verified==verified&&old.cacheCleanupConfirmed==cacheClean&&old.sourceCleanupConfirmed==sourceClean&&Objects.equals(old.failureSource,source))return;
+            old.verified==verified&&old.cacheCleanupConfirmed==cacheClean&&old.sourceCleanupConfirmed==sourceClean&&old.frameCurrent==row.origin.current()&&Objects.equals(old.failureSource,source))return;
         row.snapshot=new Snapshot(row,state,error,bytes,hash,verified,cacheClean,sourceClean,source);
     }
     private void retire(Row row){
@@ -172,6 +179,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
         synchronized(gate){
             if(closed||row.retired)return;
             if(row.releasing){summarize(row);return;}
+            summarize(row);if(!row.snapshot.terminal()&&!row.origin.current()&&!sourceCompleted(row))revokeFrame(row);
             MdoBrowserCdpSession.OfferResult offer=row.offer.result();if(offer==null)return;
             if(!offer.accepted){summarize(row);return;}
             row.body=offer.body;
@@ -190,6 +198,15 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
             }
             summarize(row);
         }
+    }
+    private void revokeFrame(Row row){
+        if(row.error==null&&!row.cancelled){row.error="download_frame_changed";row.failureSource="native_frame";}
+        row.offer.cancel();if(row.ticket!=null)try{files.cancel(row.ticket);}catch(IOException ignored){}
+    }
+    private static boolean sourceCompleted(Row row){
+        MdoBrowserCdpSession.OfferResult offer=row.offer.result();
+        MdoBrowserCdpSession.BodyResult body=offer==null||offer.body==null?null:offer.body.result();
+        return body!=null&&body.ok&&body.eof&&body.streamCloseConfirmed&&body.requestAbortConfirmed;
     }
     @Override public void turn(MdoBrowserCdpBinding.Network network)throws IOException {
         protocol(network);

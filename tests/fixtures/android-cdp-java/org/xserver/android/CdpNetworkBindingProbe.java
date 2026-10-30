@@ -34,7 +34,7 @@ public final class CdpNetworkBindingProbe {
         finally{Handler.drain();}
     }
     private static JSONObject response(int id)throws Exception{return new JSONObject().put("id",id).put("result",new JSONObject());}
-    private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("responseStatusCode",200)
+    private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("frameId","frame-owned").put("responseStatusCode",200)
         .put("resourceType","Document").put("request",new JSONObject().put("method","POST").put("url","https://private.invalid/token"))
         .put("responseHeaders",new JSONArray().put(new JSONObject().put("name","Content-Disposition").put("value","attachment; filename=private.bin"))));}
     static final class Context implements AutoCloseable{
@@ -42,10 +42,23 @@ public final class CdpNetworkBindingProbe {
         final CdpBindingProbe.Factory peer=new CdpBindingProbe.Factory(view);
         final List<String> methods=new ArrayList<>();final List<JSONObject> commands=new ArrayList<>();
         final List<MdoBrowserCdpSession.ControlReceipt> controls=new ArrayList<>();
-        MdoBrowserCdpBinding.Network network;boolean rejectDisable,rejectEnable,breakEnable,pausedEnable,abort;
+        final List<MdoBrowserCdpNetworkFrames.Origin> origins=new ArrayList<>();
+        MdoBrowserCdpBinding.Network network;boolean rejectDisable,rejectEnable,breakEnable,pausedEnable,abort,rejectPage,brokenTree,treeRaceApplied,expectSubframe;int treeRaces;
         Context(boolean physical){adapter=physical?MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota()):new MdoBrowserCdpView(view,v->v==view);
             peer.extra=(command,wire)->{
                 String method=command.getString("method");methods.add(method);commands.add(command);int id=command.getInt("id");
+                if("Page.enable".equals(method)){
+                    check(wire.proofRead&&wire.cleanupAttempts==1&&wire.id.equals("owned")&&command.getJSONObject("params").length()==0);
+                    wire.queue(rejectPage?new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","private-page-error")):response(id));return true;
+                }
+                if("Page.getFrameTree".equals(method)&&wire.frameQueries>=2&&brokenTree){wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",new JSONObject().put("id","unproved-root").put("loaderId","load-owned")))));return true;}
+                if("Page.getFrameTree".equals(method)&&wire.frameQueries>=2&&(treeRaces>0||treeRaceApplied)){
+                    boolean changed=treeRaces>0;
+                    if(changed){treeRaces--;treeRaceApplied=true;wire.queue(new JSONObject().put("method","Page.frameAttached").put("params",new JSONObject().put("frameId","race-child").put("parentFrameId","frame-owned")));}
+                    JSONObject tree=new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","load-owned"));
+                    if(!changed)tree.put("childFrames",new JSONArray().put(new JSONObject().put("frame",new JSONObject().put("id","race-child").put("parentId","frame-owned").put("loaderId","child-load"))));
+                    wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",tree)));return true;
+                }
                 if("Runtime.disable".equals(method)||"Fetch.enable".equals(method)){
                     check(wire.proofRead&&wire.cleanupAttempts==1&&wire.id.equals("owned"));
                     if("Fetch.enable".equals(method)){
@@ -71,7 +84,8 @@ public final class CdpNetworkBindingProbe {
         void bind()throws Exception{network=run(()->MdoBrowserCdpBinding.bindNetwork(adapter.marker(),1500,(m,s,p)->{
             if(m.equals("Fetch.requestPaused")){
                 MdoBrowserCdpResponse original=network.pausedResponse();check(original.kind.equals("candidate")&&original.reason.equals("attachment")&&original.status==200);
-                p.remove("responseHeaders");p.remove("request");check(network.pausedResponse()==original);
+                p.remove("responseHeaders");p.remove("request");try{p.put("frameId","unowned-forged-frame");}catch(org.json.JSONException error){throw new IOException(error);}
+                check(network.pausedResponse()==original);MdoBrowserCdpNetworkFrames.Origin origin=network.pausedOrigin();origins.add(origin);check(origin.root!=expectSubframe&&origin.current());
                 controls.add(abort?network.abortPausedRequest():network.continuePausedRequest());
             }
         },t->Arrays.asList("unowned","owned"),peer));}
@@ -101,6 +115,12 @@ public final class CdpNetworkBindingProbe {
         }
     }
     private static void navigation()throws Exception{
+        try(Context c=new Context(true)){
+            c.treeRaces=1;c.expectSubframe=true;c.bind();c.enable();
+            JSONObject event=paused("interception-job-raced");event.getJSONObject("params").put("frameId","race-child");c.wire().queue(event);
+            run(()->{check(c.network.poll(100));check(c.network.poll(100));return null;});check(c.origins.size()==1&&!c.origins.get(0).root&&c.controls.get(0).result().ok);
+            check(c.methods.stream().filter("Page.getFrameTree"::equals).count()==5); // unowned, proof twice, raced and stable
+        }
         for(boolean abort:new boolean[]{false,true})try(Context c=new Context(true)){
             c.abort=abort;c.pausedEnable=true;c.bind();c.enable();check(c.controls.size()==1&&c.controls.get(0).pending());
             run(()->{check(c.network.poll(100));check(c.network.pendingControls()==0);return null;});
@@ -116,7 +136,8 @@ public final class CdpNetworkBindingProbe {
             c.wire().queue(paused("interception-job-2.0"));run(()->{check(c.network.poll(100));check(c.network.poll(100));return null;});
             check(c.controls.size()==2&&c.controls.get(1).result().ok);
             check(c.view.evaluations==1&&c.methods.stream().filter("Runtime.evaluate"::equals).count()==4);
-            int before=c.methods.size();c.adapter.close();run(()->{rejected("cdp_binding_owner_changed",()->c.network.poll(100));return null;});check(c.methods.size()==before);
+            int before=c.methods.size();c.adapter.close();for(MdoBrowserCdpNetworkFrames.Origin origin:c.origins)check(!origin.current());
+            run(()->{rejected("cdp_binding_owner_changed",()->c.network.poll(100));return null;});check(c.methods.size()==before);
         }
         for(String event:new String[]{"Inspector.detached","Inspector.targetCrashed","Inspector.targetReloadedAfterCrash"})try(Context c=new Context(true)){
             c.bind();c.enable();c.wire().queue(new JSONObject().put("method",event).put("params",new JSONObject().put("reason","private-reason")));

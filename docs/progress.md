@@ -7962,3 +7962,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   takeover/rearm and installed provider/main-UI qualification remain open. Phone
   and current WebView stay deferred. No install, formal-data edit, model or
   external browser-page action, additional app/Home/source copy or publication.
+
+
+## E93 — prove download frame ancestry and retire original navigation scopes
+
+- Fix a provenance gap: a candidate in the root CDP session was not necessarily
+  a root-frame response. Freeze native frameId before callbacks, establish a
+  native frame tree before Fetch activation, and follow original parent/frame
+  events. Joined nested frames now have their own bounded ancestry/navigation
+  receipts; unknown/missing/process-swapped sources cannot impersonate root.
+  No URL/title comparison or new execution-world authority is introduced.
+- Bound the graph to 32 frames/depth and 4,096 lifetime associations. Stable
+  bootstrap uses at most eight readonly queries under the original deadline.
+  Failed proof records that Fetch activation was never dispatched. Transfer the
+  physical marker's cleanup ownership to the complete network facade, so UI
+  close immediately revokes provenance with no cross-thread frame-map access.
+- Parent navigation/removal cancels pending/partial original downloads and keeps
+  native_frame causes. Preserve a complete original source while independent
+  file validation is still running; valid bytes finish and same-size tampering
+  still fails. Completed data remains readable with a separate source-current
+  diagnostic. Download metadata exposes opaque network frame/document tokens,
+  never the wire IDs. Native ancestry faults use finite trusted event codes and
+  survive the worker and exact Activity failure receipt.
+- Exact native ancestry checks pass 50, physical binding 2,022, cooperative
+  worker 195, controller/actual guarded files 275, product download commands 73,
+  metadata 350 and creation/lifecycle 159. Include genuine descriptor barriers,
+  nested sources, parent removal/commit, bootstrap races, admission/depth/lifetime
+  limits, stale JSON, source preservation/tampering, and explicit unsupported
+  sources. Full native/ASan/UBSan/API26 gates pass (`.mdo/E93-native-final.log` /
+  current JSON); all 97 native and 11 creation input hashes match. Python passes
+  173/175 in 57.621 s (`.mdo/E93-python-full.log`), only the two existing Windows
+  symlink privilege skips. The new ledger's unproved-session revocation failure
+  and fix are retained in `.mdo/E93-unproved-session-repro.log` and the final gate.
+- Stop the single dev service, apply 119 reviewed files and build the full QA
+  Activity/service/lite-tools APK (`.mdo/E93-android-build.log`). Verify actual
+  NetworkFrames/Origin/Frame/Scope DEX, all source/native/app payloads, private
+  provider, six JNI entries, ARM64/16 KiB layout and v2-v3 signing. APK 6,452,545
+  bytes, SHA-256 `de11dfaf2c39a3a36a82cdb902ca09566ca518faa3c56b4daa41ea088002f325`.
+  Seven final APK contracts pass. Restore the same service to HTTP 200 on 63625,
+  about 3,436.6 MiB. Windows/paired-plugin identities remain unchanged, and
+  device/framework/automation flags remain false.
+- Goal active. Cross-process child interception, original popup/download-only
+  retention, navigation-error association, shared Android save/public automation
+  qualification, unsupported text/blob handling, orderly takeover/rearm and
+  installed provider/main-UI qualification remain open. Phone/current WebView
+  stay deferred. No install, formal-data edit, model or external browser-page
+  action, additional app/Home/source copy or online publication.

@@ -47,7 +47,7 @@ class ActualDexClassesTests(unittest.TestCase):
         self.assertNotIn('org.json.JSONObject',names)
 
     def test_class_reference_cannot_substitute_for_implementation(self):
-        for required in ('MdoBrowser$NetworkEntry','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpBinding$Network',
+        for required in ('MdoBrowser$NetworkEntry','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpBinding$Network','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope',
                          'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpResponse',
                          'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
                          'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',

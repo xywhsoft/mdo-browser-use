@@ -32,15 +32,23 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E92)
+E93 connects download provenance to a physical-target native frame ledger.
+Root and natively joined nested frames have independent navigation receipts;
+parent navigation/removal revokes unfinished responses, while completed source
+bytes may finish independent file validation and remain readable. This joins
+E90-E92's real Activity controls, bounded private reads and frozen display
+metadata. Separate child-process interception/popup adoption and installed
+provider/main-UI qualification remain incomplete; overall admission stays false.
+
+## Complete development host APK (E46/E93)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,448,449 bytes, SHA-256
-`70d345bf2f1db9eac2819e723173ccb48d1d4b0e6bc34cec04b5b23f38e7803f`.
+Current APK: 6,452,545 bytes, SHA-256
+`de11dfaf2c39a3a36a82cdb902ca09566ca518faa3c56b4daa41ea088002f325`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -3442,3 +3450,59 @@ final APK contracts pass. Evidence: `.mdo/E92-native-current.json`,
 `.mdo/E92-python-full.log`, `.mdo/E92-android-build.log` and the current receipt.
 The complete APK compiles these actual classes; installed provider/main-UI and
 full transfer/automation qualifications remain false. No phone/provider change.
+
+
+## Physical-target frame provenance across navigation (E93)
+
+The previous download controller excluded child CDP sessions but did not prove
+a same-session candidate's native frameId. The corrected physical network facade
+uses the frame ID frozen before event callbacks can mutate JSON. Page.enable and
+a bounded native frame-tree snapshot precede Fetch.enable. At most eight stable
+snapshot attempts share the original startup deadline; an intervening native
+frame event causes a reread, not acceptance of a stale tree or replay of input.
+A bootstrap failure records that interception was never dispatched.
+
+The ledger follows native parent/attach/detach/commit events independently of
+document execution worlds. It admits at most 32 frames and 32 ancestor levels,
+with a lifetime budget of 4,096 associations. Root and joined nested frames get
+opaque network-only frame/document tokens, with immutable ancestor scopes.
+Parent commit/removal revokes descendant tokens; swap evidence alone cannot
+requalify a process route. A separate child CDP session is still unqualified for
+download interception and does not silently become a root-frame response.
+
+Candidate acceptance and common-worker turns require a current original scope.
+Pending or partial stale downloads cancel only their original request/body and
+retain native_frame causes and cleanup receipts. A successful original EOF plus
+stream-close and request-abort receipts may already exist while independent file
+validation runs. Navigation then permits verification to finish, without
+promoting source proof alone to completed bytes. Same-size tampering still fails.
+Completed retained bytes remain inspectable/readable after navigation; source
+current status is independent of file/source cleanup. The metadata exposes only
+opaque source_frame/source_document/source_is_root/source_current diagnostics.
+
+Native ledger faults revoke old scopes, use a finite trusted event-code whitelist
+and survive the worker and actual Activity error receipt. Arbitrary callback or
+provider messages remain sanitized. The marker lease now owns the entire network
+facade, so UI teardown also immediately revokes frame provenance without iterating
+worker-owned frame maps from another thread. No document execution/input route
+is granted by network ancestry.
+
+Relevant protocol fields are the original
+[Fetch.requestPaused frameId](https://chromedevtools.github.io/devtools-protocol/tot/Fetch/#event-requestPaused)
+and native [Page frame events](https://chromedevtools.github.io/devtools-protocol/tot/Page/#event-frameAttached).
+URL/title equality is not a provenance proof in this implementation.
+
+Verification: metadata 350, native ancestry 50, physical binding 2,022, common
+network worker 195, actual download controller/files 275, exact download commands
+73 and product creation/lifecycle 159 checks pass. Include snapshot races,
+unproved/missing frames, caller-JSON mutation, nested parents, limits, physical
+close, pending/partial cancellation and paused real file validation across
+navigation with valid/tampered data. Full native/ASan/UBSan/API26 and Python
+173/175 (two existing symlink-privilege skips) pass. The complete APK requires the
+actual NetworkFrames/Origin/Frame/Scope DEX implementations; final payload,
+private-provider, six-JNI, alignment/signing and seven APK contracts pass.
+Evidence: `.mdo/E93-native-current.json`, `.mdo/E93-create-current.json`,
+`.mdo/E93-python-full.log`, `.mdo/E93-android-build.log` and the adjacent receipt.
+These are controlled native/JVM/filesystem and SDK build checks, not an installed
+provider/framework/main-UI pass. Phone/WebView remain deferred and automation
+qualification remains false.

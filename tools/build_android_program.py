@@ -31,7 +31,7 @@ HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','Md
               'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpResponse',
               'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
               'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',
-              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpBinding$Network','MdoBrowserCdpRegistry','MdoBrowserCdpWorker',
+              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpBinding$Network','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope','MdoBrowserCdpRegistry','MdoBrowserCdpWorker',
               'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
               'MdoBrowserCdpOwnerScripts','MdoBrowserCdpFrameRequest','MdoBrowserCdpFrameChain','MdoBrowserCdpInput','MdoBrowserCdpCapture','MdoBrowserCdpFileInput','MdoBrowserCdpFileInput$BeforeClear','MdoBrowserCdpChoosers','MdoBrowserCdpUploadScripts','MdoBrowserCdpUpload','MdoBrowserCdpUpload$Ready','MdoBrowserCdpUpload$Receipt','MdoBrowserUploadCoordinator','MdoBrowserUploadCoordinator$Result','MdoBrowserCdpWorlds$Pin','MdoBrowserCapture','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply',
               'MdoBrowserUploadStore$RetentionOwner','MdoBrowserUploadStore$Retention','MdoBrowserUploadStore$PickerGrant',

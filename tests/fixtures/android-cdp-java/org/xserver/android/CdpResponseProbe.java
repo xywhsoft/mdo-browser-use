@@ -57,9 +57,11 @@ public final class CdpResponseProbe {
             check(MdoBrowserCdpResponse.inspect(document("attachment; filename=fallback.txt; filename*=UTF-8''"+encoded,null)).name.equals("download.bin"));
         StringBuilder longName=new StringBuilder();for(int i=0;i<81;i++)longName.append('文');
         check(MdoBrowserCdpResponse.inspect(document("attachment; filename=\""+longName+"\"",null)).name.equals("download.bin"));
-        JSONObject event=document("attachment; filename=original.txt","Application/Pdf; test=discarded");MdoBrowserCdpResponse frozen=MdoBrowserCdpResponse.inspect(event);
-        event.getJSONArray("responseHeaders").getJSONObject(0).put("value","attachment; filename=forged.txt");event.remove("request");
-        check(frozen.name.equals("original.txt")&&frozen.mime.equals("application/pdf"));
+        JSONObject event=document("attachment; filename=original.txt","Application/Pdf; test=discarded").put("frameId","frame-native");MdoBrowserCdpResponse frozen=MdoBrowserCdpResponse.inspect(event);
+        event.getJSONArray("responseHeaders").getJSONObject(0).put("value","attachment; filename=forged.txt");event.remove("request");event.put("frameId","frame-forged");
+        check(frozen.name.equals("original.txt")&&frozen.mime.equals("application/pdf")&&frozen.frame.equals("frame-native"));
+        check(MdoBrowserCdpResponse.inspect(event.put("frameId",true)).frame==null);
+        check(MdoBrowserCdpResponse.inspect(event.put("frameId","https://not-an-id")).frame==null);
         MdoBrowserCdpResponse generic=MdoBrowserCdpResponse.inspect(document(null,"Application/Octet-Stream"));check(generic.name.equals("download.bin")&&generic.mime.equals("application/octet-stream"));
     }
     private static void policy()throws Exception{

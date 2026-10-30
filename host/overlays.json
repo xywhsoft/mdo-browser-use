@@ -3,7 +3,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    source=directory/'org/xserver/android/XsActivity.java'",
-      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpResponse.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java','MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserPrivatePicker.java','MdoBrowserPrivatePickerReply.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
+      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpResponse.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpNetworkFrames.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java','MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserPrivatePicker.java','MdoBrowserPrivatePickerReply.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -1786,6 +1786,10 @@
     {
       "source": "host/android/MdoBrowserUploadCoordinator.java",
       "target": "tools/android/MdoBrowserUploadCoordinator.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpNetworkFrames.java",
+      "target": "tools/android/MdoBrowserCdpNetworkFrames.java"
     }
   ]
 }

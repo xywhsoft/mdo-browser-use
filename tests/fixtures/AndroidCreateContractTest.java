@@ -140,6 +140,8 @@ public final class AndroidCreateContractTest {
         check(failed.views.size()==0&&failed.created.get(0).destroys==1&&failed.replies==1,"Rejected network start leaked or destroyed twice");
         AndroidCreateHost unsupported=networkHost();AndroidCreateHost.NetworkCall rejected=startNetwork(unsupported,"tab");rejected.failed("cdp_method_unsupported",true);
         check(((AndroidCreateHost.JSONObject)unsupported.lastReply.data.get("error")).data.get("code").equals("cdp_method_unsupported"),"Confirmed protocol failure was masked by generic startup text");
+        AndroidCreateHost frames=networkHost();AndroidCreateHost.NetworkCall invalidFrames=startNetwork(frames,"tab");invalidFrames.failed("download_frame_root_changed",true);
+        check(((AndroidCreateHost.JSONObject)frames.lastReply.data.get("error")).data.get("code").equals("download_frame_root_changed"),"Native frame failure was masked by generic startup text");
         check(unsupported.created.get(0).destroys==1&&unsupported.created.get(0).loads==1,"Known unsupported transport sent or repeated a target request");
         AndroidCreateHost drain=networkHost();AndroidCreateHost.NetworkCall pending=startNetwork(drain,"tab");drain.revoke("tab");android.os.SystemClock.now+=5000;android.os.Handler.tick();
         AndroidCreateHost.JSONObject originalReceipt=createReceipt(drain);

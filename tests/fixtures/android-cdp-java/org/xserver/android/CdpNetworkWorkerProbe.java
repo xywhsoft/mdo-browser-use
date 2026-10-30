@@ -138,6 +138,18 @@ public final class CdpNetworkWorkerProbe {
     }
     private static void failuresAndClose()throws Exception{
         try(Case c=new Case()){
+            CdpNetworkBindingProbe.Context source=c.source();c.ready(source);
+            source.wire().queue(new JSONObject().put("method","Page.frameAttached").put("params",new JSONObject().put("frameId","unproved-child").put("parentFrameId","unproved-parent")));
+            c.deliver(1);check(c.states.size()==2&&!c.states.get(1).ready&&c.states.get(1).code.equals("download_frame_parent_unproven")&&c.states.get(1).cleanupConfirmed);
+            check(source.wire().closed.get()&&c.worker.networkPending()==0);
+        }
+        for(int mode=0;mode<3;mode++)try(Case c=new Case()){
+            CdpNetworkBindingProbe.Context source=c.source();source.rejectPage=mode==0;source.brokenTree=mode==1;source.treeRaces=mode==2?8:0;c.start(source,1500);c.deliver(1);
+            check(!c.states.get(0).ready&&!c.states.get(0).enabledMayHaveOccurred&&c.states.get(0).cleanupConfirmed&&c.worker.networkPending()==0);
+            check(c.states.get(0).code.equals(mode==0?"cdp_method_unsupported":mode==1?"download_frame_root_changed":"download_frame_bootstrap_changed"));
+            check(source.methods.stream().noneMatch("Fetch.enable"::equals));
+        }
+        try(Case c=new Case()){
             CdpNetworkBindingProbe.Context source=c.source();source.rejectEnable=true;c.start(source,1500);c.deliver(1);
             check(!c.states.get(0).ready&&c.states.get(0).code.equals("cdp_method_unsupported")&&!c.states.get(0).enabledMayHaveOccurred&&c.worker.networkPending()==0);
         }

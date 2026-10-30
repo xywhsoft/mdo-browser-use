@@ -34,7 +34,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         this.ui=ui;this.connector=connector;this.clock=clock;this.executor=executor;this.unavailable=unavailable;
     }
     private void thread(){if(!ui.onThread())throw new IllegalStateException("Network owner dispatch requires its UI thread");}
-    private static String safe(String code){return code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:"cdp_network_worker_failed";}
+    private static String safe(String code){return code!=null&&code.matches("(?:cdp|download_frame)_[a-z_]{1,80}")?code:"cdp_network_worker_failed";}
     void start(MdoBrowserCdpMarker marker,int timeout,Events events,Completion complete)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(marker==null||!marker.lease().current()||!marker.lease().physicalNetwork()||events==null||complete==null||timeout<100||timeout>15000)
@@ -139,7 +139,8 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             }catch(MdoBrowserCdpSession.Failure error){if(error.protocolCode==-32601)enabledMayHaveOccurred=false;failure=safe(error.getMessage());}
             catch(IOException error){failure=safe(error.getMessage());}
             catch(RuntimeException|Error error){failure="cdp_network_worker_failed";}
-            finally{if(failure!=null)finish(failure);else if(closed.get())finish("cdp_network_cancelled");}
+            finally{if(connection!=null&&!connection.responsesMayHaveOccurred())enabledMayHaveOccurred=false;
+                if(failure!=null)finish(failure);else if(closed.get())finish("cdp_network_cancelled");}
         }
         private void closeNative(){
             MdoBrowserCdpBinding.Network bound=connection;

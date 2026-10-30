@@ -183,7 +183,7 @@
             if(!networkHandler.postDelayed(entry.watch,100)){entry.cleanupObservationExpired=true;networkCleanupFailed=true;}
         }
     }
-    private String networkProtocolCode(String code,String fallback){return code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:fallback;}
+    private String networkProtocolCode(String code,String fallback){return code!=null&&code.matches("(?:cdp|download_frame)_[a-z_]{1,80}")?code:fallback;}
     private JSONObject networkState(String key)throws JSONException {
         NetworkEntry entry=networkViews.get(key);
         return new JSONObject().put("installed",entry!=null).put("ready",entry!=null&&entry.ready&&!entry.retired)

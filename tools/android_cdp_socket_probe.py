@@ -96,7 +96,7 @@ def main():
     json_sources=setup_android_json_test.prepare()
     subprocess.run([str(java/'bin/javac'),'--release','8','-encoding','UTF-8','-d',str(classes),
                     *[str(ROOT/'host/android'/name) for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpResponse.java','MdoBrowserCdpSession.java',
-                                                               'MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java',
+                                                               'MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpNetworkFrames.java',
                                                                'MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java',
                                                                'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserUploadStore.java','MdoBrowserUploadFiles.java','MdoBrowserDownloadFiles.java','MdoBrowserDownloadQueue.java','MdoBrowserCdpDownloads.java','MdoBrowserUploadQueue.java','MdoBrowserChoosers.java','MdoBrowserPrivatePicker.java','MdoBrowserChannel.java','MdoBrowserCapture.java',
                                                                'MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java')],
@@ -121,6 +121,12 @@ def main():
     if not responses.get('passed') or not responses.get('original_event_snapshot') or responses.get('provider_qualified') is not False or responses.get('body_retention_activated') is not False:
         raise RuntimeError('The bounded original-response metadata gate did not pass')
     result['jvm_response_metadata']=responses
+    ancestry=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpNetworkFramesProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
+    if (not ancestry.get('passed') or not ancestry.get('actual_network_ancestry') or not ancestry.get('native_navigation_epochs')
+            or ancestry.get('framework_verified') is not False or ancestry.get('provider_qualified') is not False):
+        raise RuntimeError('The physical network frame ancestry gate did not pass')
+    result['jvm_network_ancestry']=ancestry
     bodies=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpBodyProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
     if not bodies.get('passed') or not bodies.get('original_body_permits') or bodies.get('real_body_sessions')!=3 or bodies.get('real_async_body_pairs')!=1 or bodies.get('real_retired_read_sessions')!=1 or bodies.get('provider_qualified') is not False or bodies.get('product_downloads_activated') is not False:
@@ -259,7 +265,7 @@ def main():
     inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
             'host/android/MdoBrowserCdpWebSocket.c','host/android/MdoBrowserCdpWebSocket.h',
             'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpResponse.java','host/android/MdoBrowserCdpSession.java',
-            'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java',
+            'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
             'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserDownloadFiles.java','host/android/MdoBrowserDownloadQueue.java','host/android/MdoBrowserCdpDownloads.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
             'host/android/browser-document.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',

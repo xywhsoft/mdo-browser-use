@@ -250,30 +250,42 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
     }
     static final class Network implements AutoCloseable {
-        private final MdoBrowserCdpBinding bound;private boolean enableAttempted,enabled;
-        private Network(MdoBrowserCdpBinding bound){this.bound=bound;}
+        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private boolean enableAttempted,responsesAttempted,enabled;
+        private Network(MdoBrowserCdpBinding bound)throws IOException {
+            this.bound=bound;frames=new MdoBrowserCdpNetworkFrames(bound.rootFrame,bound.rootLoader);bound.observe(frames);bound.lease.transfer(bound,this);
+        }
         void enableResponses(int timeoutMs)throws IOException {
             bound.current();if(enableAttempted)throw problem("cdp_network_enable_replayed");
             if(timeoutMs<10||timeoutMs>5000)throw problem("cdp_arguments_invalid");
             enableAttempted=true;
             try{
+                long started=android.os.SystemClock.elapsedRealtime();
+                bound.call("Page.enable",new JSONObject(),null,remaining(started,timeoutMs,bound.lease),false);
+                boolean proved=false;
+                for(int attempt=0;attempt<8;attempt++){
+                    long before=frames.revision();JSONObject tree=bound.call("Page.getFrameTree",new JSONObject(),null,remaining(started,timeoutMs,bound.lease),false).getJSONObject("frameTree");
+                    if(frames.revision()!=before)continue;frames.initialize(tree,before);proved=true;break;
+                }
+                if(!proved)throw problem("download_frame_bootstrap_changed");
                 JSONObject pattern=new JSONObject().put("urlPattern","*").put("requestStage","Response");
                 JSONObject params=new JSONObject().put("patterns",new JSONArray().put(pattern)).put("handleAuthRequests",false);
-                bound.call("Fetch.enable",params,null,timeoutMs,true);bound.current();enabled=true;
-            }catch(JSONException failure){bound.close();throw problem("cdp_network_arguments_invalid");}
-            catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
+                int remaining=remaining(started,timeoutMs,bound.lease);responsesAttempted=true;
+                bound.call("Fetch.enable",params,null,remaining,true);bound.current();enabled=true;
+            }catch(JSONException failure){close();throw problem("cdp_network_arguments_invalid");}
+            catch(IOException|RuntimeException|Error failure){close();throw failure;}
         }
         boolean poll(int timeoutMs)throws IOException {active();return bound.poll(timeoutMs);}
         boolean poll(int receiveMs,int timeoutMs)throws IOException {active();return bound.peer.poll(receiveMs,timeoutMs);}
         boolean idle()throws IOException {active();return bound.peer.idle();}
         private void active()throws IOException {bound.current();if(!enabled)throw problem("cdp_network_not_enabled");}
-        private void control()throws IOException {bound.current();if(!enableAttempted)throw problem("cdp_network_not_enabled");}
+        private void control()throws IOException {bound.current();if(!responsesAttempted)throw problem("cdp_network_not_enabled");}
         MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {control();return bound.peer.continuePausedRequest();}
         MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {control();return bound.peer.abortPausedRequest();}
         MdoBrowserCdpResponse pausedResponse()throws IOException {control();return bound.peer.pausedResponse();}
-        MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {control();return bound.peer.retainPausedResponse();}
+        MdoBrowserCdpNetworkFrames.Origin pausedOrigin()throws IOException {control();return frames.origin(bound.peer.pausedResponse().frame);}
+        MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {control();pausedOrigin();return bound.peer.retainPausedResponse();}
         int pendingOffers()throws IOException {bound.current();return bound.peer.pendingOffers();}
-        MdoBrowserCdpSession.Body takePausedBody(long maxBytes,int timeoutMs)throws IOException {control();return bound.peer.takePausedBody(maxBytes,timeoutMs);}
+        MdoBrowserCdpSession.Body takePausedBody(long maxBytes,int timeoutMs)throws IOException {control();pausedOrigin();return bound.peer.takePausedBody(maxBytes,timeoutMs);}
         MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeoutMs)throws IOException {active();return bound.peer.readBody(body,timeoutMs);}
         void cancelBody(MdoBrowserCdpSession.Body body,int timeoutMs)throws IOException {active();bound.peer.cancelBody(body,timeoutMs);}
         int pendingBodies()throws IOException {bound.current();return bound.peer.pendingBodies();}
@@ -281,8 +293,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException {active();return bound.peer.takeBodyChunk(body);}
         boolean serviceBodies(int sendTimeoutMs)throws IOException {active();return bound.peer.serviceBodies(sendTimeoutMs);}
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
+        boolean responsesMayHaveOccurred(){return responsesAttempted;}
         boolean cleanupConfirmed(){return bound.closed.get()&&!bound.cleanupFailed.get();}
-        @Override public void close(){bound.close();}
+        @Override public void close(){frames.close();bound.lease.untrack(this);bound.close();}
     }
     private static Context match(Peer peer,Contexts contexts,MdoBrowserCdpMarker.Ticket ticket,long started,int timeout,MdoBrowserCdpMarker.Lease lease) throws IOException,JSONException {
         peer.call("Runtime.enable",new JSONObject(),remaining(started,timeout,lease));
