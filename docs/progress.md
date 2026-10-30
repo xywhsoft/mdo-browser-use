@@ -6490,3 +6490,36 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   deferred by the user; provider/profile/URI/main-UI/clear/directory/download
   qualification remains outstanding. Do not retry the unchanged desktop visual
   gate or claim complete platform qualification.
+
+## W3a — preserve routed protocol failures and own callback references
+
+- During the Windows original-realm migration, actual cross-process reads
+  rejected unique-context qualification (`.mdo/W3-frames-first.json`,
+  `.mdo/W3-frames-cdp-error.json`, isolated-read/check 16). Root and same-origin
+  reads had succeeded. The routed `xb_frame_cdp` callback erased every failed
+  HRESULT's response body before its caller could recognize the expected native
+  protocol rejection. Keep the original bounded error body with `ok:false`;
+  oversized UTF-16 or expanded UTF-8 output is replaced with an empty failure
+  receipt. No protocol failure becomes success and no raw protocol receipt is
+  added to a public tool result.
+- Compile the actual routed completion/dispatch, COM callback class, JSON parser
+  and callback owner. `.mdo/W3-frame-cdp-red.log` reproduces loss of the original
+  error. The corrected real WebView2 passes 260 frame checks
+  (`.mdo/W3-frames-cdp-fixed.log`/`.json`) with no new native diagnostics and zero
+  private-upload reservations. The surrounding realm migration is still pending
+  and is not established complete by this one gate.
+- A second compiled fault reproduces callback/reference leakage when parameter
+  conversion throws after callback allocation (`.mdo/W3-frame-cdp-owner-red.log`).
+  Use the existing COM reference owner for the dispatching caller, independently
+  of any provider-held reference. Pre-acceptance conversion/dispatch exceptions
+  release the callback; an already accepted provider callback retains its
+  original owner until the provider releases it. Preserve once-only completion
+  even if receipt delivery throws or a duplicate callback arrives.
+- `.mdo/W3-frame-cdp-fixed.log`: 17 actual-method checks pass, including routed
+  source identity, failed-HRESULT and protocol-error bodies, missing sources,
+  rejected dispatch, UTF-16/UTF-8 limits, absent output, throwing/duplicate
+  delivery, conversion allocation fault and provider exceptions before/after
+  acceptance. Final integrated native build/runtime qualification and the
+  original-world migration remain in progress. The W2 downloadable program and
+  E75 Android build have not been replaced at this substage. Goal active; no
+  provider/phone/formal data change, model call or online release.

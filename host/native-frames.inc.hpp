@@ -87,18 +87,20 @@ struct xb_frame_cdp_completion{
 static void xb_frame_cdp(const std::shared_ptr<xb_view>& view,const std::string& session,const wchar_t* method,
                          const std::string& params,xb_cdp_result done){
   auto completion=std::make_shared<xb_frame_cdp_completion>();completion->done=std::move(done);
-  auto* callback=xb_cb<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,HRESULT,LPCWSTR>(
+  xs_wv_com<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler> callback;
+  callback.p=xb_cb<ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,HRESULT,LPCWSTR>(
     IID_ICoreWebView2CallDevToolsProtocolMethodCompletedHandler,[completion](HRESULT status,LPCWSTR output){
       size_t size=0;if(output)while(size<=1048576&&output[size])size++;
-      if(FAILED(status)||size>1048576){completion->finish(false,"{}");return S_OK;}
+      if(size>1048576){completion->finish(false,"{}");return S_OK;}
       const auto value=webview::detail::narrow_string(output?output:L"{}");
-      completion->finish(value.size()<=2097152&&xb_get(value,"error").empty(),value);return S_OK;
+      if(value.size()>2097152){completion->finish(false,"{}");return S_OK;}
+      completion->finish(SUCCEEDED(status)&&xb_get(value,"error").empty(),value);return S_OK;
     });
   HRESULT status=E_NOINTERFACE;
-  if(session.empty())status=view->core->CallDevToolsProtocolMethod(method,webview::detail::widen_string(params).c_str(),callback);
+  if(session.empty())status=view->core->CallDevToolsProtocolMethod(method,webview::detail::widen_string(params).c_str(),callback.p);
   else if(view->frames&&view->frames->source&&view->frames->sessions.count(session))
-    status=view->frames->source->CallDevToolsProtocolMethodForSession(webview::detail::widen_string(session).c_str(),method,webview::detail::widen_string(params).c_str(),callback);
-  callback->Release();if(FAILED(status))completion->finish(false,"{}");
+    status=view->frames->source->CallDevToolsProtocolMethodForSession(webview::detail::widen_string(session).c_str(),method,webview::detail::widen_string(params).c_str(),callback.p);
+  if(FAILED(status))completion->finish(false,"{}");
 }
 static bool xb_frame_source(const std::shared_ptr<xb_frame_state>& state,const std::string& session){
   if(session.empty())return true;auto found=state->sessions.find(session);return found!=state->sessions.end();
