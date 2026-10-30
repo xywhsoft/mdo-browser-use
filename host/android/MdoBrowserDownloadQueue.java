@@ -28,7 +28,32 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
         private Ticket(MdoBrowserDownloadQueue owner,MdoBrowserCdpSession.Body source){this.owner=owner;this.source=source;}
         Snapshot snapshot(){return snapshot;}
     }
+    /** A bounded one-shot range receipt. Only the file worker touches the
+     * original descriptor; callers poll/take without waiting for filesystem I/O. */
+    static final class Read implements AutoCloseable {
+        private final MdoBrowserDownloadQueue owner;private final Ticket ticket;
+        final long offset,size;final int limit;final String sha256;
+        private boolean running,done,closed;private String error;private byte[] bytes;
+        private Read(MdoBrowserDownloadQueue owner,Ticket ticket,long offset,int limit){
+            this.owner=owner;this.ticket=ticket;this.offset=offset;this.limit=limit;
+            size=ticket.snapshot.bytes;sha256=ticket.snapshot.sha256;
+        }
+        boolean finished(){synchronized(owner.gate){return done||closed;}}
+        byte[] take()throws IOException {
+            synchronized(owner.gate){
+                if(closed)throw new IOException("download_read_cancelled");
+                if(!done)throw new IOException("download_read_pending");
+                if(error!=null){String code=error;close();throw new IOException(code);}
+                byte[] result=bytes;bytes=null;close();return result;
+            }
+        }
+        @Override public void close(){
+            synchronized(owner.gate){closed=true;done=true;if(bytes!=null){java.util.Arrays.fill(bytes,(byte)0);bytes=null;}
+                if(!running)owner.retireRead(this);owner.gate.notifyAll();}
+        }
+    }
     private final Object gate=new Object();private final Ticket[] tickets=new Ticket[MdoBrowserDownloadFiles.FILES];
+    private final Read[] reads=new Read[4];private int readCursor;private boolean preferRead=true;
     private final Factory factory;private final LongSupplier clock;private final Thread worker;
     private final CountDownLatch stopped=new CountDownLatch(1);
     private MdoBrowserDownloadFiles files;private boolean closing;private int cursor;
@@ -50,6 +75,19 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
     private void owned(Ticket ticket)throws IOException {
         if(ticket==null||ticket.owner!=this)throw new IOException("download_owner_mismatch");
     }
+    Read read(Ticket ticket,long offset,int limit)throws IOException {
+        owned(ticket);synchronized(gate){
+            if(closing)throw new IOException("download_worker_closed");
+            if(ticket.retired||ticket.releasing||!ticket.snapshot.completed())throw new IOException("download_not_completed");
+            if(offset<0||offset>ticket.snapshot.bytes||limit<1||limit>MdoBrowserDownloadFiles.CHUNK)throw new IOException("download_range_invalid");
+            int slot=0;while(slot<reads.length&&reads[slot]!=null)slot++;
+            if(slot==reads.length)throw new IOException("download_read_busy");
+            Read result=new Read(this,ticket,offset,limit);reads[slot]=result;gate.notifyAll();return result;
+        }
+    }
+    private void retireRead(Read read){for(int i=0;i<reads.length;i++)if(reads[i]==read){reads[i]=null;break;}}
+    private void revokeReads(Ticket ticket){for(Read read:reads)if(read!=null&&read.ticket==ticket)read.close();}
+    int retainedReads(){synchronized(gate){int count=0;for(Read read:reads)if(read!=null)count++;return count;}}
     boolean writable(Ticket ticket)throws IOException {
         owned(ticket);synchronized(gate){return !closing&&!ticket.retired&&!ticket.cancelled&&!ticket.releasing&&!ticket.busy&&ticket.chunk==null&&
             !ticket.eofSubmitted&&"receiving".equals(ticket.snapshot.state);}
@@ -68,7 +106,7 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
         owned(ticket);synchronized(gate){if(ticket.retired||ticket.complete)return;ticket.cancelled=true;ticket.source.cancel();gate.notifyAll();}
     }
     void release(Ticket ticket)throws IOException {
-        owned(ticket);synchronized(gate){if(ticket.retired)return;ticket.releasing=true;if(!ticket.complete)ticket.source.cancel();gate.notifyAll();}
+        owned(ticket);synchronized(gate){if(ticket.retired)return;ticket.releasing=true;revokeReads(ticket);if(!ticket.complete)ticket.source.cancel();gate.notifyAll();}
     }
     private static String code(Throwable failure){
         String value=failure instanceof MdoBrowserDownloadFiles.Failure?((MdoBrowserDownloadFiles.Failure)failure).code:failure instanceof IOException?failure.getMessage():null;
@@ -85,7 +123,39 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
         if(files!=null)files.collectFailed();ticket.clean=true;
     }
     private void retire(Ticket ticket){
-        synchronized(gate){ticket.retired=true;for(int i=0;i<tickets.length;i++)if(tickets[i]==ticket){tickets[i]=null;break;}}
+        synchronized(gate){ticket.retired=true;revokeReads(ticket);for(int i=0;i<tickets.length;i++)if(tickets[i]==ticket){tickets[i]=null;break;}}
+    }
+    private Read nextRead(){
+        for(int i=0;i<reads.length;i++){int next=readCursor++%reads.length;Read value=reads[next];
+            if(value!=null&&!value.closed&&!value.done&&!value.running){value.running=true;readCursor%=reads.length;return value;}}
+        readCursor%=reads.length;return null;
+    }
+    private void stepRead(Read read){
+        byte[] bytes=null;String error=null;Ticket ticket=read.ticket;
+        try{
+            synchronized(gate){if(closing||read.closed||ticket.releasing||ticket.retired)throw new IOException("download_read_cancelled");}
+            if(!ticket.complete||ticket.failure!=null||ticket.writer==null)throw new IOException("download_not_completed");
+            // Revalidate before a new range sequence and at its end. Every
+            // range also checks the pinned file identity/size. The receiver
+            // independently hashes the complete saved byte stream.
+            if(read.offset==0)ticket.writer.verify();
+            bytes=ticket.writer.read(read.offset,read.limit);
+            if(read.offset+bytes.length==read.size)ticket.writer.verify();
+        }catch(IOException|RuntimeException|LinkageError|OutOfMemoryError failure){
+            error=ticket.failure==null?code(failure):ticket.failure;
+            if(!error.equals("download_read_cancelled")){
+                ticket.failure=error;ticket.complete=false;publish(ticket,"failed",error,null,false);
+                synchronized(gate){for(Read other:reads)if(other!=null&&other!=read&&other.ticket==ticket)other.close();}
+            }
+        }finally{
+            synchronized(gate){
+                read.running=false;
+                if(closing||read.closed||ticket.releasing||ticket.retired){
+                    if(bytes!=null)java.util.Arrays.fill(bytes,(byte)0);read.closed=true;read.done=true;retireRead(read);
+                }else{read.bytes=bytes;read.error=error;read.done=true;}
+                gate.notifyAll();
+            }
+        }
     }
     private boolean needed(Ticket ticket){
         if(ticket.retired||ticket.busy)return false;
@@ -141,10 +211,12 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
     private void loop(){
         try{
             for(;;){
-                Ticket selected=null;
+                Ticket selected=null;Read reading=null;
                 synchronized(gate){
-                    for(int i=0;i<tickets.length;i++){int next=cursor++%tickets.length;Ticket value=tickets[next];if(value!=null&&needed(value)){selected=value;value.busy=true;break;}}cursor%=tickets.length;
-                    if(selected==null){
+                    if(!closing&&preferRead)reading=nextRead();
+                    if(reading==null)for(int i=0;i<tickets.length;i++){int next=cursor++%tickets.length;Ticket value=tickets[next];if(value!=null&&needed(value)){selected=value;value.busy=true;break;}}cursor%=tickets.length;
+                    if(!closing&&reading==null&&selected==null)reading=nextRead();
+                    if(selected==null&&reading==null){
                         if(closing)break;boolean polling=false;
                         // Only unfinished original responses need deadline/
                         // receipt polling. Empty or fully retained caches park
@@ -154,12 +226,13 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
                         try{gate.wait(polling?20:0);}catch(InterruptedException interrupted){closing=true;}continue;
                     }
                 }
+                if(reading!=null){preferRead=false;stepRead(reading);continue;}preferRead=true;
                 step(selected);
                 // A failed unlink is retained; avoid an unbounded busy retry.
                 if(!selected.clean&&selected.failure!=null){synchronized(gate){if(closing)break;try{gate.wait(100);}catch(InterruptedException interrupted){closing=true;}}}
             }
         }finally{
-            synchronized(gate){closing=true;}
+            synchronized(gate){closing=true;for(Read read:reads)if(read!=null)read.close();}
             for(Ticket ticket:tickets)if(ticket!=null){ticket.source.cancel();try{discard(ticket);}catch(IOException|RuntimeException|OutOfMemoryError failure){cleanupFailed=true;}
                 publish(ticket,"closed",ticket.failure==null?"download_worker_closed":ticket.failure,null,false);retire(ticket);}
             if(files!=null)try{files.close();reservations=0;reservedBytes=0;}catch(IOException|RuntimeException|OutOfMemoryError failure){cleanupFailed=true;}
@@ -170,6 +243,6 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
     int retainedTickets(){synchronized(gate){int count=0;for(Ticket ticket:tickets)if(ticket!=null)count++;return count;}}
     long reservedBytes(){return reservedBytes;}
     boolean cleanupFailed(){return cleanupFailed;}
-    @Override public void close(){synchronized(gate){closing=true;for(Ticket ticket:tickets)if(ticket!=null)ticket.source.cancel();gate.notifyAll();}}
+    @Override public void close(){synchronized(gate){closing=true;for(Read read:reads)if(read!=null)read.close();for(Ticket ticket:tickets)if(ticket!=null)ticket.source.cancel();gate.notifyAll();}}
     boolean awaitStopped(long milliseconds)throws InterruptedException{return stopped.await(milliseconds,TimeUnit.MILLISECONDS);}
 }

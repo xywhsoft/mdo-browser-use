@@ -7895,3 +7895,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   takeover/rearm and installed provider/main-UI qualification remain open.
   Phone/provider update stay deferred. No install, formal-data edit, model or
   external-page action, additional app/Home/source copy or online publication.
+
+
+## E91 — read retained verified download bytes without UI/protocol I/O waits
+
+- Add four one-shot native range receipts (65,536 bytes each) to the existing
+  file worker. Require original completed source/file proof; retain descriptor
+  identity/size checks, start/EOF hash checks and final receiver-stream hashing.
+  Alternate reads with other file work. No path/descriptor/digest authority
+  comes from a caller. Reads do not wake idle workers once receipts settle.
+- Consume each buffer once and erase retained data on cancellation/release/close.
+  Observe blocked reads until actual worker unwind; cache tampering revokes
+  other retained ranges and invalidates old completion, preserving its cause.
+  Wire actual Activity reads to exact view/channel leases with bounded polling,
+  cancellation and sanitized native failure receipts. Retained verified bytes
+  remain readable after protocol retirement. Full capability stays false.
+- File queue passes 237 assertions, controller 186 and exact product commands 73.
+  Include real descriptor blocking, continued page RPC progress, release while
+  blocked, stale channels/owners, timeouts, scheduler failure, bounded buffers,
+  one-shot ownership and same-size tampering. Full current JNI/native/ASan/UBSan/
+  API26 gates pass (`.mdo/E91-native-final.log` / current JSON); 95 native and
+  11 retained creation input hashes match. Python passes 173/175 in 57.866 s
+  (`.mdo/E91-python-full.log`), with two existing Windows symlink privilege skips.
+- With the sole dev service stopped, apply 118 reviewed files and build the real
+  QA Activity/service/lite-tools APK. Check actual Read/DownloadRead DEX, all
+  source/native/app payloads, private provider, six JNI entries, ARM64/16 KiB
+  layout and v2-v3 signing (`.mdo/E91-android-build.log`). APK 6,448,449 bytes,
+  SHA-256 `7b60130da470e533f702c62b26b27f52bc9c257091e8e5bfb55126f71110ab9f`.
+  Seven final APK contracts pass. Restore the same service to HTTP 200 on 63625,
+  about 3,436.3 MiB. Windows and paired-plugin hashes remain unchanged.
+- Goal active. Native private range transport is implemented and packaged; shared
+  Android save/public automation qualification, frozen name/MIME, original
+  navigation/popup ownership, unsupported text/blob behavior, orderly takeover/
+  rearm and installed provider/main-UI qualification remain open. Phone/provider
+  update remain deferred. No install, formal-data edit, model/external-page
+  action, extra app/Home/source copy or online publication.

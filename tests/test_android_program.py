@@ -52,9 +52,9 @@ class ActualDexClassesTests(unittest.TestCase):
                          'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
                          'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',
                          'MdoBrowserDownloadFiles','MdoBrowserDownloadFiles$Writer','MdoBrowserDownloadFiles$Failure',
-                         'MdoBrowserDownloadQueue','MdoBrowserDownloadQueue$Ticket','MdoBrowserDownloadQueue$Snapshot',
+                         'MdoBrowserDownloadQueue','MdoBrowserDownloadQueue$Ticket','MdoBrowserDownloadQueue$Snapshot','MdoBrowserDownloadQueue$Read',
                          'MdoBrowserCdpDownloads','MdoBrowserCdpDownloads$Snapshot','MdoBrowserCdpDownloads$Release','MdoBrowserCdpDownloads$Budget','MdoBrowserCdpDownloads$Row',
-                         'MdoBrowserDownloadRuntime','MdoBrowser$DownloadRelease'):
+                         'MdoBrowserDownloadRuntime','MdoBrowser$DownloadRelease','MdoBrowser$DownloadRead'):
             self.assertIn(required,program.HOST_CLASSES)
             report=self.report([name for name in program.HOST_CLASSES if name!=required],
                                '<class name="Helper"><method return="org.xserver.android.'+required+'"/></class>')

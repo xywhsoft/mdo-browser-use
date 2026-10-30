@@ -56,6 +56,7 @@ public final class CdpDownloadQueueProbe {
         boolean queueWritable(MdoBrowserDownloadQueue.Ticket ticket){try{return queue.writable(ticket);}catch(IOException error){throw new AssertionError(error);}}
         @Override public void close()throws Exception{
             queue.close();check(queue.awaitStopped(3000));check(!queue.cleanupFailed());check(queue.reservations()==0&&queue.reservedBytes()==0&&queue.retainedTickets()==0);
+            check(queue.retainedReads()==0);
             Files.deleteIfExists(root.resolve(".mdo-browser-download-owner-v1"));Files.delete(root);
         }
     }
@@ -151,10 +152,89 @@ public final class CdpDownloadQueueProbe {
         try{Thread worker=worker(queue);await(()->worker.getState()==Thread.State.WAITING);check(opened.get()==0&&queue.retainedTickets()==0);}
         finally{queue.close();check(queue.awaitStopped(1000)&&!queue.cleanupFailed());}
     }
+    private static Object field(Object object,String name)throws Exception{
+        java.lang.reflect.Field field=object.getClass().getDeclaredField(name);field.setAccessible(true);return field.get(object);
+    }
+    private static MdoBrowserDownloadQueue.Ticket completed(CdpBodyProbe.Context context,Disk disk,byte[] bytes)throws Exception{
+        MdoBrowserCdpSession.Body source=context.claim();MdoBrowserDownloadQueue.Ticket ticket=disk.begin(source);
+        check(disk.queue.offer(ticket,read(context,source,bytes,true)));finish(context,source);await(()->ticket.snapshot().completed());return ticket;
+    }
+    private static void rangeReads()throws Exception{
+        try(CdpBodyProbe.Context context=new CdpBodyProbe.Context();Disk disk=new Disk("ranges",context)){
+            byte[] payload=new byte[65536+17];for(int i=0;i<payload.length;i++)payload[i]=(byte)i;
+            context.limit=payload.length;
+            MdoBrowserCdpSession.Body source=context.claim();MdoBrowserDownloadQueue.Ticket ticket=disk.begin(source);
+            refused("download_not_completed",()->disk.queue.read(ticket,0,1));
+            check(disk.queue.offer(ticket,read(context,source,Arrays.copyOfRange(payload,0,65536),false)));await(()->ticket.snapshot().bytes==65536&&disk.queueWritable(ticket));
+            check(disk.queue.offer(ticket,read(context,source,Arrays.copyOfRange(payload,65536,payload.length),true)));finish(context,source);await(()->ticket.snapshot().completed());
+            refused("download_range_invalid",()->disk.queue.read(ticket,-1,1));refused("download_range_invalid",()->disk.queue.read(ticket,0,65537));
+            refused("download_range_invalid",()->disk.queue.read(ticket,payload.length+1,1));
+            MdoBrowserDownloadQueue foreign=new MdoBrowserDownloadQueue(()->{throw new IOException("Unexpected open");},()->0);
+            try{refused("download_owner_mismatch",()->foreign.read(ticket,0,1));}finally{foreign.close();check(foreign.awaitStopped(1000));}
+            MdoBrowserDownloadQueue.Read[] ranges=new MdoBrowserDownloadQueue.Read[4];
+            for(int i=0;i<ranges.length;i++)ranges[i]=disk.queue.read(ticket,i,32);
+            for(MdoBrowserDownloadQueue.Read range:ranges)await(range::finished);
+            refused("download_read_busy",()->disk.queue.read(ticket,0,1));check(disk.queue.retainedReads()==4);
+            byte[] held=(byte[])field(ranges[0],"bytes");ranges[0].close();check(Arrays.equals(held,new byte[held.length]));
+            refused("download_read_cancelled",ranges[0]::take);
+            byte[] received=ranges[1].take();check(Arrays.equals(received,Arrays.copyOfRange(payload,1,33)));Arrays.fill(received,(byte)0);
+            refused("download_read_cancelled",ranges[1]::take);ranges[2].close();ranges[3].close();check(disk.queue.retainedReads()==0);
+            for(int offset=0;offset<payload.length;offset+=65536){
+                MdoBrowserDownloadQueue.Read range=disk.queue.read(ticket,offset,65536);await(range::finished);
+                check(range.size==payload.length&&range.sha256.equals(hash(payload))&&range.offset==offset);
+                byte[] bytes=range.take();check(Arrays.equals(bytes,Arrays.copyOfRange(payload,offset,Math.min(payload.length,offset+65536))));Arrays.fill(bytes,(byte)0);
+            }
+            MdoBrowserDownloadQueue.Read end=disk.queue.read(ticket,payload.length,1);await(end::finished);check(end.take().length==0);
+            MdoBrowserDownloadQueue.Read cancelled=disk.queue.read(ticket,0,1);await(cancelled::finished);byte[] erased=(byte[])field(cancelled,"bytes");
+            disk.queue.release(ticket);refused("download_read_cancelled",cancelled::take);check(Arrays.equals(erased,new byte[erased.length]));await(()->ticket.snapshot().state.equals("released"));
+            refused("download_not_completed",()->disk.queue.read(ticket,0,1));check(disk.queue.retainedReads()==0);
+        }
+    }
+    static final class ReadBarrier {
+        final CountDownLatch entered=new CountDownLatch(1),resume=new CountDownLatch(1);
+        ReadBarrier(MdoBrowserDownloadQueue.Ticket ticket)throws Exception{
+            Object writer=field(ticket,"writer"),leaf=field(writer,"leaf");java.lang.reflect.Field channel=leaf.getClass().getDeclaredField("channel");channel.setAccessible(true);
+            java.nio.channels.SeekableByteChannel original=(java.nio.channels.SeekableByteChannel)channel.get(leaf);
+            channel.set(leaf,new java.nio.channels.SeekableByteChannel(){
+                boolean blocked;
+                public int read(java.nio.ByteBuffer bytes)throws IOException{if(!blocked){blocked=true;entered.countDown();try{if(!resume.await(3,TimeUnit.SECONDS))throw new IOException("download_fixture_timeout");}catch(InterruptedException failure){throw new IOException(failure);}}return original.read(bytes);}
+                public int write(java.nio.ByteBuffer bytes)throws IOException{return original.write(bytes);}
+                public long position()throws IOException{return original.position();}public java.nio.channels.SeekableByteChannel position(long value)throws IOException{original.position(value);return this;}
+                public long size()throws IOException{return original.size();}public java.nio.channels.SeekableByteChannel truncate(long value)throws IOException{original.truncate(value);return this;}
+                public boolean isOpen(){return original.isOpen();}public void close()throws IOException{original.close();}
+            });
+        }
+    }
+    private static void releaseDuringRead()throws Exception{
+        try(CdpBodyProbe.Context context=new CdpBodyProbe.Context();Disk disk=new Disk("read-release",context)){
+            MdoBrowserDownloadQueue.Ticket ticket=completed(context,disk,new byte[]{1,2,3});
+            ReadBarrier barrier=new ReadBarrier(ticket);CountDownLatch entered=barrier.entered,resume=barrier.resume;
+            MdoBrowserDownloadQueue.Read range=disk.queue.read(ticket,0,3);
+            try{check(entered.await(1,TimeUnit.SECONDS));check(!range.finished());refused("download_read_pending",range::take);
+                disk.queue.release(ticket);check(range.finished()&&disk.queue.retainedReads()==1&&disk.queue.reservations()==1);
+                refused("download_read_cancelled",range::take);context.client.call("Runtime.evaluate",null,null,100,false);check(context.wire.count("Runtime.evaluate")==1);
+            }finally{resume.countDown();}
+            await(()->ticket.snapshot().state.equals("released"));check(disk.queue.retainedReads()==0&&disk.queue.reservations()==0);
+        }
+    }
+    private static void readDetectsTampering()throws Exception{
+        try(CdpBodyProbe.Context context=new CdpBodyProbe.Context();Disk disk=new Disk("read-tamper",context)){
+            MdoBrowserDownloadQueue.Ticket ticket=completed(context,disk,new byte[]{1,2,3});
+            MdoBrowserDownloadQueue.Read retained=disk.queue.read(ticket,0,3);await(retained::finished);byte[] erased=(byte[])field(retained,"bytes");
+            Path leaf;try(java.util.stream.Stream<Path> paths=Files.list(disk.root)){leaf=paths.filter(path->path.getFileName().toString().startsWith("mdo-bu-download-")).findFirst().get();}
+            try(java.nio.channels.SeekableByteChannel output=Files.newByteChannel(leaf,java.nio.file.StandardOpenOption.WRITE)){
+                output.position(MdoBrowserUploadFiles.HEADER_BYTES);output.write(java.nio.ByteBuffer.wrap(new byte[]{9}));
+            }
+            MdoBrowserDownloadQueue.Read changed=disk.queue.read(ticket,0,3);await(changed::finished);refused("download_hash_mismatch",changed::take);
+            refused("download_read_cancelled",retained::take);check(Arrays.equals(erased,new byte[erased.length]));
+            await(()->ticket.snapshot().fileCleanupConfirmed);check(!ticket.snapshot().completed()&&ticket.snapshot().code.equals("download_hash_mismatch"));
+            check(disk.queue.retainedReads()==0);disk.queue.release(ticket);await(()->ticket.snapshot().state.equals("released"));
+        }
+    }
     public static void main(String[] args)throws Exception{
         base=Paths.get(args[0]);if(Files.exists(base))throw new AssertionError("Interrupted download queue evidence preserved");Files.createDirectory(base);
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService protocol=java.util.concurrent.Executors.newSingleThreadExecutor();
-        try{protocol.submit(()->{try{success();failedSource();ownershipAndCancellation();budgetsAndIdleExpiry();releaseWaitsForOriginalCleanup();closeDuringBlockedStorage();idleWorkerParks();}catch(Exception failure){throw new RuntimeException(failure);}}).get(25,TimeUnit.SECONDS);}
+        try{protocol.submit(()->{try{success();failedSource();ownershipAndCancellation();budgetsAndIdleExpiry();releaseWaitsForOriginalCleanup();closeDuringBlockedStorage();idleWorkerParks();rangeReads();releaseDuringRead();readDetectsTampering();}catch(Exception failure){throw new RuntimeException(failure);}}).get(25,TimeUnit.SECONDS);}
         finally{protocol.shutdownNow();check(protocol.awaitTermination(3,TimeUnit.SECONDS));}
         Files.delete(base);
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_native_body_joined\":true,\"real_guarded_files\":true,\"blocked_file_worker_page_progress\":true,\"framework_verified\":false,\"provider_qualified\":false,\"product_downloads_activated\":false}");

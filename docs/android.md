@@ -32,15 +32,15 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E90)
+## Complete development host APK (E46/E91)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,444,353 bytes, SHA-256
-`e3436d042cc2de2acd65a419428a532e9957acc3de719324fb7e16214edc4410`.
+Current APK: 6,448,449 bytes, SHA-256
+`7b60130da470e533f702c62b26b27f52bc9c257091e8e5bfb55126f71110ab9f`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -3365,3 +3365,43 @@ Evidence: `.mdo/E90-create-current.json`, `.mdo/E90-native-current.json`,
 `.mdo/E90-python-full.log`, `.mdo/E90-android-build.log` and the adjacent APK
 receipt. These controlled native peers and SDK builds are not installed-provider
 or main-UI passes. Phone/WebView remain deferred; no installation or publication.
+
+
+## Private verified download ranges (E91)
+
+The application file queue now accepts four bounded one-shot range receipts,
+with at most 65,536 bytes each. Only a fully verified original ticket may be
+read. No caller-supplied file path, descriptor, source identity or digest is
+accepted. The same file worker alternates range work with source/write/cleanup
+work; the UI and common protocol worker never wait for filesystem access.
+Original file identity and size are checked on every range. Offset zero and
+EOF additionally rehash the original sealed descriptor. The existing save
+receiver independently hashes the complete incoming stream before publication;
+range metadata alone is not a substitute for that receiver check.
+
+A range is consumed once. Closing it, releasing its file, destroying its owner
+or shutting down the queue erases retained bytes. An already running descriptor
+read remains accounted until the worker returns. Read-time integrity failure
+revokes other retained ranges and invalidates the old completed-file state;
+the native cache error remains available instead of returning unverified bytes.
+
+The actual Activity read command returns the bounded id/offset/next/bytes/eof/
+sha256/base64 envelope expected by the shared save transport. It observes the
+original view and UI channel lease, five-second timeout and failed UI scheduling;
+obsolete callbacks cannot reply through a replacement channel. Returned native
+arrays are wiped after encoding. Verified retained data remains readable after
+protocol disconnect, until explicit release or actual view destruction.
+
+Actual JNI/source/file queue checks now pass 237 assertions, including a blocked
+original descriptor read while the protocol continues, release during that read,
+buffer erasure, four-slot admission, cross-owner rejection, multiple ranges and
+same-size payload tampering. The exact injected product command gate passes 73
+checks including changed channel, removed view, stopped host, timeout, watcher
+cancellation and scheduler refusal. Full native/ASan/UBSan/API26 gates and Python
+173/175 (two existing Windows symlink-privilege skips) pass. The complete QA APK
+requires actual Read/DownloadRead DEX definitions and passes payload/signature/
+private-provider checks. See `.mdo/E91-native-current.json`,
+`.mdo/E91-python-full.log`, `.mdo/E91-android-build.log` and the adjacent receipt.
+Full download/automation admission is still false pending original navigation/
+popup association, display metadata, other transfer boundaries and installed
+provider/main-UI qualification. The deferred phone and WebView are unchanged.

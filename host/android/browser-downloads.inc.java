@@ -1,6 +1,15 @@
     // UI routing only. Native controller decisions and snapshot reads do no
     // socket/disk work; release waits observe the original opaque receipt.
     private final Map<String,DownloadRelease> downloadReleases=new HashMap<>();
+    private final Map<String,DownloadRead> downloadReads=new HashMap<>();
+    private final class DownloadRead {
+        final String id,identity;final NetworkEntry entry;MdoBrowserDownloadQueue.Read range;
+        final MdoBrowserChannel<WebMessagePort>.Lease lease;final long born=android.os.SystemClock.elapsedRealtime();
+        final Runnable watch=()->downloadReadPoll(this);
+        DownloadRead(String id,String identity,NetworkEntry entry,MdoBrowserChannel<WebMessagePort>.Lease lease){
+            this.id=id;this.identity=identity;this.entry=entry;this.lease=lease;
+        }
+    }
     private final class DownloadRelease {
         final String id;final NetworkEntry entry;MdoBrowserCdpDownloads.Release release;
         final MdoBrowserChannel<WebMessagePort>.Lease lease;final long born=android.os.SystemClock.elapsedRealtime();
@@ -39,8 +48,18 @@
             reply(id,entry.downloads.accept(identity,maximum,(int)timeout).json(),null);return;
         }
         if(action.equals("cancel")){reply(id,entry.downloads.cancel(identity).json(),null);return;}
+        if(action.equals("read")){
+            long offset=downloadInteger(request,"offset",0,0,67108864),limit=downloadInteger(request,"limit",65536,1,65536);
+            if(id==null||id.isEmpty()||id.length()>512||downloadReads.containsKey(id)||downloadReleases.containsKey(id)||downloadReads.size()>=4)throw new IllegalStateException("download_read_busy");
+            MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
+            if(lease==null||!channel.active(lease,host.getUrl()))throw new IllegalStateException("download_owner_channel_changed");
+            DownloadRead operation=new DownloadRead(id,identity,entry,lease);downloadReads.put(id,operation);
+            try{operation.range=entry.downloads.read(identity,offset,(int)limit);}
+            catch(Exception|Error failure){downloadReads.remove(id);throw failure;}
+            downloadReadPoll(operation);return;
+        }
         if(action.equals("release")){
-            if(id==null||id.isEmpty()||id.length()>512||downloadReleases.containsKey(id)||downloadReleases.size()>=32)throw new IllegalStateException("download_release_busy");
+            if(id==null||id.isEmpty()||id.length()>512||downloadReleases.containsKey(id)||downloadReads.containsKey(id)||downloadReleases.size()>=32)throw new IllegalStateException("download_release_busy");
             MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
             if(lease==null||!channel.active(lease,host.getUrl()))throw new IllegalStateException("download_owner_channel_changed");
             // Prepare the watcher before recording an effect, so allocation
@@ -50,7 +69,36 @@
             catch(Exception|Error failure){downloadReleases.remove(id);throw failure;}
             downloadReleasePoll(operation);return;
         }
-        throw new UnsupportedOperationException(action.equals("read")?"download_read_adapter_incomplete":"download_action_unsupported");
+        throw new UnsupportedOperationException("download_action_unsupported");
+    }
+    private void downloadReadPoll(DownloadRead operation){
+        if(downloadReads.get(operation.id)!=operation)return;
+        networkHandler.removeCallbacks(operation.watch);
+        if(stopped||channel.current()!=operation.lease||!channel.active(operation.lease,host.getUrl())){downloadReadDone(operation);return;}
+        if(networkViews.get(operation.entry.key)!=operation.entry||!views.owns(operation.entry.key,operation.entry.view)){
+            downloadReadDone(operation);reply(operation.lease,operation.id,null,"download_owner_changed");return;
+        }
+        byte[] bytes=null;
+        try{
+            if(operation.range.finished()){
+                bytes=operation.range.take();long next=operation.range.offset+bytes.length;
+                JSONObject result=new JSONObject().put("id",operation.identity).put("offset",operation.range.offset).put("next",next)
+                    .put("bytes",bytes.length).put("size",operation.range.size).put("eof",next==operation.range.size)
+                    .put("sha256",operation.range.sha256).put("base64",java.util.Base64.getEncoder().encodeToString(bytes));
+                downloadReadDone(operation);reply(operation.lease,operation.id,result,null);return;
+            }
+            long used=android.os.SystemClock.elapsedRealtime()-operation.born;
+            if(used<0||used>=5000||!networkHandler.postDelayed(operation.watch,20)){
+                downloadReadDone(operation);reply(operation.lease,operation.id,null,"download_read_timeout");
+            }
+        }catch(java.io.IOException failure){
+            String code=failure.getMessage();downloadReadDone(operation);
+            reply(operation.lease,operation.id,null,code!=null&&code.matches("download_[a-z_]{1,80}")?code:"download_read_failed");
+        }catch(JSONException|RuntimeException|Error failure){downloadReadDone(operation);reply(operation.lease,operation.id,null,"download_read_failed");}
+        finally{if(bytes!=null)java.util.Arrays.fill(bytes,(byte)0);}
+    }
+    private void downloadReadDone(DownloadRead operation){
+        networkHandler.removeCallbacks(operation.watch);downloadReads.remove(operation.id);if(operation.range!=null)operation.range.close();
     }
     private void downloadReleasePoll(DownloadRelease operation){
         if(downloadReleases.get(operation.id)!=operation)return;
@@ -72,4 +120,5 @@
     }
     private void cancelDownloadReleases(){
         for(DownloadRelease operation:new ArrayList<>(downloadReleases.values()))networkHandler.removeCallbacks(operation.watch);downloadReleases.clear();
+        for(DownloadRead operation:new ArrayList<>(downloadReads.values()))downloadReadDone(operation);
     }

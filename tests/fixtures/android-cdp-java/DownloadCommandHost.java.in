@@ -34,6 +34,7 @@ final class DownloadCommandHost {
     void execute(String key,String id,JSONObject request)throws Exception {NetworkEntry entry=networkViews.get(key);executeDownloads(key,id,entry==null?null:entry.view,request);}
     JSONObject result(String id){Reply reply=replies.get(id);if(reply==null||reply.error!=null||!(reply.result instanceof JSONObject))throw new AssertionError("Missing command result "+id+" "+(reply==null?"":reply.error));return (JSONObject)reply.result;}
     int pendingReleases(){return downloadReleases.size();}
+    int pendingReads(){return downloadReads.size();}
     int retirement(){int count=0;for(NetworkEntry entry:networkViews.values())count+=entry.downloads.retiringFiles();return count;}
     void cancelWaiters(){cancelDownloadReleases();}
     @@DOWNLOAD_COMMANDS@@

@@ -90,6 +90,11 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
             result.sort(Comparator.comparingLong(value->value.sequence));return result.toArray(new Snapshot[0]);}
     }
     Snapshot get(String id)throws IOException {synchronized(gate){Row row=find(id);summarize(row);return row.snapshot;}}
+    MdoBrowserDownloadQueue.Read read(String id,long offset,int limit)throws IOException {
+        synchronized(gate){Row row=find(id);summarize(row);
+            if(!row.snapshot.state.equals("completed")||!row.snapshot.verified||row.releasing||row.ticket==null)throw new IOException("download_not_completed");
+            return files.read(row.ticket,offset,limit);}
+    }
     private void active()throws IOException {if(closed)throw new IOException("download_owner_closed");}
     private Row find(String id)throws IOException {
         active();if(id==null||id.length()>100)throw new IOException("download_identity_invalid");
