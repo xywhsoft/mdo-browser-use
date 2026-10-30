@@ -1629,3 +1629,19 @@ release, downloads and verified response publication do not require a new page
 world. The new classifier leaves those routes available, subject to their
 existing scope, capability, permission and cleanup rules. It grants no right to
 cancel or release another caller's record.
+
+## Android native clear preparation (E76a)
+
+The private immutable `file_clear` worker operation accepts the existing exact
+frame/document/ref chain, not a file list or caller-picked protocol arguments.
+It resolves and proves the original isolated node, rechecks original ancestors,
+sends only an empty native file list to that retained opaque node, and verifies
+the original connected file input is empty through the platform getter in its
+original unique world. Navigation, scope loss, malformed results and cleanup
+failure cannot replay the operation or adopt a replacement target.
+
+This is a native primitive, not an enabled public clear capability. The ordinary
+Android frame router explicitly refuses it until the product mutation
+reservation/receipt/cleanup adapter is joined. No request or capability flag can
+bypass that check. `browseruse.upload` clear and global Android automation remain
+unavailable; see [current Android qualification and outstanding work](android.md).

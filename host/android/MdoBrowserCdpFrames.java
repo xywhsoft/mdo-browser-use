@@ -273,6 +273,9 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     JSONObject fileInput(String frame,String document,String localDocument,String ref,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         Route route=select(frame,document);refresh(deadline);validate(route);return worlds.fileInput(route,localDocument,ref,deadline);
     }
+    JSONObject clearFileInput(String frame,String document,String localDocument,String ref,MdoBrowserCdpFileInput.BeforeClear original,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        Route route=select(frame,document);refresh(deadline);validate(route);return worlds.clearFileInput(route,localDocument,ref,original,deadline);
+    }
     JSONObject armChoosers(MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         current();boolean start=choosers.begin();refresh(deadline);
         for(Source source:new ArrayList<>(sources.values()))if(!source.chooserEvents){source.chooserEvents=true;chooserEvents(source,true,deadline);}

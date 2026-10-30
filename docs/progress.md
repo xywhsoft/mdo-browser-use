@@ -6660,3 +6660,65 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   qualification. Controlled peers and packaging cannot qualify the installed
   Android framework; do not count unavailable evidence or the unchanged desktop
   visual gate as passing completion.
+
+## E76a — fixed original-target Android file-clear worker
+
+- Advance the missing native clear path while keeping the actual product scope
+  visible. The pre-change actual grammar run rejects `file_clear`
+  (`.mdo/E76-clear-red.log`). Add an immutable effectful native frame/document/ref
+  operation using the existing native worker, frame chain, original unique
+  world, opaque node and enabled ancestor checks. It cannot run as read-only
+  chooser continuation and accepts no paths/files/script/CDP selector parameters.
+- Only the fixed native method sends an empty file list to its original opaque
+  node. Recheck the original ancestry/world before and after that step. A fixed
+  original-world function confirms the same connected runtime ref/document using
+  the native FileList getter, not a shadowing wrapper property. A nonempty list,
+  replaced target/document, missing/failed getter, malformed native result or
+  object-group cleanup failure does not become a confirmed clear. Preserve
+  conservative effect uncertainty after worker entry; never replay the command.
+- Do not expose an unfenced new product mutation through the ordinary frame
+  reader. The exact product router explicitly rejects this primitive before
+  native binding with `cdp_file_clear_adapter_incomplete`. The next adapter must
+  join UI mutation reservation, retained results/cancellation/cleanup and the
+  shared upload-clear route. Global Android automation/provider qualification
+  and `file_clear_capability` remain false. This is staged implementation, not
+  completion or a substitute for the requested working product clear tool.
+- The real JVM/JNI/native transport plus production grammar/frame/world/ancestor
+  methods pass 287 clear checks (`.mdo/E76-native-final.log`/`.json`). Include all
+  five frame/source routes, early wrong-node/world/input checks, navigation at
+  each inspection boundary, ancestor changes before/after assignment, native
+  failure/nonempty reply, timeout/cancel, mismatched final proof and failed
+  cleanup. No failed clear is resent. The actual product router fragment also
+  proves that its incomplete adapter cannot create a binding or dispatch clear.
+  Original inspection 625, request grammar 49, chooser continuation 357, upload
+  coordinator 444 and product upload 129 remain green, with ASan/UBSan, actual
+  socket transport and Android API 26 compilation. DOM/framework peers remain
+  controlled; no physical provider, URI delivery or native file-event claim.
+- Execute the actual fixed status/inspection strings in JS: native getter versus
+  shadowed file properties, changed original ref/document/node, missing and
+  throwing getters. Seven combined cases pass
+  (`.mdo/E76-clear-script-final.log`). The first full JS run exposed the older
+  test's dependence on the next Java field as its constant boundary; preserve
+  `.mdo/E76-node-initial.log` and extract the exact string initializer while
+  retaining its strict literal grammar. Full JS 330/330 in 19.575 s and Python
+  170/172 in 61.624 s pass, with two existing Windows symlink privilege skips
+  (`.mdo/E76-node-full.log`, `.mdo/E76-python-full.log`).
+- Apply reviewed files only after stopping the same service. The old ARM64 reuse
+  receipt correctly refuses the changed native source-tree identity
+  (`.mdo/E76-android-build.log`); rebuild in the same output directory rather
+  than relabeling it. The verified library is still 3,547,088 bytes, SHA-256
+  `a21f1120fbaae36bcaa29a472e9eae3a61248a5ca270968fd62b1a677f6e7d90`
+  (`.mdo/E76-android-native.log`). Complete SDK/DEX/ABI/manifest/provider/alignment/
+  v2-v3 signing succeeds (`.mdo/E76-android-final.log`), including an explicit DEX
+  definition check for the new BeforeClear interface. Current development APK:
+  6,399,297 bytes, SHA-256
+  `c8932aae32a2fe1eaba9ff35316f70e341517a76a4d92c6407296e855962adc6`.
+  Reuse the verified W4 Windows archive and unchanged paired plugin, existing QA
+  package/signer/installation serial, native output and single Home/source.
+- Goal active. Next complete the native product clear reservation/receipt adapter,
+  then intercepted chooser mapping and remaining directory/download/profile/
+  activation and installed provider/main-UI/URI verification. Historical Windows
+  intermittent input failures remain unattributed. Phone testing is still
+  deferred at the user's request; keep the existing WebView and formal data.
+  No model calls, external page actions, new application copies, extra browser
+  engine, online release or unchanged desktop visual-gate retry.

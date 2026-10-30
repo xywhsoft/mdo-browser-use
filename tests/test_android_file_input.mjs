@@ -5,15 +5,15 @@ import {test} from 'node:test';
 
 // Execute the actual fixed Java helper strings, without an Android/DOM claim.
 const java=readFileSync(new URL('../host/android/MdoBrowserCdpFileInput.java',import.meta.url),'utf8');
-function constant(name,next){
-  const body=java.match(new RegExp(`\\b${name}=([\\s\\S]+?);\\s*${next}`))[1],parts=[];let offset=0;
+function constant(name){
+  const body=java.match(new RegExp(`\\b${name}=([\\s\\S]+?);\\r?\\n`))[1],parts=[];let offset=0;
   for(const token of body.matchAll(/"(?:\\.|[^"\\])*"|\+/g)){
     assert.equal(body.slice(offset,token.index).trim(),'');offset=token.index+token[0].length;
     if(token[0]!=='+')parts.push(JSON.parse(token[0]));
   }
   assert.equal(body.slice(offset).trim(),'');return parts.join('');
 }
-const node=constant('NODE','static final String INFO'),info=constant('INFO','final String document'),pinNode=constant('PIN','private MdoBrowserCdpFileInput'),documentId='d-00000000-0000-4000-8000-000000000001';
+const node=constant('NODE'),info=constant('INFO'),pinNode=constant('PIN'),documentId='d-00000000-0000-4000-8000-000000000001';
 function fixture(){
   const document={},pin={document:documentId,ref:'e7'},state={infoCalls:0,nodeCalls:0,fail:null,substitute:false};
   const element={ownerDocument:document,isConnected:true,multiple:true,webkitdirectory:false,

@@ -62,8 +62,9 @@ its native event arrives and no execution fallback/replay. Real WebView2 passes
 14 root-world checks, 1,376 full browser checks and 260 frame checks; the actual
 packed program passes its twelve checks. W3b extends the original-realm binding
 to frame evaluation/focus/owner, retained drag observation and upload/chooser
-scripts. Android remains at its separately verified E75 build and the earlier
-intermittent Windows input failures remain open.
+scripts. Android's separate build and qualification state is tracked in
+[the Android adapter record](android.md); the earlier intermittent Windows input
+failures remain open.
 
 W3b shares admitted private worlds by original native source/frame/loader, with
 an independent native-session incarnation token for OOPIFs. A newly created

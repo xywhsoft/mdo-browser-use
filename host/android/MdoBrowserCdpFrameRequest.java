@@ -14,7 +14,7 @@ import org.json.JSONObject;
 final class MdoBrowserCdpFrameRequest {
     final String action,frame,document,script;final int timeout;final boolean effect;private final double x,y;private final MdoBrowserCdpFileInput fileInput;private final MdoBrowserCdpChoosers.Request chooser;
     private MdoBrowserCdpFrameRequest(String action,String frame,String document,String script,int timeout,double x,double y,MdoBrowserCdpFileInput fileInput,MdoBrowserCdpChoosers.Request chooser){
-        this.action=action;this.frame=frame;this.document=document;this.script=script;this.timeout=timeout;this.x=x;this.y=y;effect="evaluate".equals(action);
+        this.action=action;this.frame=frame;this.document=document;this.script=script;this.timeout=timeout;this.x=x;this.y=y;effect="evaluate".equals(action)||"file_clear".equals(action);
         this.fileInput=fileInput;this.chooser=chooser;
     }
     private static IOException invalid(){return new IOException("cdp_frame_request_invalid");}
@@ -28,7 +28,7 @@ final class MdoBrowserCdpFrameRequest {
         if(request==null||!"frames".equals(request.opt("command"))||!Boolean.TRUE.equals(request.opt("agent")))throw invalid();
         String action=text(request.opt("action"),32);boolean chooser=Arrays.asList("chooser_arm","chooser_list","chooser_disarm","chooser_target").contains(action);
         boolean list=action.equals("list")||chooser&&!action.equals("chooser_target"),evaluate=action.equals("evaluate"),owner=action.equals("owner");
-        boolean file=action.equals("file_input");if(!(list||chooser||evaluate||owner||file||action.equals("upload_policy")||action.equals("capture_owner")))throw invalid();
+        boolean file=action.equals("file_input")||action.equals("file_clear");if(!(list||chooser||evaluate||owner||file||action.equals("upload_policy")||action.equals("capture_owner")))throw invalid();
         Set<String> allowed=new HashSet<>(Arrays.asList("channel","id","browser","command","agent","action","timeout_ms"));
         if(!list){allowed.add("frame");allowed.add("document");}if(evaluate)allowed.add("script");if(owner)allowed.add("point");
         if(file)allowed.addAll(Arrays.asList("local_document","ref","frame_chain"));
@@ -60,7 +60,7 @@ final class MdoBrowserCdpFrameRequest {
             MdoBrowserCdpFrames frames=binding.frames();JSONObject result;
             if(action.equals("list"))result=frames.inventory(deadline);
             else if(action.equals("evaluate"))result=frames.evaluate(frame,document,script,true,deadline);
-            else if(fileInput!=null)result=fileInput.inspect(frames,deadline);
+            else if(fileInput!=null)result=action.equals("file_clear")?fileInput.clear(frames,deadline):fileInput.inspect(frames,deadline);
             else if(chooser!=null)result=chooser.run(frames,deadline);
             else result=frames.owner(action,frame,document,action.equals("owner")?new JSONObject().put("x",x).put("y",y):null,deadline);
             byte[] bytes=result.toString().getBytes(StandardCharsets.UTF_8);
@@ -70,7 +70,8 @@ final class MdoBrowserCdpFrameRequest {
     static JSONObject failure(String nativeCode,boolean effect)throws JSONException {
         if(nativeCode==null||!nativeCode.matches("cdp_[a-z_]{1,80}"))nativeCode="cdp_frame_failed";
         String code="frame_unavailable",message="The native frame operation was not confirmed";
-        if(nativeCode.contains("unsupported")){code="unsupported_capability";message="The installed provider does not support this frame operation";}
+        if(nativeCode.equals("cdp_file_clear_adapter_incomplete")){code="unsupported_capability";message="This Android client's native file-clear product adapter is incomplete; use manual control rather than repeating this operation";}
+        else if(nativeCode.contains("unsupported")){code="unsupported_capability";message="The installed provider does not support this frame operation";}
         else if(nativeCode.contains("timeout")){code="timed_out";message="The native frame operation reached its deadline";}
         else if(nativeCode.contains("cancelled")||nativeCode.contains("owner_changed")){code="operation_cancelled";message="The original browser owner changed or the operation was cancelled";}
         else if(nativeCode.contains("limit")){code="resource_limit";message="The bounded native frame resource limit was reached";}
@@ -78,6 +79,7 @@ final class MdoBrowserCdpFrameRequest {
         else if(nativeCode.equals("cdp_file_input_request_invalid")){code="file_input_request_invalid";message="The native file input document, reference or frame pins are malformed";}
         else if(nativeCode.equals("cdp_file_input_cleanup_failed")){code="file_input_cleanup_failed";message="The original native object cleanup was not confirmed; inspect this browser before continuing";}
         else if(nativeCode.equals("cdp_file_input_node_invalid")){code="upload_target_changed";message="The pinned native element is no longer an original file input";}
+        else if(nativeCode.equals("cdp_file_clear_unconfirmed")){code="file_clear_unconfirmed";message="The original file input was not confirmed empty; inspect its receipt and state before another action";}
         else if(nativeCode.equals("cdp_chooser_ambiguous")||nativeCode.equals("cdp_chooser_arming_event")){code="chooser_ambiguous";message="The native chooser cannot be uniquely bound to the original event; cancel and inspect before another selection";}
         else if(nativeCode.equals("cdp_chooser_expired")||nativeCode.equals("cdp_chooser_changed")){code="chooser_changed";message="The original native chooser or its lease is no longer current";}
         else if(nativeCode.contains("stale")||nativeCode.contains("changed")){code="stale_frame";message="The original frame or document changed";}

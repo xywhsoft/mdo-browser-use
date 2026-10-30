@@ -6,6 +6,7 @@ import org.json.JSONObject;
 /** Immutable native file-input pins. Inspection grants neither files nor an
  * assignment capability; raw DOM/CDP identities never leave the private worker. */
 final class MdoBrowserCdpFileInput {
+    interface BeforeClear {void check()throws IOException;}
     static final String NODE="(p=>{const r=globalThis.__mdo_browser_use_local_frame_v1;return r&&r.documentNode===document&&r.document===p.document?r.uploadNode({document:p.document,target:{ref:p.ref}}):null;})";
     static final String INFO="function(element,p){const r=globalThis.__mdo_browser_use_local_frame_v1;"+
         "if(!r||r.documentNode!==document||r.document!==p.document||!element||element.ownerDocument!==document||!element.isConnected)return {ok:false,code:'target_changed'};"+
@@ -13,6 +14,10 @@ final class MdoBrowserCdpFileInput {
         "if(!v.ok)return {ok:false,code:v.error?.code||'target_changed'};"+
         "if(v.document!==p.document||v.element?.ref!==p.ref||r.uploadNode(o)!==element)return {ok:false,code:'target_changed'};"+
         "return {ok:true,document:p.document,ref:p.ref,multiple:element.multiple,directory:Boolean(element.webkitdirectory),hidden:v.element.hidden};}";
+    static final String CLEAR_STATUS="function(element,p){const info=("+INFO+")(element,p);if(!info.ok)return info;"+
+        "const get=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'files')?.get;"+
+        "if(!get)return {ok:false,code:'clear_unconfirmed'};const files=get.call(element);"+
+        "return {ok:true,document:p.document,ref:p.ref,empty:files!==null&&files.length===0};}";
     final String document,ref;final MdoBrowserCdpFrameChain pins;
     static final String PIN="function(element,p){const r=globalThis.__mdo_browser_use_local_frame_v1;"+
         "if(!r||r.documentNode!==document||r.document!==p.document||!element||element.ownerDocument!==document||!element.isConnected)return {ok:false,code:'target_changed'};"+
@@ -40,5 +45,11 @@ final class MdoBrowserCdpFileInput {
         pins.validate(frames,deadline);parents(pins,frames,deadline);
         MdoBrowserCdpFrameChain.Pin leaf=pins.chain.get(0);JSONObject result=frames.fileInput(leaf.frame,leaf.document,document,ref,deadline);
         pins.validate(frames,deadline);parents(pins,frames,deadline);pins.validate(frames,deadline);return result;
+    }
+    JSONObject clear(MdoBrowserCdpFrames frames,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        BeforeClear original=()->{pins.validate(frames,deadline);parents(pins,frames,deadline);pins.validate(frames,deadline);};
+        original.check();MdoBrowserCdpFrameChain.Pin leaf=pins.chain.get(0);
+        JSONObject result=frames.clearFileInput(leaf.frame,leaf.document,document,ref,original,deadline);
+        original.check();return result;
     }
 }

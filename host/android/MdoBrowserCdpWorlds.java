@@ -189,12 +189,16 @@ final class MdoBrowserCdpWorlds {
     }
     JSONObject fileInput(MdoBrowserCdpFrames.Route route,String document,String ref,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         if(ref==null||!ref.matches("e[1-9][0-9]{0,12}"))throw problem("cdp_file_input_request_invalid");
-        return fileNode(route,document,ref,0,deadline);
+        return fileNode(route,document,ref,0,null,deadline);
+    }
+    JSONObject clearFileInput(MdoBrowserCdpFrames.Route route,String document,String ref,MdoBrowserCdpFileInput.BeforeClear original,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+        if(ref==null||!ref.matches("e[1-9][0-9]{0,12}")||original==null)throw problem("cdp_file_input_request_invalid");
+        return fileNode(route,document,ref,0,original,deadline);
     }
     JSONObject chooserInput(MdoBrowserCdpFrames.Route route,int backend,String document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
-        if(backend<=0)throw problem("cdp_chooser_metadata_invalid");return fileNode(route,document,null,backend,deadline);
+        if(backend<=0)throw problem("cdp_chooser_metadata_invalid");return fileNode(route,document,null,backend,null,deadline);
     }
-    private JSONObject fileNode(MdoBrowserCdpFrames.Route route,String document,String ref,int backend,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+    private JSONObject fileNode(MdoBrowserCdpFrames.Route route,String document,String ref,int backend,MdoBrowserCdpFileInput.BeforeClear original,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         if(document==null||!document.matches("d-"+MdoBrowserCdpFrameChain.UUID))
             throw problem("cdp_file_input_request_invalid");
         prepare(route,deadline);World world=worlds.get(route.frame);if(!active(world))throw problem("cdp_world_context_changed");
@@ -226,6 +230,20 @@ final class MdoBrowserCdpWorlds {
             JSONObject element=new JSONObject().put("ref",value.getString("ref")).put("multiple",value.getBoolean("multiple")).put("directory",value.getBoolean("directory")).put("hidden",value.getBoolean("hidden"));
             result=new JSONObject().put("ok",true).put("frame",route.frame).put("frame_document",route.document)
                 .put("value",new JSONObject().put("ok",true).put("document",document).put("element",element));
+            if(original!=null){
+                // Only this fixed native operation supplies an empty file list.
+                // Keep the original opaque node; neither paths nor caller CDP
+                // parameters can enter this route, and no failed step is replayed.
+                original.check();guard(route,context);deadline.remaining();
+                JSONObject cleared=call(route,context,"DOM.setFileInputFiles",new JSONObject().put("objectId",object).put("files",new org.json.JSONArray()),true,deadline);
+                if(cleared.length()!=0)throw problem("cdp_file_clear_unconfirmed");
+                original.check();guard(route,context);
+                Object checked=byValue(call(route,context,"Runtime.callFunctionOn",function(MdoBrowserCdpFileInput.CLEAR_STATUS,context.unique,args,group,false),false,deadline));
+                if(!(checked instanceof JSONObject))throw problem("cdp_file_clear_unconfirmed");JSONObject status=(JSONObject)checked;
+                if(!Boolean.TRUE.equals(status.opt("ok"))||!document.equals(status.opt("document"))||!ref.equals(status.opt("ref"))||!Boolean.TRUE.equals(status.opt("empty")))
+                    throw problem("cdp_file_clear_unconfirmed");
+                result.getJSONObject("value").put("cleared",true).put("verified",true).put("dispatched",true).put("input_method","native_file_clear");
+            }
         }catch(JSONException error){failure=problem("cdp_file_input_result_invalid");}
         catch(IOException error){failure=error;}
         catch(RuntimeException|Error error){failure=problem("cdp_file_input_failed");}

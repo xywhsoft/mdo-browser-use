@@ -154,6 +154,11 @@ def main():
     if not file_input.get('passed') or not file_input.get('native_file_input_inspection') or file_input.get('files_delivered')!=0:
         raise RuntimeError('The native file input inspection gate did not pass')
     result['jvm_file_input']=file_input
+    file_clear=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpFileClearProbe'],cwd=ROOT,env=environment,text=True,timeout=60))
+    if not file_clear.get('passed') or not file_clear.get('native_file_clear') or not file_clear.get('real_jvm_jni_json') or file_clear.get('files_delivered')!=0 or file_clear.get('provider_qualified') is not False:
+        raise RuntimeError('The native file clear operation gate did not pass')
+    result['jvm_file_clear']=file_clear
     chooser=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpChooserProbe'],cwd=ROOT,env=environment,text=True,timeout=55))
     if not chooser.get('passed') or not chooser.get('real_jvm_jni_json') or not chooser.get('native_chooser_events') or chooser.get('files_delivered')!=0 or chooser.get('original_android_callback_joined') is not False:

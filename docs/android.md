@@ -22,23 +22,28 @@ retired on actual view destruction. E75 wires the product target/ticket assignme
 route, saved receipts and retained status/cancel/release across input-scope loss.
 Product/provider qualification still gates this route; automatic assignment is
 not enabled in the main interface on the unqualified Android adapter.
+E76a adds a fixed native file-clear worker primitive and explicit verification
+of the original empty FileList. Its product mutation reservation/receipt adapter
+is still outstanding, so the ordinary frame router explicitly rejects that
+mutation before creating a binding. `file_clear_capability` stays false.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E75)
+## Complete development host APK (E46/E76a)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,395,201 bytes, SHA-256
-`d82fd3fb61f2a71119d9bce456259b70c8dd80713f82d07ac9a1b47165f504e0`.
+Current APK: 6,399,297 bytes, SHA-256
+`c8932aae32a2fe1eaba9ff35316f70e341517a76a4d92c6407296e855962adc6`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
-the compiled private provider attributes. No account, Home, QA page or signing
-key is included. The app archive is extracted from the already exercised E66
-Windows artifact and checked against every current reviewed source file; no
+the compiled private provider attributes. The DEX gate also requires the new
+`MdoBrowserCdpFileInput$BeforeClear` definition. No account, Home, QA page or signing
+key is included. The app archive is extracted from the verified W4 Windows
+artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
 
@@ -2718,3 +2723,38 @@ Intercepted-chooser mapping, clear/directory/download/profile/activation and act
 provider/main-UI/URI delivery remain outstanding. Phone testing remains deferred;
 no provider/formal data changes, model calls, external page actions, extra copies
 or online release. The unchanged Windows executable and paired plugin are reused.
+
+### Native file-clear primitive (E76a)
+
+The private worker grammar now parses an immutable `file_clear` target using the
+same native frame chain, local document and element ref as file inspection. It
+is effectful and never qualifies as a read-only chooser continuation. Caller
+paths, file arrays, scripts, object IDs and protocol/session selectors are
+rejected; the only native assignment here is a fixed empty file list against
+the unchanged opaque node on its original physical source.
+
+Before assignment, require the original isolated-world/node proof, native INPUT
+description, exact runtime ref/document and enabled original iframe ancestry.
+Recheck that ancestry and original context around assignment. A fixed function
+in the original unique world uses the native HTMLInputElement FileList getter
+to confirm the same connected target is empty. A shadowing wrapper property,
+changed ref/document, missing getter, nonempty list or malformed result cannot
+confirm success. Object groups are disposed on the original source; unconfirmed
+cleanup closes that binding. The worker never replays a failed native clear.
+
+The exact JNI/worker/graph/world/ancestor/command methods pass 287 controlled
+checks (`.mdo/E76-native-final.log`/`.json`), including five renderer/frame routes,
+navigation/cancellation/expiry before and after the native step, parent policy
+changes, wrong realm/node/ref, malformed confirmation, cleanup failure and
+immutable request grammar. The actual fixed scripts pass seven combined
+inspection/clear tests. DOM/Android peers are controlled; selected-file events
+and installed provider/framework behavior remain unqualified.
+
+The actual product frame-router fragment refuses `file_clear` with
+`cdp_file_clear_adapter_incomplete` before any binding or mutation. A worker
+primitive alone must not enable an unfenced product route. Complete the native
+UI mutation reservation, original result/cleanup lifecycle and shared
+`browseruse.upload` clear adapter before advertising capability. All existing
+global/provider gates and the user's deferred-phone/current-WebView preference
+remain intact. The complete E76a APK compiles, aligns, signs and verifies, but
+does not claim the clear tool is ready in the main interface.
