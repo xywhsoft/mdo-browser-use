@@ -58,6 +58,15 @@
         NetworkEntry owner=operation.owner;
         return networkViews.get(owner.key)==owner&&owner.navigation==operation&&networkCurrent(owner)&&!manual.contains(owner.key)&&!owner.retired&&!owner.draining;
     }
+    // Resolve on the UI thread; only the native ticket crosses to the worker.
+    private MdoBrowserCdpNetworks.Navigation navigationReadProof(String key,WebView view,String reference)throws java.io.IOException {
+        if(reference==null)return null;
+        NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null?null:owner.navigation;
+        if(owner==null||owner.view!=view||operation==null||!operation.id.equals(reference)||!nativeNavigationScope(operation)||operation.revoked||operation.pageError!=null)
+            throw new java.io.IOException("cdp_navigation_cancelled");
+        if(operation.ticket==null||!operation.ticket.pageCurrent()||navigationRequests.containsKey(key))throw new java.io.IOException("cdp_navigation_document_unproven");
+        return operation.ticket;
+    }
     private void nativeNavigationRevoke(NativeNavigation operation){
         if(!operation.revoked){operation.revoked=true;operation.revokedAt=android.os.SystemClock.elapsedRealtime();}
         if(operation.ticket!=null)operation.ticket.cancel();

@@ -3818,3 +3818,40 @@ observed payload's identity. Same-document event correlation, history/reload,
 exact download association, remaining transfers/public save and full public
 Android verification remain open. Device/framework/automation qualification is
 false. Phone and current WebView remain deferred.
+
+## Original-loader guard on the reading connection (E100)
+
+Cross-document `navigate_to` now constrains its final FrameDriver observation to
+the original native navigation ticket. This closes E99's separate-connection gap
+for that path. The native command grammar accepts a bounded opaque `nv-` reference
+only on inventory/evaluation; callers cannot supply a physical target, loader or
+CDP session. FrameDriver sends the reference on all native observation subreads,
+including final tree revalidation, without exposing it in page script arguments.
+
+The UI resolves its exact current navigation under the original view, channel,
+profile, transition and manual-control fences. Only the native ticket crosses to
+the existing shared worker. The worker checks the original native commit and the
+reading binding's discovered physical target, frame and loader before the page
+operation and after it, including a fresh native root-tree check. The final UI
+delivery revalidates the same original record. A different target cannot borrow
+matching frame/loader strings. Pre-operation rejection reports no page evaluation;
+post-operation rejection clears bytes and retains evaluation uncertainty.
+
+The reflection-based main-document adapter cannot establish that CDP loader proof
+and explicitly rejects constrained reads. The dispatcher cannot fall back to an
+unconstrained script or keep repeating a failed constrained observation. Ordinary
+later observations are not pinned to an old completed goto. Initial-create
+observation and same-document navigation still need their own event association;
+this stage does not claim those paths are guarded.
+
+Native broker assertions increase to 160 and native grammar to 61. Tests cover
+foreign target identity, wrong loader, post-read replacement, cancellation, source
+closure, payload clearing and no-evaluation rejection. Exact product lifecycle
+passes 432 with 35 new UI proof checks; all 349 JS cases pass and Python passes
+173/175 with two existing Windows symlink-privilege skips. Full native sanitizer/
+API26 and input-hash checks, all 12 packed Windows runtime checks, actual APK DEX
+definitions and seven package contracts pass. Both development programs are
+refreshed; exact identities are in docs/progress.md and
+.mdo/E100-final-identities.log. The original native engine and paired plugin remain
+unchanged. Installed Android/provider/main-UI/public JS-C end-to-end verification
+is deferred; device/framework/automation flags remain false.

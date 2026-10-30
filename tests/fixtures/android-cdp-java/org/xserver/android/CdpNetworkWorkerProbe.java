@@ -45,11 +45,13 @@ public final class CdpNetworkWorkerProbe {
         final List<CdpNetworkBindingProbe.Context> owned=new ArrayList<>();final List<MdoBrowserCdpNetworks.Result> states=new ArrayList<>();
         final List<MdoBrowserCdpWorker.Result> documentResults=new ArrayList<>();
         final Map<MdoBrowserCdpMarker,CdpBindingProbe.Factory> documents=new ConcurrentHashMap<>();
+        final Map<MdoBrowserCdpMarker,String> documentTargets=new ConcurrentHashMap<>();
         final AtomicInteger controls=new AtomicInteger();final MdoBrowserCdpWorker worker;
         boolean uncertainCleanup;
         Case(){worker=new MdoBrowserCdpWorker(ui,(marker,budget)->{
             check(!ui.onThread());threads.add(Thread.currentThread());CdpBindingProbe.Factory peer=documents.get(marker);
-            return MdoBrowserCdpBinding.bind(marker,budget,(m,s,p)->{},t->Arrays.asList("owned"),peer);
+            return MdoBrowserCdpBinding.bind(marker,budget,(m,s,p)->{},t->Arrays.asList(documentTargets.getOrDefault(marker,"owned")),
+                (id,timeout,current,events)->peer.open("owned",timeout,current,events));
         },time::get,(marker,budget,events)->{
             check(!ui.onThread());threads.add(Thread.currentThread());CdpNetworkBindingProbe.Context source=sources.get(marker);
             return MdoBrowserCdpBinding.bindNetwork(marker,budget,events,t->Arrays.asList("owned"),source.peer);

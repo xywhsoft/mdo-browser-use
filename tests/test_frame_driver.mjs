@@ -48,6 +48,7 @@ function fixture(nativeCapture=null,nativeFileInputs=false){
     const tail=params.script.split('({local_frame:true}).').at(-1),method=tail.slice(0,tail.indexOf('(')),options=JSON.parse(tail.slice(tail.indexOf('(')+1,-1));
     const document=params.frame==='f0'?doc:local,element={ref:'e1',frame:'f0',name:'Child',role:'textbox',editable:true};
     let value={ok:true,document,url:'https://fixture.test',ready:'complete',viewport:{width:800,height:600}};
+    if(method==='observe')value={...value,elements:[],frames:[{id:'f0',dom:true}],text:'Fixture',visited:1,truncated:false};
     if(method==='locate')value=params.frame===child?{ok:true,document,element,visited:1}:{ok:false,error:{code:'element_not_found'},visited:1};
     if(method==='prepare')value={ok:true,document,element,point:{x:20,y:10},geometry:[10,0,20,20,20,10]};
     if(method==='verify')value={ok:true,document,focused:true,verified:true};
@@ -304,4 +305,19 @@ test('the driver accepts only fixed methods and composes exact frame capture mas
   assert.equal((await api.read('clearFiles',{})).error.code,'frame_method_invalid');assert.equal(state.effect,0);
   const element=await api.read('captureArea',{document:doc,target:{name:'Child'},mode:'element'});assert(element.ok);assert.deepEqual(element.region,{x:120,y:220,width:50,height:40});assert.equal(element.redactions.length,1);
   const root=await api.read('captureArea',{document:doc,mode:'viewport'});assert(root.ok);assert.equal(root.redactions.length,2);assert.equal(root.frame_masks.readable,2);
+});
+
+
+test('original navigation proof constrains every native subread and never enters page arguments',async()=>{
+  const f=fixture(),navigation_ref='nv-'+guid(88),out=await f.api.read('observe',{limit:10},{navigation_ref});
+  assert.equal(out.ok,true);assert(f.state.calls.length>3);
+  for(const row of f.state.calls){assert.equal(row.command,'frames');assert.equal(row.navigation_ref,navigation_ref);
+    if(row.script)assert(!row.script.includes(navigation_ref)&&!row.script.includes('navigation_ref'));}
+  f.state.calls.length=0;assert((await f.api.read('observe')).ok);assert(f.state.calls.every(row=>row.navigation_ref===undefined));
+});
+test('malformed navigation references and non-observation constrained methods execute nothing',async()=>{
+  for(const navigation_ref of ['',null,4,{},'raw-loader','nv-'+guid(88)]){
+    const f=fixture(),out=await f.api.read(navigation_ref==='nv-'+guid(88)?'selectOptions':'observe',{}, {navigation_ref});
+    assert.equal(out.error.code,'navigation_unproven');assert.equal(out.error.effect_may_have_occurred,false);assert.equal(f.state.calls.length,0);
+  }
 });

@@ -49,6 +49,11 @@ function nativeNavigationFixture(mode){
       if(command==='automation')return{ok:true,value:{ok:true,ready:'complete',document:'fixture-document'}};
       throw Error('Unexpected native navigation command '+command);
     }}};
+  options.pageDriver={async read(method,params,control){
+    assert.equal(method,'observe');await control.checkpoint();
+    assert.equal(control.navigation_ref,mode==='new-document'?reference:undefined);
+    return(await options.view.execute('automation',{script:'fixture-observe'})).value;
+  }};
   if(mode==='cancel')options.alive=()=>states===0;
   return{options,calls,reference};
 }
@@ -569,4 +574,20 @@ test('visual validation shares the global screenshot budget across different bro
     api:{async call(){throw Error('Admission was not fenced');}},view:{async execute(){visualCalls++;throw Error('Visual validation reached native capture');}}});
   assert.equal(blocked.result.error.code,'browser_busy');assert.equal(visualCalls,0);
   release({});await pending;
+});
+
+
+test('native original-loader observation never falls back to unconstrained page execution',async()=>{
+  const f=nativeNavigationFixture('new-document');delete f.options.pageDriver;
+  const out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.error.code,'unsupported_capability');assert.equal(out.result.error.effect_may_have_occurred,true);
+  assert(!f.calls.some(([command])=>command==='automation'));assert(f.calls.some(([command])=>command==='navigation_cancel'));
+});
+test('failed loader-constrained observation is returned without retry or partial page data',async()=>{
+  const f=nativeNavigationFixture('new-document');let reads=0;
+  f.options.pageDriver={async read(method,params,control){assert.equal(control.navigation_ref,f.reference);reads++;
+    return{ok:false,error:{code:'stale_document',native_code:'cdp_navigation_document_changed',effect_may_have_occurred:false}};}};
+  const out=await executeBrowserAutomation(f.options);assert.equal(reads,1);assert.equal(out.result.error.code,'stale_document');
+  assert.equal(out.result.error.native_code,'cdp_navigation_document_changed');assert.equal(out.result.error.effect_may_have_occurred,true);
+  assert.equal(out.result.observation,undefined);
 });

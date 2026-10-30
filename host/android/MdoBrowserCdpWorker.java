@@ -24,6 +24,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     interface Ui {boolean onThread();boolean post(Runnable task);void remove(Runnable task);}
     interface Connector {MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs)throws IOException;}
     interface Operation {byte[] run(MdoBrowserCdpBinding binding,Deadline deadline)throws IOException;}
+    interface Guard {void check(MdoBrowserCdpBinding binding,Deadline deadline)throws IOException;}
     interface Completion {void done(Result result);}
     static final class Result {
         final String code;final boolean effectMayHaveOccurred;final byte[] bytes;
@@ -76,21 +77,25 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     }
     private void thread(){if(!ui.onThread())throw new IllegalStateException("CDP dispatch requires its UI owner");}
     void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete)throws IOException {
-        submit(marker,timeoutMs,effect,operation,complete,null);
+        submit(marker,timeoutMs,effect,operation,complete,null,null);
+    }
+    void submitGuarded(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Guard guard,Operation operation,Completion complete)throws IOException {
+        if(guard==null)throw new IOException("cdp_worker_arguments_invalid");
+        submit(marker,timeoutMs,effect,operation,complete,null,guard);
     }
     /** A native continuation cannot reconnect after losing its original world. */
     void submitExisting(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");MdoBrowserCdpBinding bound=marker==null?null:bindings.get(marker.lease());
-        if(bound==null)throw new IOException("cdp_worker_binding_unavailable");submit(marker,timeoutMs,effect,operation,complete,bound);
+        if(bound==null)throw new IOException("cdp_worker_binding_unavailable");submit(marker,timeoutMs,effect,operation,complete,bound,null);
     }
-    private void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete,MdoBrowserCdpBinding existing)throws IOException {
+    private void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete,MdoBrowserCdpBinding existing,Guard guard)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(marker==null||!marker.lease().current()||operation==null||complete==null||timeoutMs<100||timeoutMs>15000)
             throw new IOException("cdp_worker_arguments_invalid");
         if(marker.lease().physicalNetwork())throw new IOException("cdp_network_scope_invalid");
         if(jobs.containsKey(marker.lease()))throw new IOException("cdp_worker_busy");
         if(jobs.size()>=LIMIT)throw new IOException("cdp_worker_limit");
-        Job job=new Job(marker,timeoutMs,effect,operation,complete,existing);jobs.put(job.lease,job);
+        Job job=new Job(marker,timeoutMs,effect,operation,complete,existing,guard);jobs.put(job.lease,job);
         try{executor.execute(job);}catch(RejectedExecutionException failure){jobs.remove(job.lease,job);job.drop();throw new IOException("cdp_worker_unavailable");}
         catch(RuntimeException|Error failure){jobs.remove(job.lease,job);job.drop();throw failure;}
     }
@@ -126,11 +131,11 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         final MdoBrowserCdpBinding existing;
         final AtomicBoolean cancelled=new AtomicBoolean();final AtomicReference<Completion> callback;
         final Runnable delivery=this::deliver;
-        private Operation operation;private byte[] bytes;private String code;private boolean posted,delivered;
+        private Operation operation;private Guard guard;private byte[] bytes;private String code;private boolean posted,delivered;
         private volatile boolean entered;
-        Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback,MdoBrowserCdpBinding existing){
+        Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback,MdoBrowserCdpBinding existing,Guard guard){
             this.marker=new WeakReference<>(marker);lease=marker.lease();this.timeout=timeout;this.effect=effect;
-            this.operation=operation;this.callback=new AtomicReference<>(callback);started=clock.getAsLong();this.existing=existing;
+            this.operation=operation;this.guard=guard;this.callback=new AtomicReference<>(callback);started=clock.getAsLong();this.existing=existing;
         }
         int remaining(int minimum)throws IOException {
             if(closed.get()||cancelled.get()||!lease.current())throw new IOException("cdp_worker_cancelled");
@@ -149,16 +154,18 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
                     if(binding==null)throw new IOException("cdp_worker_binding_invalid");
                     bindings.put(lease,binding);remaining(10);
                 }
-                Operation work;synchronized(this){
-                    remaining(10);work=operation;operation=null;
-                    if(work==null)throw new IOException("cdp_worker_cancelled");entered=true;
+                Operation work;Guard fence;synchronized(this){
+                    remaining(10);work=operation;operation=null;fence=guard;guard=null;
+                    if(work==null)throw new IOException("cdp_worker_cancelled");
                 }
-                value=work.run(binding,new Deadline(this));remaining(10);
+                Deadline deadline=new Deadline(this);if(fence!=null)fence.check(binding,deadline);
+                synchronized(this){remaining(10);entered=true;}
+                value=work.run(binding,deadline);remaining(10);if(fence!=null)fence.check(binding,deadline);remaining(10);
                 if(value==null||value.length>RESULT_MAX)throw new IOException("cdp_worker_result_invalid");
             }catch(IOException error){failure=safe(error.getMessage());}
             catch(RuntimeException|Error error){failure="cdp_worker_failed";}
             finally{
-                synchronized(this){operation=null;}
+                synchronized(this){operation=null;guard=null;}
                 if(failure!=null){retireBinding();clear(value);value=null;}
                 finish(value,failure);
             }
@@ -186,8 +193,8 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
                 MdoBrowserCdpMarker owned=marker.get();if(owned!=null)owned.close();retireBinding();
             }finally{clear(value);}
         }
-        private synchronized void cancel(){cancelled.set(true);operation=null;}
-        private synchronized void drop(){delivered=true;operation=null;callback.set(null);clear(bytes);bytes=null;}
+        private synchronized void cancel(){cancelled.set(true);operation=null;guard=null;}
+        private synchronized void drop(){delivered=true;operation=null;guard=null;callback.set(null);clear(bytes);bytes=null;}
     }
     private static void clear(byte[] value){if(value!=null)Arrays.fill(value,(byte)0);}
 }

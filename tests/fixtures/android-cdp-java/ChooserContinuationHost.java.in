@@ -70,5 +70,9 @@ final class ChooserContinuationHost implements AutoCloseable {
     }
 @@DOCUMENT@@
 @@CHOOSER@@
+    // These chooser/upload fixtures do not own any native navigation record.
+    private MdoBrowserCdpNetworks.Navigation navigationReadProof(String key,WebView view,String reference)throws java.io.IOException {
+        if(reference!=null)throw new java.io.IOException("cdp_navigation_document_unproven");return null;
+    }
 @@ROUTER@@
 }

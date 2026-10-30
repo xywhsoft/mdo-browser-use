@@ -115,3 +115,9 @@ test('original checkpoint boundaries propagate unchanged and never enter another
   const control={calls:0,checkpoint(){this.calls++;}};
   assert((await f.driver.read('observe',{},control)).ok);assert(control.calls>0);
 });
+
+
+test('main-document fallback rejects an original-loader constraint before any page execution',async()=>{
+  const f=fixture(),out=await f.driver.read('observe',{}, {navigation_ref:'nv-12345678-1234-4123-8123-123456789abc'});
+  assert.equal(out.error.code,'unsupported_capability');assert.equal(out.error.effect_may_have_occurred,false);assert.equal(f.state.calls.length,0);
+});

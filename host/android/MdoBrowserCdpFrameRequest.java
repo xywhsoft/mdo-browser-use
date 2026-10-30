@@ -12,10 +12,10 @@ import org.json.JSONObject;
 /** Immutable trusted-host command grammar, never a caller-picked CDP route.
  * The UI controller must apply product/profile/permission admission first. */
 final class MdoBrowserCdpFrameRequest {
-    final String action,frame,document,script;final int timeout;final boolean effect;private final double x,y;private final MdoBrowserCdpFileInput fileInput;private final MdoBrowserCdpChoosers.Request chooser;
-    private MdoBrowserCdpFrameRequest(String action,String frame,String document,String script,int timeout,double x,double y,MdoBrowserCdpFileInput fileInput,MdoBrowserCdpChoosers.Request chooser){
+    final String action,frame,document,script,navigationRef;final int timeout;final boolean effect;private final double x,y;private final MdoBrowserCdpFileInput fileInput;private final MdoBrowserCdpChoosers.Request chooser;
+    private MdoBrowserCdpFrameRequest(String action,String frame,String document,String script,int timeout,double x,double y,MdoBrowserCdpFileInput fileInput,MdoBrowserCdpChoosers.Request chooser,String navigationRef){
         this.action=action;this.frame=frame;this.document=document;this.script=script;this.timeout=timeout;this.x=x;this.y=y;effect="evaluate".equals(action)||"file_clear".equals(action);
-        this.fileInput=fileInput;this.chooser=chooser;
+        this.fileInput=fileInput;this.chooser=chooser;this.navigationRef=navigationRef;
     }
     private static IOException invalid(){return new IOException("cdp_frame_request_invalid");}
     private static String text(Object value,int limit)throws IOException {
@@ -29,7 +29,7 @@ final class MdoBrowserCdpFrameRequest {
         String action=text(request.opt("action"),32);boolean chooser=Arrays.asList("chooser_arm","chooser_list","chooser_disarm","chooser_target").contains(action);
         boolean list=action.equals("list")||chooser&&!action.equals("chooser_target"),evaluate=action.equals("evaluate"),owner=action.equals("owner");
         boolean file=action.equals("file_input")||action.equals("file_clear");if(!(list||chooser||evaluate||owner||file||action.equals("upload_policy")||action.equals("capture_owner")))throw invalid();
-        Set<String> allowed=new HashSet<>(Arrays.asList("channel","id","browser","command","agent","action","timeout_ms"));
+        Set<String> allowed=new HashSet<>(Arrays.asList("channel","id","browser","command","agent","action","timeout_ms","navigation_ref"));
         if(!list){allowed.add("frame");allowed.add("document");}if(evaluate)allowed.add("script");if(owner)allowed.add("point");
         if(file)allowed.addAll(Arrays.asList("local_document","ref","frame_chain"));
         if(action.equals("chooser_target"))allowed.addAll(Arrays.asList("local_document","chooser","frame_chain"));
@@ -37,6 +37,11 @@ final class MdoBrowserCdpFrameRequest {
         if(request.has("channel")&&!"mdo-browser".equals(request.opt("channel")))throw invalid();
         if(request.has("browser"))text(request.opt("browser"),100);
         String uuid="[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}";
+        String navigationRef=null;
+        if(request.has("navigation_ref")){
+            navigationRef=text(request.opt("navigation_ref"),39);
+            if(!navigationRef.matches("nv-"+uuid)||!(action.equals("list")||evaluate))throw invalid();
+        }
         if(request.has("id")&&!text(request.opt("id"),36).matches(uuid))throw invalid();
         int timeout=10000;
         if(request.has("timeout_ms")){
@@ -52,7 +57,7 @@ final class MdoBrowserCdpFrameRequest {
             if(point==null||point.length()!=2||!(point.opt("x") instanceof Number)||!(point.opt("y") instanceof Number))throw invalid();
             x=((Number)point.opt("x")).doubleValue();y=((Number)point.opt("y")).doubleValue();
             if(!Double.isFinite(x)||!Double.isFinite(y)||x<0||y<0||x>32768||y>32768)throw invalid();}
-        return new MdoBrowserCdpFrameRequest(action,frame,document,script,timeout,x,y,file?MdoBrowserCdpFileInput.parse(request):null,chooser?MdoBrowserCdpChoosers.Request.parse(request):null);
+        return new MdoBrowserCdpFrameRequest(action,frame,document,script,timeout,x,y,file?MdoBrowserCdpFileInput.parse(request):null,chooser?MdoBrowserCdpChoosers.Request.parse(request):null,navigationRef);
     }
     boolean chooserContinuation(){return action.equals("chooser_list")||action.equals("chooser_target")||action.equals("chooser_disarm");}
     byte[] run(MdoBrowserCdpBinding binding,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
@@ -70,7 +75,9 @@ final class MdoBrowserCdpFrameRequest {
     static JSONObject failure(String nativeCode,boolean effect)throws JSONException {
         if(nativeCode==null||!nativeCode.matches("cdp_[a-z_]{1,80}"))nativeCode="cdp_frame_failed";
         String code="frame_unavailable",message="The native frame operation was not confirmed";
-        if(nativeCode.equals("cdp_file_clear_requires_upload_route")){code="unsupported_action";message="Native file clearing requires the dedicated upload.clear mutation and original receipt route";}
+        if(nativeCode.equals("cdp_navigation_document_unproven")){code="navigation_unproven";message="The original navigation has no current native document proof";}
+        else if(nativeCode.equals("cdp_navigation_document_changed")){code="stale_document";message="The reading connection no longer belongs to the original navigation document";}
+        else if(nativeCode.equals("cdp_file_clear_requires_upload_route")){code="unsupported_action";message="Native file clearing requires the dedicated upload.clear mutation and original receipt route";}
         else if(nativeCode.contains("unsupported")){code="unsupported_capability";message="The installed provider does not support this frame operation";}
         else if(nativeCode.contains("timeout")){code="timed_out";message="The native frame operation reached its deadline";}
         else if(nativeCode.contains("cancelled")||nativeCode.contains("owner_changed")){code="operation_cancelled";message="The original browser owner changed or the operation was cancelled";}

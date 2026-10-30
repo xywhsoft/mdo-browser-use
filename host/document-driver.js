@@ -120,6 +120,7 @@ export function createDocumentDriver({execute,checkpoint=async()=>{}}){
       return value;
     }
     try{
+      if(control.navigation_ref!==undefined)throw issue('unsupported_capability','This main-document adapter cannot prove the original native navigation loader');
       if(!allowed.has(method))throw issue('unsupported_capability','This Android adapter does not provide the requested operation');
       if(method==='prepare'&&!inputs.has(options.op))throw issue('unsupported_capability','The requested Android native input kind is not implemented');
       const captureMode=options.mode||'viewport';

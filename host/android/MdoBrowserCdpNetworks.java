@@ -26,7 +26,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     }
     /** Native-only UI admission/observation, no view or callback retention and
      * no UI I/O. Cancellation never upgrades an issued uncertain operation. */
-    static final class Navigation {
+    static final class Navigation implements MdoBrowserCdpWorker.Guard {
         private static final MdoBrowserCdpSession.NavigationResult CANCELLED=MdoBrowserCdpSession.navigationFailure("cdp_navigation_cancelled",false);
         private static final MdoBrowserCdpSession.NavigationResult TIMED_OUT=MdoBrowserCdpSession.navigationFailure("cdp_navigation_timeout",false);
         private static final MdoBrowserCdpSession.NavigationResult CLOSED_UNSENT=MdoBrowserCdpSession.navigationFailure("cdp_navigation_connection_closed",false);
@@ -35,7 +35,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         private final AtomicReference<MdoBrowserCdpSession.NavigationResult> outcome=new AtomicReference<>();
         private volatile MdoBrowserCdpBinding.Network.Navigation source;private volatile boolean issued;
         private volatile MdoBrowserCdpNetworkFrames.Origin committed;
-        private boolean cancelled;
+        private volatile boolean cancelled;
         private Navigation(String url,int timeout,long born){this.url=url;this.timeout=timeout;this.born=born;}
         MdoBrowserCdpSession.NavigationResult result(){MdoBrowserCdpBinding.Network.Navigation original=source;
             if(original!=null&&original.result()!=null)finish(original.result());return outcome.get();}
@@ -43,6 +43,14 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         boolean pageCommitted(){return committed!=null;}
         boolean pageCurrent(){MdoBrowserCdpNetworkFrames.Origin original=committed;return original!=null&&original.current();}
         String pageDocument(){MdoBrowserCdpNetworkFrames.Origin original=committed;return original==null?null:original.document;}
+        public void check(MdoBrowserCdpBinding document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+            MdoBrowserCdpBinding.Network.Navigation original=source;
+            if(cancelled)throw new IOException("cdp_navigation_cancelled");
+            if(original==null||!pageCurrent())throw new IOException("cdp_navigation_document_unproven");
+            original.checkDocument(document,deadline);
+            if(cancelled)throw new IOException("cdp_navigation_cancelled");
+            if(!pageCurrent())throw new IOException("cdp_navigation_document_changed");
+        }
         synchronized void cancel(){cancelled=true;if(!issued){url=null;finish(CANCELLED);}}
         private void finish(MdoBrowserCdpSession.NavigationResult result){outcome.compareAndSet(null,result);}
         private void service(MdoBrowserCdpBinding.Network connection,Events events,LongSupplier clock,boolean retiring)throws IOException {

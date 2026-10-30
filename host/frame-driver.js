@@ -21,7 +21,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
       catch(error){interruption=error;throw error;}
       if(performance.now()>=deadline)throw issue('timed_out','The frame operation deadline expired');
     };
-    const native=async(command,params)=>{await check();try{return await execute(command,params);}finally{await check();}};
+    const native=async(command,params)=>{await check();try{return await execute(command,{...params,...(control.navigation_ref?{navigation_ref:control.navigation_ref}:{})});}finally{await check();}};
     const reader=createFrameReader({execute:(command,params)=>native(command,params),checkpoint:check});
     const fromReader=async(name,args)=>{const result=await reader[name]({...args,timeout_ms:Math.max(1,deadline-performance.now())});if(interruption)throw interruption;return result;};
     async function evaluate(route,name,args){
@@ -87,6 +87,8 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
       if(JSON.stringify(await pinChain(route))!==JSON.stringify(chain))throw issue('stale_frame','The upload ancestry changed during policy checking');
     }
     try{
+      if(control.navigation_ref!==undefined&&(typeof control.navigation_ref!=='string'||!/^nv-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(control.navigation_ref)||method!=='observe'))
+        throw issue('navigation_unproven','Use the original native navigation reference for its observation only');
       if(!permitted.has(method))throw issue('frame_method_invalid','Only fixed Browser Use operations are allowed');
       if(method==='observe'||method==='locate')return await fromReader(method,options);
       if(method==='visualPoint'||method==='scrollPoint'){

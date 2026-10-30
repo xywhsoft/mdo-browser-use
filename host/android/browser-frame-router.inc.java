@@ -8,6 +8,7 @@
         try{
             if(uploadBusy(key,view))throw new java.io.IOException("cdp_upload_busy");
             final MdoBrowserCdpFrameRequest operation=MdoBrowserCdpFrameRequest.parse(request);
+            final MdoBrowserCdpNetworks.Navigation proof=navigationReadProof(key,view,operation.navigationRef);
             // The ordinary frame reader has no UI mutation reservation. Only
             // upload.clear may join the fixed primitive to its original record.
             if(operation.action.equals("file_clear"))throw new java.io.IOException("cdp_file_clear_requires_upload_route");
@@ -18,12 +19,17 @@
             final MdoBrowserCdpMarker marker=continuation?cdpViews.existing(key,view,epoch,original):cdpMarker(key,view);
             MdoBrowserCdpWorker.Completion complete=result->{
                 try{
-                    JSONObject response=!views.owns(key,view)||views.epoch(key,view)!=epoch?
-                        MdoBrowserCdpFrameRequest.failure("cdp_worker_cancelled",result.effectMayHaveOccurred):MdoBrowserCdpFrameRequest.response(result);
+                    JSONObject response;
+                    try{
+                        if(!views.owns(key,view)||views.epoch(key,view)!=epoch)throw new java.io.IOException("cdp_worker_cancelled");
+                        if(proof!=null&&navigationReadProof(key,view,operation.navigationRef)!=proof)throw new java.io.IOException("cdp_navigation_cancelled");
+                        response=MdoBrowserCdpFrameRequest.response(result);
+                    }catch(java.io.IOException changed){response=MdoBrowserCdpFrameRequest.failure(changed.getMessage(),result.effectMayHaveOccurred);}
                     reply(original,id,response,null);
                 }catch(JSONException error){reply(original,id,null,"frame_result_invalid");}
             };
-            if(continuation)cdpWorker.submitExisting(marker,operation.timeout,operation.effect,operation::run,complete);
+            if(proof!=null)cdpWorker.submitGuarded(marker,operation.timeout,operation.effect,proof,operation::run,complete);
+            else if(continuation)cdpWorker.submitExisting(marker,operation.timeout,operation.effect,operation::run,complete);
             else cdpWorker.submit(marker,operation.timeout,operation.effect,operation::run,complete);
         }catch(java.io.IOException error){reply(original,id,MdoBrowserCdpFrameRequest.failure(error.getMessage(),false),null);}
         catch(RuntimeException error){reply(original,id,MdoBrowserCdpFrameRequest.failure("cdp_binding_owner_changed",false),null);}

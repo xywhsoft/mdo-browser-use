@@ -163,9 +163,50 @@ public final class CdpNetworkNavigationProbe {
             check(original.pageCommitted()&&!original.pageCurrent()&&document.equals(original.pageDocument())&&original.result()==result);
         }
     }
+    private static void documentGuards()throws Exception{
+        for(int mode=0;mode<7;mode++)try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("document-guard-"+mode)){
+            final int scenario=mode;CdpDownloadsProbe.Source source=test.source();
+            CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            source.context.peer.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","original-loader").put("isDownload",false)));return true;
+            };
+            MdoBrowserCdpNetworks.Navigation original=navigate(test,source,10000);
+            await(()->original.result()!=null);commit(source,"original-loader",false,false);await(original::pageCurrent);
+            MdoBrowserCdpMarker document=test.host.document();CdpBindingProbe.Factory peer=test.host.documents.get(document);
+            java.util.concurrent.atomic.AtomicReference<String> loader=new java.util.concurrent.atomic.AtomicReference<>(mode==1?"wrong-loader":"original-loader");
+            if(mode==2)test.host.documentTargets.put(document,"foreign-target");
+            peer.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.getFrameTree"))return false;
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId",loader.get())))));return true;
+            };
+            if(mode==6)original.cancel();
+            AtomicInteger evaluations=new AtomicInteger();java.util.concurrent.atomic.AtomicReference<byte[]> payload=new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> receipt=new java.util.concurrent.atomic.AtomicReference<>();
+            test.host.worker.submitGuarded(document,1500,true,original,(binding,deadline)->{
+                evaluations.incrementAndGet();byte[] bytes=new byte[]{7,8,9};payload.set(bytes);
+                if(scenario==3)loader.set("next-loader");
+                if(scenario==4)original.cancel();
+                if(scenario==5)source.context.adapter.marker().close();
+                return bytes;
+            },result->{
+                check(!result.effectMayHaveOccurred||evaluations.get()==1);
+                check((result.bytes!=null)==(scenario==0));if(result.bytes!=null)check(result.bytes[0]==7);
+                receipt.set(result);
+            });
+            await(()->{test.host.ui.drain();return receipt.get()!=null;});
+            MdoBrowserCdpWorker.Result result=receipt.get();
+            check(evaluations.get()==(mode==1||mode==2||mode==6?0:1));
+            check(result.effectMayHaveOccurred==(evaluations.get()==1));
+            check(mode==0?result.code==null:result.code!=null);
+            if(mode==1||mode==2||mode==3)check("cdp_navigation_document_changed".equals(result.code));
+            if(mode==4||mode==6)check("cdp_navigation_cancelled".equals(result.code));
+            if(payload.get()!=null)for(byte value:payload.get())check(value==0);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();Files.delete(root);
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();Files.delete(root);
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

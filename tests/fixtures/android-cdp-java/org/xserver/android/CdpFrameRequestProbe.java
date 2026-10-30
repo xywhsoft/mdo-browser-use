@@ -72,6 +72,19 @@ public final class CdpFrameRequestProbe {
         rejects("cdp_frame_request_invalid",()->MdoBrowserCdpFrameRequest.parse(header("list").put("timeout_ms","1000")));
         rejects("cdp_frame_request_invalid",()->MdoBrowserCdpFrameRequest.parse(header("list").put("timeout_ms",0)));
     }
+    private static void navigationGrammar()throws Exception {
+        String ref="nv-00000000-0000-4000-8000-000000000008";
+        check(MdoBrowserCdpFrameRequest.parse(header("list").put("navigation_ref",ref)).navigationRef.equals(ref));
+        check(MdoBrowserCdpFrameRequest.parse(target("evaluate").put("script","1").put("navigation_ref",ref)).navigationRef.equals(ref));
+        for(Object bad:new Object[]{JSONObject.NULL,1,"","nv-invalid","raw-loader"})
+            rejects("cdp_frame_request_invalid",()->MdoBrowserCdpFrameRequest.parse(header("list").put("navigation_ref",bad)));
+        rejects("cdp_frame_request_invalid",()->MdoBrowserCdpFrameRequest.parse(header("chooser_list").put("navigation_ref",ref)));
+        for(String code:new String[]{"cdp_navigation_document_unproven","cdp_navigation_document_changed"}){
+            JSONObject error=MdoBrowserCdpFrameRequest.failure(code,false).getJSONObject("error");
+            check(error.getString("code").equals(code.endsWith("unproven")?"navigation_unproven":"stale_document"));
+            check(!error.getBoolean("evaluation_may_have_occurred"));
+        }
+    }
     private static void receipts()throws Exception {
         String[][] codes={{"cdp_worker_timeout","timed_out"},{"cdp_frame_stale","stale_frame"},{"cdp_owner_unique_context_unsupported","unsupported_capability"},
             {"cdp_worker_cancelled","operation_cancelled"},{"cdp_world_document_limit","resource_limit"},{"cdp_frame_request_invalid","frame_request_invalid"}};
@@ -81,7 +94,7 @@ public final class CdpFrameRequestProbe {
         JSONObject cancelled=MdoBrowserCdpFrameRequest.response(new MdoBrowserCdpWorker.Result("cdp_worker_cancelled",true,null));check(cancelled.getJSONObject("error").getString("code").equals("operation_cancelled"));
     }
     public static void main(String[] ignored)throws Exception {
-        Looper.getMainLooper();System.loadLibrary("xs");grammar();receipts();roundtrip();
+        Looper.getMainLooper();System.loadLibrary("xs");grammar();navigationGrammar();receipts();roundtrip();
         System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"native_ui_calls_doubled\":true,\"protocol_peers_synthetic\":true,\"provider_qualified\":false}");
     }
 }

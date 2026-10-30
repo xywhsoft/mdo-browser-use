@@ -224,6 +224,7 @@ final class AndroidCreateHost {
     }
     JSONObject navigationState(String key)throws Exception{return networkNavigationState(key);}
     boolean initialPending(String key){return networkInitialNavigationPending(key);}
+    Object readProof(String key,String reference)throws java.io.IOException{return navigationReadProof(key,views.get(key),reference);}
     void cancelNativeNavigation(String key,String reference)throws Exception{executeNavigationCancel(key,"cancel-reply",views.get(key),new JSONObject().put("navigation_ref",reference));}
     void stopNavigation(String key){WebView view=views.get(key);networkStop(key,view);cancelNavigationRequest(key,view);}
     void legacyNavigationError(String key){cancelNavigationRequest(key,views.get(key));}

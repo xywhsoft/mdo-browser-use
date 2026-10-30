@@ -298,6 +298,32 @@ public final class AndroidCreateContractTest {
             host.closeCommand("tab");
         }
     }
+    private static void readProofFails(AndroidCreateHost host,String key,String reference,String code)throws Exception{
+        try{host.readProof(key,reference);throw new AssertionError("Unrelated navigation read gained authority");}
+        catch(java.io.IOException expected){check(expected.getMessage().equals(code),"Navigation read failure lost its fixed reason");}
+    }
+    private static void originalNavigationReadProof()throws Exception{
+        for(int mode=0;mode<5;mode++){
+            AndroidCreateHost host=navigationHost();host.gotoPage("tab","https://native-read.invalid/",1000);
+            AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);ticket.issued=true;ticket.ack(true,false,true,null);
+            String reference=(String)host.navigationState("tab").data.get("id");
+            check(host.readProof("tab",null)==null,"Ordinary reads invented a navigation constraint");
+            readProofFails(host,"tab",reference,"cdp_navigation_document_unproven");
+            ticket.committed=true;ticket.current=true;
+            readProofFails(host,"tab",reference,"cdp_navigation_document_unproven");
+            host.startPage("tab","https://native-read.invalid/");host.finishPage("tab","https://native-read.invalid/");
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            check(host.readProof("tab",reference)==ticket,"Original native ticket was not retained for the reading connection");
+            readProofFails(host,"tab","nv-unrelated","cdp_navigation_cancelled");
+            readProofFails(host,"unrelated",reference,"cdp_navigation_cancelled");
+            if(mode==0){ticket.current=false;readProofFails(host,"tab",reference,"cdp_navigation_document_unproven");}
+            if(mode==1){host.takeover("tab");readProofFails(host,"tab",reference,"cdp_navigation_cancelled");}
+            if(mode==2){host.cancelNativeNavigation("tab",reference);readProofFails(host,"tab",reference,"cdp_navigation_cancelled");}
+            if(mode==3){host.gotoPage("tab","https://explicit-next.invalid/",1000);readProofFails(host,"tab",reference,"cdp_navigation_cancelled");}
+            if(mode==4){host.revoke("tab");readProofFails(host,"tab",reference,"cdp_navigation_cancelled");}
+            host.stopNavigation("tab");host.closeCommand("tab");
+        }
+    }
     public static void main(String[] args)throws Exception{
         for(int mode=0;mode<5;mode++){
             AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
@@ -382,7 +408,7 @@ public final class AndroidCreateContractTest {
             host.closeCommand("tab");
         }
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

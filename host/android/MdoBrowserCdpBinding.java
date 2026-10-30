@@ -149,7 +149,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }
         void network(){network=true;armed=null;contexts.clear();identities.clear();seen.clear();}
     }
-    private final Peer peer;private final MdoBrowserCdpMarker.Lease lease;private final Contexts contexts;
+    private final Peer peer;private final MdoBrowserCdpMarker.Lease lease;private final Contexts contexts;private final String target;
     private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean cleanupFailed=new java.util.concurrent.atomic.AtomicBoolean();
@@ -157,8 +157,8 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     // Fresh namespace per binding. Specific names belong to native frame/
     // loader proofs; old or possibly privileged worlds are never adopted.
     final String worldName="mdo.browser-use.frames.v1."+java.util.UUID.randomUUID();
-    private MdoBrowserCdpBinding(Peer peer,MdoBrowserCdpMarker.Lease lease,Contexts contexts,Context root) {
-        this.peer=peer;this.lease=lease;this.contexts=contexts;rootFrame=root.frame;rootLoader=root.loader;uniqueContext=root.unique;contextId=root.id;
+    private MdoBrowserCdpBinding(Peer peer,MdoBrowserCdpMarker.Lease lease,Contexts contexts,Context root,String target) {
+        this.peer=peer;this.lease=lease;this.contexts=contexts;this.target=target;rootFrame=root.frame;rootLoader=root.loader;uniqueContext=root.unique;contextId=root.id;
     }
     static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events) throws IOException {
         return bind(marker,timeoutMs,events,MdoBrowserCdpBinding::targets,NATIVE);
@@ -216,7 +216,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 if(!root.frame.equals(finalFrame.opt("id"))||!root.loader.equals(finalFrame.opt("loaderId")))throw problem("cdp_binding_context_changed");
                 if(contexts.dirty||!ticket.confirmed())throw problem("cdp_binding_owner_changed");
                 remaining(started,timeoutMs,lease);contexts.forward=events;
-                MdoBrowserCdpBinding bound=new MdoBrowserCdpBinding(peer,lease,contexts,root);
+                MdoBrowserCdpBinding bound=new MdoBrowserCdpBinding(peer,lease,contexts,root,id);
                 lease.transfer(peer,bound);
                 if(network)contexts.network();
                 ticket.close();success=true;return bound;
@@ -259,6 +259,16 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             private Navigation(Network owner,long revision){this.owner=owner;this.revision=revision;}
             MdoBrowserCdpSession.NavigationResult result(){return original==null?null:original.result();}
             boolean pending(){return result()==null;}
+            void checkDocument(MdoBrowserCdpBinding document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
+                owner.active();document.current();
+                if(!owner.bound.target.equals(document.target)||original==null||!original.matchesCommittedLoader(document.rootFrame,document.rootLoader))
+                    throw problem("cdp_navigation_document_changed");
+                try{
+                    JSONObject root=frame(document.peer,android.os.SystemClock.elapsedRealtime(),deadline.remaining(),document.lease);
+                    if(!original.matchesCommittedLoader(root.optString("id"),root.optString("loaderId")))throw problem("cdp_navigation_document_changed");
+                }catch(JSONException invalid){throw problem("cdp_navigation_document_unproven");}
+                owner.active();document.current();
+            }
         }
         private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
         private Network(MdoBrowserCdpBinding bound)throws IOException {

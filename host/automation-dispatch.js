@@ -76,10 +76,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     return null;
   };
-  const read = async (method, options) => {
-    if(pageDriver)return pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{checkpoint:async()=>{
+  const read = async (method, options, navigationRef=null) => {
+    if(pageDriver)return pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{...(navigationRef?{navigation_ref:navigationRef}:{}),checkpoint:async()=>{
       const checked=await guard(true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
     }});
+    if(navigationRef)return{ok:false,error:{code:'unsupported_capability',message:'This adapter cannot prove the original native navigation document',effect_may_have_occurred:false}};
     if(method==='chooserInfo')return view.execute('chooser',{action:'target',chooser:options.chooser,document:options.document,agent:true});
     const result = await view.execute("automation", { agent: true,
       script: `(${browserRuntime.toString()})().${method}(${JSON.stringify(options)})` });
@@ -392,7 +393,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         }
         if (!current.state.loading && (current.state.navigation !== oldNavigation||sameDocument)) {
           if (current.state.error) return fail("navigation_failed", current.state.error);
-          const observation = await read("observe", { limit: 100, max_bytes: 4096 });
+          const observation = await read("observe", { limit: 100, max_bytes: 4096 },nativeDocument?nativeReference:null);
+          if(!observation.ok&&!framePending(observation.error?.code))return{handled:true,result:{...observation,action:action.id,error:{...observation.error,effect_may_have_occurred:dispatched}}};
           if (observation.ok && observation.ready === "complete"){
             if(nativeReference&&!sameDocument){
               const final=await guard(true);if(final.handled)return final;

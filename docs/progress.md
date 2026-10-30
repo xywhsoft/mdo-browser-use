@@ -7864,7 +7864,6 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   install, formal-data edit, model/external-page action, extra app/Home/source
   copy or online publication.
 
-
 ## E89c — verify the controller and idle-worker fix in the full APK
 
 - With the existing service stopped, apply all 117 reviewed files and assemble
@@ -8395,3 +8394,56 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   device/framework/automation flags stay false. No phone/provider upgrade,
   installation, formal-data edit, model/external page action, extra app/Home/source
   copy or online publication.
+
+## E100 — bind goto observation to the original native loader (2026-10-31)
+
+- Close the separate-connection gap for cross-document `navigate_to` observation.
+  FrameDriver carries only the original opaque `nv-` reference in native control
+  metadata, on every inventory/evaluation/revalidation subread. The reference is
+  never serialized into page helper arguments. Ordinary later observations do
+  not inherit an old navigation constraint. An adapter without this proof returns
+  explicit unsupported capability; it cannot silently execute an unconstrained
+  page script. Same-document and initial-create observation correlation remain
+  separate work, as recorded in the private protocol inventory.
+- Resolve the exact record on the UI thread under its original view, channel,
+  profile, current operation, document transition and manual-control fences. Send
+  only its native ticket to the shared worker. Before evaluation and after its
+  result, require the same discovered physical target, original frame and original
+  navigation loader on the document binding; recheck its actual root frame tree
+  and the native commit's continued validity. Revalidate the original UI record
+  again before delivery. No caller target/loader/session selector is added.
+- Add bounded worker guard hooks without another executor or dependency. Failure
+  before the operation retains a no-evaluation receipt; failure after the operation
+  clears its payload while preserving evaluation uncertainty. Cancellation and
+  teardown release stored guards. An unconfirmed constrained navigation observation
+  returns its failure immediately without replaying navigation or looping reads.
+- Native broker passes 160 assertions, including wrong document loader, colliding
+  frame/loader strings on another target, post-operation page replacement, ticket
+  cancellation, physical source closure and payload clearing. Command grammar
+  passes 61; existing worker passes 191. Exact product lifecycle passes 432,
+  including 35 new UI proof assertions for pre-commit/reserved navigation, current
+  original record, unrelated reference/view, takeover, cancellation, replacement
+  and retirement. The UI/framework peers are controlled; these are not installed
+  Android/provider qualification claims.
+- All 349 JS cases pass sequentially in 19.491 seconds. Python passes 173/175 in
+  55.418 seconds, with only the two existing Windows symlink-privilege skips.
+  Full native ASan/UBSan/API26 checks pass; all 103 native and 13 product input
+  hashes match. Seven final Android package contracts also pass, requiring the
+  actual new private Worker.Guard DEX definition rather than a reference.
+- Refresh both development programs and pass all 12 actual packed Windows runtime
+  checks. Windows: 6,936,426 bytes, SHA-256
+  1078e580d903fbbbf3e1ee8de9aa8ad46820a0b28e1e6d81517d669f23188cfb.
+  Full Android QA APK: 6,464,833 bytes, SHA-256
+  edc74851714ac3b5ef24c5d648e4835aa503b4d9914570f6be10fac2ffe32ffb.
+  Actual DEX, private provider, six JNI exports, ARM64/16 KiB engine, archive/source
+  identities and retained v2/v3 signer pass. Engine and paired 247,351-byte/22-file
+  plugin remain unchanged. Evidence: .mdo/E100-native-current.json,
+  .mdo/E100-product-current.json, .mdo/E100-final-identities.log,
+  .mdo/E100-android-receipt.json and corresponding E100 test/build logs.
+- Restore the sole headless service: PID 14704, HTTP 200 on 63625, about 3,440.8 MiB.
+  Goal remains active. Next join initial-create observation and same-document
+  completion to their original native evidence. History/reload, exact download
+  association, remaining transfer lifetimes, Android public save/text/blob and the
+  documented full-goal work remain open. Device/framework/automation qualification
+  remains false; phone and installed WebView checks remain deferred. No formal
+  data, installed phone app, online release or provider version was changed.
