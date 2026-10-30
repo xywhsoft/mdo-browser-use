@@ -121,6 +121,12 @@ def main():
     if not bodies.get('passed') or not bodies.get('original_body_permits') or bodies.get('real_body_sessions')!=3 or bodies.get('real_async_body_pairs')!=1 or bodies.get('real_retired_read_sessions')!=1 or bodies.get('provider_qualified') is not False or bodies.get('product_downloads_activated') is not False:
         raise RuntimeError('The original paused-response stream gate did not pass')
     result['jvm_response_body']=bodies
+    offers=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpOfferProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
+    if (not offers.get('passed') or not offers.get('original_deferred_offers') or offers.get('real_deferred_offer_sessions')!=2
+            or offers.get('provider_qualified') is not False or offers.get('product_downloads_activated') is not False):
+        raise RuntimeError('The original deferred response offer gate did not pass')
+    result['jvm_deferred_offers']=offers
     downloads=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpDownloadQueueProbe',str(output/'download-queue-files')],cwd=ROOT,env=environment,text=True,timeout=30))
     if (not downloads.get('passed') or not downloads.get('original_native_body_joined') or not downloads.get('real_guarded_files')

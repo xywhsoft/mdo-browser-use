@@ -3261,3 +3261,33 @@ boundaries, including protocol progress during an actually blocked file opener.
 The response peer is controlled; Android Context/UID authority, product actions,
 read/save transport and installed provider/UI qualification remain outstanding.
 The product still continues original responses and does not activate downloads.
+
+
+## Hold the original response before acceptance (E88a)
+
+`retainPausedResponse` creates a native Offer only in the exact original root
+candidate event. Its snapshot contains bounded metadata, not a wire selector.
+At most eight pending offers share the session's 4,096 lifetime request keys.
+Retaining consumes the event once but sends no claim, continuation or body read.
+The original request, including its POST/body/cookies, is never reconstructed.
+
+Offer.accept/cancel are atomic native decisions without UI socket I/O. The
+existing common pump applies accepted limits and claims the original response
+later. Its transfer lifetime starts at native dispatch. Permission waiting has
+its own original 120-second lifetime; page RPCs and polling do not renew it.
+Expired/cancelled offers emit only an exact fixed abort. A known Content-Length
+above the requested maximum rejects that acceptance without consuming the offer.
+The caller can choose an allowed larger maximum or explicitly cancel.
+
+Only a valid claim ACK returns the original Body. That is acceptance evidence,
+not a successful download. BodyResult, both cleanup ACKs and verified cache
+bytes are still required. Cancellation during an in-flight claim revokes its
+body without reading; uncertain/malformed/lost replies remain explicit.
+Physical connection closure does not prove that a held request was aborted.
+
+The full 153-check native-offer gate includes two real JNI/kernel sessions and
+strict exact command sequences, plus atomic UI decisions, frozen metadata,
+absolute deadlines, cross-event duplicate protection, bounded admission and
+fair scheduling. Provider/product activation remains false. Public download
+list/accept/cancel/read/save integration and installed Android qualification
+remain outstanding; this change alone does not enable Android Browser Use.

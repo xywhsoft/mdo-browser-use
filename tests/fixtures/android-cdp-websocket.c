@@ -226,6 +226,20 @@ static void* Serve(void* Data)
         Fixture->Frames+=ClientCommand(Fd,6,"Runtime.evaluate",NULL);
         Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"private-late-data\",\"eof\":true}}");Packet(Fd,"{\"id\":6,\"result\":{}}");
         char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;
+    } else if ( Fixture->Mode==40 || Fixture->Mode==41 ) {
+        Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+        Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\",\"url\":\"https://private.invalid/one-shot\",\"postData\":\"private-body\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment\"}]}}");
+        Packet(Fd,"{\"id\":1,\"result\":{}}");
+        Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);Packet(Fd,"{\"id\":2,\"result\":{}}");
+        if ( Fixture->Mode==40 ) {
+            Fixture->Frames+=ClientBodyCommand(Fd,3,"Fetch.takeResponseBodyAsStream","{\"requestId\":\"interception-job-7.0\"}");
+            Packet(Fd,"{\"id\":3,\"result\":{\"stream\":\"stream-7.0\"}}");
+            Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.read","{\"handle\":\"stream-7.0\",\"size\":64}");
+            Packet(Fd,"{\"id\":4,\"result\":{\"data\":\"AQID\",\"base64Encoded\":true,\"eof\":true}}");
+            Fixture->Frames+=ClientBodyCommand(Fd,5,"IO.close","{\"handle\":\"stream-7.0\"}");Packet(Fd,"{\"id\":5,\"result\":{}}");
+            Fixture->Frames+=ClientFetchControlId(Fd,6,1,NULL);Packet(Fd,"{\"id\":6,\"result\":{}}");
+        } else {Fixture->Frames+=ClientFetchControlId(Fd,3,1,NULL);Packet(Fd,"{\"id\":3,\"result\":{}}");}
+        {char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;}
     } else if ( Fixture->Mode>=35 && Fixture->Mode<=37 ) {
         Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
         Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\",\"url\":\"https://private.invalid/one-shot\",\"postData\":\"private-body\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment; filename=private.bin\"}]}}");

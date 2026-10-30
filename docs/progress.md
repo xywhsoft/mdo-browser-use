@@ -7718,3 +7718,43 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   unsupported text handling and installed provider/main-UI qualification remain
   open. Phone and provider update stay deferred. No installation, formal-data
   edit, actual model/external-page action, app/Home/source copy or publication.
+
+
+## E88a — retain the original response until explicit acceptance
+
+- Close a missing permission boundary: taking the stream directly in its event
+  callback could not wait for a later accept or apply that accept's byte/time
+  settings. Add eight native Offer permits frozen from exact candidate events.
+  Retention sends no continuation, stream claim or body read. It consumes the
+  original event once and shares the 4,096 lifetime-key budget.
+- Native accept/cancel only record atomic decisions. The existing protocol pump
+  sends the fixed original claim/abort later, without supplied request IDs,
+  URLs, headers, bodies or generic commands. Apply the accepted byte limit and
+  start its transfer lifetime at dispatch; pending permission has an independent
+  original 120-second lifetime, not renewed by page calls or inspection. Recheck
+  expiry/cancellation at dispatch and rotate pending offers fairly.
+- Preserve exact claim/abort acknowledgements and uncertain terminal outcomes.
+  An accepted offer carries its original Body, whose separate outcome still
+  governs download completion. Cancel during a claim forwards to that body;
+  close/malformed/lost ACK never fabricates request cleanup confirmation. Old
+  immediate native diagnostic helpers use the same existing body implementation.
+- The current deferred-offer gate passes 153 checks and two actual JNI/kernel
+  sessions. The peer ACKs an initial page RPC, accepts another page RPC while its
+  original response remains held, then requires the exact original claim/read/
+  close/abort or cancellation-only sequence. Controlled checks cover no early
+  body I/O, atomic UI decisions, metadata freezing, deadlines, duplicates, limits,
+  fairness, missing/malformed ACKs and cancellation during send. Full native,
+  upload/worker/frame/input/ASan/UBSan/API26 gates pass
+  `.mdo/E88-native-final.log` / `.mdo/E88-native-current.json`; every source hash
+  matches. Existing body 900 and file-worker 126 gates remain green.
+- Python 173/175 passed in 59.875 s (`.mdo/E88-python-full.log`), with only the
+  existing Windows symlink-privilege skips. The final native-only fairness change
+  is covered by the current full native run above. Builders now require actual
+  Offer/OfferDecision/OfferResult DEX definitions. E87 APK is the last built
+  output until current assembly. Overlay remains 116 files; no shared JS changes.
+- Goal active. Retained response/acceptance is native groundwork; product tab/
+  navigation/download ownership, Context/UID cache authority, list/actions/UI,
+  private read/save transport, unsupported text handling and installed provider/
+  main-UI qualification remain open. Phone/provider update stay deferred. No
+  install, formal-data edit, model/external-page action, app/Home/source copy or
+  publication.

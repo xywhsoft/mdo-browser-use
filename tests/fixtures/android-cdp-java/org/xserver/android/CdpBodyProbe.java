@@ -15,7 +15,7 @@ import org.json.JSONObject;
 public final class CdpBodyProbe {
     private static int checks,realSessions,realAsyncPairs,realRetiredReads;
     private interface Work {void run()throws Exception;}
-    private interface Event {void run(JSONObject params)throws IOException;}
+    interface Event {void run(JSONObject params)throws IOException;}
     interface Send {boolean run(JSONObject command)throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Body check "+(checks+1));checks++;}
     private static IOException rejected(String code,Work work)throws Exception{
@@ -23,7 +23,7 @@ public final class CdpBodyProbe {
     }
     private static JSONObject result(int id,JSONObject value)throws Exception{return new JSONObject().put("id",id).put("result",value);}
     private static JSONObject data(String text,boolean base64,boolean eof)throws Exception{return new JSONObject().put("data",text).put("base64Encoded",base64).put("eof",eof);}
-    private static JSONObject paused(String id)throws Exception{
+    static JSONObject paused(String id)throws Exception{
         return new JSONObject().put("requestId",id).put("responseStatusCode",200).put("resourceType","Document")
             .put("request",new JSONObject().put("method","POST").put("url","https://private.invalid/?token=discarded").put("postData","private-request"))
             .put("responseHeaders",new JSONArray().put(new JSONObject().put("name","Content-Disposition").put("value","attachment; filename=private.bin")));

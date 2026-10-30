@@ -92,6 +92,40 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean claimDownload(Body body){return source==body&&!erased.get()&&downloadClaimed.compareAndSet(false,true);}
         @Override public void close(){erased.set(true);Arrays.fill(data,(byte)0);}
     }
+    /** Native original response held before permission/transfer admission.
+     * Decisions are atomic and perform no I/O. The owning protocol worker
+     * applies the first acceptance to this frozen event, never a supplied ID. */
+    static final class Offer {
+        private final MdoBrowserCdpSession owner;private PausedEvent original;private final MdoBrowserCdpResponse metadata;
+        private final long born;private final AtomicReference<OfferDecision> decision=new AtomicReference<>();
+        private final AtomicBoolean cancelled=new AtomicBoolean();private final AtomicReference<OfferResult> outcome=new AtomicReference<>();
+        private volatile Body claimed;private boolean issued;private String abortCode;
+        private Offer(MdoBrowserCdpSession owner,PausedEvent original,long born){this.owner=owner;this.original=original;metadata=original.response;this.born=born;}
+        MdoBrowserCdpResponse metadata(){return metadata;}
+        OfferResult result(){return outcome.get();}
+        void accept(long maximum,int timeoutMs)throws IOException {
+            if(maximum<1||maximum>64L*1024*1024||timeoutMs<1000||timeoutMs>600000)throw new IOException("cdp_offer_arguments_invalid");
+            if(metadata.declaredLength>maximum)throw new IOException("cdp_offer_byte_limit");
+            if(owner.closed.get()||outcome.get()!=null||cancelled.get())throw new IOException("cdp_offer_unavailable");
+            long elapsed=owner.clock.now()-born;
+            if(elapsed<0||elapsed>=120000){cancelled.set(true);throw new IOException(elapsed<0?"cdp_offer_clock_invalid":"cdp_offer_expired");}
+            if(!decision.compareAndSet(null,new OfferDecision(maximum,timeoutMs)))throw new IOException("cdp_offer_already_decided");
+        }
+        void cancel(){cancelled.set(true);Body body=claimed;if(body!=null)body.cancel();}
+    }
+    private static final class OfferDecision {
+        final long maximum;final int timeout;
+        OfferDecision(long maximum,int timeout){this.maximum=maximum;this.timeout=timeout;}
+    }
+    static final class OfferResult {
+        final boolean accepted,claimMayHaveOccurred,requestAbortConfirmed;final String code;final Body body;
+        private OfferResult(Offer offer,boolean accepted,boolean aborted,String code){
+            this.accepted=accepted;requestAbortConfirmed=aborted;this.code=code;body=offer.claimed;
+            claimMayHaveOccurred=body!=null&&body.claimMayHaveOccurred;
+        }
+        private OfferResult(){accepted=false;claimMayHaveOccurred=true;requestAbortConfirmed=false;code="cdp_offer_outcome_unavailable";body=null;}
+    }
+    private static final OfferResult OFFER_UNKNOWN=new OfferResult();
     private static final int CONTROL_LIMIT=256,CONTROL_HISTORY=4096,CONTROL_TIMEOUT=5000;
     private static final int FLOW=0,CLAIM=1,BODY_READ=2,BODY_CLOSE=3,BODY_ABORT=4;
     private static final ControlResult CONTROL_CANCELLED=new ControlResult(false,"cdp_control_cancelled",0,true);
@@ -112,8 +146,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         }
     }
     private static final class Control {
-        final int id;final String session;final long born;final ControlReceipt receipt;final Body body;final int kind,timeout;
-        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout){this.id=id;this.session=session;this.born=born;this.receipt=receipt;this.body=body;this.kind=kind;this.timeout=timeout;}
+        final int id;final String session;final long born;final ControlReceipt receipt;final Body body;final int kind,timeout;final Offer offer;
+        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout){this(id,session,born,receipt,body,kind,timeout,null);}
+        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout,Offer offer){this.id=id;this.session=session;this.born=born;this.receipt=receipt;this.body=body;this.kind=kind;this.timeout=timeout;this.offer=offer;}
     }
     /** Only explicit native event diagnoses may cross the event callback.
      * Ordinary exception/provider messages keep the generic sanitized result. */
@@ -139,10 +174,11 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Object controlGate=new Object();private final Control[] controls=new Control[CONTROL_LIMIT];
     private final Set<String> controlKeys=new HashSet<>();private int controlCount;
     private final Body[] bodies=new Body[8];private final Set<String> streamIds=new HashSet<>();
+    private final Offer[] offers=new Offer[8];
     private final Set<Integer> retiredBodyReads=new HashSet<>();
     private PausedEvent paused;private long activeStarted;private int activeTimeout;private String controlFault;
     private volatile Wire wire;
-    private int serial,bodyCursor;private boolean busy;
+    private int serial,bodyCursor,offerCursor;private boolean busy;
 
     private MdoBrowserCdpSession(BooleanSupplier current,Events events,Clock clock) {
         this.current=Objects.requireNonNull(current);this.events=Objects.requireNonNull(events);this.clock=Objects.requireNonNull(clock);
@@ -230,6 +266,73 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(paused.request==null||!admitted(paused.session))throw new EventFailure("cdp_control_event_invalid");
         return paused.response;
     }
+    Offer retainPausedResponse()throws IOException {
+        guard(false);PausedEvent original=paused;
+        if(!busy||original==null)throw failure("cdp_control_not_in_event",false);
+        if(original.request==null||!admitted(original.session))throw new EventFailure("cdp_control_event_invalid");
+        if(original.session!=null)throw new EventFailure("cdp_body_source_unsupported");
+        if(!original.response.kind.equals("candidate"))throw new EventFailure("cdp_body_not_candidate");
+        synchronized(controlGate){
+            guard(false);if(original.used||controlKeys.contains(original.key))throw new EventFailure("cdp_control_duplicate");
+            if(controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_control_limit");
+            int slot=0;while(slot<offers.length&&offers[slot]!=null)slot++;if(slot==offers.length)throw new EventFailure("cdp_body_limit");
+            Offer offer=new Offer(this,original,clock.now());controlKeys.add(original.key);original.used=true;offers[slot]=offer;return offer;
+        }
+    }
+    int pendingOffers()throws Failure {
+        if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
+        synchronized(controlGate){int count=0;for(Offer offer:offers)if(offer!=null)count++;return count;}
+    }
+    private void finishOffer(Offer offer,boolean accepted,boolean aborted,String code){
+        synchronized(controlGate){
+            if(offer.outcome.get()!=null)return;OfferResult result;
+            try{result=new OfferResult(offer,accepted,aborted,code);}catch(RuntimeException|Error failure){result=OFFER_UNKNOWN;}
+            offer.outcome.compareAndSet(null,result);offer.original=null;
+            for(int i=0;i<offers.length;i++)if(offers[i]==offer)offers[i]=null;
+        }
+    }
+    private boolean serviceOffers(int timeoutMs)throws IOException {
+        Offer selected=null;OfferDecision decision=null;
+        synchronized(controlGate){
+            long now=clock.now();for(int count=0;count<offers.length;count++){
+                int index=offerCursor;offerCursor=(offerCursor+1)%offers.length;Offer offer=offers[index];if(offer==null||offer.issued)continue;
+                long elapsed=now-offer.born;OfferDecision next=offer.decision.get();
+                if(offer.cancelled.get()||elapsed<0||elapsed>=120000||next!=null){
+                    selected=offer;
+                    if(elapsed<0)offer.abortCode="cdp_offer_clock_invalid";
+                    else if(elapsed>=120000)offer.abortCode="cdp_offer_expired";
+                    else if(offer.cancelled.get())offer.abortCode="cdp_offer_cancelled";
+                    else decision=next;break;
+                }
+            }
+        }
+        if(selected==null)return false;
+        sendOffer(selected,decision,timeoutMs);return true;
+    }
+    private void sendOffer(Offer offer,OfferDecision decision,int timeoutMs)throws IOException {
+        byte[] bytes=null;Control row=null;boolean attempted=false;busy=true;
+        try{int left;synchronized(controlGate){
+            guard(false);if(offer.owner!=this||offer.original==null||offer.issued)throw failure("cdp_offer_unavailable",false);
+            if(serial==Integer.MAX_VALUE||controlCount>=CONTROL_LIMIT)throw failure("cdp_control_limit",false);
+            long now=clock.now(),elapsed=now-offer.born;
+            if(decision!=null&&(elapsed<0||elapsed>=120000)){offer.abortCode=elapsed<0?"cdp_offer_clock_invalid":"cdp_offer_expired";decision=null;}
+            int bodySlot=0;while(bodySlot<bodies.length&&bodies[bodySlot]!=null)bodySlot++;
+            if(decision!=null&&offer.cancelled.get()){offer.abortCode="cdp_offer_cancelled";decision=null;}
+            if(decision!=null&&bodySlot==bodies.length){offer.abortCode="cdp_body_limit";decision=null;}
+            PausedEvent original=offer.original;
+            Body body=decision==null?null:new Body(this,original,now,decision.maximum,decision.timeout);
+            JSONObject params=new JSONObject().put("requestId",original.request);if(body==null)params.put("errorReason","Aborted");
+            ControlReceipt receipt=body==null?new ControlReceipt():body.claim;
+            row=new Control(++serial,original.session,now,receipt,body,body==null?FLOW:CLAIM,CONTROL_TIMEOUT,offer);
+            bytes=MdoBrowserCdpJson.encode(row.id,body==null?"Fetch.failRequest":"Fetch.takeResponseBodyAsStream",params,original.session);
+            left=remaining(now,timeoutMs,false);int slot=0;while(controls[slot]!=null)slot++;
+            controls[slot]=row;controlCount++;row.receipt.issued=true;offer.issued=true;
+            if(body!=null){bodies[bodySlot]=body;body.claimMayHaveOccurred=true;offer.claimed=body;if(offer.cancelled.get())body.cancel();}
+        }guard(false);attempted=true;wire.send(bytes,left);
+        }catch(IOException|org.json.JSONException|RuntimeException|Error failure){
+            if(row!=null)row.receipt.finish(CONTROL_SEND_FAILED);finishOffer(offer,false,false,"cdp_offer_dispatch_failed");close();throw failure("cdp_offer_dispatch_failed",attempted);
+        }finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
+    }
     private ControlReceipt pausedControl(boolean abort)throws IOException {
         return issuePaused(abort,null).receipt;
     }
@@ -310,7 +413,11 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                     }
                     if(!result.ok){if(result.protocolCode==-32601)body.claimMayHaveOccurred=false;finishBody(body,false,result.code);}
                 }
-                row.receipt.finish(result);controls[i]=null;controlCount--;break;
+                if(row.offer!=null&&row.kind==FLOW&&result.ok&&message.value.length()!=0)result=new ControlResult(false,"cdp_control_reply_invalid",0,true);
+                row.receipt.finish(result);
+                if(row.offer!=null)finishOffer(row.offer,row.kind==CLAIM&&result.ok,row.kind==FLOW&&result.ok,
+                    result.ok?(row.kind==CLAIM?(row.offer.cancelled.get()?"cdp_offer_cancelled":null):row.offer.abortCode):result.code);
+                controls[i]=null;controlCount--;break;
             }
         }
         if(result==null)return false;
@@ -438,7 +545,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     boolean serviceBodies(int sendTimeoutMs)throws IOException {
         guard(false);if(busy)throw failure("cdp_session_busy",false);
         if(sendTimeoutMs<10||sendTimeoutMs>5000)throw failure("cdp_body_arguments_invalid",false);
-        try{Body selected=null;int kind=0;synchronized(controlGate){
+        try{if(serviceOffers(sendTimeoutMs))return true;Body selected=null;int kind=0;synchronized(controlGate){
             long now=clock.now();
             for(Body body:bodies)if(body!=null){
                 long used=now-body.born;
@@ -626,6 +733,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             first=closed.compareAndSet(false,true);
             for(int i=0;i<controls.length;i++)if(controls[i]!=null){controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;}
             controlCount=0;controlKeys.clear();
+            for(Offer offer:offers)if(offer!=null)finishOffer(offer,false,false,"cdp_offer_connection_closed");
             for(Body body:bodies)if(body!=null)finishBody(body,false,"cdp_body_connection_closed");streamIds.clear();retiredBodyReads.clear();
         }
         if(first){Wire connection=wire;if(connection!=null)connection.close();}

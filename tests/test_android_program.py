@@ -50,6 +50,7 @@ class ActualDexClassesTests(unittest.TestCase):
         for required in ('MdoBrowser$NetworkEntry','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpBinding$Network',
                          'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpResponse',
                          'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
+                         'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',
                          'MdoBrowserDownloadFiles','MdoBrowserDownloadFiles$Writer','MdoBrowserDownloadFiles$Failure',
                          'MdoBrowserDownloadQueue','MdoBrowserDownloadQueue$Ticket','MdoBrowserDownloadQueue$Snapshot'):
             self.assertIn(required,program.HOST_CLASSES)
