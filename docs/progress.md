@@ -7504,3 +7504,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   accept/cancel/save and provider/main-UI qualification remain unfinished. No
   phone/provider update, formal data edit, extra application/Home/source copy,
   actual model/external page action, new runtime dependency or online release.
+
+## E84c — verify guarded body types in the complete development APK
+
+- Apply the 114 reviewed files with the single service stopped. Reuse the
+  verified unchanged ARM64 engine and current exercised E82 app archive/paired
+  plugin. Compile exact current body/metadata/ownership code and require actual
+  Body, BodyResult and BodyChunk DEX definitions. Source/native/app hashes, six
+  JNI entries, private provider/manifest, ARM64/16 KiB alignment and v2-v3 signing
+  pass (`.mdo/E84-final-android-build.log`). Preserve QA identity/signer/serial.
+  APK 6,423,873 bytes, SHA-256
+  `b56f3d164daaf8ece4a22d63f23e13985e02dc11aa91580f4842613520dcac6a`.
+- Verify current APK/Android source identities, exact reused app archive and
+  Windows binary/runtime/paired-plugin receipt, every E84b native-gate source
+  hash, and false device/framework/automation qualification flags. Restore the
+  existing headless service to HTTP 200 on 63625, approximately 3,435.0 MiB.
+  Seven current APK contracts and full current native gates are recorded above.
+- Goal remains active. No full download/product/provider completion claim:
+  cache/hash/storage, nonblocking body service/idle expiry, list/permission/
+  accept/cancel/save, unsupported text transport handling and actual provider/UI
+  qualification remain open. Phone and provider update remain deferred. No
+  installation, formal data edit, actual model/external page action, application/
+  Home/source copy, new runtime dependency or online publication.
