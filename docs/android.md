@@ -28,9 +28,11 @@ original operation keys, UI mutation reservations, cancellation and saved
 receipts. The ordinary frame reader still refuses that mutation. Its capability
 follows the overall qualified adapter, so it stays false in this unqualified APK.
 Automatic chooser assignment remains unavailable and these components do not
-enable automation.
+enable automation. E77 aligns private worker/session/binding/chooser/upload and
+kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
+sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E76b)
+## Complete development host APK (E46/E77)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -38,7 +40,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,403,393 bytes, SHA-256
-`085f53278abfb5188d60360cc3a05a42b71ef22f86968372708aef3d8949e518`.
+`565f440fbaec9e7bd7ea7184987ef840c9b805a1f5cec4c3e7932115d81fb03e`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -234,8 +236,8 @@ allocations under ASan/UBSan, including strict-reader/JNI faults. Earlier
 310-check discovery and 138-check real-JVM worker gates also pass. These do not
 qualify an installed Chromium provider (`.mdo/E51-dispatcher.log`).
 
-The full ARM64 library is 3,547,088 bytes, SHA-256
-`a21f1120fbaae36bcaa29a472e9eae3a61248a5ca270968fd62b1a677f6e7d90`.
+The current E77 ARM64 library is 3,547,104 bytes, SHA-256
+`af06385599860d01df28e3c20c052c06e7006d020f408ce502e87487b06536dc`.
 The complete development APK checks all six JNI exports and the SDK dexdump's
 actual class definitions, including the private Channel/codec/dispatcher.
 Class-name references cannot stand in for missing definitions. Reject bundled
@@ -2791,3 +2793,37 @@ JS facade also preserve the Android-style original receipt and cleanup guidance.
 JS 331/331 and Python 171/173 pass, with the two existing Windows symlink skips.
 The complete E76b APK compiles, aligns, signs and verifies; installed framework,
 provider/URI/event behavior and the remaining Android features are unqualified.
+
+### Suspend-inclusive native deadlines (E77)
+
+Private worker admission, protocol sessions, binding/marker waits, isolated-world
+setup, chooser leases and standalone upload steps now use Android elapsed realtime.
+The upload coordinator keeps its original injected clock. A queued expired job
+cannot begin discovery or dispatch input; an expired discovery cannot ask the UI
+for a marker. Marker waits check elapsed time before accepting a callback and use
+short uptime waits to recheck promptly after resume. A late event-poll packet is
+rejected before native delivery; an ordinary idle poll remains a normal empty
+result. No connection replacement or action replay is introduced.
+
+The private C transport uses `CLOCK_BOOTTIME`, slices relative `poll` waits to
+at most 20 ms and rechecks that original deadline on readiness or interruption.
+This prevents in-progress socket/assembly waits from ignoring time in suspend.
+See [Android's clock contract](https://developer.android.com/reference/android/os/SystemClock).
+
+Controlled regressions fail against the previous worker, session/poll and C clock
+paths. With the fixes, the complete native gate passes 317 socket, 1,141 WebSocket,
+4,324 protocol-dispatcher (eight real local sessions), 477 binding, 191 worker,
+571 world, 1,682 chooser, 1,532 upload-worker, 444 upload-coordinator, 129 product
+upload, 307 core-clear and 234 product-clear checks, plus the other native gates,
+ASan/UBSan and ARM64 API 26 compilation (`.mdo/E77-bootclock-native-full.log`/`.json`).
+Clock jumps and Android/DOM peers are controlled; real provider, sleep/Doze and
+installed UI/URI/event behavior remain unqualified.
+
+Rebuild the same ARM64 output and complete E77 APK with current source/compiler,
+ABI/DEX/provider/alignment/v2-v3 signing checks. JS 331/331 and Python 171/173 pass
+(two existing Windows symlink privilege skips). Logs are
+`.mdo/E77-android-native-build.log`, `.mdo/E77-android-program-build.log`,
+`.mdo/E77-node-full.log` and `.mdo/E77-python-full.log`. The Windows W4 app and
+paired plugin are unchanged. One source/Home/native output is reused, and the
+headless service is restored to HTTP 200. Phone connection and WebView updates
+remain deferred; global Android automation stays disabled.

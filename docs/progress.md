@@ -6910,3 +6910,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Commit the independent C fix, then apply reviewed sources with the service
   stopped and rebuild the one ARM64 host/APK. Current E76b artifact is unchanged
   until its new build receipt passes. Goal active, phone/provider deferred.
+
+## E77d — package the elapsed-deadline fixes and restore the single deployment
+
+- With all test/build handles terminal, stop the development service and apply
+  reviewed host/JNI overlays to its existing pinned source checkouts. Rebuild
+  the same ARM64 native output; source/compiler/profile/dependency/ABI receipts
+  pass (`.mdo/E77-android-native-build.log`). Library 3,547,104 bytes, SHA-256
+  `af06385599860d01df28e3c20c052c06e7006d020f408ce502e87487b06536dc`.
+- Complete E77 development APK passes actual DEX definitions, manifest/private
+  provider, exact native payload, 16 KiB ELF/zip alignment, v2-v3 signatures and
+  preserved QA package/certificate/serial (`.mdo/E77-android-program-build.log`).
+  Artifact 6,403,393 bytes, SHA-256
+  `565f440fbaec9e7bd7ea7184987ef840c9b805a1f5cec4c3e7932115d81fb03e`.
+  Verify current Android/builder/native input hashes and every final native-test
+  source hash against the final files. Keep device/framework/automation flags
+  false. No phone install, provider update or qualification substitution.
+- Full public regressions: JS 331/331 in 19.242 s, Python 171/173 in 57.682 s,
+  with only the two existing Windows symlink privilege 1314 skips
+  (`.mdo/E77-node-full.log`, `.mdo/E77-python-full.log`). Restore the same headless
+  deployment: port 63625, HTTP 200, approximately 3,432 MiB. Recheck unchanged W4
+  Windows and paired plugin receipts; no product/source/Home copies or online
+  release, external page actions, model calls or formal user-data modifications.
+- Goal active. Native file clear and suspend-inclusive deadline source paths are
+  joined and packaged. Actual Android provider/main-UI/URI/event qualification,
+  intercepted chooser association and remaining directory/download/profile/
+  activation work stay outstanding. Historical Windows intermittent input
+  failures remain unattributed. Respect the user's deferred phone/current-WebView
+  decision; continue feasible development without claiming all Browser Use done.
