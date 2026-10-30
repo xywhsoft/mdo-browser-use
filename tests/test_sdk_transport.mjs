@@ -8,6 +8,21 @@ const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 const outcome = promise => promise.then(value => ({ value }), error => ({ error }));
 
+test('recovering a native world failure keeps explicit recovery advice and effect uncertainty without resubmission',async()=>{
+  for(const possible of [false,true]){
+    const operation='sdk-'+'c2'.repeat(16),calls=[];
+    const detail={code:possible?'action_uncertain':'browser_world_limit',message:'Use manual control or explicitly close this browser',
+      effect_may_have_occurred:possible,world_reason:'world_identity_limit',recovery:{action:'manual_or_close',automatic_retry:false}};
+    const browser=createBrowserUseClient({async call(method,params){
+      calls.push({method,params});return{state:'failed',operation,error:detail,result:{ok:false,error:detail}};
+    }});
+    await assert.rejects(browser.recover(operation,{retain:true}),error=>{
+      assert.equal(error.code,detail.code);assert.equal(error.operation,operation);assert.deepEqual(error.details.error,detail);return true;
+    });
+    assert.deepEqual(calls,[{method:'browseruse.operation',params:{action:'get',operation}}]);
+  }
+});
+
 test("cancelling an in-flight admission settles even when its adapter ignores abort", async () => {
   const started = deferred(), admission = deferred(), calls = [];
   const sdk = { async call(method, params, options) {

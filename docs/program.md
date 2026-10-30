@@ -17,8 +17,8 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (W3b, including W3a/W2/W1/E66/F21) is **6,933,616 bytes**, SHA-256
-`053677eedaa63352b836630f162d588964061cf8d99d29386344d7d3ef954d69`.
+The current refreshed preview (W4, including W3b/W3a/W2/W1/E66/F21) is **6,934,261 bytes**, SHA-256
+`26bc29244e682f42cbbc30ee1658f652ac9b2494b334f045ea30ff182fa13481`.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
@@ -79,6 +79,17 @@ are also fixed. Verification: 80 controlled world checks, 17 routed callback
 checks, 14 actual root checks, 470 file-input lifecycle checks, 1,375 full browser
 checks, 260 frame checks and twelve actual packed-program checks. JS 319/319 and
 Python 169/171 pass, with the two existing Windows symlink privilege skips.
+
+W4 reports a known persistent native world failure before another page effect,
+with explicit manual-control/close guidance rather than repeated observation.
+An error recorded during the first failed admission is diagnosed from the same
+original scope without repeating its script. Already dispatched input keeps its
+uncertain outcome; original receipts/recovery never replay it. Native dialog,
+popup and picker boundaries and retained transfer cleanup stay available.
+The actual C receipt adapter and public JS recovery preserve the reason/advice.
+The refreshed program passes all twelve packed runtime checks and fourteen
+actual original-world checks; controlled fault tests cover the persistent-error
+classification, which is not a new real-provider failure reproduction.
 
 F20 also removes the fixed queue-delivery delay while the existing authenticated
 live connection is available. A coalesced, data-free hint wakes a serialized

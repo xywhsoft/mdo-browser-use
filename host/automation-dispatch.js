@@ -8,6 +8,12 @@ import { executeDownloadSave, downloadSaveState } from "./download-save.js";
 
 const writers = new Set();
 let capturing = false;
+// These native errors are retained for the physical view's lifetime. An absent
+// root pin before first use is normal; only an explicit, known native failure
+// can require this recovery. Never echo arbitrary state strings as a reason.
+const worldFailures=new Set(['world_events_unavailable','world_event_routing_unavailable','world_event_metadata_unavailable',
+  'world_event_limit','world_context_metadata_invalid','world_context_metadata_rebound','world_unique_context_unsupported',
+  'world_unique_context_unconfirmed','world_runtime_unavailable','world_identity_limit']);
 const sameGeometry = (a, b) => a?.element.ref === b?.element.ref &&
   a.geometry?.every((number, index) => Math.abs(number - b.geometry[index]) <= 0.5);
 const captureChanges=(before,after)=>{
@@ -36,6 +42,16 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','fill','type','key','drag'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
     error: { code, message, effect_may_have_occurred: dispatched }, action: action.id } });
+  const needsWorld=!['dialog','chooser','download','save_download'].includes(command)&&!(command==='upload'&&['status','release'].includes(params.action));
+  const worldFailure=state=>{
+    const reason=state.automation_world_error;if(!needsWorld||!worldFailures.has(reason))return null;
+    const limited=reason==='world_identity_limit';
+    const message=(dispatched?'Input may already have been delivered; inspect its original receipt and effects. ':'')+
+      (limited?'This browser reached its retained execution-world limit. ':'This browser cannot verify its original execution worlds. ')+
+      'Use manual control or explicitly close this browser before deciding whether to open another. Repeating observation or reloading the same view cannot clear its recorded failure.';
+    const result=fail(dispatched?'action_uncertain':limited?'browser_world_limit':'browser_world_unavailable',message);
+    result.result.error.world_reason=reason;result.result.error.recovery={action:'manual_or_close',automatic_retry:false};return result;
+  };
   const exclusive = writing || command === "capture";
   const captures=command==='capture'||command==='act'&&Boolean(params.target?.image);
   if (exclusive && (writers.has(writer) || downloadSaveState(writer)) || captures && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
@@ -144,6 +160,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (state.popup_open) return popupBoundary();
     if (state.chooser_cleanup_failed && writing && !(command==='upload'&&params.action==='release')) return fail("chooser_cleanup_failed","File-picker cleanup was not confirmed; end this browser before further input");
     if (state.chooser_open && ["act","navigate_to","wait_for"].includes(command) || state.chooser_open && command==='upload' && params.action!=='release'&&!params.chooser) return chooserBoundary();
+    const worldStopped=worldFailure(state);if(worldStopped)return worldStopped;
     if (navigation !== undefined && state.navigation !== navigation) return fail("stale_document", "The document changed; inspect it before another input");
     return { state };
   };
@@ -517,6 +534,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       // identity is published. Keep the original input; inspect metadata only.
       try{while(performance.now()<downloadCheckpointUntil){const checked=await guard(true);if(checked.handled)return checked;await pause(20);}}catch{}
     }
+    // First admission can record a persistent native world error while the
+    // evaluation itself fails. Read only the original scope's guard; no script
+    // or input is retried, and cancellation/takeover still wins over diagnosis.
+    if(needsWorld)try{const checked=await guard(true);if(checked.handled)return checked;}catch{}
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
     if(dragRequested)try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}

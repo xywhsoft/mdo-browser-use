@@ -6604,3 +6604,59 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   URI/main-UI/clear/directory/download work. Do not infer full goal completion,
   retry the unchanged desktop visual gate or count unavailable platform evidence
   as a pass.
+
+## W4 — diagnose persistent world failures without replaying effects
+
+- Current-state review confirms the dispatcher ignored persistent native world
+  state and collapsed a first failed root admission into a generic read error,
+  potentially advising another observation even though that physical view cannot
+  clear the failure. Add a narrow allowlist of the ten retained native reason
+  codes. Distinguish retained-world quota exhaustion from unavailable original
+  identity/event/provider verification. Return manual-control/explicit-close
+  advice with `automatic_retry:false`, without claiming one failed qualification
+  proves permanent provider incompatibility. A missing initial pin is normal;
+  unknown strings are neither echoed nor used as authority.
+- Do not close/reopen/reload, retry a script or resubmit an action. The catch path
+  can read only the original scope's guard to diagnose the first recorded error.
+  Cancellation, changed scope, manual takeover and existing modal/popup/picker
+  boundaries keep priority. Previously dispatched effects keep
+  `action_uncertain` and their true uncertainty flag. Leave native metadata,
+  upload status/confirmed release, download and publication paths available under
+  their original controls; no raw native IDs or new C/JS signatures are exposed.
+- `.mdo/W4-recovery-red.log` preserves the pre-fix public-dispatch red evidence:
+  ignored known permanent view state, generic first-admission failure, and a
+  successful-looking controlled response after the first input lost its world.
+  These are controlled native-state peers, not new historical/provider fault
+  attribution. Seven focused groups exercise all ten reasons over five page
+  operations, first failure, after-input uncertainty, explicit cleanup, pending
+  boundaries, unknown/absent metadata and lost original scope. Together with the
+  existing dispatcher/Android integration cases, 62/62 pass
+  (`.mdo/W4-recovery-focused.log`).
+- The actual C operation/UI broker test passes original receipt recovery for
+  proven no-effect and uncertain-effect records: exact reason/advice survive
+  get/repeated-submit/result, with no action requeued (`.mdo/W4-receipt-focused.log`,
+  4/4). Add the matching public JS recovery assertion: inspect the original
+  operation only, retain details/uncertainty and never submit it again. The SDK
+  file passes 7/7 (`.mdo/W4-sdk-recovery.log`).
+- Full JS 326/326 in 19.291 s before the additional SDK-only test; that test and
+  its six unchanged companions subsequently pass. Full Python 170/172 in
+  55.846 s with the same two Windows symlink-privilege skips
+  (`.mdo/W4-node-full.log`, `.mdo/W4-python-full.log`). Apply reviewed host files
+  only after stopping the same service; no native binary rebuild is needed.
+  Actual WebView2 passes all fourteen original-world checks with no new native
+  diagnostics (`.mdo/W4-root-native.log`/`.json`).
+- In-place Windows preview: 6,934,261 bytes, SHA-256
+  `26bc29244e682f42cbbc30ee1658f652ac9b2494b334f045ea30ff182fa13481`;
+  `.mdo/W4-package.log`. All 750 inventory files and the unchanged paired plugin
+  match; the actual packed artifact passes all twelve C/JS/native runtime checks,
+  including input/capture and explicit page-error navigation recovery
+  (`.mdo/W4-program-probe.log`). Restore the existing headless service, HTTP 200.
+  No extra application/Home/source copy, formal data/provider changes, model
+  calls, external page action or online release. Android stays at E75; phone
+  testing and provider update remain deferred at the user's request.
+- Goal active. The historical intermittent nested-input failures still lack
+  complete attribution. Continue outstanding Android chooser mapping, clear,
+  directory/download/profile/activation integration and provider/main-UI/URI
+  qualification. Controlled peers and packaging cannot qualify the installed
+  Android framework; do not count unavailable evidence or the unchanged desktop
+  visual gate as passing completion.

@@ -1494,7 +1494,8 @@ before dispatch and on completion. There is no numeric/default-world fallback,
 automatic action retry or replacement-realm reconnection. The distinction between
 numeric and unique IDs follows the [native CDP Runtime contract](https://github.com/ChromeDevTools/devtools-protocol/blob/master/json/js_protocol.json).
 
-A context destruction/clear or changed original identity retires its pin;
+A context destruction or changed original identity retires its pin; reporting
+inventory loss blocks new effects but has the narrower cleanup rules in W3b below.
 legitimate numeric ID reuse may create a different pin with a new unique ID,
 but cannot rebind or revive the old object. Reading a same-origin WindowProxy
 can instantiate the same named world in its child: such native events do not
@@ -1594,3 +1595,37 @@ These private receipts do not expose raw IDs/protocol authority through the publ
 C/JS SDK. Run `python tools/native_file_input_probe.py` for the complete actual
 file-input lifecycle in the existing Home; the full browser and native frame
 gates also cover these paths. Android's provider/framework gate remains deferred.
+
+## Persistent world failure recovery (W4)
+
+A known nonempty native `automation_world_error` records a failure for the
+physical view's lifetime. Repeating observation or reloading that view cannot
+clear it. Before page work, the shared dispatcher reports `browser_world_limit`
+for exhausted retained-world budgets, or `browser_world_unavailable` for the
+allowlisted native identity/event/provider verification failures. Failure to
+qualify one view is not evidence of a permanently unsupported provider. Use
+manual control or explicitly close that browser before deciding whether to open
+another; the dispatcher never closes, recreates or replays it automatically.
+
+The error includes an allowlisted `world_reason` and
+`recovery:{action:"manual_or_close",automatic_retry:false}`. It exposes no raw
+protocol identity or arbitrary native error body. An unadmitted root pin before
+first use is normal, and a missing/unrecognized diagnostic string is not treated
+as a persistent failure or as added execution authority. Existing capability
+and document guards still apply.
+
+If the first admission records such an error while its original evaluation
+fails, one original-scope guard read diagnoses the failure; the script is never
+repeated. Cancellation, changed displaying scope, manual takeover and native
+dialog/popup/picker boundaries retain priority. A previously dispatched effect
+still returns `action_uncertain` with `effect_may_have_occurred:true`; recovery
+advice cannot turn it into a proven no-effect failure. Retain/recover the
+original operation and inspect its effects rather than submitting it again.
+The C result/operation adapter and JS client's `error.details.error` preserve the
+reason, recovery advice and uncertainty on the original failed receipt.
+
+Dialog/picker listing and their existing native cleanup, upload status/confirmed
+release, downloads and verified response publication do not require a new page
+world. The new classifier leaves those routes available, subject to their
+existing scope, capability, permission and cleanup rules. It grants no right to
+cancel or release another caller's record.

@@ -66,6 +66,29 @@ class BrowserOperationTests(unittest.TestCase):
         self.assertEqual(status, 409, json.loads(raw))
         self.assertEqual(json.loads(raw)["error"]["code"], "context_mismatch")
 
+    def test_world_recovery_advice_and_effect_uncertainty_survive_original_receipt_recovery(self):
+        for possible in (False, True):
+            self.operation = "sdk-" + uuid.uuid4().hex
+            submit = dict(self.submit, operation=self.operation)
+            dev.call("browseruse.operation", submit, self.scope); self.started = True
+            original = self.pending()
+            queued = [row for row in dev.call("client.poll", {"client": self.client}) if row["id"] == original["id"]]
+            self.assertEqual(len(queued), 1)
+            detail = {"code": "action_uncertain" if possible else "browser_world_limit",
+                      "message": "Use manual control or explicitly close this browser; do not replay the action",
+                      "effect_may_have_occurred": possible, "world_reason": "world_identity_limit",
+                      "recovery": {"action": "manual_or_close", "automatic_retry": False}}
+            dev.call("client.ack", {"client": self.client, "id": original["id"], "success": True,
+                                   "result": {"ok": False, "error": detail}})
+            for method, params in (("browseruse.operation", {"action": "get", "operation": self.operation}),
+                                   ("browseruse.operation", submit), ("browseruse.result", {"id": original["id"]})):
+                recovered = dev.call(method, params, self.scope)
+                self.assertEqual(recovered["state"], "failed")
+                self.assertEqual(recovered["error"], detail)
+                self.assertEqual(recovered["result"]["error"], detail)
+            self.assertFalse(dev.call("client.poll", {"client": self.client}), "Recovery requeued the failed browser action")
+            dev.call("browseruse.operation", {"action": "release", "operation": self.operation}, self.scope)
+
     def test_proven_argument_failure_is_distinct_from_an_uncertain_effect(self):
         request = dict(self.submit, method="browseruse.tabs", arguments={"action": "create"})
         dev.call("browseruse.operation", request, self.scope); self.started = True
