@@ -7210,3 +7210,29 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   accept/cancel integration. Preserve the user-deferred phone/current provider.
   This phase has not yet changed the E79 APK or deployed source; package after
   validation. No model, external page, device install, formal data or publication.
+
+## E80b — compile and package the physical-network facade
+
+- Validate the full 112-file overlay composition without writes, stop only the
+  existing development service, and apply reviewed source (`.mdo/E80-apply.log`).
+  Require the actual `MdoBrowserCdpBinding$Network` DEX definition in the complete
+  APK. The missing-definition/reference-only regression passes with all seven
+  packaging contracts (`.mdo/E80-apk-contract.log`).
+- Current complete development APK passes compiler, current source, actual DEX,
+  six native JNI entries, private provider/manifest, ARM64 ABI, alignment and
+  v2-v3 signature receipts (`.mdo/E80-android-build.log`). Size 6,407,489 bytes,
+  SHA-256 `eb6974d81994b20dfa3215c3060692e80bf73449d8741d75f7b3020a6a8b7aa9`.
+  Verify current builder/Android/native input hashes and every E80 native gate
+  input. Reuse the unchanged E77 ARM64 library, W4 Windows program/source archive
+  and paired plugin, plus the same QA signer/package/serial and one source/Home.
+- Restore the same headless service to port 63625 / HTTP 200; project deployment
+  is about 3,432.7 MiB. E80 changes no public JS/app-runtime source; relevant
+  existing E78 JS and E79 Python whole-suite evidence remains historical, not a
+  new rerun. This phase's current evidence is the full E80 native pipeline and
+  packaging-specific contracts/build/receipts above.
+- Goal active. The private physical proof/facade is implemented and packaged;
+  product physical-owner registry, pre-navigation startup barrier and persistent
+  event pump still require integration before original-response stream/cache/
+  accept/cancel can be enabled. Android global automation and provider/framework
+  qualification remain false. Honor the deferred phone/current WebView. No
+  device install, new runtime dependency, formal data edit or online publication.

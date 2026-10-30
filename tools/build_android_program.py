@@ -29,7 +29,7 @@ RECEIPT=OUTPUT.with_suffix('.receipt.json')
 HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
               'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult',
-              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpRegistry','MdoBrowserCdpWorker','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
+              'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpBinding$Network','MdoBrowserCdpRegistry','MdoBrowserCdpWorker','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
               'MdoBrowserCdpOwnerScripts','MdoBrowserCdpFrameRequest','MdoBrowserCdpFrameChain','MdoBrowserCdpInput','MdoBrowserCdpCapture','MdoBrowserCdpFileInput','MdoBrowserCdpFileInput$BeforeClear','MdoBrowserCdpChoosers','MdoBrowserCdpUploadScripts','MdoBrowserCdpUpload','MdoBrowserCdpUpload$Ready','MdoBrowserCdpUpload$Receipt','MdoBrowserUploadCoordinator','MdoBrowserUploadCoordinator$Result','MdoBrowserCdpWorlds$Pin','MdoBrowserCapture','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply',
               'MdoBrowserUploadStore$RetentionOwner','MdoBrowserUploadStore$Retention','MdoBrowserUploadStore$PickerGrant')
 
@@ -206,7 +206,7 @@ def assemble():
                 artifact={'name':OUTPUT.name,'bytes':OUTPUT.stat().st_size,'sha256':sha(OUTPUT)},inputs=plan,
                 certificate_sha256=certs[0],native_elf=facts,production_activity_packaged=True,
                 command_worker_packaged=True,private_upload_provider_packaged=True,private_upload_manifest_verified=True,private_cdp_discovery_packaged=True,application_copies=0,
-                private_cdp_session_packaged=True,private_cdp_dispatcher_packaged=True,private_fixed_native_controls_packaged=True,actual_dex_definitions_verified=True,
+                private_cdp_session_packaged=True,private_cdp_dispatcher_packaged=True,private_fixed_native_controls_packaged=True,private_physical_network_binding_packaged=True,actual_dex_definitions_verified=True,
                 test_json_sources_bundled=False,runtime_dependencies_added=False,device_qualified=False,framework_qualified=False,automation_qualified=False)
     RECEIPT.write_text(json.dumps(record,indent=2)+'\n')
     print(json.dumps(record['artifact'],indent=2),flush=True)

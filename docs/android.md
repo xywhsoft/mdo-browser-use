@@ -32,20 +32,21 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E79)
+## Complete development host APK (E46/E80)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,403,393 bytes, SHA-256
-`30d39890aad191da9b2619933585920638399e55ac0924d971fe3b05aa4bd3ed`.
+Current APK: 6,407,489 bytes, SHA-256
+`eb6974d81994b20dfa3215c3060692e80bf73449d8741d75f7b3020a6a8b7aa9`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
 `MdoBrowserCdpFileInput$BeforeClear`, `MdoBrowser$ClearAction` and native
-`MdoBrowserCdpSession$ControlReceipt`/`ControlResult` definitions. No account, Home, QA page or signing
+`MdoBrowserCdpSession$ControlReceipt`/`ControlResult` and
+`MdoBrowserCdpBinding$Network` definitions. No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
@@ -2955,3 +2956,12 @@ physical-owner registry, initial-navigation barrier, persistent event pump,
 original body/store and accept/cancel joins. Closing a protocol connection alone
 is not proof that a paused response was denied. Actual provider/framework
 qualification and global Android automation remain false; the phone stays deferred.
+
+The E80 complete development APK now contains this private facade, confirmed
+by its actual DEX definition and current compiler/source/binary receipts
+(`.mdo/E80-android-build.log`). The seven packaging contracts explicitly reject
+a missing Network definition even if method signatures reference it
+(`.mdo/E80-apk-contract.log`). Reuse the same verified ARM64 engine, platform-
+neutral W4 app archive and paired plugin; no extra application or Home is
+created. The same headless deployment is restored to HTTP 200. No install,
+provider change, model/external page action or online release occurs here.
