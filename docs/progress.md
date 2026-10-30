@@ -7298,3 +7298,33 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   complete APK next; the E80 artifact is not yet replaced at this source commit.
 - Goal active. No new runtime dependency or app/Home/source copy, phone/provider
   change, model/external page action, formal data edit or online publication.
+
+## E81c — verify native capacity, cooperative classes and the complete APK
+
+- With the existing service stopped, apply all 113 reviewed deployment files
+  and checksum-guarded private JNI sources (`.mdo/E81-apply.log`). Rebuild the same
+  ARM64 output against the pinned source/compiler/profile, verify its post-build
+  source identity and ABI receipt (`.mdo/E81-arm64-native.log`). Engine 3,547,120
+  bytes, SHA-256 `d079b2bec8e68661a36921398771b198174f17951282a5958c4d1c0ed5abb4ac`.
+  No second source, app/Home, object tree or runtime dependency is introduced.
+- Complete APK verifies current native bytes, six original JNI entries, actual
+  network/slot/result/cooperation DEX definitions, source/compiler, private
+  provider/manifest, ARM64 ABI, zip alignment and v2-v3 signatures
+  (`.mdo/E81-android-build.log`). Artifact 6,411,585 bytes, SHA-256
+  `1193efdded73a5186e1496670b46b56a29d9b09b3d30d7c44fcec72892925054`.
+  Preserve QA package, signer and installation serial; device/framework/automation
+  qualification flags remain false. Every recorded native-gate source hash and
+  current APK builder/Android source/binary hash matches its receipt.
+- Full Python gate passes 173/175 in 57.949 s; only the two existing Windows
+  symlink privilege 1314 skips (`.mdo/E81-python-full.log`). Seven APK contracts
+  pass. Full E81 capacity/native/dispatcher/shared-worker/frame/world/upload/clear
+  evidence is recorded above. Public JS/app runtime did not change; E78's JS
+  result remains earlier evidence rather than a new run. W4 Windows binary/app
+  archive and paired plugin remain verified/reused.
+- Restore the same headless deployment to port 63625 / HTTP 200, approximately
+  3,433 MiB. Goal active: private owner scheduling and native capacity are now
+  implemented and packaged. Product physical-view/profile lifecycle registration,
+  pre-navigation readiness barrier, original-response classification/body/cache
+  and retained accept/cancel still require integration and qualification. Phone
+  deferred/current WebView retained; no device install, formal data change,
+  model/external page action or online release.

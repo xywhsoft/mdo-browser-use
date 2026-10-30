@@ -32,21 +32,22 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E80)
+## Complete development host APK (E46/E81)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,407,489 bytes, SHA-256
-`eb6974d81994b20dfa3215c3060692e80bf73449d8741d75f7b3020a6a8b7aa9`.
+Current APK: 6,411,585 bytes, SHA-256
+`1193efdded73a5186e1496670b46b56a29d9b09b3d30d7c44fcec72892925054`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
 `MdoBrowserCdpFileInput$BeforeClear`, `MdoBrowser$ClearAction` and native
 `MdoBrowserCdpSession$ControlReceipt`/`ControlResult` and
-`MdoBrowserCdpBinding$Network` definitions. No account, Home, QA page or signing
+`MdoBrowserCdpBinding$Network`, network ledger/slot/result and cooperative
+scheduler definitions. No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
@@ -2995,3 +2996,27 @@ also pass. Actual installed provider/framework and product routing remain
 unqualified. Next integrate sufficient native connection capacity, physical
 view/profile registration, pre-navigation readiness and original response/body/
 store/accept/cancel. No public Agent method or global Android automation is enabled.
+
+E81's process-wide native capacity is now 17 handles including draining:
+eight physical network connections, eight document bindings and one shared
+proof/retirement overlap. Earlier phase records describing eight transport slots
+are historical. Per-message/send/assembly limits are unchanged. The current
+kernel-socket gate fills all slots, refuses the next, retains the bound during
+draining and verifies exact final cleanup (1,195 assertions, 204 allocations /
+204 releases, 64 cancellation cycles). Full native regressions pass
+`.mdo/E81-native-capacity.log` with source-hashed `.mdo/E81-native-capacity.json`.
+
+Rebuilt ARM64 engine: 3,547,120 bytes, SHA-256
+`d079b2bec8e68661a36921398771b198174f17951282a5958c4d1c0ed5abb4ac`,
+verified source/compiler/profile/ABI receipt `.mdo/E81-arm64-native.log`.
+The complete APK includes actual network/slot/result/cooperation DEX definitions,
+the six original JNI exports and current engine bytes; source/ABI/private-provider/
+manifest/alignment/v2-v3-signature verification passes `.mdo/E81-android-build.log`.
+Seven packaging contracts pass, and Python passes 173/175 in 57.949 s with only
+the two existing Windows symlink privilege skips (`.mdo/E81-python-full.log`).
+Current source and artifact hashes match; the same headless service is restored
+to HTTP 200. Existing W4 Windows/paired plugin are reused, with one source/Home.
+No installation, provider update, formal data change, model/external page action
+or online publication. Product view/profile registration, pre-navigation barrier
+and original-response/body/store/accept/cancel still need integration; global
+Android automation and provider/framework qualification remain false.
