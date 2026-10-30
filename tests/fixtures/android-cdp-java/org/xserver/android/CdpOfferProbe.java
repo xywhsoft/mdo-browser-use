@@ -34,6 +34,7 @@ public final class CdpOfferProbe {
         try(CdpBodyProbe.Context context=new CdpBodyProbe.Context()){
             refused("cdp_control_not_in_event",context.client::retainPausedResponse);
             MdoBrowserCdpSession.Offer offer=retain(context,"original-response.1");check(offer.result()==null&&offer.metadata().kind.equals("candidate"));
+            check(offer.metadata().name.equals("private.bin")&&offer.metadata().mime.isEmpty());
             check(context.client.pendingOffers()==1&&context.client.pendingBodies()==0&&context.client.pendingControls()==0&&context.wire.commands.isEmpty());
             for(int i=0;i<10;i++){check(!context.client.serviceBodies(100));context.client.call("Runtime.evaluate",null,null,100,false);}
             check(context.wire.count("Fetch.takeResponseBodyAsStream")==0&&context.wire.count("IO.read")==0);

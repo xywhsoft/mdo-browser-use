@@ -20,15 +20,15 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
         synchronized int used(){return used;}
     }
     static final class Snapshot {
-        final String id,state,error,sha256,failureSource;final long received,expected,maximum,sequence;
+        final String id,name,mime,state,error,sha256,failureSource;final long received,expected,maximum,sequence;
         final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed;
         private Snapshot(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
-            id=row.id;sequence=row.sequence;expected=row.expected;maximum=row.maximum;this.state=state;this.error=error;received=bytes;sha256=hash;
+            id=row.id;name=row.offer.metadata().name;mime=row.offer.metadata().mime;sequence=row.sequence;expected=row.expected;maximum=row.maximum;this.state=state;this.error=error;received=bytes;sha256=hash;
             this.verified=verified;cacheCleanupConfirmed=cacheClean;sourceCleanupConfirmed=sourceClean;failureSource=source;
         }
         boolean terminal(){return state.equals("completed")||state.equals("failed")||state.equals("cancelled");}
         JSONObject json()throws JSONException {
-            JSONObject out=new JSONObject().put("id",id).put("name","download.bin").put("mime","").put("state",state)
+            JSONObject out=new JSONObject().put("id",id).put("name",name).put("mime",mime).put("state",state)
                 .put("received",received).put("expected_size",expected<0?JSONObject.NULL:expected).put("max_bytes",maximum)
                 .put("interrupt_reason",0).put("failure_source",failureSource==null?"":failureSource).put("error",error==null?"":error)
                 .put("native",new JSONObject().put("cache_cleanup_confirmed",cacheCleanupConfirmed).put("source_cleanup_confirmed",sourceCleanupConfirmed));

@@ -28,6 +28,40 @@ public final class CdpResponseProbe {
         MdoBrowserCdpResponse r=MdoBrowserCdpResponse.inspect(event);check(r.kind.equals(kind));check(r.reason.equals(reason));check(r.declaredLength==length);
     }
     private static void invalid(JSONObject event){classification(event,"invalid","response_metadata_invalid",-1);}
+    private static void displayMetadata()throws Exception{
+        String[][] values={
+            {"attachment","download.bin"},
+            {"attachment; FILENAME=report.txt","report.txt"},
+            {"attachment; filename=\"a; b.txt\"; foo=\"ignored;\\\"value\"","a; b.txt"},
+            {"attachment; filename=\"../report.txt\"","report.txt"},
+            {"attachment; filename=\"..\\\\report.txt\"","report.txt"},
+            {"attachment; filename=legacy.txt; filename*=UTF-8''%E6%96%87%E4%BB%B6.txt","文件.txt"},
+            {"attachment; filename*=utf-8'en-US'%e2%82%ac+rates.txt; filename=legacy.txt","€+rates.txt"},
+            {"attachment; filename*=ISO-8859-1''caf%E9.txt","café.txt"},
+            {"attachment; filename=\"100%20done.txt\"","100%20done.txt"},
+            {"attachment; filename*=UTF-8''..%2Freport.txt","report.txt"},
+            {"attachment; filename*=UTF-8''%F0%9F%93%84.txt","📄.txt"},
+            {"attachment; filename=\"   report.txt  \"","report.txt"}
+        };
+        for(String[] value:values){MdoBrowserCdpResponse result=MdoBrowserCdpResponse.inspect(document(value[0],"Text/Plain; charset=utf-8"));
+            check(result.kind.equals("candidate")&&result.name.equals(value[1])&&result.mime.equals("text/plain"));}
+        for(String extended:new String[]{"UTF-16''report.txt","UTF-8''%GG","UTF-8''%","UTF-8''%C3","UTF-8''%C0%AF","UTF-8''a*b","UTF-8'bad_tag'a","\"UTF-8''x\""}){
+            MdoBrowserCdpResponse result=MdoBrowserCdpResponse.inspect(document("attachment; filename=fallback.txt; filename*="+extended,null));
+            check(result.kind.equals("candidate")&&result.name.equals("fallback.txt")&&result.mime.isEmpty());
+        }
+        for(String name:new String[]{".","..","CON.txt","lpt1.dat","COM¹.log","clock$.txt","x:stream","report?.txt","a\u202Etxt.exe","a\u0085b","x.",""}){
+            MdoBrowserCdpResponse result=MdoBrowserCdpResponse.inspect(document("attachment; filename=\""+name+"\"",null));
+            check(result.kind.equals("candidate")&&result.name.equals("download.bin"));
+        }
+        for(String encoded:new String[]{"%00secret.txt","%0Asecret.txt","%7Fsecret.txt","%E2%80%AEreport.txt"})
+            check(MdoBrowserCdpResponse.inspect(document("attachment; filename=fallback.txt; filename*=UTF-8''"+encoded,null)).name.equals("download.bin"));
+        StringBuilder longName=new StringBuilder();for(int i=0;i<81;i++)longName.append('文');
+        check(MdoBrowserCdpResponse.inspect(document("attachment; filename=\""+longName+"\"",null)).name.equals("download.bin"));
+        JSONObject event=document("attachment; filename=original.txt","Application/Pdf; test=discarded");MdoBrowserCdpResponse frozen=MdoBrowserCdpResponse.inspect(event);
+        event.getJSONArray("responseHeaders").getJSONObject(0).put("value","attachment; filename=forged.txt");event.remove("request");
+        check(frozen.name.equals("original.txt")&&frozen.mime.equals("application/pdf"));
+        MdoBrowserCdpResponse generic=MdoBrowserCdpResponse.inspect(document(null,"Application/Octet-Stream"));check(generic.name.equals("download.bin")&&generic.mime.equals("application/octet-stream"));
+    }
     private static void policy()throws Exception{
         classification(null,"invalid","response_metadata_invalid",-1);
         classification(new JSONObject(),"pass","request_stage",-1);
@@ -118,7 +152,7 @@ public final class CdpResponseProbe {
         for(byte[] bytes:wire.touched){boolean cleared=true;for(byte value:bytes)if(value!=0)cleared=false;check(cleared);}
     }
     public static void main(String[] args)throws Exception{
-        android.os.Looper.getMainLooper();policy();
+        android.os.Looper.getMainLooper();policy();displayMetadata();
         java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
         try{worker.submit(()->{try{originalEvent();}catch(Exception failure){throw new RuntimeException(failure);}}).get(15,java.util.concurrent.TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(3,java.util.concurrent.TimeUnit.SECONDS));}

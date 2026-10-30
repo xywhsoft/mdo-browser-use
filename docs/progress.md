@@ -7930,3 +7930,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   rearm and installed provider/main-UI qualification remain open. Phone/provider
   update remain deferred. No install, formal-data edit, model/external-page
   action, extra app/Home/source copy or online publication.
+
+
+## E92 — freeze original advisory filename and normalized MIME
+
+- Replace download.bin/empty-MIME placeholders with immutable original response
+  display metadata. Prefer valid UTF-8 filename* (support legacy ISO-8859-1),
+  correctly handle quoted escapes and semicolons, preserve literal plus/ordinary
+  percent text, and fall back for unsupported/malformed extended encodings.
+  Strip path segments and reject unsafe/control/format/reserved/oversized names.
+  Keep names advisory and media types bounded/parameter-free. No URL filename
+  fallback, request/body/header retention, content sniffing or path authority.
+- Actual parser/dispatcher/JNI metadata checks pass 347 assertions. Original
+  offers retain frozen names after event mutation (154 offer checks). Controller
+  snapshots expose only this bounded display metadata, not URL/body/native IDs.
+  File queue 237, controller 186 and exact product commands 73 remain green.
+  Full current native/ASan/UBSan/API26 gates pass (`.mdo/E92-native-final.log` /
+  current JSON); all 95 native and 11 retained creation input hashes match.
+  Python passes 173/175 in 56.323 s (`.mdo/E92-python-full.log`), only two existing
+  Windows symlink privilege skips. Seven final APK contracts pass.
+- Stop the sole dev service, apply the same 118 reviewed files and build the
+  actual QA Activity/service/lite-tools APK (`.mdo/E92-android-build.log`). Verify
+  source/native/app identity, actual DEX, six JNI entries, private provider,
+  ARM64/16 KiB layout and v2-v3 signing. APK remains 6,448,449 bytes, new SHA-256
+  `70d345bf2f1db9eac2819e723173ccb48d1d4b0e6bc34cec04b5b23f38e7803f`.
+  Restore the same service to HTTP 200 on 63625, about 3,436.4 MiB. Windows and
+  paired-plugin artifact hashes are unchanged. Device/framework/automation false.
+- Goal active. Display metadata and private reads are implemented/packaged;
+  original navigation and root/subframe/popup association, shared Android save/
+  public automation qualification, unsupported text/blob behavior, orderly
+  takeover/rearm and installed provider/main-UI qualification remain open. Phone
+  and current WebView stay deferred. No install, formal-data edit, model or
+  external browser-page action, additional app/Home/source copy or publication.

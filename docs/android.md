@@ -32,7 +32,7 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E91)
+## Complete development host APK (E46/E92)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -40,7 +40,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,448,449 bytes, SHA-256
-`7b60130da470e533f702c62b26b27f52bc9c257091e8e5bfb55126f71110ab9f`.
+`70d345bf2f1db9eac2819e723173ccb48d1d4b0e6bc34cec04b5b23f38e7803f`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -3405,3 +3405,40 @@ private-provider checks. See `.mdo/E91-native-current.json`,
 Full download/automation admission is still false pending original navigation/
 popup association, display metadata, other transfer boundaries and installed
 provider/main-UI qualification. The deferred phone and WebView are unchanged.
+
+
+## Frozen advisory download names and media types (E92)
+
+Original paused metadata now retains a sanitized advisory basename and normalized
+media type. It never retains request URLs, payloads, arbitrary headers, MIME
+parameters or caller-owned JSON, and does not derive filenames from a URL. The
+native Offer and each controller snapshot retain the same immutable display
+values, including after the original event JSON is changed or discarded.
+
+Prefer a valid unquoted filename* over filename, with strict UTF-8 decoding and
+legacy ISO-8859-1 support. Unsupported charsets, malformed escapes and invalid
+UTF-8 fall back to filename. Ordinary filename text is not percent-decoded and
+plus signs stay literal. Strip path segments, bound the resulting name to
+200 UTF-16 units/240 UTF-8 bytes, and use download.bin for unsafe controls,
+format characters, reserved device names, invalid basename characters or dot
+suffixes. Invalid/unsafe display hints cannot authorize a path or mark content
+trusted; explicit destination/root selection and receiver hashing still apply.
+Media types are normalized without parameters and bounded to 128 characters.
+
+The implementation uses the advisory-name rules and filename* preference in
+[RFC 6266 section 4.3](https://www.rfc-editor.org/rfc/rfc6266.html#section-4.3)
+and the extended value encoding/error handling in
+[RFC 8187 section 3.2.1](https://www.rfc-editor.org/rfc/rfc8187.html#section-3.2.1).
+This is a bounded display subset, not a claim to implement every historical
+Content-Disposition variant or infer native download intent from MIME alone.
+
+The exact metadata/parser/native dispatcher gate passes 347 checks, including
+Unicode, escaping, quoted semicolons, precedence, legacy encoding, malformed
+UTF-8/percent escapes, path stripping, reserved/control names, bounds and original
+snapshot immutability. Deferred offers pass 154 checks; file queue 237,
+controller 186 and exact product commands 73 remain green. Full current native,
+ASan/UBSan/API26, Python 173/175 (two existing symlink-privilege skips) and seven
+final APK contracts pass. Evidence: `.mdo/E92-native-current.json`,
+`.mdo/E92-python-full.log`, `.mdo/E92-android-build.log` and the current receipt.
+The complete APK compiles these actual classes; installed provider/main-UI and
+full transfer/automation qualifications remain false. No phone/provider change.

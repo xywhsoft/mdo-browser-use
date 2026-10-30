@@ -85,7 +85,7 @@ public final class CdpDownloadsProbe {
             Source source=test.source();String id=source.offer("original-controller-1.0");MdoBrowserCdpDownloads.Snapshot pending=source.controller.get(id);
             check(pending.state.equals("pending")&&source.controller.pending()&&test.budget.used()==1);
             check(source.claims.get()==0&&source.reads.get()==0&&test.files.reservations()==0);
-            String json=pending.json().toString();check(!json.contains("private")&&!json.contains("requestId")&&!json.contains("stream")&&!json.contains("POST"));
+            String json=pending.json().toString();check(pending.name.equals("private.bin")&&pending.mime.isEmpty()&&!json.contains("private.invalid")&&!json.contains("private-request")&&!json.contains("requestId")&&!json.contains("stream")&&!json.contains("POST"));
             refused("download_not_terminal",()->source.controller.release(id));source.holdClose=true;
             source.chunks.add(chunk("AAH/",false));source.chunks.add(chunk("AgM=",true));source.controller.accept(id,8,60000);source.controller.accept(id,64,60000);
             await(()->source.withheldClose>0);await(()->source.state(id,"verifying"));
