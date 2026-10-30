@@ -21,6 +21,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
         private Connection(MdoBrowserCdpDownloads owner){this.owner=owner;}
         @Override public void event(MdoBrowserCdpBinding.Network network,String method,String child,JSONObject params)throws IOException {owner.event(this,network,method,child,params);}
         @Override public void turn(MdoBrowserCdpBinding.Network network)throws IOException {owner.turn(this,network);}
+        @Override public boolean navigationAllowed(){synchronized(owner.gate){return owner.current==this&&!owner.closed&&!owner.disconnected&&!owner.quiescing&&!owner.pending();}}
         void disconnect(){owner.disconnect(this,false);}
         void disconnect(boolean cleanupConfirmed){owner.disconnect(this,cleanupConfirmed);}
     }

@@ -1417,6 +1417,27 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "if(\"takeover\".equals(command))networkRetire(key,web,\"network_user_takeover\");manualChooser.cancel(web);",
       "after": "if(\"takeover\".equals(command)){cdpViews.invalidate(key,web,views.epoch(key,web),\"input_cancelled\");networkTakeover(key,web);}else if(networkReleaseControl(key,web,id,request.optBoolean(\"agent\")))return;manualChooser.cancel(web);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-network-navigation.inc.java",
+      "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "performNavigation(key,web,\"navigate\",target);",
+      "after": "if(networkNavigate(key,web,id,target,request.optBoolean(\"agent\"),request.optLong(\"timeout_ms\",30000)))return;performNavigation(key,web,\"navigate\",target);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"download_error\",downloadFailure(key))",
+      "after": ".put(\"download_error\",downloadFailure(key)).put(\"native_navigation\",networkNavigationState(key))"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            networkCommand(key,web,command,request.optBoolean(\"agent\"));",
+      "after": "            if(\"navigation_cancel\".equals(command)){executeNavigationCancel(key,id,web,request);return;}\n            networkCommand(key,web,command,request.optBoolean(\"agent\"));"
     }
   ],
   "files": [

@@ -30,7 +30,12 @@ def main():
     updates=[row for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('if("takeover".equals(command))networkRetire(key,web,')]
     if len(updates)!=1 or takeovers[0].count(updates[0]['before'])!=1:raise RuntimeError('Expected final orderly network takeover route')
     takeover=takeovers[0].replace(updates[0]['before'],updates[0]['after'])
+    navigates=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('before')=='performNavigation(key,web,"navigate",target);']
+    if len(navigates)!=1:raise RuntimeError('Expected one original native goto route')
     fragments={
+        '@@NATIVE_NAVIGATE_ROUTE@@':navigates[0],
+        '@@NAVIGATION@@':(dev.ROOT/'host/android/browser-navigation.inc.java').read_text(encoding='utf-8'),
+        '@@NATIVE_NAVIGATION@@':(dev.ROOT/'host/android/browser-network-navigation.inc.java').read_text(encoding='utf-8'),
         '@@NETWORK_TAKEOVER_PREFIX@@':takeover,
         '@@NETWORK@@':(dev.ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8'),
         '@@CLOSE_COMMAND@@':closes[0],
@@ -69,7 +74,7 @@ def main():
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*map(linux,paths)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidCreateContractTest'],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     result=json.loads(run.stdout);result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
-        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
+        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
 

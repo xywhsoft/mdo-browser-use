@@ -6,6 +6,8 @@
     private void cancelNavigationRequest(String key,WebView view){
         NavigationRequest pending=navigationRequests.get(key);
         if(pending==null||pending.view!=view||!views.owns(key,view)||pending.epoch!=views.epoch(key,view))return;
+        NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null?null:owner.navigation;
+        if(operation!=null&&operation.reservation==pending&&!operation.revoked&&operation.ticket!=null&&operation.ticket.result()==null)return;
         navigationRequests.remove(key);loading.put(key,pending.loading);
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.NAVIGATION,false);
     }

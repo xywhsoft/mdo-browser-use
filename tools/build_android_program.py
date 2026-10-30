@@ -26,13 +26,13 @@ WORK=dev.ENV/'host/android-program'
 OUTPUT=ROOT/'dist/mdo-browser-use-dev-android-arm64-v8a.apk'
 PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
-HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoBrowser$NetworkEntry','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
+HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
               'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpResponse',
               'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
               'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',
               'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpBinding$Network','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope','MdoBrowserCdpRegistry','MdoBrowserCdpWorker',
-              'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
+              'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpNetworks$Navigation','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
               'MdoBrowserCdpOwnerScripts','MdoBrowserCdpFrameRequest','MdoBrowserCdpFrameChain','MdoBrowserCdpInput','MdoBrowserCdpCapture','MdoBrowserCdpFileInput','MdoBrowserCdpFileInput$BeforeClear','MdoBrowserCdpChoosers','MdoBrowserCdpUploadScripts','MdoBrowserCdpUpload','MdoBrowserCdpUpload$Ready','MdoBrowserCdpUpload$Receipt','MdoBrowserUploadCoordinator','MdoBrowserUploadCoordinator$Result','MdoBrowserCdpWorlds$Pin','MdoBrowserCapture','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply',
               'MdoBrowserUploadStore$RetentionOwner','MdoBrowserUploadStore$Retention','MdoBrowserUploadStore$PickerGrant',
               'MdoBrowserDownloadFiles','MdoBrowserDownloadFiles$Writer','MdoBrowserDownloadFiles$Failure',

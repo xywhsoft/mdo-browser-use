@@ -36,6 +36,7 @@ public final class CdpNavigationProbe {
             if(mode==5)value.put("isDownload",false).put("errorText","private-provider-description-with-url");
             if(mode==6)value.put("errorText","");
             c.answer(value);MdoBrowserCdpSession.NavigationResult result=navigation.result();
+            check(result.loaderPresent==(mode==3));
             check(result.acknowledged&&!navigation.pending()&&result.effectMayHaveOccurred&&c.session.pendingControls()==0);
             check(result.downloadKnown==(mode<2||mode==4||mode==5)&&result.download==(mode==0||mode==4));
             check(result.ok==(mode==0||mode==1||mode==3||mode==6)&&java.util.Objects.equals(result.code,result.ok?null:mode==2?"cdp_navigation_download_unproven":"cdp_navigation_failed"));

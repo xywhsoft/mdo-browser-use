@@ -36,7 +36,7 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpResponse.java','host/android/MdoBrowserCdpSession.java','host/android/MdoBrowserCdpMarker.java',
         'host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java','host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
         'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java',
-        'host/android/browser-frame-router.inc.java','host/android/browser-network.inc.java','host/android/browser-downloads.inc.java','tools/update_android_owner_scripts.py',
+        'host/android/browser-frame-router.inc.java','host/android/browser-network.inc.java','host/android/browser-network-navigation.inc.java','host/android/browser-downloads.inc.java','tools/update_android_owner_scripts.py',
         'host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/upload-picker-broker.js','tools/update_android_upload_broker.py')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
     'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',

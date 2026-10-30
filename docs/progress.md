@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E97:** connect managed product `goto` to an asynchronous original
+  native navigation receipt, with exact request cancellation and same-document/
+  download/unknown-outcome handling in the shared JS dispatcher. Preserve the
+  original deadline and navigation fence without replaying WebView.loadUrl or
+  letting old callbacks mutate a new page. Native broker/file gates, 335 product
+  lifecycle assertions and all 338 JS tests pass. Both full development programs
+  are refreshed; Windows passes 12 actual runtime checks, while Android remains
+  compiled-only until the deferred installed-provider/main-UI regression.
 - **Windows F15:** correct retained screenshot/native callback ownership and
   parameter-conversion callback leaks. Controlled production C++ checks cover
   63 assertions and 19 one-shot allocation failure sites. Complete regression
@@ -8144,3 +8152,68 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   documented full-goal qualifications remain open. Phone/current WebView stay
   deferred. No install, formal-data edit, model or external browser-page action,
   extra app/Home/source copy or online publication.
+
+
+## E97 — join managed product goto to its original native navigation receipt
+
+- Route an armed physical Android owner's goto through the existing common
+  protocol worker. Return one opaque navigation_ref immediately; keep source
+  I/O, Fetch/body progress and original acknowledgments on that same worker.
+  Refuse another pending navigation, pending original downloads, stale leases
+  and invalid URL/deadline inputs. The original admission deadline includes queue
+  time; cancellation/decision monitors never wrap socket I/O. Queued cancellation
+  proves no effect, while cancellation after dispatch retains its original result
+  and never replays the URL or upgrades a terminal outcome.
+- Join the actual product navigation reservation, view/epoch/profile/channel and
+  original result. Only exact terminal proof can restore the unchanged original
+  document's loading/admission fence. Unidentified WebView errors cannot release
+  an active native request, and old results cannot overwrite new page/error state.
+  Stop, page replacement, takeover, channel loss and retirement revoke the original
+  queue. The private navigation_cancel route matches the exact original alias and
+  channel, remains available for cleanup during manual mode, and never stops or
+  reloads a later human page. Fix a final admission regression: human takeover
+  releases only the original UI reservation and permits manual navigation while
+  its native ACK remains pending. Its later result cannot restore the human
+  page's loading/error state. Keep native status bounded and free of wire IDs.
+- Shared JS handles original acknowledged failure, known download, known
+  same-document and actual page completion separately. Keep incomplete dialog/
+  chooser/download checkpoints actionable; cancellation/context loss/timeout
+  requests exact original queue cleanup in finally. Missing download/loader proof
+  remains uncertain. New retained download IDs are returned only as browser-scope
+  candidates, explicitly not proof of per-request association; old retained
+  completed files cannot be substituted for the new navigation.
+- Native broker passes 27 assertions with the actual cooperative worker, original
+  controller and guarded file queue: hold one navigation ACK while original and
+  independent downloads complete, cancel a queued request without waiting on the
+  worker, retain a dispatched result during cancellation, preserve original queue
+  deadlines and reject the old lease after same-view rearm. The lower native
+  navigation gate passes 156, including two real local JNI/socket sessions;
+  binding 2,040, controller 275 and rearm 111 also pass. Full ASan/UBSan/API26
+  passes; all 103 native and 13 product input hashes match the retained evidence
+  (.mdo/E97-native-current.json, .mdo/E97-create-current.json).
+- Actual product fragments pass 335 lifecycle assertions, including reference
+  cancellation and manual/channel/epoch races. All 338 JS cases pass sequentially
+  (.mdo/E97-node-full.log); Python passes 173/175 in 69.327 seconds, with only two
+  existing Windows symlink-privilege skips (.mdo/E97-python-full.log). Seven final
+  Android package contracts pass; no unavailable platform check is counted.
+- Stop the sole dev instance, apply the reviewed overlays, refresh the Windows
+  program and pass all 12 actual packed runtime checks, including C/JS/native
+  observation, input, screenshot, reset/error reporting and recovery navigation.
+  Windows artifact is 6,935,473 bytes, SHA-256
+  02c29e4a9cf055cc7525cfcb47cef83ab56f3679ff6655f2032437ffb76a3dbb.
+  Rebuild the complete Android Activity/service/lite-tools APK: 6,460,737 bytes,
+  SHA-256 dd8f53b48d6fa32d9588ee7683560fc5df8c3fa1354943b3b070130823f0c557.
+  Verify actual new UI/broker DEX definitions, private provider, six JNI exports,
+  source/archive identity, ARM64/16 KiB layout and retained v2/v3 signer. Paired
+  plugin stays unchanged (247,351 bytes / 22 files, c6b74a2780f13d08570e61bdaf58cbcbc8c4678dc06ce0348de5e8a370ae5d41).
+  Evidence: .mdo/E97-windows-runtime.log, .mdo/E97-android-build.log,
+  .mdo/E97-final-identities.log and .mdo/E97-android-receipt.json. Restore the same
+  headless deployment to HTTP 200 on 63625, about 3,438.8 MiB.
+- Goal active. This compiles and tests the armed product goto route; initial
+  target creation and back/forward/reload still use the legacy navigation path.
+  Installed-provider/main-UI/public JS-C qualification, precise download-to-request
+  joining, popup/download-only lifetime, cross-process interception, Android
+  public save and text/blob handling remain open alongside the other documented
+  full-goal work. Device/framework/automation flags remain false. Phone/current
+  WebView stay deferred. No installation, formal-data edit, external page/model
+  action, extra app/Home/source copy or online publication.

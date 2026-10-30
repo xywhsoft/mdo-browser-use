@@ -12,7 +12,7 @@ const source = (await readFile(new URL("../host/automation-dispatch.js", import.
   .replace('import { executeFileUpload } from "./upload-dispatch.js";', 'async function executeFileUpload(){throw Error("Unexpected upload path")}');
 const {executeBrowserAutomation:dispatch}=await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const executeBrowserAutomation=options=>dispatch({...options,browser:options.browser||options.view,view:{async execute(command,params){
-  if(command==='downloads')return{ok:true,armed:true,downloads:[]};
+  if(command==='downloads')return options.downloads?options.downloads(params):{ok:true,armed:true,downloads:[]};
   const result=await options.view.execute(command,params);
   return command==='state'?{download_capability:true,downloads_armed:true,...result}:result;
 }}});
@@ -27,6 +27,65 @@ function keyboardDriver({prepare=()=>({}),verify=()=>({ok:true,focused:true,veri
     return{ok:true,document:options.document,ready:'complete',text:'Fixture'};
   }};
 }
+
+function nativeNavigationFixture(mode){
+  const calls=[],reference='nv-original';let sent=false,states=0;
+  const options={command:'navigate_to',params:{action:'goto',url:'https://fixture.invalid/',timeout_ms:500},action:{id:'native-navigation-'+mode},
+    api:{async call(){return{state:'pending'};}},downloads(){return{ok:true,armed:true,downloads:sent&&mode==='download'?[{id:'old',state:'completed'},{id:'new',state:'completed'}]:[{id:'old',state:'completed'}]};},
+    view:{async execute(command,params){calls.push([command,params]);
+      if(command==='navigate'){sent=true;assert(params.timeout_ms>=100&&params.timeout_ms<=500);return{accepted:true,navigation_ref:reference};}
+      if(command==='navigation_cancel')return{cancelled:true};
+      if(command==='dialog')return{ok:true,dialogs:[{id:'dialog'}]};
+      if(command==='state'){
+        if(sent&&mode==='transport')throw Error('Fixture lost transport');
+        const native={id:reference,phase:'acknowledged',acknowledged:true,ok:true,dispatched:true,download_known:true,download:false,loader_present:mode==='new-document'};
+        if(sent){states++;if(mode==='cancel')native.phase='sent';if(mode==='unknown')native.download_known=false;
+          if(mode==='download')native.download=true;
+          if(mode==='unsupported')Object.assign(native,{phase:'failed',acknowledged:true,ok:false,dispatched:false,code:'cdp_navigation_unsupported'});
+          if(mode==='replaced')native.id='nv-replacement';}
+        return{loading:false,automation:true,navigation:sent&&mode==='new-document'?'2':'1',url:'https://fixture.invalid/',
+          ...(sent?{native_navigation:native}:{}),manual:sent&&mode==='manual',dialog_open:sent&&mode==='dialog'};
+      }
+      if(command==='automation')return{ok:true,value:{ok:true,ready:'complete',document:'fixture-document'}};
+      throw Error('Unexpected native navigation command '+command);
+    }}};
+  if(mode==='cancel')options.alive=()=>states===0;
+  return{options,calls,reference};
+}
+test('original native navigation ACK distinguishes same-document and committed page completion',async()=>{
+  for(const mode of ['same-document','new-document']){
+    const fixture=nativeNavigationFixture(mode),result=await executeBrowserAutomation(fixture.options);
+    assert.equal(result.result.ok,true);assert.equal(Boolean(result.result.same_document),mode==='same-document');
+    assert.equal(fixture.calls.filter(([command])=>command==='navigate').length,1);
+    assert(!fixture.calls.some(([command])=>command==='navigation_cancel'));
+  }
+});
+test('native download ACK returns only newly retained browser-scope records',async()=>{
+  const fixture=nativeNavigationFixture('download'),result=await executeBrowserAutomation(fixture.options);
+  assert.equal(result.result.outcome,'download_pending');assert.equal(result.result.navigation_ref,fixture.reference);
+  assert.equal(result.result.source_association,'browser_scope');assert.deepEqual(result.result.downloads.map(row=>row.id),['new']);
+  assert(!fixture.calls.some(([command])=>command==='automation'||command==='navigation_cancel'));
+});
+test('native unsent rejection preserves definite no-effect receipt',async()=>{
+  const fixture=nativeNavigationFixture('unsupported'),result=await executeBrowserAutomation(fixture.options);
+  assert.equal(result.result.error.native_code,'cdp_navigation_unsupported');assert.equal(result.result.error.effect_may_have_occurred,false);
+  assert(!fixture.calls.some(([command])=>command==='navigation_cancel'));
+});
+test('lost original scope or ambiguous provider completion cancels only its original queue',async()=>{
+  for(const mode of ['unknown','replaced','cancel','manual','transport']){
+    const fixture=nativeNavigationFixture(mode),result=await executeBrowserAutomation(fixture.options);
+    assert.equal(result.result.ok,false,mode);assert.equal(result.result.error.effect_may_have_occurred,true,mode);
+    const cleanup=fixture.calls.filter(([command])=>command==='navigation_cancel');assert.equal(cleanup.length,1,mode);
+    assert.deepEqual(cleanup[0][1],{agent:true,navigation_ref:fixture.reference});
+    assert.equal(fixture.calls.filter(([command])=>command==='navigate').length,1);
+    assert(!fixture.calls.some(([command])=>command==='stop'||command==='reload'));
+  }
+});
+test('native dialog checkpoint keeps original pending navigation available for explicit response',async()=>{
+  const fixture=nativeNavigationFixture('dialog'),result=await executeBrowserAutomation(fixture.options);
+  assert.equal(result.result.outcome,'dialog_open');assert.equal(result.result.completed,false);
+  assert(!fixture.calls.some(([command])=>command==='navigation_cancel'));
+});
 
 test('interception is acknowledged before input and a late picker event is a checkpoint',async()=>{
   let armed=false,open=false;const commands=[];

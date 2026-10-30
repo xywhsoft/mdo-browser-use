@@ -58,14 +58,21 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * completion. Optional native download metadata is never inferred from an
      * abort, URL, response candidate or missing loader. No raw reply survives. */
     static final class NavigationResult {
-        final boolean acknowledged,ok,downloadKnown,download,effectMayHaveOccurred;
+        final boolean acknowledged,ok,downloadKnown,download,effectMayHaveOccurred,loaderPresent;
         final String code,nativeError;
         private NavigationResult(boolean acknowledged,boolean ok,boolean known,boolean download,String code,boolean sent){
             this(acknowledged,ok,known,download,code,sent,null);
         }
         private NavigationResult(boolean acknowledged,boolean ok,boolean known,boolean download,String code,boolean sent,String nativeError){
-            this.acknowledged=acknowledged;this.ok=ok;downloadKnown=known;this.download=download;this.code=code;effectMayHaveOccurred=sent;this.nativeError=nativeError;
+            this(acknowledged,ok,known,download,code,sent,nativeError,false);
         }
+        private NavigationResult(boolean acknowledged,boolean ok,boolean known,boolean download,String code,boolean sent,String nativeError,boolean loaderPresent){
+            this.acknowledged=acknowledged;this.ok=ok;downloadKnown=known;this.download=download;this.code=code;effectMayHaveOccurred=sent;this.nativeError=nativeError;this.loaderPresent=loaderPresent;
+        }
+    }
+    static NavigationResult navigationFailure(String code,boolean sent){
+        if(code==null||!code.matches("cdp_[a-z_]{1,80}"))code="cdp_navigation_dispatch_failed";
+        return new NavigationResult(false,false,false,false,code,sent);
     }
     static final class Navigation {
         private final int id,timeout;private final long born;private final String frame;
@@ -453,7 +460,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         }catch(org.json.JSONException failure){throw failure("cdp_navigation_arguments_invalid",false);}
         finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
     }
-    private static boolean navigationUrl(String url){
+    static boolean navigationUrl(String url){
         if(url==null||url.isEmpty()||url.length()>8192)return false;
         for(int i=0;i<url.length();i++){char c=url.charAt(i);if(c<=32||c==127)return false;
             if(Character.isHighSurrogate(c)){if(++i==url.length()||!Character.isLowSurrogate(url.charAt(i)))return false;}
@@ -477,7 +484,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             boolean known=download instanceof Boolean,isDownload=Boolean.TRUE.equals(download);
             boolean failed=error instanceof String&&!((String)error).isEmpty()&&!(isDownload&&error.equals("net::ERR_ABORTED"));
             String code=failed?(!known&&"net::ERR_ABORTED".equals(error)?"cdp_navigation_download_unproven":"cdp_navigation_failed"):null;
-            original.finish(new NavigationResult(true,!failed,known,isDownload,code,true,navigationError(error)));navigation=null;return true;
+            original.finish(new NavigationResult(true,!failed,known,isDownload,code,true,navigationError(error),value.has("loaderId")));navigation=null;return true;
         }
     }
     private static String navigationError(Object error){

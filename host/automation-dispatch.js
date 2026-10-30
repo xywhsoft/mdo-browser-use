@@ -38,6 +38,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const deadline = performance.now() + timeout;
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null,inputFocus=null,inputTarget=null;
+  let nativeNavigationReference=null,retainNativeNavigation=false;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','fill','type','key','drag'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
@@ -330,19 +331,53 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const checked = await guard(true); if (checked.handled) return checked;
       const oldNavigation = checked.state.navigation;
       if (params.action === "back" && !checked.state.can_go_back || params.action === "forward" && !checked.state.can_go_forward) return fail("history_unavailable", "There is no matching browser history entry");
+      const oldDownloadIds=new Set(((await view.execute('downloads',{action:'list',agent:true})).downloads||[]).map(row=>row.id));
+      const navigationBudget=Math.floor(deadline-performance.now());
+      if(navigationBudget<100)return fail('timed_out','The original navigation deadline expired before admission');
       dispatched = true;
-      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, url: params.url });
+      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, url: params.url,
+        timeout_ms:navigationBudget });
       if (!accepted.accepted) return fail("navigation_uncertain", "Navigation was not confirmed; inspect the current tab before repeating it");
+      const nativeReference=accepted.navigation_ref;
+      if(nativeReference!==undefined&&(typeof nativeReference!=='string'||!nativeReference||nativeReference.length>100))return fail('navigation_uncertain','The original native navigation reference is invalid; inspect the tab before retrying');
+      nativeNavigationReference=nativeReference||null;
+      let nativeDownload=false;
       while (performance.now() < deadline) {
-        const current = await guard(); if (current.handled) return current;
-        if (!current.state.loading && current.state.navigation !== oldNavigation) {
+        const current = await guard(); if (current.handled){if(current.result?.ok&&current.result.completed===false)retainNativeNavigation=true;return current;}
+        let sameDocument=false;
+        if(nativeReference!==undefined){
+          const native=current.state.native_navigation;
+          if(!native||native.id!==nativeReference)return fail('navigation_uncertain','The original native navigation record is unavailable; do not repeat the target');
+          if(native.scope_revoked)return fail('context_changed','The original native navigation owner was revoked; inspect its retained outcome');
+          if(native.phase==='failed'){
+            retainNativeNavigation=true;
+            if(native.dispatched===false)dispatched=false;
+            const result=fail(native.code==='cdp_navigation_download_unproven'?'download_identity_unavailable':native.acknowledged?'navigation_failed':'navigation_uncertain',
+              'The original native navigation did not complete safely; inspect its receipt before retrying');
+            if(typeof native.code==='string'&&/^cdp_[a-z_]{1,80}$/.test(native.code))result.result.error.native_code=native.code;
+            if(typeof native.native_error==='string'&&/^net::ERR_[A-Z_]{1,80}$/.test(native.native_error))result.result.error.native_error=native.native_error;
+            return result;
+          }
+          if(native.phase!=='acknowledged'){await pause(20);continue;}
+          if(native.acknowledged!==true||native.ok!==true)return fail('navigation_uncertain','The native navigation record is inconsistent; do not repeat the target');
+          if(native.download_known===true&&native.download===true){
+            nativeDownload=true;
+            const downloads=((await view.execute('downloads',{action:'list',agent:true})).downloads||[]).filter(row=>!oldDownloadIds.has(row.id));
+            if(downloads.length){retainNativeNavigation=true;const boundary=downloadBoundary(downloads);boundary.result.navigation_ref=nativeReference;boundary.result.source_association='browser_scope';return boundary;}
+            if(current.state.download_error)return fail('download_identity_unavailable','The original download could not retain its native source; do not repeat navigation');
+            await pause(20);continue;
+          }
+          sameDocument=native.download_known===true&&native.download===false&&native.loader_present===false;
+          if(!native.loader_present&&!sameDocument)return fail('navigation_uncertain','This provider did not prove page or download completion; inspect the original navigation before retrying');
+        }
+        if (!current.state.loading && (current.state.navigation !== oldNavigation||sameDocument)) {
           if (current.state.error) return fail("navigation_failed", current.state.error);
           const observation = await read("observe", { limit: 100, max_bytes: 4096 });
-          if (observation.ok && observation.ready === "complete") return { handled: true, result: { ok: true, action: action.id, url: current.state.url, observation } };
+          if (observation.ok && observation.ready === "complete"){retainNativeNavigation=true;return { handled: true, result: { ok: true, action: action.id, url: current.state.url, observation,...(sameDocument?{same_document:true}:{}) } };}
         }
         await pause(50);
       }
-      return fail("timed_out", "Navigation did not complete before its deadline; inspect the tab before retrying");
+      return fail(nativeDownload?'download_identity_unavailable':"timed_out", "Navigation did not complete before its deadline; inspect the tab before retrying");
     }
     if (command === "wait_for") {
       while (performance.now() < deadline) {
@@ -540,6 +575,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(needsWorld)try{const checked=await guard(true);if(checked.handled)return checked;}catch{}
     return fail(dispatched ? "action_uncertain" : "browser_unavailable", String(error?.message || error).slice(0, 512));
   } finally {
+    // Revoke only the original queued native operation. Never stop/reload the
+    // current page: it may already belong to a later navigation or manual user.
+    if(nativeNavigationReference&&!retainNativeNavigation)try{
+      await view.execute('navigation_cancel',{agent:true,navigation_ref:nativeNavigationReference});
+    }catch{}
     if(dragRequested)try{await view.execute("drag_cancel",{drag_key:action.id});}catch{}
     if (exclusive) writers.delete(writer);
     if (captures) capturing = false;

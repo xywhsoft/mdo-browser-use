@@ -1,0 +1,82 @@
+    // One retained navigation record per physical owner. The UI only submits
+    // decisions/reads immutable results; the existing worker performs all I/O.
+    private final class NativeNavigation {
+        final String id="nv-"+java.util.UUID.randomUUID();final NetworkEntry owner;
+        final NavigationRequest reservation;final int timeout;final long born=android.os.SystemClock.elapsedRealtime();
+        final Runnable watch=()->nativeNavigationPoll(this);
+        MdoBrowserCdpNetworks.Navigation ticket;boolean revoked,settled;long revokedAt;
+        NativeNavigation(NetworkEntry owner,NavigationRequest reservation,int timeout){this.owner=owner;this.reservation=reservation;this.timeout=timeout;}
+    }
+    private boolean networkNavigate(String key,WebView view,String replyId,String target,boolean agent,long timeout)throws Exception {
+        NetworkEntry owner=networkViews.get(key);if(owner==null||owner.view!=view||manual.contains(key)&&!agent)return false;
+        if(!owner.ready||owner.retired||!networkCurrent(owner)||owner.marker==null)throw new IllegalStateException("network_owner_unavailable");
+        if(timeout<100||timeout>600000)throw new IllegalArgumentException("cdp_navigation_arguments_invalid");
+        if(navigationRequests.containsKey(key)||owner.navigation!=null&&owner.navigation.ticket!=null&&owner.navigation.ticket.result()==null)throw new IllegalStateException("navigation_pending");
+        cancelPopup(key);cancelDialog(key);cancelCapture(key);views.stop(key,view);
+        if(!dialogReady(key,view))throw new IllegalStateException("dialog_pending_or_unclean");
+        NavigationRequest reservation=new NavigationRequest(view,views.epoch(key,view),Boolean.TRUE.equals(loading.get(key)));
+        NativeNavigation operation=new NativeNavigation(owner,reservation,(int)timeout);
+        navigationRequests.put(key,reservation);owner.navigation=operation;
+        try{
+            loading.put(key,true);owner.profile.block(MdoBrowserDocument.NAVIGATION,true);
+            operation.ticket=cdpWorker.navigateNetwork(owner.marker.lease(),target,(int)timeout);
+            if(!networkHandler.postDelayed(operation.watch,20)){
+                operation.ticket.cancel();networkRetire(owner,"cdp_navigation_scheduler_failed");throw new IllegalStateException("cdp_navigation_scheduler_failed");
+            }
+            reply(owner.channelLease,replyId,new JSONObject().put("accepted",true).put("navigation_ref",operation.id),null);return true;
+        }catch(Exception|Error failure){
+            if(operation.ticket==null){cancelNavigationRequest(key,view);owner.navigation=null;}
+            else{operation.ticket.cancel();nativeNavigationRevoke(operation);}
+            throw failure;
+        }
+    }
+    private boolean nativeNavigationScope(NativeNavigation operation){
+        NetworkEntry owner=operation.owner;
+        return networkViews.get(owner.key)==owner&&networkCurrent(owner)&&!manual.contains(owner.key)&&!owner.retired&&!owner.draining;
+    }
+    private void nativeNavigationRevoke(NativeNavigation operation){
+        if(!operation.revoked){operation.revoked=true;operation.revokedAt=android.os.SystemClock.elapsedRealtime();}
+        if(operation.ticket!=null)operation.ticket.cancel();
+    }
+    private void nativeNavigationRetire(NetworkEntry owner){if(owner.navigation!=null&&!owner.navigation.settled)nativeNavigationRevoke(owner.navigation);}
+    private void nativeNavigationPageStarted(String key,WebView view){
+        NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null||owner.view!=view?null:owner.navigation;
+        if(operation!=null&&!operation.settled&&(operation.ticket==null||!operation.ticket.dispatched()))nativeNavigationRevoke(operation);
+    }
+    private void nativeNavigationRestore(NativeNavigation operation,MdoBrowserCdpSession.NavigationResult result){
+        NetworkEntry owner=operation.owner;NavigationRequest original=operation.reservation;
+        if(navigationRequests.get(owner.key)!=original||!views.owns(owner.key,owner.view)||views.epoch(owner.key,owner.view)!=original.epoch||documents.get(owner.key)!=owner.profile)return;
+        // Exact terminal proof may explain the unchanged original document.
+        // Unknown dispatched effects never release its input admission fence.
+        if(!result.effectMayHaveOccurred||result.acknowledged&&(!result.ok||result.downloadKnown&&(result.download||!result.loaderPresent))){
+            cancelNavigationRequest(owner.key,owner.view);
+            if(!operation.revoked&&result.acknowledged&&!result.ok)errors.put(owner.key,result.nativeError==null?result.code:result.nativeError);
+        }
+    }
+    private void nativeNavigationPoll(NativeNavigation operation){
+        networkHandler.removeCallbacks(operation.watch);if(operation.settled)return;
+        if(!nativeNavigationScope(operation))nativeNavigationRevoke(operation);
+        MdoBrowserCdpSession.NavigationResult result=operation.ticket==null?null:operation.ticket.result();
+        if(result!=null){nativeNavigationRestore(operation,result);operation.settled=true;return;}
+        long now=android.os.SystemClock.elapsedRealtime(),age=now-operation.born;
+        if(!operation.revoked&&(age<0||age>=operation.timeout)){nativeNavigationRevoke(operation);networkRetire(operation.owner,"cdp_navigation_timeout");}
+        if(operation.revoked&&(now-operation.revokedAt<0||now-operation.revokedAt>=5500)){operation.settled=true;return;}
+        if(!networkHandler.postDelayed(operation.watch,20)){nativeNavigationRevoke(operation);networkRetire(operation.owner,"cdp_navigation_scheduler_failed");operation.settled=true;}
+    }
+    private JSONObject networkNavigationState(String key)throws JSONException {
+        NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null?null:owner.navigation;
+        if(operation==null||operation.ticket==null)return null;
+        MdoBrowserCdpSession.NavigationResult result=operation.ticket.result();
+        JSONObject value=new JSONObject().put("id",operation.id).put("phase",result==null?(operation.ticket.dispatched()?"sent":"queued"):result.ok?"acknowledged":"failed")
+            .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched());
+        if(result!=null)value.put("acknowledged",result.acknowledged).put("ok",result.ok).put("download_known",result.downloadKnown).put("download",result.download)
+            .put("loader_present",result.loaderPresent).put("code",result.code==null?JSONObject.NULL:result.code).put("native_error",result.nativeError==null?JSONObject.NULL:result.nativeError);
+        return value;
+    }
+    private void executeNavigationCancel(String key,String id,WebView view,JSONObject request)throws JSONException {
+        NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null?null:owner.navigation;
+        boolean matches=operation!=null&&operation.ticket!=null&&owner.view==view&&views.owns(key,view)&&operation.id.equals(request.optString("navigation_ref"))&&
+            channel.current()==operation.owner.channelLease&&channel.active(operation.owner.channelLease,host.getUrl());
+        if(matches)nativeNavigationRevoke(operation);
+        reply(id,new JSONObject().put("cancelled",matches).put("dispatched",matches&&operation.ticket.dispatched()),null);
+    }

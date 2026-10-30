@@ -86,6 +86,7 @@
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;
+        nativeNavigationPageStarted(key,view);
         navigationRequests.remove(key);
         cancelPopup(key);
         cancelDialog(key);

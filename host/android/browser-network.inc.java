@@ -10,6 +10,7 @@
         final java.util.concurrent.atomic.AtomicBoolean live=new java.util.concurrent.atomic.AtomicBoolean(true);
         final long born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->networkWatch(this);
         MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;MdoBrowserCdpDownloads.Connection downloadConnection;long warmupEpoch,retiredAt;
+        NativeNavigation navigation;
         boolean warming=true,starting,ready,created,retired,draining,rearm,responsesDisabled,protocolDrained=true,destroyed,replySent,targetMayHaveOccurred,cleanupObservationExpired;
         String code;
         NetworkEntry(String key,WebView view,MdoBrowserDocument profile,MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String target){
@@ -35,6 +36,7 @@
     private void networkCommand(String key,WebView view,String command,boolean agent){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
         if("downloads".equals(command)&&entry.downloads!=null)return;
+        if(entry.navigation!=null&&entry.navigation.ticket!=null&&entry.navigation.ticket.result()==null&&(agent||!manual.contains(key))&&Arrays.asList("navigate","back","forward","reload","automation","input","wheel","drag","upload").contains(command))throw new IllegalStateException("navigation_pending");
         if(entry.retired&&(agent||Arrays.asList("automation","frames","input","wheel","drag","upload").contains(command)))throw new IllegalStateException("network_owner_unavailable");
         if(agent&&entry.downloads!=null&&entry.downloads.pending()&&Arrays.asList("navigate","back","forward","reload","automation","input","wheel","drag","upload").contains(command))
             throw new IllegalStateException(entry.downloads.failure()==null?"download_pending":entry.downloads.failure());
@@ -42,11 +44,15 @@
         if(entry.ready||entry.retired)return;
         if(!Arrays.asList("state","bounds","close","takeover","stop").contains(command))throw new IllegalStateException("network_starting");
     }
-    private void networkStop(String key,WebView view){NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view&&!entry.ready)networkRetire(entry,"network_start_cancelled");}
+    private void networkStop(String key,WebView view){NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
     private void networkTakeover(String key,WebView view){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.draining)return;
         if(!entry.ready||entry.marker==null||entry.downloads==null){networkRetire(entry,"network_user_takeover");return;}
         entry.draining=true;entry.ready=false;entry.retiredAt=android.os.SystemClock.elapsedRealtime();entry.code="network_user_takeover";
+        nativeNavigationRetire(entry);
+        // Explicit human takeover releases only the original UI reservation;
+        // its native receipt remains retained and cannot restore a later page.
+        cancelNavigationRequest(key,view);
         networkHandler.removeCallbacks(entry.watch);
         try{
             entry.downloads.quiesce();cdpWorker.retireNetwork(entry.marker.lease());
@@ -67,6 +73,7 @@
         if(entry.downloads==null)throw new IllegalStateException("network_owner_unavailable");
         NetworkEntry next=new NetworkEntry(key,view,entry.profile,entry.channelLease,id,null,entry.quota);
         next.downloads=entry.downloads;next.rearm=true;next.warming=false;next.starting=true;next.created=true;next.warmupEpoch=views.epoch(key,view);
+        next.navigation=entry.navigation;
         next.downloadConnection=entry.downloads.rearm();
         networkHandler.removeCallbacks(entry.watch);networkViews.put(key,next);
         networkStart(next);return true;
@@ -123,6 +130,7 @@
                 public void turn(MdoBrowserCdpBinding.Network connection)throws java.io.IOException {
                     if(!live.get())throw new java.io.IOException("cdp_network_cancelled");downloads.turn(connection);
                 }
+                public boolean navigationAllowed(){return live.get()&&downloads.navigationAllowed();}
             },result->networkResult(entry,result));
         }catch(java.io.IOException|RuntimeException|Error failure){
             entry.protocolDrained=entry.marker==null||!cdpWorker.networkPending(entry.marker);
@@ -178,6 +186,7 @@
     }
     private void networkRetire(NetworkEntry entry,String reason){
         if(networkViews.get(entry.key)!=entry)return;
+        nativeNavigationRetire(entry);
         entry.draining=false;
         if(!entry.retired){entry.retired=true;entry.ready=false;entry.code=reason;entry.retiredAt=android.os.SystemClock.elapsedRealtime();}
         entry.live.set(false);networkHandler.removeCallbacks(entry.watch);

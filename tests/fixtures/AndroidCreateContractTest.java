@@ -247,9 +247,75 @@ public final class AndroidCreateContractTest {
         slow.closeCommand("tab");original.closed(true);android.os.SystemClock.now+=5000;android.os.Handler.tick();
         check(Boolean.TRUE.equals(slow.capabilities().data.get("network_cleanup_failed"))&&android.os.Handler.pending()==0,"Expired private cache observation was hidden or looped forever");
     }
+    static AndroidCreateHost navigationHost()throws Exception{
+        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");call.ready();
+        host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");return host;
+    }
+    static void nativeNavigationRecords()throws Exception{
+        for(int mode=0;mode<5;mode++){
+            AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
+            host.gotoPage("tab","https://navigation.invalid/target",30000);
+            AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);
+            String id=(String)host.navigationState("tab").data.get("id");
+            check(Boolean.TRUE.equals(host.lastReply.data.get("accepted"))&&id.equals(host.lastReply.data.get("navigation_ref"))&&view.loads==loads,"Native goto replayed WebView.loadUrl or lost its original accepted ID");
+            check(host.documents.get("tab").navigationBlocked&&Boolean.TRUE.equals(host.loading.get("tab")),"Queued native goto lost its pre-navigation fence");
+            try{host.gotoPage("tab","https://navigation.invalid/second",30000);throw new AssertionError("Pending native goto admitted another navigation");}catch(IllegalStateException expected){check(expected.getMessage().equals("navigation_pending")&&host.cdpWorker.navigations.size()==1,"Pending navigation replaced its original admission");}
+            ticket.issued=true;host.legacyNavigationError("tab");check(host.documents.get("tab").navigationBlocked,"Unidentified legacy error released a pending native operation");
+            if(mode==0)ticket.ack(true,true,false,null);
+            if(mode==1)ticket.ack(true,false,false,null);
+            if(mode==2)ticket.ack(true,false,true,null);
+            if(mode==3)ticket.ack(false,false,false,"cdp_navigation_failed");
+            if(mode==4)ticket.outcome=new AndroidCreateHost.MdoBrowserCdpSession.NavigationResult(false,false,false,false,true,false,"cdp_navigation_connection_closed");
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            check(host.navigationState("tab").data.get("id").equals(id)&&view.loads==loads,"Native completion changed its ID or reissued its target");
+            if(mode==0||mode==1||mode==3)check(!host.documents.get("tab").navigationBlocked&&!Boolean.TRUE.equals(host.loading.get("tab")),"Proven unchanged original document remained fenced");
+            else check(host.documents.get("tab").navigationBlocked&&Boolean.TRUE.equals(host.loading.get("tab")),"Native ACK or uncertain effects were mistaken for page completion");
+            if(mode==2){host.startPage("tab","https://navigation.invalid/target");host.finishPage("tab",view.url);check(!host.documents.get("tab").navigationBlocked&&!Boolean.TRUE.equals(host.loading.get("tab")),"Actual page callbacks failed to release committed navigation");}
+            if(mode==3)check(host.errors.get("tab").equals("cdp_navigation_failed"),"Original native failure was masked");
+            host.stopNavigation("tab");host.closeCommand("tab");
+        }
+    }
+    static void nativeNavigationScopeAndCancel()throws Exception{
+        for(int mode=0;mode<5;mode++){
+            AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
+            host.gotoPage("tab","https://navigation.invalid/original",30000);AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);
+            if(mode==0)host.stopNavigation("tab");
+            if(mode==1){host.startPage("tab","https://new-page.invalid/");host.errors.put("tab","new-page-error");}
+            if(mode==2)host.takeover("tab");
+            if(mode==3)host.channel.lease=host.channel.new Lease();
+            if(mode==4){ticket.issued=true;host.startPage("tab","https://new-page.invalid/");host.errors.put("tab","new-page-error");ticket.ack(true,true,false,null);}
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            if(mode!=4)check(ticket.cancelled&&!ticket.dispatched(),"Revoked queued navigation reached native dispatch");
+            check(view.loads==loads,"Cancellation/scope change replayed a native target");
+            if(mode==1||mode==4)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("new-page-error"),"Old completion restored a newer document's loading/error state");
+            if(mode==2)check(host.manual.contains("tab")&&host.documents.get("tab").manualBlocked,"Cancelled navigation released manual control");
+            if(mode==0){host.gotoPage("tab","https://navigation.invalid/new",30000);check(host.cdpWorker.navigations.size()==2,"Confirmed no-effect cancellation poisoned explicit subsequent navigation");host.stopNavigation("tab");}
+            host.closeCommand("tab");
+        }
+    }
     public static void main(String[] args)throws Exception{
+        for(int mode=0;mode<4;mode++){
+            AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
+            host.gotoPage("tab","https://navigation.invalid/original",30000);String id=(String)host.navigationState("tab").data.get("id");
+            AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);
+            if(mode==1)host.channel.lease=host.channel.new Lease();
+            if(mode==2){ticket.issued=true;host.takeover("tab");
+                host.gotoPage("tab","https://human-page.invalid/",30000,false);
+                host.startPage("tab","https://human-page.invalid/");host.errors.put("tab","human-page-error");
+                ticket.ack(true,true,false,null);
+                check(view.loads==loads+1&&host.cdpWorker.navigations.size()==1,"Original pending native ACK blocked or replayed human navigation");
+            }
+            host.cancelNativeNavigation("tab",mode==3?"nv-unrelated":id);
+            boolean matched=mode==0||mode==2;
+            check(Boolean.valueOf(matched).equals(host.lastReply.data.get("cancelled")),"Navigation cancellation adopted an unrelated alias/channel");
+            check(ticket.cancelled==matched&&view.loads==loads+(mode==2?1:0),"Reference cleanup changed the current page or missed the queued operation");
+            if(mode==2)check(host.manual.contains("tab")&&host.documents.get("tab").manualBlocked,"Agent cleanup released human control");
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
+            host.closeCommand("tab");
+        }
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

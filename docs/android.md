@@ -3674,3 +3674,51 @@ state before replacing the legacy WebView navigation route. Existing main-UI
 error handling is not bypassed. `product_navigation_activated`, device/framework
 and overall automation qualifications remain false. Phone/current WebView stay
 deferred; installed-provider and public JS/C end-to-end checks remain required.
+
+
+## Managed product navigation admission and original outcome joining (E97)
+
+For an armed physical owner, the actual product goto route now queues one fixed
+native Page.navigate and immediately returns a navigation_ref. State exposes
+only the opaque reference, queued/sent/acknowledged/failed phase, owner revocation,
+dispatched status and typed bounded result flags. The common native protocol
+worker continues Fetch, source-body and other-view work while the original ACK
+is pending. No UI socket I/O, second executor or implicit loadUrl replay is added.
+
+One original timeout covers UI admission and native dispatch. Queued cancellation
+removes the URL and records no effect; once sending starts, cancellation cannot
+claim no effect or erase the original native receipt. An exact private
+navigation_cancel cleanup route is usable across human takeover, but requires the
+same original alias/channel and cannot stop, reload or retarget the current page.
+Human takeover releases the original UI reservation so manual navigation remains
+available even while the native ACK is pending; old outcomes cannot restore the
+manually opened page. The shared JS dispatcher uses exact cleanup on cancellation,
+context loss or uncertain exit.
+Incomplete dialog/download/chooser checkpoints retain the pending operation for
+an explicit follow-up decision instead of poisoning it with automatic cleanup.
+
+The original pre-navigation reservation includes physical view, epoch, profile
+and channel ownership. Only its exact terminal result may restore the unchanged
+original page's loading/input fence. Unknown dispatched effects remain fenced;
+old callbacks cannot overwrite later page state. A known same-document receipt
+(download false, no loader) can settle without inventing a new document epoch.
+Missing classifier/loader metadata stays uncertain. A known download returns new
+retained records as browser-scope candidates, not as proven per-request matches.
+Completed files retained from earlier calls are excluded from that candidate set.
+
+Native broker/controller/file regression passes 27 assertions, the lower original
+navigation gate passes 156 (two actual local JNI/socket sessions), and 335 actual
+product-fragment lifecycle assertions cover stop/takeover/channel/new-page and
+exact-reference cleanup. All 338 JS tests and 173/175 Python cases pass, with two
+existing Windows symlink-privilege skips. Native ASan/UBSan/API26 and all 103 native
+plus 13 product input hashes pass. Full Windows packaging passes 12 actual
+C/JS/native runtime checks; the complete Android APK contains the actual new
+broker/UI definitions, matching source/archive identities and retained signer.
+See .mdo/E97-final-identities.log and docs/progress.md for exact artifact evidence.
+
+Initial target creation and history/reload remain on their legacy route. This
+stage does not qualify installed Android WebView/main UI, exact download-to-request
+association or the complete public JS/C path. Device/framework/automation flags
+remain false, and phone/current WebView remain deferred. Continue the remaining
+navigation, transfer-lifetime and public-device work without upgrading the provider
+or replacing formal application data.
