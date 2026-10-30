@@ -17,8 +17,13 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (W4, including W3b/W3a/W2/W1/E66/F21) is **6,934,261 bytes**, SHA-256
-`26bc29244e682f42cbbc30ee1658f652ac9b2494b334f045ea30ff182fa13481`.
+E82 adds shared handling for a failed native creation receipt: distinguish an
+unsent target with confirmed cleanup from an uncertain navigation, preserve the
+original outcome and avoid retrying the URL or caching a successful view. Its
+Android first-navigation barrier remains behind the unqualified adapter gate.
+
+The current refreshed preview (E82, including W4/W3b/W3a/W2/W1/E66/F21) is **6,934,716 bytes**, SHA-256
+`d6b3822bf5d4c927925f0c1001713d54568ff794defa35621f85654f6512e818`.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and

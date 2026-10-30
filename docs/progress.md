@@ -7373,3 +7373,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   events pass through on their original connection. No new runtime dependency,
   app/Home/source copy, device/provider update, model/external page call, formal
   data edit or publication. Preserve the deferred phone/current WebView.
+
+## E82b — package and exercise the current creation barrier
+
+- Stop the single development service, compose/apply all 113 reviewed files,
+  then pack the updated app archive in place. Preserve and verify its packaging
+  journal restoration. Windows output 6,934,716 bytes, SHA-256
+  `d6b3822bf5d4c927925f0c1001713d54568ff794defa35621f85654f6512e818`.
+  All twelve actual packed-program/runtime checks pass, including matching
+  installed plugin inventory, observation, Unicode fill/trusted click, capture,
+  connection-reset reporting and explicit navigation recovery
+  (`.mdo/E82-windows-build.log`, `.mdo/E82-windows-runtime.log`).
+- Reuse the unchanged verified E81 ARM64 engine and compile the complete current
+  Android host. Require the actual NetworkEntry DEX definition alongside the
+  existing physical-owner/cooperative classes, six JNI entries, private provider,
+  exact app/native payload hashes, ARM64/16 KiB alignment and v2-v3 signatures.
+  APK 6,415,681 bytes, SHA-256
+  `ab6c04fa7c0c7cef7028af351bf2890977621f5d96b4408203f7ffafc6f1d968`
+  (`.mdo/E82-android-build.log`). QA identity/signer/serial are preserved.
+- Full Python gate passes 173/175 in 64.486 s; only the two existing Windows
+  symlink privilege 1314 skips (`.mdo/E82-python-full.log`). Current 138-assertion
+  product and full native gate snapshots still match every recorded input hash.
+  Verify both artifact/source identities and Windows runtime/paired-plugin
+  receipts after packaging. The same headless service returns HTTP 200 on 63625,
+  about 3,434.5 MiB. No second app/Home/source tree is created.
+- Goal remains active: original-response classification/body/store/accept/cancel,
+  explicit network rearm and managed popup integration are unfinished. Device,
+  framework and automation qualification remain false. No phone/provider update,
+  actual model/external page call, formal data edit or online release.
