@@ -19,8 +19,8 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     }
     interface Completion {void done(Result result);}
     static final class Result {
-        final boolean ready,enabledMayHaveOccurred,cleanupConfirmed;final String code;
-        Result(boolean ready,String code,boolean enabled,boolean clean){this.ready=ready;this.code=code;enabledMayHaveOccurred=enabled;cleanupConfirmed=clean;}
+        final boolean ready,enabledMayHaveOccurred,cleanupConfirmed,responsesDisabled;final String code;
+        Result(boolean ready,String code,boolean enabled,boolean clean,boolean disabled){this.ready=ready;this.code=code;enabledMayHaveOccurred=enabled;cleanupConfirmed=clean;responsesDisabled=disabled;}
     }
     private static final int LIMIT=8,QUEUED=0,STARTING=1,READY=2,TERMINAL=3;
     private final MdoBrowserCdpWorker.Ui ui;private final Connector connector;private final LongSupplier clock;
@@ -53,6 +53,11 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         thread();Slot found=null;synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease){found=slot;break;}}
         if(found==null)return;found.cancel();if(executor.remove(found))found.finish("cdp_network_cancelled");else schedule();
     }
+    void retire(MdoBrowserCdpMarker.Lease lease){
+        thread();Slot found=null;synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease){found=slot;break;}}
+        if(found==null)return;
+        if(found.stage!=READY){cancel(lease);return;}found.retire();schedule();
+    }
     int pending(){thread();int count=0;synchronized(gate){for(Slot slot:slots)if(slot!=null)count++;}return count;}
     boolean pending(MdoBrowserCdpMarker.Lease lease){thread();synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease)return true;}return false;}
     private void schedule(){
@@ -77,9 +82,19 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
                 MdoBrowserCdpBinding.Network connection=selected.connection;
                 if(connection==null)throw new IOException("cdp_network_binding_invalid");
                 if(connection.idle()){
+                    if(selected.retiring.get()){
+                        selected.retirementRemaining();if(!selected.retirementStarted){connection.cancelTransfers();selected.retirementStarted=true;}
+                    }
                     selected.service(connection);
                     connection.serviceBodies(100);connection.poll(20,250);
-                    if(connection.idle()){selected.service(connection);connection.serviceBodies(100);}
+                    if(connection.idle()){
+                        selected.service(connection);connection.serviceBodies(100);
+                        if(selected.retiring.get()&&connection.transfersDrained()){
+                            connection.disableResponses(selected.retirementRemaining());
+                            while(connection.pendingControls()!=0)connection.drainDisabledControls(20,selected.retirementRemaining());
+                            selected.finish("cdp_network_retired");
+                        }
+                    }
                 }
             }catch(IOException error){selected.finish(safe(error.getMessage()));}
             catch(RuntimeException|Error error){selected.finish("cdp_network_worker_failed");}
@@ -100,9 +115,14 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     private final class Slot implements Runnable {
         final WeakReference<MdoBrowserCdpMarker> marker;final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;
         final AtomicBoolean cancelled=new AtomicBoolean();final Runnable delivery=this::deliver;
+        final AtomicBoolean retiring=new AtomicBoolean();long retirementBorn;boolean retirementStarted;
         volatile int stage=QUEUED;volatile MdoBrowserCdpBinding.Network connection;
         volatile boolean enabledMayHaveOccurred,cleanupFailed;volatile String terminalCode;
         private Events events;private Completion complete;private boolean posted,delivering,readyDelivered,terminalDelivered;
+        synchronized void retire(){if(retiring.get())return;retirementBorn=clock.getAsLong();retiring.set(true);}
+        int retirementRemaining()throws IOException {
+            long used=clock.getAsLong()-retirementBorn;if(used<0||used>4990)throw new IOException("cdp_network_retirement_timeout");return (int)Math.min(250,5000-used);
+        }
         Slot(MdoBrowserCdpMarker owner,int timeout,Events events,Completion complete){
             marker=new WeakReference<>(owner);lease=owner.lease();this.timeout=timeout;this.events=events;this.complete=complete;born=clock.getAsLong();
         }
@@ -116,7 +136,8 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             MdoBrowserCdpBinding.Network original=connection;
             if(original==null){if(method.startsWith("Fetch."))throw new IOException("cdp_network_bootstrap_event_invalid");return;}
             Events handler;synchronized(this){handler=events;}
-            if(handler==null)throw new IOException("cdp_network_cancelled");handler.event(original,method,child,params);
+            if(handler==null)throw new IOException("cdp_network_cancelled");
+            if(retiring.get()&&"Fetch.requestPaused".equals(method))original.continuePausedRequest();else handler.event(original,method,child,params);
             if(closed.get()||cancelled.get()||!lease.current())throw new IOException("cdp_network_cancelled");
         }
         private void service(MdoBrowserCdpBinding.Network original)throws IOException {
@@ -171,7 +192,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
                 if(!terminal&&(cancelled.get()||!lease.current()||stage!=READY||readyDelivered))return;
                 delivering=true;callback=complete;
                 if(terminal){terminalDelivered=true;complete=null;events=null;}else readyDelivered=true;
-                result=new Result(!terminal,terminal?terminalCode:null,enabledMayHaveOccurred,terminal&&!cleanupFailed);
+                result=new Result(!terminal,terminal?terminalCode:null,enabledMayHaveOccurred,terminal&&!cleanupFailed,connection!=null&&connection.responsesDisabled());
             }
             try{callback.done(result);}catch(RuntimeException|Error failure){cancel();synchronized(this){complete=null;events=null;terminalDelivered=true;}}
             finally{

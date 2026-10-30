@@ -95,28 +95,30 @@ final class AndroidCreateHost {
     static final class MdoBrowserCdpNetworks {
         interface Events {void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params)throws java.io.IOException;default void turn(MdoBrowserCdpBinding.Network connection)throws java.io.IOException {}}
         interface Completion {void done(Result result);}
-        static final class Result {final boolean ready,cleanupConfirmed;String code;Result(boolean ready,boolean clean){this.ready=ready;cleanupConfirmed=clean;}}
+        static final class Result {final boolean ready,cleanupConfirmed;boolean responsesDisabled;String code;Result(boolean ready,boolean clean){this.ready=ready;cleanupConfirmed=clean;}}
     }
     static final class MdoBrowserDownloadRuntime {
         final Object files=new Object(),budget=new Object();
         static MdoBrowserDownloadRuntime get(Object activity){if(((AndroidCreateHost)activity).fault.equals("download_service"))throw new IllegalStateException("fixture native authority unavailable");return new MdoBrowserDownloadRuntime();}
     }
     static final class MdoBrowserCdpDownloads {
-        static MdoBrowserCdpDownloads latest;int retiring;boolean closed,disconnected,pending;
+        static MdoBrowserCdpDownloads latest;int retiring,quiesces;boolean closed,disconnected,pending;
         MdoBrowserCdpDownloads(Object files,Object budget){latest=this;}
         void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params){connection.downloads++;}
         void turn(MdoBrowserCdpBinding.Network connection){connection.turns++;}
         void disconnect(){disconnected=true;}
+        void quiesce(){quiesces++;}
         void close(){closed=true;}
         int retiringFiles(){return retiring;}
         boolean pending(){return pending;}String failure(){return null;}
     }
     static final class NetworkCall {
         final MdoBrowserCdpMarker marker;final MdoBrowserCdpNetworks.Events events;final MdoBrowserCdpNetworks.Completion complete;
-        boolean pending=true;int cancelled;NetworkCall(MdoBrowserCdpMarker marker,MdoBrowserCdpNetworks.Events events,MdoBrowserCdpNetworks.Completion complete){this.marker=marker;this.events=events;this.complete=complete;}
+        boolean pending=true;int cancelled,retired;NetworkCall(MdoBrowserCdpMarker marker,MdoBrowserCdpNetworks.Events events,MdoBrowserCdpNetworks.Completion complete){this.marker=marker;this.events=events;this.complete=complete;}
         void ready(){complete.done(new MdoBrowserCdpNetworks.Result(true,false));}
         void closed(boolean clean){pending=!clean;complete.done(new MdoBrowserCdpNetworks.Result(false,clean));}
         void failed(String code,boolean clean){pending=!clean;MdoBrowserCdpNetworks.Result result=new MdoBrowserCdpNetworks.Result(false,clean);result.code=code;complete.done(result);}
+        void retired(){pending=false;MdoBrowserCdpNetworks.Result result=new MdoBrowserCdpNetworks.Result(false,true);result.code="cdp_network_retired";result.responsesDisabled=true;complete.done(result);}
     }
     static final class CdpWorker {
         final List<NetworkCall> calls=new ArrayList<>();boolean closed,failStart;
@@ -124,6 +126,7 @@ final class AndroidCreateHost {
             if(failStart)throw new java.io.IOException("fixture start failure");if(!marker.current.getAsBoolean())throw new java.io.IOException("fixture owner lost");calls.add(new NetworkCall(marker,events,complete));
         }
         void cancelNetwork(MdoBrowserCdpMarker.Lease lease){for(NetworkCall call:calls)if(call.marker.lease==lease)call.cancelled++;}
+        void retireNetwork(MdoBrowserCdpMarker.Lease lease){for(NetworkCall call:calls)if(call.marker.lease==lease)call.retired++;}
         boolean networkPending(MdoBrowserCdpMarker marker){for(NetworkCall call:calls)if(call.marker==marker)return call.pending;return false;}
         boolean terminated(){return closed;}
     }
@@ -138,7 +141,7 @@ final class AndroidCreateHost {
     static final class MdoBrowserDialogTarget {final WebView view;final DialogCore dialogs=new DialogCore();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
-    static final class CdpViews {void invalidate(String key,WebView view,long epoch,String code){}}
+    static final class CdpViews {int invalidated;String reason;void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
     final Object activity=this;final Root root=new Root();final CdpViews cdpViews=new CdpViews();
     final HostPage host=new HostPage();final CdpWorker cdpWorker=new CdpWorker();
     final ManualChooser manualChooser=new ManualChooser();Runnable beforeControlCancel;
@@ -177,6 +180,7 @@ final class AndroidCreateHost {
     void finishPage(String key,String url){WebView view=views.get(key);view.client.onPageFinished(view,url);}
     void revoke(String key){WebView view=views.get(key);networkRetire(key,view,"network_user_takeover");}
     void pendingCommand(String key,String command){networkCommand(key,views.get(key),command,false);}
+    void returnControl(String key){networkCanRelease(key,views.get(key));manual.remove(key);}
     void pendingAgentCommand(String key,String command){networkCommand(key,views.get(key),command,true);}
     void stopNetwork(String key){networkStop(key,views.get(key));}
     void takeover(String key){String command="takeover";WebView web=views.get(key);@@NETWORK_TAKEOVER_PREFIX@@ "takeover".equals(command));views.manual(key,web,true);manual.add(key);}

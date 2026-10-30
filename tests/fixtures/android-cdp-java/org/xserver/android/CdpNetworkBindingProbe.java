@@ -59,6 +59,7 @@ public final class CdpNetworkBindingProbe {
                     if(!changed)tree.put("childFrames",new JSONArray().put(new JSONObject().put("frame",new JSONObject().put("id","race-child").put("parentId","frame-owned").put("loaderId","child-load"))));
                     wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",tree)));return true;
                 }
+                if("Fetch.disable".equals(method)){check(command.getJSONObject("params").length()==0);wire.queue(response(id));return true;}
                 if("Runtime.disable".equals(method)||"Fetch.enable".equals(method)){
                     check(wire.proofRead&&wire.cleanupAttempts==1&&wire.id.equals("owned"));
                     if("Fetch.enable".equals(method)){

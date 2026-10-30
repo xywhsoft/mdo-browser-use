@@ -8008,3 +8008,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   installed provider/main-UI qualification remain open. Phone/current WebView
   stay deferred. No install, formal-data edit, model or external browser-page
   action, additional app/Home/source copy or online publication.
+
+
+## E94 — retire original downloads before closing takeover interception
+
+- Add common-worker retirement for the original physical connection. Revoke
+  ordinary frame execution immediately, quiesce Agent download admission and
+  cancel pending/partial original sources. Keep only cleanup authority while
+  manual page use continues. Require source/control drainage before one
+  Fetch.disable call; record its ACK independently of native socket close.
+  Repeated takeover does not reset the five-second native deadline; UI observes
+  a bounded 5.5-second fallback. No URL load, click replay or refetch is added.
+- Preserve completed bytes and complete-source/in-progress file verification
+  across takeover; valid bytes finish while tampered bytes fail. Unknown cleanup
+  cannot produce a released/cancelled-success receipt or a false disabled flag.
+  Wire actual Activity takeover to this path with explicit draining/retired
+  state. Release keeps manual state until a fresh policy is explicitly rearmed;
+  it no longer silently reports control restored on the retired connection.
+- Reproduce and fix prior-cause masking through both quiesce and disconnect.
+  A controlled cache-open failure was replaced first by user cancellation, then
+  by generic native body cancellation. Keep cache/timeout/frame/policy roots
+  through later user cleanup (`.mdo/E94-prior-cache-failure-repro.log`,
+  `.mdo/E94-prior-cache-failure-native-mask.log` and fixed log). This controlled
+  factory fault does not qualify an installed Android cache/UID implementation.
+- Retirement/native source/common-worker/real-files gate passes 58 checks;
+  exact product creation/takeover/lifecycle fragments pass 175. Cover original
+  pending/partial sources, completed data, a blocked real verification reader,
+  tampering, future manual responses, missing ACKs, timeouts, repeated calls,
+  immediate frame-marker revocation and no page reload/destruction. Full native/
+  ASan/UBSan/API26 gates pass (`.mdo/E94-native-final.log` / current JSON); all
+  98 native and 11 product input hashes match. Python passes 173/175 in 50.890 s
+  (`.mdo/E94-python-full.log`), only two existing Windows symlink privilege skips.
+- Stop the sole dev service, apply the same 119 reviewed files and build the
+  complete QA Activity/service/lite-tools APK (`.mdo/E94-android-build.log`).
+  Actual DEX/source/native/app identity, private provider, six JNI exports,
+  ARM64/16 KiB layout and v2-v3 signing pass. APK 6,452,545 bytes, SHA-256
+  `2ce13ed7860e583a3c927c22e71e07830ba0b8b8cfd5d2ce227a3583188ac0d3`.
+  Seven final APK contracts pass. Restore the same service to HTTP 200 on 63625,
+  about 3,436.9 MiB. Windows and paired-plugin identities are unchanged;
+  device/framework/automation flags remain false.
+- Goal active. Same-page explicit rearm needs new proof without reload/input
+  replay, retained old-generation download routing and honest namespace quotas.
+  Original popup/download-only lifetime, cross-process interception, navigation
+  errors, Android public save/automation qualification, unsupported text/blob
+  handling and installed provider/main-UI qualification remain open. Phone and
+  current WebView stay deferred. No installation, formal-data edit, model or
+  external browser-page action, extra app/Home/source copy or publication.

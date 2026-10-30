@@ -33,6 +33,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         default MdoBrowserCdpResponse pausedResponse()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default int pendingOffers()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default void cancelTransfers()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.Body takePausedBody(long limit,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default void cancelBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
@@ -59,6 +60,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public MdoBrowserCdpResponse pausedResponse()throws IOException{return session.pausedResponse();}
                 public MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException{return session.retainPausedResponse();}
                 public int pendingOffers()throws IOException{return session.pendingOffers();}
+                public void cancelTransfers()throws IOException{session.cancelTransfers();}
                 public MdoBrowserCdpSession.Body takePausedBody(long limit,int timeout)throws IOException{return session.takePausedBody(limit,timeout);}
                 public MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{return session.readBody(body,timeout);}
                 public void cancelBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{session.cancelBody(body,timeout);}
@@ -250,7 +252,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
     }
     static final class Network implements AutoCloseable {
-        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private boolean enableAttempted,responsesAttempted,enabled;
+        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
         private Network(MdoBrowserCdpBinding bound)throws IOException {
             this.bound=bound;frames=new MdoBrowserCdpNetworkFrames(bound.rootFrame,bound.rootLoader);bound.observe(frames);bound.lease.transfer(bound,this);
         }
@@ -283,17 +285,29 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {control();return bound.peer.abortPausedRequest();}
         MdoBrowserCdpResponse pausedResponse()throws IOException {control();return bound.peer.pausedResponse();}
         MdoBrowserCdpNetworkFrames.Origin pausedOrigin()throws IOException {control();return frames.origin(bound.peer.pausedResponse().frame);}
-        MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {control();pausedOrigin();return bound.peer.retainPausedResponse();}
+        MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {control();if(retiring)throw problem("cdp_network_retiring");pausedOrigin();return bound.peer.retainPausedResponse();}
         int pendingOffers()throws IOException {bound.current();return bound.peer.pendingOffers();}
-        MdoBrowserCdpSession.Body takePausedBody(long maxBytes,int timeoutMs)throws IOException {control();pausedOrigin();return bound.peer.takePausedBody(maxBytes,timeoutMs);}
+        MdoBrowserCdpSession.Body takePausedBody(long maxBytes,int timeoutMs)throws IOException {control();if(retiring)throw problem("cdp_network_retiring");pausedOrigin();return bound.peer.takePausedBody(maxBytes,timeoutMs);}
         MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeoutMs)throws IOException {active();return bound.peer.readBody(body,timeoutMs);}
         void cancelBody(MdoBrowserCdpSession.Body body,int timeoutMs)throws IOException {active();bound.peer.cancelBody(body,timeoutMs);}
         int pendingBodies()throws IOException {bound.current();return bound.peer.pendingBodies();}
-        void requestBodyRead(MdoBrowserCdpSession.Body body)throws IOException {active();bound.peer.requestBodyRead(body);}
+        void requestBodyRead(MdoBrowserCdpSession.Body body)throws IOException {active();if(retiring)throw problem("cdp_network_retiring");bound.peer.requestBodyRead(body);}
         MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException {active();return bound.peer.takeBodyChunk(body);}
         boolean serviceBodies(int sendTimeoutMs)throws IOException {active();return bound.peer.serviceBodies(sendTimeoutMs);}
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
         boolean responsesMayHaveOccurred(){return responsesAttempted;}
+        void cancelTransfers()throws IOException {active();retiring=true;bound.peer.cancelTransfers();}
+        boolean transfersDrained()throws IOException {active();return bound.peer.pendingOffers()==0&&bound.peer.pendingBodies()==0&&bound.peer.pendingControls()==0;}
+        void disableResponses(int timeoutMs)throws IOException {
+            active();if(timeoutMs<10||timeoutMs>5000)throw problem("cdp_arguments_invalid");
+            if(disableAttempted)throw problem("cdp_network_disable_replayed");
+            if(!transfersDrained())throw problem("cdp_network_transfers_pending");disableAttempted=true;
+            bound.call("Fetch.disable",new JSONObject(),null,timeoutMs,true);bound.current();responsesDisabled=true;enabled=false;
+        }
+        void drainDisabledControls(int receiveMs,int timeoutMs)throws IOException {
+            bound.current();if(!responsesDisabled)throw problem("cdp_network_disable_unconfirmed");bound.peer.poll(receiveMs,timeoutMs);
+        }
+        boolean responsesDisabled(){return responsesDisabled;}
         boolean cleanupConfirmed(){return bound.closed.get()&&!bound.cleanupFailed.get();}
         @Override public void close(){frames.close();bound.lease.untrack(this);bound.close();}
     }

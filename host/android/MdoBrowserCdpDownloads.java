@@ -55,7 +55,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     private final Object gate=new Object();private final Row[] rows=new Row[32];
     private final MdoBrowserDownloadQueue.Ticket[] retiring=new MdoBrowserDownloadQueue.Ticket[32];
     private final MdoBrowserDownloadQueue files;private final Budget budget;
-    private MdoBrowserCdpBinding.Network original;private Thread worker;private long serial;private boolean closed,disconnected;
+    private MdoBrowserCdpBinding.Network original;private Thread worker;private long serial;private boolean closed,disconnected,quiescing;
     private volatile String failure;
     MdoBrowserCdpDownloads(MdoBrowserDownloadQueue files,Budget budget){
         if(files==null||budget==null)throw new IllegalArgumentException("Missing native download services");this.files=files;this.budget=budget;
@@ -71,6 +71,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     }
     @Override public void event(MdoBrowserCdpBinding.Network network,String method,String child,JSONObject params)throws IOException {
         protocol(network);if(!"Fetch.requestPaused".equals(method))return;
+        synchronized(gate){if(quiescing){network.continuePausedRequest();return;}}
         MdoBrowserCdpResponse response=network.pausedResponse();
         if(!response.kind.equals("candidate")){network.continuePausedRequest();return;}
         // Child download identity requires its separate frame association.
@@ -218,6 +219,19 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
         }
     }
     String failure(){return failure;}
+    /** User takeover cancels unfinished original sources without discarding
+     * complete source bytes that are still being independently verified. */
+    void quiesce(){
+        synchronized(gate){if(closed||disconnected||quiescing)return;quiescing=true;
+            for(Row row:rows)if(row!=null){summarize(row);if(row.snapshot.terminal()||sourceCompleted(row))continue;
+                boolean user=row.snapshot.error==null||"cancelled".equals(row.snapshot.error);
+                if(user)row.cancelled=true;row.offer.cancel();if(row.ticket!=null)try{files.cancel(row.ticket);}catch(IOException ignored){}
+                // Quiescing must not replace a known native/cache fault with
+                // a newer user decision while its cleanup is still pending.
+                if(user)publish(row,"cancelling","cancelled",row.snapshot.received,null,false,row.snapshot.cacheCleanupConfirmed,false,"user");
+                else summarize(row);}
+        }
+    }
     private void refresh(Row row){synchronized(gate){summarize(row);}}
     boolean pending(){synchronized(gate){if(failure!=null)return true;for(Row row:rows)if(row!=null){summarize(row);if(!row.retired&&!row.snapshot.terminal())return true;}return false;}}
     int retiringFiles(){
@@ -229,6 +243,10 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     void disconnect(){
         synchronized(gate){if(closed||disconnected)return;disconnected=true;failure="download_connection_closed";
             for(Row row:rows)if(row!=null){
+                summarize(row);
+                if(row.error==null&&row.snapshot.error!=null&&("cache".equals(row.snapshot.failureSource)||"timeout".equals(row.snapshot.failureSource)||"native_frame".equals(row.snapshot.failureSource)||"policy".equals(row.snapshot.failureSource))){
+                    row.error=row.snapshot.error;row.failureSource=row.snapshot.failureSource;
+                }
                 MdoBrowserCdpSession.OfferResult offer=row.offer.result();
                 MdoBrowserCdpSession.BodyResult body=offer==null||offer.body==null?null:offer.body.result();
                 // Original bytes/cleanup can already be complete while the

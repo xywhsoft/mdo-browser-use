@@ -153,6 +153,12 @@ def main():
             or controller.get('product_downloads_activated') is not False):
         raise RuntimeError('The native download controller/physical worker/files gate did not pass')
     result['jvm_download_controller']=controller
+    retirement=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpNetworkRetireProbe',str(output/'network-retire-files')],cwd=ROOT,env=environment,text=True,timeout=45))
+    if (not retirement.get('passed') or not retirement.get('original_retirement_receipts') or not retirement.get('shared_protocol_worker')
+            or not retirement.get('real_guarded_files') or retirement.get('framework_verified') is not False or retirement.get('provider_qualified') is not False):
+        raise RuntimeError('The original response retirement and policy-disable gate did not pass')
+    result['jvm_network_retirement']=retirement
     download_host=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpDownloadsHostProbe',str(output/'download-host-files')],cwd=ROOT,env=environment,text=True,timeout=45))
     if (not download_host.get('passed') or not download_host.get('exact_product_commands') or not download_host.get('real_native_controller_files')

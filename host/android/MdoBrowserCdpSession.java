@@ -280,6 +280,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             Offer offer=new Offer(this,original,clock.now());controlKeys.add(original.key);original.used=true;offers[slot]=offer;return offer;
         }
     }
+    /** Native retirement decision only. Fixed source cleanup still runs on
+     * this dispatcher; complete source receipts are not revoked. */
+    void cancelTransfers()throws Failure {
+        guard(false);synchronized(controlGate){
+            for(Offer offer:offers)if(offer!=null)offer.cancel();
+            for(Body body:bodies)if(body!=null)body.cancel();
+        }
+    }
     int pendingOffers()throws Failure {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
         synchronized(controlGate){int count=0;for(Offer offer:offers)if(offer!=null)count++;return count;}

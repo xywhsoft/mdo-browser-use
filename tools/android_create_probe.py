@@ -27,8 +27,11 @@ def main():
     if len(closes)!=1:raise RuntimeError('Expected the exact reviewed native close-command route')
     takeovers=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('manualChooser.cancel(web);MdoBrowserDocument document=')]
     if len(takeovers)!=1:raise RuntimeError('Expected original network revocation before takeover cancellation')
+    updates=[row for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('if("takeover".equals(command))networkRetire(key,web,')]
+    if len(updates)!=1 or takeovers[0].count(updates[0]['before'])!=1:raise RuntimeError('Expected final orderly network takeover route')
+    takeover=takeovers[0].replace(updates[0]['before'],updates[0]['after'])
     fragments={
-        '@@NETWORK_TAKEOVER_PREFIX@@':takeovers[0],
+        '@@NETWORK_TAKEOVER_PREFIX@@':takeover,
         '@@NETWORK@@':(dev.ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8'),
         '@@CLOSE_COMMAND@@':closes[0],
         '@@CREATION_GUARD@@':document[document.index('    private boolean nativeViewCleanupFailed'):document.index('    private final Map<String,MdoBrowserDocument>')],

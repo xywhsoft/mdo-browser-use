@@ -1412,6 +1412,11 @@
       "before": "    private JSONObject browserUseSupport;",
       "after_file": "host/android/browser-downloads.inc.java",
       "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(\"takeover\".equals(command))networkRetire(key,web,\"network_user_takeover\");manualChooser.cancel(web);",
+      "after": "if(\"takeover\".equals(command)){cdpViews.invalidate(key,web,views.epoch(key,web),\"input_cancelled\");networkTakeover(key,web);}else networkCanRelease(key,web);manualChooser.cancel(web);"
     }
   ],
   "files": [

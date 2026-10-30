@@ -50,11 +50,13 @@ public final class CdpDownloadsProbe {
         final Case test;final CdpNetworkBindingProbe.Context context;final MdoBrowserCdpDownloads controller;
         final AtomicInteger claims=new AtomicInteger(),reads=new AtomicInteger(),closes=new AtomicInteger(),aborts=new AtomicInteger(),continues=new AtomicInteger();
         final ConcurrentLinkedQueue<JSONObject> chunks=new ConcurrentLinkedQueue<>();volatile int withheldClose;volatile boolean holdClose;
+        final ConcurrentLinkedQueue<String> trace=new ConcurrentLinkedQueue<>();
         Source(Case test)throws Exception{
             this.test=test;context=test.host.source();controller=new MdoBrowserCdpDownloads(test.files,test.budget);
             CdpBindingProbe.Factory.Extra original=context.peer.extra;
             context.peer.extra=(command,wire)->{
                 String method=command.getString("method");int id=command.getInt("id");
+                trace.add(method);
                 if(method.equals("Fetch.takeResponseBodyAsStream")){
                     wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("stream","download-stream-"+claims.incrementAndGet())));return true;
                 }
@@ -205,7 +207,7 @@ public final class CdpDownloadsProbe {
             refused("download_source_cleanup_unconfirmed",()->source.controller.release(id));source.controller.close();check(test.budget.used()==0);
         }
     }
-    private static final class VerifyBarrier {
+    static final class VerifyBarrier {
         final java.util.concurrent.CountDownLatch entered=new java.util.concurrent.CountDownLatch(1),resume=new java.util.concurrent.CountDownLatch(1);
         final AtomicInteger reopens=new AtomicInteger();
         void install(MdoBrowserDownloadFiles files)throws Exception{

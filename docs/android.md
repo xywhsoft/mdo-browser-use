@@ -40,7 +40,13 @@ E90-E92's real Activity controls, bounded private reads and frozen display
 metadata. Separate child-process interception/popup adoption and installed
 provider/main-UI qualification remain incomplete; overall admission stays false.
 
-## Complete development host APK (E46/E93)
+E94 adds bounded user-takeover retirement on the original common worker.
+Ordinary frame execution leases are revoked immediately; only fixed original
+source cleanup remains admitted until policy disable/close completes. Completed
+bytes and known error causes survive this transition. Explicit same-page rearm
+and retained popup/download-only ownership are still in progress.
+
+## Complete development host APK (E46/E94)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -48,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,452,545 bytes, SHA-256
-`de11dfaf2c39a3a36a82cdb902ca09566ca518faa3c56b4daa41ea088002f325`.
+`2ce13ed7860e583a3c927c22e71e07830ba0b8b8cfd5d2ce227a3583188ac0d3`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -3506,3 +3512,57 @@ Evidence: `.mdo/E93-native-current.json`, `.mdo/E93-create-current.json`,
 These are controlled native/JVM/filesystem and SDK build checks, not an installed
 provider/framework/main-UI pass. Phone/WebView remain deferred and automation
 qualification remains false.
+
+
+## Orderly takeover retirement and independent cleanup receipts (E94)
+
+Takeover first invalidates the ordinary document/frame marker and cancels pending
+UI input, chooser, popup and capture work. The original physical network scope
+remains admitted only for retirement. The UI immediately records manual control
+and a draining phase; neither a second takeover nor polling restarts its deadline.
+Manual page use can continue without a URL reload or replay of prior input.
+
+The existing common worker cancels retained original offers and unfinished body
+permits, continues future manual responses without capturing new Agent downloads,
+and drains fixed source/stream cleanup ACKs. No new offer, body claim or body read
+is admitted on a retiring network facade. Once all original source/control slots
+are drained, issue Fetch.disable once and observe its reply before socket close.
+The five-second retirement deadline and bounded control wait are separate from
+the UI's 5.5-second fallback observation. Missing/rejected replies never imply
+responses_disabled; native protocol close is a separate cleanup receipt. The
+Fetch lifecycle constraints are defined in the primary
+[CDP Fetch protocol](https://github.com/ChromeDevTools/devtools-protocol/blob/master/pdl/domains/Fetch.pdl).
+
+A complete source may still be undergoing independent file verification. It is
+not cancelled merely because the user takes over: valid bytes finish and altered
+bytes fail their hash. Completed files remain readable/releasable after network
+retirement. Partial/pending records get actual cancelled receipts only after
+original cleanup proof; an unconfirmed source cannot be released as clean.
+
+A targeted cache-open fault reproduced two layers of cause masking: takeover
+changed a prior storage failure to user cancellation, and final disconnect could
+replace it with generic native body cancellation. Preserve the prior cache,
+timeout, frame or policy cause through cleanup; a later user decision does not
+erase the original failure. Evidence includes
+`.mdo/E94-prior-cache-failure-repro.log`, the native-mask intermediate log and
+`.mdo/E94-prior-cache-failure-fixed.log`. The factory fault is controlled; this
+is not an installed Android filesystem failure reproduction.
+
+Exact retirement/common-worker/native source/real guarded-file checks pass 58,
+including empty, pending, partial, completed and genuinely blocked validation
+cases, altered bytes, late/manual responses, lost disable ACKs, original-source
+timeouts and prior failure preservation. The product create/takeover/lifecycle
+fragments pass 175 checks, including immediate ordinary frame-lease revocation,
+manual cleanup-only authority, repeated calls, no reload/destroy, bounded fallback
+and honest disabled-state reporting. Full current native/ASan/UBSan/API26,
+Python 173/175 (two existing symlink privilege skips) and seven final APK
+contracts pass. See `.mdo/E94-native-current.json`, `.mdo/E94-create-current.json`,
+`.mdo/E94-python-full.log`, `.mdo/E94-android-build.log` and the current receipt.
+
+Returning control cannot silently reuse a retired network: pending retirement
+returns network_retiring and the retired policy returns network_rearm_required,
+keeping manual state. The next integration stage must explicitly prove a fresh
+policy on the same original page and preserve old download receipts across its
+generation; this is not implemented by clearing manual flags. Popup/cross-process
+and installed provider/main-UI qualification also remain open. Phone/WebView are
+unchanged, and overall download/automation qualification stays false.

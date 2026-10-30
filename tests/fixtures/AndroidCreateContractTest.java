@@ -173,8 +173,25 @@ public final class AndroidCreateContractTest {
         try{active.events.turn(nativeConnection);throw new AssertionError("Revoked owner ran another download turn");}catch(java.io.IOException expected){check(nativeConnection.turns==1,"Retired callback performed another download turn");}
         active.closed(true);
         AndroidCreateHost takeover=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(takeover,"tab");original.ready();final int[] cancellations={0};
-        takeover.beforeControlCancel=()->{check(!original.marker.lease.live&&original.cancelled>0,"Takeover cancellation callback ran before native network revocation");cancellations[0]++;};
+        takeover.beforeControlCancel=()->{check(original.marker.lease.live&&original.retired==1&&original.cancelled==0&&AndroidCreateHost.MdoBrowserCdpDownloads.latest.quiesces==1,"Takeover did not retain cleanup-only authority before cancelling UI work");cancellations[0]++;};
         takeover.takeover("tab");check(cancellations[0]==2,"Exact takeover prefix did not include chooser and world cancellation");original.closed(true);
+    }
+    static void orderlyNetworkTakeover()throws Exception{
+        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(host,"tab");original.ready();AndroidCreateHost.WebView view=host.views.get("tab");
+        AndroidCreateHost.MdoBrowserCdpDownloads downloads=AndroidCreateHost.MdoBrowserCdpDownloads.latest;int loads=view.loads;
+        host.takeover("tab");check(host.manual.contains("tab")&&host.network("tab").data.get("phase").equals("draining"),"Takeover lost manual state or hid its cleanup phase");
+        check(host.cdpViews.invalidated==1&&host.cdpViews.reason.equals("input_cancelled"),"Takeover retained ordinary frame execution admission while draining network cleanup");
+        check(original.retired==1&&original.cancelled==0&&original.marker.current.getAsBoolean()&&!downloads.disconnected,"Orderly cleanup closed its original native connection too early");
+        android.os.SystemClock.now+=100;android.os.Handler.tick();host.takeover("tab");check(original.retired==1&&downloads.quiesces==1&&view.loads==loads,"Repeated takeover restarted cleanup or navigation");
+        host.pendingCommand("tab","navigate");
+        try{host.returnControl("tab");throw new AssertionError("Unfinished retirement returned control");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_retiring")&&host.manual.contains("tab"),"Wrong in-flight release boundary");}
+        original.retired();check(host.network("tab").data.get("phase").equals("retired")&&Boolean.TRUE.equals(host.network("tab").data.get("responses_disabled"))&&downloads.disconnected,"Confirmed disable/close receipt was lost");
+        check(view.loads==loads&&view.destroys==0&&android.os.Handler.pending()==0,"Takeover reloaded/destroyed the original page or retained a timer");
+        try{host.returnControl("tab");throw new AssertionError("Retired policy was silently reused");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_rearm_required")&&host.manual.contains("tab"),"Release cleared manual state before a new policy");}
+        host.closeCommand("tab");
+        AndroidCreateHost timeout=networkHost();AndroidCreateHost.NetworkCall slow=startNetwork(timeout,"tab");slow.ready();timeout.takeover("tab");
+        android.os.SystemClock.now+=5500;android.os.Handler.tick();check(slow.cancelled==1&&!slow.marker.lease.live&&timeout.network("tab").data.get("code").equals("network_retirement_timeout"),"Expired retirement did not fall back to bounded native teardown");
+        check(Boolean.FALSE.equals(timeout.network("tab").data.get("responses_disabled")),"Timeout invented a disable acknowledgement");slow.closed(true);timeout.closeCommand("tab");
     }
     static void downloadRetirementAndServiceFailure()throws Exception{
         AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");call.ready();
@@ -197,7 +214,7 @@ public final class AndroidCreateContractTest {
     }
     public static void main(String[] args)throws Exception{
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }
