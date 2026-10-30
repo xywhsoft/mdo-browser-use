@@ -85,6 +85,8 @@ public final class AndroidCreateContractTest {
         check(original.destroys==1&&host.created.size()==9&&host.views.size()==8,"Confirmed native release did not free exactly one slot");
         host.stopped=true;try{host.create("after",request(false));throw new AssertionError("Stopped owner reattached a view");}
         catch(IllegalStateException expected){check("native_browser_closed".equals(expected.getMessage()),"Stopped owner was not fenced");}
+        AndroidCreateHost chooser=new AndroidCreateHost();chooser.create("tab",request(false));chooser.views.remove("tab");chooser.cleanupFault="chooser";
+        check(!chooser.closeCommand("tab"),"Logical close lost the existing chooser-cleanup predicate");
     }
     static void inputRetirementCallback()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();host.create("tab",request(false));AndroidCreateHost.WebView original=host.created.get(0);final int[] callbacks={0};

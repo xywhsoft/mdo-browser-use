@@ -13,8 +13,8 @@ def digest(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def apply(check=False):
-    if dev.state().get("pid") and not check:
+def apply(check=False, validate=False):
+    if dev.state().get("pid") and not (check or validate):
         raise RuntimeError("Stop the project development service before applying host changes")
     if dev.run("git", "rev-parse", "HEAD", cwd=dev.SOURCE) != dev.LOCK["commit"]:
         raise RuntimeError("Host source identity does not match the pinned baseline")
@@ -40,9 +40,10 @@ def apply(check=False):
             if wanted.count(change["before"]) != 1:
                 raise RuntimeError("Overlay does not match the pinned source: " + relative)
             wanted = wanted.replace(change["before"], after, 1)
-        current = path.read_text(encoding="utf-8")
-        if current not in (baseline, wanted) and previous.get(relative) != digest(current):
-            raise RuntimeError("Unreviewed host edit preserved: " + relative)
+        if not validate:
+            current = path.read_text(encoding="utf-8")
+            if current not in (baseline, wanted) and previous.get(relative) != digest(current):
+                raise RuntimeError("Unreviewed host edit preserved: " + relative)
         staged[path] = wanted
     for row in spec["files"]:
         source = (dev.ROOT / row["source"]).resolve()
@@ -50,7 +51,7 @@ def apply(check=False):
         if not source.is_relative_to(dev.ROOT) or not target.is_relative_to(dev.SOURCE):
             raise RuntimeError("Overlay file leaves the project")
         wanted = source.read_text(encoding="utf-8")
-        if target.exists():
+        if target.exists() and not validate:
             current = target.read_text(encoding="utf-8")
             if current != wanted and previous.get(row["target"]) != digest(current):
                 raise RuntimeError("Unreviewed generated host file preserved: " + row["target"])
@@ -58,6 +59,9 @@ def apply(check=False):
     # Materialize from the pinned baseline each time, never repeatedly patch an
     # already patched text. Previous hashes permit reviewed overlay upgrades,
     # while an unrelated local edit is rejected before any file is written.
+    if validate:
+        print("Reviewed host overlay composition verified (" + str(len(staged)) + " files); no deployment writes")
+        return
     if check:
         for path, wanted in staged.items():
             if not path.exists() or path.read_text(encoding="utf-8") != wanted:
@@ -83,10 +87,12 @@ def apply(check=False):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true")
+    mode.add_argument("--validate", action="store_true", help="compose against the pinned baseline without changing or checking the deployed files")
     args = parser.parse_args()
     try:
-        apply(args.check)
+        apply(args.check, args.validate)
     except (RuntimeError, OSError, ValueError) as error:
         print(error, file=sys.stderr)
         raise SystemExit(1)

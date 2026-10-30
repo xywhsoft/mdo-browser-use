@@ -3,6 +3,7 @@
 Uses the existing WSL JDK and one .mdo/qa output. This is a protocol/lifetime
 contract gate, not an APK build, Android framework test or real-device pass.
 """
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -218,6 +219,9 @@ def main():
     if not report['native_budget']['passed']:
         report['passed']=False;result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
         raise RuntimeError('Client deadlines admitted more native evaluations while provider callbacks remained outstanding')
+    inputs=[*production,dev.ROOT/'host/android/protocol.json',dev.ROOT/'tools/android_world_probe.py',
+            dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java',dev.ROOT/'tests/fixtures/AndroidProfileContractTest.java']
+    report['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 

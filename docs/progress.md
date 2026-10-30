@@ -7048,3 +7048,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   E78 build already compiled, but this receipt correction requires one final APK
   replacement after its current-source native/public gates. Goal active; no phone,
   provider, model, formal data or online release change.
+
+## E78e — validate complete overlay composition before deployment
+
+- The final apply gate rejected E78d before writing: an older secondary overlay
+  still rewrote the previous one-line `closeDocument` body to add chooser cleanup.
+  The corrected method no longer contained that old anchor. Preserve the
+  `chooserClean` predicate directly in its authoritative source fragment and
+  remove the redundant patch, rather than weakening exact matching or overwriting
+  the checked deployment. Logs `.mdo/E78-apply-final.log` and
+  `.mdo/E78-android-final.log` preserve the refused attempts; neither qualified a
+  new artifact. The same source now composes all 112 reviewed deployment files.
+- Add `apply_host.py --validate`: compose the entire reviewed plan from the
+  pinned Git baseline without checking/changing deployed text, calling a build
+  helper or stopping a service. Actual apply retains its separate stop/previous-
+  hash/unreviewed-edit protections; validation is not overwrite authorization.
+  Two integration regressions pass `.mdo/E78-overlay-plan-tests.log`: valid plan
+  with simulated running-service state performs no writes, and a deliberately
+  broken anchor fails with deployed source/receipt contents and timestamps intact.
+- The exact close/create gate also preserves refusal for an unclean original
+  chooser; 73 checks pass `.mdo/E78-create-overlay-final.log`. Include source,
+  overlay and tool hashes in its receipt. Add equivalent source provenance to the
+  35 world / 85 document / 190 profile / 18 budget gate. Require actual World,
+  Failure and Document DEX definitions in the complete APK, not just references.
+- Goal active. Reapply the now composed source with the service stopped, finish
+  current-source native/public gates and rebuild/verify the same development APK.
+  Phone/current provider, formal data, one source/Home and online release remain
+  unchanged; no overall Android qualification is inferred from these fixtures.

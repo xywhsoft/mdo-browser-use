@@ -38,6 +38,7 @@ same process when the installer reports a native restart requirement:
 
 ```powershell
 python tools/contracts.py --check
+python tools/apply_host.py --validate
 python tools/dev.py stop
 python tools/apply_host.py
 python tools/dev.py start

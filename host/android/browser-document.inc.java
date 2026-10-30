@@ -56,7 +56,7 @@
         MdoBrowserDocument document=documents.remove(key);
         documentFailures.remove(key);
         if(document!=null)document.close();
-        return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&(document==null||document.cleanupConfirmed())&&(dialog==null||dialog.dialogs.clean());
+        return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&(document==null||document.cleanupConfirmed())&&(dialog==null||dialog.dialogs.clean())&&chooserClean(dialog);
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
         boolean reserved=false;
