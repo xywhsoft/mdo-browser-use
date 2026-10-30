@@ -197,11 +197,11 @@ static void xb_frame_event(const std::shared_ptr<xb_view>& view,const std::strin
     std::vector<std::string> remove{session};
     for(size_t index=0;index<remove.size()&&index<64;index++)for(const auto& item:state->sessions)
       if(item.second.parent==remove[index]&&std::find(remove.begin(),remove.end(),item.first)==remove.end())remove.push_back(item.first);
-    for(const auto& key:remove){auto child=state->sessions.find(key);if(child!=state->sessions.end()){xb_frame_detach(state,child->second.target);state->sessions.erase(child);}}return;
+    for(const auto& key:remove){auto child=state->sessions.find(key);if(child!=state->sessions.end()){xb_world_retire_source(view,key,child->second.identity);xb_frame_detach(state,child->second.target);state->sessions.erase(child);}}return;
   }
   const auto frame=xb_get(data,"frame"),raw=frame.empty()?xb_get(data,"frameId"):xb_get(frame,"id");
   if(raw.empty()||raw.size()>128)return;
-  if(method=="Page.frameDetached"){xb_frame_detach(state,raw);return;}
+  if(method=="Page.frameDetached"){xb_world_retire_frame(view,raw);xb_frame_detach(state,raw);return;}
   if(method=="Page.frameAttached"){
     const auto parent=xb_get(data,"parentFrameId");if(!parent.empty())xb_frame_upsert(state,raw,parent,"","","",source);return;
   }
@@ -212,6 +212,7 @@ static void xb_frame_event(const std::shared_ptr<xb_view>& view,const std::strin
     if(at!=state->nodes.end())at->second.loading=loading;return;
   }
   if(method=="Page.frameNavigated"){
+    const auto loader=xb_get(frame,"loaderId");if(!loader.empty())xb_world_retire_frame(view,raw,loader);
     if(source.empty()&&xb_get(frame,"parentId").empty())state->root=raw;
     xb_frame_upsert(state,raw,xb_get(frame,"parentId"),xb_get(frame,"loaderId"),xb_get(frame,"url"),xb_get(frame,"name"),source);
   }
@@ -241,14 +242,15 @@ static bool xb_frames_install(const std::shared_ptr<xb_view>& view){
 }
 struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
   std::weak_ptr<xb_host> host;std::weak_ptr<xb_view> view;std::weak_ptr<xb_frame_state> state;
-  std::string id,action,alias,expected,script,selected,document,session,parentRaw,parentAlias,parentDocument,parentSession,objectGroup;
+  std::string id,action,alias,expected,script,selected,document,session,parentRaw,parentAlias,parentDocument,parentSession,parentLoader,objectGroup;
+  std::shared_ptr<xb_world_context> world;
   double pointX=0,pointY=0;UINT64 navigation=0;uint64_t generation=0;
   ULONGLONG deadline=0;bool done=false,started=false,complete=true,evaluationSent=false;size_t next=0;
   std::vector<std::string> sources;std::map<std::string,bool> seen;
   void finish(const std::string& result,const char* code=nullptr){
     if(done)return;done=true;auto owner=host.lock();auto current=state.lock();
     if(current)current->jobs.erase(id);
-    auto active=view.lock();if(active&&current&&active->frames==current&&!objectGroup.empty()){
+    auto active=view.lock();if(active&&current&&active->frames==current&&!objectGroup.empty()&&(!world||xb_world_source_live(active,world->session,world->sourceOwner))){
       const auto group=std::move(objectGroup);xb_frame_cdp(active,parentSession,L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",[](bool,const std::string&){});
     }
     if(owner&&owner->alive)owner->reply(id,code?"{\"ok\":false,\"error\":{\"code\":"+xb_quote(code)+",\"evaluation_may_have_occurred\":"+(evaluationSent?"true":"false")+",\"message\":\"Frame state changed or could not be established; inspect before another action\"},\"usage\":{\"frames\":"+
@@ -261,7 +263,8 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
   }
   void call(const std::string& source,const wchar_t* method,const std::string& params,std::function<void(bool,const std::string&)> next){
     if(!live())return;std::weak_ptr<xb_frame_job> weak=shared_from_this();auto active=view.lock();
-    xb_frame_cdp(active,source,method,params,[weak,next](bool ok,const std::string& result){auto self=weak.lock();if(self&&self->live())next(ok,result);});
+    const auto complete=[weak,next](bool ok,const std::string& result){auto self=weak.lock();if(self&&self->live())next(ok,result);};
+    if(world&&source==world->session)xb_world_protocol(active,source,world->sourceOwner,method,params,complete);else xb_frame_cdp(active,source,method,params,complete);
   }
   bool tree(const std::string& value,const std::string& source,const std::string& parent,unsigned depth=0){
     auto current=state.lock();const auto frame=xb_get(value,"frame"),raw=xb_get(frame,"id");
@@ -270,7 +273,8 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
     if(!source.empty()&&!current->sessions.count(source))return false;
     if(parent.empty()&&!source.empty()&&current->sessions.at(source).target!=raw)return false;
     auto routed=source;for(const auto& item:current->sessions)if(item.second.target==raw){routed=item.first;break;}
-    auto node=xb_frame_upsert(current,raw,parent.empty()?xb_get(frame,"parentId"):parent,xb_get(frame,"loaderId"),xb_get(frame,"url"),xb_get(frame,"name"),routed);
+    const auto loader=xb_get(frame,"loaderId");if(!loader.empty())xb_world_retire_frame(view.lock(),raw,loader);
+    auto node=xb_frame_upsert(current,raw,parent.empty()?xb_get(frame,"parentId"):parent,loader,xb_get(frame,"url"),xb_get(frame,"name"),routed);
     if(!node)return false;seen[raw]=true;
     const auto children=xb_get(value,"childFrames");
     for(int index=0;index<65;index++){const auto child=webview::detail::json_parse(children,"",index);if(child.empty())break;if(!tree(child,routed,raw,depth+1))return false;}
@@ -308,26 +312,26 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
   void owner_geometry(){
     auto current=state.lock();auto child=current->nodes.find(selected);auto parent=current->nodes.find(child->second.parent);
     if(parent==current->nodes.end()){finish("","root_has_no_frame_owner");return;}
-    parentRaw=parent->second.raw;parentAlias=parent->second.id;parentDocument=parent->second.document;parentSession=parent->second.session;
+    parentRaw=parent->second.raw;parentAlias=parent->second.id;parentDocument=parent->second.document;parentSession=parent->second.session;parentLoader=parent->second.loader;
     if(!parentSession.empty()&&(!current->sessions.count(parentSession)||!current->sessions.at(parentSession).ready)){finish("","frame_session_unavailable");return;}
     if(!owner_live())return;std::weak_ptr<xb_frame_job> weak=shared_from_this();
     call(parentSession,L"DOM.getFrameOwner","{\"frameId\":"+xb_quote(selected)+"}",[weak](bool ok,const std::string& result){
       auto self=weak.lock();if(!self||!self->owner_live())return;int backend=0;try{backend=std::stoi(xb_get(result,"backendNodeId"));}catch(...){}
       if(!ok||backend<=0){self->finish("","frame_owner_unavailable");return;}
-      self->call(self->parentSession,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(self->parentRaw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
-        [weak,backend](bool ready,const std::string& result){
-          auto self=weak.lock();if(!self||!self->owner_live())return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-          if(!ready||context<=0){self->finish("","frame_world_unavailable");return;}
+      xb_world_frame(self->host.lock(),self->view.lock(),self->navigation,self->parentSession,self->parentRaw,self->parentLoader,
+        [weak](){auto self=weak.lock();return self&&self->owner_live();},[weak,backend](std::shared_ptr<xb_world_context> world){
+          auto self=weak.lock();if(!self||!self->owner_live())return;
+          if(!xb_world_live(self->view.lock(),world)){self->finish("","frame_world_unavailable");return;}self->world=world;
           self->objectGroup="mdo-frame-owner-"+self->id;
-          self->call(self->parentSession,L"DOM.resolveNode","{\"backendNodeId\":"+std::to_string(backend)+",\"executionContextId\":"+std::to_string(context)+",\"objectGroup\":"+xb_quote(self->objectGroup)+"}",
+          self->call(self->parentSession,L"DOM.resolveNode","{\"backendNodeId\":"+std::to_string(backend)+",\"executionContextId\":"+std::to_string(world->numeric)+",\"objectGroup\":"+xb_quote(self->objectGroup)+"}",
             [weak](bool ready,const std::string& result){
               auto self=weak.lock();if(!self||!self->owner_live())return;const auto object=xb_get(xb_get(result,"object"),"objectId");
-              if(!ready||object.empty()||object.size()>1024){self->finish("","frame_owner_unavailable");return;}
+              if(!ready||object.empty()||object.size()>1024||!xb_world_live(self->view.lock(),self->world)){self->finish("","frame_owner_unavailable");return;}
               self->evaluationSent=true;
               const bool policy=self->action=="upload_policy"||self->action=="capture_owner";
               const auto function=self->action=="capture_owner"?xb_frame_owner_capture:self->action=="upload_policy"?xb_frame_owner_upload_policy:xb_frame_owner_geometry;
-              self->call(self->parentSession,L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+
-                ",\"arguments\":"+(policy?"[]":"[{\"value\":{\"x\":"+std::to_string(self->pointX)+",\"y\":"+std::to_string(self->pointY)+"}}]")+",\"returnByValue\":true,\"awaitPromise\":false}",
+              const auto args=policy?std::string("[]"):"[{\"value\":{\"x\":"+std::to_string(self->pointX)+",\"y\":"+std::to_string(self->pointY)+"}}]";
+              xb_world_function(self->view.lock(),self->world,xb_world_node_params(self->world,object,function,args),[weak](){auto self=weak.lock();return self&&self->owner_live();},
                 [weak](bool ok,const std::string& result){
                   auto self=weak.lock();if(!self||!self->owner_live())return;const auto value=xb_cdp_value(xb_get(result,"result"));
                   if(!ok||!xb_get(result,"exceptionDetails").empty()||value.empty()){self->finish("","frame_owner_unavailable");return;}
@@ -345,14 +349,14 @@ struct xb_frame_job:std::enable_shared_from_this<xb_frame_job>{
     if(!session.empty()&&(!current->sessions.count(session)||!current->sessions.at(session).ready)){finish("","frame_session_unavailable");return;}
     if(action=="owner"||action=="upload_policy"||action=="capture_owner"){owner_geometry();return;}
     std::weak_ptr<xb_frame_job> weak=shared_from_this();
-    call(session,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(selected)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",[weak](bool ok,const std::string& result){
-      auto self=weak.lock();if(!self||!self->selected_live())return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-      if(!ok||context<=0){self->finish("","frame_world_unavailable");return;}
+    xb_world_frame(host.lock(),view.lock(),navigation,session,selected,node->loader,[weak](){auto self=weak.lock();return self&&self->selected_live();},[weak](std::shared_ptr<xb_world_context> world){
+      auto self=weak.lock();if(!self||!self->selected_live())return;
+      if(!xb_world_live(self->view.lock(),world)){self->finish("","frame_world_unavailable");return;}self->world=world;
       self->evaluationSent=true;
-      self->call(self->session,L"Runtime.evaluate","{\"expression\":"+xb_quote(self->script)+",\"contextId\":"+std::to_string(context)+",\"returnByValue\":true,\"awaitPromise\":false,\"timeout\":3000}",
+      self->call(self->session,L"Runtime.evaluate","{\"expression\":"+xb_quote(self->script)+","+xb_world_selector(world)+",\"returnByValue\":true,\"awaitPromise\":false,\"timeout\":3000}",
         [weak](bool ready,const std::string& value){auto self=weak.lock();if(!self||!self->selected_live())return;
           const auto result=xb_cdp_value(xb_get(value,"result"));
-          if(!ready||!xb_get(value,"exceptionDetails").empty()||result.empty()){self->finish("","frame_evaluation_failed");return;}
+          if(!ready||!xb_world_live(self->view.lock(),self->world)||!xb_get(value,"exceptionDetails").empty()||result.empty()){self->finish("","frame_evaluation_failed");return;}
           self->finish("{\"ok\":true,\"frame\":"+xb_quote(self->alias)+",\"frame_document\":"+xb_quote(self->document)+",\"value\":"+result+"}");
         });
     });
@@ -395,6 +399,7 @@ static void xb_frames_navigation(const std::shared_ptr<xb_view>& view){
 static void xb_frames_close(const std::shared_ptr<xb_view>& view){
   xb_worlds_close(view);
   if(!view->frames)return;auto state=view->frames;state->closed=true;auto jobs=state->jobs;
+  for(auto& item:state->sessions)item.second.identity->alive=false;
   for(auto& item:jobs)item.second->finish("","frame_interrupted");state->receivers.clear();view->frames.reset();
   KillTimer(view->window,xb_frames_timer);xb_frame_views.erase(view->window);
 }

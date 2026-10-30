@@ -18,16 +18,23 @@ static bool xb_chooser_upload_consume(const std::shared_ptr<xb_view>& view,const
 }
 struct xb_chooser_operation:std::enable_shared_from_this<xb_chooser_operation>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::shared_ptr<xb_chooser_state> state;std::shared_ptr<xb_chooser_pending> pending;
-  std::string id,kind,group,error,document;std::vector<std::string> policySessions;size_t policyIndex=0;int targetContext=0;
+  std::string id,kind,group,error,document;std::vector<std::string> policySessions;size_t policyIndex=0;std::shared_ptr<xb_world_context> targetWorld;
   bool localTarget=false;UINT64 navigation=0;uint64_t epoch=0;ULONGLONG deadline=0;
   bool done=false,stopped=false,inFlight=false,replied=false,dispatched=false;
+  std::string nodeParams(const std::string& object,const std::string& function,const std::string& arguments="[]")const{
+    const auto guard="node&&node.nodeType===1&&(()=>{let doc=node.ownerDocument;for(let depth=0;doc&&doc!==document&&depth<32;depth++){if(doc.defaultView?.document!==doc)return false;const frame=doc.defaultView.frameElement;if(!frame?.isConnected||frame.contentDocument!==doc)return false;doc=frame.ownerDocument;}return doc===document})()";
+    return xb_world_node_params(targetWorld,object,function,arguments,false,guard);
+  }
   void releaseGroup()noexcept{if(group.empty()||view->closed||!host->alive)return;try{std::weak_ptr<xb_chooser_state> weak=state;
+    if(targetWorld&&(targetWorld->retired||!xb_world_source_live(view,targetWorld->session,targetWorld->sourceOwner)))return;
     if(pending&&!pending->session.empty()&&(!view->frames||!view->frames->sessions.count(pending->session)))return;
-    xb_frame_cdp(view,pending?pending->session:"",L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",[weak](bool ok,const std::string& result){if(!ok||!xb_get(result,"error").empty())if(auto active=weak.lock())active->objectFailed=true;});
+    const auto complete=[weak](bool ok,const std::string& result){if(!ok||!xb_get(result,"error").empty())if(auto active=weak.lock())active->objectFailed=true;};
+    if(targetWorld)xb_world_protocol(view,targetWorld->session,targetWorld->sourceOwner,L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",complete);
+    else xb_frame_cdp(view,pending?pending->session:"",L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",complete);
   }catch(...){state->objectFailed=true;}}
   ~xb_chooser_operation(){if(!done){if(state->epoch==epoch){state->changing=false;state->operation.reset();}if(kind=="arm"||kind=="disarm")state->policyFailed=true;releaseGroup();}}
   bool live()const{return !done&&!stopped&&host->alive&&!view->closed&&!view->failed&&GetTickCount64()<deadline&&
-    ((kind=="disarm")||view->navigation==navigation)&&((kind=="cancel"||kind=="disarm")||!view->manual)&&
+    (!targetWorld||xb_world_live(view,targetWorld))&&((kind=="disarm")||view->navigation==navigation)&&((kind=="cancel"||kind=="disarm")||!view->manual)&&
     (kind!="arm"||state->wanted)&&(kind!="target"||state->pending==pending)&&(!pending||xb_input_frames_live(view,pending->frameGuard));}
   void reply(const std::string& result){if(replied)return;replied=true;if(!id.empty())host->reply(id,result);}
   std::string failure(const std::string& message)const{return "{\"ok\":false,\"error\":{\"code\":"+xb_quote(dispatched?"action_uncertain":"chooser_unavailable")+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":"+(dispatched?"true":"false")+"}}";}
@@ -38,7 +45,7 @@ struct xb_chooser_operation:std::enable_shared_from_this<xb_chooser_operation>{
   void boundary(bool popup){if(kind=="cancel"&&dispatched)reply("{\"ok\":true,\"cancelled\":true,\"completed\":false,\"events_trusted\":false,\"outcome\":"+xb_quote(popup?"popup_open":"dialog_open")+"}");}
   void call(const wchar_t* method,const std::string& params,std::function<void(const std::string&)> next,const std::string& session=""){
     if(!live()){stop("File-picker context, control or deadline changed");return;}
-    inFlight=true;auto self=shared_from_this();xb_frame_cdp(view,session,method,params,[self,next](bool ok,const std::string& result){
+    inFlight=true;auto self=shared_from_this();const auto complete=[self,next](bool ok,const std::string& result){
       self->inFlight=false;if(self->done)return;if(self->stopped){self->finish(self->failure(self->error));return;}
       if(!self->live()){self->stop("File-picker context changed during delivery; inspect before repeating");return;}
       if(!ok||!xb_get(result,"error").empty()||!xb_get(result,"exceptionDetails").empty()){
@@ -46,7 +53,9 @@ struct xb_chooser_operation:std::enable_shared_from_this<xb_chooser_operation>{
         self->state->error="The native file-picker operation was not confirmed";
         self->finish(self->failure("The native file-picker operation was not confirmed"));return;
       }next(result);
-    });
+    };
+    if(std::wstring(method)==L"Runtime.callFunctionOn")xb_world_function(view,targetWorld,params,[self](){return self->live();},complete);
+    else if(targetWorld)xb_world_protocol(view,targetWorld->session,targetWorld->sourceOwner,method,params,complete);else xb_frame_cdp(view,session,method,params,complete);
   }
   void policy(){auto self=shared_from_this();const bool enable=kind=="arm";
     if(policySessions.empty()){
@@ -61,22 +70,22 @@ struct xb_chooser_operation:std::enable_shared_from_this<xb_chooser_operation>{
         self->policy();},session);};
     if(enable)call(L"Page.enable","{}",set,session);else set("{}");
   }
-  void resolveInContext(int context){
+  void resolveInContext(std::shared_ptr<xb_world_context> world){
     if(!pending||!pending->backend){finish(failure("This picker has no supported HTML input; use manual control"));return;}
-    if(kind=="target"&&(!context||document.empty())){finish(failure("Observe the current page before resolving its file picker"));return;}targetContext=context;
+    if(!xb_world_live(view,world)||kind=="target"&&document.empty()){finish(failure("Observe the original page before resolving its file picker"));return;}targetWorld=world;
     group="mdo-"+pending->id+"-"+std::to_string(epoch);auto self=shared_from_this();
     const auto params="{\"backendNodeId\":"+std::to_string(pending->backend)+",\"objectGroup\":"+xb_quote(group)+
-      ",\"executionContextId\":"+std::to_string(context)+"}";
+      ",\"executionContextId\":"+std::to_string(world->numeric)+"}";
     call(L"DOM.resolveNode",params,[self](const std::string& result){
       const auto object=xb_get(xb_get(result,"object"),"objectId");if(object.empty()){self->finish(self->failure("The file-picker input no longer exists"));return;}
       if(self->kind=="cancel"){
         self->dispatched=true;const auto function="function(){if(!this.isConnected||this.ownerDocument.defaultView?.document!==this.ownerDocument||this.localName!=='input'||this.type!=='file')return {sent:false};this.dispatchEvent(new Event('cancel',{bubbles:true}));return {sent:true}}";
-        self->call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& value){
+        self->call(L"Runtime.callFunctionOn",self->nodeParams(object,function),[self](const std::string& value){
           auto sent=xb_get(xb_get(xb_get(value,"result"),"value"),"sent");self->finish("{\"ok\":true,\"cancelled\":true,\"events_trusted\":false,\"cancel_event_sent\":"+std::string(sent=="true"?"true":"false")+"}");},self->pending->session);
       }else{
-        const auto function="function(node,document){const r=globalThis."+std::string(self->localTarget?"__mdo_browser_use_local_frame_v1":"__mdo_browser_use_runtime_v1")+";return r&&r.version>=8&&r.document===document?r.pinUploadNode(node):{ok:false,error:{code:'stale_document',message:'Observe the current page before selecting files'}}}";
-        const auto args="[{\"objectId\":"+xb_quote(object)+"},{\"value\":"+xb_quote(self->document)+"}]";
-        self->call(L"Runtime.callFunctionOn","{\"executionContextId\":"+std::to_string(self->targetContext)+",\"functionDeclaration\":"+xb_quote(function)+",\"arguments\":"+args+",\"returnByValue\":true}",[self](const std::string& result){
+        const auto function="function(document){const r=globalThis."+std::string(self->localTarget?"__mdo_browser_use_local_frame_v1":"__mdo_browser_use_runtime_v1")+";return r&&r.version>=8&&r.document===document?r.pinUploadNode(this):{ok:false,error:{code:'stale_document',message:'Observe the current page before selecting files'}}}";
+        const auto args="[{\"value\":"+xb_quote(self->document)+"}]";
+        self->call(L"Runtime.callFunctionOn",self->nodeParams(object,function,args),[self](const std::string& result){
           const auto value=xb_get(xb_get(result,"result"),"value");if(xb_get(value,"ok")=="true"){self->pending->ref=xb_get(xb_get(value,"element"),"ref");self->pending->document=self->document;self->pending->bindingKey=self->localTarget?xb_input_frame_key(self->pending->frameGuard):"";}
           self->finish(value.empty()?self->failure("The picker input could not be pinned"):value);
         },self->pending->session);
@@ -84,13 +93,19 @@ struct xb_chooser_operation:std::enable_shared_from_this<xb_chooser_operation>{
     },pending->session);
   }
   void resolve(){
-    if(kind=="target"&&!localTarget){if(!pending->session.empty()){finish(failure("This cross-process picker requires the frame-aware adapter"));return;}resolveInContext(view->automationContext);return;}
+    if(kind=="target"&&!localTarget){if(!pending->session.empty()){finish(failure("This cross-process picker requires the frame-aware adapter"));return;}resolveInContext(pending->rootWorld);return;}
     // Cancellation is a fixed isolated-world DOM operation. A website cannot
     // replace Event/dispatchEvent in its main world to hijack this transaction.
-    auto self=shared_from_this();call(L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(pending->frame)+",\"worldName\":"+xb_quote(localTarget?"mdo.browser-use.frames.v1":"mdo.browser-use.chooser")+"}",[self](const std::string& result){
-      uint64_t context=0;if(!xb_upload_uint(xb_get(result,"executionContextId"),context)||!context||context>INT32_MAX){self->finish(self->failure("The file-picker document no longer exists"));return;}
-      self->resolveInContext(static_cast<int>(context));
-    },pending->session);
+    if(pending->world){resolveInContext(pending->world);return;}
+    if(kind=="cancel"&&pending->rootWorld){resolveInContext(pending->rootWorld);return;}
+    if(pending->loader.empty()){
+      if(kind=="cancel")finish("{\"ok\":true,\"cancelled\":true,\"cancel_event_sent\":false,\"original_world_unavailable\":true}");
+      else finish(failure("The original picker document could not be established; reopen it after observation"));return;
+    }
+    auto self=shared_from_this();std::weak_ptr<xb_chooser_operation> weak=self;inFlight=true;
+    xb_world_frame(host,view,navigation,pending->session,pending->frame,pending->loader,[weak](){auto self=weak.lock();return self&&self->live();},[self](std::shared_ptr<xb_world_context> world){
+      self->inFlight=false;if(self->done)return;if(!self->live()){self->stop("The original picker changed while preparing its world");return;}self->resolveInContext(world);
+    },"frames",kind=="cancel");
   }
 };
 static void CALLBACK xb_chooser_tick(HWND window,UINT,UINT_PTR,DWORD){auto at=xb_chooser_views.find(window);if(at==xb_chooser_views.end()){KillTimer(window,xb_chooser_timer);return;}
@@ -154,7 +169,10 @@ static void xb_install_chooser(const std::shared_ptr<xb_host>& host,const std::s
         if(node==view->frames->nodes.end()||node->second.session!=source||!xb_frame_chain(view,frame,pending->frameGuard)){
           state->error="The file-picker frame document could not be pinned";state->policyFailed=true;return S_OK;
         }
+        pending->loader=node->second.loader;
+        if(view->worlds){const auto key=xb_world_frame_key(source,frame,"frames");auto world=view->worlds->frameWorlds.find(key);if(world!=view->worlds->frameWorlds.end()&&xb_world_live(view,world->second)&&world->second->loader==pending->loader)pending->world=world->second;}
       }
+      if(source.empty()&&xb_world_live(view,view->automationWorld)&&view->automationWorld->session.empty())pending->rootWorld=view->automationWorld;
       pending->navigation=view->navigation;pending->expires=GetTickCount64()+state->lease;
       if(!state->wanted||view->manual){state->deferredCancel=pending;}else{state->error.clear();state->pending=pending;if(auto input=view->input.lock())input->boundary("file_chooser");if(view->drag)view->drag->stop("A file picker interrupted the drag; inspect before continuing");}
       if(!xb_chooser_watch(host,view)){state->pending.reset();state->deferredCancel.reset();}return S_OK;

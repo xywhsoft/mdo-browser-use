@@ -21,10 +21,14 @@ class NativeFocusTests(unittest.TestCase):
 #include <functional>
 #include <utility>
 using UINT64=unsigned long long;
-struct xb_frame_node{std::string id,raw,session;};
+struct xb_frame_node{std::string id,raw,session,loader="original-loader";};
 struct xb_frame_state{std::map<std::string,xb_frame_node> nodes;};
 struct xb_view{bool live=true,framesLive=true,snapshotLive=true;std::shared_ptr<xb_frame_state> frames=std::make_shared<xb_frame_state>();};
 struct xb_host{};
+struct xb_world_context{std::string unique="original-world",session="original-child-session";std::shared_ptr<int> sourceOwner;bool alive=true;};
+static std::shared_ptr<xb_world_context> originalWorld;
+static bool xb_world_live(const std::shared_ptr<xb_view>&,const std::shared_ptr<xb_world_context>& world){return world&&world->alive;}
+static std::string xb_world_selector(const std::shared_ptr<xb_world_context>& world){return "\"uniqueContextId\":\""+world->unique+"\"";}
 using xb_input_frame_guard=std::vector<std::pair<std::string,std::string>>;
 using xb_input_frame_snapshot=std::vector<std::string>;
 static bool xb_automation_live(const std::shared_ptr<xb_host>&,const std::shared_ptr<xb_view>& view,UINT64){return view->live;}
@@ -44,33 +48,40 @@ static std::vector<command> commands;
 static bool fail=false,failWorld=false,delayWorld=false,delayValue=false;
 static std::string response="number1";
 static std::function<void(bool,const std::string&)> pending;
+static std::function<void(std::shared_ptr<xb_world_context>)> pendingWorld;
 static void xb_frame_cdp(const std::shared_ptr<xb_view>&,const std::string& session,const wchar_t* method,const std::string& params,std::function<void(bool,const std::string&)> done){
  commands.push_back({method,params,session});const bool world=std::wstring(method)==L"Page.createIsolatedWorld";
  if(!world&&std::wstring(method)!=L"Runtime.evaluate")throw 99;
  if(world&&delayWorld||!world&&delayValue){pending=done;return;}
  done(!(world?failWorld:fail),world?"context":response);
 }
+static void xb_world_protocol(const std::shared_ptr<xb_view>& view,const std::string& session,const std::shared_ptr<int>&,const wchar_t* method,const std::string& params,std::function<void(bool,const std::string&)> done){xb_frame_cdp(view,session,method,params,done);}
+static void xb_world_frame(const std::shared_ptr<xb_host>&,const std::shared_ptr<xb_view>&,UINT64,const std::string& session,const std::string& raw,const std::string& loader,std::function<bool()>,std::function<void(std::shared_ptr<xb_world_context>)> done){
+ commands.push_back({L"AcquireOriginalWorld",raw+"/"+loader,session});if(delayWorld){pendingWorld=done;return;}done(failWorld?nullptr:originalWorld);
+}
 '''+helper+r'''
-static std::shared_ptr<xb_view> fixture(){commands.clear();fail=failWorld=delayWorld=delayValue=false;response="number1";pending={};auto view=std::make_shared<xb_view>();view->frames->nodes["child"]={"child-alias","raw-child","original-child-session"};return view;}
+static std::shared_ptr<xb_view> fixture(){commands.clear();fail=failWorld=delayWorld=delayValue=false;response="number1";pending={};pendingWorld={};originalWorld=std::make_shared<xb_world_context>();auto view=std::make_shared<xb_view>();view->frames->nodes["child"]={"child-alias","raw-child","original-child-session"};return view;}
 int main(){
  auto host=std::make_shared<xb_host>();xb_input_frame_guard guard={{"child-alias","original-native-doc"},{"f0","root-doc"}};xb_input_frame_snapshot snapshot={"child","root"};
  int completions=0;bool accepted=false;auto done=[&](bool value){accepted=value;completions++;};
  auto view=fixture();xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);
  if(!accepted||completions!=1||commands.size()!=2)return 1;
  for(const auto& command:commands)if(command.session!="original-child-session")return 2;
- if(commands[0].params.find("raw-child")==std::string::npos||commands[1].params.find("contextId\":77")==std::string::npos||commands[1].params.find("document.hasFocus()") ==std::string::npos||commands[1].params.find("e7")==std::string::npos)return 3;
+ if(commands[0].params.find("raw-child/original-loader")==std::string::npos||commands[1].params.find("uniqueContextId\":\"original-world\"")==std::string::npos||commands[1].params.find("\"contextId\"")!=std::string::npos||commands[1].params.find("document.hasFocus()") ==std::string::npos||commands[1].params.find("e7")==std::string::npos)return 3;
  for(const auto& value:std::vector<std::string>{"number0","wrong-type","exception"}){view=fixture();response=value;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);if(accepted)return 4;}
  view=fixture();fail=true;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);if(accepted)return 5;
  view=fixture();failWorld=true;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);if(accepted||commands.size()!=1)return 6;
  for(int mode=0;mode<3;mode++){view=fixture();if(mode==0)view->live=false;if(mode==1)view->framesLive=false;if(mode==2)view->snapshotLive=false;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);if(accepted||!commands.empty())return 7;}
  view=fixture();view->frames->nodes.clear();xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);if(accepted||!commands.empty())return 8;
- view=fixture();delayWorld=true;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);view->framesLive=false;pending(true,"context");pending={};if(accepted||commands.size()!=1)return 9;
+ view=fixture();delayWorld=true;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);view->framesLive=false;pendingWorld(originalWorld);pendingWorld={};if(accepted||commands.size()!=1)return 9;
  view=fixture();delayValue=true;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);view->snapshotLive=false;pending(true,"number1");pending={};if(accepted||commands.size()!=2)return 10;
  view=fixture();xb_input_focus(host,view,1,{},snapshot,"d-original","e7",done);if(accepted||!commands.empty())return 11;
  view=fixture();xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done,true);
  if(!accepted||commands.size()!=2||commands[1].params.find("r.focus(")==std::string::npos)return 12;
  view=fixture();view->snapshotLive=false;xb_input_focus(host,view,1,guard,{},"d-original","e7",done);
  if(!accepted||commands.size()!=2)return 13; // DOM targets do not pin unrelated siblings.
+ view=fixture();originalWorld->alive=false;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);if(accepted||commands.size()!=1)return 14;
+ view=fixture();delayValue=true;xb_input_focus(host,view,1,guard,snapshot,"d-original","e7",done);originalWorld->alive=false;pending(true,"number1");pending={};if(accepted||commands.size()!=2)return 15;
  return 0;
 }
 '''

@@ -71,7 +71,7 @@ async function runFileInputProbe({bridge,assert,pause,runtimeSource}){
     assert((await upload({action:'status',ticket:delayed})).retained,'Manual takeover deleted assigned file bytes');
     await bridge.call('release',{browser});await release(delayed);
     for(const [css,id] of [['#shadowed','shadowed'],['#framed','framed']]){
-      const ticket=await stage(),pinned=await target(css);assert((await assign(ticket,pinned)).verified,'Shadow/frame file assignment failed');await consumed(id,1);await release(ticket);
+      const ticket=await stage(),pinned=await target(css),assigned=await assign(ticket,pinned);assert(assigned.verified,'Shadow/frame file assignment failed: '+css+' '+JSON.stringify(assigned));await consumed(id,1);await release(ticket);
     }
     const changing=await stage();await read('document.querySelector("#single").dataset.mode="clear"');
     result=await assign(changing,await target('#single'));

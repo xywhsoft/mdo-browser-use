@@ -1503,7 +1503,7 @@ refresh is idempotent only for the same still-live pin. A different unique
 identity for an admitted name is rejected. The actual full-browser gate records
 one same-name child context without invalidating the original root.
 
-Preparation has a 3-second deadline, at most 32 waiters/live retained names,
+W2 initially bounded preparation to a 3-second deadline and 32 waiters/live names,
 32 created world names per positively identified native document and 1,024
 world names/unique identities per content view. Closing the view drains waiters
 and removes listeners/timers. A navigation token alone does not prove DOM loss:
@@ -1525,7 +1525,72 @@ injects numeric reuse before its native event, stale replies, identity rebinding
 missing/late metadata, capability failures, timeout, allocation failure and
 throwing delivery callbacks; its numeric-only negative control demonstrates the
 fixture's redirection behavior, while the new path has zero wrong-realm effects.
-Frame evaluation/focus/owner, retained drag observation and upload/chooser
-execution still have numeric-only paths and remain under audit. W2 does not
-establish the cause of earlier intermittent frame input failures or qualify
-Android's outstanding provider/framework behavior.
+W3b below extends the binding to frame evaluation/focus/owner, retained drag
+observation and upload/chooser execution. These changes do not establish the
+cause of earlier intermittent frame input failures or qualify Android's
+outstanding provider/framework behavior.
+
+## Shared original frame worlds and node operations (W3b)
+
+All existing private isolated automation paths now share retained context
+objects: root and frame evaluation, original keyboard focus, owner geometry /
+upload policy / capture binding, drag observers, file-input assignment and
+intercepted chooser resolution/cancellation. Frames no longer create a separate
+fixed-name world for each call site. The shared cache is scoped by native source,
+raw frame and purpose; reuse requires the same nonempty native loader and live
+original context. New admission correlates a fresh private world name and unique
+context, probes the unique selector, then rereads the native frame tree to prove
+the captured loader still matches. This prevents adoption of a replacement
+document when its navigation event has not yet arrived at the UI.
+
+OOPIF contexts additionally capture a native-source incarnation object. A later
+session with the same string ID cannot inherit that object's authority. Context
+events and numeric-ID reuse are scoped to the original source, so identical
+numeric values in different renderer sessions cannot retire or replace one
+another. Positive frame detach/loader replacement and native source retirement
+also retire their original worlds. Script calls never reconstruct a selector
+from a subsequently current numeric ID.
+
+`Runtime.callFunctionOn` independently qualifies its unique-context selector with
+fixed negative/positive probes. Node functions select the original unique realm
+and pass an opaque native object as an argument, rather than selecting a realm
+by that object's ID. Frame-owner nodes must belong to the selected parent
+document. File-input nodes must still be the exact node returned by the original
+runtime's saved document/ref; that runtime checks its captured owner document
+and frame ancestry, preserving existing same-origin iframe and Shadow DOM use.
+Chooser nodes are checked against the original world's bounded document ancestry.
+The native DOM resolver still requires numeric context metadata, and native file
+assignment uses the unchanged retained opaque object ID on its original source.
+mdo does not parse/reconstruct that ID; the [V8 unwrap implementation](https://github.com/v8/v8/blob/main/src/inspector/v8-inspector-session-impl.cc)
+also validates the native isolate before looking up an object.
+
+Losing reported contexts blocks effectful use of the old pin. It is not proof
+that the JS world or DOM was destroyed: [V8 Runtime reset/restore](https://github.com/v8/v8/blob/main/src/inspector/v8-runtime-agent-impl.cc)
+can clear reporting state. Only fixed, exact-key drag/upload observer disposal
+may still address its originally qualified unique pin while that physical
+source remains known. This cleanup creates no world, sends no input and cannot
+replay an action. A confirmed original-world/source retirement skips evaluation;
+an unconfirmed removal retains its existing fence. W1's native cleanup failures,
+active callbacks and unfinished steps still prevent inert drag recovery.
+
+Preparation retains the 3-second deadline and 32 waiters per request. The view
+admits at most 32 pending frame preparations plus its root preparation, 128 live
+retained names/cache entries, 64 frame-document budget records, 32 created names
+per captured document budget and 1,024 created/seen identities over its lifetime.
+The deadline timer snapshots these bounded jobs without allocating. A cancelled
+or expired request drops its guards/waiters even if a provider still retains a
+late callback. No automatic reconnect/replay is introduced.
+
+Chooser events retain their original root/frame world and native loader. If no
+original world or document anchor exists for cancellation, the ticket can retire
+with `cancel_event_sent:false` / `original_world_unavailable:true`; no event is
+manufactured in a different current page. Normal observed/root and frame-aware
+picker paths retain their existing target and cancellation behavior.
+
+The routed COM helper now preserves bounded protocol error bodies while keeping
+failures unsuccessful, and owns the caller's callback reference across conversion
+and dispatch exceptions. Root isolated calls use this same bounded helper.
+These private receipts do not expose raw IDs/protocol authority through the public
+C/JS SDK. Run `python tools/native_file_input_probe.py` for the complete actual
+file-input lifecycle in the existing Home; the full browser and native frame
+gates also cover these paths. Android's provider/framework gate remains deferred.

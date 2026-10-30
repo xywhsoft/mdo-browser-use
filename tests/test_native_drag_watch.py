@@ -25,6 +25,11 @@ struct node{std::string raw="root",id="f0",document="fd-original",loader="origin
 struct frames{std::map<std::string,node> nodes;};
 struct xb_view{bool closed=false,core=true,ready=true;UINT64 navigation=1;std::shared_ptr<frames> framesState=std::make_shared<::frames>();std::shared_ptr<::frames> frames=framesState;};
 struct xb_host{bool alive=true;};
+struct source_identity{bool alive=true;};
+struct xb_world_context{std::string unique="original-world",session="captured-source-session";std::shared_ptr<source_identity> sourceOwner;bool alive=true,retired=false,inventoryLost=false;};
+static bool xb_world_live(const std::shared_ptr<xb_view>&,const std::shared_ptr<xb_world_context>& world){return world&&world->alive&&(!world->sourceOwner||world->sourceOwner->alive);}
+static bool xb_world_cleanup_live(const std::shared_ptr<xb_view>& view,const std::shared_ptr<xb_world_context>& world){return xb_world_live(view,world)||world&&world->inventoryLost&&!world->retired;}
+static std::string xb_world_selector(const std::shared_ptr<xb_world_context>& world){return "\"uniqueContextId\":\""+world->unique+"\"";}
 using xb_input_frame_guard=std::vector<std::pair<std::string,std::string>>;
 static bool xb_input_frames_live(const std::shared_ptr<xb_view>& view,const xb_input_frame_guard& guard){
  if(!view->ready)return false;for(const auto& pin:guard){bool found=false;for(const auto& entry:view->frames->nodes)found|=entry.second.id==pin.first&&entry.second.document==pin.second;if(!found)return false;}return true;
@@ -47,16 +52,20 @@ static void xb_frame_cdp(const std::shared_ptr<xb_view>&,const std::string& sess
  if(std::wstring(method)!=L"Runtime.evaluate")throw 99;
  if(delay){pending=done;return;}done(!fail,fail?"failure":response);
 }
+static void xb_world_protocol(const std::shared_ptr<xb_view>& view,const std::string& session,const std::shared_ptr<source_identity>&,const wchar_t* method,const std::string& params,std::function<void(bool,const std::string&)> done){xb_frame_cdp(view,session,method,params,done);}
+static void xb_world_frame(const std::shared_ptr<xb_host>&,const std::shared_ptr<xb_view>&,UINT64,const std::string& session,const std::string& raw,const std::string& loader,std::function<bool()>,std::function<void(std::shared_ptr<xb_world_context>)> done){
+ commands.push_back({L"AcquireOriginalWorld",raw+"/"+loader,session});done(std::make_shared<xb_world_context>());
+}
 struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
  std::shared_ptr<xb_host> host=std::make_shared<xb_host>();std::shared_ptr<xb_view> view=std::make_shared<xb_view>();
  xb_input_frame_guard sourceGuard={{"f0","fd-original"}};std::string sourceRaw="root",sourceLoader="original-loader",sourceSession,key="owned-job",error;
- UINT64 navigation=1,nextAt=0;int watchContext=0;unsigned cleanup=0;bool done=false,inFlight=false,watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false,cleanupFailed=false,watchCleanupFailed=false,nativeCleanupFailed=false,intercepted=false;
+ UINT64 navigation=1,nextAt=0;std::shared_ptr<xb_world_context> watchWorld;unsigned cleanup=0;bool done=false,inFlight=false,watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false,cleanupFailed=false,watchCleanupFailed=false,nativeCleanupFailed=false,intercepted=false;
  xb_drag_job(){view->frames->nodes["root"]={};}
  void stop(const std::string& value){if(error.empty())error=value;}
 '''+methods+r'''
 };
-static std::shared_ptr<xb_drag_job> fixture(){commands.clear();fail=false;delay=false;pending={};response="number:1";auto job=std::make_shared<xb_drag_job>();job->watchContext=77;job->sourceSession="captured-source-session";return job;}
-static bool onlyRetained(){return commands.size()==1&&commands[0].method==L"Runtime.evaluate"&&commands[0].session=="captured-source-session"&&commands[0].params.find("\"contextId\":77")!=std::string::npos;}
+static std::shared_ptr<xb_drag_job> fixture(){commands.clear();fail=false;delay=false;pending={};response="number:1";auto job=std::make_shared<xb_drag_job>();job->watchWorld=std::make_shared<xb_world_context>();job->sourceSession="captured-source-session";return job;}
+static bool onlyRetained(){return commands.size()==1&&commands[0].method==L"Runtime.evaluate"&&commands[0].session=="captured-source-session"&&commands[0].params.find("\"uniqueContextId\":\"original-world\"")!=std::string::npos&&commands[0].params.find("\"contextId\"")==std::string::npos;}
 int main(){
  auto retained=fixture();retained->view->navigation=2;retained->view->ready=false;retained->view->frames->nodes.clear();retained->clearWatch();
  if(!onlyRetained()||retained->cleanupFailed||!retained->watchCleared)return 1;
@@ -64,10 +73,10 @@ int main(){
  auto replaced=fixture();replaced->view->navigation=2;replaced->view->frames->nodes["root"].loader="replacement-loader";fail=true;replaced->clearWatch();if(!commands.empty()||replaced->cleanupFailed)return 3;
  auto rotated=fixture();rotated->view->navigation=2;rotated->view->frames->nodes["root"].document="rotated-alias";fail=true;rotated->clearWatch();if(!rotated->cleanupFailed||!onlyRetained())return 4;
  auto unknown=fixture();unknown->view->navigation=2;unknown->view->frames->nodes.clear();fail=true;unknown->clearWatch();if(!unknown->cleanupFailed||!onlyRetained())return 5;
- auto uncreated=fixture();uncreated->watchContext=0;uncreated->clearWatch();if(!commands.empty()||uncreated->cleanupFailed)return 6;
+ auto uncreated=fixture();uncreated->watchWorld.reset();uncreated->clearWatch();if(!commands.empty()||uncreated->cleanupFailed)return 6;
  auto active=fixture();active->intercepted=true;response="number:2";active->clearWatch();if(!active->cleanupFailed||!onlyRetained())return 7;
  auto late=fixture();delay=true;late->clearWatch();late->view->navigation=2;late->view->frames->nodes.clear();if(!pending||!late->inFlight)return 8;pending(true,"number:1");pending={};if(late->inFlight||late->cleanupFailed||!onlyRetained())return 9;
- auto lost=fixture();lost->watchContext=0;fail=true;lost->armWatch();if(lost->error.empty()||lost->cleanupFailed||commands.size()!=2)return 10;
+ auto lost=fixture();lost->watchWorld.reset();fail=true;lost->armWatch();if(lost->error.empty()||lost->cleanupFailed||commands.size()!=2)return 10;
  fail=false;lost->clearWatch();if(lost->cleanupFailed||commands.size()!=3||commands.back().method!=L"Runtime.evaluate")return 11;
  auto malformed=fixture();response="wrong-type";malformed->clearWatch();if(!malformed->cleanupFailed||!onlyRetained())return 12;
  auto closed=fixture();closed->view->closed=true;closed->clearWatch();if(!commands.empty()||closed->cleanupFailed)return 13;
@@ -84,6 +93,10 @@ int main(){
  quarantine->done=true;if(!quarantine->reapRetiredSource()||quarantine->cleanupFailed||quarantine->watchCleanupFailed||quarantine->error!="original failure"||!commands.empty())return 21;
  auto other=fixture();other->nativeCleanupFailed=true;other->cleanupFailed=true;other->clearWatch();if(!other->cleanupFailed||other->watchCleanupFailed||!onlyRetained())return 22;
  auto observed=fixture();observed->watchCleanupFailed=true;observed->cleanupFailed=true;observed->clearWatch();if(observed->cleanupFailed||observed->watchCleanupFailed||!onlyRetained())return 23;
+ auto retired=fixture();retired->watchWorld->alive=false;retired->watchWorld->retired=true;retired->clearWatch();if(!commands.empty()||retired->cleanupFailed)return 24;
+ auto invalid=fixture();invalid->watchWorld->alive=false;invalid->clearWatch();if(!commands.empty()||!invalid->cleanupFailed)return 25;
+ auto detached=fixture();detached->watchWorld->sourceOwner=std::make_shared<source_identity>();detached->watchWorld->sourceOwner->alive=false;detached->clearWatch();if(!commands.empty()||detached->cleanupFailed)return 26;
+ auto reset=fixture();reset->watchWorld->alive=false;reset->watchWorld->inventoryLost=true;reset->clearWatch();if(!onlyRetained()||reset->cleanupFailed||reset->sourceReplaced())return 27;
  return 0;
 }
 '''

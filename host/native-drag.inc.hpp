@@ -25,7 +25,7 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   double x=0,y=0,toX=0,toY=0,currentX=0,currentY=0;unsigned phase=0,moved=0,cleanup=0;
   LONG width=0,height=0;
   bool done=false,inFlight=false,replied=false,dispatched=false,intercepting=false,sourceIntercepting=false,intercepted=false,pressed=false,dropped=false,subscribed=false,cleanupFailed=false,watchCleanupFailed=false,nativeCleanupFailed=false;
-  int watchContext=0;bool watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false;
+  std::shared_ptr<xb_world_context> watchWorld;bool watchStarted=false,watchInstalled=false,watchChecked=false,watchActive=false,watchCleared=false;
   ~xb_drag_job(){if(receiver){if(subscribed)receiver->remove_DevToolsProtocolEventReceived(token);receiver->Release();}}
   bool live()const{return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,sourceGuard)&&xb_input_frames_live(view,destinationGuard)&&xb_input_snapshot_live(view,frameSnapshot)&&view->bounds.right-view->bounds.left==width&&view->bounds.bottom-view->bounds.top==height;}
   void reply(){
@@ -45,7 +45,9 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   void call(const wchar_t* method,const std::string& params,const std::string& session=""){
     // A destroyed source session has no drag controller/interception to release.
     // The root mouse-release step still drains independently of frame liveness.
-    if(cleanup&&!session.empty()&&(!view->frames||!view->frames->sessions.count(session))){nextAt=0;return;}
+    if(!session.empty()&&(!watchWorld||watchWorld->session!=session||!xb_world_source_live(view,session,watchWorld->sourceOwner))){
+      if(!cleanup)stop("The original native drag source is no longer attached");nextAt=0;return;
+    }
     inFlight=true;auto self=shared_from_this();
     xb_frame_cdp(view,session,method,params,[self](bool ok,const std::string& result){
       self->inFlight=false;if(self->done)return;
@@ -60,6 +62,7 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   bool watchHostAlive()const{return host->alive&&!view->closed&&view->core;}
   bool sourceReplaced()const{
     if(!watchHostAlive())return true;
+    if(watchWorld&&(watchWorld->retired||watchWorld->sourceOwner&&!watchWorld->sourceOwner->alive))return true;
     if(sourceGuard.empty()||!view->frames||sourceRaw.empty())return false;
     const auto node=view->frames->nodes.find(sourceRaw);
     // An absent inventory or rotated alias can accompany a surviving DOM.
@@ -69,25 +72,22 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
   // This private observer is created in the exact source document/world, never
   // the page world. Missing/blocked event evidence is unconfirmed, not inactive.
   void watch(const std::string& expression,std::function<void(bool,const std::string&)> complete,bool retainedContext=false){
-    if(retainedContext){if(!watchHostAlive()||watchContext<=0){complete(false,"");return;}}
+    if(retainedContext){if(!watchHostAlive()||!xb_world_cleanup_live(view,watchWorld)){complete(false,"");return;}}
     else if(!sourceLive()||sourceGuard.empty()){complete(false,"");return;}
     inFlight=true;auto self=shared_from_this();
-    auto evaluate=[self,expression,complete,retainedContext](int context){
-      if(self->done)return;if(!(retainedContext?self->watchHostAlive():self->sourceLive())){self->inFlight=false;complete(false,"");return;}
-      self->watchContext=context;
-      xb_frame_cdp(self->view,self->sourceSession,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(context)+",\"returnByValue\":true,\"timeout\":1000}",
-        [self,complete,retainedContext](bool ok,const std::string& result){
+    auto evaluate=[self,expression,complete,retainedContext](std::shared_ptr<xb_world_context> world){
+      if(self->done)return;if(!(retainedContext?self->watchHostAlive()&&xb_world_cleanup_live(self->view,world):self->sourceLive()&&xb_world_live(self->view,world))){self->inFlight=false;complete(false,"");return;}
+      self->watchWorld=world;
+      xb_world_protocol(self->view,world->session,world->sourceOwner,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+","+xb_world_selector(world)+",\"returnByValue\":true,\"timeout\":1000}",
+        [self,world,complete,retainedContext](bool ok,const std::string& result){
           self->inFlight=false;if(self->done)return;self->nextAt=GetTickCount64()+20;
-          const auto value=xb_get(result,"result");complete(ok&&(retainedContext?self->watchHostAlive():self->sourceLive())&&xb_get(value,"type")=="number"&&xb_get(result,"exceptionDetails").empty(),xb_get(value,"value"));
+          const auto value=xb_get(result,"result");complete(ok&&(retainedContext?self->watchHostAlive()&&xb_world_cleanup_live(self->view,world):self->sourceLive()&&xb_world_live(self->view,world))&&xb_get(value,"type")=="number"&&xb_get(result,"exceptionDetails").empty(),xb_get(value,"value"));
         });
     };
-    if(watchContext){evaluate(watchContext);return;}
+    if(watchWorld){evaluate(watchWorld);return;}
     auto node=xb_frame_alias(view->frames,sourceGuard.front().first);if(!node){inFlight=false;complete(false,"");return;}
-    xb_frame_cdp(view,sourceSession,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(node->raw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
-      [self,evaluate,complete](bool ok,const std::string& result){
-        if(self->done)return;int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-        if(!ok||context<=0||!self->sourceLive()){self->inFlight=false;complete(false,"");return;}evaluate(context);
-      });
+    std::weak_ptr<xb_drag_job> weak=self;
+    xb_world_frame(host,view,navigation,sourceSession,node->raw,node->loader,[weak](){auto self=weak.lock();return self&&!self->done&&self->sourceLive();},evaluate);
   }
   std::string watchLookup()const{return"globalThis.__mdo_native_drag_watch_v1";}
   void armWatch(){
@@ -109,7 +109,7 @@ struct xb_drag_job:std::enable_shared_from_this<xb_drag_job>{
       });
   }
   void clearWatch(){
-    watchCleared=true;if(!watchHostAlive()||watchContext<=0)return;auto self=shared_from_this();
+    watchCleared=true;if(!watchHostAlive()||!watchWorld)return;auto self=shared_from_this();
     if(sourceReplaced()){watchCleanupFailed=false;cleanupFailed=nativeCleanupFailed;return;}
     // Pure removal may run in the retained original context after its navigation
     // token changes (including original-response downloads). It must never create

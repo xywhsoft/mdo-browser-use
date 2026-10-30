@@ -7,7 +7,7 @@ const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE,uploadWorkspace=F
 const uploadBroker=FRAME_UPLOAD_BROKER_SOURCE,brokerOnly=FRAME_BROKER_ONLY;
 const bridge=createNativeBrowserBridge(),api=createLocalApplicationClient(()=>({extension:'browser-frame-qa'})),browser='browser-frame-native-qa',foreign='browser-frame-foreign-qa';
 const filesApi=createLocalApplicationClient(()=>({extension:'browser-frame-qa',workspace:uploadWorkspace}));
-const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence;
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence,realmEvidence;
 const assert=(value,text)=>{checks++;if(!value)throw Error(text);};
 const exactEvents=(events,trust)=>Array.isArray(events)&&events.length===trust.length&&events.every((event,i)=>event.type===(i%2?'change':'input')&&event.trusted===trust[i]);
 async function until(fn,text,ms=15000){const end=performance.now()+ms;while(performance.now()<end){if(await fn())return;await pause(40);}throw Error(text);}
@@ -108,7 +108,7 @@ try{
   assert(!JSON.stringify(tree).includes('sessionId')&&!JSON.stringify(tree).includes('executionContextId'),'Raw protocol identities leaked');
   stage='isolated-read';
   for(const [frame,label]of [[root,'Root site A'],[same,'Same site child'],[cross,'Cross site B'],[nested,'Nested site A']]){
-    const result=await observe(frame);assert(result.ok&&result.value.ok,`Frame runtime failed (${label})`);
+    const result=await observe(frame);realmEvidence={label,result};assert(result.ok&&result.value.ok,`Frame runtime failed (${label})`);
     assert(result.value.text.includes(label),`Wrong frame document (${label})`);assert(!JSON.stringify(result.value).includes('forged-frame-observation'),'Page replaced isolated runtime');
     assert(result.frame===frame.id&&result.frame_document===frame.document,'Isolated receipt lost its original frame identity');
   }
@@ -592,9 +592,9 @@ try{
     internal_visual_pointer_once:true,consumed_image_rejected:true,changed_visual_tile_rejected:true,masked_visual_point_denied:true,
     viewport_capture_retries_in_same_operation:true,only_stable_viewport_image_published:true};
   }
-}catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence};}
+}catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512),inventory:lastInventory,geometry_evidence:geometryEvidence,realm_evidence:realmEvidence};}
 finally{
-  try{const current=await call('state');report.native_input_final={input_busy:current.input_busy,drag_cleanup_failed:current.drag_cleanup_failed,upload_cleanup_failed:current.upload_cleanup_failed,navigation:current.navigation,process_failed:current.process_failed};}catch{}
+  try{const current=await call('state');report.native_input_final={input_busy:current.input_busy,drag_cleanup_failed:current.drag_cleanup_failed,upload_cleanup_failed:current.upload_cleanup_failed,navigation:current.navigation,process_failed:current.process_failed,world_error:current.automation_world_error,world_metadata:current.automation_world_metadata};}catch{}
   for(const id of [browser,foreign])try{await call('close',{},id);}catch{}bridge.dispose();
 }
 await api.call('storage.write',{path:'qa/native-frames.json',text:JSON.stringify(report)});document.querySelector('#status').textContent=report.passed?'Native frame checks passed':report.error;

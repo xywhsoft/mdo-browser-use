@@ -20,12 +20,14 @@ class NativeWorldTests(unittest.TestCase):
         source=(dev.ROOT/'host/native-worlds.inc.hpp').read_text(encoding='utf-8')
         registry=source[source.index('// BROWSER_WORLD_REGISTRY_BEGIN'):source.index('static bool xb_worlds_install(')]
         execution=source[source.index('struct xb_world_request:'):]
+        routing=source[source.index('static bool xb_world_source_live('):source.index('// BROWSER_WORLD_REGISTRY_BEGIN')]
         automation=(dev.ROOT/'host/native-automation.inc.hpp').read_text(encoding='utf-8')
         value=automation[automation.index('static std::string xb_cdp_value('):automation.index('static bool xb_popup_blocked(')]
         dispatch=automation[automation.index('static void xb_automation_reply('):automation.index('// BROWSER_FRAME_INPUT_GUARD_BEGIN')]
         fixture=(dev.ROOT/'tests/fixtures/native-worlds-checks.cpp').read_text(encoding='utf-8')
         fixture=fixture.replace('// INSERT_PARSER',parser).replace('// INSERT_STATE',state).replace('// INSERT_REGISTRY',registry)
         fixture=fixture.replace('// INSERT_EXECUTION',execution).replace('// INSERT_AUTOMATION',value+dispatch)
+        fixture=fixture.replace('// INSERT_ROUTING',routing)
         directory=dev.ENV/'qa/native-worlds';directory.mkdir(parents=True,exist_ok=True)
         cpp=directory/'worlds.cpp';binary=directory/'worlds.exe';cpp.write_text(fixture,encoding='utf-8',newline='\n')
         compiler=Path('E:/software/w64devkit/bin/g++.exe')

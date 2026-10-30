@@ -25,6 +25,8 @@ static void xb_cdp(const std::shared_ptr<xb_view>& view,const wchar_t* method,
 static bool xb_automation_live(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,UINT64 navigation){
   return host->alive&&!view->closed&&!view->requestedClose&&!view->failed&&!view->manual&&!view->dialog&&!xb_popup_blocked(view)&&view->navigation==navigation;
 }
+static void xb_frame_cdp(const std::shared_ptr<xb_view>& view,const std::string& session,const wchar_t* method,
+                         const std::string& params,xb_cdp_result done);
 #include "xs_browser_worlds.inc.hpp"
 static void xb_automation_reply(const std::shared_ptr<xb_host>& host,const std::shared_ptr<xb_view>& view,
                                 const std::string& id,const std::string& result,const std::string& error=""){
@@ -46,7 +48,7 @@ static void xb_automation(const std::shared_ptr<xb_host>& host,const std::shared
     if(!xb_automation_live(host,view,navigation)||!xb_world_live(view,context)){xb_automation_reply(host,view,id,"","The original isolated browser world is unavailable; observe the current page before another action");return;}
     const auto params="{\"expression\":"+xb_quote(script)+","+xb_world_selector(context)+
       ",\"returnByValue\":true,\"awaitPromise\":false,\"timeout\":3000}";
-    xb_cdp(view,L"Runtime.evaluate",params,[host,view,id,navigation,context](bool ok,const std::string& result){
+    xb_world_protocol(view,context->session,context->sourceOwner,L"Runtime.evaluate",params,[host,view,id,navigation,context](bool ok,const std::string& result){
       if(!xb_automation_live(host,view,navigation)||!xb_world_live(view,context)){xb_automation_reply(host,view,id,"","The original browser world changed during evaluation; inspect any delivered effects");return;}
       const auto value=xb_cdp_value(xb_get(result,"result"));
       if(!ok||!xb_get(result,"error").empty()||!xb_get(result,"exceptionDetails").empty()||value.empty())xb_automation_reply(host,view,id,"","Isolated page evaluation failed; inspect any delivered effects");
@@ -146,16 +148,14 @@ static void xb_input_focus(const std::shared_ptr<xb_host>& host,const std::share
                            const std::string& document,const std::string& ref,std::function<void(bool)> complete,bool acquire=false){
   const auto live=[host,view,navigation,guard,snapshot](){return xb_automation_live(host,view,navigation)&&xb_input_frames_live(view,guard)&&xb_input_snapshot_live(view,snapshot);};
   if(guard.empty()||!live()){complete(false);return;}
-  std::string raw,session;
-  for(const auto& entry:view->frames->nodes)if(entry.second.id==guard.front().first){raw=entry.second.raw;session=entry.second.session;break;}
+  std::string raw,session,loader;
+  for(const auto& entry:view->frames->nodes)if(entry.second.id==guard.front().first){raw=entry.second.raw;session=entry.second.session;loader=entry.second.loader;break;}
   if(raw.empty()){complete(false);return;}
-  xb_frame_cdp(view,session,L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(raw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",
-    [view,live,session,document,ref,complete,acquire](bool ok,const std::string& result){
-      int context=0;try{context=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-      if(!ok||context<=0||!live()){complete(false);return;}
+  xb_world_frame(host,view,navigation,session,raw,loader,live,[view,live,session,document,ref,complete,acquire](std::shared_ptr<xb_world_context> world){
+      if(!xb_world_live(view,world)||!live()){complete(false);return;}
       const auto expression="(()=>{const r=globalThis.__mdo_browser_use_local_frame_v1;if(!r||r.documentNode!==document)return 0;const v=r."+std::string(acquire?"focus":"verify")+"({document:"+xb_quote(document)+",op:'key',target:{ref:"+xb_quote(ref)+"}});return v.ok&&v.focused&&document.hasFocus()?1:0})()";
-      xb_frame_cdp(view,session,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(context)+",\"returnByValue\":true,\"timeout\":1000}",
-        [live,complete](bool ok,const std::string& result){const auto value=xb_get(result,"result");complete(ok&&live()&&xb_get(result,"exceptionDetails").empty()&&xb_get(value,"type")=="number"&&xb_get(value,"value")=="1");});
+      xb_world_protocol(view,world->session,world->sourceOwner,L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+","+xb_world_selector(world)+",\"returnByValue\":true,\"timeout\":1000}",
+        [view,world,live,complete](bool ok,const std::string& result){const auto value=xb_get(result,"result");complete(ok&&live()&&xb_world_live(view,world)&&xb_get(result,"exceptionDetails").empty()&&xb_get(value,"type")=="number"&&xb_get(value,"value")=="1");});
     });
 }
 static bool xb_input_read_frames(const std::string& json,xb_input_frame_guard& guard,const std::string& key="frame_chain"){

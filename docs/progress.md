@@ -6523,3 +6523,84 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   original-world migration remain in progress. The W2 downloadable program and
   E75 Android build have not been replaced at this substage. Goal active; no
   provider/phone/formal data change, model call or online release.
+
+## W3b — migrate frame, focus, drag and file scripts to original unique worlds
+
+- Extend W2's original-context objects across all existing private isolated
+  script paths: frame evaluation, parent-owner functions, keyboard focus,
+  retained drag observers, file-input assignment/clear/verification and chooser
+  targeting/cancellation. All call sites share the same admitted frame world
+  rather than independently creating a fixed named world. Native numeric IDs
+  remain metadata for the DOM resolver, not script execution selectors. Node
+  functions qualify and select their original unique context and receive opaque
+  native objects as arguments. Keep public C/JS signatures and the 22-file
+  plugin unchanged; no new runtime dependency or raw-ID capability is added.
+- Give each OOPIF native-session incarnation an independent identity object.
+  Scope metadata, numeric reuse and execution to that object; original cleanup
+  cannot dispatch into a replacement session merely because its string ID
+  matches. Positive native frame/loader replacement and source detach retire
+  their original pins/caches. Preserve saved failed receipts and never replay
+  an input, drag, assignment or chooser action.
+- `.mdo/W3-loader-red.log` reproduces a new admission race in the first W3
+  candidate: the child already has a replacement loader but its event has not
+  updated the UI-side guard. A fresh unique world alone can then belong to the
+  new document. After unique admission probes, reread that original source's
+  native frame tree and require the captured raw frame/nonempty loader before
+  any caller script. Missing, changed, duplicate or over-budget frame evidence
+  fails without adopting the current page. This controlled red/green gate is
+  not a retrospective attribution of historical E68 failures.
+- Runtime reporting loss blocks new effects but does not establish world/DOM
+  teardown: the upstream V8 reset/restore code can clear reporting state while
+  contexts survive. Preserve an explicit inventory-lost state. Only exact-key
+  observer removal may use the still-original qualified unique pin; it creates
+  no world or input and requires a confirmed original result. Actual context /
+  loader / source retirement skips that evaluation. W1's fully drained native
+  cleanup and no-unacknowledged-input conditions still gate inert drag recovery.
+- Bound coalesced preparation/deadlines, source/cache/document/name counts and
+  retained callbacks. Snapshot at most 33 pending root/frame jobs in a fixed
+  local array rather than allocating in the deadline timer. Expiry releases
+  guards/waiters even while a provider holds its late callback. Shared source
+  dispatch uses W3a's bounded, owned callback helper for root and OOPIF calls.
+- `.mdo/W3-native-shadow-failure.json` preserves the first full candidate's
+  check-339 failure in its Shadow/frame file-input lifecycle. A blanket root
+  document/prototype test was too restrictive for existing same-origin child
+  targets. File calls now revalidate the original isolated runtime's exact
+  document/ref/node, including its captured owner document. Chooser calls use
+  bounded original document ancestry. Keep the strict selected-parent document
+  rule for frame owners. Do not declare existing iframe uploads unsupported as
+  an alternative to preserving their original binding. Add a focused full
+  file-input lifecycle runner using the same deployment/Home.
+- Controlled gates: `.mdo/W3-worlds-focused.log` compiles actual registry,
+  admission, deadline, source routing and node dispatch methods with the pinned
+  JSON parser; 80 checks pass with zero wrong-realm effects. Include equal numeric
+  IDs in different sources, source-string reuse, lost/late metadata, native loader
+  race, function-selector qualification, exact nested/duplicate-frame evidence,
+  manual takeover, 32 pending preparations, deadline guard release and late
+  callback suppression. Actual focus tests include retired/late-retired worlds;
+  drag observer tests cover 27 cleanup/recovery branches, including reporting
+  loss versus confirmed retirement. W3a's 17 callback fault checks still pass.
+- Rebuild the same native objects/host (`.mdo/W3-native-node-build.log`). Actual
+  WebView2 passes 14 root checks (`.mdo/W3-root-final.log`/`.json`), 470 file-input
+  checks (`.mdo/W3-file-input-fixed.log`/`.json`), 1,375 full browser checks
+  (`.mdo/W3-native-final.log`/`.json`) and 260 frame checks
+  (`.mdo/W3-frames-final.log`/`.json`). Counts in the full lifecycle include
+  bounded polling assertions. No new native diagnostics or upload/download cache
+  reservations remain. The original W1 controlled stuck-drag recovery remains
+  valid. Preserve the initial isolated-read failure and W3a's error-receipt red
+  evidence; do not treat failed candidates as green qualification.
+- In-place packaging `.mdo/W3-package.log`: Windows preview 6,933,616 bytes,
+  SHA-256 `053677eedaa63352b836630f162d588964061cf8d99d29386344d7d3ef954d69`.
+  All 750 inventory files and the unchanged paired plugin verify; actual packed
+  program passes all twelve runtime checks (`.mdo/W3-program-probe.log`). JS
+  319/319 in 23.586 s; Python 169/171 in 71.043 s, with the two existing Windows
+  symlink privilege skips (`.mdo/W3-node-full.log`, `.mdo/W3-python-full.log`).
+  Restore the same headless service, HTTP 200. No extra app/Home/source copy,
+  provider/phone/formal data change, model call, external page action or online
+  release. Android remains at E75 and user-deferred phone/provider qualification.
+- Goal active. The isolated-script migration now covers the existing Windows
+  paths, but the historical intermittent nested-input failures remain
+  unattributed. Continue current-state review of recovery/error classification
+  and any actionable Windows evidence, then outstanding Android provider/profile/
+  URI/main-UI/clear/directory/download work. Do not infer full goal completion,
+  retry the unchanged desktop visual gate or count unavailable platform evidence
+  as a pass.

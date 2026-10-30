@@ -17,8 +17,8 @@ without the preview flag retain the original updater behavior. The actual
 packed-program gate checks the development status and unchanged cache hash.
 The Android development archive verifies and reuses this exact reviewed prefix.
 
-The current refreshed preview (W2, including W1/E66/F21) is **6,902,384 bytes**, SHA-256
-`03317793d7d0ae865ed0b546a4814ecb7de727583b99f305403cc25a3f03471f`.
+The current refreshed preview (W3b, including W3a/W2/W1/E66/F21) is **6,933,616 bytes**, SHA-256
+`053677eedaa63352b836630f162d588964061cf8d99d29386344d7d3ef954d69`.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
@@ -60,10 +60,25 @@ frame/loader match, with bounded preparation and world-name history.
 The actual-method fault gate passes 45 checks, including numeric reuse before
 its native event arrives and no execution fallback/replay. Real WebView2 passes
 14 root-world checks, 1,376 full browser checks and 260 frame checks; the actual
-packed program passes its twelve checks. This is a root-path hardening stage:
-numeric-only frame evaluation/focus/owner, drag and upload/chooser paths still
-need their original-realm migration. Android remains at its separately verified
-E75 build and the earlier intermittent Windows input failures remain open.
+packed program passes its twelve checks. W3b extends the original-realm binding
+to frame evaluation/focus/owner, retained drag observation and upload/chooser
+scripts. Android remains at its separately verified E75 build and the earlier
+intermittent Windows input failures remain open.
+
+W3b shares admitted private worlds by original native source/frame/loader, with
+an independent native-session incarnation token for OOPIFs. A newly created
+frame world must still match its captured native loader before caller code is
+admitted, including when a navigation event has not reached the UI yet. Both
+evaluation and node functions use the original unique context. Root file inputs
+retain their existing same-origin iframe/Shadow DOM support by checking the
+original runtime ref/document rather than assuming the node belongs to the root
+global's document or prototype. Fixed observer cleanup may use a retained unique
+pin after reporting metadata is lost; that loss cannot authorize new input or
+prove the observer was destroyed. Routed error receipts and callback ownership
+are also fixed. Verification: 80 controlled world checks, 17 routed callback
+checks, 14 actual root checks, 470 file-input lifecycle checks, 1,375 full browser
+checks, 260 frame checks and twelve actual packed-program checks. JS 319/319 and
+Python 169/171 pass, with the two existing Windows symlink privilege skips.
 
 F20 also removes the fixed queue-delivery delay while the existing authenticated
 live connection is available. A coalesced, data-free hint wakes a serialized

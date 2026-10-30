@@ -6,8 +6,10 @@ struct xb_frame_receiver{
 struct xb_frame_node{
   std::string raw,parent,id,document,loader,url,name,session;bool loading=false;
 };
+struct xb_frame_source_identity{bool alive=true;};
 struct xb_frame_session{
   std::string target,parent,error;bool ready=false,chooserEnabled=false;
+  std::shared_ptr<xb_frame_source_identity> identity=std::make_shared<xb_frame_source_identity>();
 };
 struct xb_frame_state{
   ICoreWebView2_11* source=nullptr;bool ready=false,starting=false,closed=false;std::string root,error;

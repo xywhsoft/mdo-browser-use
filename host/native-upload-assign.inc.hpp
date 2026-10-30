@@ -2,16 +2,24 @@
  * can receive our sealed paths; no path/script/DOM object ID comes from an Agent. */
 struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   std::shared_ptr<xb_host> host;std::shared_ptr<xb_view> view;std::shared_ptr<xb_upload_job> job;
-  std::string id,document,ref,group,object,error,session,frameRaw,frameKey;xb_input_frame_guard frameGuard;int contextId=0;ULONGLONG deadline=0;
+  std::string id,document,ref,group,object,error,session,frameRaw,frameKey;xb_input_frame_guard frameGuard;std::shared_ptr<xb_world_context> world;ULONGLONG deadline=0;
   bool done=false,stopped=false,replied=false,inFlight=false,dispatched=false,watchInstalled=false,watchCleared=false;
   std::string clearMeta()const{return job->clear?",\"input_method\":\"dom_file_clear\",\"events_trusted\":false":"";}
   const char* marker()const{return frameGuard.empty()?"__mdo_browser_use_runtime_v1":"__mdo_browser_use_local_frame_v1";}
+  std::string nodeParams(const std::string& function,bool awaitPromise=false)const{
+    // Classic observations may pin a same-origin child input. Revalidate the
+    // original runtime ref/document (including its captured ownerDocument), not
+    // a guessed equality with the root realm's global document/prototype.
+    const auto guard="node&&node.nodeType===1&&(()=>{const r=globalThis."+std::string(marker())+";return r&&r.document==="+xb_quote(document)+"&&r.uploadNode({document:"+xb_quote(document)+",target:{ref:"+xb_quote(ref)+"}})===node})()";
+    return xb_world_node_params(world,object,function,"[]",awaitPromise,guard);
+  }
   void protocol(const wchar_t* method,const std::string& params,xb_cdp_result done){
-    if(frameGuard.empty())xb_cdp(view,method,params,std::move(done));else xb_frame_cdp(view,session,method,params,std::move(done));
+    if(world)xb_world_protocol(view,world->session,world->sourceOwner,method,params,std::move(done));else if(frameGuard.empty())xb_cdp(view,method,params,std::move(done));else xb_frame_cdp(view,session,method,params,std::move(done));
   }
   void releaseGroup()noexcept{
     releaseWatch();
     if(group.empty()||view->closed||!host->alive)return;
+    if(world&&(world->retired||!xb_world_source_live(view,world->session,world->sourceOwner)))return;
     if(!session.empty()&&(!view->frames||!view->frames->sessions.count(session)))return; // Destroyed session owns no live object group.
     try{std::weak_ptr<xb_view> weak=view;protocol(L"Runtime.releaseObjectGroup","{\"objectGroup\":"+xb_quote(group)+"}",[weak](bool ok,const std::string& result){if(!ok||!xb_get(result,"error").empty())if(auto active=weak.lock())active->uploadCleanupFailed=true;});}catch(...){view->uploadCleanupFailed=true;}
   }
@@ -22,7 +30,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     releaseGroup();
   }
   bool directoryVisible()const{BOOL visible=FALSE;return !job->tree||view->controller&&SUCCEEDED(view->controller->get_IsVisible(&visible))&&visible;}
-  bool live()const{return !done&&!stopped&&!job->closing&&directoryVisible()&&xb_input_frames_live(view,frameGuard)&&(dispatched||xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey))&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
+  bool live()const{return !done&&!stopped&&!job->closing&&(!world||xb_world_live(view,world))&&directoryVisible()&&xb_input_frames_live(view,frameGuard)&&(dispatched||xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey))&&xb_automation_live(host,view,job->navigation)&&!view->loading&&!view->initialNavigationPending&&GetTickCount64()<deadline;}
   std::string failure(const std::string& code,const std::string& message)const{
     return "{\"accepted\":false,\"ticket\":"+xb_quote(job->ticket)+clearMeta()+",\"dispatched\":"+(dispatched?"true":"false")+",\"retained\":"+(job->retained?"true":"false")+
       ",\"error\":{\"code\":"+xb_quote(code)+",\"message\":"+xb_quote(message)+",\"effect_may_have_occurred\":"+(dispatched?"true":"false")+"}}";
@@ -50,7 +58,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   void call(const wchar_t* method,const std::string& params,std::function<void(const std::string&)> next){
     if(!live()){stop("Upload context changed before native delivery");return;}
     inFlight=true;auto self=shared_from_this();
-    protocol(method,params,[self,next](bool ok,const std::string& result){
+    const auto complete=[self,next](bool ok,const std::string& result){
       self->inFlight=false;if(self->done)return;
       if(self->stopped){self->finish(self->failure(self->dispatched?"action_uncertain":"upload_stopped",self->error));return;}
       if(!self->live()){self->stop("Upload context changed during native delivery; inspect its effects");return;}
@@ -58,15 +66,17 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
         self->finish(self->failure(self->dispatched?"action_uncertain":"upload_target_changed","Native file-input delivery was not confirmed; inspect before repeating"));return;
       }
       next(result);
-    });
+    };
+    if(std::wstring(method)==L"Runtime.callFunctionOn")xb_world_function(view,world,params,[self](){return self->live();},complete);else protocol(method,params,complete);
   }
   void releaseWatch()noexcept{
     if(!watchInstalled||watchCleared)return;watchCleared=true;
-    if(view->closed||!host->alive||contextId<=0||!session.empty()&&(!view->frames||!view->frames->sessions.count(session)))return;
+    if(view->closed||!host->alive||!world||world->retired||!xb_world_source_live(view,world->session,world->sourceOwner))return;
+    if(!xb_world_cleanup_live(view,world)){view->uploadCleanupFailed=true;return;}
     try{
       const auto expression="(()=>{const s=globalThis.__mdo_native_upload_watch_v1;if(s&&s.key==="+xb_quote(id)+")s.dispose();return true})()";
       std::weak_ptr<xb_view> weak=view;const auto navigation=job->navigation;const auto guard=frameGuard;
-      protocol(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(contextId)+",\"returnByValue\":true}",[weak,navigation,guard](bool ok,const std::string& result){
+      protocol(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+","+xb_world_selector(world)+",\"returnByValue\":true}",[weak,navigation,guard](bool ok,const std::string& result){
         if(auto active=weak.lock())if(!active->closed&&active->navigation==navigation&&xb_input_frames_live(active,guard)&&(!ok||!xb_get(result,"error").empty()||!xb_get(result,"exceptionDetails").empty()))active->uploadCleanupFailed=true;
       });
     }catch(...){view->uploadCleanupFailed=true;}
@@ -83,7 +93,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
       "const hide=()=>s.dispose();s.dispose=()=>{node.removeEventListener('input',input,true);removeEventListener('pagehide',hide,true);settle();if(globalThis.__mdo_native_upload_watch_v1===s)delete globalThis.__mdo_native_upload_watch_v1};"
       "Object.defineProperty(globalThis,'__mdo_native_upload_watch_v1',{value:s,configurable:true});"
       "node.addEventListener('input',input,true);addEventListener('pagehide',hide,true);timer=setTimeout(()=>s.dispose(),"+std::to_string(duration)+");return true}";
-    call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
+    call(L"Runtime.callFunctionOn",nodeParams(function),[self](const std::string& result){
       if(xb_get(xb_get(result,"result"),"value")!="true"){self->finish(self->failure("upload_target_changed","Cannot observe completion of this directory selection"));return;}self->dispatch();
     });
   }
@@ -91,7 +101,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     auto self=shared_from_this();
     const auto snapshot="return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),directory:!!this.webkitdirectory,files:Array.from({length:Math.min(this.files?.length||0,"+std::string(job->tree?"129":"17")+")},(_,i)=>({name:this.files[i].name.slice(0,241),size:this.files[i].size,path:this.files[i].webkitRelativePath?.length<=1265?this.files[i].webkitRelativePath:null}))}";
     const auto function=job->tree?"async function(){const s=globalThis.__mdo_native_upload_watch_v1;if(!s||s.key!=="+xb_quote(id)+"||s.node!==this)return null;await s.promise;if(!s.seen)return null;"+snapshot+"}":"function(){"+snapshot+"}";
-    call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true,\"awaitPromise\":true}",[self](const std::string& result){
+    call(L"Runtime.callFunctionOn",nodeParams(function,true),[self](const std::string& result){
       const auto value=xb_get(xb_get(result,"result"),"value"),files=xb_get(value,"files");
       bool verified=xb_get(value,"valid")=="true"&&xb_get(value,"disabled")!="true"&&(self->job->clear||(xb_get(value,"directory")=="true")==static_cast<bool>(self->job->tree));
       if(self->job->tree)verified=verified&&xb_upload_tree_matches(*self->job->tree,files);
@@ -121,7 +131,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
     dispatched=true;job->dispatched=true;job->retained=!job->clear;job->assignDocument=document;job->assignRef=ref;job->assignFrameKey=frameKey;
     if(job->clear){
       const auto expression="globalThis."+std::string(marker())+".clearFiles({document:"+xb_quote(document)+",target:{ref:"+xb_quote(ref)+"}})";
-      call(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(contextId)+",\"returnByValue\":true}",[self](const std::string& output){
+      call(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+","+xb_world_selector(world)+",\"returnByValue\":true}",[self](const std::string& output){
         const auto value=xb_get(xb_get(output,"result"),"value"),error=xb_get(value,"error");
         if(xb_get(value,"dispatched")=="false"||xb_get(error,"effect_may_have_occurred")=="false"){self->dispatched=false;self->job->dispatched=false;}
         if(xb_get(value,"ok")!="true"){self->finish(self->failure(self->dispatched?"action_uncertain":"upload_target_changed","The file selection change was not confirmed; inspect before repeating"));return;}
@@ -134,7 +144,7 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   void inspect(){
     auto self=shared_from_this();
     const std::string function="function(){return {valid:this.isConnected&&this.ownerDocument.defaultView?.document===this.ownerDocument&&this.localName==='input'&&this.type==='file',disabled:this.matches(':disabled')||this.getAttribute('aria-disabled')==='true'||!!this.closest('[inert]'),multiple:!!this.multiple,directory:!!this.webkitdirectory,count:this.files?.length||0}}";
-    call(L"Runtime.callFunctionOn","{\"objectId\":"+xb_quote(object)+",\"functionDeclaration\":"+xb_quote(function)+",\"returnByValue\":true}",[self](const std::string& result){
+    call(L"Runtime.callFunctionOn",nodeParams(function),[self](const std::string& result){
       const auto value=xb_get(xb_get(result,"result"),"value");
       if(xb_get(value,"valid")!="true"||xb_get(value,"disabled")=="true"||!self->job->clear&&((xb_get(value,"directory")=="true")!=static_cast<bool>(self->job->tree)||!self->job->tree&&self->job->files.size()>1&&xb_get(value,"multiple")!="true")){
         self->finish(self->failure("upload_target_invalid","Choose an enabled input matching the file or directory selection"));return;
@@ -147,19 +157,21 @@ struct xb_upload_assignment:std::enable_shared_from_this<xb_upload_assignment>{
   void resolveInput(){
     auto self=shared_from_this();
     const auto expression="(()=>{const r=globalThis."+std::string(marker())+";return r&&r.version>="+std::string(job->clear?"6":"5")+"&&r.document==="+xb_quote(document)+"?r.uploadNode({document:"+xb_quote(document)+",target:{ref:"+xb_quote(ref)+"}}):null})()";
-    call(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+",\"contextId\":"+std::to_string(contextId)+",\"objectGroup\":"+xb_quote(group)+",\"returnByValue\":false,\"timeout\":3000}",[self](const std::string& result){
+    call(L"Runtime.evaluate","{\"expression\":"+xb_quote(expression)+","+xb_world_selector(world)+",\"objectGroup\":"+xb_quote(group)+",\"returnByValue\":false,\"timeout\":3000}",[self](const std::string& result){
       const auto node=xb_get(result,"result");self->object=xb_get(node,"objectId");
       if(self->object.empty()||xb_get(node,"subtype")!="node"){self->finish(self->failure("upload_target_changed","The pinned file input changed; observe it again"));return;}
       self->inspect();
     });
   }
   void start(){
-    if(frameGuard.empty()){contextId=view->automationContext;resolveInput();return;}
+    if(frameGuard.empty()){world=view->automationWorld;if(!xb_world_live(view,world)){finish(failure("upload_target_changed","The original root world is no longer available"));return;}resolveInput();return;}
     auto self=shared_from_this();
-    call(L"Page.createIsolatedWorld","{\"frameId\":"+xb_quote(frameRaw)+",\"worldName\":\"mdo.browser-use.frames.v1\"}",[self](const std::string& result){
-      try{self->contextId=std::stoi(xb_get(result,"executionContextId"));}catch(...){}
-      if(self->contextId<=0){self->finish(self->failure("upload_target_changed","The exact frame world is no longer available"));return;}
-      self->resolveInput();
+    auto node=xb_frame_alias(view->frames,frameGuard.front().first);if(!node){finish(failure("upload_target_changed","The original frame document is unavailable"));return;}
+    std::weak_ptr<xb_upload_assignment> weak=self;inFlight=true;
+    xb_world_frame(host,view,job->navigation,session,frameRaw,node->loader,[weak](){auto self=weak.lock();return self&&self->live();},[self](std::shared_ptr<xb_world_context> world){
+      self->inFlight=false;if(self->done)return;
+      if(!self->live()||!xb_world_live(self->view,world)){self->stop("The original frame world is no longer available");return;}
+      self->world=world;self->resolveInput();
     });
   }
 };
@@ -183,7 +195,7 @@ static void xb_upload_assign(const std::shared_ptr<xb_host>& host,const std::sha
   }
   if((!job->chooser.empty()||!job->frameGuard.empty())&&(job->assignDocument!=document||job->assignRef!=ref||job->assignFrameKey!=frameKey)){reject("upload_identity_conflict","This upload belongs to a different picker or frame target");return;}
   if(job->tree){BOOL visible=FALSE;if(!view->controller||FAILED(view->controller->get_IsVisible(&visible))||!visible){reject("upload_view_hidden","Reveal the browser viewport before selecting a directory");return;}}
-  if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||!xb_input_frames_live(view,frameGuard)||!xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey)||!view->input.expired()||view->capture||view->drag||(frameGuard.empty()&&!view->automationContext)||view->loading||view->initialNavigationPending||
+  if(!job->sealed||job->closing||job->assigning||view->uploadBusy||view->uploadCleanupFailed||!xb_input_frames_live(view,frameGuard)||!xb_chooser_upload_ready(view,job->chooser,document,ref,frameKey)||!view->input.expired()||view->capture||view->drag||(frameGuard.empty()&&!xb_world_live(view,view->automationWorld))||view->loading||view->initialNavigationPending||
      xb_get(json,"navigation")!=std::to_string(job->navigation)||!xb_automation_live(host,view,job->navigation)){
     reject("upload_not_ready","The sealed upload, isolated document or native input slot is no longer ready");return;
   }

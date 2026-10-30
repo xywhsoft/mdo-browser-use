@@ -1,6 +1,8 @@
 struct xb_chooser_operation;
+struct xb_world_context;
 struct xb_chooser_pending{
-  std::string id,frame,session,document,ref,bindingKey;std::vector<std::pair<std::string,std::string>> frameGuard;
+  std::string id,frame,session,loader,document,ref,bindingKey;std::vector<std::pair<std::string,std::string>> frameGuard;
+  std::shared_ptr<xb_world_context> world,rootWorld;
   int backend=0;bool multiple=false;UINT64 navigation=0;ULONGLONG expires=0;
 };
 struct xb_chooser_state{
