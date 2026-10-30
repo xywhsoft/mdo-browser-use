@@ -7794,3 +7794,48 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Current full native evidence is `.mdo/E89-native-final.log` and
   `.mdo/E89-native-current.json`. Goal remains active; product Android download
   actions and installed framework/provider qualification are unfinished.
+
+
+## E89b — drive native download records through the common protocol worker
+
+- Add a physical-owner controller for frozen original offers, atomic acceptance/
+  cancellation, bounded file handoff, progress, terminal receipts and confirmed
+  release. Share a 32-record metadata budget across controllers; native IDs
+  cannot inspect/mutate another controller. Continue ordinary responses and
+  abort unproven child/capacity cases with an explicit fault/input fence.
+- Add a native consumer turn to the existing physical-network pump, including
+  cooperative turns during other page RPCs. It schedules fixed native reads and
+  hands one buffer to the file worker without waiting for disk/hash/UI. No new
+  protocol executor or re-fetch path. Query/release metadata can settle from
+  immutable file/source receipts after the connection retires.
+- Preserve incomplete-response failure receipts and verified retained bytes on
+  disconnect. Reproduce and fix the complete-source/unfinished-verification race:
+  the old disconnect path cancelled a fully received source's independent file
+  validation. The real file reopen is paused while the connection closes; valid
+  bytes now finish, while payload tampering still fails the independent hash.
+  Preserve native connection causes instead of masking them with the queue's
+  generic cancellation. Storage/hash failures carry cache origins.
+- Actual controller/proof/strict-JNI/shared-worker/guarded-files gate passes 174
+  checks: original acceptance, no early I/O, one slow owner vs another's progress,
+  cross-owner rejection, empty data, known-size limits, global quota, EOF vs ACK,
+  explicit release, retained completion after disconnect, partial loss, the
+  deterministic verification race and tampering. Renderer/UI/proof peers are
+  controlled; no installed provider/framework/public-UI qualification is implied.
+  Failure/fix evidence: `.mdo/E89-verification-loss-repro.log` and
+  `.mdo/E89-verification-loss-fixed.log`.
+- Full current native/ASan/UBSan/API26 gates pass `.mdo/E89-native-final.log` /
+  `.mdo/E89-native-current.json`; all recorded source hashes match. Existing body
+  900, deferred-offer 153 and queue 130 checks remain green. Python 173/175 passes
+  in 58.886 s (`.mdo/E89-python-full.log`), with only the existing two Windows
+  symlink-privilege skips. Overlay composes 117 files and builders require actual
+  controller/Snapshot/Release/Budget/Row DEX definitions. E88 remains the last
+  built APK until current assembly. Shared JS is unchanged.
+- Goal active. The coordinator is integrated with the common pump and exercised
+  end to end through private native components; the main Activity still uses its
+  previous continue-only callback until Context/UID service ownership and product
+  lifecycle/query/action routing join it. Also open: frozen filename/MIME display
+  metadata (current core JSON uses placeholders), private read/save transport,
+  exact navigation/popup ownership, unsupported text/blob handling and installed
+  provider/main-UI qualification. Phone/provider update remain deferred. No
+  install, formal-data edit, model/external-page action, extra app/Home/source
+  copy or online publication.

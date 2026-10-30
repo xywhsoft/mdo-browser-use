@@ -3291,3 +3291,43 @@ absolute deadlines, cross-event duplicate protection, bounded admission and
 fair scheduling. Provider/product activation remains false. Public download
 list/accept/cancel/read/save integration and installed Android qualification
 remain outstanding; this change alone does not enable Android Browser Use.
+
+
+## Native download controller and cooperative consumer turns (E89)
+
+MdoBrowserCdpDownloads ties a physical Network to original Offer, accepted Body
+and guarded file ticket identities. Its immutable records expose pending,
+receiving, verifying, cancelling, completed, cancelled and failed states. A
+shared metadata budget permits 32 retained records across controllers; the file
+queue independently bounds retained payload bytes/slots. No public wire ID,
+request URL, credential or payload enters status JSON. Name/MIME values remain
+placeholders until frozen display metadata parsing is joined.
+
+The existing physical-network worker invokes a bounded consumer turn before and
+after its short poll. The controller requests fixed reads without blocking,
+then transfers one source-bound chunk only when its file ticket is writable.
+Other physical owners and page RPCs can continue. UI list/get/decisions inspect
+atomic snapshots and do no disk or socket waits; confirmed release can settle
+from file snapshots after the protocol connection retires.
+
+Disconnect preserves failure receipts instead of dropping identities. Completed
+bytes remain retained. If the original Body already has successful EOF, stream
+close and request-abort receipts, disconnect permits ongoing independent file
+validation to finish. It never treats the source proof alone as a completed
+file. Partial responses fail and clean their owned staging data; unknown native
+cleanup cannot be reported as confirmed release. Explicit owner close reclaims
+its records and requests file retirement separately.
+
+The 174-check actual controller/shared-worker/strict-JNI/real-files gate covers
+these transitions and pauses a real readonly file reopen across disconnect.
+The old implementation discards that complete source; the corrected one retains
+valid bytes and rejects altered payloads. Native source errors survive generic
+queue cancellation, and hash/write failures retain cache origins. The file queue
+also parks in WAITING when empty or fully retained (130-check queue gate).
+
+The main Activity still continues original events until native Context/UID
+service ownership and its lifecycle/query/action routing are joined. Private
+read/save, original navigation/popup associations and unsupported text/blob
+handling remain open. Android automation/provider/framework qualification stays
+false; these controlled-peer desktop JVM results do not qualify the installed
+WebView or public main UI.

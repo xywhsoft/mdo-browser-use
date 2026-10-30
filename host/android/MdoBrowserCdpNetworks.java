@@ -13,7 +13,10 @@ import org.json.JSONObject;
  * no second executor, UI I/O, caller-runs fallback or automatic reconnect. */
 final class MdoBrowserCdpNetworks implements AutoCloseable {
     interface Connector {MdoBrowserCdpBinding.Network bind(MdoBrowserCdpMarker marker,int timeout,MdoBrowserCdpSession.Events events)throws IOException;}
-    interface Events {void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params)throws IOException;}
+    interface Events {
+        void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params)throws IOException;
+        default void turn(MdoBrowserCdpBinding.Network connection)throws IOException {}
+    }
     interface Completion {void done(Result result);}
     static final class Result {
         final boolean ready,enabledMayHaveOccurred,cleanupConfirmed;final String code;
@@ -74,8 +77,9 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
                 MdoBrowserCdpBinding.Network connection=selected.connection;
                 if(connection==null)throw new IOException("cdp_network_binding_invalid");
                 if(connection.idle()){
+                    selected.service(connection);
                     connection.serviceBodies(100);connection.poll(20,250);
-                    if(connection.idle())connection.serviceBodies(100);
+                    if(connection.idle()){selected.service(connection);connection.serviceBodies(100);}
                 }
             }catch(IOException error){selected.finish(safe(error.getMessage()));}
             catch(RuntimeException|Error error){selected.finish("cdp_network_worker_failed");}
@@ -113,6 +117,12 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             if(original==null){if(method.startsWith("Fetch."))throw new IOException("cdp_network_bootstrap_event_invalid");return;}
             Events handler;synchronized(this){handler=events;}
             if(handler==null)throw new IOException("cdp_network_cancelled");handler.event(original,method,child,params);
+            if(closed.get()||cancelled.get()||!lease.current())throw new IOException("cdp_network_cancelled");
+        }
+        private void service(MdoBrowserCdpBinding.Network original)throws IOException {
+            if(closed.get()||cancelled.get()||!lease.current())throw new IOException("cdp_network_cancelled");
+            Events handler;synchronized(this){handler=events;}
+            if(handler==null)throw new IOException("cdp_network_cancelled");handler.turn(original);
             if(closed.get()||cancelled.get()||!lease.current())throw new IOException("cdp_network_cancelled");
         }
         @Override public void run(){

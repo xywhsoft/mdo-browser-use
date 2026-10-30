@@ -1,0 +1,224 @@
+package org.xserver.android;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+/** Native controller for one physical owner. Public UI operations only inspect
+ * immutable records or submit atomic decisions. Events/turns run on the existing
+ * protocol worker; disk work stays on the shared bounded download file worker. */
+final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoCloseable {
+    static final class Budget {
+        private int used;
+        synchronized boolean acquire(){if(used>=32)return false;used++;return true;}
+        synchronized void release(){if(used<=0)throw new IllegalStateException("Download receipt budget underflow");used--;}
+        synchronized int used(){return used;}
+    }
+    static final class Snapshot {
+        final String id,state,error,sha256,failureSource;final long received,expected,maximum,sequence;
+        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed;
+        private Snapshot(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
+            id=row.id;sequence=row.sequence;expected=row.expected;maximum=row.maximum;this.state=state;this.error=error;received=bytes;sha256=hash;
+            this.verified=verified;cacheCleanupConfirmed=cacheClean;sourceCleanupConfirmed=sourceClean;failureSource=source;
+        }
+        boolean terminal(){return state.equals("completed")||state.equals("failed")||state.equals("cancelled");}
+        JSONObject json()throws JSONException {
+            JSONObject out=new JSONObject().put("id",id).put("name","download.bin").put("mime","").put("state",state)
+                .put("received",received).put("expected_size",expected<0?JSONObject.NULL:expected).put("max_bytes",maximum)
+                .put("interrupt_reason",0).put("failure_source",failureSource==null?"":failureSource).put("error",error==null?"":error)
+                .put("native",new JSONObject().put("cache_cleanup_confirmed",cacheCleanupConfirmed).put("source_cleanup_confirmed",sourceCleanupConfirmed));
+            if(verified&&state.equals("completed"))out.put("size",received).put("sha256",sha256);return out;
+        }
+    }
+    static final class Release {
+        private final Row row;private final MdoBrowserCdpDownloads owner;
+        private Release(MdoBrowserCdpDownloads owner,Row row){this.owner=owner;this.row=row;}
+        boolean finished(){owner.refresh(row);return row.releaseDone;}
+        boolean released(){return finished()&&row.snapshot.state.equals("released");}
+        Snapshot snapshot(){owner.refresh(row);return row.snapshot;}
+    }
+    private static final class Row {
+        final String id="d-"+UUID.randomUUID();final long sequence,expected;final MdoBrowserCdpSession.Offer offer;
+        volatile Snapshot snapshot;volatile MdoBrowserDownloadQueue.Ticket ticket;volatile boolean releaseDone;
+        long maximum=33554432;boolean accepted,cancelled,releasing,reading,eof,charged=true,retired;Release release;
+        MdoBrowserCdpSession.Body body;String error,failureSource;
+        Row(long sequence,MdoBrowserCdpSession.Offer offer){this.sequence=sequence;this.offer=offer;expected=offer.metadata().declaredLength;}
+    }
+    private final Object gate=new Object();private final Row[] rows=new Row[32];
+    private final MdoBrowserDownloadQueue files;private final Budget budget;
+    private MdoBrowserCdpBinding.Network original;private Thread worker;private long serial;private boolean closed,disconnected;
+    private volatile String failure;
+    MdoBrowserCdpDownloads(MdoBrowserDownloadQueue files,Budget budget){
+        if(files==null||budget==null)throw new IllegalArgumentException("Missing native download services");this.files=files;this.budget=budget;
+    }
+    private void protocol(MdoBrowserCdpBinding.Network network)throws IOException {
+        synchronized(gate){
+            if(network==null)throw new IOException("cdp_download_owner_changed");
+            if(closed)throw new IOException("cdp_download_owner_closed");
+            if(disconnected)throw new IOException("cdp_download_connection_closed");
+            if(worker==null){worker=Thread.currentThread();original=network;}
+            if(worker!=Thread.currentThread()||original!=network)throw new IOException("cdp_download_owner_changed");
+        }
+    }
+    @Override public void event(MdoBrowserCdpBinding.Network network,String method,String child,JSONObject params)throws IOException {
+        protocol(network);if(!"Fetch.requestPaused".equals(method))return;
+        MdoBrowserCdpResponse response=network.pausedResponse();
+        if(!response.kind.equals("candidate")){network.continuePausedRequest();return;}
+        // Child download identity requires its separate frame association.
+        if(child!=null){failure="download_frame_unproven";network.abortPausedRequest();return;}
+        boolean declined=false;synchronized(gate){
+            int slot=0;while(slot<rows.length&&rows[slot]!=null)slot++;
+            if(slot==rows.length||!budget.acquire()){failure="download_receipt_limit";declined=true;}
+            else{
+                MdoBrowserCdpSession.Offer offer=null;boolean published=false;
+                try{
+                    if(network.pendingOffers()>=8){failure="download_pending_limit";declined=true;}
+                    else{offer=network.retainPausedResponse();Row row=new Row(++serial,offer);publish(row,"pending",null,0,null,false,true,false,null);rows[slot]=row;published=true;}
+                }finally{if(!published){budget.release();if(offer!=null)offer.cancel();}}
+            }
+        }
+        if(declined)network.abortPausedRequest();
+    }
+    Snapshot[] list()throws IOException {
+        synchronized(gate){active();List<Snapshot> result=new ArrayList<>();for(Row row:rows)if(row!=null){summarize(row);if(!row.retired)result.add(row.snapshot);}
+            result.sort(Comparator.comparingLong(value->value.sequence));return result.toArray(new Snapshot[0]);}
+    }
+    Snapshot get(String id)throws IOException {synchronized(gate){Row row=find(id);summarize(row);return row.snapshot;}}
+    private void active()throws IOException {if(closed)throw new IOException("download_owner_closed");}
+    private Row find(String id)throws IOException {
+        active();if(id==null||id.length()>100)throw new IOException("download_identity_invalid");
+        for(Row row:rows)if(row!=null&&row.id.equals(id))return row;throw new IOException("download_identity_unavailable");
+    }
+    Snapshot accept(String id,long maximum,int timeoutMs)throws IOException {
+        synchronized(gate){Row row=find(id);summarize(row);if(row.snapshot.terminal()||row.accepted||row.cancelled||row.releasing)return row.snapshot;
+            if(disconnected)throw new IOException("download_connection_closed");
+            try{row.offer.accept(maximum,timeoutMs);}catch(IOException failure){
+                if(!"cdp_offer_byte_limit".equals(failure.getMessage()))throw failure;
+                row.maximum=maximum;row.accepted=true;row.error="download_limit";row.failureSource="policy";row.offer.cancel();
+                publish(row,"cancelling",row.error,0,null,false,true,false,row.failureSource);return row.snapshot;
+            }
+            row.maximum=maximum;row.accepted=true;
+            publish(row,"receiving",null,row.snapshot.received,null,false,row.snapshot.cacheCleanupConfirmed,false,null);return row.snapshot;}
+    }
+    Snapshot cancel(String id)throws IOException {
+        synchronized(gate){Row row=find(id);summarize(row);if(row.snapshot.terminal()||row.releasing)return row.snapshot;
+            row.cancelled=true;row.offer.cancel();if(row.ticket!=null)files.cancel(row.ticket);
+            publish(row,"cancelling","cancelled",row.snapshot.received,null,false,row.snapshot.cacheCleanupConfirmed,false,"user");return row.snapshot;}
+    }
+    Release release(String id)throws IOException {
+        synchronized(gate){Row row=find(id);summarize(row);if(row.release!=null)return row.release;
+            if(!row.snapshot.terminal())throw new IOException("download_not_terminal");
+            if(!row.snapshot.sourceCleanupConfirmed)throw new IOException("download_source_cleanup_unconfirmed");
+            Release result=new Release(this,row);row.release=result;row.releasing=true;
+            publish(row,"releasing",null,row.snapshot.received,null,false,row.snapshot.cacheCleanupConfirmed,true,null);
+            if(row.ticket!=null)files.release(row.ticket);return result;}
+    }
+    private static String safe(Throwable error){
+        String code=error.getMessage();return code!=null&&code.matches("(?:cdp|download)_[a-z_]{1,80}")?code:"download_controller_failed";
+    }
+    private static boolean sourceClean(Row row){
+        MdoBrowserCdpSession.OfferResult offer=row.offer.result();if(offer==null)return false;
+        if(offer.requestAbortConfirmed)return true;
+        MdoBrowserCdpSession.BodyResult result=offer.body==null?null:offer.body.result();return result!=null&&result.streamCloseConfirmed&&result.requestAbortConfirmed;
+    }
+    private void publish(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
+        Snapshot old=row.snapshot;
+        if(old!=null&&old.maximum==row.maximum&&old.state.equals(state)&&Objects.equals(old.error,error)&&old.received==bytes&&Objects.equals(old.sha256,hash)&&
+            old.verified==verified&&old.cacheCleanupConfirmed==cacheClean&&old.sourceCleanupConfirmed==sourceClean&&Objects.equals(old.failureSource,source))return;
+        row.snapshot=new Snapshot(row,state,error,bytes,hash,verified,cacheClean,sourceClean,source);
+    }
+    private void retire(Row row){
+        row.retired=true;if(row.charged){row.charged=false;budget.release();}for(int i=0;i<rows.length;i++)if(rows[i]==row)rows[i]=null;
+    }
+    private void summarize(Row row){
+        if(row.retired)return;
+        if(row.releasing){
+            MdoBrowserDownloadQueue.Snapshot file=row.ticket==null?null:row.ticket.snapshot();
+            if(file==null||file.state.equals("released")&&file.fileCleanupConfirmed){
+                publish(row,"released",null,row.snapshot.received,null,false,true,sourceClean(row),null);row.releaseDone=true;retire(row);
+            }return;
+        }
+        MdoBrowserCdpSession.OfferResult offer=row.offer.result();
+        if(offer==null){if(disconnected)publish(row,"failed","download_connection_closed",row.snapshot.received,null,false,row.ticket==null,false,"native_protocol");return;}
+        if(!offer.accepted){boolean cancelled=row.cancelled&&offer.requestAbortConfirmed;
+            publish(row,cancelled?"cancelled":"failed",cancelled?"cancelled":row.error==null?offer.code:row.error,0,null,false,true,offer.requestAbortConfirmed,
+                cancelled?"user":row.failureSource==null?"native_protocol":row.failureSource);return;}
+        row.body=offer.body;
+        MdoBrowserDownloadQueue.Snapshot file=row.ticket==null?null:row.ticket.snapshot();MdoBrowserCdpSession.BodyResult body=row.body.result();
+        boolean clean=sourceClean(row),cacheClean=file==null||file.fileCleanupConfirmed;long received=file==null?0:file.bytes;
+        if(file!=null&&file.completed()){publish(row,"completed",null,file.bytes,file.sha256,true,false,true,null);return;}
+        String fileError=file==null?null:file.code;
+        String error=row.cancelled?"cancelled":row.error!=null?row.error:fileError!=null&&!fileError.equals("download_source_failed")?fileError:body!=null&&!body.ok?body.code:fileError;
+        String origin=error==null?null:row.cancelled?"user":row.failureSource!=null?row.failureSource:"download_timeout".equals(fileError)?"timeout":
+            fileError!=null&&!fileError.equals("download_source_failed")&&!fileError.equals("download_cancelled")?"cache":"native_protocol";
+        boolean stopped=body!=null&&cacheClean;
+        if(stopped){publish(row,row.cancelled&&clean?"cancelled":"failed",error==null?"download_source_failed":error,received,null,false,cacheClean,clean,
+            origin==null?"native_protocol":origin);return;}
+        publish(row,error!=null||row.cancelled?"cancelling":row.eof?"verifying":"receiving",error,received,null,false,cacheClean,clean,
+            origin);
+    }
+    private void advance(Row row,MdoBrowserCdpBinding.Network network)throws IOException {
+        synchronized(gate){
+            if(closed||row.retired)return;
+            if(row.releasing){summarize(row);return;}
+            MdoBrowserCdpSession.OfferResult offer=row.offer.result();if(offer==null)return;
+            if(!offer.accepted){summarize(row);return;}
+            row.body=offer.body;
+            if(row.cancelled)row.body.cancel();
+            if(row.ticket==null&&!row.cancelled&&row.body.result()!=null&&row.error==null){row.error=row.body.result().code==null?"download_source_already_consumed":row.body.result().code;row.failureSource="native_protocol";}
+            if(row.ticket==null&&!row.cancelled&&row.error==null)try{row.ticket=files.begin(row.body);}
+                catch(IOException failure){row.error=safe(failure);row.failureSource="cache";row.body.cancel();}
+            if(row.ticket!=null&&!row.cancelled&&row.error==null&&!row.eof&&row.body.result()==null){
+                if(row.reading&&files.writable(row.ticket)){
+                    MdoBrowserCdpSession.BodyChunk chunk=network.takeBodyChunk(row.body);
+                    if(chunk!=null){row.reading=false;boolean handed=false;try{handed=files.offer(row.ticket,chunk);if(handed)row.eof=chunk.eof;}
+                        finally{if(!handed){chunk.close();row.body.cancel();}}
+                    }
+                }
+                if(!row.reading&&!row.eof&&row.body.ready()&&files.writable(row.ticket)){network.requestBodyRead(row.body);row.reading=true;}
+            }
+            summarize(row);
+        }
+    }
+    @Override public void turn(MdoBrowserCdpBinding.Network network)throws IOException {
+        protocol(network);
+        for(int i=0;i<rows.length;i++){
+            Row row;synchronized(gate){row=rows[i];}if(row==null)continue;
+            try{advance(row,network);}catch(IOException failure){
+                synchronized(gate){row.error=safe(failure);row.failureSource="native_protocol";row.offer.cancel();if(row.ticket!=null)files.cancel(row.ticket);}
+            }
+        }
+    }
+    String failure(){return failure;}
+    private void refresh(Row row){synchronized(gate){summarize(row);}}
+    boolean pending(){synchronized(gate){if(failure!=null)return true;for(Row row:rows)if(row!=null){summarize(row);if(!row.retired&&!row.snapshot.terminal())return true;}return false;}}
+    void disconnect(){
+        synchronized(gate){if(closed||disconnected)return;disconnected=true;failure="download_connection_closed";
+            for(Row row:rows)if(row!=null){
+                MdoBrowserCdpSession.OfferResult offer=row.offer.result();
+                MdoBrowserCdpSession.BodyResult body=offer==null||offer.body==null?null:offer.body.result();
+                // Original bytes/cleanup can already be complete while the
+                // independent file reread is still running. Connection loss
+                // does not revoke that successful source or replay the request.
+                if(body==null||!body.ok||!body.streamCloseConfirmed||!body.requestAbortConfirmed){
+                    if(row.error==null&&!row.cancelled){String cause=body!=null?body.code:offer!=null?offer.code:null;
+                        row.error=cause==null?"download_connection_closed":cause;row.failureSource="native_protocol";}
+                    row.offer.cancel();if(row.ticket!=null)try{files.cancel(row.ticket);}catch(IOException ignored){}
+                }
+                summarize(row);
+            }
+        }
+    }
+    @Override public void close(){
+        synchronized(gate){if(closed)return;closed=true;
+            for(Row row:rows)if(row!=null){row.offer.cancel();if(row.ticket!=null)try{files.release(row.ticket);}catch(IOException ignored){}
+                publish(row,"closed","download_owner_closed",row.snapshot.received,null,false,row.ticket==null,sourceClean(row),"owner");row.releaseDone=true;retire(row);}
+            original=null;worker=null;
+        }
+    }
+}

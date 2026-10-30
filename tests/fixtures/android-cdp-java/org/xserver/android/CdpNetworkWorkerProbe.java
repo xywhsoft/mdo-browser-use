@@ -32,14 +32,14 @@ public final class CdpNetworkWorkerProbe {
     }
     private static JSONObject response(int id)throws Exception{return new JSONObject().put("id",id).put("result",new JSONObject());}
     private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("responseStatusCode",200));}
-    private static final class Ui implements MdoBrowserCdpWorker.Ui {
+    static final class Ui implements MdoBrowserCdpWorker.Ui {
         final Thread owner=Thread.currentThread();final ConcurrentLinkedQueue<Runnable> tasks=new ConcurrentLinkedQueue<>();boolean reject;
         public boolean onThread(){return Thread.currentThread()==owner;}
         public boolean post(Runnable task){if(reject)return false;tasks.add(task);return true;}
         public void remove(Runnable task){tasks.remove(task);}
         void drain(){Runnable task;while((task=tasks.poll())!=null)task.run();}
     }
-    private static final class Case implements AutoCloseable {
+    static final class Case implements AutoCloseable {
         final Ui ui=new Ui();final AtomicLong time=new AtomicLong(100);final Set<Thread> threads=ConcurrentHashMap.newKeySet();
         final Map<MdoBrowserCdpMarker,CdpNetworkBindingProbe.Context> sources=new ConcurrentHashMap<>();
         final List<CdpNetworkBindingProbe.Context> owned=new ArrayList<>();final List<MdoBrowserCdpNetworks.Result> states=new ArrayList<>();

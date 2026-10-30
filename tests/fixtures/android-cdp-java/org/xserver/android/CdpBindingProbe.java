@@ -56,6 +56,8 @@ public final class CdpBindingProbe {
                 public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
                 public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
                 public MdoBrowserCdpResponse pausedResponse()throws IOException{return session.pausedResponse();}
+                public MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException{return session.retainPausedResponse();}
+                public int pendingOffers()throws IOException{return session.pendingOffers();}
                 public MdoBrowserCdpSession.Body takePausedBody(long limit,int timeout)throws IOException{return session.takePausedBody(limit,timeout);}
                 public MdoBrowserCdpSession.BodyChunk readBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{return session.readBody(body,timeout);}
                 public void cancelBody(MdoBrowserCdpSession.Body body,int timeout)throws IOException{session.cancelBody(body,timeout);}
