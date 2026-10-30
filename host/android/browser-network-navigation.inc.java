@@ -4,7 +4,7 @@
         final String id="nv-"+java.util.UUID.randomUUID();final NetworkEntry owner;
         final NavigationRequest reservation;final int timeout;final boolean initial;final long born=android.os.SystemClock.elapsedRealtime();
         final Runnable watch=()->nativeNavigationPoll(this);
-        MdoBrowserCdpNetworks.Navigation ticket;boolean revoked,settled;long revokedAt;
+        MdoBrowserCdpNetworks.Navigation ticket;boolean revoked,settled,pageJoined;long revokedAt;String pageError;
         NativeNavigation(NetworkEntry owner,NavigationRequest reservation,int timeout,boolean initial){this.owner=owner;this.reservation=reservation;this.timeout=timeout;this.initial=initial;}
     }
     private boolean networkNavigate(String key,WebView view,String replyId,String target,boolean agent,long timeout)throws Exception {
@@ -47,14 +47,16 @@
     }
     private boolean networkInitialNavigationPending(String key){
         NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null?null:owner.navigation;
-        if(operation==null||operation.owner!=owner||!operation.initial||operation.revoked||operation.ticket==null)return false;
+        if(operation==null||operation.owner!=owner||!operation.initial||operation.revoked||operation.pageError!=null||operation.ticket==null)return false;
         MdoBrowserCdpSession.NavigationResult result=operation.ticket.result();
+        if(result!=null&&result.acknowledged&&result.ok&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent()&&navigationRequests.get(key)!=operation.reservation)operation.pageJoined=true;
+        if(operation.pageJoined)return false;
         return result==null||result.effectMayHaveOccurred&&!result.acknowledged||result.ok&&
-            (!result.downloadKnown&&!result.loaderPresent||!(result.downloadKnown&&result.download)&&navigationRequests.get(key)==operation.reservation);
+            (!(result.downloadKnown&&result.download)&&(!operation.ticket.pageCommitted()||!operation.ticket.pageCurrent()||navigationRequests.get(key)==operation.reservation));
     }
     private boolean nativeNavigationScope(NativeNavigation operation){
         NetworkEntry owner=operation.owner;
-        return networkViews.get(owner.key)==owner&&networkCurrent(owner)&&!manual.contains(owner.key)&&!owner.retired&&!owner.draining;
+        return networkViews.get(owner.key)==owner&&owner.navigation==operation&&networkCurrent(owner)&&!manual.contains(owner.key)&&!owner.retired&&!owner.draining;
     }
     private void nativeNavigationRevoke(NativeNavigation operation){
         if(!operation.revoked){operation.revoked=true;operation.revokedAt=android.os.SystemClock.elapsedRealtime();}
@@ -81,8 +83,20 @@
         networkHandler.removeCallbacks(operation.watch);if(operation.settled)return;
         if(!nativeNavigationScope(operation))nativeNavigationRevoke(operation);
         MdoBrowserCdpSession.NavigationResult result=operation.ticket==null?null:operation.ticket.result();
-        if(result!=null){nativeNavigationRestore(operation,result);operation.settled=true;return;}
         long now=android.os.SystemClock.elapsedRealtime(),age=now-operation.born;
+        if(result!=null){
+            nativeNavigationRestore(operation,result);
+            boolean needsCommit=result.acknowledged&&result.ok&&!(result.downloadKnown&&result.download)&&(result.loaderPresent||operation.initial);
+            if(needsCommit&&!operation.revoked){
+                if(!result.loaderPresent)operation.pageError="cdp_navigation_commit_unproven";
+                else if(!operation.pageJoined&&operation.ticket.pageCommitted()&&!operation.ticket.pageCurrent())operation.pageError="cdp_navigation_commit_revoked";
+                else if(!operation.pageJoined&&(!operation.ticket.pageCommitted()||navigationRequests.get(operation.owner.key)==operation.reservation)){
+                    if(age<0||age>=operation.timeout){operation.pageError="cdp_navigation_commit_timeout";networkRetire(operation.owner,operation.pageError);}
+                    else{if(!networkHandler.postDelayed(operation.watch,20)){operation.pageError="cdp_navigation_commit_timeout";nativeNavigationRevoke(operation);networkRetire(operation.owner,"cdp_navigation_scheduler_failed");operation.settled=true;}return;}
+                }else operation.pageJoined=true;
+            }
+            operation.settled=true;return;
+        }
         if(!operation.revoked&&(age<0||age>=operation.timeout)){nativeNavigationRevoke(operation);networkRetire(operation.owner,"cdp_navigation_timeout");}
         if(operation.revoked&&(now-operation.revokedAt<0||now-operation.revokedAt>=5500)){operation.settled=true;return;}
         if(!networkHandler.postDelayed(operation.watch,20)){nativeNavigationRevoke(operation);networkRetire(operation.owner,"cdp_navigation_scheduler_failed");operation.settled=true;}
@@ -92,7 +106,9 @@
         if(operation==null||operation.ticket==null)return null;
         MdoBrowserCdpSession.NavigationResult result=operation.ticket.result();
         JSONObject value=new JSONObject().put("id",operation.id).put("phase",result==null?(operation.ticket.dispatched()?"sent":"queued"):result.ok?"acknowledged":"failed")
-            .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched()).put("initial",operation.initial);
+            .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched()).put("initial",operation.initial)
+            .put("page_commit_supported",true).put("page_committed",operation.ticket.pageCommitted()).put("page_current",operation.ticket.pageCurrent())
+            .put("page_document",operation.ticket.pageDocument()==null?JSONObject.NULL:operation.ticket.pageDocument()).put("page_error",operation.pageError==null?JSONObject.NULL:operation.pageError);
         if(result!=null)value.put("acknowledged",result.acknowledged).put("ok",result.ok).put("download_known",result.downloadKnown).put("download",result.download)
             .put("loader_present",result.loaderPresent).put("code",result.code==null?JSONObject.NULL:result.code).put("native_error",result.nativeError==null?JSONObject.NULL:result.nativeError);
         return value;

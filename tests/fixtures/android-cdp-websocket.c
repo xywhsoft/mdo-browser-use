@@ -226,6 +226,15 @@ static void* Serve(void* Data)
         Fixture->Frames+=ClientCommand(Fd,6,"Runtime.evaluate",NULL);
         Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"private-late-data\",\"eof\":true}}");Packet(Fd,"{\"id\":6,\"result\":{}}");
         char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;
+    } else if ( Fixture->Mode==44 || Fixture->Mode==45 ) {
+        Fixture->Frames+=ClientBodyCommand(Fd,1,"Page.navigate","{\"url\":\"about:blank\",\"frameId\":\"frame-owned\"}");
+        if ( Fixture->Mode==44 ) Packet(Fd,"{\"id\":1,\"result\":{\"frameId\":\"frame-owned\",\"loaderId\":\"native-commit-loader\",\"isDownload\":false}}");
+        Packet(Fd,"{\"method\":\"Page.frameNavigated\",\"params\":{\"frame\":{\"id\":\"frame-owned\",\"loaderId\":\"native-commit-loader\"}}}");
+        if ( Fixture->Mode==45 ) Packet(Fd,"{\"id\":1,\"result\":{\"frameId\":\"frame-owned\",\"loaderId\":\"native-commit-loader\",\"isDownload\":false}}");
+        Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);
+        Packet(Fd,"{\"method\":\"Page.documentOpened\",\"params\":{\"frame\":{\"id\":\"frame-owned\",\"loaderId\":\"native-commit-loader\"}}}");
+        Packet(Fd,"{\"id\":2,\"result\":{}}");
+        {char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;}
     } else if ( Fixture->Mode==42 || Fixture->Mode==43 ) {
         Fixture->Frames+=ClientBodyCommand(Fd,1,"Page.navigate","{\"url\":\"about:blank\",\"frameId\":\"frame-owned\"}");
         if ( Fixture->Mode==42 ) {

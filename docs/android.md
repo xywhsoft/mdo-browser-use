@@ -3769,3 +3769,52 @@ UI reservation/epoch state; exact native loader-to-page association remains
 unqualified. History/reload, exact download association, uncertain-outcome
 UI presentation, remaining transfer lifetime/public save and other documented
 full-goal work are still open. Phone/current WebView remain deferred.
+
+
+## Original native loader and committed-root association (E99)
+
+Privately retain Page.navigate's validated loader in its original native receipt.
+A physical-network wrapper adds exact owner identity and the pre-dispatch native
+frame revision. Its ledger retains at most 32 validated root frameNavigated
+commits. Match root plus loader only after that revision; a child event,
+documentOpened event, pre-admission observation, foreign network wrapper or
+evicted record cannot grant proof. ACK/event reordering can establish a past
+commit even when its origin has already been superseded. The public state carries
+only opaque native document identity, commit/current flags and fixed outcomes.
+
+This follows the pinned
+[primary Page definition](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl):
+loader metadata identifies cross-document navigation, frameNavigated associates
+the frame with the new loader, and documentOpened is a separate event. The
+original ACK proves neither full load nor file completion. Private history and
+raw loader values are bounded and remain in memory; no raw wire ID, complete
+reply or request reconstruction is returned to the model.
+
+UI admission joins this native origin to its retained reservation/epoch. Commit
+waits share the original budget. Missing initial loader evidence is explicit
+commit_unproven; lost current proof is commit_revoked, with no invented claim
+that the physical page necessarily navigated. Closing its native source also
+revokes proof. Preserve the original ACK and diagnostic alias. A completed initial
+join stays completed through later ordinary page activity, and an old watch cannot
+mutate a new explicit operation. Shared JS validates and checks the same original
+opaque identity before/after observation, without any retry, stop or reload.
+
+The lower native gate passes 166 checks including two original body/ACK sessions
+and two real local JNI/socket commit sessions in opposite orders. Broker passes
+86, physical binding 2,058, and exact product lifecycle 397. Native allocation,
+per-session descriptor and socket-slot checks remain strict. JVM UUID's first
+entropy descriptors are measured separately (0 to 2) before that session baseline;
+this fixes test startup accounting and does not claim a production leak repair.
+All 344 JS cases pass, Python passes 173/175 with two existing symlink-privilege
+skips, and all 103 native/13 product hashes match. Full native ASan/UBSan/API26,
+12 actual packed Windows runtime checks and seven final Android package contracts
+pass. Both programs are refreshed; see docs/progress.md and
+.mdo/E99-final-identities.log for their exact identities and evidence.
+
+This stage proves the private original commit association and client status
+checks. FrameDriver's separate evaluation connection still needs a direct
+original-loader guard; two event-stream snapshots do not alone prove every
+observed payload's identity. Same-document event correlation, history/reload,
+exact download association, remaining transfers/public save and full public
+Android verification remain open. Device/framework/automation qualification is
+false. Phone and current WebView remain deferred.

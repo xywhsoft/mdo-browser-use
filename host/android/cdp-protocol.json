@@ -3,7 +3,7 @@
   "state": "private_frame_owner_and_command_route_packaged_admission_disabled",
   "checked_date": "2026-10-31",
   "navigation_receipts": {
-    "state": "fixed_root_native_async_primitive_product_ui_join_pending",
+    "state": "managed_initial_and_goto_native_receipts_and_commit_join_packaged_provider_unqualified",
     "command": "Page.navigate",
     "root_frame": "original_physical_binding_only",
     "pending_per_session": 1,
@@ -19,7 +19,21 @@
     "caller_frame_or_session_selectors": false,
     "automatic_retry": false,
     "installed_provider_verified": false,
-    "product_navigation_activated": false
+    "product_navigation_activated": false,
+    "native_commit": {
+      "state": "private_original_loader_root_commit_join_packaged",
+      "source": "Page.navigate loaderId plus validated Page.frameNavigated root loader",
+      "history_limit": 32,
+      "pre_admission_events_excluded": true,
+      "document_open_is_commit": false,
+      "caller_wire_ids": false,
+      "wire_ids_returned": false,
+      "ui_identity": "opaque_native_document_alias",
+      "reply_is_load_completion": false,
+      "replacement_revokes_current_proof": true,
+      "ack_event_reordering_supported": true,
+      "installed_provider_verified": false
+    }
   },
   "sources": [
     {
@@ -32,7 +46,7 @@
       "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl",
       "decoded_bytes": 63398,
       "decoded_sha256": "9681c32d23ea5936f972056439da9a4e1f6c49fcf220bd161cccb0a8222128ec",
-      "facts": ["Page.navigate returns the actual native frame and optional loader/error", "Its experimental isDownload flag is optional and does not prove file completion"]
+      "facts": ["Page.navigate returns the actual native frame and optional loader/error", "Its experimental isDownload flag is optional and does not prove file completion", "Page.frameNavigated associates the frame with its newly committed loader", "Page.documentOpened is a distinct event and cannot establish navigation commitment", "Navigate omits loaderId for same-document navigation"]
     },
     {
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/android_webview/java/src/org/chromium/android_webview/AwContentsClientBridge.java?format=TEXT",

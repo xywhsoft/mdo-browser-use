@@ -76,11 +76,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     static final class Navigation {
         private final int id,timeout;private final long born;private final String frame;
-        private final AtomicReference<NavigationResult> outcome=new AtomicReference<>();private volatile boolean issued;
+        private final AtomicReference<NavigationResult> outcome=new AtomicReference<>();private volatile boolean issued;private volatile String loader;
         private Navigation(int id,String frame,long born,int timeout){this.id=id;this.frame=frame;this.born=born;this.timeout=timeout;}
         NavigationResult result(){return outcome.get();}
         boolean pending(){return result()==null;}
         boolean effectMayHaveOccurred(){NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
+        boolean matchesCommittedLoader(String frame,String loader){NavigationResult result=result();return result!=null&&result.acknowledged&&result.ok&&result.loaderPresent&&
+            !(result.downloadKnown&&result.download)&&this.frame.equals(frame)&&this.loader!=null&&this.loader.equals(loader);}
         private void finish(NavigationResult result){outcome.compareAndSet(null,result);}
     }
     private static final NavigationResult NAVIGATION_NOT_SENT=new NavigationResult(false,false,false,false,"cdp_navigation_not_sent",false);
@@ -484,6 +486,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             boolean known=download instanceof Boolean,isDownload=Boolean.TRUE.equals(download);
             boolean failed=error instanceof String&&!((String)error).isEmpty()&&!(isDownload&&error.equals("net::ERR_ABORTED"));
             String code=failed?(!known&&"net::ERR_ABORTED".equals(error)?"cdp_navigation_download_unproven":"cdp_navigation_failed"):null;
+            if(!failed&&loader instanceof String)original.loader=(String)loader;
             original.finish(new NavigationResult(true,!failed,known,isDownload,code,true,navigationError(error),value.has("loaderId")));navigation=null;return true;
         }
     }

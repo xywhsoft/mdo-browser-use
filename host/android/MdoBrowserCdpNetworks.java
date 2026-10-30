@@ -33,16 +33,22 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         private static final MdoBrowserCdpSession.NavigationResult CLOSED_SENT=MdoBrowserCdpSession.navigationFailure("cdp_navigation_connection_closed",true);
         private String url;private final int timeout;private final long born;
         private final AtomicReference<MdoBrowserCdpSession.NavigationResult> outcome=new AtomicReference<>();
-        private volatile MdoBrowserCdpSession.Navigation source;private volatile boolean issued;
+        private volatile MdoBrowserCdpBinding.Network.Navigation source;private volatile boolean issued;
+        private volatile MdoBrowserCdpNetworkFrames.Origin committed;
         private boolean cancelled;
         private Navigation(String url,int timeout,long born){this.url=url;this.timeout=timeout;this.born=born;}
-        MdoBrowserCdpSession.NavigationResult result(){MdoBrowserCdpSession.Navigation original=source;
+        MdoBrowserCdpSession.NavigationResult result(){MdoBrowserCdpBinding.Network.Navigation original=source;
             if(original!=null&&original.result()!=null)finish(original.result());return outcome.get();}
         boolean dispatched(){MdoBrowserCdpSession.NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
+        boolean pageCommitted(){return committed!=null;}
+        boolean pageCurrent(){MdoBrowserCdpNetworkFrames.Origin original=committed;return original!=null&&original.current();}
+        String pageDocument(){MdoBrowserCdpNetworkFrames.Origin original=committed;return original==null?null:original.document;}
         synchronized void cancel(){cancelled=true;if(!issued){url=null;finish(CANCELLED);}}
         private void finish(MdoBrowserCdpSession.NavigationResult result){outcome.compareAndSet(null,result);}
-        private void service(MdoBrowserCdpBinding.Network connection,Events events,LongSupplier clock,boolean retiring){
+        private void service(MdoBrowserCdpBinding.Network connection,Events events,LongSupplier clock,boolean retiring)throws IOException {
             String target;int budget;
+            MdoBrowserCdpBinding.Network.Navigation original=source;
+            if(original!=null){result();if(committed==null)committed=connection.navigationOrigin(original);return;}
             if(result()!=null||issued)return;
             boolean allowed=events.navigationAllowed();
             synchronized(this){

@@ -100,9 +100,72 @@ public final class CdpNetworkNavigationProbe {
             original.cancel();check(original.result()==terminal&&next.context.view==source.context.view&&next.controller.failure()==null&&sends.get()==1);
         }
     }
+    private static void commit(CdpDownloadsProbe.Source source,String loader,boolean opened,boolean child)throws Exception{
+        JSONObject frame=new JSONObject().put("id",child?"child-proof":"frame-owned").put("loaderId",loader);
+        if(child)frame.put("parentId","frame-owned");
+        source.context.wire().queue(new JSONObject().put("method",opened?"Page.documentOpened":"Page.frameNavigated").put("params",new JSONObject().put("frame",frame)));
+    }
+    private static void commitOrdering()throws Exception{
+        for(int mode=0;mode<6;mode++)try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("commit-order-"+mode)){
+            CdpDownloadsProbe.Source source=test.source();AtomicInteger request=new AtomicInteger();
+            CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            source.context.peer.extra=(command,wire)->{if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);request.set(command.getInt("id"));return true;};
+            MdoBrowserCdpNetworks.Navigation original=navigate(test,source,10000);await(()->request.get()>0);
+            JSONObject ack=new JSONObject().put("id",request.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","original-loader").put("isDownload",false));
+            if(mode==0)source.context.wire().queue(ack);
+            if(mode==2)commit(source,"wrong-loader",false,false);
+            if(mode==3)commit(source,"original-loader",true,false);
+            if(mode==4)commit(source,"original-loader",false,true);
+            if(mode!=0)source.context.wire().queue(ack);
+            await(()->original.result()!=null);check(!original.pageCommitted()&&!original.pageCurrent()&&original.pageDocument()==null);
+            commit(source,"original-loader",false,false);await(original::pageCommitted);
+            String document=original.pageDocument();check(original.pageCurrent()&&document.startsWith("nd-")&&!document.contains("original-loader")&&!document.contains("frame-owned"));
+            if(mode==5)commit(source,"original-loader",true,false);else commit(source,"next-loader",false,false);
+            await(()->!original.pageCurrent());check(original.pageCommitted()&&original.pageDocument().equals(document));
+        }
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("commit-before-ack")){
+            CdpDownloadsProbe.Source source=test.source();AtomicInteger request=new AtomicInteger();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            source.context.peer.extra=(command,wire)->{if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                wire.queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","original-loader"))));
+                wire.queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","newer-loader"))));
+                request.set(command.getInt("id"));return true;};
+            MdoBrowserCdpNetworks.Navigation original=navigate(test,source,10000);await(()->request.get()>0);
+            source.context.wire().queue(new JSONObject().put("id",request.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","original-loader")));
+            await(original::pageCommitted);check(original.result().acknowledged&&!original.pageCurrent());
+        }
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("commit-before-admission")){
+            CdpDownloadsProbe.Source source=test.source();String old=source.offer("old-root-before-navigation");source.controller.cancel(old);await(()->source.state(old,"cancelled"));
+            commit(source,"reused-loader",false,false);await(()->!source.snapshot(old).frameCurrent);source.release(old);
+            CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            source.context.peer.extra=(command,wire)->{if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","reused-loader")));return true;};
+            MdoBrowserCdpNetworks.Navigation original=navigate(test,source,10000);await(()->original.result()!=null);check(!original.pageCommitted());
+            commit(source,"reused-loader",false,false);await(original::pageCommitted);check(original.pageCurrent());
+        }
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("commit-bounded-history")){
+            CdpDownloadsProbe.Source source=test.source(),other=test.source();AtomicInteger request=new AtomicInteger();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            source.context.peer.extra=(command,wire)->{if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);request.set(command.getInt("id"));return true;};
+            MdoBrowserCdpNetworks.Navigation original=navigate(test,source,10000);await(()->request.get()>0);
+            commit(source,"evicted-loader",false,false);for(int i=0;i<33;i++)commit(source,"churn-"+i,false,false);
+            commit(other,"evicted-loader",false,false);
+            source.context.wire().queue(new JSONObject().put("id",request.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","evicted-loader")));
+            await(()->original.result()!=null);check(!original.pageCommitted()&&original.pageDocument()==null);
+            commit(source,"evicted-loader",false,false);await(original::pageCommitted);check(original.pageCurrent());
+        }
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("committed-source-close")){
+            CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            source.context.peer.extra=(command,wire)->{if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","source-close-loader")));
+                wire.queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","source-close-loader"))));return true;};
+            MdoBrowserCdpNetworks.Navigation original=navigate(test,source,10000);await(original::pageCurrent);String document=original.pageDocument();
+            MdoBrowserCdpSession.NavigationResult result=original.result();test.host.worker.cancelNetwork(source.context.adapter.marker().lease());
+            await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});
+            check(original.pageCommitted()&&!original.pageCurrent()&&document.equals(original.pageDocument())&&original.result()==result);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

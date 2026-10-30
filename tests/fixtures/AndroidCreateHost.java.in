@@ -99,7 +99,8 @@ final class AndroidCreateHost {
         interface Completion {void done(Result result);}
         static final class Result {final boolean ready,cleanupConfirmed;boolean responsesDisabled;String code;Result(boolean ready,boolean clean){this.ready=ready;cleanupConfirmed=clean;}}
         static final class Navigation {
-            MdoBrowserCdpSession.NavigationResult outcome;boolean issued,cancelled;
+            MdoBrowserCdpSession.NavigationResult outcome;boolean issued,cancelled,committed,current;
+            boolean pageCommitted(){return committed;}boolean pageCurrent(){return committed&&current;}String pageDocument(){return committed?"nd-fixture-original":null;}
             MdoBrowserCdpSession.NavigationResult result(){return outcome;}boolean dispatched(){return outcome==null?issued:outcome.effectMayHaveOccurred;}
             void cancel(){cancelled=true;if(!issued&&outcome==null)outcome=new MdoBrowserCdpSession.NavigationResult(false,false,false,false,false,false,"cdp_navigation_cancelled");}
             void ack(boolean known,boolean download,boolean loader,String code){outcome=new MdoBrowserCdpSession.NavigationResult(true,code==null,known,download,true,loader,code);}

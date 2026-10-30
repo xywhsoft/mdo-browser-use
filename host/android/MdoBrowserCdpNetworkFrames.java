@@ -13,6 +13,12 @@ import org.json.JSONObject;
  * grants response provenance only, never an execution world or input route. */
 final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,AutoCloseable {
     private static final int LIMIT=32,DEPTH=32,LIFETIME=4096;
+    /** Private bounded root commit history, not a public wire-ID lookup. */
+    private static final class Commit {
+        final String loader;final long revision;final Origin origin;
+        Commit(String loader,long revision,Origin origin){this.loader=loader;this.revision=revision;this.origin=origin;}
+    }
+    private final Commit[] commits=new Commit[LIMIT];private int commitCursor;
     private static final class Scope {volatile boolean active=true;}
     static final class Origin {
         final String frame,document;final boolean root;private final Scope[] ancestry;
@@ -87,7 +93,10 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
                 if(raw.equals(root)){if(value.has("parentId"))throw fail("download_frame_root_changed");node=frames.get(root);}
                 else{Frame previous=frames.get(raw);String parent=value.has("parentId")?id(value,"parentId"):previous==null?null:previous.parent;
                     if(parent==null)throw fail("download_frame_parent_unproven");node=attach(raw,parent,(String)load);}
-                descendants(raw,false);node.navigate((String)load);revision++;return;
+                descendants(raw,false);node.navigate((String)load);revision++;
+                if(ready&&raw.equals(root)&&method.equals("Page.frameNavigated")){
+                    commits[commitCursor]=new Commit((String)load,revision,origin(root));commitCursor=(commitCursor+1)%LIMIT;
+                }return;
             }
             String raw=id(params,"frameId");if(raw.equals(root))throw fail("download_frame_root_changed");Frame node=frames.get(raw);if(node==null)return;
             String reason=method.equals("Page.frameSubtreeWillBeDetached")?"remove":params.optString("reason","remove");
@@ -105,6 +114,13 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
             if(node.swapped||!node.scope.active)throw fail("download_frame_unproven");chain.add(node.scope);
             if(node.raw.equals(root))return new Origin(selected,chain.toArray(new Scope[0]),selected.raw.equals(root));
         }throw fail("download_frame_parent_unproven");
+    }
+    Origin navigationOrigin(MdoBrowserCdpSession.Navigation navigation,long after)throws IOException {
+        current();if(navigation==null||!ready)return null;
+        for(int i=0;i<LIMIT;i++){
+            Commit commit=commits[(commitCursor+LIMIT-1-i)%LIMIT];
+            if(commit!=null&&commit.revision>after&&navigation.matchesCommittedLoader(root,commit.loader))return commit.origin;
+        }return null;
     }
     /** Called after the physical native worker is drained, or on that worker.
      * Revoke immutable receipts even when the UI requests target teardown. */

@@ -38,7 +38,7 @@ function nativeNavigationFixture(mode){
       if(command==='dialog')return{ok:true,dialogs:[{id:'dialog'}]};
       if(command==='state'){
         if(sent&&mode==='transport')throw Error('Fixture lost transport');
-        const native={id:reference,phase:'acknowledged',acknowledged:true,ok:true,dispatched:true,download_known:true,download:false,loader_present:mode==='new-document'};
+        const native={id:reference,phase:'acknowledged',acknowledged:true,ok:true,dispatched:true,download_known:true,download:false,loader_present:mode==='new-document',page_commit_supported:true,page_committed:true,page_current:true,page_document:'nd-original'};
         if(sent){states++;if(mode==='cancel')native.phase='sent';if(mode==='unknown')native.download_known=false;
           if(mode==='download')native.download=true;
           if(mode==='unsupported')Object.assign(native,{phase:'failed',acknowledged:true,ok:false,dispatched:false,code:'cdp_navigation_unsupported'});
@@ -80,6 +80,30 @@ test('original native navigation ACK distinguishes same-document and committed p
     assert.equal(result.result.ok,true);assert.equal(Boolean(result.result.same_document),mode==='same-document');
     assert.equal(fixture.calls.filter(([command])=>command==='navigate').length,1);
     assert(!fixture.calls.some(([command])=>command==='navigation_cancel'));
+  }
+});
+test('native cross-document navigation waits for its loader match and rechecks the same page after reading',async()=>{
+  for(const mode of ['delayed','replaced','during-read','alias-changed','old-host','bad-alias','timeout','source-revoked']){
+    const fixture=nativeNavigationFixture('new-document'),execute=fixture.options.view.execute;let polls=0,read=false;
+    fixture.options.view.execute=async(command,params)=>{
+      const result=await execute(command,params);
+      if(command==='automation')read=true;
+      if(command==='state'&&result.native_navigation){const native=result.native_navigation;polls++;
+        if(mode==='delayed')native.page_committed=polls>=3;
+        if(mode==='replaced'||mode==='during-read'&&read)native.page_current=false;
+        if(mode==='alias-changed'&&read)native.page_document='nd-new-document';
+        if(mode==='old-host')delete native.page_commit_supported;
+        if(mode==='bad-alias')native.page_document='raw invalid frame ID';
+        if(mode==='timeout')native.page_error='cdp_navigation_commit_timeout';
+        if(mode==='source-revoked')native.page_error='cdp_navigation_commit_revoked';
+      }return result;
+    };
+    const result=await executeBrowserAutomation(fixture.options);
+    assert.equal(result.result.ok,mode==='delayed',mode);
+    if(mode==='delayed')assert(polls>=3&&read);else assert.equal(result.result.error.code,['replaced','during-read','alias-changed','source-revoked'].includes(mode)?'stale_document':'navigation_uncertain',mode);
+    assert.equal(fixture.calls.filter(([command])=>command==='navigate').length,1);
+    assert(!fixture.calls.some(([command])=>command==='reload'||command==='stop'));
+    if(['old-host','bad-alias','replaced','timeout'].includes(mode))assert.equal(read,false);
   }
 });
 test('native download ACK returns only newly retained browser-scope records',async()=>{

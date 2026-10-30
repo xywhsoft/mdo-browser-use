@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E99:** privately correlate an original navigation loader with its
+  validated root-frame commit, retaining a bounded 32-event history and opaque
+  document identity. Reply/event reordering, other owners/frames, replacement,
+  document.open and connection loss are covered. Product/UI/JS use the commit
+  status separately from ACK/load completion. Final lifecycle gate passes 397,
+  JS 344, native broker 86 and four real JNI/socket navigation sessions; refreshed
+  programs pass package/identity checks. The separate observation connection still
+  needs a direct original-loader guard; Android/provider qualification stays false.
 - **Android E98:** managed initial targets now use the same original native
   navigation coordinator as goto. Keep the original startup budget across native
   warmup/activation, distinguish creation admission from page/file completion,
@@ -8303,3 +8311,87 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Device/framework/automation qualifications remain false. Phone and current
   WebView stay deferred. No install, formal-data edit, model/external page action,
   provider upgrade, additional deployment copy or online publication.
+
+
+## E99 — correlate original native loader and root commit
+
+- Retain only the validated original native loader privately in its immutable
+  navigation ticket. A physical-network wrapper carries exact connection
+  ownership and its pre-dispatch frame revision; a different connection cannot
+  query it even if frame/loader strings coincide. Match only subsequent validated
+  root Page.frameNavigated events. Page.documentOpened and child-frame events
+  cannot establish a commit. A 32-entry private root history handles ACK/event
+  reordering and bounded overflow; pre-admission or evicted evidence never grants
+  completion. Expose only opaque native document aliases and bounded outcome/currentness flags,
+  never raw frame/loader/session selectors or replies.
+- A matched origin records past commitment separately from current validity.
+  Root document replacement, document.open and source teardown revoke current
+  proof without upgrading an old receipt. Preserve the original ACK on native
+  commit timeout and retain a separate bounded page_error. Use commit_revoked,
+  not an asserted page-change cause, because a closed source can revoke proof
+  without establishing that the physical page changed. Native file/body cleanup
+  and the existing worker remain shared; no URL replay, reconnect, extra executor
+  or per-navigation disk work is introduced.
+- Join the native commit with the retained UI reservation/epoch before finishing
+  the product's initial navigation stage. A completed join is monotonic, so later
+  ordinary navigation cannot resurrect the old initial operation. Old watchers
+  lose authority when the explicit current operation changes. Missing loader
+  metadata on initial cross-document targets now returns commit_unproven rather
+  than being promoted by UI callbacks. Original startup/action budgets remain in
+  force while commit evidence is absent; takeover/cancellation retain only exact
+  original cleanup authority.
+- Shared JS distinguishes ACK, known download, same-document handling and native
+  cross-document commitment. Require a valid opaque committed identity and current
+  proof before reading, then recheck the same original reference/document after
+  observation. Revoke only the old queued request on uncertainty; no stop/reload
+  fallback or target resubmission. This is an event-stream proof plus client
+  checks, not yet a direct guard on FrameDriver's separate evaluation connection.
+  That observation connection still needs its own original-loader constraint;
+  installed-provider/public JS-C end-to-end qualification remains open.
+- Verify the pinned primary Page definition: navigate's optional loader is absent
+  for same-document navigation; frameNavigated associates the frame with its new
+  loader, and documentOpened is a distinct event. Keep the same pinned source/hash
+  in host/android/cdp-protocol.json and update its private commit status/limits.
+  No new caller wire selectors or runtime dependencies are exposed.
+- Final native broker passes 86 assertions with actual shared worker/controller/
+  guarded files: ACK/event order, wrong root loader, child event, document.open,
+  pre-admission evidence, history eviction, another physical owner and closing a
+  committed source. Binding passes 2,058 including foreign-wrapper rejection.
+  Lower navigation passes 166, with two original body/ACK real JNI/socket sessions
+  plus two new real commit sessions in opposite event orders. Each new session
+  observes document.open revoking its original matched origin; strict native
+  allocations, descriptors and socket-slot checks remain balanced.
+- Diagnose the initial native descriptor assertion as UUID's JVM entropy source
+  initialization: measure 0 then 2 /dev/random or /dev/urandom descriptors on first
+  frame-ledger construction. Initialize that process resource before sampling
+  the per-session baseline; do not weaken the session allocation/descriptor/
+  slot assertions. Preserve .mdo/E99-native-cold-entropy-failure.log and the final
+  counters in .mdo/E99-native-current.json. No production descriptor leak is
+  claimed or hidden by that test-baseline correction.
+- Exact product lifecycle gate passes 397; all 344 JS cases pass sequentially in
+  19.601 seconds. Python passes 173/175 in 56.365 seconds, only two existing Windows
+  symlink-privilege skips; final revocation wording/current-source tests also pass
+  the targeted lifecycle/dispatch gates. Full native ASan/UBSan/API26 passes and
+  all 103 native plus 13 product input hashes match. Seven final Android package
+  contracts require actual definitions of the new private Network.Navigation and
+  frame Commit classes, not references to them.
+- Refresh the complete Windows program and pass all 12 actual packed C/JS/native
+  runtime checks. Artifact: 6,936,188 bytes, SHA-256
+  4e0a260c5334cf1f923143883be3113abec776ebdeedd6c9a8e1303b646785f8.
+  Final full QA Activity/service/lite-tools Android APK: 6,464,833 bytes, SHA-256
+  0443478181e5182c9e9acff30eb4341ee6e001af926ffa3245e9c69c906cbe1f.
+  Verify actual DEX definitions, six JNI exports, private provider, original
+  ARM64/16 KiB engine, source/archive identities and retained v2/v3 signer. Native
+  engine and 247,351-byte / 22-file paired plugin remain unchanged. Evidence:
+  .mdo/E99-windows-runtime.log, .mdo/E99-android-build.log,
+  .mdo/E99-final-identities.log and .mdo/E99-android-receipt.json. Restore the same
+  headless service to HTTP 200 on 63625, about 3,440.6 MiB.
+- Goal active. Next constrain the separate observation/evaluation connection to
+  the original navigation loader; do not infer full payload identity merely from
+  the two native status snapshots. Same-document event association, history/reload,
+  original download/request association, remaining transfer lifetime, Android
+  public save, text/blob handling and documented full-goal work remain open.
+  Installed Android/provider/main-UI/public JS-C verification is still deferred;
+  device/framework/automation flags stay false. No phone/provider upgrade,
+  installation, formal-data edit, model/external page action, extra app/Home/source
+  copy or online publication.

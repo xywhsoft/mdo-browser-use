@@ -10,7 +10,7 @@ import org.json.JSONObject;
 /** Actual dispatcher/codec plus original local-kernel JNI navigation/body
  * pipeline. The native browser/provider/Android callbacks remain unqualified. */
 public final class CdpNavigationProbe {
-    private static int checks,realSessions;
+    private static int checks,realSessions,realCommitSessions,entropyBefore,entropyAfter;
     private interface Work {void run()throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Navigation check "+(checks+1));checks++;}
     private static void refused(String code,Work work)throws Exception{
@@ -140,8 +140,32 @@ public final class CdpNavigationProbe {
     }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{nativeClassification();admission();invalidReplies();failureAndOrdering();if(args.length==0){realWire(42);realWire(43);}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{nativeClassification();admission();invalidReplies();failureAndOrdering();if(args.length==0){realWire(42);realWire(43);realCommitWire(44);realCommitWire(45);}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(3,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
+    }
+    private static void realCommitWire(int mode)throws Exception{
+        // UUID's process-wide entropy descriptors are initialized before the
+        // strict per-session native allocation/descriptor baseline is sampled.
+        int before=entropyDescriptors();MdoBrowserCdpNetworkFrames frames=new MdoBrowserCdpNetworkFrames("frame-owned","initial-loader");
+        int after=entropyDescriptors();if(mode==44){entropyBefore=before;entropyAfter=after;}check(after>=before&&after-before<=2);
+        CdpNativeProbe.fixtureStart(mode);MdoBrowserCdpSession session=null;
+        try(MdoBrowserCdpNetworkFrames originalFrames=frames){
+            frames.initialize(new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","initial-loader")),frames.revision());
+            long revision=frames.revision();session=MdoBrowserCdpSession.open("test-001",500,()->true,frames);
+            MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("about:blank","frame-owned",15000);
+            for(int i=0;i<30&&(navigation.pending()||frames.navigationOrigin(navigation,revision)==null);i++)session.poll(20,100);
+            MdoBrowserCdpNetworkFrames.Origin original=frames.navigationOrigin(navigation,revision);
+            check(original!=null&&original.current()&&original.document.startsWith("nd-")&&navigation.result().acknowledged);
+            check(!navigation.matchesCommittedLoader("other-root","native-commit-loader")&&!navigation.matchesCommittedLoader("frame-owned","other-loader"));
+            session.call("Runtime.evaluate",null,null,1000,false);
+            check(!original.current()&&frames.navigationOrigin(navigation,revision)==original&&navigation.result().ok);
+            realCommitSessions++;
+        }finally{if(session!=null)session.close();check(CdpNativeProbe.fixtureFinish()==(1+(2<<8)));}
+    }
+    private static int entropyDescriptors()throws IOException{
+        try(java.util.stream.Stream<java.nio.file.Path> paths=java.nio.file.Files.list(java.nio.file.Paths.get("/proc/self/fd"))){
+            return(int)paths.filter(path->{try{String target=java.nio.file.Files.readSymbolicLink(path).toString();return target.equals("/dev/random")||target.equals("/dev/urandom");}catch(IOException gone){return false;}}).count();
+        }
     }
 }

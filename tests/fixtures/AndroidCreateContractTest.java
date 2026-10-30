@@ -117,7 +117,7 @@ public final class AndroidCreateContractTest {
         check(Boolean.TRUE.equals(host.lastReply.data.get("downloads_intercepted")),"Original interception was not acknowledged");
         host.cdpWorker.navigations.get(0).issued=true;host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");
         check(host.initialPending("tab"),"Page callbacks alone invented an original native navigation ACK");
-        host.cdpWorker.navigations.get(0).ack(true,false,true,null);
+        host.cdpWorker.navigations.get(0).ack(true,false,true,null);host.cdpWorker.navigations.get(0).committed=true;host.cdpWorker.navigations.get(0).current=true;
         check(!host.initialPending("tab"),"Actual page completion and original native ACK stayed pending");
         check(!Boolean.TRUE.equals(host.loading.get("tab"))&&Boolean.TRUE.equals(host.network("tab").data.get("ready")),"Ordinary target navigation invalidated physical network ownership");
         call.ready();check(view.targets.size()==1&&host.cdpWorker.navigations.size()==1&&host.replies==1&&Boolean.TRUE.equals(host.network("tab").data.get("ready")),"Duplicate ready replayed or retired the target navigation");
@@ -299,6 +299,26 @@ public final class AndroidCreateContractTest {
         }
     }
     public static void main(String[] args)throws Exception{
+        for(int mode=0;mode<5;mode++){
+            AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
+            host.gotoPage("tab","https://native-commit.invalid/",100);
+            AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);ticket.issued=true;ticket.ack(true,false,true,null);
+            Object original=ticket.result();
+            if(mode==0||mode==4){host.startPage("tab","https://native-commit.invalid/");host.finishPage("tab","https://native-commit.invalid/");}
+            if(mode==1||mode==2){ticket.committed=true;ticket.current=mode==1;}
+            if(mode==4){host.gotoPage("tab","https://explicit-next.invalid/",100);ticket.committed=true;ticket.current=false;}
+            android.os.SystemClock.now+=mode==3?101:20;android.os.Handler.tick();
+            if(mode<2){
+                check(host.navigationState("tab").data.get("page_error")==AndroidCreateHost.JSONObject.NULL,"Half a native/UI join invented a failure");
+                if(mode==0){ticket.committed=true;ticket.current=true;}else{host.startPage("tab","https://native-commit.invalid/");host.finishPage("tab","https://native-commit.invalid/");}
+                android.os.SystemClock.now+=20;android.os.Handler.tick();
+                check(Boolean.TRUE.equals(host.navigationState("tab").data.get("page_current"))&&host.navigationState("tab").data.get("page_document").equals("nd-fixture-original"),"Exact original native/UI page proof was lost");
+            }
+            if(mode==2)check(host.navigationState("tab").data.get("page_error").equals("cdp_navigation_commit_revoked"),"Superseded original commit was treated as current");
+            if(mode==3)check(host.navigationState("tab").data.get("page_error").equals("cdp_navigation_commit_timeout")&&ticket.result()==original,"Missing commit rewrote the original ACK or extended its deadline");
+            if(mode==4)check(ticket.cancelled&&!host.cdpWorker.navigations.get(1).cancelled&&Boolean.TRUE.equals(host.loading.get("tab")),"Old commit watcher revoked or restored the explicit next operation");
+            check(view.loads==loads,"Commit matching replayed a URL through WebView");host.stopNavigation("tab");host.closeCommand("tab");
+        }
         for(int mode=0;mode<7;mode++){
             AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall source=startNetwork(host,"tab");
             android.os.SystemClock.now+=1000;source.ready();AndroidCreateHost.WebView view=host.views.get("tab");
@@ -317,9 +337,9 @@ public final class AndroidCreateContractTest {
             if(mode==5)host.cancelNativeNavigation("tab",(String)host.navigationState("tab").data.get("id"));
             if(mode==6)ticket.ack(true,false,false,null);
             android.os.SystemClock.now+=20;android.os.Handler.tick();
-            if(mode==0){check(host.initialPending("tab"),"Original ACK was mistaken for page commit");host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");check(!host.initialPending("tab"),"Original page and ACK did not settle");}
-            else check(host.initialPending("tab")== (mode==3||mode==6),"Initial typed outcome lost its uncertainty/completion distinction");
-            if(mode==6){host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");check(!host.initialPending("tab"),"Actual page transition with a known non-download ACK remained pending");}
+            if(mode==0){check(host.initialPending("tab"),"Original ACK was mistaken for page commit");host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");check(host.initialPending("tab"),"UI callback invented a native loader match");ticket.committed=true;ticket.current=true;check(!host.initialPending("tab"),"Original page and ACK did not settle");ticket.current=false;check(!host.initialPending("tab"),"A later ordinary page change resurrected the completed initial operation");}
+            else check(host.initialPending("tab")== (mode==3),"Initial typed outcome lost its uncertainty/completion distinction");
+            if(mode==6){check(host.navigationState("tab").data.get("page_error").equals("cdp_navigation_commit_unproven"),"Missing initial loader was promoted to a proven native commit");}
             check(view.loads==1&&host.replies==(mode==5?2:1),"Initial terminal event replayed target or creation receipt");
             host.closeCommand("tab");source.closed(true);
         }

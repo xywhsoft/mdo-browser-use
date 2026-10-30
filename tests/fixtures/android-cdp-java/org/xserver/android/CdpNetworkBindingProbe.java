@@ -180,7 +180,7 @@ public final class CdpNetworkBindingProbe {
                 }return previous.send(command,wire);
             };
             rejected("cdp_wrong_worker",()->c.network.navigateRoot("about:blank",1000));
-            MdoBrowserCdpSession.Navigation receipt=run(()->{MdoBrowserCdpSession.Navigation ticket=c.network.navigateRoot("about:blank",1000);check(ticket.pending());c.network.poll(100);return ticket;});
+            MdoBrowserCdpBinding.Network.Navigation receipt=run(()->{MdoBrowserCdpBinding.Network.Navigation ticket=c.network.navigateRoot("about:blank",1000);check(ticket.pending());c.network.poll(100);return ticket;});
             check(receipt.result().acknowledged&&receipt.result().ok&&receipt.result().downloadKnown&&receipt.result().download&&dispatched[0]==1);
             run(()->{c.network.cancelTransfers();rejected("cdp_network_retiring",()->c.network.navigateRoot("about:blank",1000));return null;});
             check(dispatched[0]==1);
@@ -188,8 +188,17 @@ public final class CdpNetworkBindingProbe {
     }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");worker=Executors.newSingleThreadExecutor();
-        try{scope();navigation();failures();rootNavigationReceipt();}
+        try{scope();navigation();failures();rootNavigationReceipt();foreignNavigation();}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));Handler.drain();}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni_json\":true,\"physical_scope_separate\":true,\"document_navigation_tested\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
+    }
+    private static void foreignNavigation()throws Exception{
+        try(Context first=new Context(true);Context second=new Context(true)){
+            first.bind();first.enable();second.bind();second.enable();CdpBindingProbe.Factory.Extra previous=first.peer.extra;
+            first.peer.extra=(command,wire)->{if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","foreign-loader")));return true;};
+            MdoBrowserCdpBinding.Network.Navigation original=run(()->{MdoBrowserCdpBinding.Network.Navigation result=first.network.navigateRoot("about:blank",1000);first.network.poll(100);return result;});
+            run(()->{rejected("cdp_navigation_owner_changed",()->second.network.navigationOrigin(original));return null;});
+        }
     }
 }

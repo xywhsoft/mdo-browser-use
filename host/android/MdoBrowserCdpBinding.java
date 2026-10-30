@@ -254,6 +254,12 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
     }
     static final class Network implements AutoCloseable {
+        static final class Navigation {
+            private final Network owner;private final long revision;private MdoBrowserCdpSession.Navigation original;
+            private Navigation(Network owner,long revision){this.owner=owner;this.revision=revision;}
+            MdoBrowserCdpSession.NavigationResult result(){return original==null?null:original.result();}
+            boolean pending(){return result()==null;}
+        }
         private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
         private Network(MdoBrowserCdpBinding bound)throws IOException {
             this.bound=bound;frames=new MdoBrowserCdpNetworkFrames(bound.rootFrame,bound.rootLoader);bound.observe(frames);bound.lease.transfer(bound,this);
@@ -297,9 +303,13 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException {active();return bound.peer.takeBodyChunk(body);}
         boolean serviceBodies(int sendTimeoutMs)throws IOException {active();return bound.peer.serviceBodies(sendTimeoutMs);}
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
-        MdoBrowserCdpSession.Navigation navigateRoot(String url,int timeoutMs)throws IOException {
+        Navigation navigateRoot(String url,int timeoutMs)throws IOException {
             active();if(retiring)throw problem("cdp_network_retiring");frames.origin(bound.rootFrame);
-            return bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);
+            Navigation ticket=new Navigation(this,frames.revision());ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);return ticket;
+        }
+        MdoBrowserCdpNetworkFrames.Origin navigationOrigin(Navigation ticket)throws IOException {
+            bound.current();if(ticket==null||ticket.owner!=this)throw problem("cdp_navigation_owner_changed");
+            return frames.navigationOrigin(ticket.original,ticket.revision);
         }
         boolean responsesMayHaveOccurred(){return responsesAttempted;}
         void cancelTransfers()throws IOException {active();retiring=true;bound.peer.cancelTransfers();}
