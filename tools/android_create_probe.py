@@ -22,10 +22,15 @@ def main():
     source=template.read_text(encoding='utf-8')
     document=(dev.ROOT/'host/android/browser-document.inc.java').read_text(encoding='utf-8')
     capability=(dev.ROOT/'host/android/browser-capabilities.inc.java').read_text(encoding='utf-8')
+    overlay=dev.ROOT/'host/overlays.json'
+    closes=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before')=='if(web!=null){views.remove(key);root.removeView(web);web.destroy();}']
+    if len(closes)!=1:raise RuntimeError('Expected the exact reviewed native close-command route')
     fragments={
+        '@@CLOSE_COMMAND@@':closes[0],
         '@@CREATION_GUARD@@':document[document.index('    private boolean nativeViewCleanupFailed'):document.index('    private final Map<String,MdoBrowserDocument>')],
         '@@CAPABILITIES@@':capability[capability.index('    JSONObject capabilities()'):capability.index('    void automationAdmission')],
         '@@BIND@@':document[document.index('    private void bindDocument'):document.index('    private boolean closeDocument')],
+        '@@CLOSE_DOCUMENT@@':document[document.index('    private boolean closeDocument'):document.index('    private boolean closeAndDestroyDocument')],
         '@@CLOSE@@':document[document.index('    private boolean closeAndDestroyDocument'):document.index('    private void documentNavigation')],
         '@@CREATE@@':(dev.ROOT/'host/android/browser-create.inc.java').read_text(encoding='utf-8'),
     }
@@ -51,7 +56,7 @@ def main():
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*map(linux,paths)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidCreateContractTest'],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     result=json.loads(run.stdout);result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
-        [*production,template,fixture,dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
+        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
 

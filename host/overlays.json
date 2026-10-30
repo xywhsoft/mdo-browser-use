@@ -957,7 +957,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "locations.remove(key);reply(id,new JSONObject(),null);",
-      "after": "locations.remove(key);reply(id,new JSONObject().put(\"world_cleanup_confirmed\",worldClean),null);"
+      "after": "locations.remove(key);reply(id,new JSONObject().put(\"world_cleanup_confirmed\",worldClean).put(\"native_view_cleanup_failed\",nativeViewCleanupFailed).put(\"native_view_retiring\",nativeRetiringViews.size()),null);"
     },
     {
       "path": "tools/android/MdoBrowser.java",

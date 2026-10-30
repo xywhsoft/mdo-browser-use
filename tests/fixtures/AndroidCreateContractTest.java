@@ -50,11 +50,13 @@ public final class AndroidCreateContractTest {
         try{host.create("replacement",request(false));throw new AssertionError("Unknown native release admitted another physical view");}
         catch(IllegalStateException expected){check("native_view_cleanup_failed".equals(expected.getMessage()),"Uncertain resource fence was not sticky");}
         check(host.created.size()==1,"Erased UI map reset the native resource count");
+        check(!host.closeCommand("failed"),"Repeated close reported unknown native cleanup as confirmed");
     }
     static void reentrantCleanup()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();final int[] refused={0};
         host.root.beforeRemove=()->{
             try{check(Integer.valueOf(1).equals(host.capabilities().data.get("native_view_retiring")),"Active native retirement was not visible");}catch(Exception error){throw new AssertionError(error);}
+            check(!host.closeCommand("failed"),"Reentrant empty-map close reported native retirement complete");
             try{host.create("reentrant",request(false));throw new AssertionError("New view created during native retirement");}
             catch(IllegalStateException expected){check("native_view_retirement_busy".equals(expected.getMessage()),"Wrong native retirement fence");refused[0]++;}
             catch(Exception unexpected){throw new AssertionError(unexpected);}
@@ -79,7 +81,7 @@ public final class AndroidCreateContractTest {
         AndroidCreateHost host=new AndroidCreateHost();for(int i=0;i<8;i++)host.create("tab"+i,request(false));
         try{host.create("overflow",request(false));throw new AssertionError("Native quota was ignored");}catch(IllegalStateException expected){check(true,"bounded");}
         check(host.created.size()==8&&host.views.size()==8,"Quota checked after native allocation");
-        AndroidCreateHost.WebView original=host.created.get(0);host.retire("tab0",original);host.create("after",request(false));
+        AndroidCreateHost.WebView original=host.created.get(0);host.closeCommand("tab0");host.create("after",request(false));
         check(original.destroys==1&&host.created.size()==9&&host.views.size()==8,"Confirmed native release did not free exactly one slot");
         host.stopped=true;try{host.create("after",request(false));throw new AssertionError("Stopped owner reattached a view");}
         catch(IllegalStateException expected){check("native_browser_closed".equals(expected.getMessage()),"Stopped owner was not fenced");}
@@ -93,7 +95,7 @@ public final class AndroidCreateContractTest {
             catch(Exception error){throw new AssertionError(error);}
             check(!host.retire("tab",original),"Recursive close of the same native view was accepted");
         });
-        check(host.retire("tab",original),"Clean input retirement was unconfirmed");
+        check(host.closeCommand("tab"),"Clean input retirement was unconfirmed");
         check(callbacks[0]==1&&host.created.size()==1&&original.destroys==1&&host.views.size()==0,"Native input cleanup reentered creation or destroyed twice");
         host.create("explicit-after",request(false));check(host.views.size()==1,"Completed input retirement retained a phantom reservation");
     }

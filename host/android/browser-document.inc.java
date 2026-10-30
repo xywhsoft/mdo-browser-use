@@ -55,7 +55,8 @@
         CaptureEntry capture=captures.get(key);if(capture!=null)capture.capture.close();
         MdoBrowserDocument document=documents.remove(key);
         documentFailures.remove(key);
-        if(document==null)return dialog==null||dialog.dialogs.clean();document.close();return document.cleanupConfirmed()&&(dialog==null||dialog.dialogs.clean());
+        if(document!=null)document.close();
+        return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&(document==null||document.cleanupConfirmed())&&(dialog==null||dialog.dialogs.clean());
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
         boolean reserved=false;

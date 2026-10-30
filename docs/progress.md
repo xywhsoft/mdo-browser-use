@@ -7025,3 +7025,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Goal active. Run the complete native/public gates, apply only with the one
   service stopped and package E78. No device/provider/model/online changes;
   E77 artifact remains current until the replacement receipt passes.
+
+## E78d — preserve unknown cleanup in repeated and reentrant close receipts
+
+- Final product review found that `close` on an already erased UI entry still
+  returned `world_cleanup_confirmed:true` after failed native destruction. The
+  same false confirmation was possible during a reentrant close while the first
+  native retirement was still active. The exact prior route fails
+  `.mdo/E78-close-receipt-red.log`; a missing map entry is not release evidence.
+- Make logical document cleanup require no native cleanup fault or active
+  retirement before confirming closure. Repeated/empty-entry close remains
+  idempotent when native cleanup is known clean. Add the cleanup-fault and active
+  retirement fields to close receipts, consistent with capabilities/state. Do not
+  replay destruction or turn an uncertain original close into later success.
+- The exact-fragment gate now injects the actual logical close method and the
+  reviewed product close-command overlay, not a synthetic caller that removes a
+  lifecycle entry first. 72 checks pass `.mdo/E78-close-receipt-fixed.log`, covering
+  the original input-completion path, repeated close after failed destroy and
+  empty-entry reentrant close before the original destroy completes.
+- Record tool/overlay/input hashes in the product-create result. All peers remain
+  controlled; actual Android resource release is still unqualified. The initial
+  E78 build already compiled, but this receipt correction requires one final APK
+  replacement after its current-source native/public gates. Goal active; no phone,
+  provider, model, formal data or online release change.

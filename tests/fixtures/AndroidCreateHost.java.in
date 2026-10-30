@@ -80,7 +80,8 @@ final class AndroidCreateHost {
         void close(){closes++;}void viewDestroyed(T view){destroyed++;}
     }
     static final class PopupLink {final WebView view;final String opener,id;boolean ready;PopupLink(WebView view,String opener,String id){this.view=view;this.opener=opener;this.id=id;}}
-    static final class MdoBrowserDialogTarget {final WebView view;MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
+    static final class DialogCore {boolean clean(){return true;}}
+    static final class MdoBrowserDialogTarget {final WebView view;final DialogCore dialogs=new DialogCore();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
     static final class CdpViews {void invalidate(String key,WebView view,long epoch,String code){}}
@@ -107,15 +108,17 @@ final class AndroidCreateHost {
     String url(String value){return value;}void bindDialogs(String key,WebView view){dialogs.put(key,new MdoBrowserDialogTarget(view));}
     void cancelNavigationRequest(String key,WebView view){}void cancelCapture(String key){}
     void documentNavigation(String key,WebView view){}void documentLoaded(String key,WebView view){}void notifyPopup(String key){}
-    boolean closeDocument(String key){return true;}void retireUploadData(WebView view){retired++;}
+    void retireUploadData(WebView view){retired++;}
     void cancelUpload(String key,WebView view){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
     void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){replies++;lastReply=result;}
     private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",false);}
     boolean retire(String key,WebView view){return closeAndDestroyDocument(key,view);}
+    boolean closeCommand(String key){WebView web=views.get(key);@@CLOSE_COMMAND@@ return worldClean;}
     @@CREATION_GUARD@@
     @@CAPABILITIES@@
     @@BIND@@
+    @@CLOSE_DOCUMENT@@
     @@CLOSE@@
     void create(String key,JSONObject request)throws Exception{
         String command="create",id="fixture-reply";WebView web=views.get(key);
