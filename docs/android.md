@@ -3131,7 +3131,8 @@ that the original text bytes survived. Their exact reference hashes are pinned
 in cdp-protocol.json. This is source evidence and a controlled wire-boundary
 reconstruction, not a reproduction on the deferred installed Android provider.
 
-Keep a constant base64 flag for an original stream. Base64 chunks remain exact
+Keep a constant base64 flag for original payload chunks, with E85b's empty
+terminal-EOF exception below. Base64 chunks remain exact
 binary data. Non-binary text additionally requires a known Content-Length with
 no content transformation or transfer coding, and its complete UTF-8 byte count
 must match that original length at EOF. Only ASCII identity coding is admitted
@@ -3163,8 +3164,9 @@ Each body holds at most one unconsumed 64 KiB chunk, including final EOF. The
 consumer must take the last chunk before successful cleanup can begin. Idle
 expiry and atomic UI cancellation are observed by the existing pump; staged
 close/abort operations retain their original five-second cleanup budget.
-Pending read replies remain associated with their original rows during cleanup,
-and late cancelled data is discarded. Buffered bytes are erased on cancellation,
+Pending read replies remain associated with their original rows until both
+cleanup ACKs. E85b then retires that exact read; late cancelled data is discarded.
+Buffered bytes are erased on cancellation,
 expiry, failure or owner close. No UI gate is held over socket send/receive.
 
 855 checks and an actual two-connection JNI/kernel pair verify that the original
@@ -3172,6 +3174,31 @@ read can wait for an independent page command on the same worker without
 deadlock. Controlled clocks cover a read beyond five seconds, idle expiry and
 the original cleanup deadline. Full native/frame/world/upload/clear gates pass.
 These remain transport/worker checks, not installed-provider qualification.
-Pinned stream EOF flag behavior and cancellation replies still need a finishing
-compatibility pass before packaging this source. Cache/product UI joins remain
+Pinned stream EOF flag behavior and cancellation replies receive the finishing
+compatibility pass in E85b below. Cache/product UI joins remain
 unfinished; the existing E84 artifact has not yet been replaced at this commit.
+
+## Finish original EOF and cancellation without a stale read wait (E85b)
+
+The pinned stream's Read fast path reports an empty final EOF with binary=false,
+even after binary chunks. Accept only that zero-payload terminal exception after
+an already-proven binary stream; payload encoding changes and unproven text
+remain rejected. The real kernel body fixture now includes separate binary and
+Unicode payload chunks followed by this actual empty EOF shape.
+
+After both exact stream-close and original-request-abort ACKs, a cancelled read
+need not answer again. Retire its single native root row into a bounded set and
+release the body reservation. The set can have at most 4,096 IDs because each
+body claim consumes one original lifetime key and can retire only one read.
+Monotonic command IDs are never reused. A late root reply is discarded once,
+without publishing data or changing the old receipt; a wrong source still fails
+closed. Missing cleanup ACKs retain uncertainty and the original timeout fence.
+No request/read is replayed and no unrelated pending command can inherit the row.
+
+The 900-check body gate includes three original body sessions, the two-connection
+asynchronous pair, and a real kernel cancellation session that answers the old
+read only after another page command arrives. It verifies that confirmed cleanup
+can complete before that old reply while preserving source/receipt ownership.
+Full current native/worker/frame/world/upload/clear gates and seven APK contracts
+pass. Cache/product joins and installed-provider/main-UI qualification remain
+unfinished; overall automation stays disabled.

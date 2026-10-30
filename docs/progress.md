@@ -7555,3 +7555,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   accept/cancel/save and provider/main-UI qualification remain unfinished. No
   phone/provider update, application/Home/source copy, formal data edit, actual
   model/external page action, runtime dependency or online publication.
+
+## E85b — finish binary EOF and retire only acknowledged cancelled reads
+
+- Match the pinned stream's fast EOF path: it can return an empty EOF with
+  binary=false after true binary chunks. Permit only this zero-payload terminal
+  shape after existing binary proof; retain encoding and text-integrity guards
+  for actual payload. The original kernel body fixture now reproduces separate
+  binary/Unicode data followed by that EOF shape.
+- Require original IO.close and Fetch.failRequest ACKs before retiring a pending
+  cancelled read. Retain a bounded root-ID tombstone instead of waiting for a
+  provider callback forever; one per body claim shares the existing 4,096-key
+  lifetime bound. Discard one late root reply without data/receipt publication,
+  reject wrong sources and preserve monotonic command IDs. Unknown cleanup still
+  times out/retire-fences; confirmed cleanup no longer blocks the next page call.
+- Body gate passes 900 checks, three original JNI/kernel body sessions, one real
+  asynchronous pair and one real cancelled-read session. The last peer withholds
+  its read reply until a new page command proves the connection is usable. Full
+  control/cooperation/binding/frame/world/input/chooser/upload/clear/ASan/UBSan/
+  API26 gates pass `.mdo/E85-finishing-native-final.log` /
+  `.mdo/E85-finishing-native-current.json`; every recorded source hash matches.
+  Seven current APK contracts pass `.mdo/E85-apk-contract.log`. E85a's full Python
+  result remains evidence for unchanged Python/public contracts; new native gate
+  policy is exercised by this current full run. Shared JS remains unchanged.
+- Goal active. Package current source next. Nonblocking body service and idle
+  expiry are joined to the private physical worker; cache/hash/storage, product
+  list/permission/accept/cancel/save, unsupported text handling and real provider/
+  main-UI qualification remain open. No phone/provider update, extra app/Home/
+  source copy, formal data edit, actual model/external page action or release.

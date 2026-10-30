@@ -13,7 +13,7 @@ import org.json.JSONObject;
 /** Actual native session/strict codec/JNI validation, controlled response peer.
  * No provider, cache/save/permission UI or real Internet download is qualified. */
 public final class CdpBodyProbe {
-    private static int checks,realSessions,realAsyncPairs;
+    private static int checks,realSessions,realAsyncPairs,realRetiredReads;
     private interface Work {void run()throws Exception;}
     private interface Event {void run(JSONObject params)throws IOException;}
     private interface Send {boolean run(JSONObject command)throws Exception;}
@@ -156,6 +156,12 @@ public final class CdpBodyProbe {
             if(size==65536){try(MdoBrowserCdpSession.BodyChunk chunk=c.client.readBody(body,100)){check(Arrays.equals(chunk.data,payload)&&chunk.eof);}check(body.result().ok&&body.result().bytes==size);}
             else{rejected("cdp_body_data_invalid",()->c.client.readBody(body,100));check(!body.result().ok);}
         }
+        try(Context c=new Context()){
+            MdoBrowserCdpSession.Body body=c.claim();c.wire.chunks.add(data("AQ==",true,false));
+            c.client.readBody(body,100).close(); // The provider's later empty EOF omits binary mode.
+            try(MdoBrowserCdpSession.BodyChunk end=c.client.readBody(body,100)){check(end.eof&&end.data.length==0);}
+            check(body.result().ok&&body.result().bytes==1);
+        }
         List<JSONObject> bad=new ArrayList<>();bad.add(new JSONObject().put("data",1).put("eof",true));bad.add(new JSONObject().put("data","x"));
         bad.add(data("x",false,true).put("base64Encoded",1));bad.add(data("A==",true,true));bad.add(data("Zh==",true,true));bad.add(data("%%%%",true,true));
         bad.add(data("中",false,true));bad.add(data("ok",false,true).put("extra",true));
@@ -242,11 +248,12 @@ public final class CdpBodyProbe {
                 else if(mode==37){rejected("cdp_command_timeout",()->client[0].readBody(body,80));check(!body.result().ok&&!body.result().requestAbortConfirmed);}
                 else{
                     try(MdoBrowserCdpSession.BodyChunk first=client[0].readBody(body,500)){check(!first.eof&&Arrays.equals(first.data,new byte[]{0,1,(byte)255,(byte)128}));}
-                    try(MdoBrowserCdpSession.BodyChunk last=client[0].readBody(body,500)){check(last.eof&&Arrays.equals(last.data,"中".getBytes(StandardCharsets.UTF_8)));}
+                    try(MdoBrowserCdpSession.BodyChunk next=client[0].readBody(body,500)){check(!next.eof&&Arrays.equals(next.data,"中".getBytes(StandardCharsets.UTF_8)));}
+                    try(MdoBrowserCdpSession.BodyChunk last=client[0].readBody(body,500)){check(last.eof&&last.data.length==0);}
                     check(body.result().ok&&body.result().bytes==7&&body.result().eof&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed);
                 }
                 realSessions++;
-            }finally{if(client[0]!=null)client[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==35?6:mode==36?4:3)<<8)));}
+            }finally{if(client[0]!=null)client[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==35?7:mode==36?4:3)<<8)));}
         }
     }
     private static void tick(Context c)throws Exception{c.client.serviceBodies(100);c.client.poll(20,100);}
@@ -270,19 +277,20 @@ public final class CdpBodyProbe {
             c.timeout=15000;MdoBrowserCdpSession.Body body=c.claim();int[] read={0};
             c.wire.extra=command->{if(command.getString("method").equals("IO.read")){read[0]=command.getInt("id");return true;}return false;};
             c.client.requestBodyRead(body);c.client.serviceBodies(100);Thread ui=new Thread(body::cancel);ui.start();ui.join();
-            tick(c);tick(c);check(body.result()==null&&c.client.pendingBodies()==1&&c.client.pendingControls()==1);
-            check(c.client.takeBodyChunk(body)==null&&c.wire.count("IO.close")==1&&c.wire.count("Fetch.failRequest")==1);
+            tick(c);tick(c);MdoBrowserCdpSession.BodyResult cancelled=body.result();
+            check(cancelled!=null&&c.client.pendingBodies()==0&&c.client.pendingControls()==0);
+            rejected("cdp_body_cancelled",()->c.client.takeBodyChunk(body));check(c.wire.count("IO.close")==1&&c.wire.count("Fetch.failRequest")==1);
+            c.claim(); // A provider may never answer the closed read; cleanup ACKs release this body now.
             if(failed)c.wire.add(new JSONObject().put("id",read[0]).put("error",new JSONObject().put("code",-32000).put("message","private-cancelled-read")));
             else c.wire.add(result(read[0],data("private-late-data",false,true)));
-            check(c.client.poll(100));check(!body.result().ok&&body.result().code.equals("cdp_body_cancelled")&&body.result().bytes==0);
-            check(body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed&&c.client.pendingBodies()==0&&c.client.pendingControls()==0);
-            c.claim(); // Draining the original late row keeps the connection usable.
+            check(c.client.poll(100));check(body.result()==cancelled&&!cancelled.ok&&cancelled.code.equals("cdp_body_cancelled")&&cancelled.bytes==0);
+            check(cancelled.streamCloseConfirmed&&cancelled.requestAbortConfirmed&&c.client.pendingBodies()==1&&c.client.pendingControls()==0);
         }
         try(Context c=new Context()){
-            c.timeout=15000;MdoBrowserCdpSession.Body body=c.claim();c.wire.extra=command->command.getString("method").equals("IO.read");
+            c.timeout=15000;MdoBrowserCdpSession.Body body=c.claim();c.wire.extra=command->command.getString("method").equals("IO.read")||command.getString("method").equals("Fetch.failRequest");
             c.client.requestBodyRead(body);c.client.serviceBodies(100);body.cancel();tick(c);tick(c);check(body.result()==null);
             c.wire.now+=5001;rejected("cdp_body_cleanup_unconfirmed",()->c.client.serviceBodies(100));
-            MdoBrowserCdpSession.BodyResult original=body.result();check(!original.ok&&original.streamCloseConfirmed&&original.requestAbortConfirmed);
+            MdoBrowserCdpSession.BodyResult original=body.result();check(!original.ok&&original.streamCloseConfirmed&&!original.requestAbortConfirmed);
             check(c.client.pendingBodies()==0&&c.client.pendingControls()==0);body.cancel();check(body.result()==original);
         }
         try(Context c=new Context()){
@@ -309,6 +317,13 @@ public final class CdpBodyProbe {
             c.client.requestBodyRead(body);c.client.serviceBodies(100);c.client.call("Runtime.evaluate",null,null,100,false);
             try(MdoBrowserCdpSession.BodyChunk chunk=c.client.takeBodyChunk(body)){check(chunk.eof&&chunk.data[0]==1);}finish(c,body);check(body.result().ok);
         }
+        try(Context c=new Context()){
+            c.client.admitChild("child");MdoBrowserCdpSession.Body body=c.claim();int[] read={0};
+            c.wire.extra=command->{if(command.getString("method").equals("IO.read")){read[0]=command.getInt("id");return true;}return false;};
+            c.client.requestBodyRead(body);c.client.serviceBodies(100);body.cancel();finish(c,body);MdoBrowserCdpSession.BodyResult original=body.result();
+            c.wire.add(result(read[0],new JSONObject()).put("sessionId","child"));rejected("cdp_body_retired_reply_mismatch",()->c.client.poll(100));
+            check(body.result()==original&&original.requestAbortConfirmed);
+        }
     }
     private static void realAsyncPair()throws Exception{
         CdpNativeProbe.fixtureStart(38);MdoBrowserCdpSession[] network={null};MdoBrowserCdpSession page=null;
@@ -330,10 +345,22 @@ public final class CdpBodyProbe {
             check(body.result()!=null&&body.result().ok&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed);realAsyncPairs++;
         }finally{if(chunk!=null)chunk.close();if(network[0]!=null)network[0].close();if(page!=null)page.close();check(CdpNativeProbe.fixtureFinish()==(1+(6<<8)));}
     }
+    private static void realRetiredRead()throws Exception{
+        CdpNativeProbe.fixtureStart(39);MdoBrowserCdpSession[] client={null};List<MdoBrowserCdpSession.Body> bodies=new ArrayList<>();
+        try{
+            client[0]=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->bodies.add(client[0].takePausedBody(64,15000)));
+            client[0].call("Runtime.evaluate",null,null,1000,false);MdoBrowserCdpSession.Body body=bodies.get(0);
+            client[0].requestBodyRead(body);client[0].serviceBodies(100);body.cancel();
+            for(int i=0;i<12&&body.result()==null;i++){client[0].serviceBodies(100);client[0].poll(20,100);}
+            MdoBrowserCdpSession.BodyResult original=body.result();check(original!=null&&original.code.equals("cdp_body_cancelled")&&original.streamCloseConfirmed&&original.requestAbortConfirmed);
+            check(client[0].pendingBodies()==0&&client[0].pendingControls()==0);
+            client[0].call("Runtime.evaluate",null,null,1000,false);check(body.result()==original&&original.bytes==0);realRetiredReads++;
+        }finally{if(client[0]!=null)client[0].close();check(CdpNativeProbe.fixtureFinish()==(1+(6<<8)));}
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{success();admission();pendingAndQuota();claimFailures();dataFailures();cancellationAndTimeout();textIntegrity();asynchronous();if(args.length==0){realWire();realAsyncPair();}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,java.util.concurrent.TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{success();admission();pendingAndQuota();claimFailures();dataFailures();cancellationAndTimeout();textIntegrity();asynchronous();if(args.length==0){realWire();realAsyncPair();realRetiredRead();}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,java.util.concurrent.TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(3,java.util.concurrent.TimeUnit.SECONDS));}
-        System.out.println(new JSONObject().put("passed",true).put("checks",checks).put("original_body_permits",true).put("real_body_sessions",realSessions).put("real_async_body_pairs",realAsyncPairs).put("provider_qualified",false).put("product_downloads_activated",false));
+        System.out.println(new JSONObject().put("passed",true).put("checks",checks).put("original_body_permits",true).put("real_body_sessions",realSessions).put("real_async_body_pairs",realAsyncPairs).put("real_retired_read_sessions",realRetiredReads).put("provider_qualified",false).put("product_downloads_activated",false));
     }
 }

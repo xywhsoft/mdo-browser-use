@@ -213,6 +213,19 @@ static void* Serve(void* Data)
         Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.close","{\"handle\":\"stream-7.0\"}");Packet(Fd,"{\"id\":4,\"result\":{}}");
         Fixture->Frames+=ClientFetchControlId(Fd,5,1,NULL);Packet(Fd,"{\"id\":5,\"result\":{}}");
         char Byte;if ( recv(Fd,&Byte,1,0)>0 || recv(Page,&Byte,1,0)>0 ) Fixture->Valid=0;close(Page);
+    } else if ( Fixture->Mode==39 ) {
+        Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+        Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment\"}]}}");
+        Fixture->Frames+=ClientBodyCommand(Fd,2,"Fetch.takeResponseBodyAsStream","{\"requestId\":\"interception-job-7.0\"}");
+        Packet(Fd,"{\"id\":2,\"result\":{\"stream\":\"stream-7.0\"}}");Packet(Fd,"{\"id\":1,\"result\":{}}");
+        Fixture->Frames+=ClientBodyCommand(Fd,3,"IO.read","{\"handle\":\"stream-7.0\",\"size\":64}");
+        Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.close","{\"handle\":\"stream-7.0\"}");Packet(Fd,"{\"id\":4,\"result\":{}}");
+        Fixture->Frames+=ClientFetchControlId(Fd,5,1,NULL);Packet(Fd,"{\"id\":5,\"result\":{}}");
+        /* Cleanup is acknowledged, but the old read is not answered until a
+         * new page command proves cancellation did not block the connection. */
+        Fixture->Frames+=ClientCommand(Fd,6,"Runtime.evaluate",NULL);
+        Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"private-late-data\",\"eof\":true}}");Packet(Fd,"{\"id\":6,\"result\":{}}");
+        char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;
     } else if ( Fixture->Mode>=35 && Fixture->Mode<=37 ) {
         Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
         Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\",\"url\":\"https://private.invalid/one-shot\",\"postData\":\"private-body\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment; filename=private.bin\"}]}}");
@@ -223,9 +236,11 @@ static void* Serve(void* Data)
             if ( Fixture->Mode==37 ) goto BodyDone;
             Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"AAH/gA==\",\"base64Encoded\":true,\"eof\":false}}");
             Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.read","{\"handle\":\"stream-7.0\",\"size\":60}");
-            Packet(Fd,"{\"id\":4,\"result\":{\"data\":\"5Lit\",\"base64Encoded\":true,\"eof\":true}}");
+            Packet(Fd,"{\"id\":4,\"result\":{\"data\":\"5Lit\",\"base64Encoded\":true,\"eof\":false}}");
+            Fixture->Frames+=ClientBodyCommand(Fd,5,"IO.read","{\"handle\":\"stream-7.0\",\"size\":57}");
+            Packet(Fd,"{\"id\":5,\"result\":{\"data\":\"\",\"base64Encoded\":false,\"eof\":true}}");
         }
-        int CloseId=Fixture->Mode==36?3:5,AbortId=CloseId+1;
+        int CloseId=Fixture->Mode==36?3:6,AbortId=CloseId+1;
         Fixture->Frames+=ClientBodyCommand(Fd,CloseId,"IO.close","{\"handle\":\"stream-7.0\"}");
         char Reply[64];snprintf(Reply,sizeof(Reply),"{\"id\":%d,\"result\":{}}",CloseId);Packet(Fd,Reply);
         Fixture->Frames+=ClientFetchControlId(Fd,AbortId,1,NULL);

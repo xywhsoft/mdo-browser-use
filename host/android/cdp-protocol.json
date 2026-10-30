@@ -6,7 +6,7 @@
     {
       "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/content/browser/devtools/devtools_stream_pipe.cc",
       "decoded_sha256": "a2925203fa911c92b9c4b39acc9a1bd2a3796aa9c609f098e3cdb58f2da7ab9e",
-      "facts": ["Stream chunks are bounded by byte count without preserving UTF-8 character boundaries", "The fixed stream binary flag controls base64 serialization"]
+      "facts": ["Stream chunks are bounded by byte count without preserving UTF-8 character boundaries", "The fixed stream binary flag controls base64 serialization", "The Read fast EOF path returns an empty payload with binary flag false even after binary chunks"]
     },
     {
       "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/third_party/inspector_protocol/crdtp/json.cc",
@@ -340,6 +340,7 @@
     "lost_read_or_cleanup_reply": "retire_connection_preserve_uncertainty_never_replay",
     "data_validation": "bounded_canonical_base64_or_valid_UTF8_and_strict_EOF_fields",
     "stream_encoding": "constant_per_stream_base64_flag_required",
+    "empty_terminal_eof_after_binary": "allow_false_flag_only_for_zero_payload_EOF_after_prior_binary_proof",
     "nonbinary_text_policy": "known_untransformed_length_and_exact_EOF_byte_match_required; potential_native_serialization_loss_is_not_accepted_or_refetched",
     "unknown_or_compressed_nonbinary_text_supported": false,
     "offset_or_url_refetch": false,
@@ -349,7 +350,10 @@
     "read_dispatch_blocks_common_worker": false,
     "buffered_chunks_per_body": 1,
     "consumer_backpressure_includes_eof": true,
-    "pending_read_cleanup": "require_original_cleanup_ACKs_and_drain_original_read_row_or_retire_connection",
+    "pending_read_cleanup": "after_exact_stream_close_and_request_abort_ACKs_retire_one_original_root_read_row_without_waiting",
+    "retired_read_limit": 4096,
+    "retired_read_bound": "one_per_body_claim; claims_share_original_4096_lifetime_key_bound",
+    "retired_read_reply": "discard_exact_root_reply_once_without_data_or_receipt_publication; reject_wrong_source",
     "provider_qualified": false,
     "product_downloads_activated": false
   },

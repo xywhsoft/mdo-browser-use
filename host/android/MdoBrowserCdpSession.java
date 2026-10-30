@@ -133,6 +133,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Object controlGate=new Object();private final Control[] controls=new Control[CONTROL_LIMIT];
     private final Set<String> controlKeys=new HashSet<>();private int controlCount;
     private final Body[] bodies=new Body[8];private final Set<String> streamIds=new HashSet<>();
+    private final Set<Integer> retiredBodyReads=new HashSet<>();
     private PausedEvent paused;private long activeStarted;private int activeTimeout;private String controlFault;
     private volatile Wire wire;
     private int serial,bodyCursor;private boolean busy;
@@ -279,6 +280,10 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         ControlResult result=null;
         synchronized(controlGate){
             guard(effect);
+            if(retiredBodyReads.contains(message.id)){
+                if(message.session!=null){controlFault="cdp_body_retired_reply_mismatch";close();throw failure(controlFault,effect);}
+                retiredBodyReads.remove(message.id);return true;
+            }
             for(int i=0;i<controls.length;i++){
                 Control row=controls[i];if(row==null||row.id!=message.id)continue;
                 if(!Objects.equals(row.session,message.session)){
@@ -354,7 +359,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         byte[] data=null;
         try{
             data=bodyData(reply,body.readSize);boolean binary=Boolean.TRUE.equals(reply.opt("base64Encoded"));
-            if(body.encodingKnown&&body.binary!=binary)throw new IOException("cdp_body_encoding_changed");
+            // Pinned Chromium's Read() fast EOF path returns false here even
+            // for a binary stream. Only this payload-free terminal exception
+            // can inherit the previously proven binary mode.
+            boolean emptyBinaryEof=body.encodingKnown&&body.binary&&!binary&&data.length==0&&reply.optBoolean("eof",false);
+            if(body.encodingKnown&&body.binary!=binary&&!emptyBinaryEof)throw new IOException("cdp_body_encoding_changed");
+            binary|=emptyBinaryEof;
             body.encodingKnown=true;body.binary=binary;
             if(!binary&&!body.original.response.exactTextLength)throw new IOException("cdp_body_text_integrity_unavailable");
             if(data.length>body.limit-body.received)throw new IOException("cdp_body_limit");
@@ -381,7 +391,21 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(!result.ok||message.value.length()!=0){finishBody(body,false,"cdp_body_cleanup_unconfirmed");controlFault="cdp_body_cleanup_unconfirmed";close();throw failure(controlFault,effect);}
             if(row.kind==BODY_CLOSE)body.streamClosed=true;else body.requestAborted=true;
         }
-        if(body.cleaning&&body.streamClosed&&body.requestAborted&&!body.readPending)finishBody(body,body.cleanupCode==null,body.cleanupCode);
+        if(body.cleaning&&body.streamClosed&&body.requestAborted){
+            if(body.readPending)retireBodyRead(body);
+            finishBody(body,body.cleanupCode==null,body.cleanupCode);
+        }
+    }
+    /** Both exact cleanup ACKs already arrived. Retire the one outstanding read
+     * association without waiting for a callback the closed provider may drop.
+     * At most one such row per body; claims share the 4096 lifetime-key bound. */
+    private void retireBodyRead(Body body)throws Failure {
+        for(int i=0;i<controls.length;i++){
+            Control row=controls[i];if(row==null||row.body!=body||row.kind!=BODY_READ)continue;
+            if(row.session!=null||retiredBodyReads.size()>=CONTROL_HISTORY){controlFault="cdp_body_retired_read_limit";close();throw failure(controlFault,true);}
+            retiredBodyReads.add(row.id);row.receipt.finish(CONTROL_CANCELLED);controls[i]=null;controlCount--;body.readPending=false;return;
+        }
+        controlFault="cdp_body_read_row_missing";close();throw failure(controlFault,true);
     }
     /** Request/consume at most one chunk. Neither call performs socket I/O.
      * Native consumers must wait for BodyResult as well as final chunk EOF. */
@@ -596,7 +620,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             first=closed.compareAndSet(false,true);
             for(int i=0;i<controls.length;i++)if(controls[i]!=null){controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;}
             controlCount=0;controlKeys.clear();
-            for(Body body:bodies)if(body!=null)finishBody(body,false,"cdp_body_connection_closed");streamIds.clear();
+            for(Body body:bodies)if(body!=null)finishBody(body,false,"cdp_body_connection_closed");streamIds.clear();retiredBodyReads.clear();
         }
         if(first){Wire connection=wire;if(connection!=null)connection.close();}
     }
