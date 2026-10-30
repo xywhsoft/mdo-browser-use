@@ -3614,3 +3614,63 @@ signing. Seven final APK contracts pass. Evidence is in `.mdo/E95-native-current
 `.mdo/E95-android-build.log` and `.mdo/E95-final-identities.log`. These remain
 controlled SDK/JVM/native/file checks, not installed Android qualification.
 Phone/WebView stay deferred; full download and automation admission stay false.
+
+
+## Original root navigation acknowledgments and download classification (E96)
+
+Add a fixed native Page.navigate primitive to the original physical network
+facade. The binding supplies its proven root frame; callers supply only a
+bounded HTTP(S)/about:blank URL and deadline, with no frame/session selectors,
+headers or request reconstruction. One original asynchronous navigation can
+coexist with the ordinary RPC and original Fetch/body machine. Paused sources
+and stream/request cleanup progress on that same connection before navigation
+acknowledgment, avoiding a blocking wait between those operations.
+
+The opaque receipt distinguishes native acknowledgment, acceptance/failure,
+known/unknown download classification and possible dispatched effects. Only
+the original typed isDownload flag classifies a download; abort text, missing
+loader, URL and attachment candidates do not. A native ACK proves neither page
+load/commit nor file completion. Parse and validate the expected original frame
+and optional loader/download/error types, then retain only bounded result flags,
+fixed diagnoses and a finite allowlist of 22 known net error identifiers.
+This preserves DNS/TLS/connection causes without returning provider prose or
+URL-bearing error text. Invalid/mismatched replies retire the connection.
+
+There is one pending navigation per session and at most 4,096 lifetime issues.
+The configurable original deadline is 100..600,000 ms; short polls/other calls
+never renew it. Command sending remains bounded to 100 ms. Close, lost replies,
+partial sends and timeout preserve uncertain effects; terminal outcomes cannot
+be upgraded by late replies, and no command is automatically retried. A known
+unsupported-method reply records no dispatched navigation effect. Retirement
+also observes the outstanding original navigation acknowledgment.
+
+Primary-source review found an explicit compatibility boundary: Chromium
+138.0.7204.0's Page.navigate result lacks isDownload. Current protocol makes it
+optional. A missing flag with ERR_ABORTED returns
+cdp_navigation_download_unproven, retaining the safe native error category.
+Ordinary WebView error callbacks filter several abort cases, including stop,
+embedder interception and no-content handling; these are not download proof.
+Pinned sources and decoded hashes are recorded in
+`host/android/cdp-protocol.json`, including the current
+[Page definition](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl)
+and the [older complete protocol](https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/third_party/blink/public/devtools_protocol/browser_protocol.pdl).
+
+The actual dispatcher/codec gate passes 149 checks and two original local-kernel
+JNI/WebSocket sessions. One real socket pipeline withholds the navigation reply
+until original body/stream/request cleanup finishes on the same connection;
+another delivers the original DNS failure while an ordinary RPC is outstanding.
+Both end with balanced native allocation/descriptor checks. Controlled metadata
+tests cover absent/false/true flags, errors, wrong frames/children/types, pending
+and lifetime limits, worker/event reentry, partial sends, close races, clock
+reversal and original ten-minute deadlines. Native physical binding passes
+2,040 checks, including root-only dispatch and retirement admission. Existing
+rearm/download/worker regressions, ASan/UBSan/API26 and Python pass; all 101 native
+and 11 creation hashes match. Full QA APK DEX requires both Navigation and
+NavigationResult definitions, and seven final APK contracts pass.
+
+This stage packages the native primitive. The product coordinator still needs
+to join exact UI request ownership, original native acknowledgments and download
+state before replacing the legacy WebView navigation route. Existing main-UI
+error handling is not bypassed. `product_navigation_activated`, device/framework
+and overall automation qualifications remain false. Phone/current WebView stay
+deferred; installed-provider and public JS/C end-to-end checks remain required.

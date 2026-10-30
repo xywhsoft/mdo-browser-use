@@ -42,6 +42,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         default MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default boolean serviceBodies(int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default int pendingControls()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
     interface Factory {Peer open(String target,int timeoutMs,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException;}
@@ -69,6 +70,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException{return session.takeBodyChunk(body);}
                 public boolean serviceBodies(int timeout)throws IOException{return session.serviceBodies(timeout);}
                 public int pendingControls()throws IOException{return session.pendingControls();}
+                public MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException{return session.navigateRoot(url,frame,timeout);}
                 public void close(){session.close();}
             };
         }catch(RuntimeException|Error failure){session.close();throw failure;}
@@ -295,6 +297,10 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException {active();return bound.peer.takeBodyChunk(body);}
         boolean serviceBodies(int sendTimeoutMs)throws IOException {active();return bound.peer.serviceBodies(sendTimeoutMs);}
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
+        MdoBrowserCdpSession.Navigation navigateRoot(String url,int timeoutMs)throws IOException {
+            active();if(retiring)throw problem("cdp_network_retiring");frames.origin(bound.rootFrame);
+            return bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);
+        }
         boolean responsesMayHaveOccurred(){return responsesAttempted;}
         void cancelTransfers()throws IOException {active();retiring=true;bound.peer.cancelTransfers();}
         boolean transfersDrained()throws IOException {active();return bound.peer.pendingOffers()==0&&bound.peer.pendingBodies()==0&&bound.peer.pendingControls()==0;}

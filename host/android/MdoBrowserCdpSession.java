@@ -11,8 +11,9 @@ import java.util.function.BooleanSupplier;
 import org.json.JSONObject;
 
 /** One protocol dispatcher on its owning native worker, never on Android UI.
- * One ordinary RPC; only fixed native Fetch flow control/body claims may be sent inline
- * from its exact paused event. Ordinary callback RPC reentry remains forbidden.
+ * One ordinary RPC and one fixed asynchronous native root navigation; only
+ * fixed Fetch flow control/body claims may be sent inline from their paused
+ * event. Ordinary/navigation callback RPC reentry remains forbidden.
  * Native control receipts contain no browser/request authority or page data.
  * No implicit reconnect/replay. A timed-out/mismatched stream is retired. */
 final class MdoBrowserCdpSession implements AutoCloseable {
@@ -53,6 +54,33 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean effectMayHaveOccurred(){ControlResult result=outcome.get();return result==null?issued:result.effectMayHaveOccurred;}
         private void finish(ControlResult result){outcome.compareAndSet(null,result);}
     }
+    /** Acknowledgement of one original root navigation, not page-load or file
+     * completion. Optional native download metadata is never inferred from an
+     * abort, URL, response candidate or missing loader. No raw reply survives. */
+    static final class NavigationResult {
+        final boolean acknowledged,ok,downloadKnown,download,effectMayHaveOccurred;
+        final String code,nativeError;
+        private NavigationResult(boolean acknowledged,boolean ok,boolean known,boolean download,String code,boolean sent){
+            this(acknowledged,ok,known,download,code,sent,null);
+        }
+        private NavigationResult(boolean acknowledged,boolean ok,boolean known,boolean download,String code,boolean sent,String nativeError){
+            this.acknowledged=acknowledged;this.ok=ok;downloadKnown=known;this.download=download;this.code=code;effectMayHaveOccurred=sent;this.nativeError=nativeError;
+        }
+    }
+    static final class Navigation {
+        private final int id,timeout;private final long born;private final String frame;
+        private final AtomicReference<NavigationResult> outcome=new AtomicReference<>();private volatile boolean issued;
+        private Navigation(int id,String frame,long born,int timeout){this.id=id;this.frame=frame;this.born=born;this.timeout=timeout;}
+        NavigationResult result(){return outcome.get();}
+        boolean pending(){return result()==null;}
+        boolean effectMayHaveOccurred(){NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
+        private void finish(NavigationResult result){outcome.compareAndSet(null,result);}
+    }
+    private static final NavigationResult NAVIGATION_NOT_SENT=new NavigationResult(false,false,false,false,"cdp_navigation_not_sent",false);
+    private static final NavigationResult NAVIGATION_CLOSED=new NavigationResult(false,false,false,false,"cdp_navigation_connection_closed",true);
+    private static final NavigationResult NAVIGATION_SEND_FAILED=new NavigationResult(false,false,false,false,"cdp_navigation_send_failed",true);
+    private static final NavigationResult NAVIGATION_TIMED_OUT=new NavigationResult(false,false,false,false,"cdp_navigation_timeout",true);
+    private static final NavigationResult NAVIGATION_REPLY_INVALID=new NavigationResult(false,false,false,false,"cdp_navigation_reply_invalid",true);
     /** Native-only original-body permit. No caller-provided stream/request ID.
      * cancel() only revokes admission; the owning worker must drain it. */
     static final class Body {
@@ -178,6 +206,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Offer[] offers=new Offer[8];
     private final Set<Integer> retiredBodyReads=new HashSet<>();
     private PausedEvent paused;private long activeStarted;private int activeTimeout;private String controlFault;
+    private Navigation navigation;private int navigationCount;
     private volatile Wire wire;
     private int serial,bodyCursor,offerCursor;private boolean busy;
 
@@ -383,6 +412,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);}
     }
     private void expireControls(boolean effect)throws Failure {
+        expireNavigation(effect);
         boolean expired=false;
         try{synchronized(controlGate){
             if(controlCount==0)return;long now=clock.now();
@@ -393,6 +423,76 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             }}
         }}catch(RuntimeException|Error error){controlFault="cdp_control_clock_failed";close();throw failure(controlFault,effect);}
         if(expired){if(controlFault==null)controlFault="cdp_control_timeout";close();throw failure(controlFault,effect);}
+    }
+    private void expireNavigation(boolean effect)throws Failure {
+        synchronized(controlGate){if(navigation==null)return;
+            long elapsed=clock.now()-navigation.born;
+            if(elapsed<0||elapsed>=navigation.timeout){navigation.finish(NAVIGATION_TIMED_OUT);close();throw failure("cdp_navigation_timeout",effect);}
+        }
+    }
+    /** Fixed root-only native command. One asynchronous receipt leaves the
+     * worker free to service paused offers/body cleanup before its reply.
+     * The trusted physical binding supplies frame identity; never the caller. */
+    Navigation navigateRoot(String url,String frame,int timeoutMs)throws IOException {
+        guard(false);
+        if(timeoutMs<100||timeoutMs>600000||!MdoBrowserCdpNetworkFrames.identity(frame)||!navigationUrl(url))throw failure("cdp_navigation_arguments_invalid",false);
+        enter(Math.min(5000,timeoutMs));byte[] bytes=null;Navigation ticket=null;boolean attempted=false;
+        try{
+            synchronized(controlGate){
+                guard(false);if(navigation!=null)throw failure("cdp_navigation_pending",false);
+                if(navigationCount>=4096)throw failure("cdp_navigation_limit",false);
+                if(serial==Integer.MAX_VALUE){close();throw failure("cdp_id_exhausted",false);}
+                int id=serial+1;
+                bytes=MdoBrowserCdpJson.encode(id,"Page.navigate",new JSONObject().put("url",url).put("frameId",frame),null);
+                ticket=new Navigation(id,frame,clock.now(),timeoutMs);serial=id;navigationCount++;navigation=ticket;ticket.issued=true;attempted=true;
+            }
+            wire.send(bytes,Math.min(100,timeoutMs));guard(true);expireNavigation(true);return ticket;
+        }catch(Failure failure){if(attempted){if(ticket!=null)ticket.finish(NAVIGATION_SEND_FAILED);close();}throw failure;}
+        catch(IOException|RuntimeException|Error failure){if(attempted){if(ticket!=null)ticket.finish(NAVIGATION_SEND_FAILED);close();}
+            throw failure(attempted?"cdp_navigation_send_failed":"cdp_navigation_dispatch_failed",attempted);
+        }catch(org.json.JSONException failure){throw failure("cdp_navigation_arguments_invalid",false);}
+        finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
+    }
+    private static boolean navigationUrl(String url){
+        if(url==null||url.isEmpty()||url.length()>8192)return false;
+        for(int i=0;i<url.length();i++){char c=url.charAt(i);if(c<=32||c==127)return false;
+            if(Character.isHighSurrogate(c)){if(++i==url.length()||!Character.isLowSurrogate(url.charAt(i)))return false;}
+            else if(Character.isLowSurrogate(c))return false;
+        }
+        if(url.equals("about:blank"))return true;
+        try{java.net.URI parsed=new java.net.URI(url);String scheme=parsed.getScheme();
+            return ("https".equalsIgnoreCase(scheme)||"http".equalsIgnoreCase(scheme))&&parsed.getHost()!=null&&parsed.getRawUserInfo()==null&&parsed.getPort()>=-1&&parsed.getPort()<=65535;
+        }catch(java.net.URISyntaxException failure){return false;}
+    }
+    private boolean navigationReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
+        synchronized(controlGate){
+            Navigation original=navigation;if(original==null||message.id!=original.id)return false;
+            if(message.session!=null){original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_mismatch",effect);}
+            if(message.failed){original.finish(new NavigationResult(true,false,false,false,message.error==-32601?"cdp_navigation_unsupported":"cdp_navigation_rejected",message.error!=-32601));navigation=null;return true;}
+            JSONObject value=message.value;Object frame=value.opt("frameId"),loader=value.opt("loaderId"),download=value.opt("isDownload"),error=value.opt("errorText");
+            if(!original.frame.equals(frame)||value.has("loaderId")&&!MdoBrowserCdpNetworkFrames.identity(loader)||
+                value.has("isDownload")&&!(download instanceof Boolean)||value.has("errorText")&&(!(error instanceof String)||((String)error).length()>4096)){
+                original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_invalid",effect);
+            }
+            boolean known=download instanceof Boolean,isDownload=Boolean.TRUE.equals(download);
+            boolean failed=error instanceof String&&!((String)error).isEmpty()&&!(isDownload&&error.equals("net::ERR_ABORTED"));
+            String code=failed?(!known&&"net::ERR_ABORTED".equals(error)?"cdp_navigation_download_unproven":"cdp_navigation_failed"):null;
+            original.finish(new NavigationResult(true,!failed,known,isDownload,code,true,navigationError(error)));navigation=null;return true;
+        }
+    }
+    private static String navigationError(Object error){
+        // Keep precise known network causes, never arbitrary provider prose,
+        // URL-bearing messages or unrecognized future protocol text.
+        if(!(error instanceof String))return null;
+        switch((String)error){
+            case "net::ERR_ABORTED":case "net::ERR_NAME_NOT_RESOLVED":case "net::ERR_NAME_RESOLUTION_FAILED":
+            case "net::ERR_CONNECTION_REFUSED":case "net::ERR_CONNECTION_RESET":case "net::ERR_CONNECTION_TIMED_OUT":case "net::ERR_TIMED_OUT":
+            case "net::ERR_INTERNET_DISCONNECTED":case "net::ERR_ADDRESS_UNREACHABLE":case "net::ERR_TUNNEL_CONNECTION_FAILED":
+            case "net::ERR_SSL_PROTOCOL_ERROR":case "net::ERR_CERT_AUTHORITY_INVALID":case "net::ERR_CERT_DATE_INVALID":case "net::ERR_CERT_COMMON_NAME_INVALID":case "net::ERR_CERT_REVOKED":
+            case "net::ERR_TOO_MANY_REDIRECTS":case "net::ERR_BLOCKED_BY_CLIENT":case "net::ERR_BLOCKED_BY_RESPONSE":case "net::ERR_INVALID_URL":case "net::ERR_UNKNOWN_URL_SCHEME":
+            case "net::ERR_HTTP_RESPONSE_CODE_FAILURE":case "net::ERR_CONTENT_LENGTH_MISMATCH":return (String)error;
+            default:return null;
+        }
     }
     private boolean controlReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
         ControlResult result=null;
@@ -435,7 +535,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     int pendingControls()throws Failure {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
-        synchronized(controlGate){return controlCount;}
+        synchronized(controlGate){return controlCount+(navigation==null?0:1);}
     }
     int pendingBodies()throws Failure {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
@@ -685,7 +785,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                     if(!admitted(session))throw failure("cdp_session_detached",effect);
                     continue;
                 }
-                if(controlReply(message,effect))continue;
+                if(navigationReply(message,effect)||controlReply(message,effect))continue;
                 if(message.id!=commandId||!Objects.equals(message.session,session))throw failure("cdp_reply_mismatch",effect);
                 guard(effect);
                 replied=true;
@@ -730,7 +830,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             remaining(started,timeoutMs,false);
             if(message==null)return false;
             expireControls(false);
-            if(!message.event()){if(controlReply(message,false))return true;throw failure("cdp_reply_mismatch",false);}
+            if(!message.event()){if(navigationReply(message,false)||controlReply(message,false))return true;throw failure("cdp_reply_mismatch",false);}
             event(message,false);remaining(started,timeoutMs,false);return true;
         } catch(Failure failure){close();throw failure;}
         catch(IOException|RuntimeException|Error failure){close();throw failure("cdp_event_stream_failed",false);}
@@ -740,6 +840,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean first;
         synchronized(controlGate){
             first=closed.compareAndSet(false,true);
+            if(navigation!=null){navigation.finish(navigation.issued?NAVIGATION_CLOSED:NAVIGATION_NOT_SENT);navigation=null;}
             for(int i=0;i<controls.length;i++)if(controls[i]!=null){controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;}
             controlCount=0;controlKeys.clear();
             for(Offer offer:offers)if(offer!=null)finishOffer(offer,false,false,"cdp_offer_connection_closed");

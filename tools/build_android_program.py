@@ -28,7 +28,7 @@ PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
 HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoBrowser$NetworkEntry','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
-              'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpResponse',
+              'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpResponse',
               'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
               'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',
               'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpBinding$Network','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope','MdoBrowserCdpRegistry','MdoBrowserCdpWorker',

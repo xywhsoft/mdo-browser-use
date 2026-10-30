@@ -8097,3 +8097,50 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   documented full-goal qualifications remain open. Phone/current WebView stay
   deferred. No installation, formal-data edit, model or external browser-page
   action, extra app/Home/source copy or online publication.
+
+## E96 — preserve original native navigation acknowledgments alongside downloads
+
+- Implement one fixed asynchronous Page.navigate on the exact original physical
+  network connection. Native proof supplies the root frame, never a caller's
+  frame/session selector. Keep original Fetch/body cleanup progressing before
+  navigation ACKs; retain only bounded flags, fixed outcomes and 22 known safe
+  network-error identifiers, with no raw reply, provider prose or URL retention.
+  Separate acknowledgment from page/file completion. Native true/false/missing
+  download flags remain distinct; malformed/wrong-source replies close the
+  connection and terminal results cannot be upgraded by late acknowledgments.
+- Bound one pending navigation and 4,096 lifetime issues per session. An original
+  configurable 100..600,000 ms deadline survives short polling and other RPCs;
+  sending remains bounded to 100 ms. Partial sends/connection loss retain effect
+  uncertainty; no implicit replay occurs. Unsupported method receipts record no
+  possible navigation effect, and native retirement includes outstanding ACKs.
+- Verify pinned primary sources: Chromium 138's Page.navigate has no isDownload
+  result, while current protocol makes it optional. Missing classification plus
+  ERR_ABORTED returns download-unproven, not invented success. WebView abort
+  filtering is not a download proof. Record source revisions/hashes and explicit
+  qualification boundaries in `host/android/cdp-protocol.json`; preserve the
+  current WebView version and existing product error handling.
+- Navigation gate passes 149 checks, including two real local-kernel JNI/socket
+  sessions. Hold a navigation reply until the same connection completes original
+  body/stream/request cleanup; route a native DNS failure during an ordinary RPC.
+  Actual native allocations/descriptors balance. Native binding passes 2,040,
+  including proven-root dispatch and retired admission; prior rearm/download/
+  worker gates also pass. Full ASan/UBSan/API26 and creation/lifecycle gates pass
+  (`.mdo/E96-native-current.json`, `.mdo/E96-create-current.json`); all 101 native
+  and 11 product hashes match. Python passes 173/175 in 58.217 s, with only two
+  existing Windows symlink-privilege skips (`.mdo/E96-python-full.log`).
+- Stop the sole dev instance, apply 119 reviewed files and rebuild the complete
+  QA Activity/service/lite-tools APK (`.mdo/E96-android-build.log`). Both actual
+  navigation receipt DEX classes, reviewed source/native/app identity, private
+  provider, six JNI exports, ARM64/16 KiB layout and v2-v3 signing pass. APK
+  6,456,641 bytes, SHA-256
+  `a630743650430f802a415eb2f36bfdc68b47328c3d8c526e74a7dccafcf3768b`.
+  Seven final APK contracts pass. Restore the same service to HTTP 200 on 63625,
+  about 3,437.3 MiB. Windows and paired-plugin identities remain unchanged;
+  device/framework/automation qualification stays false.
+- Goal active. Next join the original UI navigation operation to these native
+  receipts and download state; the legacy product navigation path is not yet
+  replaced or qualified. Popup/download-only lifetime, cross-process interception,
+  Android public save, text/blob handling, installed provider/main-UI and other
+  documented full-goal qualifications remain open. Phone/current WebView stay
+  deferred. No install, formal-data edit, model or external browser-page action,
+  extra app/Home/source copy or online publication.

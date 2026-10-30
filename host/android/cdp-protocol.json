@@ -1,8 +1,45 @@
 {
   "format": "mdo.browser-use.android-cdp-foundation.v1",
   "state": "private_frame_owner_and_command_route_packaged_admission_disabled",
-  "checked_date": "2026-10-30",
+  "checked_date": "2026-10-31",
+  "navigation_receipts": {
+    "state": "fixed_root_native_async_primitive_product_ui_join_pending",
+    "command": "Page.navigate",
+    "root_frame": "original_physical_binding_only",
+    "pending_per_session": 1,
+    "lifetime_limit_per_session": 4096,
+    "deadline_ms": [100, 600000],
+    "body_pipeline": "same_original_connection_progresses_before_navigation_reply",
+    "download_classification": "explicit_typed_isDownload_from_original_native_reply_only",
+    "missing_flag_abort": "cdp_navigation_download_unproven",
+    "native_error": "finite_known_net_error_allowlist_without_provider_prose",
+    "legacy_chromium_138_navigate_has_download_flag": false,
+    "ack_is_page_or_file_completion": false,
+    "raw_reply_or_url_retained": false,
+    "caller_frame_or_session_selectors": false,
+    "automatic_retry": false,
+    "installed_provider_verified": false,
+    "product_navigation_activated": false
+  },
   "sources": [
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/net/base/net_error_list.h?format=TEXT",
+      "decoded_bytes": 38615,
+      "decoded_sha256": "ac4de78d713eb05913f71c8a0e5588c302dfc3f9e4b92a9468cbc4812dcbbe02",
+      "facts": ["Known network errors have fixed identifiers suitable for a finite diagnostic allowlist", "Arbitrary provider messages are not required to retain DNS, TLS, connection or cancellation categories"]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl",
+      "decoded_bytes": 63398,
+      "decoded_sha256": "9681c32d23ea5936f972056439da9a4e1f6c49fcf220bd161cccb0a8222128ec",
+      "facts": ["Page.navigate returns the actual native frame and optional loader/error", "Its experimental isDownload flag is optional and does not prove file completion"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/android_webview/java/src/org/chromium/android_webview/AwContentsClientBridge.java?format=TEXT",
+      "decoded_bytes": 25052,
+      "decoded_sha256": "7c1e47454429fbbef99bbe9d318d65411d1b295dbd607aee20083289a64352bf",
+      "facts": ["Ordinary ERR_ABORTED notifications are filtered unless Safe Browsing requires notification", "Abort can result from stopLoading, embedder interception or a no-content response and is not a download proof"]
+    },
     {
       "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/content/browser/devtools/devtools_stream_pipe.cc",
       "decoded_sha256": "a2925203fa911c92b9c4b39acc9a1bd2a3796aa9c609f098e3cdb58f2da7ab9e",

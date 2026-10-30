@@ -67,6 +67,7 @@ public final class CdpBindingProbe {
                 public MdoBrowserCdpSession.BodyChunk takeBodyChunk(MdoBrowserCdpSession.Body body)throws IOException{return session.takeBodyChunk(body);}
                 public boolean serviceBodies(int timeout)throws IOException{return session.serviceBodies(timeout);}
                 public int pendingControls()throws IOException{return session.pendingControls();}
+                public MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException{return session.navigateRoot(url,frame,timeout);}
                 public void close(){session.close();}
             };
         }

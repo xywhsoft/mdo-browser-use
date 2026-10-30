@@ -169,9 +169,26 @@ public final class CdpNetworkBindingProbe {
             check(c.methods.stream().noneMatch(method->method.equals("Runtime.disable")||method.startsWith("Fetch.")));
         }
     }
+    private static void rootNavigationReceipt()throws Exception{
+        try(Context c=new Context(true)){
+            c.bind();run(()->{rejected("cdp_network_not_enabled",()->c.network.navigateRoot("about:blank",1000));return null;});c.enable();
+            CdpBindingProbe.Factory.Extra previous=c.peer.extra;final int[] dispatched={0};
+            c.peer.extra=(command,wire)->{
+                if(command.getString("method").equals("Page.navigate")){
+                    JSONObject params=command.getJSONObject("params");check(command.length()==3&&params.length()==2&&params.getString("url").equals("about:blank")&&params.getString("frameId").equals("frame-owned"));dispatched[0]++;
+                    wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("isDownload",true)));return true;
+                }return previous.send(command,wire);
+            };
+            rejected("cdp_wrong_worker",()->c.network.navigateRoot("about:blank",1000));
+            MdoBrowserCdpSession.Navigation receipt=run(()->{MdoBrowserCdpSession.Navigation ticket=c.network.navigateRoot("about:blank",1000);check(ticket.pending());c.network.poll(100);return ticket;});
+            check(receipt.result().acknowledged&&receipt.result().ok&&receipt.result().downloadKnown&&receipt.result().download&&dispatched[0]==1);
+            run(()->{c.network.cancelTransfers();rejected("cdp_network_retiring",()->c.network.navigateRoot("about:blank",1000));return null;});
+            check(dispatched[0]==1);
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");worker=Executors.newSingleThreadExecutor();
-        try{scope();navigation();failures();}
+        try{scope();navigation();failures();rootNavigationReceipt();}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));Handler.drain();}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni_json\":true,\"physical_scope_separate\":true,\"document_navigation_tested\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }

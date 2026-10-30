@@ -116,6 +116,13 @@ def main():
     if not controls.get('passed') or controls.get('real_control_sessions')!=6 or controls.get('real_cooperative_pairs')!=1 or controls.get('provider_qualified') is not False or controls.get('downloads_activated') is not False:
         raise RuntimeError('The fixed native paused-event control gate did not pass')
     result['jvm_native_controls']=controls
+    navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpNavigationProbe'],cwd=ROOT,env=environment,text=True,timeout=40))
+    if (not navigation.get('passed') or not navigation.get('original_navigation_receipts') or not navigation.get('same_connection_body_progress')
+            or navigation.get('real_navigation_sessions')!=2 or navigation.get('framework_verified') is not False
+            or navigation.get('provider_qualified') is not False or navigation.get('product_navigation_activated') is not False):
+        raise RuntimeError('The fixed original native navigation/async body-pipeline gate did not pass')
+    result['jvm_navigation_receipts']=navigation
     responses=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpResponseProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not responses.get('passed') or not responses.get('original_event_snapshot') or responses.get('provider_qualified') is not False or responses.get('body_retention_activated') is not False:
@@ -275,7 +282,7 @@ def main():
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
         '-DXRT_MODULE_WEBSOCKET_HANDSHAKE','-DXRT_MODULE_WEBSOCKET_MESSAGE','-DXRT_MODULE_RANDOM_SECURE','-I'+str(include),
         '-c',str(ROOT/'host/android/MdoBrowserCdpWebSocket.c'),'-o',str(output/'android-websocket.o')],cwd=ROOT,check=True)
-    inputs=('host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
+    inputs=('host/android/cdp-protocol.json','host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
             'host/android/MdoBrowserCdpWebSocket.c','host/android/MdoBrowserCdpWebSocket.h',
             'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpResponse.java','host/android/MdoBrowserCdpSession.java',
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java',
