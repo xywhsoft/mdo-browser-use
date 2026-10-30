@@ -10,21 +10,33 @@
     private static final class UploadBook {
         final WebView view;final MdoBrowserUploadStore.RetentionOwner owner;
         final Map<String,UploadAction> keys=new HashMap<>(),tickets=new HashMap<>();UploadAction active;
+        final Map<String,ClearAction> clearKeys=new HashMap<>();ClearAction clearing;
         UploadBook(WebView view,MdoBrowserUploadStore.RetentionOwner owner){this.view=view;this.owner=owner;}
+    }
+    private static final class ClearAction {
+        final UploadEntry source;final MdoBrowserCdpFileInput target;final MdoBrowserCdpMarker marker;
+        final Object channel;final String key,ticket="u-"+java.util.UUID.randomUUID();
+        boolean done,cancelled,ok,dispatched,clean=true,released,registered;String error;
+        ClearAction(UploadEntry source,MdoBrowserCdpFileInput target,MdoBrowserCdpMarker marker,Object channel,String key){
+            this.source=source;this.target=target;this.marker=marker;this.channel=channel;this.key=key;
+        }
     }
     private final Map<MdoBrowserUploadStore.RetentionOwner,UploadBook> uploadBooks=new HashMap<>();
     private UploadBook uploadBook(String key,WebView view){
         UploadDataEntry data=uploadDataOwners.get(key);if(data==null||data.view!=view||!data.owner.live())return null;
         UploadBook book=uploadBooks.get(data.owner);return book!=null&&book.view==view?book:null;
     }
-    private boolean uploadBusy(String key,WebView view){UploadBook book=uploadBook(key,view);return book!=null&&book.active!=null&&book.active.coordinator!=null&&!book.active.coordinator.done();}
+    private boolean uploadBusy(String key,WebView view){UploadBook book=uploadBook(key,view);return book!=null&&(book.clearing!=null&&!book.clearing.done||book.active!=null&&book.active.coordinator!=null&&!book.active.coordinator.done());}
+    private void cancelClear(ClearAction clear){if(clear!=null&&!clear.done){clear.cancelled=true;cdpWorker.cancel(clear.marker.lease());}}
     private void cancelTargetedUpload(String key,WebView view,long epoch){
         UploadBook book=uploadBook(key,view);UploadAction active=book==null?null:book.active;
         if(active!=null&&active.source.scope.navigation==epoch&&active.coordinator!=null)active.coordinator.close();
+        if(book!=null&&book.clearing!=null&&book.clearing.source.scope.navigation==epoch)cancelClear(book.clearing);
     }
     private void cancelUploadTargets(UploadEntry source){
         UploadBook book=uploadBooks.get(source.data);if(book==null)return;
         UploadAction active=book.active;if(active!=null&&active.source==source&&active.coordinator!=null)active.coordinator.close();
+        if(book.clearing!=null&&book.clearing.source==source)cancelClear(book.clearing);
         for(Iterator<UploadAction> at=book.keys.values().iterator();at.hasNext();)if(at.next().source==source)at.remove();
         for(Iterator<UploadAction> at=book.tickets.values().iterator();at.hasNext();){UploadAction row=at.next();if(row.source==source&&row.coordinator==null)at.remove();}
     }
@@ -33,6 +45,7 @@
         // Never retain a live map iterator across coordinator.close().
         for(UploadBook book:new ArrayList<>(uploadBooks.values())){if(book.view!=view||!uploadBooks.remove(book.owner,book))continue;
             UploadAction active=book.active;if(active!=null&&active.coordinator!=null)active.coordinator.close();
+            cancelClear(book.clearing);
         }
     }
     private static MdoBrowserCdpFileInput uploadTarget(JSONObject request)throws Exception {
@@ -108,6 +121,7 @@
     }
     private boolean uploadCommand(String key,String id,WebView view,JSONObject request)throws Exception {
         String verb=uploadText(request,"action");
+        if(clearCommand(key,id,view,request))return true;
         if("begin".equals(verb)&&uploadBusy(key,view))throw new IllegalStateException("upload_operation_busy");
         if(!Arrays.asList("assign","status","cancel","release").contains(verb))return false;
         if("assign".equals(verb)&&!browserUseSupport().optBoolean("available"))throw new UnsupportedOperationException("upload_assignment_unsupported");
@@ -168,6 +182,105 @@
         if(book!=null)for(UploadAction action:book.tickets.values())if(action.coordinator!=null&&action.coordinator.done()){
             MdoBrowserUploadCoordinator.Result value=action.coordinator.result();if(value!=null&&!value.cleanupConfirmed){failed=true;break;}}
         boolean supported=browserUseSupport().optBoolean("available");
+        if(book!=null)for(ClearAction clear:book.clearKeys.values())if(clear.done&&!clear.clean){failed=true;break;}
         return state.put("upload_busy",uploadBusy(key,views.get(key))).put("upload_cleanup_failed",failed)
-            .put("upload_capability",supported).put("file_input_capability",supported);
+            .put("upload_capability",supported).put("file_input_capability",supported).put("file_clear_capability",supported);
+    }
+    private JSONObject clearReceipt(ClearAction clear,boolean control)throws JSONException {
+        JSONObject result=new JSONObject().put("ok",control||!clear.done||clear.ok).put("accepted",clear.done&&clear.ok)
+            .put("pending",!clear.done).put("completed",clear.done&&clear.ok).put("cleared",clear.done&&clear.ok).put("verified",clear.done&&clear.ok)
+            .put("upload_key",clear.key).put("navigation",clear.source.scope.navigation).put("clear",true)
+            .put("receipt_only",true).put("assignment_ok",clear.done&&clear.ok).put("assignment_supported",true)
+            .put("dispatched",!clear.done||clear.dispatched).put("effect_may_have_occurred",!clear.done||clear.dispatched)
+            .put("retained",false).put("released",clear.released).put("cleanup_confirmed",clear.done&&clear.clean)
+            .put("native_job_drained",clear.done).put("state",!clear.done?"clearing":clear.released?"released":clear.ok?"cleared":"failed")
+            .put("input_method","native_file_clear");
+        if(clear.registered)result.put("ticket",clear.ticket);
+        if(clear.error!=null){String message=!clear.clean?"Native file-clear cleanup was not confirmed; end this browser before further input. Its original receipt remains available":
+                clear.dispatched?"The original file-clear operation was not confirmed; inspect its receipt and delivered effects before an explicit new action":
+                "The native file-clear request was rejected before dispatch; inspect its original scope before another action";
+            JSONObject error=new JSONObject().put("code",clear.error).put("message",message).put("effect_may_have_occurred",clear.dispatched);
+            result.put(control?"assignment_error":"error",error);}
+        return result;
+    }
+    private boolean clearCurrent(String key,UploadBook book,ClearAction clear,MdoBrowserChannel<WebMessagePort>.Lease channelLease){
+        return uploadBook(key,book.view)==book&&book.clearing==clear&&book.clearKeys.get(clear.key)==clear&&!clear.cancelled&&clear.source.scope.live()&&
+            uploadOwners.get(key)==clear.source&&channel.current()==channelLease&&clear.channel==channelLease&&
+            cdpEnvironmentCurrent(key,book.view,clear.source.scope.navigation,channelLease)&&chooserReady(dialogs.get(key))&&
+            !views.inputBusy(key,book.view)&&views.inputClean(key,book.view)&&captureMutationReady(key,book.view);
+    }
+    private boolean clearCommand(String key,String id,WebView view,JSONObject request)throws Exception {
+        String verb=uploadText(request,"action");UploadBook book=uploadBook(key,view);ClearAction clear=null;
+        final MdoBrowserChannel<WebMessagePort>.Lease replyChannel=channel.current();
+        if(Arrays.asList("status","cancel","release").contains(verb)){
+            String ticket=uploadText(request,"ticket");
+            if(book!=null)for(ClearAction previous:book.clearKeys.values())if(previous.ticket.equals(ticket)){clear=previous;break;}
+            if(clear==null)return false;
+            uploadFields(request,"action","ticket","navigation","confirmed");
+            if(request.has("navigation")&&uploadNumber(request,"navigation",1,9007199254740991L)!=clear.source.scope.navigation)throw new IllegalStateException("upload_owner_changed");
+            if("release".equals(verb)){
+                if(!Boolean.TRUE.equals(request.opt("confirmed")))throw new IllegalArgumentException("upload_confirmation_required");
+                if(!clear.done)throw new IllegalStateException("upload_clear_pending");clear.released=true;
+            }else if("cancel".equals(verb))cancelClear(clear);
+            reply(replyChannel,id,clearReceipt(clear,true),null);return true;
+        }
+        if(!Arrays.asList("clear","clear_status","clear_cancel").contains(verb))return false;
+        String clearKey=uploadText(request,"upload_key");if(!clearKey.matches("[a-zA-Z0-9._:-]{1,100}"))throw new IllegalArgumentException("upload_key_invalid");
+        clear=book==null?null:book.clearKeys.get(clearKey);
+        if(!"clear".equals(verb)){
+            uploadFields(request,"action","upload_key");
+            if(clear==null){if(verb.equals("clear_cancel")){reply(replyChannel,id,new JSONObject().put("ok",true).put("cancelled",false),null);return true;}throw new IllegalStateException("upload_clear_missing");}
+            if(verb.equals("clear_cancel"))cancelClear(clear);
+            reply(replyChannel,id,clearReceipt(clear,true).put("cancel_requested",clear.cancelled),null);return true;
+        }
+        uploadFields(request,"action","upload_key","navigation","document","ref","frame_chain","timeout_ms");
+        long epoch=uploadNumber(request,"navigation",1,9007199254740991L);MdoBrowserCdpFileInput target=uploadTarget(request);
+        int timeout=(int)(request.has("timeout_ms")?uploadNumber(request,"timeout_ms",100,120000):10000);timeout=Math.min(timeout,15000);
+        if(clear!=null){
+            if(clear.source.scope.navigation!=epoch||!sameUploadTarget(clear.target,target))throw new IllegalStateException("upload_clear_conflict");
+            reply(replyChannel,id,clearReceipt(clear,false),null);return true;
+        }
+        if(!browserUseSupport().optBoolean("available"))throw new UnsupportedOperationException("upload_clear_unsupported");
+        if(uploadBusy(key,view)||views.inputBusy(key,view))throw new IllegalStateException("upload_operation_busy");
+        if(book!=null){
+            for(ClearAction old:book.clearKeys.values())if(old.done&&!old.clean)throw new IllegalStateException("upload_cleanup_failed");
+            for(UploadAction old:book.tickets.values())if(old.coordinator!=null&&old.coordinator.done()&&old.coordinator.result()!=null&&!old.coordinator.result().cleanupConfirmed)throw new IllegalStateException("upload_cleanup_failed");
+        }
+        if(!views.inputClean(key,view)||!captureMutationReady(key,view))throw new IllegalStateException("upload_capture_busy_or_unclean");
+        if(!cdpEnvironmentCurrent(key,view,epoch,replyChannel)||!chooserReady(dialogs.get(key)))throw new IllegalStateException("upload_owner_changed");
+        MdoBrowserCdpMarker marker=cdpViews.existing(key,view,epoch,replyChannel);if(cdpWorker.pending(marker))throw new IllegalStateException("upload_operation_busy");
+        UploadEntry source=uploadOwners.get(key);
+        if(source==null||source.view!=view||source.scope.navigation!=epoch||!source.scope.live()){
+            if(source!=null){source.scope.cancel();cancelUploadTargets(source);}source=new UploadEntry(view,epoch,uploadData(key,view));uploadOwners.put(key,source);
+        }
+        if(book==null){book=new UploadBook(view,source.data);uploadBooks.put(source.data,book);}
+        if(book.clearKeys.size()>=64)throw new IllegalStateException("upload_clear_limit");
+        final UploadBook originalBook=book;final ClearAction operation=new ClearAction(source,target,marker,replyChannel,clearKey);
+        try{
+            book.clearing=operation;book.clearKeys.put(clearKey,operation);operation.registered=true;
+            cdpWorker.submitExisting(marker,timeout,true,(binding,deadline)->{
+                JSONObject result=target.clear(binding.frames(),deadline);return result.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            },outcome->{
+                operation.dispatched=outcome.effectMayHaveOccurred;operation.error=outcome.code;
+                operation.clean=!Arrays.asList("cdp_file_input_cleanup_failed","cdp_worker_failed","cdp_worker_result_invalid").contains(outcome.code);
+                try{
+                    if(outcome.code==null){
+                        JSONObject response=new JSONObject(new String(outcome.bytes,java.nio.charset.StandardCharsets.UTF_8)),value=response.optJSONObject("value");
+                        MdoBrowserCdpFrameChain.Pin leaf=target.pins.chain.get(0);JSONObject element=value==null?null:value.optJSONObject("element");
+                        operation.ok=Boolean.TRUE.equals(response.opt("ok"))&&leaf.frame.equals(response.opt("frame"))&&leaf.document.equals(response.opt("frame_document"))&&value!=null&&Boolean.TRUE.equals(value.opt("ok"))&&
+                            target.document.equals(value.opt("document"))&&element!=null&&target.ref.equals(element.opt("ref"))&&Boolean.TRUE.equals(value.opt("cleared"))&&Boolean.TRUE.equals(value.opt("verified"))&&Boolean.TRUE.equals(value.opt("dispatched"));
+                        if(!operation.ok)operation.error="cdp_file_clear_unconfirmed";
+                    }
+                    if(operation.cancelled){operation.ok=false;operation.error="upload_clear_cancelled";}
+                    else if(!clearCurrent(key,originalBook,operation,replyChannel)){operation.ok=false;operation.error="upload_owner_changed";}
+                }catch(JSONException|RuntimeException|OutOfMemoryError error){operation.ok=false;operation.error="upload_result_unconfirmed";}
+                finally{operation.done=true;if(originalBook.clearing==operation)originalBook.clearing=null;}
+                try{reply(replyChannel,id,clearReceipt(operation,false),null);}catch(JSONException|RuntimeException|OutOfMemoryError error){reply(replyChannel,id,null,"upload_result_unconfirmed");}
+            });
+        }catch(java.io.IOException|RuntimeException|OutOfMemoryError error){
+            operation.done=true;operation.error=error.getMessage()!=null&&error.getMessage().matches("(?:cdp_|upload_)[a-z_]{1,80}")?error.getMessage():"upload_clear_unavailable";
+            operation.registered=book.clearKeys.get(clearKey)==operation;
+            if(book.clearing==operation)book.clearing=null;reply(replyChannel,id,clearReceipt(operation,false),null);
+        }
+        return true;
     }

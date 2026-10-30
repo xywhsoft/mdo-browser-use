@@ -23,25 +23,26 @@ route, saved receipts and retained status/cancel/release across input-scope loss
 Product/provider qualification still gates this route; automatic assignment is
 not enabled in the main interface on the unqualified Android adapter.
 E76a adds a fixed native file-clear worker primitive and explicit verification
-of the original empty FileList. Its product mutation reservation/receipt adapter
-is still outstanding, so the ordinary frame router explicitly rejects that
-mutation before creating a binding. `file_clear_capability` stays false.
+of the original empty FileList. E76b joins it to the product upload route with
+original operation keys, UI mutation reservations, cancellation and saved
+receipts. The ordinary frame reader still refuses that mutation. Its capability
+follows the overall qualified adapter, so it stays false in this unqualified APK.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E76a)
+## Complete development host APK (E46/E76b)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,399,297 bytes, SHA-256
-`c8932aae32a2fe1eaba9ff35316f70e341517a76a4d92c6407296e855962adc6`.
+Current APK: 6,403,393 bytes, SHA-256
+`085f53278abfb5188d60360cc3a05a42b71ef22f86968372708aef3d8949e518`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
-`MdoBrowserCdpFileInput$BeforeClear` definition. No account, Home, QA page or signing
+`MdoBrowserCdpFileInput$BeforeClear` and `MdoBrowser$ClearAction` definitions. No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
@@ -2724,7 +2725,7 @@ provider/main-UI/URI delivery remain outstanding. Phone testing remains deferred
 no provider/formal data changes, model calls, external page actions, extra copies
 or online release. The unchanged Windows executable and paired plugin are reused.
 
-### Native file-clear primitive (E76a)
+### Native file-clear primitive and product adapter (E76a/E76b)
 
 The private worker grammar now parses an immutable `file_clear` target using the
 same native frame chain, local document and element ref as file inspection. It
@@ -2750,11 +2751,43 @@ immutable request grammar. The actual fixed scripts pass seven combined
 inspection/clear tests. DOM/Android peers are controlled; selected-file events
 and installed provider/framework behavior remain unqualified.
 
-The actual product frame-router fragment refuses `file_clear` with
-`cdp_file_clear_adapter_incomplete` before any binding or mutation. A worker
-primitive alone must not enable an unfenced product route. Complete the native
-UI mutation reservation, original result/cleanup lifecycle and shared
-`browseruse.upload` clear adapter before advertising capability. All existing
-global/provider gates and the user's deferred-phone/current-WebView preference
-remain intact. The complete E76a APK compiles, aligns, signs and verifies, but
-does not claim the clear tool is ready in the main interface.
+The product frame router refuses `file_clear` with
+`cdp_file_clear_requires_upload_route` before any binding or mutation. Only the
+dedicated upload-clear path owns the following mutation reservation and receipt
+lifecycle. All existing global/provider gates and the user's deferred-phone /
+current-WebView preference remain intact.
+
+`upload.clear` freezes the original physical browser/data owner, input scope,
+channel, native marker and exact target. Its key comes from the original shared
+UI action. A repeated key only reads its original result; changed arguments
+conflict. Keep at most 64 records per physical browser, including released
+tombstones, until actual destruction. The bounded single index avoids partial
+key/ticket publication; ticket queries scan those same records. No file worker
+request, source read, grant or implicit release of prior upload data is added.
+
+The native reservation joins `upload_busy`, so other input, frame work and capture
+cannot start during the mutation. Existing input or busy/unclean capture also
+refuses admission. Queued cancellation can retire immediately; an already
+running worker must drain before its callback releases the reservation. Navigation,
+channel replacement, takeover, backgrounding and physical close cancel the
+original operation. A late reply cannot become success for a new scope.
+
+Status/cancel by original key and status/confirmed release by ticket are native
+record operations. They require no new world or provider qualification and stay
+available across transient scope loss. Successful queries report historical
+failure separately as `assignment_error`; they cannot replay the failed effect.
+After clean cancellation, a fresh observation and explicit new key can operate;
+the old key retains its saved failure. An unconfirmed object-group cleanup remains
+fenced even if a primary operation failed first. Physical destruction retires
+that owner's records without affecting a replacement browser.
+
+The latest full native gate passes 307 core-clear, 234 exact product-clear, 186
+worker, 625 inspection, 444 upload-coordinator and 129 product-upload checks
+(`.mdo/E76-product-native-final.log`/`.json`). The resume fixture scopes its
+private namespace to each connection, requires a different namespace on a new
+connection, and tracks inspection/verification per object group rather than
+assuming every failed clear reached verification. The actual C broker and shared
+JS facade also preserve the Android-style original receipt and cleanup guidance.
+JS 331/331 and Python 171/173 pass, with the two existing Windows symlink skips.
+The complete E76b APK compiles, aligns, signs and verifies; installed framework,
+provider/URI/event behavior and the remaining Android features are unqualified.

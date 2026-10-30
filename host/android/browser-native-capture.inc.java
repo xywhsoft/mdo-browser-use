@@ -7,6 +7,10 @@
     }
     private static final class CaptureIdentity {String document;}
     private final Map<String,CaptureEntry> captures=new HashMap<>();
+    private boolean captureMutationReady(String key,WebView view){
+        CaptureEntry entry=captures.get(key);
+        return entry==null||entry.view==view&&!entry.capture.busy()&&entry.capture.cleanupConfirmed();
+    }
     private CaptureEntry captureEntry(String key,WebView view){
         CaptureEntry existing=captures.get(key);
         if(existing!=null){if(existing.view!=view)throw new IllegalStateException("capture_view_changed");return existing;}

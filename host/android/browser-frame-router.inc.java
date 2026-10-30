@@ -8,10 +8,9 @@
         try{
             if(uploadBusy(key,view))throw new java.io.IOException("cdp_upload_busy");
             final MdoBrowserCdpFrameRequest operation=MdoBrowserCdpFrameRequest.parse(request);
-            // The fixed worker primitive is qualified separately. Product clear
-            // still needs its UI mutation reservation/retained receipt adapter;
-            // do not expose an unfenced mutation via the ordinary read router.
-            if(operation.action.equals("file_clear"))throw new java.io.IOException("cdp_file_clear_adapter_incomplete");
+            // The ordinary frame reader has no UI mutation reservation. Only
+            // upload.clear may join the fixed primitive to its original record.
+            if(operation.action.equals("file_clear"))throw new java.io.IOException("cdp_file_clear_requires_upload_route");
             // Product/profile admission runs in request() before this branch.
             // No request field can enable debugging or bypass that admission.
             boolean blocked=!chooserReady(dialogs.get(key)),continuation=operation.chooserContinuation();

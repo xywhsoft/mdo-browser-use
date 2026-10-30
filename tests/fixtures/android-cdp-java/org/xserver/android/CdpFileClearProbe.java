@@ -22,9 +22,11 @@ public final class CdpFileClearProbe {
         catch(IOException error){if(code!=null&&!code.equals(error.getMessage()))throw new AssertionError("Expected "+code+" but got "+error.getMessage());check(true);}
     }
     static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
-        final CdpFileInputProbe.Case node=new CdpFileInputProbe.Case();
-        int clears,verified;String failure="";
-        Case()throws Exception {node.peer.host.plan.extra=this;}
+        final CdpFileInputProbe.Case node;
+        volatile int clears,verified;volatile Runnable onClear;String failure="";
+        final java.util.Set<String> inspected=new java.util.HashSet<>(),described=new java.util.HashSet<>(),proven=new java.util.HashSet<>(),clearedGroups=new java.util.HashSet<>(),statusGroups=new java.util.HashSet<>();
+        Case()throws Exception {this(new CdpFileInputProbe.Case());}
+        Case(CdpFileInputProbe.Case node)throws Exception {this.node=node;node.peer.host.plan.extra=this;}
         private void reply(CdpBindingProbe.Wire wire,JSONObject request,JSONObject value,boolean error)throws Exception {
             JSONObject packet=new JSONObject().put("id",request.getInt("id")).put(error?"error":"result",value);
             if(request.has("sessionId"))packet.put("sessionId",request.getString("sessionId"));wire.queue(packet);
@@ -42,7 +44,8 @@ public final class CdpFileClearProbe {
                 clears++;check(params.length()==2&&params.getJSONArray("files").length()==0);
                 CdpFileInputProbe.ObjectRef object=node.objects.get(params.getString("objectId"));
                 check(object!=null&&object.context!=null&&Objects.equals(object.source,source)&&object.context.frame.equals(node.raw));
-                check(node.getters==clears&&node.helpers==clears&&node.describes==clears&&node.proofs==clears);
+                check(inspected.contains(object.group)&&described.contains(object.group)&&proven.contains(object.group)&&clearedGroups.add(object.group));
+                if(onClear!=null)onClear.run();
                 if(failure.equals("native_error")){reply(wire,request,new JSONObject().put("code",-32000).put("message","private native clear failure"),true);return true;}
                 if(failure.equals("native_navigate"))navigate(wire,request);
                 if(failure.equals("native_timeout"))node.peer.host.clockOffset.addAndGet(20000);
@@ -50,10 +53,11 @@ public final class CdpFileClearProbe {
                 reply(wire,request,failure.equals("native_reply")?new JSONObject().put("unexpected",true):new JSONObject(),false);return true;
             }
             if(method.equals("Runtime.callFunctionOn")&&params.optString("functionDeclaration").equals(MdoBrowserCdpFileInput.CLEAR_STATUS)){
-                verified++;check(clears==verified&&params.getBoolean("returnByValue")&&!params.getBoolean("throwOnSideEffect")&&params.getBoolean("silent")&&!params.getBoolean("awaitPromise"));
+                verified++;check(verified<=clears&&params.getBoolean("returnByValue")&&!params.getBoolean("throwOnSideEffect")&&params.getBoolean("silent")&&!params.getBoolean("awaitPromise"));
                 check(!params.has("objectId")&&!params.has("executionContextId")&&!params.has("contextId"));
                 JSONArray args=params.getJSONArray("arguments");CdpFileInputProbe.ObjectRef object=node.objects.get(args.getJSONObject(0).getString("objectId"));
                 check(object!=null&&Objects.equals(object.source,source)&&object.context.unique.equals(params.getString("uniqueContextId"))&&object.group.equals(params.getString("objectGroup")));
+                check(clearedGroups.contains(object.group)&&statusGroups.add(object.group));
                 JSONObject pin=args.getJSONObject(1).getJSONObject("value");check(args.length()==2&&DOC.equals(pin.getString("document"))&&pin.getString("ref").equals("e7"));
                 JSONObject status=new JSONObject().put("ok",true).put("document",DOC).put("ref","e7").put("empty",!failure.equals("not_empty"));
                 if(failure.equals("status_ref"))status.put("ref","e8");if(failure.equals("status_document"))status.put("document","another-document");
@@ -62,6 +66,13 @@ public final class CdpFileClearProbe {
                 if(failure.equals("status_exception"))response.put("exceptionDetails",new JSONObject().put("text","private script failure"));
                 if(failure.equals("status_cancel"))node.peer.host.marker.close();
                 reply(wire,request,response,false);return true;
+            }
+            if(method.equals("DOM.describeNode")){
+                CdpFileInputProbe.ObjectRef object=node.objects.get(params.optString("objectId"));if(object!=null)described.add(object.group);
+            }
+            if(method.equals("Runtime.callFunctionOn")&&params.optString("objectGroup").startsWith("mdo-file-input-")&&!params.optString("uniqueContextId").isEmpty()){
+                if(params.optBoolean("throwOnSideEffect"))proven.add(params.getString("objectGroup"));
+                else if(params.optString("functionDeclaration").equals(MdoBrowserCdpFileInput.INFO))inspected.add(params.getString("objectGroup"));
             }
             return node.send(request,wire);
         }
@@ -132,8 +143,8 @@ public final class CdpFileClearProbe {
             int declarations=host.view.evaluations,peers=sample.node.peer.host.peers.size();
             host.dispatch(sample.request("leaf-frame"));check(host.replies.size()==1);
             JSONObject result=host.replies.get(0),detail=result.getJSONObject("error");
-            check(!result.getBoolean("ok")&&detail.getString("native_code").equals("cdp_file_clear_adapter_incomplete"));
-            check(detail.getString("code").equals("unsupported_capability")&&!detail.getBoolean("evaluation_may_have_occurred"));
+            check(!result.getBoolean("ok")&&detail.getString("native_code").equals("cdp_file_clear_requires_upload_route"));
+            check(detail.getString("code").equals("unsupported_action")&&!detail.getBoolean("evaluation_may_have_occurred"));
             check(host.view.evaluations==declarations&&sample.node.peer.host.peers.size()==peers&&sample.clears==0);
         }
     }

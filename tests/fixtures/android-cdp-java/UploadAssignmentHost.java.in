@@ -29,6 +29,9 @@ final class UploadAssignmentHost implements AutoCloseable {
     }
     static final class MdoBrowserDocument {static final int CHOOSER=1;void block(int reason,boolean value){if(reason!=CHOOSER)throw new AssertionError("Unexpected document block");}}
     static final class Manual {boolean ready=true;boolean ready(){return ready;}}
+    static final class CapturePeer {boolean busy,clean=true;boolean busy(){return busy;}boolean cleanupConfirmed(){return clean;}}
+    static final class CaptureEntry {final WebView view;final CapturePeer capture=new CapturePeer();CaptureEntry(WebView view){this.view=view;}}
+    final Map<String,CaptureEntry> captures=new HashMap<>();
     final CdpUploadProbe.Case nativePeer;final WebView view;final Page host=new Page();final Manual manualChooser=new Manual();final Object activity=new Object();
     final MdoBrowserCdpWorker cdpWorker;final MdoBrowserCdpRegistry<WebView> cdpViews;
     final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();final MdoBrowserLifecycle<WebView> views;
@@ -75,7 +78,10 @@ final class UploadAssignmentHost implements AutoCloseable {
     }
     JSONObject call(JSONObject request)throws Exception {String id=dispatch(request);until(()->replies.containsKey(id));return replies.get(id);}
     void bind()throws Exception {
-        JSONObject result=call(new JSONObject().put("command","frames").put("agent",true).put("action","list"));if(!result.getBoolean("ok"))throw new AssertionError("Original host binding unavailable: "+result);
+        JSONObject result=call(new JSONObject().put("command","frames").put("agent",true).put("action","list"));if(!result.getBoolean("ok")){
+            Throwable cause=null;for(CdpBindingProbe.Factory peer:nativePeer.peer.peer.host.peers)if(peer.dispatchDefect!=null)cause=peer.dispatchDefect;
+            throw new AssertionError("Original host binding unavailable: "+result,cause);
+        }
         AtomicReference<Throwable> failure=new AtomicReference<>();AtomicReference<Boolean> done=new AtomicReference<>();
         cdpWorker.submitExisting(cdpViews.existing("tab",view,views.epoch("tab",view),channel.current()),12000,false,(binding,deadline)->{
             try{MdoBrowserCdpFrames graph=binding.frames();JSONArray rows=graph.inventory(deadline).getJSONArray("frames");
@@ -115,4 +121,5 @@ final class UploadAssignmentHost implements AutoCloseable {
 @@ROUTER@@
 @@UPLOAD@@
 @@ASSIGNMENT@@
+@@CAPTURE_FENCE@@
 }

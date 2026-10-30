@@ -41,6 +41,25 @@ class UploadTests(unittest.TestCase):
         expected=next(row for row in json.loads((dev.ROOT/'contracts.json').read_text(encoding='utf-8'))['services'] if row['id']=='browseruse.upload')
         self.assertEqual(dev.call('sdk.describe',{'id':'browseruse.upload'})['input_schema'],expected['input'])
 
+    def test_android_style_clear_receipt_survives_the_shared_c_result_without_requeueing(self):
+        client='upload-clear-shared-client';dev.call('client.hello',{'client':client,'context':{}})
+        browser=dev.call('browseruse.tabs',{'action':'create','client':client},self.scope)['id'];identity=None
+        try:
+            identity=dev.call('browseruse.upload',{'browser':browser,'action':'clear','document':'original-document','target':{'ref':'e7'}},self.scope)['id']
+            queued=next(row for row in dev.call('client.poll',{'client':client}) if row['id']==identity)
+            self.assertEqual(queued['params']['action'],'clear');self.assertNotIn('files',queued['params'])
+            payload={'ok':True,'accepted':True,'completed':True,'cleared':True,'verified':True,'dispatched':True,'retained':False,
+                     'ticket':'u-00000000-0000-4000-8000-000000000001','upload_key':identity,'navigation':1,
+                     'receipt_only':True,'native_job_drained':True,'cleanup_confirmed':True,'input_method':'native_file_clear'}
+            dev.call('client.ack',{'client':client,'id':identity,'success':True,'result':payload})
+            for _ in range(2):
+                result=dev.call('browseruse.result',{'id':identity},self.scope)
+                self.assertEqual(result['state'],'succeeded');self.assertEqual(result['result'],payload)
+            self.assertFalse(any(row['id']==identity for row in dev.call('client.poll',{'client':client})))
+        finally:
+            if identity:dev.call('browseruse.result',{'id':identity,'release':True},self.scope)
+            dev.call('browseruse.tabs',{'action':'close','browser':browser},self.scope)
+
     def test_files_are_queued_in_the_original_scope_without_being_read(self):
         client='upload-shared-client';dev.call('client.hello',{'client':client,'context':{}})
         browser=dev.call('browseruse.tabs',{'action':'create','client':client},self.scope)['id']

@@ -1630,7 +1630,7 @@ world. The new classifier leaves those routes available, subject to their
 existing scope, capability, permission and cleanup rules. It grants no right to
 cancel or release another caller's record.
 
-## Android native clear preparation (E76a)
+## Android native clear adapter (E76a/E76b)
 
 The private immutable `file_clear` worker operation accepts the existing exact
 frame/document/ref chain, not a file list or caller-picked protocol arguments.
@@ -1640,8 +1640,28 @@ the original connected file input is empty through the platform getter in its
 original unique world. Navigation, scope loss, malformed results and cleanup
 failure cannot replay the operation or adopt a replacement target.
 
-This is a native primitive, not an enabled public clear capability. The ordinary
-Android frame router explicitly refuses it until the product mutation
-reservation/receipt/cleanup adapter is joined. No request or capability flag can
-bypass that check. `browseruse.upload` clear and global Android automation remain
-unavailable; see [current Android qualification and outstanding work](android.md).
+The existing public C/JS `browseruse.upload` clear signature is unchanged. The
+trusted UI passes its original action ID as the native `upload_key`. The dedicated
+upload route freezes the physical view/owner, original scope/channel/marker and
+target, reserves mutation until the original worker drains and saves a bounded
+historical receipt. Same-key retries read that record; different arguments
+conflict. The ordinary frame reader cannot bypass this route's reservation.
+
+Native `clear_status`/`clear_cancel` address the original key. Existing upload
+status/confirmed release use the returned ticket, including after scope loss.
+These are record operations with `receipt_only:true`, original `navigation`,
+`native_job_drained`, `cleanup_confirmed` and `retained:false`. Successful status
+queries carry saved failure separately as `assignment_error`. They neither
+replay input nor release earlier assigned files. Releasing a clear record leaves
+its no-replay tombstone; a physical browser retains at most 64 such records.
+
+Cancellation does not release a running native job's reservation early. After a
+clean cancellation, inspect afresh and use a new explicit action; the old key
+continues returning its saved failure. Failed native cleanup fences new input
+with guidance to end that browser. The actual C broker and shared JS facade
+preserve the native receipt/error fields and read no source files for clear.
+
+The source adapter is implemented, but its advertised capability still follows
+the overall Android qualification gate. It remains unavailable in the current
+APK; no request/flag enables it on an unqualified provider. See
+[current Android verification and outstanding work](android.md).

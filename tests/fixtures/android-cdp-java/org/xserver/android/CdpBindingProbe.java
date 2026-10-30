@@ -38,7 +38,7 @@ public final class CdpBindingProbe {
     static final class Factory implements MdoBrowserCdpBinding.Factory {
         interface Extra {boolean send(JSONObject request,Wire wire)throws Exception;default void closed(Wire wire){}}
         final WebView owned;final List<Wire> wires=new ArrayList<>();
-        Extra extra;
+        Extra extra;volatile AssertionError dispatchDefect;
         boolean ignoreUnique,wrongProof,cleanupFails,missingUnique,emptyFirst,loseContext,failOpen,changedLoader,unsupportedLexical;
         Factory(WebView owned){this.owned=owned;}
         public MdoBrowserCdpBinding.Peer open(String id,int timeout,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException {
@@ -108,7 +108,7 @@ public final class CdpBindingProbe {
                     }
                 } else throw new AssertionError("Unexpected protocol method; no Debugger/effect commands allowed");
                 queue(new JSONObject().put("id",sequence).put("result",reply));
-            }catch(IOException failure){throw failure;}catch(Exception failure){throw new IOException("synthetic-peer-invalid");}
+            }catch(IOException failure){throw failure;}catch(AssertionError defect){factory.dispatchDefect=defect;throw defect;}catch(Exception failure){throw new IOException("synthetic-peer-invalid");}
         }
         public byte[] receive(int timeout)throws IOException {
             if(closed.get())throw new IOException("cdp_session_closed");byte[] value=replies.pollFirst();if(value!=null)packets.add(value);

@@ -51,7 +51,7 @@
     private void executeUpload(String key,String id,WebView view,JSONObject request)throws Exception {
         String action=uploadText(request,"action");long epoch=views.epoch(key,view);
         if(!views.owns(key,view)||epoch<=0||stopped||channel.current()==null||!channel.active(channel.current(),host.getUrl()))throw new IllegalStateException("upload_owner_changed");
-        if(!Arrays.asList("status","cancel","release").contains(action)&&(browserPaused||manual.contains(key)))throw new IllegalStateException("upload_owner_changed");
+        if(!Arrays.asList("status","cancel","release","clear_status","clear_cancel").contains(action)&&(browserPaused||manual.contains(key)))throw new IllegalStateException("upload_owner_changed");
         if(uploadCommand(key,id,view,request))return;
         if(!Arrays.asList("begin","chunk","seal","status","cancel","release").contains(action))throw new UnsupportedOperationException("upload_assignment_unsupported");
         // This path receives bytes only. A source ref, frame chain, chooser or

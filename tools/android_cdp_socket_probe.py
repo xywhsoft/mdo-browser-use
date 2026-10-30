@@ -72,12 +72,14 @@ def main():
         source=source.replace(key,value)
     generated=output/'ChooserContinuationHost.java';generated.write_text(source,encoding='utf-8')
     upload_source=(ROOT/'tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in').read_text(encoding='utf-8')
+    capture_source=(ROOT/'host/android/browser-native-capture.inc.java').read_text(encoding='utf-8')
+    capture_guard=capture_source[capture_source.index('    private boolean captureMutationReady'):capture_source.index('    private CaptureEntry captureEntry')]
     upload_fences=[line for row in overlay['changes'] for line in row.get('after','').splitlines() if 'if(uploadBusy(key,web)' in line]
     if len(upload_fences)!=1:raise RuntimeError('Expected the reviewed product upload fence')
     for key,value in {'@@DOCUMENT@@':document,'@@CHOOSER@@':chooser,'@@ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
                       '@@DIALOG_GATE@@':gates[0],'@@UPLOAD_FENCE@@':upload_fences[0],
                       '@@UPLOAD@@':(ROOT/'host/android/browser-native-upload.inc.java').read_text(encoding='utf-8'),
-                      '@@ASSIGNMENT@@':(ROOT/'host/android/browser-upload-assignment.inc.java').read_text(encoding='utf-8')}.items():
+                      '@@ASSIGNMENT@@':(ROOT/'host/android/browser-upload-assignment.inc.java').read_text(encoding='utf-8'),'@@CAPTURE_FENCE@@':capture_guard}.items():
         if upload_source.count(key)!=1:raise RuntimeError('Product upload fixture marker changed')
         upload_source=upload_source.replace(key,value)
     upload_generated=output/'UploadAssignmentHost.java';upload_generated.write_text(upload_source,encoding='utf-8')
@@ -184,6 +186,11 @@ def main():
     if not upload_host.get('passed') or not upload_host.get('exact_product_fragments') or not upload_host.get('no_effect_replay') or upload_host.get('framework_verified') is not False:
         raise RuntimeError('The exact original product upload route gate did not pass')
     result['jvm_upload_host']=upload_host
+    clear_host=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpFileClearHostProbe',str(output/'clear-host-files')],cwd=ROOT,env=environment,text=True,timeout=120))
+    if not clear_host.get('passed') or not clear_host.get('exact_product_fragments') or not clear_host.get('no_effect_replay') or clear_host.get('source_files_read')!=0 or clear_host.get('framework_verified') is not False:
+        raise RuntimeError('The exact native product clear reservation/receipt gate did not pass')
+    result['jvm_clear_host']=clear_host
     lock=json.loads((ROOT/'.mdo/native-source/tools/android/toolchain.lock.json').read_text())
     clang=ROOT/'.mdo/android-client-tools/sdk/ndk'/lock['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/clang'
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
@@ -197,7 +204,7 @@ def main():
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
             'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
-            'host/android/browser-document.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
+            'host/android/browser-document.inc.java','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java',
             'host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',

@@ -70,7 +70,7 @@ final class MdoBrowserCdpFrameRequest {
     static JSONObject failure(String nativeCode,boolean effect)throws JSONException {
         if(nativeCode==null||!nativeCode.matches("cdp_[a-z_]{1,80}"))nativeCode="cdp_frame_failed";
         String code="frame_unavailable",message="The native frame operation was not confirmed";
-        if(nativeCode.equals("cdp_file_clear_adapter_incomplete")){code="unsupported_capability";message="This Android client's native file-clear product adapter is incomplete; use manual control rather than repeating this operation";}
+        if(nativeCode.equals("cdp_file_clear_requires_upload_route")){code="unsupported_action";message="Native file clearing requires the dedicated upload.clear mutation and original receipt route";}
         else if(nativeCode.contains("unsupported")){code="unsupported_capability";message="The installed provider does not support this frame operation";}
         else if(nativeCode.contains("timeout")){code="timed_out";message="The native frame operation reached its deadline";}
         else if(nativeCode.contains("cancelled")||nativeCode.contains("owner_changed")){code="operation_cancelled";message="The original browser owner changed or the operation was cancelled";}

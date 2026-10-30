@@ -129,6 +129,24 @@ test('clearing uses the pinned input without hashing or staging task files',asyn
   const result=(await f.run()).result;assert.equal(result.ok,true);assert.equal(result.cleared,true);assert.equal(result.transfer.retained,false);
   assert.equal(f.calls.length,0);assert.equal(f.native.length,0);assert.equal(clears.length,1);assert.equal(clears[0].ref,'e1');assert.equal(clears[0].upload_key,'frozen-action');assert(!('files' in clears[0]));
 });
+test('Android product clear receipts keep their original ticket, verified drain and error guidance through the shared JS service',async()=>{
+  for(const success of [true,false]){
+    const f=fixture(),identity='u-00000000-0000-4000-8000-000000000001';f.params.action='clear';delete f.params.files;
+    f.state.platform='android-webview';let sent=0;
+    f.view.execute=async(command,params)=>{
+      assert.equal(command,'upload');if(params.action==='clear_cancel')return{ok:true,cancel_requested:true};
+      assert.equal(params.action,'clear');assert.equal(params.upload_key,'frozen-action');sent++;
+      return{ok:success,accepted:success,completed:success,verified:success,cleared:success,dispatched:true,retained:false,
+        ticket:identity,native_job_drained:true,cleanup_confirmed:success,input_method:'native_file_clear',
+        ...(!success?{error:{code:'cdp_file_input_cleanup_failed',message:'End this browser before further input'}}:{})};
+    };
+    const out=(await f.run()).result;assert.equal(out.ok,success);assert.equal(sent,1);assert.equal(f.calls.length,0);
+    assert.equal(out.transfer.ticket,identity);assert.equal(out.transfer.retained,false);
+    if(success){assert(out.cleared&&out.verified&&out.native_job_drained);assert.equal(out.input_method,'native_file_clear');}
+    else{assert.equal(out.error.code,'cdp_file_input_cleanup_failed');assert.equal(out.error.effect_may_have_occurred,true);assert.match(out.error.message,/End this browser/);}
+  }
+});
+
 test('unsupported clear fails before page inspection or task file reads',async()=>{
   const f=fixture();f.params.action='clear';delete f.params.files;f.state.file_clear_capability=false;
   const result=(await f.run()).result;assert.equal(result.error.code,'unsupported_capability');assert.equal(f.calls.length,0);assert.equal(f.native.length,0);assert.equal(f.inspections,0);

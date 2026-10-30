@@ -6769,3 +6769,74 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   preserve the product adapter work in progress. The previously verified E76a
   APK is unchanged and does not yet include E76b1/b2 source fixes. Package them
   with the adapter after its final gates. Goal active, phone/provider deferred.
+
+## E76b3 — join native clear to product reservation and original receipts
+
+- Connect the E76a primitive through the existing shared upload clear payload,
+  using its original UI action `upload_key`, exact document/ref/frame chain,
+  physical view/data owner, channel and existing native marker. No caller CDP
+  selector, implicit connect, file staging/grant or new C/JS public signature.
+  Keep a single bounded 64-record key index with generated ticket lookup over
+  those same records. Released records remain no-replay tombstones. Failed
+  publication cannot leave a running operation or claim an unregistered ticket.
+- Join clear to the product `upload_busy` reservation and existing command fence.
+  Refuse existing input and busy/unclean captures using the actual production
+  capture predicate. Include the actual predicate in the product test fragment.
+  Only the dedicated upload route admits clear: the ordinary frame reader now
+  explains `file_clear_requires_upload_route`, without claiming the implemented
+  adapter itself is missing. Capability still follows the globally qualified
+  Android adapter; the actual APK remains globally unavailable.
+- Freeze target arguments and original result provenance; verify native frame /
+  frame-document/local-document/ref and final state again at completion. Same key
+  reads its pending/saved original result, changed arguments conflict and no
+  effect is replayed. Query/cancel by key or ticket, and confirmed ticket release,
+  work without new page execution/provider admission. Historical failure is
+  separate from successful record queries. Clear owns no file bytes and cannot
+  implicitly release earlier assignments. Physical view retirement removes that
+  owner's records rather than attributing late replies to a replacement view.
+- Integrate navigation/channel/takeover/background/close cancellation with the
+  original upload scope. E76b1 keeps a running native job pending until it drains;
+  only then can its result release the reservation. The original failed key stays
+  historical after a fresh observation and an explicit new clear. E76b2 gives
+  failed disposal priority even when native clear already failed, with private
+  primary cause retained. Keep that cleanup fence visible before a failed binding
+  lookup can hide its reason. Reject new input after unconfirmed cleanup.
+- Initial product log preserves the cleanup-fence ordering failure
+  (`.mdo/E76-clear-host-initial.log`). The resume check also exposed a controlled
+  peer's one-connection namespace assumption, hidden by protocol error conversion
+  (`.mdo/E76-clear-resume-diagnostic.log`). Record test-only dispatch assertions,
+  scope namespace assertions by connection and require new connections to use
+  different namespaces. Track proof/inspection/clear/status per original object
+  group, so a cancelled first clear need not have reached verification. Do not
+  weaken same-connection/original-object proof or label fixture faults as a real
+  provider cause (`.mdo/E76-clear-resume-fixed.log`).
+- Final exact JVM/JNI/transport/worker/frame/world/parent/product gate:
+  `.mdo/E76-product-native-final.log`/`.json`, core clear 307, product clear 234,
+  worker 186, file inspection 625, upload coordinator 444 and product upload 129.
+  Cover all five frame routes, repeated/pending/conflicting keys, dropped replies,
+  source changes, cancellation, clean explicit resume, native/verification/cleanup
+  faults, required confirmation and bounded records. Source-file reads/grants are
+  zero in the clear gate. ASan/UBSan and API 26 compilation pass. Framework/DOM
+  peers are controlled; provider, installed UI/URI and file-event claims stay false.
+- The existing shared JS clear path accepts the Android-style native ticket /
+  drain/result/error fields without source reads (24 focused cases). The actual
+  C UI broker preserves and rereads that result without requeueing (3 cases):
+  `.mdo/E76-clear-shared-js.log`, `.mdo/E76-clear-shared-c.log`. Full JS 331/331 in
+  19.572 s; full Python 171/173 in 71.955 s, with the two existing Windows symlink
+  privilege skips (`.mdo/E76-product-node-full.log`,
+  `.mdo/E76-product-python-full.log`).
+- Apply reviewed sources only with the single service stopped. Build the complete
+  Android development APK, reusing the verified ARM64 host and W4 Windows archive
+  (`.mdo/E76-product-android.log`). Require actual `MdoBrowser$ClearAction` and
+  BeforeClear DEX definitions, ABI/provider/manifest/alignment/v2-v3 signatures.
+  Current APK: 6,403,393 bytes, SHA-256
+  `085f53278abfb5188d60360cc3a05a42b71ef22f86968372708aef3d8949e518`.
+  Same QA package/signer/serial, unchanged paired plugin/Windows artifact, one
+  source/Home/native output; no phone install/provider update/model/external
+  page/formal data change or online release. Restore headless HTTP 200.
+- Goal active. The product clear source path is joined; qualify it on the actual
+  Android provider/main UI when the user resumes phone tests. Continue intercepted
+  chooser association and remaining directory/download/profile/activation work,
+  plus actionable Windows evidence (historical intermittent input faults remain
+  unattributed). Do not replace missing device/visual evidence with these peers,
+  enable the global gate early or repeat the unchanged desktop visual failure.

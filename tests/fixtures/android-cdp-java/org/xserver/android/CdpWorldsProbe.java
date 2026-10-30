@@ -31,6 +31,7 @@ public final class CdpWorldsProbe {
         interface Evaluation {Object value(Context context,String expression)throws Exception;}
         Evaluation evaluation;
         final Map<String,Context> contexts=new HashMap<>();final Map<String,Integer> ids=new HashMap<>();
+        final Map<CdpBindingProbe.Wire,String> namespaces=new java.util.IdentityHashMap<>();
         final ArrayDeque<JSONObject> pending=new ArrayDeque<>();String name;
         int created,createCalls,negative,proofs,evaluations;boolean seenPageCode;
         boolean wrongFrame,wrongSource,wrongName,wrongType,defaultWorld,missingUnique,wrongReply,ignoreUnique,proofException,noContext,lateContext,
@@ -60,7 +61,9 @@ public final class CdpWorldsProbe {
             if(method.equals("Page.createIsolatedWorld")){
                 createCalls++;check(Boolean.FALSE.equals(params.opt("grantUniveralAccess"))&&!params.has("grantUniversalAccess"));
                 String nextName=params.getString("worldName");check(nextName.matches("mdo\\.browser-use\\.frames\\.v1\\.[a-f0-9-]{36}\\.[a-f0-9-]{36}"));
-                String namespace=nextName.substring(0,nextName.lastIndexOf('.'));if(name==null)name=namespace;else check(name.equals(namespace));
+                String namespace=nextName.substring(0,nextName.lastIndexOf('.'));
+                String original=namespaces.get(wire);if(original==null){check(!namespaces.containsValue(namespace));namespaces.put(wire,namespace);}else check(original.equals(namespace));
+                if(name==null)name=namespace;
                 if(unsupported){error(wire,request,-32601,"unsupported fixture");return true;}
                 String frame=params.getString("frameId"),key=key(source,frame,nextName);Context context=contexts.get(key);boolean fresh=context==null;
                 if(fresh){int id=ids.containsKey(source)?ids.get(source)+1:100;ids.put(source,id);context=new Context(id,source,frame,nextName);contexts.put(key,context);created++;}
