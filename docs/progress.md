@@ -6938,3 +6938,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   activation work stay outstanding. Historical Windows intermittent input
   failures remain unattributed. Respect the user's deferred phone/current-WebView
   decision; continue feasible development without claiming all Browser Use done.
+
+## E78a — prove the original native profile before installing a document world
+
+- Check the pinned Chromium boundary revision and published Android profile
+  contract. Pin `ProfileBoundaryInterface.java` SHA/size/URL, with native
+  `getProfile`/`getName` signatures. Profile setters must run before other
+  WebView use; inspecting the previous profile first would itself lock it.
+  No AndroidX/AAR/runtime package or upstream source copy is introduced.
+- The previous adapter treated `setProfile` return as successful isolation.
+  A provider that silently retains its default profile still let the document
+  claim `profileAssigned` (`.mdo/E78-profile-red.log`). Read the association from
+  that same original native provider after its one setter invocation, then
+  require the exact requested non-default name before installing any listener,
+  script or isolated world. Manual views neither inspect nor change profiles.
+- Keep same-name requests before installation idempotent, reject another name,
+  and forbid profile changes after any native world-install attempt, including
+  failed setup. Once profile assignment is dispatched, missing/malformed/throwing
+  readback, reentrant retirement or fatal acknowledgement loss stays uncertain.
+  Installation and further profile requests are fenced without another setter.
+  `close` cannot claim that state clean; only exact original-view destruction
+  resolves it. Existing confirmed profile data is not cleared or deleted.
+- Extend the foreign-loader controlled provider to associate profiles with
+  physical view identities, not a singleton profile. Exact production world /
+  document tests pass 35 world, 85 document, 190 profile and 18 native-budget
+  checks (`.mdo/E78-profile-lifetime.log`). Cover default/mismatched/missing
+  readback, native errors and OOM, duplicates, reentrant setter/getter closure,
+  invalid/unsupported requests, separate views and preserved manual profile.
+  Java 8 compilation passes; actual Android storage/cookies/provider behavior
+  remains unqualified. E77 APK is unchanged until the next packaging gate.
+- Goal active. Next join failure teardown in the actual product create path,
+  then package the reviewed Android source. No phone/provider/online/model or
+  external page changes. Android global automation admission remains disabled.

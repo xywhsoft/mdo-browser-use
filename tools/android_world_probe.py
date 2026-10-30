@@ -21,11 +21,13 @@ public interface WebViewProviderFactoryBoundaryInterface {String[] getSupportedF
 'org/chromium/support_lib_boundary/WebViewProviderBoundaryInterface.java':'''package org.chromium.support_lib_boundary;
 import java.lang.reflect.InvocationHandler;
 public interface WebViewProviderBoundaryInterface {
- void setProfile(String name);int getJavaScriptWorld(String name);
+ void setProfile(String name);InvocationHandler getProfile();int getJavaScriptWorld(String name);
  void addWebMessageListener(String name,String[] origins,InvocationHandler listener,String world);
  InvocationHandler addJavaScriptOnEvent(String script,String[] origins,int event,String world);
  void removeWebMessageListener(String name,String world);
 }''',
+'org/chromium/support_lib_boundary/ProfileBoundaryInterface.java':'''package org.chromium.support_lib_boundary;
+public interface ProfileBoundaryInterface {String getName();}''',
 'org/chromium/support_lib_boundary/IsomorphicObjectBoundaryInterface.java':'''package org.chromium.support_lib_boundary;
 import java.util.concurrent.Callable;public interface IsomorphicObjectBoundaryInterface {Object getOrCreatePeer(Callable<Object> create);}''',
 'org/chromium/support_lib_boundary/JsReplyProxyBoundaryInterface.java':'''package org.chromium.support_lib_boundary;
@@ -50,23 +52,45 @@ import android.webkit.WebView;import android.net.Uri;import org.chromium.support
 public final class SupportLibReflectionUtil {
  public static String mode="success";public static String[] features={"JS_INJECTION_IN_FRAME_AND_WORLD","MULTI_PROFILE"};
  public static final List<String> calls=new ArrayList<>();private static InvocationHandler listener;
+ private static final Map<Object,String> profileNames=new IdentityHashMap<>();private static Runnable profileHook;
  private static final List<Reply> replies=new ArrayList<>();private static final List<InvocationHandler> delayed=new ArrayList<>();
  public static Object newView(){return new WebView();}public static void mode(String value){mode=value;}
+ public static String profileName(Object view){return profileNames.getOrDefault(view,"Default");}
+ public static void profileSeed(Object view,String name){profileNames.put(view,name);}
+ public static void profileHook(Runnable hook){profileHook=hook;}
  public static void features(String[] value){features=value;}public static int calls(String prefix){int n=0;for(String value:calls)if(value.startsWith(prefix))n++;return n;}
  public static InvocationHandler createWebViewProviderFactory(){return(p,m,a)->{
   foreign(m);if(m.getName().equals("getSupportedFeatures"))return features;
-  if(m.getName().equals("createWebView")){calls.add("create");return provider;}throw new UnsupportedOperationException();};}
+  if(m.getName().equals("createWebView")){calls.add("create");return provider(a[0]);}throw new UnsupportedOperationException();};}
  private static void foreign(Method method){if(method.getDeclaringClass().getClassLoader()!=SupportLibReflectionUtil.class.getClassLoader())throw new AssertionError("Wrong boundary class loader");}
- private static final InvocationHandler provider=(p,m,a)->{foreign(m);calls.add(m.getName());
+ private static InvocationHandler provider(Object view){return(p,m,a)->{foreign(m);calls.add(m.getName());
   switch(m.getName()){
-   case "setProfile":if(!a[0].equals("qa.content"))throw new AssertionError();return null;
+   case "setProfile":
+    if(mode.equals("profile_set_before_throw"))throw new IllegalStateException("private profile setter detail");
+    if(!mode.equals("profile_ignore"))profileNames.put(view,(String)a[0]);
+    if(mode.equals("profile_set_after_throw"))throw new IllegalStateException("private profile acknowledgement detail");
+    if(mode.equals("profile_set_oom"))throw new OutOfMemoryError("synthetic profile allocation failure");
+    if(!mode.equals("profile_get_reentrant")){Runnable hook=profileHook;profileHook=null;if(hook!=null)hook.run();}return null;
+   case "getProfile":
+    if(mode.equals("profile_get_throw"))throw new IllegalStateException("private profile getter detail");
+    if(mode.equals("profile_no_handler"))return "not a profile";
+    if(mode.equals("profile_null"))return null;
+    if(mode.equals("profile_get_reentrant")){Runnable getHook=profileHook;profileHook=null;if(getHook!=null)getHook.run();}
+    return(InvocationHandler)(q,n,b)->{
+     foreign(n);calls.add("profile:"+n.getName());
+     if(!n.getName().equals("getName"))throw new UnsupportedOperationException();
+     if(mode.equals("profile_name_throw"))throw new IllegalStateException("private profile name detail");
+     if(mode.equals("profile_name_null"))return null;
+     if(mode.equals("profile_name_number"))return 17;
+     return mode.equals("profile_mismatch")?"qa.other":profileName(view);
+    };
    case "getJavaScriptWorld":if(!a[0].equals("mdo.browser-use.v1"))throw new AssertionError();return mode.equals("world_zero")?0:7;
    case "addWebMessageListener":if(!a[3].equals("mdo.browser-use.v1"))throw new AssertionError();listener=(InvocationHandler)a[2];return null;
    case "addJavaScriptOnEvent":if(!a[3].equals("mdo.browser-use.v1")||!a[2].equals(0))throw new AssertionError();
     if(mode.equals("install_fail"))throw new RuntimeException("Synthetic registration acknowledgement loss");
     return(InvocationHandler)(q,n,b)->{foreign(n);calls.add("removeScript");if(mode.equals("cleanup_fail"))throw new RuntimeException();return null;};
    case "removeWebMessageListener":if(!a[1].equals("mdo.browser-use.v1"))throw new AssertionError();calls.add("removeListener");return null;
-  }throw new UnsupportedOperationException();};
+  }throw new UnsupportedOperationException();};}
  private static class Reply implements InvocationHandler {
   Object peer;
   public Object invoke(Object p,Method m,Object[] a)throws Throwable{foreign(m);calls.add("peer:"+m.getName());
@@ -175,7 +199,7 @@ def main():
     for name,text in SOURCES.items():
         target=source/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text,encoding='utf-8',newline='\n');paths.append(target)
     production=[dev.ROOT/'host/android/MdoBrowserWorld.java',dev.ROOT/'host/android/MdoBrowserDocument.java']
-    paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java'])
+    paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java',dev.ROOT/'tests/fixtures/AndroidProfileContractTest.java'])
     def linux(path):
         path=path.resolve().as_posix();return '/mnt/'+path[0].lower()+path[2:]
     result=dev.ENV/'android-world-result.json';result.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
@@ -185,6 +209,10 @@ def main():
     report=json.loads(run.stdout.strip());report['scope']='protocol-lifetime-contract-only';report['apk_built']=False;report['production_java_target']=8
     document=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidDocumentContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['document_checks']=json.loads(document.stdout.strip())['checks'];report['document_framework_verified']=False
+    profile=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidProfileContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['profile']=json.loads(profile.stdout.strip())
+    if not report['profile'].get('passed') or report['profile'].get('framework_verified') is not False:
+        raise RuntimeError('Original-view profile assignment contract did not pass')
     budget=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidNativeBudgetContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['native_budget']=json.loads(budget.stdout.strip())
     if not report['native_budget']['passed']:

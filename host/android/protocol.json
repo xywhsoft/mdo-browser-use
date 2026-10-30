@@ -1,6 +1,22 @@
 {
   "commit": "fad97d9c258748dffadb21fcd88fb68241a71e5c",
+  "profile_contract": {
+    "checked_date": "2026-10-30",
+    "api": "https://developer.android.com/reference/androidx/webkit/WebViewCompat",
+    "default_profile": "Default",
+    "default_profile_source": "https://developer.android.com/reference/androidx/webkit/Profile",
+    "set_before_other_webview_use": true,
+    "read_back_original_view_profile_name": true,
+    "uncertain_assignment_requires_original_view_destruction": true,
+    "installed_provider_qualified": false
+  },
   "files": [
+    {
+      "name": "ProfileBoundaryInterface.java",
+      "sha256": "ccb7410030ebdde5270443a8d27897c1e0a2311d78c8abb61935c51775125a35",
+      "url": "https://chromium.googlesource.com/chromium/src/android_webview/support_library/boundary_interfaces/+/fad97d9c258748dffadb21fcd88fb68241a71e5c/src/org/chromium/support_lib_boundary/ProfileBoundaryInterface.java?format=TEXT",
+      "bytes": 4424
+    },
     {
       "name": "WebViewProviderBoundaryInterface.java",
       "sha256": "9b884e0a89e896adee6fb677d0996689ca09a9bf670855778dc46bbd8afe7e39",

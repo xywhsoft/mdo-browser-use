@@ -47,6 +47,7 @@ final class MdoBrowserWorld implements AutoCloseable {
     private final Set<Pending> pending=new HashSet<>();private final Set<NativeCall> outstanding=new HashSet<>();
     private final boolean profiles;private final Budget budget;
     private InvocationHandler script;private Peer current;private boolean listening,closed,scriptUncertain;
+    private boolean profileAttempted,profileUncertain,installAttempted;private String assignedProfile;
 
     static Features inspect(ClassLoader loader) throws Failure {
         if(loader==null)throw new Failure("world_provider_unavailable");
@@ -98,14 +99,30 @@ final class MdoBrowserWorld implements AutoCloseable {
     }
     boolean supportsProfile(){return profiles;}
     void profile(String name) throws Failure {
-        thread();if(closed||listening||script!=null)throw new Failure("world_profile_order");
+        thread();if(profileUncertain)throw new Failure("browser_profile_unconfirmed");
+        if(closed||installAttempted||profileAttempted&&!java.util.Objects.equals(name,assignedProfile))throw new Failure("world_profile_order");
         if(!profiles)throw new Failure("browser_profile_unsupported");
-        if(name==null||!name.matches("[A-Za-z0-9._-]{1,80}"))throw new Failure("world_profile_invalid");
-        invoke(loader,provider,"WebViewProviderBoundaryInterface","setProfile",name);
+        if(name==null||name.equals("Default")||!name.matches("[A-Za-z0-9._-]{1,80}"))throw new Failure("world_profile_invalid");
+        if(profileAttempted)return;
+        // setProfile must precede all other WebView use. Reading the previous
+        // profile first would itself lock that profile on Android. Admit only
+        // one mutation, then prove the exact native view's returned association.
+        profileAttempted=true;profileUncertain=true;
+        try{
+            invoke(loader,provider,"WebViewProviderBoundaryInterface","setProfile",name);
+            if(closed)throw new Failure("browser_profile_unconfirmed");
+            Object profile=invoke(loader,provider,"WebViewProviderBoundaryInterface","getProfile");
+            if(closed||!(profile instanceof InvocationHandler))throw new Failure("browser_profile_unconfirmed");
+            Object actual=invoke(loader,(InvocationHandler)profile,"ProfileBoundaryInterface","getName");
+            if(closed||!name.equals(actual))throw new Failure("browser_profile_unconfirmed");
+            assignedProfile=name;profileUncertain=false;
+        }catch(Failure failure){throw new Failure("browser_profile_unconfirmed");}
     }
     void install(String bootstrap) throws Failure {
-        thread();if(closed||listening||script!=null)throw new Failure("world_install_order");
+        thread();if(profileUncertain)throw new Failure("browser_profile_unconfirmed");
+        if(closed||installAttempted)throw new Failure("world_install_order");
         if(!bounded(bootstrap,131072))throw new Failure("world_script_limit");
+        installAttempted=true;
         Object world=invoke(loader,provider,"WebViewProviderBoundaryInterface","getJavaScriptWorld",WORLD);
         if(!(world instanceof Integer)||((Integer)world)<=0)throw new Failure("isolated_world_unsupported");
         InvocationHandler listener=(proxy,method,args)->{
@@ -216,8 +233,8 @@ final class MdoBrowserWorld implements AutoCloseable {
     }
     void viewDestroyed(Object original){
         thread();if(!closed||original!=view)throw new IllegalStateException("Confirm only the exact closed native view");
-        script=null;scriptUncertain=false;listening=false;
+        script=null;scriptUncertain=false;listening=false;profileUncertain=false;
         for(NativeCall call:new ArrayList<>(outstanding))call.release();
     }
-    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
+    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&!profileUncertain&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
 }
