@@ -209,7 +209,7 @@ static void* Serve(void* Data)
             if ( Fixture->Mode==37 ) goto BodyDone;
             Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"AAH/gA==\",\"base64Encoded\":true,\"eof\":false}}");
             Fixture->Frames+=ClientBodyCommand(Fd,4,"IO.read","{\"handle\":\"stream-7.0\",\"size\":60}");
-            Packet(Fd,"{\"id\":4,\"result\":{\"data\":\"\\u4e2d\",\"eof\":true}}");
+            Packet(Fd,"{\"id\":4,\"result\":{\"data\":\"5Lit\",\"base64Encoded\":true,\"eof\":true}}");
         }
         int CloseId=Fixture->Mode==36?3:5,AbortId=CloseId+1;
         Fixture->Frames+=ClientBodyCommand(Fd,CloseId,"IO.close","{\"handle\":\"stream-7.0\"}");

@@ -7476,3 +7476,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   qualification remain open. Require the three actual body DEX definitions in
   the full development APK next. No new runtime dependency, app/Home/source copy,
   phone/provider update, formal data edit, external page/model action or release.
+
+## E84b — prevent native text serialization loss from becoming file success
+
+- Source inspection of the exact pinned Chromium Fetch/stream-pipe/String8
+  serializer found that byte-sized text chunks can split UTF-8 and the JSON
+  serializer can skip those bytes. Record primary-source hashes; reconstruct
+  the possible original wire results for a split multibyte response. Do not
+  claim an installed-provider failure reproduction or an upstream engine fix.
+- Preserve a constant stream encoding. Non-base64 data now needs an original
+  untransformed length proof and exact complete UTF-8 byte equality. Absent/
+  content-coded/transfer-coded length proofs are unavailable; duplicate coding
+  and non-ASCII identity spellings cannot grant proof. Lost bytes fail with a
+  bounded canonical reason and original cleanup ACKs, rather than an accepted
+  truncated file. No refetch/replay is added. General lossless unknown-length or
+  transformed text still needs an alternate proven transport/platform downgrade.
+- Final 306 metadata and 670 body checks pass, with three real JNI/kernel body
+  sessions; full original transport/control/cooperative/binding/frame/world/input/
+  chooser/upload/clear and ASan/UBSan/API 26 gates pass
+  `.mdo/E84-text-native-final.log` / `.mdo/E84-text-current.json`, with all recorded
+  source hashes matching. Seven current APK/DEX contracts pass
+  `.mdo/E84-text-apk-contract.log`. E84a's full Python gate remains evidence for
+  unchanged Python/public inputs; new Java behavior is covered by the current
+  full native gate. Shared JS is unchanged.
+- Goal active. Package this guarded native body implementation next; product
+  cache/hash/storage, nonblocking body servicing/idle expiry, permission/list/
+  accept/cancel/save and provider/main-UI qualification remain unfinished. No
+  phone/provider update, formal data edit, extra application/Home/source copy,
+  actual model/external page action, new runtime dependency or online release.

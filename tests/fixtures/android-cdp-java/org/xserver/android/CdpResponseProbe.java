@@ -79,7 +79,15 @@ public final class CdpResponseProbe {
         // A detached result keeps no JSON/header/name/value, even after input mutation.
         MdoBrowserCdpResponse frozen=MdoBrowserCdpResponse.inspect(candidate);candidate.getJSONArray("responseHeaders").put(row("Content-Disposition","inline"));
         check(frozen.kind.equals("candidate")&&frozen.declaredLength==123);
-        for(java.lang.reflect.Field field:MdoBrowserCdpResponse.class.getDeclaredFields())check(java.lang.reflect.Modifier.isFinal(field.getModifiers())&&(field.getType()==String.class||field.getType()==int.class||field.getType()==long.class));
+        check(frozen.exactTextLength);
+        for(String coding:new String[]{"gzip","br","deflate","\u0130dentity"}){
+            JSONObject e=event(200,"GET","Document",new JSONArray().put(row("Content-Disposition","attachment")).put(row("Content-Length","10")).put(row("Content-Encoding",coding)));
+            check(!MdoBrowserCdpResponse.inspect(e).exactTextLength);
+        }
+        check(MdoBrowserCdpResponse.inspect(event(200,"GET","Document",new JSONArray().put(row("Content-Disposition","attachment")).put(row("Content-Length","0")).put(row("Content-Encoding","IDENTITY")))).exactTextLength);
+        invalid(event(200,"GET","Document",new JSONArray().put(row("Content-Encoding","identity")).put(row("Content-Encoding","identity"))));
+        check(!MdoBrowserCdpResponse.inspect(event(200,"GET","Document",new JSONArray().put(row("Content-Disposition","attachment")).put(row("Content-Length","10")).put(row("Transfer-Encoding","chunked")))).exactTextLength);
+        for(java.lang.reflect.Field field:MdoBrowserCdpResponse.class.getDeclaredFields())check(java.lang.reflect.Modifier.isFinal(field.getModifiers())&&(field.getType()==String.class||field.getType()==int.class||field.getType()==long.class||field.getType()==boolean.class));
     }
     private static final class Wire implements MdoBrowserCdpSession.Wire{
         final ArrayDeque<byte[]> incoming=new ArrayDeque<>();final List<byte[]> touched=new ArrayList<>();final List<JSONObject> sent=new ArrayList<>();int closed;

@@ -4,6 +4,16 @@
   "checked_date": "2026-10-30",
   "sources": [
     {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/content/browser/devtools/devtools_stream_pipe.cc",
+      "decoded_sha256": "a2925203fa911c92b9c4b39acc9a1bd2a3796aa9c609f098e3cdb58f2da7ab9e",
+      "facts": ["Stream chunks are bounded by byte count without preserving UTF-8 character boundaries", "The fixed stream binary flag controls base64 serialization"]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/third_party/inspector_protocol/crdtp/json.cc",
+      "decoded_sha256": "4d304760229c47f75b380dda17323f4cfa5a4c08ddb4a6294050988f47675a66",
+      "facts": ["JSON String8 conversion skips invalid or truncated UTF-8 sequences; a valid JSON string does not prove original text-byte integrity"]
+    },
+    {
       "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/IO.pdl",
       "facts": ["IO.read returns bounded data and an EOF flag with optional base64 encoding", "Omitting offset performs sequential reads", "IO.close discards temporary stream storage"]
     },
@@ -299,7 +309,7 @@
   "original_response_metadata": {
     "state": "private_immutable_original_event_snapshot_no_body_retention",
     "scope": "read_only_inside_exact_original_paused_event_no_supplied_selector",
-    "retained_fields": ["bounded_kind", "bounded_reason", "http_status", "declared_content_length"],
+    "retained_fields": ["bounded_kind", "bounded_reason", "http_status", "declared_content_length", "untransformed_text_length_proof"],
     "sensitive_request_headers_filename_url_retained": false,
     "header_limit": 128,
     "single_header_value_code_units": 8192,
@@ -329,6 +339,9 @@
     "cancel": "atomic_revoke_then_original_worker_cleanup_not_an_immediate_success",
     "lost_read_or_cleanup_reply": "retire_connection_preserve_uncertainty_never_replay",
     "data_validation": "bounded_canonical_base64_or_valid_UTF8_and_strict_EOF_fields",
+    "stream_encoding": "constant_per_stream_base64_flag_required",
+    "nonbinary_text_policy": "known_untransformed_length_and_exact_EOF_byte_match_required; potential_native_serialization_loss_is_not_accepted_or_refetched",
+    "unknown_or_compressed_nonbinary_text_supported": false,
     "offset_or_url_refetch": false,
     "private_cache_and_product_accept_cancel_integrated": false,
     "automatic_idle_expiry_pump_integrated": false,

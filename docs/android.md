@@ -3060,7 +3060,8 @@ The private dispatcher freezes a bounded immutable classification before an
 original Fetch event reaches its native callback. The physical-network facade
 can read that snapshot only inside the original event; supplied request IDs,
 later JSON edits and retained metadata cannot select/claim a request. The result
-contains only kind, canonical reason, HTTP status and declared content length.
+contains only kind, canonical reason, HTTP status, declared content length and
+E84b's derived untransformed-text-length proof flag.
 No URL, method/body, header list, cookie, credential or filename is retained.
 
 Explicit attachments and three known binary media types in successful full-body
@@ -3119,3 +3120,31 @@ lost read/cleanup ACKs. These do not verify installed-provider behavior. The
 product still continues original responses: private cache/storage/hash checks,
 automatic idle expiry/service pumping, permission/accept/cancel/list/save joins
 and device qualification remain unfinished; overall automation stays disabled.
+
+## Detect native text-stream byte loss before success (E84b)
+
+Pinned Chromium's Fetch handler chooses stream base64 mode from MIME type.
+Its [stream pipe](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/content/browser/devtools/devtools_stream_pipe.cc)
+cuts text by byte count. Its [JSON String8 writer](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/third_party/inspector_protocol/crdtp/json.cc)
+can skip truncated/invalid UTF-8, so valid returned JSON is insufficient to prove
+that the original text bytes survived. Their exact reference hashes are pinned
+in cdp-protocol.json. This is source evidence and a controlled wire-boundary
+reconstruction, not a reproduction on the deferred installed Android provider.
+
+Keep a constant base64 flag for an original stream. Base64 chunks remain exact
+binary data. Non-binary text additionally requires a known Content-Length with
+no content transformation or transfer coding, and its complete UTF-8 byte count
+must match that original length at EOF. Only ASCII identity coding is admitted
+as an explicit identity declaration. A split multibyte character lost by native
+serialization now produces a length-mismatch failure; unknown/compressed text
+without a usable integrity proof is explicitly unsupported. Both take the
+original bounded stream/request cleanup path and never return a successful file
+or issue another request. General lossless unknown-length/transformed text needs
+a different proven original-body transport or explicit platform degradation;
+this guard does not reconstruct bytes the provider has already discarded.
+
+The final exact metadata/body gates pass 306/670 assertions, including three real
+local kernel sessions. Controlled text cases include correct Unicode, the split
+prefix/suffix loss, absent length, content coding and changed per-stream encoding.
+Existing native/frame/world/upload/clear gates remain green. Device/provider and
+actual download cache/product UI qualification remain open.

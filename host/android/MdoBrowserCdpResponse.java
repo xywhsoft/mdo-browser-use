@@ -12,12 +12,12 @@ import org.json.JSONObject;
  * Only explicit attachments/known binary Document responses are candidates;
  * native download-intent/provider qualification remains a separate gate. */
 final class MdoBrowserCdpResponse {
-    final String kind,reason;final int status;final long declaredLength;
-    private MdoBrowserCdpResponse(String kind,String reason,int status,long length){
-        this.kind=kind;this.reason=reason;this.status=status;declaredLength=length;
+    final String kind,reason;final int status;final long declaredLength;final boolean exactTextLength;
+    private MdoBrowserCdpResponse(String kind,String reason,int status,long length,boolean exactTextLength){
+        this.kind=kind;this.reason=reason;this.status=status;declaredLength=length;this.exactTextLength=exactTextLength;
     }
-    private static MdoBrowserCdpResponse pass(String reason,int status){return new MdoBrowserCdpResponse("pass",reason,status,-1);}
-    private static MdoBrowserCdpResponse invalid(){return new MdoBrowserCdpResponse("invalid","response_metadata_invalid",0,-1);}
+    private static MdoBrowserCdpResponse pass(String reason,int status){return new MdoBrowserCdpResponse("pass",reason,status,-1,false);}
+    private static MdoBrowserCdpResponse invalid(){return new MdoBrowserCdpResponse("invalid","response_metadata_invalid",0,-1,false);}
     private static boolean token(String value){
         if(value.isEmpty())return false;
         for(int i=0;i<value.length();i++){char c=value.charAt(i);
@@ -81,7 +81,8 @@ final class MdoBrowserCdpResponse {
         Object method=((JSONObject)request).opt("method");if(!(method instanceof String)||((String)method).length()>32||!token((String)method))return invalid();
         if("HEAD".equalsIgnoreCase((String)method)||"CONNECT".equalsIgnoreCase((String)method))return pass("response_no_full_body",status);
         Object headers=event.opt("responseHeaders");if(!(headers instanceof JSONArray)||((JSONArray)headers).length()>128)return invalid();
-        JSONArray entries=(JSONArray)headers;String disposition=null,type=null;long declared=-1;boolean hasLength=false;int total=0;
+        JSONArray entries=(JSONArray)headers;String disposition=null,type=null;long declared=-1;
+        boolean hasLength=false,hasEncoding=false,identityEncoding=true,transferEncoded=false;int total=0;
         for(int i=0;i<entries.length();i++){
             Object row=entries.opt(i);if(!(row instanceof JSONObject))return invalid();
             Object name=((JSONObject)row).opt("name"),value=((JSONObject)row).opt("value");
@@ -91,10 +92,12 @@ final class MdoBrowserCdpResponse {
             if(n.equalsIgnoreCase("Content-Disposition")){if(disposition!=null)return invalid();disposition=parameterized(v,false);if(disposition==null)return invalid();}
             else if(n.equalsIgnoreCase("Content-Type")){if(type!=null)return invalid();type=parameterized(v,true);if(type==null)return invalid();}
             else if(n.equalsIgnoreCase("Content-Length")){if(hasLength)return invalid();hasLength=true;declared=length(v);if(declared<0)return invalid();}
+            else if(n.equalsIgnoreCase("Content-Encoding")){if(hasEncoding)return invalid();hasEncoding=true;String coding=trim(v);identityEncoding=token(coding)&&coding.equalsIgnoreCase("identity");}
+            else if(n.equalsIgnoreCase("Transfer-Encoding"))transferEncoded=true;
         }
         boolean attachment="attachment".equals(disposition);
         boolean binary="application/octet-stream".equals(type)||"application/x-download".equals(type)||"application/force-download".equals(type);
-        if(attachment||binary)return new MdoBrowserCdpResponse("candidate",attachment?"attachment":"binary_document",status,declared);
+        if(attachment||binary)return new MdoBrowserCdpResponse("candidate",attachment?"attachment":"binary_document",status,declared,hasLength&&identityEncoding&&!transferEncoded);
         return pass("document",status);
     }
 }

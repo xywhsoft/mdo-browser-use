@@ -62,6 +62,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         private final AtomicReference<BodyResult> outcome=new AtomicReference<>();
         private final AtomicBoolean cancelled=new AtomicBoolean();
         private String stream;private long received;private boolean eof,streamClosed,requestAborted,claimMayHaveOccurred;
+        private boolean encodingKnown,binary;
         private Body(MdoBrowserCdpSession owner,PausedEvent original,long born,long limit,int timeout){
             this.owner=owner;this.original=original;this.born=born;this.limit=limit;this.timeout=timeout;
         }
@@ -365,9 +366,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             int budget=bodyRemaining(body,timeoutMs);int size=(int)Math.min(65536,Math.max(1,body.limit-body.received));
             JSONObject params=new JSONObject().put("handle",body.stream).put("size",size);
             JSONObject reply=call("IO.read",params,body.original.session,budget,true);
-            bodyGuard(body);bodyRemaining(body,10);data=bodyData(reply,size);
+            bodyGuard(body);bodyRemaining(body,10);
+            if(body.cancelled.get()){cleanupBody(body,5000,false,"cdp_body_cancelled");throw failure("cdp_body_cancelled",true);}
+            data=bodyData(reply,size);boolean binary=Boolean.TRUE.equals(reply.opt("base64Encoded"));
+            if(body.encodingKnown&&body.binary!=binary)throw new IOException("cdp_body_encoding_changed");
+            body.encodingKnown=true;body.binary=binary;
+            if(!binary&&!body.original.response.exactTextLength)throw new IOException("cdp_body_text_integrity_unavailable");
             if(data.length>body.limit-body.received)throw new IOException("cdp_body_limit");
             synchronized(controlGate){bodyGuard(body);body.received+=data.length;body.eof=reply.optBoolean("eof",false);}
+            if(body.eof&&!binary&&body.received!=body.original.response.declaredLength)throw new IOException("cdp_body_length_mismatch");
             BodyChunk chunk=new BodyChunk(data,body.eof);
             if(body.cancelled.get()){cleanupBody(body,5000,false,"cdp_body_cancelled");throw failure("cdp_body_cancelled",true);}
             if(body.eof){cleanupBody(body,5000,true,null);if(body.outcome.get()==null||!body.outcome.get().ok)throw failure("cdp_body_cleanup_unconfirmed",true);}
@@ -379,7 +386,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(body.outcome.get()==null){if("cdp_body_timeout".equals(failure.getMessage())||"cdp_body_cancelled".equals(failure.getMessage()))try{cleanupBody(body,5000,false,failure.getMessage());}catch(IOException|RuntimeException|Error ignored){}
                 if(body.outcome.get()==null){finishBody(body,false,failure.getMessage());close();}}
             throw failure;
-        }catch(IOException failure){finishBody(body,false,"cdp_body_data_invalid".equals(failure.getMessage())?"cdp_body_data_invalid":"cdp_body_limit");close();throw failure;}
+        }catch(IOException failure){
+            String code=failure.getMessage();
+            if("cdp_body_text_integrity_unavailable".equals(code)||"cdp_body_length_mismatch".equals(code)){
+                cleanupBody(body,5000,false,code);throw failure(code,true);
+            }
+            finishBody(body,false,"cdp_body_encoding_changed".equals(code)?code:"cdp_body_limit".equals(code)?code:"cdp_body_data_invalid");close();throw failure;
+        }
         catch(org.json.JSONException|RuntimeException|Error failure){finishBody(body,false,"cdp_body_read_failed");close();throw failure("cdp_body_read_failed",true);}
         finally{if(data!=null)Arrays.fill(data,(byte)0);}
     }
