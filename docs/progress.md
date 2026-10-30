@@ -7758,3 +7758,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   main-UI qualification remain open. Phone/provider update stay deferred. No
   install, formal-data edit, model/external-page action, app/Home/source copy or
   publication.
+
+
+## E88b — package deferred original response acceptance
+
+- Apply all 116 reviewed files with the development service stopped and build
+  the full QA Activity/service/lite-tool APK. Reuse the unchanged verified
+  ARM64 engine and current exercised app archive/paired plugin. Verify actual
+  Offer/OfferDecision/OfferResult DEX definitions, six JNI entries, private
+  provider, source/native/app payloads, 16 KiB alignment and v2-v3 signatures
+  (`.mdo/E88-android-build.log`). Preserve QA identity/signer/serial.
+- APK 6,436,161 bytes, SHA-256
+  `77939136f0ba98ebe6446e6e9aa19b969ce8cdfe72c521bd2f9b83c4f753c13f`.
+  Recheck current APK/source/archive and Windows runtime/paired-plugin receipt,
+  every E88 native input hash, and false device/framework/automation flags.
+  Seven current APK contracts pass (`.mdo/E88-apk-contract.log`). Restore the
+  same headless deployment on 63625 with HTTP 200, approximately 3,435.7 MiB.
+  Shared JS and Windows/plugin outputs are unchanged.
+- Goal active. Deferred native acceptance is packaged; Context/UID authority,
+  tab/navigation ownership, product download list/actions/UI, private read/save,
+  unsupported text handling and installed provider/main-UI qualification remain
+  unfinished. Phone/WebView update stay deferred. No installation, formal-data
+  edit, actual model/external-page action, app/Home/source copy or publication.
