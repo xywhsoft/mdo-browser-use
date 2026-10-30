@@ -11,7 +11,7 @@
         final long born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->networkWatch(this);
         MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;MdoBrowserCdpDownloads.Connection downloadConnection;long warmupEpoch,retiredAt;
         NativeNavigation navigation;
-        boolean warming=true,starting,ready,created,retired,draining,rearm,responsesDisabled,protocolDrained=true,destroyed,replySent,targetMayHaveOccurred,cleanupObservationExpired;
+        boolean warming=true,starting,ready,created,retired,draining,rearm,responsesDisabled,protocolDrained=true,destroyed,replySent,cleanupObservationExpired;
         String code;
         NetworkEntry(String key,WebView view,MdoBrowserDocument profile,MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String target){
             this(key,view,profile,lease,id,target,new MdoBrowserCdpMarker.DocumentQuota());
@@ -52,10 +52,10 @@
         nativeNavigationRetire(entry);
         // Explicit human takeover releases only the original UI reservation;
         // its native receipt remains retained and cannot restore a later page.
-        cancelNavigationRequest(key,view);
         networkHandler.removeCallbacks(entry.watch);
         try{
             entry.downloads.quiesce();cdpWorker.retireNetwork(entry.marker.lease());
+            cancelNavigationRequest(key,view);
             if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_retirement_scheduler_unavailable");
         }catch(RuntimeException|Error failure){networkRetire(entry,"network_retirement_failed");}
     }
@@ -159,15 +159,18 @@
                     reply(entry.channelLease,entry.id,outcome,null);return;
                 }
                 entry.starting=false;entry.ready=true;networkHandler.removeCallbacks(entry.watch);
-                if(!"about:blank".equals(entry.target)){entry.targetMayHaveOccurred=true;entry.view.loadUrl(entry.target);}else loading.put(entry.key,false);
+                loading.put(entry.key,false);
+                NativeNavigation initial="about:blank".equals(entry.target)?null:beginNativeNavigation(entry,entry.target,networkRemaining(entry,100),true);
                 if(!networkCurrent(entry)||entry.retired)throw new IllegalStateException("network_owner_changed");
+                JSONObject outcome=new JSONObject().put("created",true).put("downloads_intercepted",true);
+                if(initial!=null)outcome.put("navigation_ref",initial.id).put("initial_navigation_pending",true);
                 entry.created=true;entry.replySent=true;
-                reply(entry.channelLease,entry.id,new JSONObject().put("created",true).put("downloads_intercepted",true),null);
-            }catch(JSONException|RuntimeException|Error failure){
+                reply(entry.channelLease,entry.id,outcome,null);
+            }catch(Exception|Error failure){
                 if(entry.rearm&&views.owns(entry.key,entry.view)){manual.add(entry.key);
                     try{entry.profile.block(MdoBrowserDocument.MANUAL,true);views.manual(entry.key,entry.view,true);}catch(RuntimeException|Error ignored){}}
-                String code="network_start_timeout".equals(failure.getMessage())?"network_start_timeout":"network_start_failed";
-                networkRetire(entry,entry.targetMayHaveOccurred?"network_navigation_uncertain":code);
+                String code="network_start_timeout".equals(failure.getMessage())?"network_start_timeout":networkProtocolCode(failure.getMessage(),"network_start_failed");
+                networkRetire(entry,networkTargetMayHaveOccurred(entry)?"network_navigation_uncertain":code);
             }
             return;
         }
@@ -229,12 +232,12 @@
         if(views.owns(entry.key,entry.view)){pageClosed.add(entry.key);loading.put(entry.key,false);errors.put(entry.key,entry.code==null?"network_start_failed":entry.code);}
         try{reply(entry.channelLease,entry.id,new JSONObject().put("ok",false).put("created",false)
             .put("error",new JSONObject().put("code",entry.code==null?"network_start_failed":entry.code))
-            .put("native_create",new JSONObject().put("created_may_have_occurred",true).put("navigation_may_have_occurred",entry.targetMayHaveOccurred)
+            .put("native_create",new JSONObject().put("created_may_have_occurred",true).put("navigation_may_have_occurred",networkTargetMayHaveOccurred(entry))
                 .put("network_cleanup_confirmed",entry.protocolDrained&&!networkCleanupFailed).put("view_cleanup_confirmed",entry.destroyed&&!nativeViewCleanupFailed)),null);
         }catch(JSONException|RuntimeException|Error ignored){}
     }
     private void networkDiscardUnsent(NetworkEntry entry){
-        if(!entry.rearm&&!entry.created&&!entry.targetMayHaveOccurred&&entry.protocolDrained&&views.owns(entry.key,entry.view)){
+        if(!entry.rearm&&!entry.created&&!networkTargetMayHaveOccurred(entry)&&entry.protocolDrained&&views.owns(entry.key,entry.view)){
             try{closeAndDestroyDocument(entry.key,entry.view);}catch(RuntimeException|Error failure){nativeViewCleanupFailed=true;}
             if(views.get(entry.key)==null){manual.remove(entry.key);loading.remove(entry.key);errors.remove(entry.key);errorCodes.remove(entry.key);crashed.remove(entry.key);locations.remove(entry.key);}
         }

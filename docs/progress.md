@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E98:** managed initial targets now use the same original native
+  navigation coordinator as goto. Keep the original startup budget across native
+  warmup/activation, distinguish creation admission from page/file completion,
+  and cancel only the exact queued target after display loss. Missing loader
+  metadata cannot turn the native warmup into a completed initial target.
+  Final product lifecycle gate passes 383; all 343 JS tests, native gates and
+  refreshed Windows/Android artifact identities pass. Windows has 12 actual
+  packed runtime checks; installed Android/provider qualification stays deferred.
 - **Android E97:** connect managed product `goto` to an asynchronous original
   native navigation receipt, with exact request cancellation and same-document/
   download/unknown-outcome handling in the shared JS dispatcher. Preserve the
@@ -8217,3 +8225,81 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   full-goal work. Device/framework/automation flags remain false. Phone/current
   WebView stay deferred. No installation, formal-data edit, external page/model
   action, extra app/Home/source copy or online publication.
+
+
+## E98 — join initial target creation to original native navigation
+
+- After native blank warmup and original Fetch activation, admit the initial
+  HTTP(S) target through the same fixed native coordinator as goto. No target
+  WebView.loadUrl fallback/replay remains on this managed route; an about:blank
+  target reuses the warmup itself. Creation immediately returns created,
+  downloads_intercepted, one navigation_ref and initial_navigation_pending.
+  This confirms native creation/admission, not page commit or file completion.
+- Share the original 15-second startup deadline across warmup, native activation
+  and target queueing. The worker receives only the remaining original budget.
+  Derive possible target effects from the exact retained native ticket rather
+  than a Boolean set before a legacy call. Preserve known unsent cleanup versus
+  uncertain dispatched effects and never revise a previously delivered receipt
+  when cleanup is confirmed later. Retain the original physical view after an
+  uncertain target, with explicit user cleanup/recovery rather than automatic
+  recreation or replay.
+- Recheck physical owner/profile/channel/epoch after cancellation callbacks and
+  after setting the input fence, before native queue admission. Reentrant channel
+  loss cannot issue the old target; rollback removes only its own reservation
+  and cannot clear a newer document's state. Begin cleanup-only download/native
+  retirement before releasing the original UI navigation reservation on human
+  takeover, so reentrant UI callbacks cannot acquire obsolete input authority.
+- Keep initial navigation pending until both its original native outcome and
+  the actual page transition are established. Page callbacks alone do not invent
+  an ACK, and a late blank completion cannot expose the warmup as the target.
+  Reproduce and fix a missing-loader regression: a non-download ACK from initial
+  blank warmup is not the same-document case supported by ordinary goto. It must
+  retain the original reservation until an actual target-page event. Preserve
+  explicit download and uncertain/failure outcomes without guessed completion.
+- Shared JS preserves bounded initial native failure details ahead of generic
+  page-error text while keeping original-input effects separate from a read-only
+  observation. Missing download proof returns download_identity_unavailable.
+  The native create helper validates its optional asynchronous admission fields;
+  inconsistent envelopes stay uncertain. On original display loss or failed
+  settlement, best-effort exact-reference cancellation is bounded to one second
+  and cannot stop/close/reload a physical view now used by a human. Older Windows
+  creation and manual popup behavior remain covered by actual/contract checks.
+- Final exact product fragments pass 383 assertions, covering initial page/ACK
+  ordering, download/failure/unknown/unsupported/cancel outcomes, original startup
+  budgets, scheduler failure, reentrant channel loss, duplicate ready and clean
+  later admission. The missing-loader regression first fails in
+  .mdo/E98-create-loader-regression.log, then passes the final gate. All 343 JS
+  cases pass sequentially in 19.772 seconds (.mdo/E98-node-full.log). A rerun
+  while the dev service was stopped correctly failed local HTTP-dependent tests;
+  preserve .mdo/E98-node-no-service.log and verify all pass after restoring that
+  same instance. This was an unavailable local test server, not a product repair.
+- Full native ASan/UBSan/API26 gates pass (.mdo/E98-native-current.json): broker
+  27, lower navigation 156 with two actual local JNI/socket sessions, binding
+  2,040, original controller 275 and rearm 111. All 103 native and 13 final product
+  input hashes match. Python passes 173/175 in 53.261 seconds, only two existing
+  Windows symlink-privilege skips; final Java regression is additionally verified
+  by the 383-assertion gate. Seven final Android package contracts pass.
+- Refresh Windows program and pass all 12 actual packed C/JS/native checks,
+  including observation, trusted input, synthetic screenshot, network reset and
+  recovery navigation; source/installed/host paired-runtime identity and the
+  unchanged official-update policy also pass. Artifact: 6,935,916 bytes, SHA-256
+  93c4e8848f0dcc316f786323ff71bbf0d60d5eabbad0ece018987b633efc618f.
+  Build the final full QA Activity/service/lite-tools Android APK: 6,464,833 bytes,
+  SHA-256 60469e437555d67619b358265c69dcc6db67e176cecbc7265cc870a6789413d1.
+  Validate actual DEX definitions, private provider, six JNI exports, ARM64/16 KiB
+  layout, matching source/archive identities and retained v2/v3 development signer.
+  Native engine and portable paired plugin remain unchanged (247,351 bytes,
+  22 plugin files). Evidence: .mdo/E98-windows-runtime.log,
+  .mdo/E98-android-build.log, .mdo/E98-final-identities.log and
+  .mdo/E98-android-receipt.json. Restore the sole headless deployment to HTTP 200
+  on port 63625, about 3,440.3 MiB; no extra application/Home/source copy.
+- Goal active. Managed initial target and goto are now wired; back/forward/reload
+  remain on the legacy route. The current page check joins the original ACK to
+  the retained UI reservation/epoch; exact native-loader-to-page association is
+  still unqualified. Android installed-provider/main-UI/public JS-C qualification,
+  original download/request joining, uncertain-outcome UI polish,
+  popup/download-only lifetime, cross-process interception, public Android save
+  and unsupported text/blob handling remain open with the other full-goal work.
+  Device/framework/automation qualifications remain false. Phone and current
+  WebView stay deferred. No install, formal-data edit, model/external page action,
+  provider upgrade, additional deployment copy or online publication.

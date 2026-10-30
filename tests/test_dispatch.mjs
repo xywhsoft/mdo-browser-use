@@ -52,6 +52,28 @@ function nativeNavigationFixture(mode){
   if(mode==='cancel')options.alive=()=>states===0;
   return{options,calls,reference};
 }
+test('original initial native failures are inspectable without evaluating or reopening the target',async()=>{
+  for(const mode of ['dns','closed','unknown','download-unproven']){
+    let reads=0;
+    const native={initial:true,id:'nv-original',phase:mode==='unknown'?'acknowledged':'failed',ok:mode==='unknown',acknowledged:mode!=='closed',
+      dispatched:true,download_known:false,loader_present:false,code:mode==='download-unproven'?'cdp_navigation_download_unproven':mode==='dns'?'cdp_navigation_failed':'cdp_navigation_connection_closed',native_error:'net::ERR_NAME_NOT_RESOLVED'};
+    const result=await executeBrowserAutomation({command:'observe',params:{},action:{id:'initial-'+mode},api:{async call(){return{state:'pending'};}},
+      view:{async execute(command){assert.equal(command,'state');reads++;return{loading:false,automation:true,initial_navigation_pending:true,native_navigation:native,error:mode==='dns'?'Legacy page error':''};}}});
+    assert.equal(result.result.ok,false);assert.equal(result.result.error.code,mode==='dns'?'navigation_failed':mode==='download-unproven'?'download_identity_unavailable':'navigation_uncertain');
+    assert.equal(result.result.error.initial_navigation.effect_may_have_occurred,true);assert.equal(result.result.error.effect_may_have_occurred,false);assert.equal(reads,1);
+  }
+});
+test('initial warmup completion cannot be observed before both target page and native ACK settle',async()=>{
+  for(const loader_present of [true,false]){
+  let states=0,observed=0;
+  const result=await executeBrowserAutomation({command:'observe',params:{timeout_ms:500},action:{id:'initial-pending'},api:{async call(){return{state:'pending'};}},
+    view:{async execute(command){
+      if(command==='state')return{loading:false,automation:true,initial_navigation_pending:++states<4,native_navigation:{initial:true,phase:'acknowledged',ok:true,acknowledged:true,download_known:true,download:false,loader_present}};
+      assert.equal(command,'automation');assert(states>=4);observed++;return{ok:true,value:{ok:true,ready:'complete',document:'target-document'}};
+    }}});
+  assert.equal(result.result.document,'target-document');assert.equal(observed,1);
+  }
+});
 test('original native navigation ACK distinguishes same-document and committed page completion',async()=>{
   for(const mode of ['same-document','new-document']){
     const fixture=nativeNavigationFixture(mode),result=await executeBrowserAutomation(fixture.options);

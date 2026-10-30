@@ -136,6 +136,16 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       }
       if(performance.now()<downloadCheckpointUntil){await pause(20);return guard(true,waitingCapture);}
     }
+    const initial=state.native_navigation;
+    if(command!=='navigate_to'&&!state.manual&&!state.process_failed&&initial?.initial===true&&!initial.scope_revoked&&
+       (initial.phase==='failed'||initial.phase==='acknowledged'&&initial.ok===true&&!initial.download_known&&!initial.loader_present)){
+      const result=fail(initial.code==='cdp_navigation_download_unproven'?'download_identity_unavailable':initial.phase==='failed'&&initial.acknowledged?'navigation_failed':'navigation_uncertain',
+        'The original initial navigation did not prove page or download completion; inspect its receipt before opening the target again');
+      result.result.error.initial_navigation={acknowledged:initial.acknowledged===true,effect_may_have_occurred:initial.dispatched!==false};
+      if(typeof initial.code==='string'&&/^cdp_[a-z_]{1,80}$/.test(initial.code))result.result.error.native_code=initial.code;
+      if(typeof initial.native_error==='string'&&/^net::ERR_[A-Z_]{1,80}$/.test(initial.native_error))result.result.error.native_error=initial.native_error;
+      return result;
+    }
     if (state.error && !["navigate_to", "dialog"].includes(command) || state.process_failed) return fail("browser_unavailable", state.error || "The browser process stopped");
     if (state.manual && !(["dialog","chooser"].includes(command) && params.action === "list")) return fail("manual_control", "The user currently controls the browser");
     if (state.drag_cleanup_failed && (writing || command === "capture")) return fail("drag_cleanup_failed", "Native drag cleanup was not confirmed; inspect and end this browser before further input");

@@ -1432,7 +1432,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": ".put(\"download_error\",downloadFailure(key))",
-      "after": ".put(\"download_error\",downloadFailure(key)).put(\"native_navigation\",networkNavigationState(key))"
+      "after": ".put(\"download_error\",downloadFailure(key)).put(\"native_navigation\",networkNavigationState(key)).put(\"initial_navigation_pending\",networkInitialNavigationPending(key))"
     },
     {
       "path": "tools/android/MdoBrowser.java",

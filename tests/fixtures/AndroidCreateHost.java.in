@@ -144,9 +144,10 @@ final class AndroidCreateHost {
     static final class CdpWorker {
         final List<NetworkCall> calls=new ArrayList<>();boolean closed,failStart;
         final List<MdoBrowserCdpNetworks.Navigation> navigations=new ArrayList<>();boolean failNavigation;
+        final List<String> navigationUrls=new ArrayList<>();final List<Integer> navigationBudgets=new ArrayList<>();
         MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws java.io.IOException{
             if(failNavigation)throw new java.io.IOException("cdp_navigation_fixture_rejected");
-            MdoBrowserCdpNetworks.Navigation value=new MdoBrowserCdpNetworks.Navigation();navigations.add(value);return value;
+            MdoBrowserCdpNetworks.Navigation value=new MdoBrowserCdpNetworks.Navigation();navigations.add(value);navigationUrls.add(url);navigationBudgets.add(timeout);return value;
         }
         void startNetwork(MdoBrowserCdpMarker marker,int timeout,MdoBrowserCdpNetworks.Events events,MdoBrowserCdpNetworks.Completion complete)throws java.io.IOException{
             if(failStart)throw new java.io.IOException("fixture start failure");if(!marker.current.getAsBoolean())throw new java.io.IOException("fixture owner lost");calls.add(new NetworkCall(marker,events,complete));
@@ -196,7 +197,8 @@ final class AndroidCreateHost {
     void retireUploadData(WebView view){retired++;}
     void cancelUpload(String key,WebView view){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
-    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){if(channel.current()==lease&&channel.active(lease,host.getUrl())&&!stopped){replies++;lastReply=result;}}
+    Runnable beforeScopedReply;
+    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){if(beforeScopedReply!=null){Runnable original=beforeScopedReply;beforeScopedReply=null;original.run();}if(channel.current()==lease&&channel.active(lease,host.getUrl())&&!stopped){replies++;lastReply=result;}}
     private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",false);}
     boolean retire(String key,WebView view){return closeAndDestroyDocument(key,view);}
     boolean chooserClean(MdoBrowserDialogTarget target){return target==null||!cleanupFault.equals("chooser");}
@@ -220,6 +222,7 @@ final class AndroidCreateHost {
         reply(id,new JSONObject().put("accepted",true),null);
     }
     JSONObject navigationState(String key)throws Exception{return networkNavigationState(key);}
+    boolean initialPending(String key){return networkInitialNavigationPending(key);}
     void cancelNativeNavigation(String key,String reference)throws Exception{executeNavigationCancel(key,"cancel-reply",views.get(key),new JSONObject().put("navigation_ref",reference));}
     void stopNavigation(String key){WebView view=views.get(key);networkStop(key,view);cancelNavigationRequest(key,view);}
     void legacyNavigationError(String key){cancelNavigationRequest(key,views.get(key));}

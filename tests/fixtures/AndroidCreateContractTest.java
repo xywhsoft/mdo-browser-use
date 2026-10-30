@@ -113,11 +113,14 @@ public final class AndroidCreateContractTest {
     static AndroidCreateHost.JSONObject createReceipt(AndroidCreateHost host){return (AndroidCreateHost.JSONObject)host.lastReply.data.get("native_create");}
     static void networkReadinessAndClose()throws Exception{
         AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");AndroidCreateHost.WebView view=host.views.get("tab");
-        call.ready();check(host.replies==1&&view.targets.size()==2&&view.targets.get(1).equals("https://fixture.invalid/"),"Original target was not sent exactly once after ready");
+        call.ready();check(host.replies==1&&view.targets.size()==1&&host.cdpWorker.navigations.size()==1&&host.initialPending("tab"),"Initial target bypassed native admission or replayed WebView.loadUrl");
         check(Boolean.TRUE.equals(host.lastReply.data.get("downloads_intercepted")),"Original interception was not acknowledged");
-        host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");
+        host.cdpWorker.navigations.get(0).issued=true;host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");
+        check(host.initialPending("tab"),"Page callbacks alone invented an original native navigation ACK");
+        host.cdpWorker.navigations.get(0).ack(true,false,true,null);
+        check(!host.initialPending("tab"),"Actual page completion and original native ACK stayed pending");
         check(!Boolean.TRUE.equals(host.loading.get("tab"))&&Boolean.TRUE.equals(host.network("tab").data.get("ready")),"Ordinary target navigation invalidated physical network ownership");
-        call.ready();check(view.targets.size()==2&&host.replies==1&&Boolean.TRUE.equals(host.network("tab").data.get("ready")),"Duplicate ready replayed or retired the target navigation");
+        call.ready();check(view.targets.size()==1&&host.cdpWorker.navigations.size()==1&&host.replies==1&&Boolean.TRUE.equals(host.network("tab").data.get("ready")),"Duplicate ready replayed or retired the target navigation");
         check(!host.closeCommand("tab")&&view.destroys==1,"Close confirmed before original network I/O drained");
         try{host.create("during",request(false));throw new AssertionError("Pending network retirement admitted a native view");}
         catch(IllegalStateException expected){check(expected.getMessage().equals("native_view_retirement_busy"),"Network retirement was not visible to creation admission");}
@@ -153,10 +156,10 @@ public final class AndroidCreateContractTest {
         drain.create("explicit-retry",request(false));check(drain.views.size()==1,"Known drained cleanup prevented an explicit later creation");
     }
     static void networkUncertaintyAndScope()throws Exception{
-        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");AndroidCreateHost.WebView view=host.views.get("tab");host.fault="target_load";call.ready();
-        check(view.loads==2&&view.destroys==0&&host.replies==0,"Uncertain target dispatch was destroyed or prematurely completed");call.closed(true);
-        check(host.replies==1&&view.destroys==0&&Boolean.TRUE.equals(createReceipt(host).data.get("navigation_may_have_occurred")),"Uncertain initial navigation was reported unsent");
-        try{host.create("tab",request(true));throw new AssertionError("Uncertain existing view was reattached");}catch(IllegalStateException expected){check(view.loads==2,"Reattachment replayed an uncertain navigation");}
+        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");AndroidCreateHost.WebView view=host.views.get("tab");
+        host.beforeScopedReply=()->{host.cdpWorker.navigations.get(0).issued=true;host.revoke("tab");};call.ready();call.closed(true);
+        check(view.loads==1&&view.destroys==0&&host.replies==1,"Uncertain original target was replayed, destroyed or duplicated");
+        try{host.create("tab",request(true));throw new AssertionError("Uncertain existing view was reattached");}catch(IllegalStateException expected){check(view.loads==1,"Reattachment replayed an uncertain navigation");}
         AndroidCreateHost source=networkHost();AndroidCreateHost.NetworkCall old=startNetwork(source,"tab");source.channel.lease=source.channel.new Lease();old.ready();old.closed(true);
         check(source.created.get(0).loads==1&&source.created.get(0).destroys==1&&source.replies==0,"Changed host channel received a stale ready/creation receipt");
         AndroidCreateHost unexpected=networkHost();AndroidCreateHost.NetworkCall changed=startNetwork(unexpected,"tab");unexpected.created.get(0).url="https://unobserved.invalid/";changed.ready();changed.closed(true);
@@ -174,7 +177,7 @@ public final class AndroidCreateContractTest {
         active.closed(true);
         AndroidCreateHost takeover=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(takeover,"tab");original.ready();final int[] cancellations={0};
         takeover.beforeControlCancel=()->{check(original.marker.lease.live&&original.retired==1&&original.cancelled==0&&AndroidCreateHost.MdoBrowserCdpDownloads.latest.quiesces==1,"Takeover did not retain cleanup-only authority before cancelling UI work");cancellations[0]++;};
-        takeover.takeover("tab");check(cancellations[0]==2,"Exact takeover prefix did not include chooser and world cancellation");original.closed(true);
+        takeover.takeover("tab");check(cancellations[0]==3,"Exact takeover prefix did not include original navigation, chooser and world cancellation");original.closed(true);
     }
     static void orderlyNetworkTakeover()throws Exception{
         AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(host,"tab");original.ready();AndroidCreateHost.WebView view=host.views.get("tab");
@@ -230,6 +233,7 @@ public final class AndroidCreateContractTest {
     }
     static void downloadRetirementAndServiceFailure()throws Exception{
         AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");call.ready();
+        host.cdpWorker.navigations.get(0).issued=true;host.cdpWorker.navigations.get(0).ack(true,false,true,null);host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");
         AndroidCreateHost.MdoBrowserCdpDownloads downloads=AndroidCreateHost.MdoBrowserCdpDownloads.latest;downloads.retiring=1;
         downloads.pending=true;try{host.pendingAgentCommand("tab","navigate");throw new AssertionError("Pending original response admitted another agent URL");}catch(IllegalStateException expected){check(expected.getMessage().equals("download_pending"),"Wrong download admission fence");}
         host.pendingAgentCommand("tab","state");host.pendingAgentCommand("tab","downloads");downloads.pending=false;
@@ -248,7 +252,8 @@ public final class AndroidCreateContractTest {
         check(Boolean.TRUE.equals(slow.capabilities().data.get("network_cleanup_failed"))&&android.os.Handler.pending()==0,"Expired private cache observation was hidden or looped forever");
     }
     static AndroidCreateHost navigationHost()throws Exception{
-        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");call.ready();
+        AndroidCreateHost host=networkHost();host.create("tab",new AndroidCreateHost.JSONObject().put("automation",true));
+        host.startPage("tab","about:blank");host.finishPage("tab","about:blank");host.cdpWorker.calls.get(0).ready();
         host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");return host;
     }
     static void nativeNavigationRecords()throws Exception{
@@ -294,6 +299,48 @@ public final class AndroidCreateContractTest {
         }
     }
     public static void main(String[] args)throws Exception{
+        for(int mode=0;mode<7;mode++){
+            AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall source=startNetwork(host,"tab");
+            android.os.SystemClock.now+=1000;source.ready();AndroidCreateHost.WebView view=host.views.get("tab");
+            AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);
+            check(Boolean.TRUE.equals(host.lastReply.data.get("created"))&&Boolean.TRUE.equals(host.lastReply.data.get("initial_navigation_pending"))&&
+                host.lastReply.data.get("navigation_ref").equals(host.navigationState("tab").data.get("id")),"Create lost its original pending navigation reference");
+            check(Boolean.TRUE.equals(host.navigationState("tab").data.get("initial"))&&view.loads==1&&host.initialPending("tab"),"Initial target used legacy loadUrl or lost its waiting fence");
+            check(host.cdpWorker.navigationUrls.get(0).equals("https://fixture.invalid/")&&host.cdpWorker.navigationBudgets.get(0)==14000,"Initial native queue reset the original startup deadline or URL");
+            host.finishPage("tab","about:blank");check(host.initialPending("tab"),"Late warmup completion hid a pending target");
+            ticket.issued=mode!=4&&mode!=5;
+            if(mode==0)ticket.ack(true,false,true,null);
+            if(mode==1)ticket.ack(true,true,false,null);
+            if(mode==2)ticket.ack(false,false,false,"cdp_navigation_failed");
+            if(mode==3)ticket.outcome=new AndroidCreateHost.MdoBrowserCdpSession.NavigationResult(false,false,false,false,true,false,"cdp_navigation_connection_closed");
+            if(mode==4)ticket.outcome=new AndroidCreateHost.MdoBrowserCdpSession.NavigationResult(true,false,false,false,false,false,"cdp_navigation_unsupported");
+            if(mode==5)host.cancelNativeNavigation("tab",(String)host.navigationState("tab").data.get("id"));
+            if(mode==6)ticket.ack(true,false,false,null);
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            if(mode==0){check(host.initialPending("tab"),"Original ACK was mistaken for page commit");host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");check(!host.initialPending("tab"),"Original page and ACK did not settle");}
+            else check(host.initialPending("tab")== (mode==3||mode==6),"Initial typed outcome lost its uncertainty/completion distinction");
+            if(mode==6){host.startPage("tab","https://fixture.invalid/");host.finishPage("tab","https://fixture.invalid/");check(!host.initialPending("tab"),"Actual page transition with a known non-download ACK remained pending");}
+            check(view.loads==1&&host.replies==(mode==5?2:1),"Initial terminal event replayed target or creation receipt");
+            host.closeCommand("tab");source.closed(true);
+        }
+        AndroidCreateHost refused=networkHost();AndroidCreateHost.NetworkCall admission=startNetwork(refused,"tab");refused.cdpWorker.failNavigation=true;admission.ready();
+        check(refused.replies==0&&refused.views.size()==1,"Initial admission failure destroyed before native cleanup");admission.closed(true);
+        check(refused.replies==1&&refused.views.size()==0&&Boolean.FALSE.equals(createReceipt(refused).data.get("navigation_may_have_occurred")),"Confirmed unsent initial target was retained or marked dispatched");
+        AndroidCreateHost reentrant=networkHost();AndroidCreateHost.NetworkCall changing=startNetwork(reentrant,"tab");
+        reentrant.beforeControlCancel=()->{reentrant.beforeControlCancel=null;reentrant.channel.lease=reentrant.channel.new Lease();};changing.ready();
+        check(reentrant.cdpWorker.navigations.isEmpty()&&reentrant.created.get(0).loads==1,"Reentrant channel loss admitted the initial native target");changing.closed(true);
+        check(reentrant.views.size()==0&&reentrant.replies==0,"Revoked initial channel retained an unsent view or received a stale reply");
+        for(boolean schedule:new boolean[]{false,true}){
+            AndroidCreateHost failed=networkHost();AndroidCreateHost.NetworkCall nativeOwner=startNetwork(failed,"tab");
+            if(schedule)android.os.Handler.fail=true;else android.os.SystemClock.now+=14950;
+            nativeOwner.ready();android.os.Handler.fail=false;
+            check(failed.replies==(schedule?1:0)&&failed.created.get(0).loads==1&&failed.views.size()==1,"Initial failed admission sent a legacy target or invented cleanup");
+            AndroidCreateHost.JSONObject early=schedule?createReceipt(failed):null;
+            nativeOwner.closed(true);
+            check(failed.replies==1&&failed.views.size()==0&&!Boolean.TRUE.equals(createReceipt(failed).data.get("navigation_may_have_occurred")),"Original initial budget/scheduler failure lost known unsent cleanup");
+            check(schedule?failed.cdpWorker.navigations.size()==1:failed.cdpWorker.navigations.isEmpty(),"Expired initial budget issued a native command or scheduler failure replayed it");
+            if(schedule)check(early==createReceipt(failed)&&Boolean.FALSE.equals(early.data.get("network_cleanup_confirmed"))&&Boolean.FALSE.equals(early.data.get("view_cleanup_confirmed")),"Late cleanup rewrote the original uncertain scheduler receipt");
+        }
         for(int mode=0;mode<4;mode++){
             AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
             host.gotoPage("tab","https://navigation.invalid/original",30000);String id=(String)host.navigationState("tab").data.get("id");

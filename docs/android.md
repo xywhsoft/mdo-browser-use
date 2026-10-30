@@ -3722,3 +3722,50 @@ association or the complete public JS/C path. Device/framework/automation flags
 remain false, and phone/current WebView remain deferred. Continue the remaining
 navigation, transfer-lifetime and public-device work without upgrading the provider
 or replacing formal application data.
+
+
+## Initial target admission through the original coordinator (E98)
+
+After native blank warmup and original Fetch activation, managed initial HTTP(S)
+targets use the same original Page.navigate coordinator as goto. An about:blank
+target reuses the warmup and does not issue a second navigation. Creation returns
+created/downloads_intercepted plus navigation_ref/initial_navigation_pending;
+these acknowledge physical creation and queue admission, not page or file
+completion. Manual/unmanaged browsing retains its existing route and unsupported
+provider handling; managed popup network admission is still unqualified.
+
+The initial native ticket receives the remainder of the original 15-second
+startup budget. Epoch/profile/channel ownership is rechecked after input cleanup
+and after setting the fence, before queueing. Reentrant scope loss cannot issue
+the original target or clear a newer reservation. Cancellation after display loss
+uses only its valid original reference, is bounded on the JS side, and never
+closes or stops a later user's view. Native retirement obtains cleanup-only
+authority before releasing the original UI reservation on human takeover.
+
+The initial pending state requires original native outcome and actual target
+transition. Late blank completion and early page callbacks cannot invent the
+missing half. In particular, a non-download result without loader metadata must
+not release the initial blank reservation as though it were ordinary same-
+document navigation. A dedicated regression reproduces that false completion
+and verifies waiting until a real target-page event. Known download, original
+failure and uncertain dispatched effects remain distinct. Native causes are
+retained ahead of generic page-error text in shared JS; malformed creation
+receipts remain uncertain and never trigger an automatic target retry.
+
+The final exact product gate passes 383 assertions, all 343 JS cases pass, and
+full native ASan/UBSan/API26 gates pass with 103 native/13 product input hashes
+matching the final source. Python passes 173/175 with two existing Windows
+symlink-privilege skips; the final Java regression separately passes the product
+gate. Windows passes 12 actual packed C/JS/native runtime checks. The final full
+QA Android APK verifies actual definitions, private provider, source/archive
+identity, retained signer and seven package contracts. Exact hashes and local
+evidence locations are recorded in docs/progress.md and
+.mdo/E98-final-identities.log.
+
+This is compiled/source-controlled route coverage, not installed Android
+provider/main-UI or full public JS/C qualification. Device/framework/automation
+flags remain false. Page completion currently joins the original ACK to retained
+UI reservation/epoch state; exact native loader-to-page association remains
+unqualified. History/reload, exact download association, uncertain-outcome
+UI presentation, remaining transfer lifetime/public save and other documented
+full-goal work are still open. Phone/current WebView remain deferred.

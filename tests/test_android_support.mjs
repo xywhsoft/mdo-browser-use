@@ -48,3 +48,29 @@ test('malformed native creation receipts remain uncertain and sanitize error det
         error.native_create.network_cleanup_confirmed===false&&Object.isFrozen(error.native_create));
   }
 });
+
+test('asynchronous initial navigation admission returns without claiming page completion',async()=>{
+  const calls=[],receipt={created:true,downloads_intercepted:true,initial_navigation_pending:true,navigation_ref:'nv-original'};
+  const result=await ensureNativeBrowser({browser:{id:'tab',download_policy:'intercept'},bridge:{async call(command){calls.push(command);return command==='capabilities'?{initial_download_interception:true}:receipt;}}});
+  assert.equal(result,receipt);assert.deepEqual(calls,['capabilities','create']);
+});
+
+test('changed original display cancels only its original admitted navigation',async()=>{
+  for(const rejectCleanup of [false,true]){
+    let live=true;const calls=[];
+    await assert.rejects(ensureNativeBrowser({browser:{id:'tab'},alive:()=>live,bridge:{async call(command,params,control){calls.push(command);
+      if(command==='create'){live=false;return{created:true,downloads_intercepted:true,initial_navigation_pending:true,navigation_ref:'nv-original'};}
+      assert.equal(command,'navigation_cancel');assert.deepEqual(params,{browser:'tab',agent:true,navigation_ref:'nv-original'});assert.equal(control.timeout,1000);
+      if(rejectCleanup)throw Error('Cleanup transport is gone');return{cancelled:true};
+    }}}),error=>error.name==='AbortError');
+    assert.deepEqual(calls,['create','navigation_cancel']);
+  }
+});
+
+test('inconsistent initial native admission is uncertain and never replays or guesses cleanup',async()=>{
+  for(const fields of [{navigation_ref:''},{navigation_ref:'nv-unsafe URL'},{navigation_ref:'nv-original',created:false},{navigation_ref:'nv-original',downloads_intercepted:false},{initial_navigation_pending:true,navigation_ref:undefined}]){
+    const calls=[];await assert.rejects(ensureNativeBrowser({browser:{id:'tab'},bridge:{async call(command){calls.push(command);return{created:true,downloads_intercepted:true,initial_navigation_pending:true,...fields};}}}),
+      error=>error.code==='native_create_failed'&&error.creation_reason==='native_create_result_invalid'&&error.effect_may_have_occurred===true);
+    assert.deepEqual(calls,['create']);
+  }
+});
