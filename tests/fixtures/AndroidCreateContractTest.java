@@ -163,19 +163,39 @@ public final class AndroidCreateContractTest {
         check(Boolean.TRUE.equals(cleanup.capabilities().data.get("network_cleanup_failed")),"Unconfirmed protocol cleanup was hidden");
         try{cleanup.create("new",request(false));throw new AssertionError("Unconfirmed original network cleanup freed native capacity");}
         catch(IllegalStateException expected){check(expected.getMessage().equals("network_cleanup_failed"),"Wrong network cleanup fence");}
-        AndroidCreateHost callback=networkHost();AndroidCreateHost.NetworkCall active=startNetwork(callback,"tab");active.ready();AndroidCreateHost.NativeConnection nativeConnection=new AndroidCreateHost.NativeConnection();
-        Thread worker=new Thread(()->{try{active.events.event(nativeConnection,"Fetch.requestPaused",null,new AndroidCreateHost.JSONObject());}catch(Exception e){throw new AssertionError(e);}});worker.start();worker.join();
-        check(nativeConnection.continued==1,"Network callback did not use its private worker connection");callback.revoke("tab");
+        AndroidCreateHost callback=networkHost();AndroidCreateHost.NetworkCall active=startNetwork(callback,"tab");active.ready();AndroidCreateHost.MdoBrowserCdpBinding.Network nativeConnection=new AndroidCreateHost.MdoBrowserCdpBinding.Network();
+        Thread worker=new Thread(()->{try{active.events.event(nativeConnection,"Fetch.requestPaused",null,new AndroidCreateHost.JSONObject());active.events.turn(nativeConnection);}catch(Exception e){throw new AssertionError(e);}});worker.start();worker.join();
+        check(nativeConnection.downloads==1&&nativeConnection.turns==1&&nativeConnection.continued==0,"Network events/turns bypassed the private download controller");callback.revoke("tab");
         try{active.events.event(nativeConnection,"Fetch.requestPaused",null,new AndroidCreateHost.JSONObject());throw new AssertionError("Revoked callback used UI state or continued a request");}
-        catch(java.io.IOException expected){check(nativeConnection.continued==1,"Retired callback performed another native continuation");}
+        catch(java.io.IOException expected){check(nativeConnection.downloads==1,"Retired callback performed another native download action");}
+        try{active.events.turn(nativeConnection);throw new AssertionError("Revoked owner ran another download turn");}catch(java.io.IOException expected){check(nativeConnection.turns==1,"Retired callback performed another download turn");}
         active.closed(true);
         AndroidCreateHost takeover=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(takeover,"tab");original.ready();final int[] cancellations={0};
         takeover.beforeControlCancel=()->{check(!original.marker.lease.live&&original.cancelled>0,"Takeover cancellation callback ran before native network revocation");cancellations[0]++;};
         takeover.takeover("tab");check(cancellations[0]==2,"Exact takeover prefix did not include chooser and world cancellation");original.closed(true);
     }
+    static void downloadRetirementAndServiceFailure()throws Exception{
+        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");call.ready();
+        AndroidCreateHost.MdoBrowserCdpDownloads downloads=AndroidCreateHost.MdoBrowserCdpDownloads.latest;downloads.retiring=1;
+        downloads.pending=true;try{host.pendingAgentCommand("tab","navigate");throw new AssertionError("Pending original response admitted another agent URL");}catch(IllegalStateException expected){check(expected.getMessage().equals("download_pending"),"Wrong download admission fence");}
+        host.pendingAgentCommand("tab","state");host.pendingAgentCommand("tab","downloads");downloads.pending=false;
+        check(!host.closeCommand("tab"),"Close confirmed before original network retirement");call.closed(true);
+        check(downloads.closed&&downloads.disconnected&&Boolean.TRUE.equals(host.network("tab").data.get("installed")),"Private cache retirement lost its owner observation");
+        check(((Number)host.capabilities().data.get("download_retiring")).intValue()==1,"Cache retirement disappeared from native capability state");
+        check(!host.closeCommand("tab")&&((Number)host.capabilities().data.get("download_retiring")).intValue()==1,"Repeated close invented cleanup after the view disappeared");
+        try{host.create("early",request(false));throw new AssertionError("Cache retirement admitted another browser");}catch(IllegalStateException expected){check(expected.getMessage().equals("native_view_retirement_busy"),"Wrong cache retirement fence");}
+        downloads.retiring=0;android.os.SystemClock.now+=100;android.os.Handler.tick();
+        check(!Boolean.TRUE.equals(host.network("tab").data.get("installed"))&&android.os.Handler.pending()==0,"Confirmed cache cleanup retained its observation timer");
+        host.create("after",request(false));check(host.views.size()==1,"Confirmed cache cleanup poisoned subsequent creation");
+        AndroidCreateHost failed=networkHost();failed.fault="download_service";failed.create("tab",request(true));failed.startPage("tab","about:blank");failed.finishPage("tab","about:blank");
+        check(failed.created.get(0).loads==1&&failed.created.get(0).destroys==1&&failed.cdpWorker.calls.isEmpty(),"Cache authority failure sent a target or retained a view");
+        AndroidCreateHost slow=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(slow,"tab");original.ready();AndroidCreateHost.MdoBrowserCdpDownloads.latest.retiring=1;
+        slow.closeCommand("tab");original.closed(true);android.os.SystemClock.now+=5000;android.os.Handler.tick();
+        check(Boolean.TRUE.equals(slow.capabilities().data.get("network_cleanup_failed"))&&android.os.Handler.pending()==0,"Expired private cache observation was hidden or looped forever");
+    }
     public static void main(String[] args)throws Exception{
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

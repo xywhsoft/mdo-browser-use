@@ -32,15 +32,15 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E89)
+## Complete development host APK (E46/E90)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,440,257 bytes, SHA-256
-`4b30e75e27f2ed7855a9a4f2182ecf3aef51f57fdd19fe365550a843fd6ac1b7`.
+Current APK: 6,444,353 bytes, SHA-256
+`e3436d042cc2de2acd65a419428a532e9957acc3de719324fb7e16214edc4410`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -3331,3 +3331,37 @@ read/save, original navigation/popup associations and unsupported text/blob
 handling remain open. Android automation/provider/framework qualification stays
 false; these controlled-peer desktop JVM results do not qualify the installed
 WebView or public main UI.
+
+
+## Application-owned download control routes (E90)
+
+The actual Activity now forwards original response events and cooperative turns
+to the physical-owner controller. A process service retains only the native
+Application Context, shares the 32-record budget and file queue, and resolves
+cache directories/UID/mode authority on the file worker. The Android SDK build
+checks these real implementations; installed Context/UID/private-cache authority
+has not yet been qualified on a device.
+
+Native list/get/accept/cancel/release routes are connected. Acceptance checks
+strict integer limits before the original response effect. Release replies wait
+for the original opaque file/source receipt and exact channel lease. Changed
+channels, replaced owners and a bounded five-second cleanup wait cannot produce
+success. File-path replacement preserves the foreign file and reports the native
+cache failure. Read remains explicitly unsupported pending the private byte-read
+adapter. The full download capability and overall automation remain false.
+
+Pending downloads fence subsequent agent mutations. Destroying a view requests
+file retirement separately from protocol closure; admission and repeated close
+observe outstanding files. Disconnection can still retain verified completed
+bytes, while actual view destruction requests reclamation. Application shutdown
+cancels response watchers without replying through a replacement channel.
+
+Verification uses exact injected product fragments: creation/lifecycle 155 checks
+and native download-host 30 checks, plus the complete source-hashed native,
+ASan/UBSan/API26 gates and Python 173/175 passes (two existing Windows symlink
+privilege skips). The complete Activity/service APK, actual Runtime/Release DEX,
+private provider, six JNI exports, signing and payload identities also pass.
+Evidence: `.mdo/E90-create-current.json`, `.mdo/E90-native-current.json`,
+`.mdo/E90-python-full.log`, `.mdo/E90-android-build.log` and the adjacent APK
+receipt. These controlled native peers and SDK builds are not installed-provider
+or main-UI passes. Phone/WebView remain deferred; no installation or publication.

@@ -1,0 +1,40 @@
+package org.xserver.android;
+
+import android.webkit.WebView;
+import java.util.*;
+import org.json.*;
+
+/** Exact product command fragment, actual native controller and file worker;
+ * UI view/channel peers are controlled and do not qualify Android framework. */
+final class DownloadCommandHost {
+    static final class WebMessagePort {}
+    static final class MdoBrowserChannel<T> {
+        final class Lease {boolean active=true;}
+        Lease lease=new Lease();Lease current(){return lease;}
+        boolean active(Lease original,String url){return lease==original&&original.active;}
+    }
+    static final class NetworkEntry {
+        final String key;final WebView view;final MdoBrowserCdpDownloads downloads;boolean ready=true,retired;
+        NetworkEntry(String key,WebView view,MdoBrowserCdpDownloads downloads){this.key=key;this.view=view;this.downloads=downloads;}
+    }
+    static final class HostPage {String getUrl(){return "http://127.0.0.1/owned-ui";}}
+    static final class Reply {final Object result;final String error;Reply(Object result,String error){this.result=result;this.error=error;}}
+    final Map<String,NetworkEntry> networkViews=new HashMap<>();
+    final Map<String,Reply> replies=new HashMap<>();
+    final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
+    final HostPage host=new HostPage();
+    final android.os.Handler networkHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    boolean stopped;
+    final class Views {boolean owns(String key,WebView view){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.view==view;}}
+    final Views views=new Views();
+    boolean networkCurrent(NetworkEntry entry){return !stopped&&networkViews.get(entry.key)==entry&&entry.ready&&!entry.retired&&channel.active(channel.current(),host.getUrl());}
+    void reply(String id,Object result,String error){if(!stopped&&channel.active(channel.current(),host.getUrl()))replies.put(id,new Reply(result,error));}
+    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,Object result,String error){if(channel.current()==lease)reply(id,result,error);}
+    void add(String key,WebView view,MdoBrowserCdpDownloads controller){networkViews.put(key,new NetworkEntry(key,view,controller));}
+    void execute(String key,String id,JSONObject request)throws Exception {NetworkEntry entry=networkViews.get(key);executeDownloads(key,id,entry==null?null:entry.view,request);}
+    JSONObject result(String id){Reply reply=replies.get(id);if(reply==null||reply.error!=null||!(reply.result instanceof JSONObject))throw new AssertionError("Missing command result "+id+" "+(reply==null?"":reply.error));return (JSONObject)reply.result;}
+    int pendingReleases(){return downloadReleases.size();}
+    int retirement(){int count=0;for(NetworkEntry entry:networkViews.values())count+=entry.downloads.retiringFiles();return count;}
+    void cancelWaiters(){cancelDownloadReleases();}
+    @@DOWNLOAD_COMMANDS@@
+}

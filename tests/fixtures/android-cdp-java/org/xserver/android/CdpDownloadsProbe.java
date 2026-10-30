@@ -28,10 +28,11 @@ public final class CdpDownloadsProbe {
     }
     private static JSONObject ack(int id)throws Exception{return new JSONObject().put("id",id).put("result",new JSONObject());}
     private static JSONObject chunk(String base64,boolean eof)throws Exception{return new JSONObject().put("data",base64).put("base64Encoded",true).put("eof",eof);}
-    private static final class Case implements AutoCloseable {
+    static final class Case implements AutoCloseable {
         final CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case();
         final Path root;final MdoBrowserDownloadQueue files;final MdoBrowserCdpDownloads.Budget budget=new MdoBrowserCdpDownloads.Budget();
         final java.util.List<Source> sources=new java.util.ArrayList<>();
+        boolean expectedCleanupFailure;
         Case(String name)throws Exception{this(name,null);}
         Case(String name,VerifyBarrier barrier)throws Exception{root=base.resolve(name);Files.createDirectory(root);files=new MdoBrowserDownloadQueue(()->{
             MdoBrowserDownloadFiles opened=new MdoBrowserDownloadFiles(root);
@@ -40,11 +41,12 @@ public final class CdpDownloadsProbe {
         Source source()throws Exception{Source value=new Source(this);sources.add(value);return value;}
         @Override public void close()throws Exception{
             for(Source source:sources)source.controller.close();host.close();files.close();check(files.awaitStopped(3000));
-            check(!files.cleanupFailed()&&files.reservations()==0&&files.reservedBytes()==0&&budget.used()==0);
+            check(files.cleanupFailed()==expectedCleanupFailure&&files.reservations()==0&&files.reservedBytes()==0&&budget.used()==0);
+            for(Source source:sources)check(source.controller.retiringFiles()==0);
             Files.deleteIfExists(root.resolve(".mdo-browser-download-owner-v1"));Files.delete(root);
         }
     }
-    private static final class Source {
+    static final class Source {
         final Case test;final CdpNetworkBindingProbe.Context context;final MdoBrowserCdpDownloads controller;
         final AtomicInteger claims=new AtomicInteger(),reads=new AtomicInteger(),closes=new AtomicInteger(),aborts=new AtomicInteger(),continues=new AtomicInteger();
         final ConcurrentLinkedQueue<JSONObject> chunks=new ConcurrentLinkedQueue<>();volatile int withheldClose;volatile boolean holdClose;
@@ -77,6 +79,7 @@ public final class CdpDownloadsProbe {
         void complete(String id)throws Exception{await(()->state(id,"completed"));}
         void release(String id)throws Exception{MdoBrowserCdpDownloads.Release release=controller.release(id);await(release::finished);check(release.released()&&release.snapshot().cacheCleanupConfirmed&&release.snapshot().sourceCleanupConfirmed);}
     }
+    static void ownBase(Path owned){base=owned;}
     private static void originalSuccess()throws Exception{
         try(Case test=new Case("success")){
             Source source=test.source();String id=source.offer("original-controller-1.0");MdoBrowserCdpDownloads.Snapshot pending=source.controller.get(id);

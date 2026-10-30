@@ -37,7 +37,8 @@ HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','Md
               'MdoBrowserUploadStore$RetentionOwner','MdoBrowserUploadStore$Retention','MdoBrowserUploadStore$PickerGrant',
               'MdoBrowserDownloadFiles','MdoBrowserDownloadFiles$Writer','MdoBrowserDownloadFiles$Failure',
               'MdoBrowserDownloadQueue','MdoBrowserDownloadQueue$Ticket','MdoBrowserDownloadQueue$Snapshot',
-              'MdoBrowserCdpDownloads','MdoBrowserCdpDownloads$Snapshot','MdoBrowserCdpDownloads$Release','MdoBrowserCdpDownloads$Budget','MdoBrowserCdpDownloads$Row')
+              'MdoBrowserCdpDownloads','MdoBrowserCdpDownloads$Snapshot','MdoBrowserCdpDownloads$Release','MdoBrowserCdpDownloads$Budget','MdoBrowserCdpDownloads$Row',
+              'MdoBrowserDownloadRuntime','MdoBrowser$DownloadRelease')
 
 
 def sha(path):return native.sha(path)

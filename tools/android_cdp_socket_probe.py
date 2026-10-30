@@ -83,6 +83,11 @@ def main():
         if upload_source.count(key)!=1:raise RuntimeError('Product upload fixture marker changed')
         upload_source=upload_source.replace(key,value)
     upload_generated=output/'UploadAssignmentHost.java';upload_generated.write_text(upload_source,encoding='utf-8')
+    download_template=ROOT/'tests/fixtures/android-cdp-java/DownloadCommandHost.java.in'
+    download_source=download_template.read_text(encoding='utf-8')
+    if download_source.count('@@DOWNLOAD_COMMANDS@@')!=1:raise RuntimeError('Download product command fixture marker changed')
+    download_source=download_source.replace('@@DOWNLOAD_COMMANDS@@',(ROOT/'host/android/browser-downloads.inc.java').read_text(encoding='utf-8'))
+    download_generated=output/'DownloadCommandHost.java';download_generated.write_text(download_source,encoding='utf-8')
     import setup_android_json_test
     import update_android_owner_scripts
     update_android_owner_scripts.verify()
@@ -95,7 +100,7 @@ def main():
                                                                'MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java',
                                                                'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserUploadStore.java','MdoBrowserUploadFiles.java','MdoBrowserDownloadFiles.java','MdoBrowserDownloadQueue.java','MdoBrowserCdpDownloads.java','MdoBrowserUploadQueue.java','MdoBrowserChoosers.java','MdoBrowserPrivatePicker.java','MdoBrowserChannel.java','MdoBrowserCapture.java',
                                                                'MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java')],
-                    str(generated),str(upload_generated),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
+                    str(generated),str(upload_generated),str(download_generated),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not vm.get('passed') or not vm.get('real_jvm_jni'):
@@ -142,6 +147,13 @@ def main():
             or controller.get('product_downloads_activated') is not False):
         raise RuntimeError('The native download controller/physical worker/files gate did not pass')
     result['jvm_download_controller']=controller
+    download_host=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpDownloadsHostProbe',str(output/'download-host-files')],cwd=ROOT,env=environment,text=True,timeout=45))
+    if (not download_host.get('passed') or not download_host.get('exact_product_commands') or not download_host.get('real_native_controller_files')
+            or download_host.get('framework_verified') is not False or download_host.get('provider_qualified') is not False
+            or download_host.get('product_downloads_activated') is not False):
+        raise RuntimeError('The exact native product download command/receipt gate did not pass')
+    result['jvm_download_host']=download_host
     binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not binding.get('passed') or not binding.get('real_jvm_jni_json'):
@@ -250,7 +262,7 @@ def main():
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
             'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserDownloadFiles.java','host/android/MdoBrowserDownloadQueue.java','host/android/MdoBrowserCdpDownloads.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
-            'host/android/browser-document.inc.java','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
+            'host/android/browser-document.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java',
             'host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',

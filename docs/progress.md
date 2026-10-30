@@ -7863,3 +7863,35 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   handling and installed provider/main-UI qualification. Phone/WebView update
   remain deferred. No installation, formal-data edit, actual model/external-page
   action, extra application/Home/source copy or publication.
+
+
+## E90 — join application-owned download controllers to the actual Activity
+
+- Forward exact native response events/consumer turns to each physical owner's
+  controller. Add the Application-Context service with shared metadata/file
+  budgets and worker-only cache/UID/mode validation. Native Context authority is
+  implemented and SDK-compiled, not yet qualified on an installed Android device.
+- Wire native list/get/accept/cancel/release commands with strict integer bounds,
+  exact view/channel ownership and bounded receipt observation. Pending downloads
+  fence agent mutations. Explicit view close retains file-retirement evidence;
+  admission/repeated close cannot claim completion while private files remain.
+  Release preserves cache replacement errors and never reports cleanup on a
+  new channel. Private reads remain explicitly unsupported.
+- Exact create/lifecycle fragments pass 155 checks; the new actual native/file/
+  controller/product-command gate passes 30. Full source-hashed JNI/native,
+  ASan/UBSan/API26 gates pass (`.mdo/E90-native-final.log` /
+  `.mdo/E90-native-current.json`). All 95 native and 11 creation hashes match.
+  Python passes 173/175 in 52.191 s, only two existing symlink privilege skips
+  (`.mdo/E90-python-full.log`). Seven current APK contracts pass.
+- Apply 118 reviewed files with the dev service stopped and build the complete
+  QA Activity/service/lite-tools APK (`.mdo/E90-android-build.log`): 6,444,353 bytes,
+  SHA-256 `e3436d042cc2de2acd65a419428a532e9957acc3de719324fb7e16214edc4410`.
+  Check actual Runtime/Release/controller DEX, provider, six JNI entries,
+  source/native/app archive identity, ARM64/16 KiB layout and v2/v3 signing.
+  Restore the same service to HTTP 200 on 63625, about 3,436.2 MiB. Windows and
+  paired-plugin outputs are unchanged; device/framework/automation flags false.
+- Goal remains active. Private byte-read/save transport, frozen filename/MIME,
+  exact navigation/popup ownership, unsupported text/blob behavior, orderly
+  takeover/rearm and installed provider/main-UI qualification remain open.
+  Phone/provider update stay deferred. No install, formal-data edit, model or
+  external-page action, additional app/Home/source copy or online publication.

@@ -5,7 +5,7 @@
         if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
         if(!nativeRetiringViews.isEmpty())throw new IllegalStateException("native_view_retirement_busy");
         if(networkCleanupFailed)throw new IllegalStateException("network_cleanup_failed");
-        if(networkRetiring()!=0)throw new IllegalStateException("native_view_retirement_busy");
+        if(networkRetiring()!=0||downloadRetiring()!=0)throw new IllegalStateException("native_view_retirement_busy");
     }
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
@@ -97,6 +97,7 @@
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.loaded();
     }
     private void blockDocuments(int reason,boolean value){
+        if(value)cancelDownloadReleases();
         if(value)networkRetireAll("network_host_admission_lost");
         if(value)cdpViews.invalidateAll();
         if(value)cancelCaptures();

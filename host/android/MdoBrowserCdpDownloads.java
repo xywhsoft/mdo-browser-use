@@ -50,6 +50,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
         Row(long sequence,MdoBrowserCdpSession.Offer offer){this.sequence=sequence;this.offer=offer;expected=offer.metadata().declaredLength;}
     }
     private final Object gate=new Object();private final Row[] rows=new Row[32];
+    private final MdoBrowserDownloadQueue.Ticket[] retiring=new MdoBrowserDownloadQueue.Ticket[32];
     private final MdoBrowserDownloadQueue files;private final Budget budget;
     private MdoBrowserCdpBinding.Network original;private Thread worker;private long serial;private boolean closed,disconnected;
     private volatile String failure;
@@ -141,7 +142,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
             MdoBrowserDownloadQueue.Snapshot file=row.ticket==null?null:row.ticket.snapshot();
             if(file==null||file.state.equals("released")&&file.fileCleanupConfirmed){
                 publish(row,"released",null,row.snapshot.received,null,false,true,sourceClean(row),null);row.releaseDone=true;retire(row);
-            }return;
+            }else if(file.code!=null&&!file.fileCleanupConfirmed){publish(row,"releasing",file.code,row.snapshot.received,null,false,false,sourceClean(row),"cache");}return;
         }
         MdoBrowserCdpSession.OfferResult offer=row.offer.result();
         if(offer==null){if(disconnected)publish(row,"failed","download_connection_closed",row.snapshot.received,null,false,row.ticket==null,false,"native_protocol");return;}
@@ -197,6 +198,12 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     String failure(){return failure;}
     private void refresh(Row row){synchronized(gate){summarize(row);}}
     boolean pending(){synchronized(gate){if(failure!=null)return true;for(Row row:rows)if(row!=null){summarize(row);if(!row.retired&&!row.snapshot.terminal())return true;}return false;}}
+    int retiringFiles(){
+        synchronized(gate){int count=0;for(int i=0;i<retiring.length;i++)if(retiring[i]!=null){
+            MdoBrowserDownloadQueue.Snapshot state=retiring[i].snapshot();
+            if(state.fileCleanupConfirmed&&(state.state.equals("released")||state.state.equals("closed")))retiring[i]=null;else count++;
+        }return count;}
+    }
     void disconnect(){
         synchronized(gate){if(closed||disconnected)return;disconnected=true;failure="download_connection_closed";
             for(Row row:rows)if(row!=null){
@@ -216,7 +223,7 @@ final class MdoBrowserCdpDownloads implements MdoBrowserCdpNetworks.Events,AutoC
     }
     @Override public void close(){
         synchronized(gate){if(closed)return;closed=true;
-            for(Row row:rows)if(row!=null){row.offer.cancel();if(row.ticket!=null)try{files.release(row.ticket);}catch(IOException ignored){}
+            int slot=0;for(Row row:rows)if(row!=null){row.offer.cancel();if(row.ticket!=null){retiring[slot++]=row.ticket;try{files.release(row.ticket);}catch(IOException ignored){}}
                 publish(row,"closed","download_owner_closed",row.snapshot.received,null,false,row.ticket==null,sourceClean(row),"owner");row.releaseDone=true;retire(row);}
             original=null;worker=null;
         }

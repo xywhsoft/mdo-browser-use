@@ -9,7 +9,7 @@
         final MdoBrowserCdpMarker.DocumentQuota quota=new MdoBrowserCdpMarker.DocumentQuota();
         final java.util.concurrent.atomic.AtomicBoolean live=new java.util.concurrent.atomic.AtomicBoolean(true);
         final long born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->networkWatch(this);
-        MdoBrowserCdpMarker marker;long warmupEpoch,retiredAt;
+        MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;long warmupEpoch,retiredAt;
         boolean warming=true,starting,ready,created,retired,protocolDrained=true,destroyed,replySent,targetMayHaveOccurred,cleanupObservationExpired;
         String code;
         NetworkEntry(String key,WebView view,MdoBrowserDocument profile,MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String target){
@@ -22,7 +22,8 @@
             channel.current()==entry.channelLease&&channel.active(entry.channelLease,host.getUrl());
     }
     private int networkRetiring(){int count=0;for(NetworkEntry entry:networkViews.values())if(entry.retired&&!entry.protocolDrained)count++;return count;}
-    private boolean networkClean(){return !networkCleanupFailed&&networkRetiring()==0;}
+    private int downloadRetiring(){int count=0;for(NetworkEntry entry:networkViews.values())if(entry.downloads!=null)count+=entry.downloads.retiringFiles();return count;}
+    private boolean networkClean(){return !networkCleanupFailed&&networkRetiring()==0&&downloadRetiring()==0;}
     private void networkAttach(String key,WebView view,boolean required){
         NetworkEntry entry=networkViews.get(key);
         if(entry!=null&&entry.view==view&&(!entry.ready||entry.retired||!networkCurrent(entry)))throw new IllegalStateException("network_owner_unavailable");
@@ -30,7 +31,10 @@
     }
     private void networkCommand(String key,WebView view,String command,boolean agent){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
+        if("downloads".equals(command)&&entry.downloads!=null)return;
         if(entry.retired&&(agent||Arrays.asList("automation","frames","input","wheel","drag","upload").contains(command)))throw new IllegalStateException("network_owner_unavailable");
+        if(agent&&entry.downloads!=null&&entry.downloads.pending()&&Arrays.asList("navigate","back","forward","reload","automation","input","wheel","drag","upload").contains(command))
+            throw new IllegalStateException(entry.downloads.failure()==null?"download_pending":entry.downloads.failure());
         if(entry.ready||entry.retired)return;
         if(!Arrays.asList("state","bounds","close","takeover","stop").contains(command))throw new IllegalStateException("network_starting");
     }
@@ -69,12 +73,16 @@
             // The worker callback uses only atomic admission and the original
             // native connection. Never consult UI objects from this thread.
             final java.util.concurrent.atomic.AtomicBoolean live=entry.live;
+            MdoBrowserDownloadRuntime service=MdoBrowserDownloadRuntime.get(activity);
+            final MdoBrowserCdpDownloads downloads=new MdoBrowserCdpDownloads(service.files,service.budget);entry.downloads=downloads;
             entry.protocolDrained=false;
-            cdpWorker.startNetwork(entry.marker,budget,(connection,method,child,params)->{
-                if(!live.get())throw new java.io.IOException("cdp_network_cancelled");
-                // Original-response retention joins here in the next transfer
-                // stage. No response/body is fetched again by URL.
-                if("Fetch.requestPaused".equals(method))connection.continuePausedRequest();
+            cdpWorker.startNetwork(entry.marker,budget,new MdoBrowserCdpNetworks.Events(){
+                public void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params)throws java.io.IOException {
+                    if(!live.get())throw new java.io.IOException("cdp_network_cancelled");downloads.event(connection,method,child,params);
+                }
+                public void turn(MdoBrowserCdpBinding.Network connection)throws java.io.IOException {
+                    if(!live.get())throw new java.io.IOException("cdp_network_cancelled");downloads.turn(connection);
+                }
             },result->networkResult(entry,result));
         }catch(java.io.IOException|RuntimeException|Error failure){
             entry.protocolDrained=entry.marker==null||!cdpWorker.networkPending(entry.marker);
@@ -110,6 +118,7 @@
         if(!entry.retired){entry.retired=true;entry.retiredAt=android.os.SystemClock.elapsedRealtime();entry.code=networkProtocolCode(result.code,"network_connection_failed");}
         entry.live.set(false);networkHandler.removeCallbacks(entry.watch);
         if(entry.marker!=null)try{entry.marker.close();}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
+        if(entry.downloads!=null)try{entry.downloads.disconnect();}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
         if(!entry.replySent)networkReplyFailure(entry);
         else if(entry.protocolDrained)networkDiscardUnsent(entry);
         networkRelease(entry);
@@ -120,6 +129,7 @@
         entry.live.set(false);networkHandler.removeCallbacks(entry.watch);
         try{
             if(entry.marker!=null){entry.marker.close();cdpWorker.cancelNetwork(entry.marker.lease());}
+            if(entry.downloads!=null)entry.downloads.disconnect();
         }catch(RuntimeException|Error failure){networkCleanupFailed=true;}
         if(entry.protocolDrained){if(!entry.replySent)networkReplyFailure(entry);networkRelease(entry);}
         else if(!networkHandler.postDelayed(entry.watch,100)){
@@ -164,7 +174,14 @@
     }
     private void networkDestroyed(WebView view){for(NetworkEntry entry:new ArrayList<>(networkViews.values()))if(entry.view==view){networkDestroyed(entry.key,view);return;}}
     private void networkRelease(NetworkEntry entry){
-        if(entry.destroyed&&entry.protocolDrained){networkHandler.removeCallbacks(entry.watch);networkViews.remove(entry.key,entry);}
+        if(entry.destroyed&&entry.downloads!=null)try{entry.downloads.close();}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
+        if(entry.destroyed&&entry.protocolDrained){
+            networkHandler.removeCallbacks(entry.watch);
+            if(entry.downloads==null||entry.downloads.retiringFiles()==0){networkViews.remove(entry.key,entry);return;}
+            long age=android.os.SystemClock.elapsedRealtime()-entry.retiredAt;
+            if(age<0||age>=5000){entry.cleanupObservationExpired=true;networkCleanupFailed=true;return;}
+            if(!networkHandler.postDelayed(entry.watch,100)){entry.cleanupObservationExpired=true;networkCleanupFailed=true;}
+        }
     }
     private String networkProtocolCode(String code,String fallback){return code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:fallback;}
     private JSONObject networkState(String key)throws JSONException {
