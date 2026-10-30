@@ -32,7 +32,7 @@ enable automation. E77 aligns private worker/session/binding/chooser/upload and
 kernel-transport deadlines with suspend-inclusive elapsed time; its controlled
 sleep-clock tests do not qualify actual device sleep or Doze recovery.
 
-## Complete development host APK (E46/E77)
+## Complete development host APK (E46/E78)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -40,7 +40,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,403,393 bytes, SHA-256
-`565f440fbaec9e7bd7ea7184987ef840c9b805a1f5cec4c3e7932115d81fb03e`.
+`c4c8f55377303c6142898e0a2c0434a0711d2343c43d579debeb2b38f5807fd7`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -2827,3 +2827,60 @@ ABI/DEX/provider/alignment/v2-v3 signing checks. JS 331/331 and Python 171/173 p
 paired plugin are unchanged. One source/Home/native output is reused, and the
 headless service is restored to HTTP 200. Phone connection and WebView updates
 remain deferred; global Android automation stays disabled.
+
+### Original profile confirmation and native retirement (E78)
+
+An automation profile now requires one `setProfile` on the original native
+provider followed by that provider's `getProfile().getName()` matching the exact
+requested non-default name. Readback happens after setting: inspecting the old
+profile first would lock it. Manual views neither inspect nor change their
+existing profile. The adapter pins the Profile boundary signature at the same
+reviewed Chromium revision and adds no AndroidX/runtime package. See
+[Android's profile contract](https://developer.android.com/reference/androidx/webkit/WebViewCompat).
+
+Before installation, a repeated confirmed same-name request is idempotent.
+Changing its name or setting a profile after any native world-install attempt
+is refused. Missing/malformed/throwing readback, reentrant retirement or native
+allocation failure leaves the assignment uncertain: no world/script installation,
+another setter or default-profile fallback. Closing the adapter cannot prove
+unknown profile state clean; only destruction of its exact original view settles
+that native ownership. This does not delete a confirmed persistent profile.
+
+The product create failure handler now owns exactly one native retirement.
+Reserve the original view before input/file cancellation or lifecycle removal;
+cleanup callbacks cannot create a replacement or retire that same view twice.
+A confirmed retirement releases that reservation for a later explicit creation.
+If detach/destroy/cleanup fails, expose a sticky `native_view_cleanup_failed`
+fence and refuse new creation or reattachment for this native host lifecycle.
+An erased UI map is not native release evidence. Repeated and reentrant close
+therefore keep `world_cleanup_confirmed:false` while cleanup is unknown/active.
+The original chooser-cleanup predicate is preserved as well.
+
+Actual world/document source passes 35/85 checks, with 190 profile and 18 shared
+native-budget checks (`.mdo/E78-profile-lifetime.log`, `.mdo/E78-world-current.json`).
+The exact product create/bind/close/retire fragments plus real input/lifecycle
+cores pass 73 checks (`.mdo/E78-create-overlay-final.log`,
+`.mdo/E78-create-current.json`). Cover separate view profiles, readback faults,
+manual browsing, one-time retirement, clean explicit recovery, failed cleanup/OOM,
+callback reentrance, eight-view quota, and uncertain close receipts. Provider/UI
+peers are controlled; actual Android profile/cookie/storage/resource behavior
+remains unqualified.
+
+All 112 overlays compose against the pinned baseline using the new read-only
+`python tools/apply_host.py --validate`, including while service state is marked
+running. Actual apply keeps its stop and previous-hash guards. An older redundant
+close-body patch was caught before writes, merged into the authoritative source
+and removed. Two integration tests cover non-mutating validation and a broken
+anchor (`.mdo/E78-overlay-plan-tests.log`).
+
+The final current-source native gate passes `.mdo/E78-native-current.log`/`.json`
+with real JVM/JNI/local protocol and controlled Android/DOM peers, ASan/UBSan and
+API 26 compilation. The complete E78 APK is compiled/DEX/manifest/ABI/alignment/
+v2-v3-signature verified (`.mdo/E78-android-verified.log`), including actual World,
+Failure and Document definitions. JS 331/331 and Python 173/175 pass (the two
+existing Windows symlink privilege skips). Source/test/build hashes are checked
+against the final artifact; reuse the unchanged E77 ARM64 host, W4 Windows app,
+paired plugin and one source/Home. The headless service is restored to HTTP 200.
+No device install, WebView update, model call, external page action or online
+release. Global Android automation remains disabled; installed provider/main-UI/
+URI/event verification and remaining transfer/activation work are still pending.

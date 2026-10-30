@@ -1665,3 +1665,28 @@ The source adapter is implemented, but its advertised capability still follows
 the overall Android qualification gate. It remains unavailable in the current
 APK; no request/flag enables it on an unqualified provider. See
 [current Android verification and outstanding work](android.md).
+
+## Android native profile and retirement state (E78)
+
+The native automation profile is assigned once before other WebView use and
+confirmed by reading the exact original provider's profile name. It is never
+inferred from a successful setter or requested flag. A manual view retains its
+existing profile without inspection. An unknown assignment cannot install a
+document world or retry the setter/default profile; exact native destruction is
+required to settle that ownership. No public C/JS signature or profile argument
+is added, and the overall Android qualification gate remains unavailable.
+
+Android capabilities, isolated-document state and close receipts additionally
+report `native_view_cleanup_failed` and `native_view_retiring` (active physical
+retirement count). A failed original native release is a sticky host-lifecycle
+creation fence; an erased tab entry cannot reset it. `native_view_retirement_busy`
+also refuses creation/reattachment during cancellation and retirement callbacks.
+Queries and closure stay available. A later explicit creation can proceed after
+clean retirement, but uncertain cleanup requires a fresh native host lifecycle;
+do not replay creation/navigation or destruction to manufacture success.
+
+`world_cleanup_confirmed:false` persists on empty-entry/repeated close while
+native cleanup is failed or retirement is still active. Normal already-complete
+closure stays idempotent. Failed creation gives the typed cleanup uncertainty
+priority, retaining primary/cleanup exceptions privately. No provider text or
+profile/cache path is added to the public result. See [Android E78 verification](android.md).

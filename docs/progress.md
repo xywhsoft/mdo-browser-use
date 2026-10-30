@@ -7075,3 +7075,36 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   current-source native/public gates and rebuild/verify the same development APK.
   Phone/current provider, formal data, one source/Home and online release remain
   unchanged; no overall Android qualification is inferred from these fixtures.
+
+## E78f — verify and package the profile/retirement product paths
+
+- After the read-only plan passed, apply the reviewed overlays only with the
+  existing service stopped (`.mdo/E78-apply-verified.log`). Verify the complete
+  current-source native pipeline (`.mdo/E78-native-current.log`/`.json`), exact
+  world/document/profile/budget inputs (`.mdo/E78-world-current.json`) and exact
+  create/close/retire inputs (`.mdo/E78-create-current.json`). Check every recorded
+  source hash against its current file, including tools and overlays.
+- Reuse the verified E77 ARM64 library (3,547,104 bytes,
+  `af06385599860d01df28e3c20c052c06e7006d020f408ce502e87487b06536dc`).
+  Final complete APK passes source/compiler/ABI/private-provider/DEX/alignment/
+  v2-v3-signature receipts (`.mdo/E78-android-verified.log`): 6,403,393 bytes,
+  SHA-256 `c4c8f55377303c6142898e0a2c0434a0711d2343c43d579debeb2b38f5807fd7`.
+  Confirm current builder, Android source and native hashes; actual World/Failure/
+  Document DEX definitions are required. QA package, signer and serial are stable;
+  device/framework/automation qualification flags remain false.
+- Full public regressions: JS 331/331 in 20.419 s; Python 173/175 in 74.961 s,
+  with only the two existing Windows symlink privilege 1314 skips
+  (`.mdo/E78-node-full.log`, `.mdo/E78-python-full.log`). Native profile checks 190,
+  exact product creation/closure checks 73, world/document 35/85, native-budget 18;
+  controlled framework peers are not device qualification.
+- Restore the same headless deployment to port 63625, HTTP 200, approximately
+  3,432 MiB. Revalidate unchanged W4 Windows binary and paired plugin, plus all
+  current allowed app-archive source hashes. No extra app/Home/source copy,
+  actual phone/provider/model/external page action, formal data change or online
+  publication. Update the current APK record and public optional state fields.
+- Goal active. Profile association/readback and native-creation retirement paths
+  are implemented and packaged. Actual Android provider/main-UI/profile/storage/
+  URI/event evidence, intercepted chooser association and remaining directory/
+  download/activation work remain pending. Historical Windows intermittent input
+  failure causes stay unattributed. Continue feasible development without asking
+  again for the deferred phone or enabling unqualified automation.
