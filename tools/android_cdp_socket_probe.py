@@ -159,6 +159,13 @@ def main():
             or not retirement.get('real_guarded_files') or retirement.get('framework_verified') is not False or retirement.get('provider_qualified') is not False):
         raise RuntimeError('The original response retirement and policy-disable gate did not pass')
     result['jvm_network_retirement']=retirement
+    rearm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpNetworkRearmProbe',str(output/'network-rearm-files')],cwd=ROOT,env=environment,text=True,timeout=45))
+    if (not rearm.get('passed') or not rearm.get('same_physical_view_rearm') or not rearm.get('retained_original_downloads')
+            or not rearm.get('stale_callbacks_fenced') or not rearm.get('same_document_quota') or not rearm.get('real_guarded_files')
+            or rearm.get('framework_verified') is not False or rearm.get('provider_qualified') is not False):
+        raise RuntimeError('The same-page native rearm/download generations gate did not pass')
+    result['jvm_network_rearm']=rearm
     download_host=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpDownloadsHostProbe',str(output/'download-host-files')],cwd=ROOT,env=environment,text=True,timeout=45))
     if (not download_host.get('passed') or not download_host.get('exact_product_commands') or not download_host.get('real_native_controller_files')

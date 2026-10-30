@@ -8054,3 +8054,46 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   handling and installed provider/main-UI qualification remain open. Phone and
   current WebView stay deferred. No installation, formal-data edit, model or
   external browser-page action, extra app/Home/source copy or publication.
+
+
+## E95 — explicitly rearm the original manual page and retain download generations
+
+- Implement asynchronous human return-control on the same physical WebView.
+  Require old native/source cleanup, the exact assigned profile/channel and a
+  stable loaded page. Keep manual input/document admission blocked until new
+  native target/frame proof and Fetch activation ACKs succeed. Never load a URL,
+  replay input, reconstruct an old request or destroy the page on rearm failure.
+  Navigation, channel/profile loss, scheduler/start failure, quota exhaustion
+  and the original fifteen-second deadline preserve manual state. Repeated
+  release does not start another connection or reset its deadline.
+- Reuse one bounded download controller/file authority across opaque connection
+  tickets. Stale events/turns/disconnects cannot acquire the new generation.
+  Require a terminal cleanup receipt even before the initial protocol turn.
+  Retain old IDs, ordering, files and the shared 32-record budget; old turns
+  cannot claim/read old streams through a new connection. Complete sources can
+  finish independent verification; altered bytes still fail. Pending private
+  reads/releases keep their original view/controller/channel/deadline through
+  replacement. Reuse the existing physical owner's sixteen-declaration quota
+  conservatively; explicit release does not reset it or reload to bypass it.
+- Same-view/common-worker/JNI/guarded-file rearm passes 111 checks; exact product
+  download commands pass 81, including a blocked real reader and queued release
+  across replacement. Creation/takeover/rearm/lifecycle fragments pass 237.
+  Full native/ASan/UBSan/API26 gates pass (`.mdo/E95-native-final.log` / current
+  JSON); all 99 native and 11 product input hashes match. Python passes 173/175
+  in 54.691 s (`.mdo/E95-python-full.log`), only two existing symlink-privilege
+  skips. The full existing controller/retirement/frame/worker gates also pass.
+- Stop the single dev instance, apply 119 reviewed files and rebuild the complete
+  QA Activity/service/lite-tools APK (`.mdo/E95-android-build.log`). Actual DEX
+  includes the new connection ticket; reviewed source/native/app identity,
+  private provider, six JNI exports, ARM64/16 KiB layout and v2-v3 signing pass.
+  APK 6,456,641 bytes, SHA-256
+  `95bfda6db251d7b25fefd4c5dede728d063dd4c5fa725bec62c3cd8f60795a05`.
+  Seven final APK contracts pass. Restore the same service to HTTP 200 on 63625,
+  about 3,437.0 MiB. Windows/paired-plugin identities remain unchanged;
+  device/framework/automation qualification remains false.
+- Goal active. Original popup/download-only lifetime, cross-process interception,
+  navigation-error association, Android public save/automation qualification,
+  unsupported text/blob handling, installed provider/main-UI checks and the other
+  documented full-goal qualifications remain open. Phone/current WebView stay
+  deferred. No installation, formal-data edit, model or external browser-page
+  action, extra app/Home/source copy or online publication.

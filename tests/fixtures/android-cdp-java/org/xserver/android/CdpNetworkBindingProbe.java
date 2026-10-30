@@ -38,13 +38,15 @@ public final class CdpNetworkBindingProbe {
         .put("resourceType","Document").put("request",new JSONObject().put("method","POST").put("url","https://private.invalid/token"))
         .put("responseHeaders",new JSONArray().put(new JSONObject().put("name","Content-Disposition").put("value","attachment; filename=private.bin"))));}
     static final class Context implements AutoCloseable{
-        final WebView view=new WebView();final MdoBrowserCdpView adapter;
-        final CdpBindingProbe.Factory peer=new CdpBindingProbe.Factory(view);
+        final WebView view;final MdoBrowserCdpView adapter;
+        final CdpBindingProbe.Factory peer;
         final List<String> methods=new ArrayList<>();final List<JSONObject> commands=new ArrayList<>();
         final List<MdoBrowserCdpSession.ControlReceipt> controls=new ArrayList<>();
         final List<MdoBrowserCdpNetworkFrames.Origin> origins=new ArrayList<>();
         MdoBrowserCdpBinding.Network network;boolean rejectDisable,rejectEnable,breakEnable,pausedEnable,abort,rejectPage,brokenTree,treeRaceApplied,expectSubframe;int treeRaces;
-        Context(boolean physical){adapter=physical?MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota()):new MdoBrowserCdpView(view,v->v==view);
+        Context(boolean physical){this(physical,new WebView(),new MdoBrowserCdpMarker.DocumentQuota());}
+        Context(boolean physical,WebView original,MdoBrowserCdpMarker.DocumentQuota quota){view=original;peer=new CdpBindingProbe.Factory(view);
+            adapter=physical?MdoBrowserCdpView.network(view,v->v==view,quota):new MdoBrowserCdpView(view,v->v==view);
             peer.extra=(command,wire)->{
                 String method=command.getString("method");methods.add(method);commands.add(command);int id=command.getInt("id");
                 if("Page.enable".equals(method)){

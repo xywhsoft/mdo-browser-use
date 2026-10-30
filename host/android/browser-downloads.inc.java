@@ -75,7 +75,7 @@
         if(downloadReads.get(operation.id)!=operation)return;
         networkHandler.removeCallbacks(operation.watch);
         if(stopped||channel.current()!=operation.lease||!channel.active(operation.lease,host.getUrl())){downloadReadDone(operation);return;}
-        if(networkViews.get(operation.entry.key)!=operation.entry||!views.owns(operation.entry.key,operation.entry.view)){
+        if(!downloadOwnerCurrent(operation.entry)){
             downloadReadDone(operation);reply(operation.lease,operation.id,null,"download_owner_changed");return;
         }
         byte[] bytes=null;
@@ -104,7 +104,7 @@
         if(downloadReleases.get(operation.id)!=operation)return;
         networkHandler.removeCallbacks(operation.watch);
         if(stopped||channel.current()!=operation.lease||!channel.active(operation.lease,host.getUrl())){downloadReleases.remove(operation.id);return;}
-        if(networkViews.get(operation.entry.key)!=operation.entry||!views.owns(operation.entry.key,operation.entry.view)){
+        if(!downloadOwnerCurrent(operation.entry)){
             downloadReleases.remove(operation.id);reply(operation.lease,operation.id,null,"download_owner_changed");return;
         }
         try{
@@ -121,4 +121,8 @@
     private void cancelDownloadReleases(){
         for(DownloadRelease operation:new ArrayList<>(downloadReleases.values()))networkHandler.removeCallbacks(operation.watch);downloadReleases.clear();
         for(DownloadRead operation:new ArrayList<>(downloadReads.values()))downloadReadDone(operation);
+    }
+    private boolean downloadOwnerCurrent(NetworkEntry original){
+        NetworkEntry current=networkViews.get(original.key);
+        return current!=null&&current.view==original.view&&current.downloads==original.downloads&&views.owns(original.key,original.view);
     }

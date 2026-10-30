@@ -39,6 +39,7 @@ public final class CdpDownloadsProbe {
             try{if(barrier!=null)barrier.install(opened);return opened;}catch(Exception failure){opened.close();throw new IOException("download_fixture_setup_failed");}
         },()->System.nanoTime()/1000000L);}
         Source source()throws Exception{Source value=new Source(this);sources.add(value);return value;}
+        Source rearm(Source previous)throws Exception{Source value=new Source(this,previous);sources.add(value);return value;}
         @Override public void close()throws Exception{
             for(Source source:sources)source.controller.close();host.close();files.close();check(files.awaitStopped(3000));
             check(files.cleanupFailed()==expectedCleanupFailure&&files.reservations()==0&&files.reservedBytes()==0&&budget.used()==0);
@@ -48,11 +49,17 @@ public final class CdpDownloadsProbe {
     }
     static final class Source {
         final Case test;final CdpNetworkBindingProbe.Context context;final MdoBrowserCdpDownloads controller;
+        final MdoBrowserCdpDownloads.Connection connection;
+        final MdoBrowserCdpMarker.DocumentQuota quota;
         final AtomicInteger claims=new AtomicInteger(),reads=new AtomicInteger(),closes=new AtomicInteger(),aborts=new AtomicInteger(),continues=new AtomicInteger();
         final ConcurrentLinkedQueue<JSONObject> chunks=new ConcurrentLinkedQueue<>();volatile int withheldClose;volatile boolean holdClose;
         final ConcurrentLinkedQueue<String> trace=new ConcurrentLinkedQueue<>();
-        Source(Case test)throws Exception{
-            this.test=test;context=test.host.source();controller=new MdoBrowserCdpDownloads(test.files,test.budget);
+        Source(Case test)throws Exception{this(test,null);}
+        Source(Case test,Source previous)throws Exception{
+            this.test=test;quota=previous==null?new MdoBrowserCdpMarker.DocumentQuota():previous.quota;
+            context=previous==null?test.host.source(new android.webkit.WebView(),quota):test.host.source(previous.context.view,quota);
+            controller=previous==null?new MdoBrowserCdpDownloads(test.files,test.budget):previous.controller;
+            connection=previous==null?controller.connection():controller.rearm();
             CdpBindingProbe.Factory.Extra original=context.peer.extra;
             context.peer.extra=(command,wire)->{
                 String method=command.getString("method");int id=command.getInt("id");
@@ -69,7 +76,7 @@ public final class CdpDownloadsProbe {
                 return original.send(command,wire);
             };
             int initial=test.host.states.size();
-            test.host.worker.startNetwork(context.adapter.marker(),1500,controller,state->{test.host.states.add(state);if(!state.ready)controller.disconnect();});
+            test.host.worker.startNetwork(context.adapter.marker(),1500,connection,state->{test.host.states.add(state);if(!state.ready)connection.disconnect(state.cleanupConfirmed);});
             await(()->{test.host.ui.drain();return test.host.states.size()>initial;});check(test.host.states.get(initial).ready);
         }
         String offer(String id)throws Exception{

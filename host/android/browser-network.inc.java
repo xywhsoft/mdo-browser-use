@@ -6,19 +6,22 @@
     private final class NetworkEntry {
         final String key,id,target;final WebView view;final MdoBrowserDocument profile;
         final MdoBrowserChannel<WebMessagePort>.Lease channelLease;
-        final MdoBrowserCdpMarker.DocumentQuota quota=new MdoBrowserCdpMarker.DocumentQuota();
+        final MdoBrowserCdpMarker.DocumentQuota quota;
         final java.util.concurrent.atomic.AtomicBoolean live=new java.util.concurrent.atomic.AtomicBoolean(true);
         final long born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->networkWatch(this);
-        MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;long warmupEpoch,retiredAt;
-        boolean warming=true,starting,ready,created,retired,draining,responsesDisabled,protocolDrained=true,destroyed,replySent,targetMayHaveOccurred,cleanupObservationExpired;
+        MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;MdoBrowserCdpDownloads.Connection downloadConnection;long warmupEpoch,retiredAt;
+        boolean warming=true,starting,ready,created,retired,draining,rearm,responsesDisabled,protocolDrained=true,destroyed,replySent,targetMayHaveOccurred,cleanupObservationExpired;
         String code;
         NetworkEntry(String key,WebView view,MdoBrowserDocument profile,MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String target){
-            this.key=key;this.view=view;this.profile=profile;channelLease=lease;this.id=id;this.target=target;
+            this(key,view,profile,lease,id,target,new MdoBrowserCdpMarker.DocumentQuota());
+        }
+        NetworkEntry(String key,WebView view,MdoBrowserDocument profile,MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String target,MdoBrowserCdpMarker.DocumentQuota quota){
+            this.key=key;this.view=view;this.profile=profile;channelLease=lease;this.id=id;this.target=target;this.quota=quota;
         }
     }
     private boolean networkCurrent(NetworkEntry entry){
         return networkViews.get(entry.key)==entry&&!stopped&&!browserPaused&&views.owns(entry.key,entry.view)&&
-            documents.get(entry.key)==entry.profile&&entry.profile.profileAssigned()&&(!manual.contains(entry.key)||entry.draining)&&!pageClosed.contains(entry.key)&&
+            documents.get(entry.key)==entry.profile&&entry.profile.profileAssigned()&&(!manual.contains(entry.key)||entry.draining||entry.rearm&&entry.starting)&&!pageClosed.contains(entry.key)&&
             channel.current()==entry.channelLease&&channel.active(entry.channelLease,host.getUrl());
     }
     private int networkRetiring(){int count=0;for(NetworkEntry entry:networkViews.values())if(entry.draining||entry.retired&&!entry.protocolDrained)count++;return count;}
@@ -50,10 +53,23 @@
             if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_retirement_scheduler_unavailable");
         }catch(RuntimeException|Error failure){networkRetire(entry,"network_retirement_failed");}
     }
-    private void networkCanRelease(String key,WebView view){
-        NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
+    /** Human return-control is asynchronous: keep manual admission blocked
+     * until fresh native proof/frame bootstrap/Fetch.enable are acknowledged. */
+    private boolean networkReleaseControl(String key,WebView view,String id,boolean agent)throws java.io.IOException {
+        NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return false;
         if(entry.draining)throw new IllegalStateException("network_retiring");
-        if(entry.retired)throw new IllegalStateException("network_rearm_required");
+        if(!entry.retired){if(entry.rearm&&entry.starting)throw new IllegalStateException("network_starting");return false;}
+        if(agent)throw new IllegalStateException("user_takeover");
+        if(!entry.protocolDrained||!networkClean())throw new IllegalStateException("network_retiring");
+        if(!manual.contains(key)||stopped||browserPaused||!views.owns(key,view)||documents.get(key)!=entry.profile||!entry.profile.profileAssigned()||
+            pageClosed.contains(key)||channel.current()!=entry.channelLease||!channel.active(entry.channelLease,host.getUrl()))throw new IllegalStateException("network_owner_unavailable");
+        if(Boolean.TRUE.equals(loading.get(key)))throw new IllegalStateException("network_rearm_page_loading");
+        if(entry.downloads==null)throw new IllegalStateException("network_owner_unavailable");
+        NetworkEntry next=new NetworkEntry(key,view,entry.profile,entry.channelLease,id,null,entry.quota);
+        next.downloads=entry.downloads;next.rearm=true;next.warming=false;next.starting=true;next.created=true;next.warmupEpoch=views.epoch(key,view);
+        next.downloadConnection=entry.downloads.rearm();
+        networkHandler.removeCallbacks(entry.watch);networkViews.put(key,next);
+        networkStart(next);return true;
     }
     private void networkBegin(String key,WebView view,String id,String target){
         MdoBrowserDocument profile=documents.get(key);MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
@@ -69,6 +85,7 @@
     }
     private void networkNavigation(String key,WebView view,String address){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.ready)return;
+        if(entry.rearm){networkRetire(entry,"network_rearm_navigation_changed");return;}
         if(!entry.warming||entry.warmupEpoch!=0||!"about:blank".equals(address)||!networkCurrent(entry)){
             networkRetire(entry,"network_bootstrap_navigation_changed");return;
         }
@@ -83,15 +100,22 @@
             networkRetire(entry,"network_bootstrap_navigation_changed");return true;
         }
         entry.warming=false;entry.starting=true;
+        networkStart(entry);return true;
+    }
+    private void networkStart(NetworkEntry entry){
         try{
+            final WebView view=entry.view;
             int budget=networkRemaining(entry,100);
+            if(!networkCurrent(entry)||entry.rearm&&(Boolean.TRUE.equals(loading.get(entry.key))||views.epoch(entry.key,view)!=entry.warmupEpoch))throw new IllegalStateException("network_owner_changed");
             entry.marker=MdoBrowserCdpView.network(view,owned->owned==view&&networkCurrent(entry)&&entry.live.get(),entry.quota).marker();
             // The worker callback uses only atomic admission and the original
             // native connection. Never consult UI objects from this thread.
             final java.util.concurrent.atomic.AtomicBoolean live=entry.live;
-            MdoBrowserDownloadRuntime service=MdoBrowserDownloadRuntime.get(activity);
-            final MdoBrowserCdpDownloads downloads=new MdoBrowserCdpDownloads(service.files,service.budget);entry.downloads=downloads;
+            if(entry.downloads==null){MdoBrowserDownloadRuntime service=MdoBrowserDownloadRuntime.get(activity);
+                entry.downloads=new MdoBrowserCdpDownloads(service.files,service.budget);entry.downloadConnection=entry.downloads.connection();}
+            final MdoBrowserCdpDownloads.Connection downloads=entry.downloadConnection;
             entry.protocolDrained=false;
+            if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_scheduler_unavailable");
             cdpWorker.startNetwork(entry.marker,budget,new MdoBrowserCdpNetworks.Events(){
                 public void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params)throws java.io.IOException {
                     if(!live.get())throw new java.io.IOException("cdp_network_cancelled");downloads.event(connection,method,child,params);
@@ -102,10 +126,10 @@
             },result->networkResult(entry,result));
         }catch(java.io.IOException|RuntimeException|Error failure){
             entry.protocolDrained=entry.marker==null||!cdpWorker.networkPending(entry.marker);
+            if(entry.protocolDrained&&entry.downloadConnection!=null)entry.downloadConnection.disconnect(true);
             String code=failure instanceof java.io.IOException?networkProtocolCode(failure.getMessage(),"network_start_failed"):"network_start_failed";
             networkRetire(entry,code);
         }
-        return true;
     }
     private int networkRemaining(NetworkEntry entry,int minimum){
         long used=android.os.SystemClock.elapsedRealtime()-entry.born;
@@ -117,13 +141,23 @@
             if(entry.ready&&!entry.retired)return;
             try{
                 networkRemaining(entry,10);
-                if(entry.retired||!networkCurrent(entry)||!"about:blank".equals(entry.view.getUrl())||views.epoch(entry.key,entry.view)!=entry.warmupEpoch)throw new IllegalStateException("network_owner_changed");
+                if(entry.retired||!networkCurrent(entry)||views.epoch(entry.key,entry.view)!=entry.warmupEpoch||
+                    (entry.rearm?Boolean.TRUE.equals(loading.get(entry.key)):!"about:blank".equals(entry.view.getUrl())))throw new IllegalStateException("network_owner_changed");
+                if(entry.rearm){
+                    JSONObject outcome=new JSONObject().put("manual",false).put("downloads_intercepted",true);
+                    entry.profile.block(MdoBrowserDocument.MANUAL,false);views.manual(entry.key,entry.view,false);manual.remove(entry.key);
+                    if(!networkCurrent(entry)||entry.retired||views.epoch(entry.key,entry.view)!=entry.warmupEpoch||Boolean.TRUE.equals(loading.get(entry.key)))throw new IllegalStateException("network_owner_changed");
+                    entry.starting=false;entry.ready=true;networkHandler.removeCallbacks(entry.watch);entry.replySent=true;
+                    reply(entry.channelLease,entry.id,outcome,null);return;
+                }
                 entry.starting=false;entry.ready=true;networkHandler.removeCallbacks(entry.watch);
                 if(!"about:blank".equals(entry.target)){entry.targetMayHaveOccurred=true;entry.view.loadUrl(entry.target);}else loading.put(entry.key,false);
                 if(!networkCurrent(entry)||entry.retired)throw new IllegalStateException("network_owner_changed");
                 entry.created=true;entry.replySent=true;
                 reply(entry.channelLease,entry.id,new JSONObject().put("created",true).put("downloads_intercepted",true),null);
             }catch(JSONException|RuntimeException|Error failure){
+                if(entry.rearm&&views.owns(entry.key,entry.view)){manual.add(entry.key);
+                    try{entry.profile.block(MdoBrowserDocument.MANUAL,true);views.manual(entry.key,entry.view,true);}catch(RuntimeException|Error ignored){}}
                 String code="network_start_timeout".equals(failure.getMessage())?"network_start_timeout":"network_start_failed";
                 networkRetire(entry,entry.targetMayHaveOccurred?"network_navigation_uncertain":code);
             }
@@ -137,7 +171,7 @@
         entry.draining=false;entry.ready=false;
         entry.live.set(false);networkHandler.removeCallbacks(entry.watch);
         if(entry.marker!=null)try{entry.marker.close();}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
-        if(entry.downloads!=null)try{entry.downloads.disconnect();}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
+        if(entry.downloadConnection!=null)try{entry.downloadConnection.disconnect(result.cleanupConfirmed);}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
         if(!entry.replySent)networkReplyFailure(entry);
         else if(entry.protocolDrained)networkDiscardUnsent(entry);
         networkRelease(entry);
@@ -149,7 +183,7 @@
         entry.live.set(false);networkHandler.removeCallbacks(entry.watch);
         try{
             if(entry.marker!=null){entry.marker.close();cdpWorker.cancelNetwork(entry.marker.lease());}
-            if(entry.downloads!=null)entry.downloads.disconnect();
+            if(entry.downloadConnection!=null)entry.downloadConnection.disconnect();
         }catch(RuntimeException|Error failure){networkCleanupFailed=true;}
         if(entry.protocolDrained){if(!entry.replySent)networkReplyFailure(entry);networkRelease(entry);}
         else if(!networkHandler.postDelayed(entry.watch,100)){
@@ -176,6 +210,12 @@
     }
     private void networkReplyFailure(NetworkEntry entry){
         if(entry.replySent)return;entry.replySent=true;
+        if(entry.rearm){
+            try{reply(entry.channelLease,entry.id,new JSONObject().put("ok",false).put("manual",true)
+                .put("error",new JSONObject().put("code",entry.code==null?"network_start_failed":entry.code))
+                .put("network_cleanup_confirmed",entry.protocolDrained&&!networkCleanupFailed),null);}catch(JSONException|RuntimeException|Error ignored){}
+            return;
+        }
         networkDiscardUnsent(entry);
         if(views.owns(entry.key,entry.view)){pageClosed.add(entry.key);loading.put(entry.key,false);errors.put(entry.key,entry.code==null?"network_start_failed":entry.code);}
         try{reply(entry.channelLease,entry.id,new JSONObject().put("ok",false).put("created",false)
@@ -185,7 +225,7 @@
         }catch(JSONException|RuntimeException|Error ignored){}
     }
     private void networkDiscardUnsent(NetworkEntry entry){
-        if(!entry.created&&!entry.targetMayHaveOccurred&&entry.protocolDrained&&views.owns(entry.key,entry.view)){
+        if(!entry.rearm&&!entry.created&&!entry.targetMayHaveOccurred&&entry.protocolDrained&&views.owns(entry.key,entry.view)){
             try{closeAndDestroyDocument(entry.key,entry.view);}catch(RuntimeException|Error failure){nativeViewCleanupFailed=true;}
             if(views.get(entry.key)==null){manual.remove(entry.key);loading.remove(entry.key);errors.remove(entry.key);errorCodes.remove(entry.key);crashed.remove(entry.key);locations.remove(entry.key);}
         }
@@ -209,7 +249,7 @@
     private JSONObject networkState(String key)throws JSONException {
         NetworkEntry entry=networkViews.get(key);
         return new JSONObject().put("installed",entry!=null).put("ready",entry!=null&&entry.ready&&!entry.retired)
-            .put("phase",entry==null?"none":entry.draining?"draining":entry.retired?"retired":entry.ready?"ready":entry.warming?"warming":"starting")
+            .put("phase",entry==null?"none":entry.draining?"draining":entry.retired?"retired":entry.ready?"ready":entry.rearm?"rearming":entry.warming?"warming":"starting")
             .put("responses_disabled",entry!=null&&entry.responsesDisabled)
             .put("code",entry==null||entry.code==null?JSONObject.NULL:entry.code)
             .put("cleanup_observation_expired",entry!=null&&entry.cleanupObservationExpired)

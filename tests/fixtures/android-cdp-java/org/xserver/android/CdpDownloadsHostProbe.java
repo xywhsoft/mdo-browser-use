@@ -117,9 +117,28 @@ public final class CdpDownloadsHostProbe {
             await(()->{try{return source.controller.list().length==0;}catch(Exception error){throw new AssertionError(error);}});check(test.budget.used()==0);
         }
     }
+    private static void pendingFilesSurviveRearm()throws Exception{
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("pending-files-rearm")){
+            CdpDownloadsProbe.Source old=test.source();DownloadCommandHost host=new DownloadCommandHost();host.add("tab",old.context.view,old.controller);
+            String first=old.offer("read-across-rearm");old.chunks.add(new JSONObject().put("data","Bg==").put("base64Encoded",true).put("eof",true));old.controller.accept(first,8,60000);old.complete(first);
+            String second=old.offer("release-across-rearm");old.chunks.add(new JSONObject().put("data","Bw==").put("base64Encoded",true).put("eof",true));old.controller.accept(second,8,60000);old.complete(second);
+            CdpDownloadQueueProbe.ReadBarrier barrier=new CdpDownloadQueueProbe.ReadBarrier(ticket(old));
+            try{
+                host.execute("tab","old-read",command("read",first));check(barrier.entered.await(1,TimeUnit.SECONDS)&&host.pendingReads()==1);
+                host.execute("tab","old-release",command("release",second));check(host.pendingReleases()==1&&!host.replies.containsKey("old-release"));
+                old.controller.quiesce();test.host.worker.retireNetwork(old.context.adapter.marker().lease());await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});
+                CdpDownloadsProbe.Source next=test.rearm(old);host.add("tab",next.context.view,next.controller);
+                check(next.context.view==old.context.view&&next.controller==old.controller);Thread.sleep(25);Handler.drain();
+                check(host.pendingReads()==1&&host.pendingReleases()==1&&!host.replies.containsKey("old-read")&&!host.replies.containsKey("old-release"));
+                barrier.resume.countDown();await(()->host.replies.containsKey("old-read")&&host.replies.containsKey("old-release"));
+                check(host.result("old-read").getString("base64").equals("Bg==")&&host.result("old-release").getBoolean("released"));
+                check(host.pendingReads()==0&&host.pendingReleases()==0&&next.controller.get(first).verified&&test.budget.used()==1);next.release(first);
+            }finally{barrier.resume.countDown();host.cancelWaiters();}
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted host download evidence preserved");Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);
-        commands();cancelAndDisconnectedInspect();uncertainRelease();for(int mode=0;mode<6;mode++)revokedRead(mode);Files.delete(root);
+        commands();cancelAndDisconnectedInspect();uncertainRelease();pendingFilesSurviveRearm();for(int mode=0;mode<6;mode++)revokedRead(mode);Files.delete(root);
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_commands\":true,\"real_native_controller_files\":true,\"framework_verified\":false,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
 }

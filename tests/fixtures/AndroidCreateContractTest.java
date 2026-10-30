@@ -178,6 +178,7 @@ public final class AndroidCreateContractTest {
     }
     static void orderlyNetworkTakeover()throws Exception{
         AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(host,"tab");original.ready();AndroidCreateHost.WebView view=host.views.get("tab");
+        host.startPage("tab",view.url);host.finishPage("tab",view.url);
         AndroidCreateHost.MdoBrowserCdpDownloads downloads=AndroidCreateHost.MdoBrowserCdpDownloads.latest;int loads=view.loads;
         host.takeover("tab");check(host.manual.contains("tab")&&host.network("tab").data.get("phase").equals("draining"),"Takeover lost manual state or hid its cleanup phase");
         check(host.cdpViews.invalidated==1&&host.cdpViews.reason.equals("input_cancelled"),"Takeover retained ordinary frame execution admission while draining network cleanup");
@@ -187,11 +188,45 @@ public final class AndroidCreateContractTest {
         try{host.returnControl("tab");throw new AssertionError("Unfinished retirement returned control");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_retiring")&&host.manual.contains("tab"),"Wrong in-flight release boundary");}
         original.retired();check(host.network("tab").data.get("phase").equals("retired")&&Boolean.TRUE.equals(host.network("tab").data.get("responses_disabled"))&&downloads.disconnected,"Confirmed disable/close receipt was lost");
         check(view.loads==loads&&view.destroys==0&&android.os.Handler.pending()==0,"Takeover reloaded/destroyed the original page or retained a timer");
-        try{host.returnControl("tab");throw new AssertionError("Retired policy was silently reused");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_rearm_required")&&host.manual.contains("tab"),"Release cleared manual state before a new policy");}
+        int replies=host.replies;host.returnControl("tab");AndroidCreateHost.NetworkCall next=host.cdpWorker.calls.get(1);
+        check(next!=original&&host.manual.contains("tab")&&host.documents.get("tab").manualBlocked&&host.replies==replies,"Release cleared manual state or replied before fresh native readiness");
+        check(host.network("tab").data.get("phase").equals("rearming")&&view.loads==loads&&view.destroys==0&&downloads.rearms==1,"Same-page rearm navigated, destroyed, or discarded its original download controller");
+        check(original.marker.quota==next.marker.quota&&!next.marker.quota.closed,"Rearm reset or retired the same-document lexical namespace budget");
+        try{host.returnControl("tab");throw new AssertionError("Repeated release started another connection");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_starting")&&downloads.rearms==1,"Repeated release changed the original rearm budget");}
+        original.retired();check(!downloads.disconnected&&host.network("tab").data.get("phase").equals("rearming"),"Late original terminal callback disconnected its replacement");
+        next.ready();check(!host.manual.contains("tab")&&!host.documents.get("tab").manualBlocked&&Boolean.TRUE.equals(host.network("tab").data.get("ready")),"Fresh native readiness failed to return control");
+        check(Boolean.FALSE.equals(host.lastReply.data.get("manual"))&&Boolean.TRUE.equals(host.lastReply.data.get("downloads_intercepted"))&&host.replies==replies+1&&view.loads==loads,"Fresh control receipt was wrong or replayed navigation");
+        next.ready();check(host.replies==replies+1&&view.loads==loads,"Duplicate rearm readiness replayed control or navigation");
         host.closeCommand("tab");
         AndroidCreateHost timeout=networkHost();AndroidCreateHost.NetworkCall slow=startNetwork(timeout,"tab");slow.ready();timeout.takeover("tab");
         android.os.SystemClock.now+=5500;android.os.Handler.tick();check(slow.cancelled==1&&!slow.marker.lease.live&&timeout.network("tab").data.get("code").equals("network_retirement_timeout"),"Expired retirement did not fall back to bounded native teardown");
         check(Boolean.FALSE.equals(timeout.network("tab").data.get("responses_disabled")),"Timeout invented a disable acknowledgement");slow.closed(true);timeout.closeCommand("tab");
+    }
+    static void rearmFailuresKeepManualPage()throws Exception{
+        for(int mode=0;mode<8;mode++){
+            AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(host,"tab");original.ready();AndroidCreateHost.WebView view=host.views.get("tab");
+            host.startPage("tab",view.url);host.finishPage("tab",view.url);host.takeover("tab");original.retired();int loads=view.loads,replies=host.replies;
+            try{host.agentReturnControl("tab");throw new AssertionError("Agent ended user takeover");}catch(IllegalStateException expected){check(expected.getMessage().equals("user_takeover")&&host.manual.contains("tab"),"Agent release changed manual authority");}
+            if(mode==0){host.startPage("tab","https://manual.invalid/next");
+                try{host.returnControl("tab");throw new AssertionError("Loading manual page was rebound");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_rearm_page_loading")&&host.cdpWorker.calls.size()==1,"Loading-page release consumed a native proof attempt");}
+                host.finishPage("tab",view.url);host.returnControl("tab");host.cdpWorker.calls.get(1).ready();
+                check(view.loads==loads&&!host.manual.contains("tab"),"Stable manual-page completion was replaced by navigation");host.closeCommand("tab");continue;
+            }
+            if(mode==1)host.cdpWorker.failStart=true;
+            if(mode==2)android.os.Handler.fail=true;
+            host.returnControl("tab");
+            AndroidCreateHost.NetworkCall next=host.cdpWorker.calls.size()>1?host.cdpWorker.calls.get(1):null;
+            if(mode==3){host.startPage("tab","https://manual.invalid/during-proof");next.ready();next.closed(true);}
+            if(mode==4){android.os.SystemClock.now+=15000;android.os.Handler.tick();next.ready();next.closed(true);}
+            if(mode==5){host.channel.lease=host.channel.new Lease();android.os.SystemClock.now+=100;android.os.Handler.tick();next.ready();next.closed(true);}
+            if(mode==6){host.allowProfile=false;next.ready();next.closed(true);}
+            if(mode==7){next.failed("cdp_binding_document_limit",true);}
+            check(host.manual.contains("tab")&&host.documents.get("tab").manualBlocked&&view.loads==loads&&view.destroys==0&&!host.pageClosed.contains("tab"),"Failed rearm changed or destroyed the manual page: "+mode);
+            check(Boolean.FALSE.equals(host.network("tab").data.get("ready"))&&host.network("tab").data.get("phase").equals("retired"),"Failed rearm reported active interception: "+mode);
+            if(mode!=5)check(host.replies==replies+1&&Boolean.TRUE.equals(host.lastReply.data.get("manual"))&&Boolean.FALSE.equals(host.lastReply.data.get("ok")),"Failed rearm lost its manual-state receipt: "+mode);
+            else check(host.replies==replies,"New main channel received an old control receipt");
+            android.os.Handler.fail=false;host.closeCommand("tab");
+        }
     }
     static void downloadRetirementAndServiceFailure()throws Exception{
         AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall call=startNetwork(host,"tab");call.ready();
@@ -214,7 +249,7 @@ public final class AndroidCreateContractTest {
     }
     public static void main(String[] args)throws Exception{
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

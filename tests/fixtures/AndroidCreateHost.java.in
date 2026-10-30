@@ -66,13 +66,13 @@ final class AndroidCreateHost {
         interface Scheduler {long now();void post(Runnable task,long delay);void remove(Runnable task);}
     }
     static final class MdoBrowserDocument {
-        final WebView view;int closes,destroyed;
+        final WebView view;int closes,destroyed;boolean manualBlocked;
         MdoBrowserDocument(Object raw,ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,BooleanSupplier owned,LongSupplier epoch,String profile,MdoBrowserWorld.Budget budget)throws MdoBrowserWorld.Failure{
             view=(WebView)raw;view.host.profileRequests.add(profile);
             if(profile!=null&&!view.host.allowProfile||view.host.fault.equals("manual_world"))throw new MdoBrowserWorld.Failure(profile==null?"isolated_world_unsupported":"browser_profile_unconfirmed");
         }
         boolean profileAssigned(){return view.host.allowProfile;}
-        void block(int reason,boolean value){if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}void close(){closes++;}boolean cleanupConfirmed(){return !view.host.cleanupFault.equals("document");}
+        void block(int reason,boolean value){if(reason==MANUAL)manualBlocked=value;if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}void close(){closes++;}boolean cleanupConfirmed(){return !view.host.cleanupFault.equals("document");}
         void viewDestroyed(Object original){if(original!=view)throw new AssertionError("Wrong document view");destroyed++;}
         static final int BACKGROUND=1,CHANNEL=2,MANUAL=3;
     }
@@ -81,13 +81,13 @@ final class AndroidCreateHost {
     static final class ManualChooser {void cancel(WebView view){if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}}
     static final class MdoBrowserCdpMarker {
         static final class DocumentQuota {boolean closed;void close(){closed=true;}}
-        static final class Lease {boolean live=true;}final Lease lease=new Lease();final BooleanSupplier current;
+        static final class Lease {boolean live=true;}final Lease lease=new Lease();final BooleanSupplier current;DocumentQuota quota;
         MdoBrowserCdpMarker(BooleanSupplier current){this.current=current;}Lease lease(){return lease;}void close(){lease.live=false;}
     }
     static final class MdoBrowserCdpView {
         interface Owner {boolean current(WebView view);}final MdoBrowserCdpMarker marker;
         MdoBrowserCdpView(WebView view,Owner owner){marker=new MdoBrowserCdpMarker(()->owner.current(view));}
-        static MdoBrowserCdpView network(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota quota){return new MdoBrowserCdpView(view,owner);}
+        static MdoBrowserCdpView network(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota quota){MdoBrowserCdpView result=new MdoBrowserCdpView(view,owner);result.marker.quota=quota;return result;}
         MdoBrowserCdpMarker marker(){return marker;}
     }
     static class NativeConnection {int continued,downloads,turns;void continuePausedRequest(){continued++;}}
@@ -102,11 +102,17 @@ final class AndroidCreateHost {
         static MdoBrowserDownloadRuntime get(Object activity){if(((AndroidCreateHost)activity).fault.equals("download_service"))throw new IllegalStateException("fixture native authority unavailable");return new MdoBrowserDownloadRuntime();}
     }
     static final class MdoBrowserCdpDownloads {
-        static MdoBrowserCdpDownloads latest;int retiring,quiesces;boolean closed,disconnected,pending;
+        final class Connection {
+            void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params){connection.downloads++;}
+            void turn(MdoBrowserCdpBinding.Network connection){connection.turns++;}
+            void disconnect(){if(current==this)disconnected=true;}
+            void disconnect(boolean clean){disconnect();}
+        }
+        Connection current=new Connection();
+        static MdoBrowserCdpDownloads latest;int retiring,quiesces,rearms;boolean closed,disconnected,pending;
         MdoBrowserCdpDownloads(Object files,Object budget){latest=this;}
-        void event(MdoBrowserCdpBinding.Network connection,String method,String child,JSONObject params){connection.downloads++;}
-        void turn(MdoBrowserCdpBinding.Network connection){connection.turns++;}
-        void disconnect(){disconnected=true;}
+        Connection connection(){return current;}
+        Connection rearm(){if(!disconnected)throw new IllegalStateException("download_connection_retiring");rearms++;disconnected=false;return current=new Connection();}
         void quiesce(){quiesces++;}
         void close(){closed=true;}
         int retiringFiles(){return retiring;}
@@ -180,10 +186,16 @@ final class AndroidCreateHost {
     void finishPage(String key,String url){WebView view=views.get(key);view.client.onPageFinished(view,url);}
     void revoke(String key){WebView view=views.get(key);networkRetire(key,view,"network_user_takeover");}
     void pendingCommand(String key,String command){networkCommand(key,views.get(key),command,false);}
-    void returnControl(String key){networkCanRelease(key,views.get(key));manual.remove(key);}
+    void returnControl(String key)throws Exception{control(key,"release",false);}
+    void agentReturnControl(String key)throws Exception{control(key,"release",true);}
     void pendingAgentCommand(String key,String command){networkCommand(key,views.get(key),command,true);}
     void stopNetwork(String key){networkStop(key,views.get(key));}
-    void takeover(String key){String command="takeover";WebView web=views.get(key);@@NETWORK_TAKEOVER_PREFIX@@ "takeover".equals(command));views.manual(key,web,true);manual.add(key);}
+    void takeover(String key)throws Exception{control(key,"takeover",false);}
+    private void control(String key,String command,boolean agent)throws Exception{
+        String id="control-reply";JSONObject request=new JSONObject().put("agent",agent);WebView web=views.get(key);
+        @@NETWORK_TAKEOVER_PREFIX@@ "takeover".equals(command));views.manual(key,web,"takeover".equals(command));
+        if("takeover".equals(command))manual.add(key);else manual.remove(key);
+    }
     @@NETWORK@@
     @@CREATION_GUARD@@
     @@CAPABILITIES@@

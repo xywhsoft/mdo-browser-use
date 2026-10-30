@@ -3559,10 +3559,58 @@ Python 173/175 (two existing symlink privilege skips) and seven final APK
 contracts pass. See `.mdo/E94-native-current.json`, `.mdo/E94-create-current.json`,
 `.mdo/E94-python-full.log`, `.mdo/E94-android-build.log` and the current receipt.
 
-Returning control cannot silently reuse a retired network: pending retirement
-returns network_retiring and the retired policy returns network_rearm_required,
-keeping manual state. The next integration stage must explicitly prove a fresh
-policy on the same original page and preserve old download receipts across its
-generation; this is not implemented by clearing manual flags. Popup/cross-process
-and installed provider/main-UI qualification also remain open. Phone/WebView are
-unchanged, and overall download/automation qualification stays false.
+At E94, returning control kept manual state with network_retiring or
+network_rearm_required. E95 below replaces the latter with an explicit fresh
+proof transaction; a retired connection is never silently reused. Popup/
+cross-process and installed provider/main-UI qualification remain open. Phone/
+WebView are unchanged, and overall download/automation qualification stays false.
+
+
+## Explicit same-page return-control with retained download generations (E95)
+
+Human release on the original owned page now starts an asynchronous rearming
+phase. Require confirmed old native cleanup, clean retained source receipts,
+the original assigned profile/channel and a stable loaded page. Keep manual
+input/document blocking until a fresh physical marker, native frame bootstrap
+and Fetch.enable acknowledgment complete. The same WebView, page, profile and
+download controller remain; no URL is loaded and no previous input or request
+is reconstructed. Navigation, channel/profile loss, startup failure or the
+original fifteen-second deadline leave the page manual, without page destruction
+or a closed-page flag. Agent release cannot end takeover. Repeated release does
+not mint another connection or reset the outstanding deadline.
+
+Each connection receives an opaque callback ticket. Old events/turns cannot act
+on the replacement native connection; a late old disconnect cannot retire it.
+Rearm requires a terminal native cleanup receipt even if no initial protocol
+turn ever ran. Retained rows keep their original source authority, IDs, sequence,
+private file tickets and shared 32-record budget. Old-generation turns only
+summarize file progress and cannot read old streams through the new connection.
+Completed data and independently verifying complete sources survive; altered
+files still fail. Already pending private reads/releases follow the exact
+physical view and controller across connection replacement, preserving their
+original channel lease, deadline and cleanup receipts.
+
+Rearm is UI-owner-only and bounded to 4,096 generations per controller. Reuse
+the existing physical owner's lexical quota conservatively, including after
+manual navigation; release never resets the sixteen marker-declaration limit
+or closes the quota while the actual view survives. Exhaustion returns a native
+failure with manual state retained, with no hidden reload workaround.
+
+The actual same-view/controller/common-worker/JNI/guarded-file gate passes 111
+checks, including stale tickets, in-progress verification, same-size tampering,
+old source cleanup refusal, shared admission limits and sixteen successive
+same-DOM proofs followed by a refused seventeenth. Exact product commands pass
+81 checks, including a genuinely blocked file reader and queued release across
+replacement. Product creation/takeover/rearm/lifecycle fragments pass 237 with
+failure, navigation, channel, scheduler and timeout cases. Complete native/
+ASan/UBSan/API26 and Python gates pass; Python 173/175 with only two existing
+Windows symlink-privilege skips. All 99 native and 11 product input hashes match.
+
+The full QA Activity/service/lite-tools APK is rebuilt and verifies actual DEX
+definitions, including the connection ticket, reviewed source/native/app
+identity, private provider, six JNI exports, ARM64/16 KiB layout and v2-v3
+signing. Seven final APK contracts pass. Evidence is in `.mdo/E95-native-current.json`,
+`.mdo/E95-create-current.json`, `.mdo/E95-python-full.log`,
+`.mdo/E95-android-build.log` and `.mdo/E95-final-identities.log`. These remain
+controlled SDK/JVM/native/file checks, not installed Android qualification.
+Phone/WebView stay deferred; full download and automation admission stay false.

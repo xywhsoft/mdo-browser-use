@@ -55,6 +55,7 @@ public final class CdpNetworkWorkerProbe {
             return MdoBrowserCdpBinding.bindNetwork(marker,budget,events,t->Arrays.asList("owned"),source.peer);
         });}
         CdpNetworkBindingProbe.Context source(){CdpNetworkBindingProbe.Context c=new CdpNetworkBindingProbe.Context(true);owned.add(c);sources.put(c.adapter.marker(),c);return c;}
+        CdpNetworkBindingProbe.Context source(WebView original,MdoBrowserCdpMarker.DocumentQuota quota){CdpNetworkBindingProbe.Context c=new CdpNetworkBindingProbe.Context(true,original,quota);owned.add(c);sources.put(c.adapter.marker(),c);return c;}
         MdoBrowserCdpMarker document(){WebView view=new WebView();MdoBrowserCdpMarker marker=new MdoBrowserCdpView(view,v->true).marker();documents.put(marker,new CdpBindingProbe.Factory(view));return marker;}
         void start(CdpNetworkBindingProbe.Context source,int timeout)throws Exception {
             worker.startNetwork(source.adapter.marker(),timeout,(connection,method,child,params)->{
