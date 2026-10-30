@@ -111,8 +111,8 @@ final class MdoBrowserCdpWorlds {
                 name=new Name(binding.worldName+"."+java.util.UUID.randomUUID(),route);names.put(name.value,name);namesByProof.put(nativeProof,name);}
             JSONObject reply=call(route,null,"Page.createIsolatedWorld",new JSONObject().put("frameId",route.raw).put("worldName",name.value)
                 .put("grantUniveralAccess",false),false,deadline);int id=number(reply.opt("executionContextId"));
-            Context context=contexts.get(key(route.session,id));long started=System.nanoTime();
-            while(context==null&&(System.nanoTime()-started)/1000000L<500){
+            Context context=contexts.get(key(route.session,id));long started=android.os.SystemClock.elapsedRealtime();
+            while(context==null&&android.os.SystemClock.elapsedRealtime()-started<500){
                 guard(route,null);binding.poll(Math.min(20,deadline.remaining()));context=contexts.get(key(route.session,id));
             }
             if(context==null||context.name!=name||!route.raw.equals(context.frame)||!Objects.equals(context.session,route.session))throw problem("cdp_world_context_unsupported");

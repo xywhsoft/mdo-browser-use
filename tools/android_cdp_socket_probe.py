@@ -103,7 +103,7 @@ def main():
     result['jvm_worker']=vm
     dispatch=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpSessionProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
-    if not dispatch.get('passed') or dispatch.get('real_protocol_sessions')!=7:
+    if not dispatch.get('passed') or dispatch.get('real_protocol_sessions')!=8:
         raise RuntimeError('The actual JNI protocol-session gate did not pass')
     result['jvm_dispatcher']=dispatch
     binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

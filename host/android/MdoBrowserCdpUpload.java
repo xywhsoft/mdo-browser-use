@@ -31,7 +31,7 @@ final class MdoBrowserCdpUpload {
     private volatile String phase="new";private volatile Ready ready;private volatile Receipt receipt;private volatile boolean opening,assignment;
     private boolean helperTouched,cleanupIssued;private String cleanup;
     MdoBrowserCdpUpload(MdoBrowserCdpFileInput target,MdoBrowserUploadStore.Spec[] files,int timeout)throws IOException {
-        this(target,files,timeout,()->System.nanoTime()/1000000L);
+        this(target,files,timeout,android.os.SystemClock::elapsedRealtime);
     }
     MdoBrowserCdpUpload(MdoBrowserCdpFileInput target,MdoBrowserUploadStore.Spec[] files,int timeout,LongSupplier clock)throws IOException {
         if(target==null||clock==null||timeout<1||timeout>120000)throw problem("cdp_upload_request_invalid");

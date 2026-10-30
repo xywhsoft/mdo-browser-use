@@ -122,7 +122,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     }
     static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory) throws IOException {
         if(marker==null||events==null||targets==null||factory==null||timeoutMs<100||timeoutMs>15000)throw problem("cdp_binding_arguments_invalid");
-        long started=System.nanoTime();MdoBrowserCdpMarker.Lease lease=marker.lease();
+        long started=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpMarker.Lease lease=marker.lease();
         if(lease.busy())throw problem("cdp_binding_busy");
         MdoBrowserCdpMarker.Ticket ticket=null;Peer peer=null;boolean success=false,cleanupAttempted=false;
         Context cleanupRoot=null;Contexts cleanupOwner=null;
@@ -130,7 +130,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             List<String> candidates=targets.discover(remaining(started,timeoutMs,lease));
             if(candidates.isEmpty()||candidates.size()>64||new HashSet<>(candidates).size()!=candidates.size())throw problem("cdp_binding_targets_unavailable");
             for(String id:candidates)if(!MdoBrowserCdpJson.token(id))throw problem("cdp_binding_discovery_invalid");
-            ticket=marker.request();
+            remaining(started,timeoutMs,lease);ticket=marker.request();
             if(!ticket.await(remaining(started,timeoutMs,lease))) {
                 remaining(started,timeoutMs,lease);
                 throw problem(ticket.pending()?"cdp_binding_timeout":ticket.failure());
@@ -210,7 +210,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             .put("silent",true).put("throwOnSideEffect",readOnly).put("timeout",timeoutMs);
     }
     private static int remaining(long start,int timeout,MdoBrowserCdpMarker.Lease lease) throws IOException {
-        if(!lease.current())throw problem("cdp_binding_owner_changed");long used=(System.nanoTime()-start)/1000000L;
+        if(!lease.current())throw problem("cdp_binding_owner_changed");long used=android.os.SystemClock.elapsedRealtime()-start;
         if(used<0||used>timeout-10)throw problem("cdp_binding_timeout");return (int)Math.min(5000,timeout-used);
     }
     JSONObject call(String method,JSONObject params,int timeoutMs) throws IOException {

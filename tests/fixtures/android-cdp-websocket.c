@@ -170,13 +170,15 @@ static void* Serve(void* Data)
     } else if ( Fixture->Mode==11 ) {
         Write(Fd,"\x81\x05he",4);atomic_store(&Fixture->Ready,1);
         char Byte;(void)recv(Fd,&Byte,1,0);
-    } else if ( Fixture->Mode>=20 && Fixture->Mode<=26 ) {
-        if ( Fixture->Mode==20 ) {
+    } else if ( Fixture->Mode>=20 && Fixture->Mode<=27 ) {
+        if ( Fixture->Mode==20 || Fixture->Mode==27 ) {
             Fixture->Frames+=ClientCommand(Fd,1,"Runtime.enable",NULL);
             Packet(Fd,"{\"method\":\"Runtime.executionContextCreated\",\"params\":{\"context\":{\"id\":41}}}");
             Packet(Fd,"{\"id\":1,\"result\":{}}");
-            Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);
-            Packet(Fd,"{\"id\":2,\"result\":{\"result\":{\"type\":\"number\",\"value\":2}}}");
+            if ( Fixture->Mode==20 ) {
+                Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);
+                Packet(Fd,"{\"id\":2,\"result\":{\"result\":{\"type\":\"number\",\"value\":2}}}");
+            }
         } else if ( Fixture->Mode==22 ) {
             Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
             Packet(Fd,"{\"id\":1,\"error\":{\"code\":-32601,\"message\":\"private-provider-message\"}}");

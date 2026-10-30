@@ -6861,3 +6861,31 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   audit the lower native clocks and package the follow-on stage together.
 - Goal active. User explicitly defers phone connection/provider changes; leave
   global Android automation disabled and keep all device qualification false.
+
+## E77b — expire native sessions, bindings and continuations after suspend
+
+- Extend E77a's platform elapsed clock to private protocol sessions, native
+  binding/marker waits, isolated-world setup, native chooser expiration and the
+  standalone upload worker default. Do not change caller-injected clocks or UI
+  scheduler contracts. Marker wait uses short uptime waits and rechecks elapsed
+  time before accepting even an already delivered callback. Discovery must
+  still have budget before asking the UI for a marker.
+- An idle event poll remains a normal empty result. A packet received after its
+  original poll deadline is refused before decoding or delivering its event;
+  close the original stream, with no event replay or implicit replacement.
+- Preserve two independent failing regressions: a late controlled poll event
+  previously reached native event state (`.mdo/E77-session-poll-red.log`), and an
+  actual JVM/JNI/protocol session using the production clock accepted a response
+  after a controlled elapsed-time jump (`.mdo/E77-session-platform-red.log`).
+  Add default-clock discovery, chooser expiration and upload-expiry checks,
+  including no target resolution, picker preparation or file commit after expiry.
+- Complete sequential native gate passes `.mdo/E77-java-elapsed-full.log`/`.json`,
+  including eight real local protocol sessions, actual Java/JNI/worker/graph/
+  world/clear/upload code, controlled Android/DOM metadata and source files,
+  ASan/UBSan and Android API 26 compilation. The fake Android clock normally
+  advances with JVM time and supports explicit frozen/jump cases; it is never
+  packaged. No installed-provider, actual sleep/Doze or framework qualification.
+- Source reference: https://developer.android.com/reference/android/os/SystemClock
+  (uptime/nanoTime exclude deep sleep, elapsedRealtime includes it). Goal active;
+  audit the kernel transport's clock/waits next, then rebuild the same development
+  APK. The E76b APK and global unavailable Android qualification remain unchanged.

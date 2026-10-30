@@ -192,7 +192,7 @@ public final class CdpWorkerProbe {
             check(!results.get(0).effectMayHaveOccurred&&results.get(0).bytes==null&&effects.get()==0);
             check(worker.pending()==0&&view.evaluations==0);
         }finally{
-            android.os.SystemClock.afterRead=null;android.os.SystemClock.now=1000;
+            android.os.SystemClock.afterRead=null;android.os.SystemClock.now=Long.MIN_VALUE;
             worker.close();marker.close();waitFor(worker::terminated);Handler.drain();
         }
     }

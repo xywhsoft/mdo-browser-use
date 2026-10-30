@@ -142,6 +142,14 @@ public final class CdpBindingProbe {
         changed.beforeReply=()->current.set(false);Factory peer=new Factory(changed);
         run(()->{rejected("cdp_binding_owner_changed",()->MdoBrowserCdpBinding.bind(original.marker(),1500,(m,s,p)->{},t->Arrays.asList("owned"),peer));return null;});
         check(peer.wires.isEmpty());original.close();
+        WebView sleeping=new WebView();MdoBrowserCdpView sleeper=new MdoBrowserCdpView(sleeping,v->true);Factory sleepPeer=new Factory(sleeping);
+        android.os.SystemClock.now=1000;
+        try{
+            run(()->{rejected("cdp_binding_timeout",()->MdoBrowserCdpBinding.bind(sleeper.marker(),500,(m,s,p)->{},t->{
+                android.os.SystemClock.now=2000;return Arrays.asList("owned");
+            },sleepPeer));return null;});
+            check(sleepPeer.wires.isEmpty()&&sleeping.evaluations==0);
+        }finally{android.os.SystemClock.now=Long.MIN_VALUE;sleeper.close();sleepPeer.balanced();}
     }
     private static MdoBrowserCdpMarker marker(WebView view,MdoBrowserCdpMarker.Budget budget) {
         Handler handler=new Handler(Looper.getMainLooper());

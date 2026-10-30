@@ -43,7 +43,7 @@ final class MdoBrowserCdpChoosers {
     }
     private final MdoBrowserCdpFrames frames;private final LongSupplier clock;
     private boolean requested,arming,seen;private String fault;private Candidate active;
-    MdoBrowserCdpChoosers(MdoBrowserCdpFrames frames){this(frames,()->System.nanoTime()/1000000L);}
+    MdoBrowserCdpChoosers(MdoBrowserCdpFrames frames){this(frames,android.os.SystemClock::elapsedRealtime);}
     MdoBrowserCdpChoosers(MdoBrowserCdpFrames frames,LongSupplier clock){if(frames==null||clock==null)throw new IllegalArgumentException("Missing native chooser owner");this.frames=frames;this.clock=clock;}
     private static IOException problem(String code){return new IOException(code);}
     private IOException fail(String code){fault=code;return problem(code);}

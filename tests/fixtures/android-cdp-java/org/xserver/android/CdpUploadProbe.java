@@ -228,6 +228,14 @@ public final class CdpUploadProbe {
         }
     }
     private static void grammar()throws Exception {
+        android.os.SystemClock.now=1000;
+        try(Case sample=new Case("frame-owned")){
+            MdoBrowserCdpFileInput target=MdoBrowserCdpFileInput.parse(sample.peer.request("frame-owned"));
+            MdoBrowserCdpUpload upload=new MdoBrowserCdpUpload(target,manifest(),1000);
+            android.os.SystemClock.now=2001;
+            rejects("cdp_upload_expired",()->sample.peer.peer.host.run((binding,deadline)->upload.prepare(binding,deadline)));
+            check(sample.installs==0&&sample.prepared==0&&sample.opens==0&&sample.commits==0);
+        }finally{android.os.SystemClock.now=Long.MIN_VALUE;}
         try(Case sample=new Case("frame-owned")){
             JSONObject request=sample.peer.request("frame-owned");MdoBrowserCdpFileInput target=MdoBrowserCdpFileInput.parse(request);
             rejects("cdp_upload_request_invalid",()->new MdoBrowserCdpUpload(target,null,1000));

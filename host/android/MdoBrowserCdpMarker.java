@@ -83,11 +83,15 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         boolean await(int timeoutMs) throws IOException {
             MdoBrowserCdpMarker marker=owner.get();
             if(marker!=null&&marker.ui.onThread())throw new IOException("cdp_requires_background_thread");
-            long start=System.nanoTime();
-            synchronized(this){while(pending()) {
-                long left=timeoutMs-(System.nanoTime()-start)/1000000L;if(left<=0)return false;
-                try{wait(left);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();close();throw new IOException("cdp_binding_cancelled");}
-            }}return confirmed();
+            long start=android.os.SystemClock.elapsedRealtime();
+            synchronized(this){for(;;) {
+                long used=android.os.SystemClock.elapsedRealtime()-start;
+                if(used<0||used>=timeoutMs)return false;
+                if(!pending())return confirmed();
+                // Object.wait counts uptime. Recheck elapsed time promptly on
+                // resume, including a callback delivered after the deadline.
+                try{wait(Math.min(20,timeoutMs-used));}catch(InterruptedException interrupted){Thread.currentThread().interrupt();close();throw new IOException("cdp_binding_cancelled");}
+            }}
         }
         @Override public void close() {
             int before=state.getAndSet(3);MdoBrowserCdpMarker marker=owner.get();

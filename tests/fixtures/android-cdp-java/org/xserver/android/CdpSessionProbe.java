@@ -126,13 +126,20 @@ public final class CdpSessionProbe {
         final MdoBrowserCdpSession oom=session(wire,alive,IGNORE);failure("cdp_dispatch_failed",true,()->oom.call("Runtime.evaluate",null,null,100,true));check(wire.closes>0);wire.cleared();
         wire=new Wire();wire.clock=100;final Wire backwards=wire;wire.afterRead=()->backwards.clock=0;
         final MdoBrowserCdpSession clock=session(wire,alive,IGNORE);failure("cdp_command_timeout",true,()->clock.call("Runtime.evaluate",null,null,100,true));check(wire.sends==1);
+        wire=new Wire("{\"method\":\"Runtime.event\",\"params\":{}}");final Wire latePoll=wire;final int[] lateDelivered={0};
+        wire.afterRead=()->latePoll.clock+=1000;
+        final MdoBrowserCdpSession expiredEvent=session(wire,alive,(m,s,p)->lateDelivered[0]++);
+        failure("cdp_command_timeout",false,()->expiredEvent.poll(100));
+        check(lateDelivered[0]==0&&wire.closes>0);wire.cleared();
         wire=new Wire();for(int i=0;i<4097;i++)wire.packets.add(bytes("{\"method\":\"Runtime.event\",\"params\":{}}"));
         final MdoBrowserCdpSession flood=session(wire,alive,IGNORE);failure("cdp_event_limit",true,()->flood.call("Runtime.evaluate",null,null,5000,true));check(wire.sends==1);wire.cleared();
     }
     private static void nativeSession(int mode) throws Exception {
         CdpNativeProbe.fixtureStart(mode);final AtomicBoolean alive=new AtomicBoolean(true);final int[] events={0};
+        if(mode==27)android.os.SystemClock.now=1000;
         try(MdoBrowserCdpSession session=MdoBrowserCdpSession.open("test-001",1000,alive::get,(method,child,params)->{
             check(method.equals("Runtime.executionContextCreated"));events[0]++;
+            if(mode==27)android.os.SystemClock.now=3000;
         })) {
             if(mode==20) {
                 session.call("Runtime.enable",new JSONObject(),null,1000,false);
@@ -145,20 +152,24 @@ public final class CdpSessionProbe {
                 session.call("Runtime.enable",new JSONObject(),null,1000,false);
             } else if(mode==24) {
                 session.admitChild("child-001");session.call("Runtime.enable",new JSONObject(),"child-001",1000,false);check(events[0]==1);
+            } else if(mode==27) {
+                failure("cdp_command_timeout",false,()->session.call("Runtime.enable",new JSONObject(),null,1000,false));
+                failure("cdp_session_closed",false,()->session.call("Runtime.enable",new JSONObject(),null,1000,false));
+                check(events[0]==1);
             } else {
                 String code=mode==21?"cdp_reply_mismatch":mode==23?"cdp_session_mismatch":mode==26?"cdp_command_timeout":"cdp_transport_failed";
                 failure(code,true,()->session.call("Runtime.evaluate",new JSONObject(),null,mode==26?50:1000,true));
                 failure("cdp_session_closed",false,()->session.call("Runtime.evaluate",new JSONObject(),null,100,true));
             }
-        }
+        }finally{android.os.SystemClock.now=Long.MIN_VALUE;}
         int frames=mode==20?2:mode==22?4:1;check(CdpNativeProbe.fixtureFinish()==(1+(frames<<8)));
     }
     public static void main(String[] ignored) throws Exception {
         Looper.getMainLooper();System.loadLibrary("xs");ExecutorService worker=Executors.newSingleThreadExecutor();
         try {worker.submit(()->{try {
-            codec();deterministic();for(int mode=20;mode<=26;mode++)nativeSession(mode);
+            codec();deterministic();for(int mode=20;mode<=27;mode++)nativeSession(mode);
         }catch(Exception problem){throw new RuntimeException(problem);}}).get(25,TimeUnit.SECONDS);}
         finally {worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"real_protocol_sessions\":7,\"android_provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"real_protocol_sessions\":8,\"android_provider_qualified\":false}");
     }
 }

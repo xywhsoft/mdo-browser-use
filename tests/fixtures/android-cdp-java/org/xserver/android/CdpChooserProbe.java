@@ -122,6 +122,14 @@ public final class CdpChooserProbe {
         }
     }
     private static void grammarAndClock()throws Exception {
+        android.os.SystemClock.now=1000;
+        try(Case sample=new Case()){
+            sample.call("chooser_arm");JSONObject original=sample.opened("leaf-frame");
+            android.os.SystemClock.now=121001;
+            check(sample.call("chooser_list").getJSONArray("choosers").length()==0);
+            rejects("cdp_chooser_expired",()->sample.call(sample.target("leaf-frame",original)));
+            check(sample.resolves==0);
+        }finally{android.os.SystemClock.now=Long.MIN_VALUE;}
         try(Case sample=new Case()){
             sample.call("chooser_arm");JSONObject picker=sample.opened("leaf-frame");
             for(String key:Arrays.asList("backendNodeId","objectId","script","ref","paths","files","sessionId","uniqueContextId")){

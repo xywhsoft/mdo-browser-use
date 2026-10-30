@@ -49,7 +49,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         this.current=Objects.requireNonNull(current);this.events=Objects.requireNonNull(events);this.clock=Objects.requireNonNull(clock);
     }
     static MdoBrowserCdpSession open(String target,int timeoutMs,BooleanSupplier current,Events events) throws IOException {
-        MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,()->System.nanoTime()/1000000L);
+        MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,android.os.SystemClock::elapsedRealtime);
         try {
             session.guard(false);session.wire=MdoBrowserCdpNative.open(target,timeoutMs);
             session.guard(false);return session;
@@ -158,7 +158,10 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     boolean poll(int timeoutMs) throws IOException {
         enter(timeoutMs);byte[] bytes=null;
         try {
-            bytes=wire.receive(timeoutMs);guard(false);if(bytes==null)return false;
+            long started=clock.now();bytes=wire.receive(timeoutMs);guard(false);if(bytes==null)return false;
+            // An ordinary idle poll is not a broken stream. A packet delivered
+            // after the original poll budget must not reach native event state.
+            remaining(started,timeoutMs,false);
             MdoBrowserCdpJson.Message message=packet(bytes,false);
             bytes=null;
             if(message==null)return false;
