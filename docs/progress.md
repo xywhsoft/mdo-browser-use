@@ -7425,3 +7425,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   APK and package current Android sources next. The E82 app archive remains the
   current tested shared frontend; no device/provider change, external page/model
   action, formal data edit, extra app/Home/source copy or online publication.
+
+## E83b — verify current response metadata in the complete APK
+
+- Apply all 114 reviewed files with the single service stopped. Reuse the
+  unchanged verified ARM64 engine and E82 Windows app archive/paired plugin;
+  application inputs still match that exercised archive. Compile the actual
+  response classifier and require its DEX definition, not a mere type reference.
+  Existing six JNI entries, private provider/manifest, source/compiler/native/app
+  hashes, ARM64/16 KiB alignment, original QA signer/identity/serial and v2-v3
+  signatures all pass (`.mdo/E83-android-build.log`). APK 6,419,777 bytes, SHA-256
+  `d6ba62cbd529699eb7945540c83bbb16846b5485a525c0b8549709004be90045`.
+- After assembly verify the current Android input hash, exact reused app archive,
+  both binary hashes and Windows runtime/paired-plugin receipt, plus every E83
+  native-gate source hash. Restore the same headless service on port 63625 with
+  HTTP 200, approximately 3,434.7 MiB. Current Python/native/metadata checks are
+  recorded in E83a; no changed JS or repeated provider qualification is implied.
+- Goal remains active: original body claiming/streaming/private cache/accept/
+  cancel, explicit rearm, managed popup networking and actual device/provider/UI
+  qualification are unfinished. The product continues original responses and
+  overall Android automation/interception admission stays disabled. Phone and
+  provider update deferred as requested; no install, formal data edit, model/
+  external page action, extra app/Home/source copy or online publication.
