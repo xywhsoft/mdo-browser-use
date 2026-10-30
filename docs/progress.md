@@ -6722,3 +6722,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   deferred at the user's request; keep the existing WebView and formal data.
   No model calls, external page actions, new application copies, extra browser
   engine, online release or unchanged desktop visual-gate retry.
+
+## E76b1 — retain running native work until cancellation actually drains
+
+- While joining the product clear mutation reservation, confirm that worker
+  cancellation could post its terminal callback and remove its pending slot
+  before the still-running native operation returned. The real worker regression
+  holds that operation in flight, invalidates its original marker, drains UI
+  posts and catches the early receipt/pending release
+  (`.mdo/E76-drain-red.log`). This is a controlled worker-lifetime defect, not
+  attribution of the historical Windows input failures.
+- A successfully dequeued cancelled task can complete immediately with no native
+  work. A running or just-dequeued task must finish through its original
+  `run().finally`. Keep its pending slot and callback until that boundary; a
+  posted older result is still converted to cancellation on original UI delivery.
+  Never run another operation or replay an effect as cancellation recovery.
+- Actual JVM/JNI worker gate passes 186 checks (`.mdo/E76-drain-fixed.log`), including
+  queued cancellation, bounded capacity, in-flight cancellation, late bytes zeroed
+  exactly once, original scope loss and callback failures. Complete native
+  transport/frame/world/input/capture/chooser/upload/coordinator/product-fragment
+  regressions remain green (`.mdo/E76-drain-native-full.log`). ASan/UBSan and API 26
+  compilation pass; DOM/UI peers remain controlled and provider/framework false.
+- Commit this independent bug fix before continuing the product clear adapter.
+  The current APK is still the previously verified E76a artifact; package the
+  source fix with the upcoming adapter rather than relabeling that old binary.
+  Keep the single deployment, deferred phone/current provider and formal data.
+  Goal active; product clear reservations, native cancel/status/recovery and
+  remaining Android/Windows qualification are still required.

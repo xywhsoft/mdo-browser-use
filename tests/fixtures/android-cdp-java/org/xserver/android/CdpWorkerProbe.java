@@ -110,9 +110,16 @@ public final class CdpWorkerProbe {
         sample.submit(marker,true,(binding,deadline)->{ran.incrementAndGet();
             try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}
             byte[] bytes=value();late.set(bytes);return bytes;});
-        waitFor(()->ran.get()==1);WebView view=sample.views.get(marker);sample.registry.invalidate("view0",view,2,"frame_changed");
-        check(sample.results.isEmpty());sample.ui.drain();check(sample.results.size()==1&&"cdp_worker_cancelled".equals(sample.results.get(0).code)&&sample.results.get(0).effectMayHaveOccurred);
-        release.countDown();waitFor(()->late.get()!=null);sample.close();zero(late.get());check(sample.results.size()==1);
+        try{
+            waitFor(()->ran.get()==1);WebView view=sample.views.get(marker);sample.registry.invalidate("view0",view,2,"frame_changed");
+            check(sample.results.isEmpty());sample.ui.drain();
+            if(!sample.results.isEmpty()||sample.worker.pending()!=1||!sample.worker.pending(marker))
+                throw new AssertionError("Cancellation receipt released the native job before its running operation drained");
+            check(true);release.countDown();sample.deliver(1);
+            check(sample.results.size()==1&&"cdp_worker_cancelled".equals(sample.results.get(0).code)&&sample.results.get(0).effectMayHaveOccurred);
+            check(late.get()!=null&&sample.worker.pending()==0);zero(late.get());
+        }finally{release.countDown();sample.close();}
+        check(sample.results.size()==1);
     }
     private static void failures()throws Exception {
         Case sample=new Case();MdoBrowserCdpMarker marker=sample.marker(0);AtomicReference<byte[]> large=new AtomicReference<>();

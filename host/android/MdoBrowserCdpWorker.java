@@ -78,7 +78,10 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     void cancel(MdoBrowserCdpMarker.Lease lease){
         thread();Job job=jobs.get(lease);if(job==null)return;
         job.cancel();MdoBrowserCdpMarker marker=job.marker.get();if(marker!=null)marker.close();
-        executor.remove(job);job.finish(null,"cdp_worker_cancelled");
+        // A queued job removed from the executor has no native work to drain.
+        // A running (or just dequeued) job must finish through run().finally;
+        // posting its receipt now would release the UI reservation too early.
+        if(executor.remove(job))job.finish(null,"cdp_worker_cancelled");
     }
     int pending(){thread();return jobs.size();}
     boolean pending(MdoBrowserCdpMarker marker){thread();return marker!=null&&jobs.containsKey(marker.lease());}
