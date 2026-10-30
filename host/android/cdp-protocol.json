@@ -4,6 +4,10 @@
   "checked_date": "2026-10-30",
   "sources": [
     {
+      "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Fetch.pdl",
+      "facts": ["Response stage is identified by responseStatusCode or responseErrorReason", "Response headers are an ordered HeaderEntry array; resourceType and original request metadata accompany the paused event", "Redirect body capture is unavailable; taking the original response stream prevents unchanged continuation"]
+    },
+    {
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/devtools/protocol/fetch_handler.cc?format=TEXT",
       "decoded_bytes": 18085,
       "decoded_sha256": "5aa5cfd45e4ee0570dd1945222dcbe4f87f2ee5dff539914a794f00949733ea0",
@@ -286,6 +290,24 @@
     "automatic_rearm": false,
     "managed_popup_network_qualified": false,
     "initial_download_interception_advertised": false,
+    "provider_qualified": false
+  },
+  "original_response_metadata": {
+    "state": "private_immutable_original_event_snapshot_no_body_retention",
+    "scope": "read_only_inside_exact_original_paused_event_no_supplied_selector",
+    "retained_fields": ["bounded_kind", "bounded_reason", "http_status", "declared_content_length"],
+    "sensitive_request_headers_filename_url_retained": false,
+    "header_limit": 128,
+    "single_header_value_code_units": 8192,
+    "header_utf8_budget": 65536,
+    "parameter_limit": 32,
+    "candidates": ["explicit_attachment_2xx_document", "known_binary_2xx_document"],
+    "subresources_redirects_errors_head_partial_no_body": "pass_without_capture",
+    "ambiguous_or_invalid_metadata": "invalid_not_a_body_claim",
+    "caller_json_mutation_retargets_snapshot": false,
+    "mime_sniff_or_url_refetch": false,
+    "native_download_intent_qualified": false,
+    "response_body_retention": false,
     "provider_qualified": false
   },
   "frame_graph": {

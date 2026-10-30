@@ -55,6 +55,7 @@ public final class CdpBindingProbe {
                 public boolean idle()throws IOException{return session.idle();}
                 public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
                 public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
+                public MdoBrowserCdpResponse pausedResponse()throws IOException{return session.pausedResponse();}
                 public int pendingControls()throws IOException{return session.pendingControls();}
                 public void close(){session.close();}
             };

@@ -33,7 +33,7 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserUploadProvider.java','host/android/browser-manifest.inc.py',
         'host/android/dev/BrowserUseUploadUriProbe.java','host/android/MdoBrowserManualChooser.java','host/android/browser-manual-chooser.inc.java',
         'host/android/MdoBrowserPickerUris.java','host/android/MdoBrowserCdpNative.java',
-        'host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpSession.java','host/android/MdoBrowserCdpMarker.java',
+        'host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpResponse.java','host/android/MdoBrowserCdpSession.java','host/android/MdoBrowserCdpMarker.java',
         'host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
         'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java',
         'host/android/browser-frame-router.inc.java','host/android/browser-network.inc.java','tools/update_android_owner_scripts.py',
@@ -48,7 +48,7 @@ HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java
     'tools/android/MdoBrowserUploadStore.java','tools/android/MdoBrowserUploadQueue.java','tools/android/MdoBrowserUploadRuntime.java',
     'tools/android/MdoBrowserUploadUris.java','tools/android/MdoBrowserUploadProxy.java','tools/android/MdoBrowserUploadUriRuntime.java',
     'tools/android/MdoBrowserUploadProvider.java','tools/android/MdoBrowserManualChooser.java','tools/android/MdoBrowserPickerUris.java',
-    'tools/android/MdoBrowserCdpNative.java','tools/android/MdoBrowserCdpJson.java','tools/android/MdoBrowserCdpSession.java',
+    'tools/android/MdoBrowserCdpNative.java','tools/android/MdoBrowserCdpJson.java','tools/android/MdoBrowserCdpResponse.java','tools/android/MdoBrowserCdpSession.java',
     'tools/android/MdoBrowserCdpMarker.java','tools/android/MdoBrowserCdpView.java','tools/android/MdoBrowserCdpBinding.java','tools/android/MdoBrowserCdpRegistry.java','tools/android/MdoBrowserCdpWorker.java','tools/android/MdoBrowserCdpNetworks.java','tools/android/MdoBrowserCdpFrames.java','tools/android/MdoBrowserCdpWorlds.java',
     'tools/android/MdoBrowserCdpOwnerScripts.java','tools/android/MdoBrowserCdpFrameRequest.java','tools/android/MdoBrowserCdpFrameChain.java','tools/android/MdoBrowserCdpInput.java','tools/android/MdoBrowserCdpCapture.java','tools/android/MdoBrowserCdpFileInput.java','tools/android/MdoBrowserCdpChoosers.java','tools/android/MdoBrowserCdpUploadScripts.java','tools/android/MdoBrowserCdpUpload.java','tools/android/MdoBrowserUploadCoordinator.java')
 HOST_SCRIPTS=('tools/android/browser_overlay.py','tools/android/build_apk.py')

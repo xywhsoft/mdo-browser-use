@@ -58,8 +58,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private static final ControlResult CONTROL_TIMEOUT_RESULT=new ControlResult(false,"cdp_control_timeout",0,true);
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
     private static final class PausedEvent {
-        final String request,session,key;boolean used;
+        final String request,session,key;final MdoBrowserCdpResponse response;boolean used;
         PausedEvent(MdoBrowserCdpJson.Message message){
+            response=MdoBrowserCdpResponse.inspect(message.value);
             session=message.session;Object raw=message.value.opt("requestId");String id=raw instanceof String?(String)raw:null;
             boolean valid=id!=null&&!id.isEmpty()&&id.length()<=256;
             if(valid)for(int i=0;i<id.length();i++)if(id.charAt(i)<33||id.charAt(i)>126){valid=false;break;}
@@ -180,6 +181,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * header/body replacement, supplied selector or ordinary RPC reentry. */
     ControlReceipt continuePausedRequest()throws IOException{return pausedControl(false);}
     ControlReceipt abortPausedRequest()throws IOException{return pausedControl(true);}
+    /** The snapshot was frozen before the event callback could modify JSON.
+     * It contains no wire selector and cannot itself continue/claim a body. */
+    MdoBrowserCdpResponse pausedResponse()throws IOException {
+        guard(false);if(!busy||paused==null)throw failure("cdp_control_not_in_event",false);
+        if(paused.request==null||!admitted(paused.session))throw new EventFailure("cdp_control_event_invalid");
+        return paused.response;
+    }
     private ControlReceipt pausedControl(boolean abort)throws IOException {
         guard(false);PausedEvent original=paused;
         if(!busy||original==null)throw failure("cdp_control_not_in_event",false);

@@ -34,7 +34,9 @@ public final class CdpNetworkBindingProbe {
         finally{Handler.drain();}
     }
     private static JSONObject response(int id)throws Exception{return new JSONObject().put("id",id).put("result",new JSONObject());}
-    private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("responseStatusCode",200));}
+    private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("responseStatusCode",200)
+        .put("resourceType","Document").put("request",new JSONObject().put("method","POST").put("url","https://private.invalid/token"))
+        .put("responseHeaders",new JSONArray().put(new JSONObject().put("name","Content-Disposition").put("value","attachment; filename=private.bin"))));}
     static final class Context implements AutoCloseable{
         final WebView view=new WebView();final MdoBrowserCdpView adapter;
         final CdpBindingProbe.Factory peer=new CdpBindingProbe.Factory(view);
@@ -67,7 +69,11 @@ public final class CdpNetworkBindingProbe {
             };
         }
         void bind()throws Exception{network=run(()->MdoBrowserCdpBinding.bindNetwork(adapter.marker(),1500,(m,s,p)->{
-            if(m.equals("Fetch.requestPaused"))controls.add(abort?network.abortPausedRequest():network.continuePausedRequest());
+            if(m.equals("Fetch.requestPaused")){
+                MdoBrowserCdpResponse original=network.pausedResponse();check(original.kind.equals("candidate")&&original.reason.equals("attachment")&&original.status==200);
+                p.remove("responseHeaders");p.remove("request");check(network.pausedResponse()==original);
+                controls.add(abort?network.abortPausedRequest():network.continuePausedRequest());
+            }
         },t->Arrays.asList("unowned","owned"),peer));}
         CdpBindingProbe.Wire wire(){return peer.wires.get(peer.wires.size()-1);}
         void enable()throws Exception{run(()->{network.enableResponses(500);return null;});}

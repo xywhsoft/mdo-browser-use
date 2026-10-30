@@ -30,6 +30,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         default boolean idle()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpResponse pausedResponse()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default int pendingControls()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
@@ -46,6 +47,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public boolean idle()throws IOException{return session.idle();}
                 public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
                 public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
+                public MdoBrowserCdpResponse pausedResponse()throws IOException{return session.pausedResponse();}
                 public int pendingControls()throws IOException{return session.pendingControls();}
                 public void close(){session.close();}
             };
@@ -250,6 +252,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         private void control()throws IOException {bound.current();if(!enableAttempted)throw problem("cdp_network_not_enabled");}
         MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {control();return bound.peer.continuePausedRequest();}
         MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {control();return bound.peer.abortPausedRequest();}
+        MdoBrowserCdpResponse pausedResponse()throws IOException {control();return bound.peer.pausedResponse();}
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
         boolean cleanupConfirmed(){return bound.closed.get()&&!bound.cleanupFailed.get();}
         @Override public void close(){bound.close();}

@@ -7401,3 +7401,27 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   explicit network rearm and managed popup integration are unfinished. Device,
   framework and automation qualification remain false. No phone/provider update,
   actual model/external page call, formal data edit or online release.
+
+## E83a — freeze bounded original-response classification
+
+- Add a private immutable response summary at the original paused-event boundary;
+  expose it through the exact physical-network facade only during that event.
+  Callback JSON edits cannot retarget the summary or its frozen native control.
+  Retained results contain four scalar fields and no URL/request/header/cookie/
+  filename authority. No ordinary callback RPC reentry or second request is added.
+- Classify explicit attachments/known binary full-body 2xx Document responses;
+  pass request/error/redirect/non-document/HEAD/CONNECT/no-body/partial cases.
+  Validate relevant header duplicates, names, UTF-8 budgets, quoted parameters
+  and decimal length/overflow. Ambiguous metadata is invalid, not a stream claim.
+  Native download-intent/provider qualification and body capture remain unfinished.
+- Exact metadata gate passes 295 assertions; physical network proof/facade passes
+  1,986. Full original transport/dispatcher/controls/cooperative worker/frame/world/
+  input/chooser/upload/clear, ASan/UBSan and API 26 compilation gates pass
+  `.mdo/E83-native-full.log` / `.mdo/E83-native-current.json`; recorded input hashes
+  match. Python passes 173/175 in 68.497 s, with only the two existing Windows
+  symlink privilege skips (`.mdo/E83-python-full.log`). The 114-file overlay plan
+  composes without writes. Existing E82 JS evidence remains valid; JS did not change.
+- Goal active. Require the actual response-class DEX definition in the complete
+  APK and package current Android sources next. The E82 app archive remains the
+  current tested shared frontend; no device/provider change, external page/model
+  action, formal data edit, extra app/Home/source copy or online publication.

@@ -3053,3 +3053,31 @@ Overall Android automation and initial-download-interception admission stay off.
 The response callback currently continues original responses; body retention,
 download storage/accept/cancel, explicit rearm and managed popup networking still
 need implementation/qualification before activation.
+
+## Original paused-response metadata (E83a)
+
+The private dispatcher freezes a bounded immutable classification before an
+original Fetch event reaches its native callback. The physical-network facade
+can read that snapshot only inside the original event; supplied request IDs,
+later JSON edits and retained metadata cannot select/claim a request. The result
+contains only kind, canonical reason, HTTP status and declared content length.
+No URL, method/body, header list, cookie, credential or filename is retained.
+
+Explicit attachments and three known binary media types in successful full-body
+Document responses become candidates. Request-stage events, failed responses,
+redirect/error statuses, HEAD/CONNECT, 204/205/206 and non-document subresources
+are not captured. Candidate metadata must pass bounded token/parameter/quoted
+value and integer validation. Duplicate disposition/type/length, invalid values,
+overflow and header budgets return an invalid classification, never a body claim.
+Limits: 128 headers, 256-character names, 8,192-code-unit values, 65,536 UTF-8
+bytes of names/values and 32 parameters per disposition/type. No filename/path
+decoding, URL-extension heuristic, MIME sniffing or second request occurs.
+
+The [Fetch protocol](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Fetch.pdl)
+defines the original event fields and distinguishes response stages and redirect
+responses. Classification is a conservative native policy, not proof of every
+browser download intent. The current product still continues original events;
+stream claim/body storage and accept/cancel must be connected before activation.
+The 295-check metadata gate and 1,986-check physical-binding gate use the exact
+dispatcher/codec/JNI validator with controlled event/provider peers. They do not
+qualify an installed WebView, framework UI or full Android download behavior.
