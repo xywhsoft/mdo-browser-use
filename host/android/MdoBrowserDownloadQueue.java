@@ -144,7 +144,15 @@ final class MdoBrowserDownloadQueue implements AutoCloseable {
                 Ticket selected=null;
                 synchronized(gate){
                     for(int i=0;i<tickets.length;i++){int next=cursor++%tickets.length;Ticket value=tickets[next];if(value!=null&&needed(value)){selected=value;value.busy=true;break;}}cursor%=tickets.length;
-                    if(selected==null){if(closing)break;try{gate.wait(20);}catch(InterruptedException interrupted){closing=true;}continue;}
+                    if(selected==null){
+                        if(closing)break;boolean polling=false;
+                        // Only unfinished original responses need deadline/
+                        // receipt polling. Empty or fully retained caches park
+                        // until a real begin/offer/cancel/release/close signal.
+                        for(Ticket value:tickets)if(value!=null&&!value.retired&&!value.complete&&
+                            (value.failure==null||!value.clean||value.snapshot.source==null)){polling=true;break;}
+                        try{gate.wait(polling?20:0);}catch(InterruptedException interrupted){closing=true;}continue;
+                    }
                 }
                 step(selected);
                 // A failed unlink is retained; avoid an unbounded busy retry.

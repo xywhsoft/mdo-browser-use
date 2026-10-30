@@ -28,6 +28,9 @@ public final class CdpDownloadQueueProbe {
     private static String hash(byte[] bytes)throws Exception{
         StringBuilder text=new StringBuilder();for(byte value:MessageDigest.getInstance("SHA-256").digest(bytes))text.append(String.format("%02x",value&255));return text.toString();
     }
+    private static Thread worker(MdoBrowserDownloadQueue queue)throws Exception{
+        java.lang.reflect.Field field=MdoBrowserDownloadQueue.class.getDeclaredField("worker");field.setAccessible(true);return (Thread)field.get(queue);
+    }
     private static void finish(CdpBodyProbe.Context context,MdoBrowserCdpSession.Body body)throws Exception{
         for(int i=0;i<25&&body.result()==null;i++){context.client.serviceBodies(100);context.client.poll(20,100);}check(body.result()!=null);
     }
@@ -77,6 +80,7 @@ public final class CdpDownloadQueueProbe {
                 await(()->ticket.snapshot().completed());MdoBrowserDownloadQueue.Snapshot result=ticket.snapshot();
                 check(result.source==source.result()&&result.source.bytes==6&&result.bytes==6&&result.sha256.equals(hash(new byte[]{0,1,(byte)255,9,8,7})));
                 check(!result.fileCleanupConfirmed&&disk.queue.reservedBytes()==6);disk.queue.cancel(ticket);check(ticket.snapshot()==result);
+                Thread fileWorker=worker(disk.queue);await(()->fileWorker.getState()==Thread.State.WAITING);
                 context.client.close();check(ticket.snapshot().completed());disk.queue.release(ticket);await(()->ticket.snapshot().state.equals("released"));
                 check(ticket.snapshot().fileCleanupConfirmed&&!ticket.snapshot().fileVerified&&ticket.snapshot().sha256==null);
                 refused("download_source_already_consumed",()->disk.queue.begin(source));
@@ -141,10 +145,16 @@ public final class CdpDownloadQueueProbe {
             }
         }
     }
+    private static void idleWorkerParks()throws Exception{
+        java.util.concurrent.atomic.AtomicInteger opened=new java.util.concurrent.atomic.AtomicInteger();
+        MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->{opened.incrementAndGet();throw new IOException("download_fixture_unexpected_open");},()->0);
+        try{Thread worker=worker(queue);await(()->worker.getState()==Thread.State.WAITING);check(opened.get()==0&&queue.retainedTickets()==0);}
+        finally{queue.close();check(queue.awaitStopped(1000)&&!queue.cleanupFailed());}
+    }
     public static void main(String[] args)throws Exception{
         base=Paths.get(args[0]);if(Files.exists(base))throw new AssertionError("Interrupted download queue evidence preserved");Files.createDirectory(base);
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService protocol=java.util.concurrent.Executors.newSingleThreadExecutor();
-        try{protocol.submit(()->{try{success();failedSource();ownershipAndCancellation();budgetsAndIdleExpiry();releaseWaitsForOriginalCleanup();closeDuringBlockedStorage();}catch(Exception failure){throw new RuntimeException(failure);}}).get(25,TimeUnit.SECONDS);}
+        try{protocol.submit(()->{try{success();failedSource();ownershipAndCancellation();budgetsAndIdleExpiry();releaseWaitsForOriginalCleanup();closeDuringBlockedStorage();idleWorkerParks();}catch(Exception failure){throw new RuntimeException(failure);}}).get(25,TimeUnit.SECONDS);}
         finally{protocol.shutdownNow();check(protocol.awaitTermination(3,TimeUnit.SECONDS));}
         Files.delete(base);
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_native_body_joined\":true,\"real_guarded_files\":true,\"blocked_file_worker_page_progress\":true,\"framework_verified\":false,\"provider_qualified\":false,\"product_downloads_activated\":false}");

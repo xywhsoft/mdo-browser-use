@@ -7780,3 +7780,17 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   unsupported text handling and installed provider/main-UI qualification remain
   unfinished. Phone/WebView update stay deferred. No installation, formal-data
   edit, actual model/external-page action, app/Home/source copy or publication.
+
+
+## E89a — park an idle download file worker
+
+- Remove unconditional 20 ms wakeups when the cache has no unfinished source.
+  Empty queues and fully retained completed files now park until an actual
+  begin/offer/cancel/release/close notification. Unfinished source deadlines and
+  cleanup receipts still get bounded polling; failed cleanup retains backoff.
+- The actual JVM queue gate now passes 130 checks, including observed WAITING
+  states for empty and retained-completed workers and successful signal/close
+  wakeup. This is a worker parking proof, not Android battery/Doze qualification.
+  Current full native evidence is `.mdo/E89-native-final.log` and
+  `.mdo/E89-native-current.json`. Goal remains active; product Android download
+  actions and installed framework/provider qualification are unfinished.
