@@ -7,13 +7,16 @@
     private boolean browserPaused;
     // Exact private ownership for the asynchronous frame command route.
     // Product/profile admission is required before requesting this marker.
+    private boolean cdpEnvironmentCurrent(String key,WebView view,long epoch,MdoBrowserChannel<WebMessagePort>.Lease original){
+        MdoBrowserDialogTarget target=dialogs.get(key);
+        return !stopped&&!browserPaused&&views.owns(key,view)&&views.epoch(key,view)==epoch&&view.isShown()&&!manual.contains(key)&&!pageClosed.contains(key)&&
+            !loading.getOrDefault(key,true)&&channel.current()==original&&channel.active(original,host.getUrl())&&
+            (target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null)&&
+            (!windows.containsKey(key)||windows.get(key).clean()&&windows.get(key).snapshot()==null);
+    }
     private MdoBrowserCdpMarker cdpMarker(String key,WebView view){
         final long epoch=views.epoch(key,view);final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
-        return cdpViews.marker(key,view,epoch,original,()->!stopped&&!browserPaused&&views.owns(key,view)&&
-            views.epoch(key,view)==epoch&&view.isShown()&&!manual.contains(key)&&!pageClosed.contains(key)&&
-            !loading.getOrDefault(key,true)&&channel.current()==original&&channel.active(original,host.getUrl())&&
-            dialogReady(key,view)&&chooserReady(dialogs.get(key))&&
-            (!windows.containsKey(key)||windows.get(key).clean()&&windows.get(key).snapshot()==null));
+        return cdpViews.marker(key,view,epoch,original,()->cdpEnvironmentCurrent(key,view,epoch,original)&&chooserReady(dialogs.get(key)));
     }
     private void bindDocument(String key,WebView view,boolean automation){
         if(documents.containsKey(key))closeDocument(key);

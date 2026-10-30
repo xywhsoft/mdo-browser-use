@@ -54,6 +54,7 @@ final class MdoBrowserCdpFrameRequest {
             if(!Double.isFinite(x)||!Double.isFinite(y)||x<0||y<0||x>32768||y>32768)throw invalid();}
         return new MdoBrowserCdpFrameRequest(action,frame,document,script,timeout,x,y,file?MdoBrowserCdpFileInput.parse(request):null,chooser?MdoBrowserCdpChoosers.Request.parse(request):null);
     }
+    boolean chooserContinuation(){return action.equals("chooser_list")||action.equals("chooser_target")||action.equals("chooser_disarm");}
     byte[] run(MdoBrowserCdpBinding binding,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         try{
             MdoBrowserCdpFrames frames=binding.frames();JSONObject result;

@@ -43,6 +43,14 @@ final class MdoBrowserCdpRegistry<T> implements AutoCloseable {
             if(entry.marker==null)throw new IllegalStateException("Missing CDP view adapter");return entry.marker;
         }catch(RuntimeException|Error failure){entry.invalidate();throw failure;}
     }
+    /** Native continuation only: never create/rebind or relax ordinary marker
+     * admission. The UI must prove its exact chooser/operation scope first. */
+    MdoBrowserCdpMarker existing(String key,T view,long epoch,Object channel){
+        thread();Entry entry=entries.get(key);
+        if(closed||entry==null||view==null||channel==null||epoch<=0||entry.view!=view||entry.epoch!=epoch||entry.channel!=channel||
+            entry.marker==null||!entry.marker.lease().current()||!entry.marker.lease().busy())throw new IllegalStateException("Original CDP binding unavailable");
+        return entry.marker;
+    }
     void invalidate(String key,T view,long epoch,String reason){
         thread();Entry entry=entries.get(key);if(entry==null||entry.view!=view)return;
         entry.invalidate();

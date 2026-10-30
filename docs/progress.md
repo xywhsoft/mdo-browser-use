@@ -6141,3 +6141,54 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   active; no phone/provider/formal data changes, model calls, external page
   operations, extra app/Home/source copies or online release. Android automation
   and debugging admission remain off.
+
+## E72 — retain the idle original chooser world for read-only continuation
+
+- Diagnose a real integration gap: `file_chooser_open` input invalidation always
+  destroyed the already bound CDP graph/world/event/ref state. Preserve that idle
+  connection only for the exact original view/epoch/channel and clean, cancelable
+  single/multiple native chooser. Keep ordinary input cancellation/release and all
+  loading/visibility/manual/background/dialog/popup/capture/directory gates. An
+  in-flight CDP job or posted UI result still retires the binding; ordinary work
+  cannot continue behind the chooser. Other invalidation reasons are unchanged.
+- Apply a narrow exception at the actual outer dialog gate and frame router for
+  strict `chooser_list`/`chooser_target`/`chooser_disarm` metadata only, after input
+  cleanup. No broad readiness exception, raw script/gesture/node/socket field,
+  caller flag or debugging activation. Global product/profile admission remains
+  above this gate. Cancelling a clean chooser resumes the same original realm.
+- Add exact native registry lookup and worker submission that require the original
+  existing binding object, with worker-side revalidation and no connector path.
+  Apply it to every chooser continuation, even without a current UI callback,
+  so missing/retired sources cannot recreate old candidate/target authority.
+- Actual production admission/invalidation/router fragments, native chooser
+  ledger and JVM/JNI/CDP path pass 357 scope checks, including five frame routes,
+  original refs, pressed-input cleanup, ordinary effect/extra-field denial, missing
+  bindings, channel/epoch changes, in-flight cancellation and other lifecycle
+  losses. Registry/worker additions pass 388/184; existing dispatcher, graph,
+  world/owner/input/capture/file/chooser and 1,530 private-upload checks pass
+  `.mdo/E72-native-final.log`. UI surroundings and DOM peers are synthetic;
+  native callback/event association, file/URI assignment and framework/provider
+  qualifications remain false. No files are granted by this scope.
+- Fix the native socket test's allocation fault fixture, not product code: a
+  header/payload split could make a 30,000-byte message use only two grow sites
+  (first 8,192-byte batch plus NUL rounds to 16,384), so fault three was sometimes
+  never reached. Use a 66,000-byte fragmented synthetic message to force all three
+  grows regardless of coalescing. Retain `.mdo/E72-native-initial.log` and fixture
+  compile correction `.mdo/E72-native-review.log`; final ASan/UBSan and API 26
+  gates pass without relaxing timeouts. Add E71's new Java class to reviewed and
+  deployed source fingerprints, covering edits that DEX presence alone missed.
+- Stop/apply reviewed overlays. Complete SDK/D8/DEX/ABI/app payload/private
+  provider/alignment/v2/v3 signature checks pass `.mdo/E72-android-build.log`:
+  full development APK 6,387,009 bytes, SHA-256
+  `a3b4d97eb072f7a617f07be735824f6243d6fa29512d229ced5137b1f766d7c8`.
+  Verify/reuse unchanged Windows executable and paired plugin. JS passes 319/319
+  in 20.848 s; Python 167/169 with two existing symlink skips in 61.853 s
+  (`.mdo/E72-node-full.log`, `.mdo/E72-python-full.log`). Restore the same service.
+- Next implement the UI upload coordinator joining E69's original callback,
+  E70's file-data retention and E71's fixed original-world steps: early callback
+  ordering, exact source/operation identity, scoped private continuation,
+  physical data-owner lifetime, cleanup/gone/lost-reply recovery. Android
+  downloads/profile/activation/installed-provider/main-UI and Windows realm/input
+  work remain. Goal stays active and Android automation/debug admission off;
+  no phone/provider/formal data changes, model calls, external page operation,
+  extra app/Home/source copies or online release.

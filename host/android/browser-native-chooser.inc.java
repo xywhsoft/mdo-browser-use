@@ -4,6 +4,22 @@
         MdoBrowserPrivatePicker privatePicker=((MdoBrowserChooserTarget)target).privatePicker;
         return binding.ready()&&privatePicker.clean()&&!privatePicker.pending()&&manualChooser.ready();
     }
+    private boolean chooserContinuationReady(String key,WebView view){
+        long epoch=views.epoch(key,view);MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
+        if(epoch<=0||!cdpEnvironmentCurrent(key,view,epoch,original)||!manualChooser.ready())return false;
+        MdoBrowserDialogTarget target=dialogs.get(key);if(!(target instanceof MdoBrowserChooserTarget)||target.view!=view)return false;
+        MdoBrowserChooserTarget chooser=(MdoBrowserChooserTarget)target;
+        if(!chooser.choosers.intercepting()||!chooser.choosers.clean()||!chooser.privatePicker.clean()||chooser.privatePicker.pending())return false;
+        MdoBrowserChoosers.Snapshot pending=chooser.choosers.snapshot();
+        return pending!=null&&pending.navigation==epoch&&pending.cancelable&&!pending.capture&&(pending.mode==0||pending.mode==1);
+    }
+    private void inputInvalidated(String key,WebView view,long epoch,String reason){
+        if("file_chooser_open".equals(reason)&&views.epoch(key,view)==epoch&&chooserContinuationReady(key,view)){
+            try{MdoBrowserCdpMarker original=cdpViews.existing(key,view,epoch,channel.current());if(!cdpWorker.pending(original))return;}
+            catch(IllegalStateException unavailable){/* No original bound realm: ordinary retirement remains mandatory. */}
+        }
+        cdpViews.invalidate(key,view,epoch,reason);
+    }
     private void chooserBlocked(String key,WebView view,boolean blocked){
         // A retired target must not update a replacement document with the same key.
         if(!views.owns(key,view))return;

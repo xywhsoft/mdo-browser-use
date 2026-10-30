@@ -157,8 +157,21 @@ public final class CdpWorkerProbe {
             check(sample.results.isEmpty());zero(data.get());
         }
     }
+    private static void existingOnly()throws Exception {
+        Case sample=new Case();MdoBrowserCdpMarker marker=sample.marker(0);AtomicReference<MdoBrowserCdpBinding> original=new AtomicReference<>();
+        rejects("cdp_worker_binding_unavailable",()->sample.worker.submitExisting(marker,1000,false,(binding,deadline)->value(),result->{}));
+        check(sample.worker.pending()==0&&sample.connects.get()==0);
+        sample.submit(marker,false,(binding,deadline)->{original.set(binding);return value();});sample.deliver(1);check(sample.results.get(0).code==null);
+        sample.worker.submitExisting(marker,1000,false,(binding,deadline)->{check(binding==original.get());return value();},sample.results::add);sample.deliver(1);
+        check(sample.results.get(1).code==null&&sample.connects.get()==1);
+        sample.submit(marker,false,(binding,deadline)->{binding.close();return value();});sample.deliver(1);
+        AtomicInteger entered=new AtomicInteger();sample.worker.submitExisting(marker,1000,true,(binding,deadline)->{entered.incrementAndGet();return value();},sample.results::add);sample.deliver(1);
+        check(sample.results.get(3).code!=null&&!sample.results.get(3).effectMayHaveOccurred&&entered.get()==0&&sample.connects.get()==1);
+        rejects("cdp_worker_binding_unavailable",()->sample.worker.submitExisting(marker,1000,false,(binding,deadline)->value(),result->{}));
+        check(sample.connects.get()==1);sample.close();
+    }
     public static void main(String[] ignored)throws Exception {
-        Looper.getMainLooper();System.loadLibrary("xs");reuse();capacity();queueDeadline();cancelAndLate();failures();bindingCancellation();invalidAdmission();scheduler();
+        Looper.getMainLooper();System.loadLibrary("xs");reuse();capacity();queueDeadline();cancelAndLate();failures();bindingCancellation();invalidAdmission();scheduler();existingOnly();
         System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false}");
     }
 }

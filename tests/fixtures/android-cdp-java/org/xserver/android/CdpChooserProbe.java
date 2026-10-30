@@ -28,10 +28,11 @@ public final class CdpChooserProbe {
         JSONObject result=new JSONObject().put("method","Page.fileChooserOpened").put("params",params);if(source!=null)result.put("sessionId",source);return result;
     }
     private static JSONObject metadata(String raw)throws Exception {return new JSONObject().put("frameId",raw).put("backendNodeId",77).put("mode","selectMultiple");}
-    private static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
-        final CdpFileInputProbe.Case inputs=new CdpFileInputProbe.Case();final ArrayDeque<JSONObject> waiting=new ArrayDeque<>();final Set<String> listeners=new HashSet<>();
+    static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
+        final CdpFileInputProbe.Case inputs;final ArrayDeque<JSONObject> waiting=new ArrayDeque<>();final Set<String> listeners=new HashSet<>();
         boolean armingEvent,unsupported,wrongContext,unrelatedBackend,duplicateDuringResolve;int enables,disables,resolves;
-        Case()throws Exception {inputs.peer.host.plan.extra=this;}
+        Case()throws Exception {this(true);}
+        Case(boolean initialize)throws Exception {inputs=new CdpFileInputProbe.Case(initialize);inputs.peer.host.plan.extra=this;}
         private static String source(String raw){return raw.equals("child-frame")||raw.equals("child-local")?"child-session":raw.equals("leaf-frame")?"leaf-session":null;}
         private void result(CdpBindingProbe.Wire wire,JSONObject request,JSONObject body)throws Exception {
             JSONObject reply=new JSONObject().put("id",request.getInt("id")).put("result",body);if(request.has("sessionId"))reply.put("sessionId",request.getString("sessionId"));wire.queue(reply);

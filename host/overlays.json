@@ -1060,7 +1060,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "            if(manual.contains(key)&&request.optBoolean(\"agent\")",
-      "after": "            if(!dialogReady(key,web)&&!Arrays.asList(\"navigate\",\"back\",\"forward\",\"reload\",\"stop\").contains(command))throw new IllegalStateException(\"dialog_pending_or_unclean\");\n            if(manual.contains(key)&&request.optBoolean(\"agent\")"
+      "after": "            if(!dialogReady(key,web)&&!Arrays.asList(\"navigate\",\"back\",\"forward\",\"reload\",\"stop\").contains(command)&&!chooserFramesAllowed(key,web,request))throw new IllegalStateException(\"dialog_pending_or_unclean\");\n            if(manual.contains(key)&&request.optBoolean(\"agent\")"
     },
     {
       "path": "tools/android/MdoBrowser.java",

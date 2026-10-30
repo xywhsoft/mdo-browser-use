@@ -15,7 +15,8 @@ public final class WebView {
     public final Map<String,String> lexical=new ConcurrentHashMap<>();
     public final List<ValueCallback<String>> pending=new ArrayList<>();
     private final WebSettings settings=new WebSettings();
-    public boolean defer,throwAfterRetain,badReply;public int evaluations,cleanup;
+    public boolean defer,throwAfterRetain,badReply,shown=true;public int evaluations,cleanup;
+    public boolean isShown(){return shown;}
     public Runnable beforeReply;
     public WebSettings getSettings(){return settings;}
     public void evaluateJavascript(String source,ValueCallback<String> reply) {

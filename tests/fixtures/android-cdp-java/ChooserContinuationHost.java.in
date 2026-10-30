@@ -1,0 +1,71 @@
+package org.xserver.android;
+
+import android.webkit.WebView;
+import java.util.*;
+import org.json.*;
+
+/** Exact production admission/invalidation/router fragments with controlled
+ * surrounding UI state; this is not the installed Android framework. */
+final class ChooserContinuationHost implements AutoCloseable {
+    static final class WebMessagePort {}
+    static final class Page {String getUrl(){return "https://host.invalid/app";}}
+    static final class DialogState {boolean clean=true,pending;boolean clean(){return clean;}Object snapshot(){return pending?this:null;}}
+    static class MdoBrowserDialogTarget {final WebView view;final DialogState dialogs=new DialogState();MdoBrowserDialogTarget(WebView view){this.view=view;}}
+    final class MdoBrowserChooserTarget extends MdoBrowserDialogTarget {
+        final MdoBrowserChoosers choosers;final MdoBrowserPrivatePicker privatePicker;
+        MdoBrowserChooserTarget(WebView view){super(view);
+            choosers=new MdoBrowserChoosers(view,new MdoBrowserChoosers.Scheduler(){public long now(){return time;}public void at(Runnable task,long due){}public void remove(Runnable task){}},
+                ()->views.owns("tab",view),()->views.epoch("tab",view),blocked->chooserBlocked("tab",view,blocked));
+            privatePicker=new MdoBrowserPrivatePicker(view,choosers,new MdoBrowserPrivatePicker.Scheduler(){public long now(){return time;}public void at(Runnable task,long due){}public void remove(Runnable task){}},
+                ()->views.owns("tab",view),()->views.epoch("tab",view));
+        }
+    }
+    static final class MdoBrowserDocument {static final int CHOOSER=1;boolean blocked;void block(int reason,boolean value){if(reason!=CHOOSER)throw new AssertionError("Unexpected document block");blocked=value;}}
+    static final class Manual {boolean ready=true;boolean ready(){return ready;}}
+    final CdpFileInputProbe.Case peer;final WebView view;final Page host=new Page();final Manual manualChooser=new Manual();
+    final MdoBrowserCdpWorker cdpWorker;final MdoBrowserCdpRegistry<WebView> cdpViews;
+    final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
+    final MdoBrowserLifecycle<WebView> views;
+    final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();final Map<String,DialogState> windows=new HashMap<>();
+    final Map<String,MdoBrowserDocument> documents=new HashMap<>();final Map<String,Boolean> loading=new HashMap<>();
+    final Set<String> manual=new HashSet<>(),pageClosed=new HashSet<>();final List<Runnable> inputs=new ArrayList<>();
+    final List<JSONObject> replies=new ArrayList<>();long time=1000;boolean stopped,browserPaused;int cancellations,captureCancelled;
+    MdoBrowserChooserTarget chooser;
+    ChooserContinuationHost(CdpFileInputProbe.Case peer){
+        this.peer=peer;view=peer.peer.host.view;cdpWorker=peer.peer.host.worker;
+        cdpViews=new MdoBrowserCdpRegistry<>((view,document,current)->new MdoBrowserCdpView(view,owned->owned==view&&current.getAsBoolean(),document).marker(),cdpWorker::cancel);
+        views=new MdoBrowserLifecycle<>((view,epoch,admitted)->new MdoBrowserInput(new MdoBrowserInput.Target(){
+            public long document(){return epoch.getAsLong();}public int width(){return 100;}public int height(){return 100;}public boolean interactive(){return admitted.getAsBoolean();}
+            public boolean focused(){return true;}public boolean touch(int action,long down,long now,float x,float y){return true;}
+            public boolean key(boolean down,long started,long now,String key,int modifiers){return true;}public boolean text(String value){return true;}
+        },new MdoBrowserInput.Scheduler(){public long now(){return time;}public void post(Runnable task,long delay){inputs.add(task);}public void remove(Runnable task){inputs.remove(task);}}),this::inputInvalidated);
+        views.put("tab",view);loading.put("tab",false);channel.attach(host.getUrl(),new WebMessagePort());documents.put("tab",new MdoBrowserDocument());
+        chooser=new MdoBrowserChooserTarget(view);dialogs.put("tab",chooser);chooser.choosers.interception(true);
+    }
+    private void cancelCapture(String key){captureCancelled++;}
+    private boolean dialogReady(String key,WebView view){MdoBrowserDialogTarget target=dialogs.get(key);return target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);}
+    private void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,Object value,String error){
+        if(channel.current()!=lease||!channel.active(lease,host.getUrl()))return;
+        try{replies.add(value instanceof JSONObject?new JSONObject(value.toString()):new JSONObject().put("ok",false).put("error",error));}catch(JSONException invalid){throw new AssertionError(invalid);}
+    }
+    void dispatch(JSONObject request)throws Exception {
+        String key="tab",id=UUID.randomUUID().toString(),command=request.getString("command");WebView web=view;
+        // The exact production outer dialog gate is injected below. Product
+        // admission itself remains above this scope in the actual host.
+@@DIALOG_GATE@@
+        executeFrames(key,id,web,request);
+    }
+    void pending(int mode,boolean capture){
+        if(!chooser.choosers.open(new Object(),()->cancellations++,mode,new String[]{"text/plain"},capture))throw new AssertionError("Original callback not retained");
+    }
+    MdoBrowserCdpMarker original(){return cdpMarker("tab",view);}
+    MdoBrowserCdpMarker saved(){return cdpViews.existing("tab",view,views.epoch("tab",view),channel.current());}
+    void invalidate(String reason){views.input("tab",view).invalidate(reason);}
+    public void close()throws Exception {
+        chooser.privatePicker.close();chooser.choosers.close();views.close();cdpViews.close();channel.close();peer.close();
+        if(!inputs.isEmpty())throw new AssertionError("Native input cleanup leaked");
+    }
+@@DOCUMENT@@
+@@CHOOSER@@
+@@ROUTER@@
+}

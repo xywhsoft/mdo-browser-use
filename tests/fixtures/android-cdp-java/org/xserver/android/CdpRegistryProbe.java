@@ -110,9 +110,20 @@ public final class CdpRegistryProbe {
         MdoBrowserCdpMarker exhausted=sample.marker("tab",view);run(()->{check(!exhausted.lease().worldName());check(!exhausted.lease().worldName());return null;});
         sample.views.navigation("tab",view);MdoBrowserCdpMarker fresh=sample.marker("tab",view);run(()->{check(fresh.lease().worldName());return null;});sample.close();
     }
+    private static void existingOnly()throws Exception {
+        Case sample=new Case();WebView view=new WebView();sample.views.put("tab",view);AtomicBoolean admitted=new AtomicBoolean(true);
+        MdoBrowserCdpMarker marker=sample.registry.marker("tab",view,1,sample.channel,admitted::get);
+        rejects(()->sample.registry.existing("tab",view,1,sample.channel));check(sample.registry.size()==1&&view.evaluations==0);
+        run(()->{marker.lease().track(()->sample.closed.incrementAndGet());return null;});admitted.set(false);
+        rejects(()->sample.registry.marker("tab",view,1,sample.channel,admitted::get));check(sample.registry.existing("tab",view,1,sample.channel)==marker&&view.evaluations==0);
+        rejects(()->sample.registry.existing("other",view,1,sample.channel));rejects(()->sample.registry.existing("tab",new WebView(),1,sample.channel));
+        rejects(()->sample.registry.existing("tab",view,2,sample.channel));rejects(()->sample.registry.existing("tab",view,1,new Object()));rejects(()->sample.registry.existing("tab",view,1,null));
+        run(()->{rejects(()->sample.registry.existing("tab",view,1,sample.channel));return null;});
+        sample.registry.invalidateAll();rejects(()->sample.registry.existing("tab",view,1,sample.channel));check(sample.closed.get()==1);sample.close();
+    }
     public static void main(String[] ignored)throws Exception {
         Looper.getMainLooper();worker=Executors.newSingleThreadExecutor();
-        try{lifecycle();quota();identity();lateCallback();worldBudget();}
+        try{lifecycle();quota();identity();lateCallback();worldBudget();existingOnly();}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));Handler.drain();}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"native_ui_calls_doubled\":true,\"provider_qualified\":false}");
     }

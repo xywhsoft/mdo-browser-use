@@ -1028,6 +1028,14 @@ native receipts preserve a completed/partial handoff after a lost worker reply
 without replaying it. The UI/Android callback/data-owner coordinator still needs
 joining; these internal steps do not enable public Android file assignment.
 
+E72 keeps a clean, idle original Android chooser binding available for the strict
+`chooser_list`/`chooser_target`/`chooser_disarm` metadata operations while ordinary
+input/evaluation remains fenced. Arm first through ordinary admission; continuation
+requests never create/reconnect a missing binding or adopt a replacement realm.
+View/epoch/channel losses and in-flight operations still cancel normally. This
+does not join the native callback to an event or grant file data, and does not
+change Android automation/profile/debugging admission.
+
 ## Intercepted file pickers
 
 The Windows dispatcher acknowledges native interception before Agent input. A

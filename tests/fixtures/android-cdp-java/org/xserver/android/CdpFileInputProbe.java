@@ -31,9 +31,10 @@ public final class CdpFileInputProbe {
         final CdpOwnerProbe.Case peer=new CdpOwnerProbe.Case();final Map<String,JSONObject> nodes=new HashMap<>();
         final Map<String,ObjectRef> objects=new HashMap<>();final Set<String> groups=new HashSet<>();
         String failure="",navigationAt="",raw;int getters,proofs,helpers,describes,releases,disconnects,fileBackend=77;
-        Case()throws Exception {
+        Case()throws Exception {this(true);}
+        Case(boolean initialize)throws Exception {
             peer.host.plan.extra=this;
-            peer.host.run((binding,deadline)->{MdoBrowserCdpFrames graph=binding.frames();JSONObject inventory=graph.inventory(deadline);
+            if(initialize)peer.host.run((binding,deadline)->{MdoBrowserCdpFrames graph=binding.frames();JSONObject inventory=graph.inventory(deadline);
                 JSONArray rows=inventory.getJSONArray("frames");for(int i=0;i<rows.length();i++){
                     JSONObject row=rows.getJSONObject(i);nodes.put(graph.select(row.getString("id"),row.getString("document")).raw,row);}
                 return new JSONObject().put("ok",true);});

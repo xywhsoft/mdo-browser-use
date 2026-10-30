@@ -6,4 +6,4 @@
                 public long now(){return android.os.SystemClock.uptimeMillis();}
                 public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("Native input scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
-            }),cdpViews::invalidate);
+            }),this::inputInvalidated);

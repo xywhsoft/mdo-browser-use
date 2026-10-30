@@ -158,9 +158,12 @@ static void* Serve(void* Data)
         Fixture->Frames+=ClientFrame(Fd,XWS_OPCODE_TEXT,"ok",2);
         while ( !atomic_load(&Fixture->Release) ) usleep(1000);
     } else if ( Fixture->Mode==8 ) {
-        /* Full-message growth uses multiple read batches and changing masks. */
-        char* Body=malloc(30000);assert(Body);memset(Body,'z',30000);
-        ServerFrame(Fd,XWS_OPCODE_TEXT,0,Body,15000);ServerFrame(Fd,XWS_OPCODE_CONTINUATION,1,Body+15000,15000);free(Body);
+        /* Guarantee at least three grow allocations even when a separate
+         * header read permits the first full 8192-byte payload batch. Its NUL
+         * terminator rounds initial capacity to 16384, so 30000 bytes could
+         * finish after only two allocations depending on socket coalescing. */
+        char* Body=malloc(66000);assert(Body);memset(Body,'z',66000);
+        ServerFrame(Fd,XWS_OPCODE_TEXT,0,Body,33000);ServerFrame(Fd,XWS_OPCODE_CONTINUATION,1,Body+33000,33000);free(Body);
         while ( !atomic_load(&Fixture->Release) ) usleep(1000);
     } else if ( Fixture->Mode==10 ) {
         ServerFrame(Fd,XWS_OPCODE_TEXT,1,NULL,0);ServerFrame(Fd,XWS_OPCODE_TEXT,1,"next",4);

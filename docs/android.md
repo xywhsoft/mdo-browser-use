@@ -14,19 +14,21 @@ cancellation. A private native staging/URI backend and human document picking
 are implemented. E69 adds a native nonce/original-callback/file-lease gate and
 E70 adds native assigned-data retention independent of transient input leases.
 E71 joins the original native frame/world verifier to fixed private picker
-steps. The UI/callback/data-owner upload coordinator is not joined yet.
+steps; E72 preserves an idle original connection for strictly scoped chooser
+metadata while ordinary operations remain fenced. The UI/callback/data-owner
+upload coordinator is not joined yet.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E71)
+## Complete development host APK (E46/E72)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,382,913 bytes, SHA-256
-`b4d9d33a914aa653fa98cd0d0ac56819f599109f51478a32dc6bf7c34c4bb981`.
+Current APK: 6,387,009 bytes, SHA-256
+`a3b4d97eb072f7a617f07be735824f6243d6fa29512d229ced5137b1f766d7c8`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2495,3 +2497,70 @@ explicit UI lifetime decisions that preserve possibly consumed file bytes.
 Overall Android automation/debug admission stays false. Installed provider/main
 UI/profile/activation/URI behavior, Android downloads and Windows realm/input
 diagnostics remain open; the user has deferred phone verification.
+
+### Preserve an idle original chooser connection without widening admission (E72)
+
+The old input invalidation observer always closed the CDP binding when an
+intercepted native file chooser opened. This discarded the already proved
+frame/world/reference/event state before target inspection could continue.
+Keep that idle binding only when the exact physical view, native epoch and
+original host channel still match; native single/multiple chooser state is clean,
+cancelable and not capture/directory; and visibility, loading, dialog, popup,
+manual-picker, manual-control and foreground checks all hold. Native pressed
+input is still cancelled/released. If a CDP job is running or awaiting UI delivery,
+ordinary cancellation still retires its binding. An unknown/pending effect is
+not authority for a continuation.
+
+The exact production outer dialog gate and frame router admit only the strict
+typed `chooser_list`, `chooser_target` and `chooser_disarm` grammar through this
+scope, and only after input cleanup. General frame listing, evaluation, owner
+queries, file inspection, capture, input and new chooser arming remain blocked.
+An extra script/gesture/socket/raw-node field cannot turn metadata into an effect.
+Product/profile admission remains above the gate. No setting, caller flag,
+global debugging change or replacement world is introduced.
+
+All three chooser continuations require an already bound original marker, even
+after the native callback is cancelled. `MdoBrowserCdpRegistry.existing` accepts
+only the exact native view/epoch/channel and never creates a marker. The worker's
+`submitExisting` captures the original binding object, checks it again on its
+worker and never invokes the connector if it is lost. A missing/retired binding
+returns an unavailable/cancelled result; it cannot recreate old candidate state.
+Navigation, stop, manual takeover, background, scale/visibility changes, dialog,
+popup and physical close retain ordinary invalidation semantics. Cancelling a
+clean chooser resumes the same realm without resetting lexical/world quotas.
+
+`.mdo/E72-native-final.log` passes 357 checks against the exact production
+admission/invalidation/router fragments, actual native chooser ledger and real
+JVM/JNI/CDP worker: five frame routes, stopped pressed input, retained target refs,
+read-only fencing, extra-field denial, no reconnect under missing/changed owners,
+and cancellation of an in-flight job. Registry/worker additions pass 388/184
+checks; existing frame/world/owner/input/capture/file/chooser/private-upload gates
+also pass. The Android UI surroundings and protocol DOM are synthetic. This
+does **not** associate an Android callback with a CDP event by timing or grant a
+URI; `android_callback_frame_association:false`, `files_granted:0`, and framework/
+provider/automatic-assignment qualifications remain false.
+
+Fix a test-only socket fault-injection race found during this run: a 30,000-byte
+message could require only two grows when its first full 8,192-byte payload batch
+rounded capacity (including NUL) to 16,384. Use a 66,000-byte fragmented synthetic
+message so all three injected grow failures are reached regardless of socket
+header/payload coalescing. No production socket change or relaxed timeout.
+Preserve `.mdo/E72-native-initial.log` and the fixture compile correction in
+`.mdo/E72-native-review.log`; the final ASan/UBSan/native/API 26 gate passes.
+
+Also include E71's new upload Java file in both reviewed and deployed source
+fingerprints; DEX presence alone did not cover a mid-build edit of that file.
+The full SDK/D8/DEX/ABI/app payload/private-provider/alignment/v2/v3 signature gate
+passes `.mdo/E72-android-build.log` (current APK above). JS passes 319/319 in
+20.848 s; Python 167/169 in 61.853 s with the two existing Windows symlink skips
+(`.mdo/E72-node-full.log`, `.mdo/E72-python-full.log`). The unchanged Windows
+executable and paired plugin are verified/reused, and the same service restored.
+
+Next join the UI upload coordinator to the E69 callback, E70 native file retention
+and E71 original-world steps. Preserve early-callback ordering, exact native
+operation/source identity, physical data-owner lifetime and conservative
+cleanup/gone/lost-reply handling. This read-only scope is not a callback/frame
+association or completed upload path. Android automation/debug admission stays
+off; installed-provider/main-UI/profile/activation/URI/download and Windows
+realm/intermittent-input work remain. No phone/provider/formal data or release
+changes, external page operations, model calls or extra app/Home/source copies.

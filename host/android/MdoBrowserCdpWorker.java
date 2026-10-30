@@ -56,12 +56,20 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     }
     private void thread(){if(!ui.onThread())throw new IllegalStateException("CDP dispatch requires its UI owner");}
     void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete)throws IOException {
+        submit(marker,timeoutMs,effect,operation,complete,null);
+    }
+    /** A native continuation cannot reconnect after losing its original world. */
+    void submitExisting(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");MdoBrowserCdpBinding bound=marker==null?null:bindings.get(marker.lease());
+        if(bound==null)throw new IOException("cdp_worker_binding_unavailable");submit(marker,timeoutMs,effect,operation,complete,bound);
+    }
+    private void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete,MdoBrowserCdpBinding existing)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(marker==null||!marker.lease().current()||operation==null||complete==null||timeoutMs<100||timeoutMs>15000)
             throw new IOException("cdp_worker_arguments_invalid");
         if(jobs.containsKey(marker.lease()))throw new IOException("cdp_worker_busy");
         if(jobs.size()>=LIMIT)throw new IOException("cdp_worker_limit");
-        Job job=new Job(marker,timeoutMs,effect,operation,complete);jobs.put(job.lease,job);
+        Job job=new Job(marker,timeoutMs,effect,operation,complete,existing);jobs.put(job.lease,job);
         try{executor.execute(job);}catch(RejectedExecutionException failure){jobs.remove(job.lease,job);job.drop();throw new IOException("cdp_worker_unavailable");}
         catch(RuntimeException|Error failure){jobs.remove(job.lease,job);job.drop();throw failure;}
     }
@@ -73,6 +81,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         executor.remove(job);job.finish(null,"cdp_worker_cancelled");
     }
     int pending(){thread();return jobs.size();}
+    boolean pending(MdoBrowserCdpMarker marker){thread();return marker!=null&&jobs.containsKey(marker.lease());}
     boolean terminated(){return executor.isTerminated();}
     private void prune(){
         for(Map.Entry<MdoBrowserCdpMarker.Lease,MdoBrowserCdpBinding> row:bindings.entrySet())if(!row.getKey().current()&&bindings.remove(row.getKey(),row.getValue()))row.getValue().close();
@@ -90,13 +99,14 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     private final class Job implements Runnable {
         final WeakReference<MdoBrowserCdpMarker> marker;final MdoBrowserCdpMarker.Lease lease;
         final int timeout;final long started;final boolean effect;
+        final MdoBrowserCdpBinding existing;
         final AtomicBoolean cancelled=new AtomicBoolean();final AtomicReference<Completion> callback;
         final Runnable delivery=this::deliver;
         private Operation operation;private byte[] bytes;private String code;private boolean posted,delivered;
         private volatile boolean entered;
-        Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback){
+        Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback,MdoBrowserCdpBinding existing){
             this.marker=new WeakReference<>(marker);lease=marker.lease();this.timeout=timeout;this.effect=effect;
-            this.operation=operation;this.callback=new AtomicReference<>(callback);started=clock.getAsLong();
+            this.operation=operation;this.callback=new AtomicReference<>(callback);started=clock.getAsLong();this.existing=existing;
         }
         int remaining(int minimum)throws IOException {
             if(closed.get()||cancelled.get()||!lease.current())throw new IOException("cdp_worker_cancelled");
@@ -108,7 +118,8 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
             byte[] value=null;String failure=null;
             try{
                 prune();remaining(100);MdoBrowserCdpBinding binding=bindings.get(lease);
-                if(binding==null){
+                if(existing!=null){if(binding!=existing)throw new IOException("cdp_worker_binding_changed");binding.current();}
+                else if(binding==null){
                     MdoBrowserCdpMarker owned=marker.get();if(owned==null)throw new IOException("cdp_binding_owner_changed");
                     binding=connector.bind(owned,remaining(100));
                     if(binding==null)throw new IOException("cdp_worker_binding_invalid");
