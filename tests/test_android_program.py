@@ -47,7 +47,8 @@ class ActualDexClassesTests(unittest.TestCase):
         self.assertNotIn('org.json.JSONObject',names)
 
     def test_class_reference_cannot_substitute_for_implementation(self):
-        for required in ('MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpBinding$Network'):
+        for required in ('MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpBinding$Network',
+                         'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation'):
             self.assertIn(required,program.HOST_CLASSES)
             report=self.report([name for name in program.HOST_CLASSES if name!=required],
                                '<class name="Helper"><method return="org.xserver.android.'+required+'"/></class>')

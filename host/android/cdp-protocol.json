@@ -116,7 +116,8 @@
   "websocket_transport": {
     "state": "private_worker_jni_packaged",
     "target": "bounded_id_to_fixed_page_path",
-    "session_limit_including_draining": 8,
+    "session_limit_including_draining": 17,
+    "session_capacity_roles": {"physical_network": 8, "document": 8, "shared_proof_or_retirement_overlap": 1},
     "handle_reuse": false,
     "worker_io": "single_owner_nonblocking_busy_rejection",
     "cancel": "shutdown_then_refcounted_close",

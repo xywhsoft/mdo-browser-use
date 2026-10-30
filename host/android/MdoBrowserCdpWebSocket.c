@@ -5,7 +5,11 @@
 #include "xrt.h"
 #include <pthread.h>
 
-#define MDO_CDP_WS_MAX 8u
+/* Eight physical network owners plus eight document bindings; one extra slot
+ * covers the single shared worker's proof/retirement overlap. Still a hard
+ * process-wide limit including draining handles, never an unbounded pool. */
+#define MDO_CDP_WS_VIEWS 8u
+#define MDO_CDP_WS_MAX (2u*MDO_CDP_WS_VIEWS+1u)
 #define MDO_CDP_WS_INPUT 8192u
 #define MDO_CDP_WS_MESSAGE 4194304u
 #define MDO_CDP_WS_SEND_MAX 262144u

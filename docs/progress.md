@@ -7275,3 +7275,26 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   document bindings before product activation. Prepare that capacity and package
   after validation. E80 APK remains current until replaced; no device/provider,
   model/external page, formal data or online release change. Phone deferred.
+
+## E81b — bound native capacity for network and document connections together
+
+- The private WebSocket table's previous eight slots could all be occupied by
+  persistent network owners, preventing any document proof/input connection.
+  Set a process-wide hard limit of 17: eight network owners, eight document
+  bindings and one shared worker's proof/retirement overlap. This still includes
+  draining handles and retains monotonic non-reused handle identities; per-
+  message/send/assembly deadlines and byte limits are unchanged.
+- The actual kernel-socket gate fills every slot, refuses the next open, retains
+  the limit while handles drain and verifies exact final descriptor/allocation
+  balance. Current native WebSocket gate: 1,195 assertions, 204 allocations and
+  204 releases; 64 cancel cycles. Full current native/Java/JNI/shared-worker/
+  cooperative pair/frame/world/upload/file-clear and ASan/UBSan/API 26 gates pass
+  `.mdo/E81-native-capacity.log`/`.mdo/E81-native-capacity.json`; every recorded
+  input hash matches.
+- Require actual network ledger/slot/result/cooperation DEX definitions in the
+  complete APK. The seven packaging contracts reject references without each
+  implementation (`.mdo/E81-apk-contract.log`). All 113 reviewed deployment
+  files compose without writes. Rebuild the existing ARM64 native output and
+  complete APK next; the E80 artifact is not yet replaced at this source commit.
+- Goal active. No new runtime dependency or app/Home/source copy, phone/provider
+  change, model/external page action, formal data edit or online publication.
