@@ -7583,3 +7583,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   list/permission/accept/cancel/save, unsupported text handling and real provider/
   main-UI qualification remain open. No phone/provider update, extra app/Home/
   source copy, formal data edit, actual model/external page action or release.
+
+## E85c — verify the asynchronous body implementation in the full APK
+
+- Apply all 114 reviewed files with the existing service stopped. Reuse the
+  unchanged verified ARM64 engine, exercised E82 app archive and paired plugin;
+  compile current session/binding/shared-worker code and verify actual body/
+  network/cooperation DEX classes. Six JNI entries, private provider/manifest,
+  current source/native/app payload hashes, ARM64/16 KiB alignment and v2-v3
+  signatures pass (`.mdo/E85-android-build.log`). Preserve QA identity/signer/
+  installation serial. APK 6,423,873 bytes, SHA-256
+  `18a4f866390f9e6dfc06d442e4494232c226597d93e864cf0c6ce564474a2d9a`.
+- Verify APK/source/archive identities after assembly, unchanged Windows
+  runtime/paired-plugin receipt, every recorded E85b native-gate input hash and
+  false device/framework/automation qualification flags. Restore the same
+  headless service on 63625 with HTTP 200, about 3,435.2 MiB. Current native and
+  APK gate evidence is recorded above; no shared JS changes this phase.
+- Goal remains active. The private nonblocking body/idle-expiry/finishing layer
+  is implemented and packaged. Private cache/hash/storage, exact product
+  navigation/download ownership, list/permission/accept/cancel/save, unsupported
+  text transport handling and actual provider/main-UI qualification remain open.
+  Phone and WebView update stay deferred. No install, formal data edit, extra
+  application/Home/source copy, actual model/external page action or publication.
