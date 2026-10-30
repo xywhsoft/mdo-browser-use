@@ -8447,3 +8447,59 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   documented full-goal work remain open. Device/framework/automation qualification
   remains false; phone and installed WebView checks remain deferred. No formal
   data, installed phone app, online release or provider version was changed.
+
+## E101 — carry initial-create identity into observation and wait (2026-10-31)
+
+- Join initial-target `observe` and `wait_for` to the original native navigation
+  proof instead of observing whichever page happens to be current after warmup.
+  The exact workbench creation path retains the opaque reference from the validated
+  create receipt in this action's local context and passes it to the dispatcher.
+  It is not recovered from a later state snapshot or retained globally. This
+  closes the race where the initial page changes before the first state read.
+- Actions attaching during initial readiness retain the first original record;
+  they never adopt another navigation while waiting. Require the original native
+  committed-document proof and UI navigation throughout reading and at delivery.
+  Feed the original reference into every FrameDriver observation subread through
+  E100's native guard. A missing/replaced/revoked record or changed proof discards
+  the payload; unproven and legacy-adapter reads cannot fall back to page scripts.
+- Preserve cancellation, manual control and native boundaries. An observation
+  does not cancel an independent original create operation. Report a replacement
+  before considering its failure, so a foreign navigation's error is not attributed
+  to the original. A later explicit observation on an already existing, ordinarily
+  navigated page does not inherit this old action's startup constraint.
+- Treat a typed initial download acknowledgement as a download boundary, never
+  a blank committed page. Retained records are explicitly associated at browser
+  scope only; missing retained identity is explicit. Exact request/download
+  association remains open and is not invented by this stage.
+- Add actual dispatcher + FrameDriver/FrameReader tests using the real page helper
+  source and a controlled native peer. Execute the exact deployed workbench
+  admission and driver-routing blocks under their reviewed projection hash, with
+  the actual native-create helper. This covers successful initial reading,
+  replacement before the first state read, a missing record, native guard refusal,
+  tree/UI changes during reading, the unsupported document adapter and a fresh
+  later observation. DOM layout and Android framework/provider behavior remain
+  outside these controlled tests.
+- Final sequential JS run passes all 362 tests in 21.738 seconds. Python passes
+  173/175 in 50.160 seconds, with only the two existing Windows symlink-privilege
+  skips. Exact product lifecycle passes 432. Full native ASan/UBSan/API26 checks
+  pass (including broker 160, grammar 61 and worker 191); final hashes match all
+  103 native and 13 product inputs. Seven final Android package contracts pass.
+- Refresh both development programs and pass all 12 actual packed Windows runtime
+  checks. Windows: 6,937,103 bytes, SHA-256
+  2ff7f9402c8a50993defb7cccc27a5f2c27063094ef140b75304891f788a7979.
+  Full Android QA APK: 6,464,833 bytes, SHA-256
+  63f4c02cff038f8ac0fdcb896b94f8bdbd7b818ca0f1e2e9787893b9d38de51a.
+  Actual DEX definitions, private provider, six JNI exports, original ARM64/16 KiB
+  engine, source/archive identities and retained v2/v3 signer pass. Native engine
+  and paired 247,351-byte/22-file plugin remain unchanged. Evidence is retained in
+  .mdo/E101-node-full.log, .mdo/E101-python-full.log,
+  .mdo/E101-initial-frame-focused.log, .mdo/E101-native-current.json,
+  .mdo/E101-product-current.json, .mdo/E101-final-identities.log,
+  .mdo/E101-android-receipt.json and the E101 build/runtime logs.
+- Restore the sole headless service: PID 12856, HTTP 200 on 63625, about 3,441.0 MiB.
+  Goal active. Next correlate same-document navigation with original native events
+  rather than the ACK alone, then complete history/reload, original download
+  association, remaining transfer lifetimes, Android public save/text/blob and
+  other documented full-goal work. Installed Android/provider/main-UI/public JS-C
+  qualification remains deferred; device/framework/automation flags remain false.
+  No phone app/provider update, formal-data change or online publication occurred.

@@ -30,7 +30,7 @@ const captureChanges=(before,after)=>{
 
 // Frozen workbench instances supply view/action. No selected-chat identity is
 // substituted, and this helper never exposes arbitrary script input to a model.
-export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true, pageDriver = null }) {
+export async function executeBrowserAutomation({ command, params, view, action, api, browser, alive = () => true, pageDriver = null, initialNavigation = null }) {
   if (!["observe", "act", "navigate_to", "wait_for", "dialog", "chooser", "capture", "upload", "download", "save_download"].includes(command)) return { handled: false };
   const writing = command === "save_download" || command === "act" || command === "navigate_to" || command === "dialog" && params.action === "respond" || command === "chooser" && params.action === "cancel" || command === "upload" && params.action !== "status" || command === "download" && !["list","get","wait"].includes(params.action);
   const writer = browser || view;
@@ -39,6 +39,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null,inputFocus=null,inputTarget=null;
   let nativeNavigationReference=null,retainNativeNavigation=false;
+  // This action may attach while its first managed target is still loading.
+  // Retain only that original record, never adopt a replacement while waiting.
+  let initialNavigationReference=command==='observe'||command==='wait_for'?initialNavigation:null,initialNavigationDocument=null,initialPageNavigation;
   const framePending=code=>['frame_not_ready','frame_tree_changed'].includes(code);
   const canOpenDownload=command==='act'&&['click','double_click','right_click','middle_click','fill','type','key','drag'].includes(params.op);
   const fail = (code, message) => ({ handled: true, result: { ok: false,
@@ -77,9 +80,18 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   const read = async (method, options, navigationRef=null) => {
-    if(pageDriver)return pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{...(navigationRef?{navigation_ref:navigationRef}:{}),checkpoint:async()=>{
+    navigationRef ||= method==='observe'?initialNavigationReference:null;
+    if(navigationRef===initialNavigationReference&&navigationRef&&!initialNavigationDocument)
+      return{ok:false,error:{code:'navigation_unproven',message:'The original initial navigation has not proved its committed document',effect_may_have_occurred:false}};
+    if(pageDriver){const result=await pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{...(navigationRef?{navigation_ref:navigationRef}:{}),checkpoint:async()=>{
       const checked=await guard(true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
     }});
+      // A driver must not publish a payload after the initial record changed,
+      // even if its last native subread completed before the UI transition.
+      if(navigationRef&&navigationRef===initialNavigationReference){const checked=await guard(true);
+        if(checked.handled)throw Object.assign(new Error('The initial navigation changed during observation'),{browserBoundary:checked});}
+      return result;
+    }
     if(navigationRef)return{ok:false,error:{code:'unsupported_capability',message:'This adapter cannot prove the original native navigation document',effect_may_have_occurred:false}};
     if(method==='chooserInfo')return view.execute('chooser',{action:'target',chooser:options.chooser,document:options.document,agent:true});
     const result = await view.execute("automation", { agent: true,
@@ -138,6 +150,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if(performance.now()<downloadCheckpointUntil){await pause(20);return guard(true,waitingCapture);}
     }
     const initial=state.native_navigation;
+    if(initialNavigationReference&&!state.manual&&!state.process_failed&&
+       (initial?.id!==initialNavigationReference||initial.initial!==true||initial.scope_revoked))
+      return fail('context_changed','The original initial navigation was replaced or revoked while this observation was waiting');
     if(command!=='navigate_to'&&!state.manual&&!state.process_failed&&initial?.initial===true&&!initial.scope_revoked&&
        (initial.page_error||initial.phase==='failed'||initial.phase==='acknowledged'&&initial.ok===true&&!initial.download_known&&!initial.loader_present)){
       const result=fail(initial.code==='cdp_navigation_download_unproven'?'download_identity_unavailable':initial.phase==='failed'&&initial.acknowledged?'navigation_failed':'navigation_uncertain',
@@ -175,6 +190,36 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (state.chooser_open && ["act","navigate_to","wait_for"].includes(command) || state.chooser_open && command==='upload' && params.action!=='release'&&!params.chooser) return chooserBoundary();
     const worldStopped=worldFailure(state);if(worldStopped)return worldStopped;
     if (navigation !== undefined && state.navigation !== navigation) return fail("stale_document", "The document changed; inspect it before another input");
+    if(command==='observe'||command==='wait_for'){
+      if(!initialNavigationReference&&initial?.initial===true&&!initial.scope_revoked&&
+         (state.initial_navigation_pending===true||initial.page_current===true||initial.phase==='acknowledged'&&initial.acknowledged===true&&initial.ok===true&&initial.download_known===true&&initial.download===true)){
+        if(typeof initial.id!=='string'||!/^nv-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(initial.id))
+          return fail('navigation_uncertain','The original initial navigation reference is invalid; inspect its receipt before retrying');
+        initialNavigationReference=initial.id;
+      }
+      if(initialNavigationReference){
+        if(initial?.id!==initialNavigationReference||initial.initial!==true||initial.scope_revoked)
+          return fail('context_changed','The original initial navigation was replaced or revoked while this observation was waiting');
+        if(initial.phase==='acknowledged'&&initial.acknowledged===true&&initial.ok===true&&initial.download_known===true&&initial.download===true){
+          const downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
+          if(downloads.length){const boundary=downloadBoundary(downloads);boundary.result.navigation_ref=initialNavigationReference;boundary.result.source_association='browser_scope';return boundary;}
+          return fail('download_identity_unavailable','The initial navigation reported a download without a retained download identity; inspect its receipt before retrying');
+        }
+        if(initialPageNavigation!==undefined&&state.navigation!==initialPageNavigation)
+          return fail('stale_document','The original initial page changed during this observation');
+        if(!state.initial_navigation_pending){
+          if(initial.page_committed===true&&initial.page_current===false)
+            return fail('stale_document','Native proof for the original initial page is no longer current; request a fresh observation');
+          if(initial.phase!=='acknowledged'||initial.acknowledged!==true||initial.ok!==true||initial.loader_present!==true||
+             initial.page_commit_supported!==true||initial.page_committed!==true||initial.page_current!==true||
+             typeof initial.page_document!=='string'||!/^nd-[a-zA-Z0-9-]{1,96}$/.test(initial.page_document))
+            return fail('navigation_unproven','The original initial navigation did not prove a current committed page for this observation');
+          if(initialNavigationDocument&&initial.page_document!==initialNavigationDocument)
+            return fail('stale_document','The original initial page proof changed during this observation');
+          initialNavigationDocument=initial.page_document;initialPageNavigation=state.navigation;
+        }
+      }
+    }
     return { state };
   };
   const send = async parameters => {
@@ -252,6 +297,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return{drag_kind:native.drag_kind};
   };
   try {
+    if(initialNavigationReference!==null&&(typeof initialNavigationReference!=='string'||!/^nv-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(initialNavigationReference)))
+      return fail('navigation_uncertain','The original initial navigation reference is invalid; inspect its receipt before retrying');
     if(command==='save_download')return await executeDownloadSave({browser:writer,params,view,api,action,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='download')return await executeBrowserDownload({params,view,guard,deadline,setDispatched:value=>{dispatched=value;},fail});
     if(command==='upload')return await executeFileUpload({params,view,api,action,guard,read,deadline,

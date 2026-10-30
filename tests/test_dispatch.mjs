@@ -68,17 +68,80 @@ test('original initial native failures are inspectable without evaluating or reo
     assert.equal(result.result.error.initial_navigation.effect_may_have_occurred,true);assert.equal(result.result.error.effect_may_have_occurred,false);assert.equal(reads,1);
   }
 });
-test('initial warmup completion cannot be observed before both target page and native ACK settle',async()=>{
-  for(const loader_present of [true,false]){
-  let states=0,observed=0;
-  const result=await executeBrowserAutomation({command:'observe',params:{timeout_ms:500},action:{id:'initial-pending'},api:{async call(){return{state:'pending'};}},
-    view:{async execute(command){
-      if(command==='state')return{loading:false,automation:true,initial_navigation_pending:++states<4,native_navigation:{initial:true,phase:'acknowledged',ok:true,acknowledged:true,download_known:true,download:false,loader_present}};
-      assert.equal(command,'automation');assert(states>=4);observed++;return{ok:true,value:{ok:true,ready:'complete',document:'target-document'}};
-    }}});
-  assert.equal(result.result.document,'target-document');assert.equal(observed,1);
+const initialRef='nv-00000000-0000-4000-8000-000000000011';
+function initialObservationFixture(mode='ready'){
+  const state={polls:0,reads:0,scripts:0,controls:[],commands:[]};
+  const options={command:'observe',params:{timeout_ms:700},action:{id:'initial-observe-'+mode},api:{async call(){return{state:mode==='cancelled'&&state.polls>=1?'cancelled':'pending'};}},
+    pageDriver:{async read(method,params,control){assert.equal(method,'observe');if(mode==='cancelled')await control.checkpoint();state.reads++;state.controls.push(control.navigation_ref);
+      assert(state.polls>=3||['already-ready','ordinary-later'].includes(mode));
+      return{ok:true,ready:'complete',document:'target-document',text:mode==='wait-replaced'?'not the requested text':'Target fixture'};}},
+    view:{async execute(command,params){state.commands.push(command);
+      if(command==='downloads')return{ok:true,armed:true,downloads:mode==='download-retained'?[{id:'download-original',state:'pending'}]:[]};
+      if(command==='automation'){state.scripts++;throw Error('Unconstrained initial page script was reached');}
+      assert.equal(command,'state');const poll=++state.polls,done=poll>=3||['already-ready','ordinary-later','download-retained','download-missing'].includes(mode);
+      const native={initial:true,id:initialRef,phase:done?'acknowledged':'sent',acknowledged:done,ok:done,download_known:done,download:false,
+        loader_present:done,page_commit_supported:true,page_committed:done,page_current:done,page_document:done?'nd-original':null};
+      if(mode==='invalid-ref')native.id='nv-malformed';
+      if(mode==='foreign-failure'&&poll>=2)Object.assign(native,{id:'nv-00000000-0000-4000-8000-000000000012',phase:'failed',acknowledged:true,ok:false,code:'cdp_navigation_failed',native_error:'net::ERR_NAME_NOT_RESOLVED'});
+      if(mode==='replaced-waiting'&&poll>=2||mode==='replaced-reading'&&state.reads||mode==='wait-replaced'&&state.reads)native.id='nv-00000000-0000-4000-8000-000000000012';
+      if(mode==='missing-record'&&state.reads)return{loading:false,automation:true,navigation:'2'};
+      if(mode==='revoked-reading'&&state.reads)native.scope_revoked=true;
+      if(mode==='alias-reading'&&state.reads)native.page_document='nd-new-proof';
+      if(mode==='proof-reading'&&state.reads||mode==='ordinary-later')native.page_current=false;
+      if(mode==='unproven')native.page_committed=false;
+      if(mode==='unsupported-proof')native.page_commit_supported=false;
+      if(mode==='download-retained'||mode==='download-missing')Object.assign(native,{phase:'acknowledged',acknowledged:true,ok:true,download_known:true,download:true,loader_present:false,page_current:false,page_committed:false,page_document:null});
+      return{loading:false,automation:true,navigation:mode==='ui-reading'&&state.reads?'3':done?'2':'1',initial_navigation_pending:!done,
+        native_navigation:native,manual:mode==='manual'&&poll>=2};
+    }}};
+  options.downloads=()=>({ok:true,armed:true,downloads:mode==='download-retained'?[{id:'download-original',state:'pending'}]:[]});
+  if(mode==='no-driver')delete options.pageDriver;
+  if(mode==='wait-replaced'){options.command='wait_for';options.params.until='text';options.params.text='Unseen requested target';}
+  return{state,options};
+}
+
+test('initial target observation retains its original native proof through readiness and page reading',async()=>{
+  for(const mode of ['ready','already-ready']){
+    const f=initialObservationFixture(mode),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.document,'target-document');assert.equal(f.state.reads,1);assert.deepEqual(f.state.controls,[initialRef]);assert.equal(f.state.scripts,0);
   }
 });
+test('initial observation discards changed or unproven original records without adopting another target',async()=>{
+  for(const [mode,code] of [['foreign-failure','context_changed'],['replaced-waiting','context_changed'],['replaced-reading','context_changed'],['missing-record','context_changed'],
+      ['revoked-reading','context_changed'],['alias-reading','stale_document'],['proof-reading','stale_document'],['ui-reading','stale_document'],
+      ['unproven','navigation_unproven'],['unsupported-proof','navigation_unproven'],['invalid-ref','navigation_uncertain']]){
+    const f=initialObservationFixture(mode),out=await executeBrowserAutomation(f.options);assert.equal(out.result.ok,false,mode);assert.equal(out.result.error.code,code,mode);
+    assert.equal(out.result.error.effect_may_have_occurred,false,mode);assert.equal(out.result.document,undefined);assert.equal(out.result.text,undefined);
+    assert.equal(f.state.scripts,0);assert(f.state.reads<=1);assert(!f.state.commands.includes('navigation_cancel'));
+    if(mode==='foreign-failure')assert.equal(out.result.error.native_error,undefined);
+  }
+});
+test('initial observation respects cancellation and manual control without cancelling the original create operation',async()=>{
+  for(const [mode,code] of [['cancelled','cancelled'],['manual','manual_control']]){
+    const f=initialObservationFixture(mode),out=await executeBrowserAutomation(f.options);assert.equal(out.result.error.code,code);
+    assert.equal(f.state.reads,0);assert.equal(f.state.scripts,0);assert(!f.state.commands.includes('navigation_cancel'));
+  }
+});
+test('initial observation cannot fall back to an unconstrained legacy page script',async()=>{
+  const f=initialObservationFixture('no-driver'),out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.error.code,'unsupported_capability');assert.equal(f.state.scripts,0);
+});
+test('a fresh observation after an ordinary later navigation is not bound to the old initial page',async()=>{
+  const f=initialObservationFixture('ordinary-later'),out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.document,'target-document');assert.deepEqual(f.state.controls,[undefined]);
+});
+test('waiting for initial page text never switches to another original navigation',async()=>{
+  const f=initialObservationFixture('wait-replaced'),out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.error.code,'context_changed');assert.equal(f.state.reads,1);assert.equal(out.result.observation,undefined);
+});
+test('initial download acknowledgement is never observed as a blank committed page',async()=>{
+  for(const mode of ['download-retained','download-missing']){
+    const f=initialObservationFixture(mode),out=await executeBrowserAutomation(f.options);assert.equal(f.state.reads,0);assert.equal(f.state.scripts,0);
+    if(mode==='download-retained'){assert.equal(out.result.outcome,'download_pending');assert.equal(out.result.navigation_ref,initialRef);assert.equal(out.result.source_association,'browser_scope');}
+    else assert.equal(out.result.error.code,'download_identity_unavailable');
+  }
+});
+
 test('original native navigation ACK distinguishes same-document and committed page completion',async()=>{
   for(const mode of ['same-document','new-document']){
     const fixture=nativeNavigationFixture(mode),result=await executeBrowserAutomation(fixture.options);
@@ -590,4 +653,21 @@ test('failed loader-constrained observation is returned without retry or partial
   const out=await executeBrowserAutomation(f.options);assert.equal(reads,1);assert.equal(out.result.error.code,'stale_document');
   assert.equal(out.result.error.native_code,'cdp_navigation_document_changed');assert.equal(out.result.error.effect_may_have_occurred,true);
   assert.equal(out.result.observation,undefined);
+});
+
+
+test('initial reference supplied by creation cannot be replaced by the first state snapshot',async()=>{
+  for(const mode of ['ordinary-later','replaced-reading']){
+    const f=initialObservationFixture(mode);f.options.initialNavigation=initialRef;
+    if(mode==='replaced-reading')f.state.reads=1;
+    const out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.error.code,mode==='ordinary-later'?'stale_document':'context_changed');assert.equal(f.state.scripts,0);
+    assert.equal(f.state.reads,mode==='ordinary-later'?0:1);assert.equal(out.result.document,undefined);
+  }
+});
+test('invalid creation navigation references execute no browser calls',async()=>{
+  for(const initialNavigation of ['',5,{},'raw-loader','nv-invalid']){
+    const f=initialObservationFixture();f.options.initialNavigation=initialNavigation;
+    const out=await executeBrowserAutomation(f.options);assert.equal(out.result.error.code,'navigation_uncertain');assert.equal(f.state.polls,0);assert.equal(f.state.reads,0);
+  }
 });

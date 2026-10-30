@@ -1438,6 +1438,21 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "            networkCommand(key,web,command,request.optBoolean(\"agent\"));",
       "after": "            if(\"navigation_cancel\".equals(command)){executeNavigationCancel(key,id,web,request);return;}\n            networkCommand(key,web,command,request.optBoolean(\"agent\"));"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "      const { command, id, ...params } = action.params;",
+      "after": "      const { command, id, ...params } = action.params;\n      let createdNavigationRef=null;"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  try{await ensureNativeBrowser({bridge,sdk:caller,browser,clientId,requireDownloads:true,requireAutomation:true,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:'local'),bounds:{x:0,y:0,width:1024,height:768,scale:1}});}",
+      "after": "  try{const created=await ensureNativeBrowser({bridge,sdk:caller,browser,clientId,requireDownloads:true,requireAutomation:true,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:'local'),bounds:{x:0,y:0,width:1024,height:768,scale:1}});\n    if(created?.created===true&&created.initial_navigation_pending===true)createdNavigationRef=created.navigation_ref;\n  }"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });",
+      "after": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,initialNavigation:createdNavigationRef,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });"
     }
   ],
   "files": [

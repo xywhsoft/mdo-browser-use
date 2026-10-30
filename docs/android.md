@@ -3855,3 +3855,41 @@ refreshed; exact identities are in docs/progress.md and
 .mdo/E100-final-identities.log. The original native engine and paired plugin remain
 unchanged. Installed Android/provider/main-UI/public JS-C end-to-end verification
 is deferred; device/framework/automation flags remain false.
+
+## Initial-create observation carries its original receipt (E101)
+
+Initial `observe` and `wait_for` now use the same original-loader guard as E100's
+cross-document goto observation. The workbench retains the opaque navigation
+reference returned by its validated create call in the original action context.
+It passes that reference directly into the dispatcher, covering page replacement
+before even the first native state read. An action that attaches during readiness
+also pins its original record and does not adopt a replacement while waiting.
+
+Before reading, during each FrameDriver subread and before returning the payload,
+the original record must still identify the committed native document and UI
+navigation. A changed/missing/revoked record or proof discards the payload. The
+legacy document adapter remains explicitly unsupported for constrained reads.
+Replacements are checked before reporting their failures, preventing another
+navigation's error from being assigned to the original. Cancellation or manual
+control stops reading; read cancellation does not revoke an independent create
+operation. A later explicit observation after ordinary navigation reads the current
+page without inheriting an old action's startup constraint.
+
+An initial download ACK returns only a download boundary with explicit browser-
+scope association, or reports missing identity. It cannot produce a successful
+blank-page observation. Exact request/download association is still pending.
+Tests couple the actual dispatcher, frame coordinator and page helper, and execute
+the exact reviewed workbench admission/routing projection with the native-create
+helper. Successful creation and pre-first-read/during-read replacement, missing
+records, native refusal, legacy fallback, cancellation and fresh later reads are
+covered with controlled native/UI peers. The actual Android framework/provider is
+not qualified by these tests.
+
+All 362 JS cases, full native sanitizer/API26 and source-hash gates, 432 product
+lifecycle assertions, 12 actual packed Windows runtime checks and seven final APK
+contracts pass. Python passes 173/175 with two existing Windows privilege skips.
+Both development programs are refreshed; exact identities and evidence are in
+docs/progress.md and .mdo/E101-final-identities.log. Same-document event correlation,
+history/reload, exact downloads and remaining full-goal work remain open. Installed
+Android/provider/main-UI/public JS-C qualification remains deferred; all three
+qualification flags stay false. The phone and installed WebView were not changed.

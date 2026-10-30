@@ -46,7 +46,9 @@
       "post_validation_failure": "payload_cleared_effect_uncertainty_retained",
       "legacy_document_adapter": "explicit_unsupported_no_unconstrained_fallback",
       "same_document_guarded": false,
-      "initial_observation_guarded": false,
+      "initial_observation_guarded": true,
+      "initial_creation_identity": "frozen_create_receipt_carried_by_original_workbench_action",
+      "initial_observation_scope": "observe_and_wait_for_original_initial_record_no_replacement_no_legacy_fallback",
       "installed_provider_verified": false
     }
   },
