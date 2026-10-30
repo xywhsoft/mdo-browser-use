@@ -7660,3 +7660,38 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   qualification remain open. Phone/WebView update stay deferred. No install,
   formal-data edit, model/external-page action, application/Home/source copy or
   publication.
+
+
+## E87a — join original body proof to a bounded file worker
+
+- Add one download file worker with 32 retained native tickets and at most one
+  in-flight chunk per ticket. The existing protocol worker never waits for disk,
+  hashes or UI delivery. Bind each ticket once to its original Body; native
+  chunks carry exact Body/offset provenance and one-shot ownership. Reject
+  replay, erased buffers, another source and another queue before handoff.
+- Publish completion only after original EOF, successful BodyResult, exact byte
+  count, stream-close/request-abort ACKs and independently verified file sealing.
+  A stored EOF remains finishing while original cleanup is pending. Completed
+  bytes remain retained until release; cancelling a completed ticket is a no-op.
+- Idle expiry uses the original source lifetime. Cancellation is atomic, storage
+  cleanup is asynchronous, and release waits for the original terminal receipt.
+  A blocked file opener does not block protocol progress or close admission.
+  Shutdown confirms actual worker termination separately and retires native
+  source references; unknown cleanup never becomes a successful download.
+- New controlled-peer/actual-JNI/guarded-files gate passes 126 checks: blocked
+  file-worker/page-command progress, separate EOF and cleanup, retained bytes,
+  source loss, cancellation, replay/cross-source rejection, quota, idle expiry,
+  release receipt ordering and close during blocked storage. It shares the
+  existing body fixture rather than creating another app/Home/source deployment.
+- Full current native/ASan/UBSan/API26 gate passes (`.mdo/E87-native-final.log`,
+  `.mdo/E87-native-current.json`); every recorded input hash matches. Python
+  173/175 passes in 59.869 s, with the two existing Windows symlink-privilege
+  skips (`.mdo/E87-python-full.log`). Overlay composes 116 files; full APK builders
+  require actual Queue/Ticket/Snapshot DEX definitions. E86 remains the last
+  built APK until current assembly completes. Shared JS is unchanged.
+- Goal active. This native body/storage join is not yet a product download
+  action: Context/UID cache authority, exact page/download ownership, list/
+  accept/cancel UI, byte-read/save transport, unsupported text handling and
+  installed provider/main-UI qualification remain unfinished. Phone/WebView
+  update stay deferred. No install, formal-data edit, model/external-page
+  action, extra application/Home/source copy or publication.

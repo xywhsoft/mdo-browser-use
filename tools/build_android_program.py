@@ -34,7 +34,8 @@ HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','Md
               'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpFrames','MdoBrowserCdpWorlds',
               'MdoBrowserCdpOwnerScripts','MdoBrowserCdpFrameRequest','MdoBrowserCdpFrameChain','MdoBrowserCdpInput','MdoBrowserCdpCapture','MdoBrowserCdpFileInput','MdoBrowserCdpFileInput$BeforeClear','MdoBrowserCdpChoosers','MdoBrowserCdpUploadScripts','MdoBrowserCdpUpload','MdoBrowserCdpUpload$Ready','MdoBrowserCdpUpload$Receipt','MdoBrowserUploadCoordinator','MdoBrowserUploadCoordinator$Result','MdoBrowserCdpWorlds$Pin','MdoBrowserCapture','MdoBrowserPrivatePicker','MdoBrowserPrivatePickerReply',
               'MdoBrowserUploadStore$RetentionOwner','MdoBrowserUploadStore$Retention','MdoBrowserUploadStore$PickerGrant',
-              'MdoBrowserDownloadFiles','MdoBrowserDownloadFiles$Writer','MdoBrowserDownloadFiles$Failure')
+              'MdoBrowserDownloadFiles','MdoBrowserDownloadFiles$Writer','MdoBrowserDownloadFiles$Failure',
+              'MdoBrowserDownloadQueue','MdoBrowserDownloadQueue$Ticket','MdoBrowserDownloadQueue$Snapshot')
 
 
 def sha(path):return native.sha(path)

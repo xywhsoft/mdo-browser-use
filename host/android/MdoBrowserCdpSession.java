@@ -61,6 +61,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         private final ControlReceipt claim=new ControlReceipt();
         private final AtomicReference<BodyResult> outcome=new AtomicReference<>();
         private final AtomicBoolean cancelled=new AtomicBoolean();
+        private final AtomicBoolean downloadClaimed=new AtomicBoolean();
         private String stream;private long received;private boolean eof,streamClosed,requestAborted,claimMayHaveOccurred;
         private boolean encodingKnown,binary;
         private boolean readRequested,readPending,closePending,abortPending,cleaning;
@@ -72,6 +73,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         BodyResult result(){return outcome.get();}
         boolean ready(){synchronized(owner.controlGate){return outcome.get()==null&&stream!=null;}}
         void cancel(){if(outcome.get()==null)cancelled.set(true);}
+        long maximumBytes(){return limit;}
+        boolean expired(long now){long elapsed=now-born;return elapsed<0||elapsed>=timeout;}
+        boolean claimDownload(){return outcome.get()==null&&!cancelled.get()&&downloadClaimed.compareAndSet(false,true);}
     }
     static final class BodyResult {
         final boolean ok,claimMayHaveOccurred,eof,streamCloseConfirmed,requestAbortConfirmed;final String code;final long bytes;
@@ -82,9 +86,11 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private static final BodyResult BODY_UNKNOWN=new BodyResult();
     /** Caller owns this bounded buffer and must erase it after storing/using it. */
     static final class BodyChunk implements AutoCloseable {
-        final byte[] data;final boolean eof;
-        private BodyChunk(byte[] data,boolean eof){this.data=data;this.eof=eof;}
-        @Override public void close(){Arrays.fill(data,(byte)0);}
+        final byte[] data;final boolean eof;final long offset;private final Body source;
+        private final AtomicBoolean downloadClaimed=new AtomicBoolean(),erased=new AtomicBoolean();
+        private BodyChunk(Body source,byte[] data,boolean eof){this.source=source;this.data=data;this.eof=eof;offset=source.received-data.length;}
+        boolean claimDownload(Body body){return source==body&&!erased.get()&&downloadClaimed.compareAndSet(false,true);}
+        @Override public void close(){erased.set(true);Arrays.fill(data,(byte)0);}
     }
     private static final int CONTROL_LIMIT=256,CONTROL_HISTORY=4096,CONTROL_TIMEOUT=5000;
     private static final int FLOW=0,CLAIM=1,BODY_READ=2,BODY_CLOSE=3,BODY_ABORT=4;
@@ -370,7 +376,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(data.length>body.limit-body.received)throw new IOException("cdp_body_limit");
             body.received+=data.length;body.eof=reply.optBoolean("eof",false);
             if(body.eof&&!binary&&body.received!=body.original.response.declaredLength)throw new IOException("cdp_body_length_mismatch");
-            body.chunk=new BodyChunk(data,body.eof);data=null;
+            body.chunk=new BodyChunk(body,data,body.eof);data=null;
         }finally{if(data!=null)Arrays.fill(data,(byte)0);}
     }
     private void bodyReply(Control row,MdoBrowserCdpJson.Message message,ControlResult result,boolean effect)throws Failure {

@@ -3234,3 +3234,30 @@ completion, unknown inventory and ownership/thread boundaries. Current upload
 primitive/recovery/queue/read regressions and the full native gate also pass.
 Android private-cache/framework/provider qualification remains false; these
 Linux/JVM filesystem results do not qualify the installed WebView or main UI.
+
+
+## Original body / bounded file-worker handoff (E87a)
+
+`MdoBrowserDownloadQueue` owns one file thread, 32 retained native tickets and
+one outstanding buffer per ticket. A ticket consumes one original Body once;
+BodyChunk retains source and offset provenance and can be transferred once.
+On successful offer the worker owns/erases the buffer. On rejection the caller
+still owns it. Polling snapshots and handing off buffers perform no disk I/O.
+
+The worker reserves the original native byte budget, hashes/writes off the
+common protocol thread and applies the source's original suspend-inclusive
+lifetime. EOF alone produces finishing. Completed requires the same successful
+BodyResult, exact byte count, both native cleanup ACKs and independent file
+sealing. No caller-supplied IDs, paths, digests or success booleans participate.
+
+Release erases owned storage but remains releasing until the original response
+has a terminal receipt. Cancellation/expiry discard partial bytes; their native
+source result remains explicit. Close requests never wait on disk; awaitStopped
+separately proves actual worker termination. Closed tickets do not imply that
+an outstanding original response has already acknowledged cleanup.
+
+The 126-check JNI/strict-codec/original-session/real-files gate verifies these
+boundaries, including protocol progress during an actually blocked file opener.
+The response peer is controlled; Android Context/UID authority, product actions,
+read/save transport and installed provider/UI qualification remain outstanding.
+The product still continues original responses and does not activate downloads.

@@ -16,7 +16,7 @@ public final class CdpBodyProbe {
     private static int checks,realSessions,realAsyncPairs,realRetiredReads;
     private interface Work {void run()throws Exception;}
     private interface Event {void run(JSONObject params)throws IOException;}
-    private interface Send {boolean run(JSONObject command)throws Exception;}
+    interface Send {boolean run(JSONObject command)throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Body check "+(checks+1));checks++;}
     private static IOException rejected(String code,Work work)throws Exception{
         try{work.run();throw new AssertionError("Missing body failure "+code);}catch(IOException failure){check(code.equals(failure.getMessage()));check(failure.getCause()==null);return failure;}
@@ -28,10 +28,10 @@ public final class CdpBodyProbe {
             .put("request",new JSONObject().put("method","POST").put("url","https://private.invalid/?token=discarded").put("postData","private-request"))
             .put("responseHeaders",new JSONArray().put(new JSONObject().put("name","Content-Disposition").put("value","attachment; filename=private.bin")));
     }
-    private static final class Wire implements MdoBrowserCdpSession.Wire,MdoBrowserCdpSession.Clock{
+    static final class Wire implements MdoBrowserCdpSession.Wire,MdoBrowserCdpSession.Clock{
         final ArrayDeque<byte[]> incoming=new ArrayDeque<>();final List<byte[]> buffers=new ArrayList<>();
         final ArrayDeque<JSONObject> chunks=new ArrayDeque<>();final List<JSONObject> commands=new ArrayList<>();
-        long now;int closes,stream;Send extra;
+        volatile long now;int closes,stream;Send extra;
         public long now(){return now;}
         void add(JSONObject packet){incoming.add(packet.toString().getBytes(StandardCharsets.UTF_8));}
         public void send(byte[] bytes,int timeout)throws IOException{
@@ -50,7 +50,7 @@ public final class CdpBodyProbe {
         long count(String method){return commands.stream().filter(row->method.equals(row.opt("method"))).count();}
         void cleared(){for(byte[] bytes:buffers){boolean zero=true;for(byte value:bytes)if(value!=0)zero=false;check(zero);}}
     }
-    private static final class Context implements AutoCloseable{
+    static final class Context implements AutoCloseable{
         final Wire wire=new Wire();final AtomicBoolean live=new AtomicBoolean(true);final MdoBrowserCdpSession client;
         final List<MdoBrowserCdpSession.Body> bodies=new ArrayList<>();Event action;long limit=65536,declared=-1;String coding;int timeout=3000,serial;
         Context(){client=MdoBrowserCdpSession.owned(wire,live::get,(method,child,params)->{
