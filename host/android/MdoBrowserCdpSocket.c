@@ -26,7 +26,9 @@
 static int MdoCdpNow(uint64_t* Now)
 {
     struct timespec Tick;
-    if ( clock_gettime(CLOCK_MONOTONIC,&Tick) || Tick.tv_sec<0 ||
+    /* Android elapsedRealtime uses the suspend-inclusive boot clock. The
+     * kernel transport must not renew Java's deadline while the device sleeps. */
+    if ( clock_gettime(CLOCK_BOOTTIME,&Tick) || Tick.tv_sec<0 ||
          (uint64_t)Tick.tv_sec>UINT64_MAX/1000u-1u ) return 0;
     *Now=(uint64_t)Tick.tv_sec*1000u+(uint64_t)Tick.tv_nsec/1000000u;
     return 1;
@@ -39,10 +41,15 @@ static enum MdoCdpSocketCode MdoCdpWait(int Fd,short Events,uint64_t End)
         if ( !MdoCdpNow(&Now) ) return MDO_CDP_SOCKET_IO;
         if ( Now>=End ) return MDO_CDP_SOCKET_TIMEOUT;
         struct pollfd Wait={Fd,Events,0};
-        int Ready=poll(&Wait,1,(int)(End-Now));
+        /* poll's relative wait excludes suspend. Keep a short slice, then
+         * recheck the boot deadline even when the descriptor became ready. */
+        int Slice=End-Now>20u?20:(int)(End-Now);
+        int Ready=poll(&Wait,1,Slice);
         if ( Ready<0 && errno==EINTR ) continue;
         if ( Ready<0 ) return MDO_CDP_SOCKET_IO;
         if ( !Ready ) continue; /* Recheck the absolute clock, not a new budget. */
+        if ( !MdoCdpNow(&Now) ) return MDO_CDP_SOCKET_IO;
+        if ( Now>=End ) return MDO_CDP_SOCKET_TIMEOUT;
         if ( Wait.revents&Events ) return MDO_CDP_SOCKET_OK;
         if ( Events==POLLIN && Wait.revents&POLLHUP ) return MDO_CDP_SOCKET_OK;
         return MDO_CDP_SOCKET_IO;

@@ -6889,3 +6889,24 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   (uptime/nanoTime exclude deep sleep, elapsedRealtime includes it). Goal active;
   audit the kernel transport's clock/waits next, then rebuild the same development
   APK. The E76b APK and global unavailable Android qualification remain unchanged.
+
+## E77c — use the boot clock for private socket and WebSocket waits
+
+- The C discovery/WebSocket transport shared `CLOCK_MONOTONIC`, which excludes
+  suspend, and accepted poll readiness without rechecking its absolute deadline.
+  Align its clock with Android elapsed realtime using `CLOCK_BOOTTIME`. Keep
+  relative poll waits to at most 20 ms and recheck the original boot deadline
+  before reporting readiness. Interrupted waits keep that same deadline.
+- The exact transport's controlled elapsed-clock jump rejects the previous code
+  (`.mdo/E77-socket-clock-red.log`); the fixed gate covers elapsed expiry, late
+  readiness and EINTR without renewing the budget. Clock/poll jumps are controlled,
+  while the existing kernel socket/peer-credential tests remain real. No device
+  sleep or provider behavior is claimed.
+- Socket 317 with all 74 allocations released, existing WebSocket/JVM/JNI/session/
+  binding/worker/frame/world/input/capture/chooser/upload/clear gates, ASan/UBSan
+  and ARM64 API 26 compilation pass (`.mdo/E77-socket-clock-fixed.log`,
+  `.mdo/E77-bootclock-native-full.log`/`.json`). One shared output directory;
+  no app/Home/source copies or model/external page actions.
+- Commit the independent C fix, then apply reviewed sources with the service
+  stopped and rebuild the one ARM64 host/APK. Current E76b artifact is unchanged
+  until its new build receipt passes. Goal active, phone/provider deferred.

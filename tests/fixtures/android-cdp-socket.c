@@ -19,13 +19,33 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <poll.h>
 
 static int FailAllocation,Allocated,Freed,Checks;
 static void* Allocate(size_t Bytes);
 static void Release(void* Data);
+static int SuspendClock,SuspendPoll,ClockReads,PollCalls,PollTimeout;
+static uint64_t ElapsedClock;
+static int ProbeClock(clockid_t Id,struct timespec* Tick)
+{
+    if ( !SuspendClock ) return clock_gettime(Id,Tick);
+    ClockReads++;uint64_t Value=Id==CLOCK_BOOTTIME?ElapsedClock:100;
+    Tick->tv_sec=(time_t)(Value/1000u);Tick->tv_nsec=(long)(Value%1000u)*1000000L;return 0;
+}
+static int ProbePoll(struct pollfd* Wait,nfds_t Count,int Timeout)
+{
+    if ( !SuspendPoll ) return poll(Wait,Count,Timeout);
+    assert(Count==1);PollCalls++;PollTimeout=Timeout;ElapsedClock=2100;
+    if ( SuspendPoll==2 ) {errno=EINTR;return -1;}
+    Wait->revents=POLLIN;return 1;
+}
+#define clock_gettime ProbeClock
+#define poll ProbePoll
 #define MDO_CDP_ALLOC Allocate
 #define MDO_CDP_FREE Release
 #include "../../host/android/MdoBrowserCdpJni.inc.c"
+#undef clock_gettime
+#undef poll
 
 typedef struct Allocation {size_t Bytes;unsigned char Data[];} Allocation;
 static void* Allocate(size_t Bytes)
@@ -133,6 +153,16 @@ static void TestJava(const char* Good,size_t Bytes,int Fault)
 }
 int main(void)
 {
+    // Advance only the elapsed clock, as deep sleep does. Kernel peer behavior
+    // below remains real; these specific clock/poll jumps are controlled seams.
+    SuspendClock=1;ElapsedClock=100;uint64_t First=0;Check(MdoCdpNow(&First)&&First==100);
+    ElapsedClock=2100;Check(MdoCdpCheckTime(1100)==MDO_CDP_SOCKET_TIMEOUT);
+    for ( int Mode=1;Mode<=2;Mode++ ) {
+        SuspendPoll=Mode;ElapsedClock=100;PollCalls=0;PollTimeout=0;
+        Check(MdoCdpWait(-1,POLLIN,1100)==MDO_CDP_SOCKET_TIMEOUT);
+        Check(PollCalls==1&&PollTimeout>0&&PollTimeout<=20);
+    }
+    Check(ClockReads>0);SuspendClock=SuspendPoll=0;
     int Before=Fds();
     for ( int Timeout=0;Timeout<10;Timeout++ ) {MdoCdpDiscovery V=mdoCdpDiscover(Timeout);Check(V.Code==MDO_CDP_SOCKET_ARGUMENTS);}
     MdoCdpDiscovery LargeTimeout=mdoCdpDiscover(5001);Check(LargeTimeout.Code==MDO_CDP_SOCKET_ARGUMENTS);
