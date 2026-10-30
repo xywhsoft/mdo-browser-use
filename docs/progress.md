@@ -6749,3 +6749,23 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Keep the single deployment, deferred phone/current provider and formal data.
   Goal active; product clear reservations, native cancel/status/recovery and
   remaining Android/Windows qualification are still required.
+
+## E76b2 — keep a cleanup failure visible after an earlier clear failure
+
+- The paired fault gate confirms that a malformed native clear response followed
+  by failed original object-group release reported only `file_clear_unconfirmed`.
+  That hid the cleanup failure from the upcoming product mutation fence
+  (`.mdo/E76-cleanup-priority-red.log`). Give failed disposal priority, retaining
+  the primary exception as its private cause. Keep timeout/cancellation codes
+  when the original cleanup attempt itself expired or was cancelled. No retry,
+  new world or replacement source is introduced.
+- Actual worker/JNI/graph/world/file-input clear checks now pass 293 and original
+  inspection 625 (`.mdo/E76-cleanup-priority-fixed.log`,
+  `.mdo/E76-cleanup-inspection.log`). The in-progress product adapter's 232-case
+  gate also proves that either standalone or paired failed cleanup remains
+  fenced (`.mdo/E76-clear-host-focused.log`); that adapter is committed separately.
+  DOM/UI peers are controlled, not installed provider evidence.
+- Stage only this independent production fix and its paired-failure regression;
+  preserve the product adapter work in progress. The previously verified E76a
+  APK is unchanged and does not yet include E76b1/b2 source fixes. Package them
+  with the adapter after its final gates. Goal active, phone/provider deferred.

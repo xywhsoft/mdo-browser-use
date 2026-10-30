@@ -109,6 +109,11 @@ public final class CdpFileClearProbe {
             sample.node.failure="release";rejects("cdp_file_input_cleanup_failed",()->sample.clear(sample.request("leaf-frame")));
             check(sample.clears==1&&sample.verified==1&&sample.node.peer.host.lastEffect&&sample.node.objects.isEmpty());
         }
+        try(Case sample=new Case()){
+            sample.failure="native_reply";sample.node.failure="release";
+            rejects("cdp_file_input_cleanup_failed",()->sample.clear(sample.request("leaf-frame")));
+            check(sample.clears==1&&sample.verified==0&&sample.node.objects.isEmpty());
+        }
     }
     private static void grammar()throws Exception {
         try(Case sample=new Case()){

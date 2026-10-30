@@ -249,8 +249,10 @@ final class MdoBrowserCdpWorlds {
         catch(RuntimeException|Error error){failure=problem("cdp_file_input_failed");}
         finally{
             if(declared)try{binding.call("Runtime.releaseObjectGroup",new JSONObject().put("objectGroup",group),route.session,Math.min(5000,deadline.remaining()),false);}
-            catch(IOException|JSONException|RuntimeException|Error error){binding.close();if(failure==null){String code=error.getMessage();
-                failure=problem("cdp_worker_timeout".equals(code)||"cdp_worker_cancelled".equals(code)?code:"cdp_file_input_cleanup_failed");}}
+            catch(IOException|JSONException|RuntimeException|Error error){binding.close();String code=error.getMessage();
+                // The cleanup fence must survive a primary inspection/clear
+                // failure. Keep that original failure as the private cause.
+                failure=new IOException("cdp_worker_timeout".equals(code)||"cdp_worker_cancelled".equals(code)?code:"cdp_file_input_cleanup_failed",failure);}
         }
         if(failure!=null)throw failure;guard(route,context);return result;
     }
