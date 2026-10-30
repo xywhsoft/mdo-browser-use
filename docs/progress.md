@@ -7641,3 +7641,22 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   handling and real provider/main-UI qualification remain open. Phone/provider
   update remain deferred; no install, model/external-page action, formal data
   edit, app/Home/source copy or publication.
+
+## E86b — package guarded download storage in the complete development APK
+
+- With the existing development service stopped, apply the 115 reviewed overlay
+  files and assemble the full QA Activity/service/lite-tool APK. Reuse the
+  unchanged verified ARM64 engine and current exercised Windows app archive;
+  verify actual DownloadFiles/Writer/Failure definitions in DEX, six JNI entries,
+  current source/native/app hashes, private provider, 16 KiB alignment and v2-v3
+  signatures (`.mdo/E86-android-build.log`). Preserve QA signer and serial.
+- Current APK is 6,427,969 bytes, SHA-256
+  `e618095e67c9e2cca881d3112f383fa8a9409f47482d4c140740d9019acc5e94`.
+  Recheck APK/source/archive identity, every E86 native-gate source hash and false
+  device/framework/automation flags. Restore the same headless deployment to
+  HTTP 200 on 63625, about 3,435.4 MiB. Windows/plugin artifacts are unchanged.
+- Goal active. Storage primitives are packaged; original-body/file-worker and
+  native Context/UID joins, download lifecycle/UI/save and provider/main-UI
+  qualification remain open. Phone/WebView update stay deferred. No install,
+  formal-data edit, model/external-page action, application/Home/source copy or
+  publication.
