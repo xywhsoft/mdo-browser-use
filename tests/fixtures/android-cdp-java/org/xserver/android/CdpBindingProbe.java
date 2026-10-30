@@ -51,6 +51,8 @@ public final class CdpBindingProbe {
                 public void admitChild(String child)throws IOException{session.admitChild(child);}
                 public void retireChild(String child)throws IOException{session.retireChild(child);}
                 public boolean poll(int wait)throws IOException{return session.poll(wait);}
+                public boolean poll(int receive,int wait)throws IOException{return session.poll(receive,wait);}
+                public boolean idle()throws IOException{return session.idle();}
                 public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
                 public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
                 public int pendingControls()throws IOException{return session.pendingControls();}
@@ -61,7 +63,7 @@ public final class CdpBindingProbe {
     }
     static final class Wire implements MdoBrowserCdpSession.Wire {
         final Factory factory;final String id;final AtomicBoolean closed=new AtomicBoolean();
-        final ArrayDeque<byte[]> replies=new ArrayDeque<>();final List<byte[]> packets=new ArrayList<>(),sent=new ArrayList<>();
+        final java.util.concurrent.ConcurrentLinkedDeque<byte[]> replies=new java.util.concurrent.ConcurrentLinkedDeque<>();final List<byte[]> packets=new ArrayList<>(),sent=new ArrayList<>();
         boolean otherSawName,proofRead;int frameQueries,cleanupAttempts;
         Wire(Factory factory,String id){this.factory=factory;this.id=id;}
         void queue(JSONObject value){replies.add(value.toString().getBytes(StandardCharsets.UTF_8));}

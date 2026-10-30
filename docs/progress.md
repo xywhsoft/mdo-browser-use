@@ -7236,3 +7236,42 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   accept/cancel can be enabled. Android global automation and provider/framework
   qualification remain false. Honor the deferred phone/current WebView. No
   device install, new runtime dependency, formal data edit or online publication.
+
+## E81a — service physical network owners on the existing protocol worker
+
+- Add the private eight-owner network ledger and one bounded pump on the
+  existing CDP executor; no extra protocol threads. Share a 17-entry queue for
+  eight ordinary jobs, eight network starts and one pump. Preserve each role's
+  separate admission count, including pending UI deliveries. Never run caller
+  work on the UI thread or silently reconnect/replay a failed physical marker.
+- While an ordinary RPC waits, an explicit worker-local cooperation scope gives
+  another idle connection one round-robin receive slice. Busy connections and
+  recursive scheduler entry are skipped; ordinary callback RPC reentry remains
+  forbidden. A 20 ms kernel receive slice retains an original 250 ms native
+  event/control-send budget. Charge scheduler/parser/callback time to original
+  deadlines and retain the separate non-renewing control ACK deadline.
+- Startup budget includes queue delay, native proof, original response-enable
+  ACK and any inline control ACKs before reporting ready. UI states are at most
+  ready then terminal, coalesced into one pending runnable. Cancellation closes
+  the original handle, drains running I/O and suppresses late queued ready
+  messages before terminal delivery/readmission. UI posting failure retires the
+  entire common worker. Callback failures isolate their owner. Unknown native
+  close keeps a sticky slot and cleanupConfirmed:false; it is not a release.
+- The actual shared worker/proof/dispatcher/strict JSON/JNI gate passes 148
+  assertions, covering an ordinary page result withheld until another physical
+  connection continues its request, readiness ACK drain, idle events, queue
+  timeout, eight-owner/UI backpressure, queued/running cancel, renderer loss,
+  rejected UI posting, late ready, callback failure and uncertain cleanup.
+  Add a real two-connection Unix/WebSocket/JNI pair with the same withheld-result
+  condition; it completes on one worker and confirms both native handles/FDs and
+  allocations retire. Six earlier native control sessions and eight ordinary
+  protocol sessions still pass. Full native/frame/world/upload/file-clear,
+  ASan/UBSan and API 26 gates pass `.mdo/E81-native-full.log` and source-hashed
+  `.mdo/E81-native-current.json`; every recorded input hash matches.
+- Goal active. This is the implemented private owner ledger/pump API; physical
+  view/profile lifecycle registration, the product pre-navigation barrier,
+  original body/storage and retained accept/cancel remain unfinished. The native
+  WebSocket table also needs sufficient capacity for simultaneous physical and
+  document bindings before product activation. Prepare that capacity and package
+  after validation. E80 APK remains current until replaced; no device/provider,
+  model/external page, formal data or online release change. Phone deferred.

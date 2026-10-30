@@ -23,6 +23,22 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     interface Clock {long now();}
     interface Events {void event(String method,String session,JSONObject params) throws IOException;}
+    interface Cooperator {void turn();}
+    /** One explicit worker-owned cooperative scheduler. It may service other
+     * idle connections, never reenter this session or reset its deadline. */
+    static final class Cooperation implements AutoCloseable {
+        private final Thread owner=Thread.currentThread();private final Cooperator previous;private boolean closed;
+        private Cooperation(Cooperator next){previous=COOPERATOR.get();COOPERATOR.set(Objects.requireNonNull(next));}
+        @Override public void close(){if(Thread.currentThread()!=owner)throw new IllegalStateException("CDP cooperation requires its worker");
+            if(!closed){closed=true;if(previous==null)COOPERATOR.remove();else COOPERATOR.set(previous);}}
+    }
+    private static final ThreadLocal<Cooperator> COOPERATOR=new ThreadLocal<>();
+    private static final ThreadLocal<Boolean> COOPERATING=new ThreadLocal<>();
+    static Cooperation cooperate(Cooperator scheduler){return new Cooperation(scheduler);}
+    private static void progress(){
+        Cooperator scheduler=COOPERATOR.get();if(scheduler==null||Boolean.TRUE.equals(COOPERATING.get()))return;
+        COOPERATING.set(true);try{scheduler.turn();}finally{COOPERATING.remove();}
+    }
     static final class ControlResult {
         final boolean ok,effectMayHaveOccurred;final String code;final int protocolCode;
         ControlResult(boolean ok,String code,int protocolCode,boolean sent){this.ok=ok;this.code=code;this.protocolCode=protocolCode;effectMayHaveOccurred=sent;}
@@ -217,6 +233,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
         synchronized(controlGate){return controlCount;}
     }
+    boolean idle()throws Failure {guard(false);return !busy;}
     /** Serialized RPC. A sent effect may have occurred even if its reply is
      * lost. Failure never retries. Rejected caller arguments leave I/O alone. */
     JSONObject call(String method,JSONObject params,String session,int timeoutMs,boolean effect) throws IOException {
@@ -229,6 +246,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             int budget=remaining(started,timeoutMs,false);attempted=true;wire.send(outgoing,budget);
             Arrays.fill(outgoing,(byte)0);outgoing=null;
             for(;;) {
+                progress();
                 expireControls(effect);budget=remaining(started,timeoutMs,effect);
                 byte[] bytes=wire.receive(Math.min(20,budget));if(bytes==null)continue;
                 MdoBrowserCdpJson.Message message=packet(bytes,effect);
@@ -267,19 +285,26 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     /** Read one event or fixed native continuation acknowledgement. Ordinary
      * unsolicited replies still fail; idle time does not renew control TTL. */
     boolean poll(int timeoutMs) throws IOException {
+        return poll(timeoutMs,timeoutMs);
+    }
+    /** A short kernel receive slice can retain a larger original callback/
+     * control-send budget. Both remain fixed; idle polling renews no ACK TTL. */
+    boolean poll(int receiveMs,int timeoutMs) throws IOException {
+        if(receiveMs<10||receiveMs>timeoutMs)throw failure("cdp_arguments_invalid",false);
         enter(timeoutMs);byte[] bytes=null;
         try {
             long started=clock.now();activeStarted=started;activeTimeout=timeoutMs;
-            bytes=wire.receive(timeoutMs);guard(false);if(bytes==null)return false;
+            bytes=wire.receive(receiveMs);guard(false);expireControls(false);if(bytes==null)return false;
             // An ordinary idle poll is not a broken stream. A packet delivered
             // after the original poll budget must not reach native event state.
             remaining(started,timeoutMs,false);
             MdoBrowserCdpJson.Message message=packet(bytes,false);
             bytes=null;
+            remaining(started,timeoutMs,false);
             if(message==null)return false;
             expireControls(false);
             if(!message.event()){if(controlReply(message,false))return true;throw failure("cdp_reply_mismatch",false);}
-            event(message,false);return true;
+            event(message,false);remaining(started,timeoutMs,false);return true;
         } catch(Failure failure){close();throw failure;}
         catch(IOException|RuntimeException|Error failure){close();throw failure("cdp_event_stream_failed",false);}
         finally {if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}

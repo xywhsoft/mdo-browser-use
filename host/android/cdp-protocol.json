@@ -237,6 +237,26 @@
     "ui_callback_fault_isolated": true,
     "installed_framework_verified": false
   },
+  "cooperative_network_owners": {
+    "state": "private_shared_worker_and_pump_not_product_routed",
+    "persistent_protocol_threads": 1,
+    "physical_owners_including_pending_ui_results": 8,
+    "ordinary_jobs_including_pending_ui_results": 8,
+    "shared_queue_entries": 17,
+    "queued_pump_limit": 1,
+    "poll_receive_slice_ms": 20,
+    "event_and_fixed_control_budget_ms": 250,
+    "ordinary_rpc_wait": "cooperative_round_robin_other_idle_connections_without_reentry",
+    "startup_deadline": "original_boot_elapsed_budget_includes_queue_proof_enable_and_control_acks",
+    "ready_notification": "only_after_original_enable_and_inline_control_acks_confirmed",
+    "ui_notifications_per_owner": "at_most_ready_then_terminal_coalesced_one_pending_task",
+    "cancel": "close_original_handle_then_wait_for_running_io_before_terminal_delivery_and_readmission",
+    "uncertain_cleanup": "sticky_slot_reservation_not_a_release_receipt",
+    "ui_post_failure": "retire_entire_common_worker_no_caller_runs_or_late_ready",
+    "caller_runs_or_reconnect": false,
+    "downloads_activated": false,
+    "installed_provider_verified": false
+  },
   "frame_graph": {
     "state": "private_metadata_graph_and_session_routing_packaged",
     "frame_limit": 32,

@@ -36,17 +36,32 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     private static final int LIMIT=8,RESULT_MAX=1024*1024;
     private final Ui ui;private final Connector connector;private final LongSupplier clock;
     private final ThreadPoolExecutor executor;
+    private final MdoBrowserCdpNetworks networks;
     private final AtomicBoolean closed=new AtomicBoolean();
     private final Map<MdoBrowserCdpMarker.Lease,Job> jobs=new ConcurrentHashMap<>();
     private final Map<MdoBrowserCdpMarker.Lease,MdoBrowserCdpBinding> bindings=new ConcurrentHashMap<>();
     MdoBrowserCdpWorker(){this(framework(),(marker,timeout)->MdoBrowserCdpBinding.bind(marker,timeout,(method,session,params)->{}),android.os.SystemClock::elapsedRealtime);}
     MdoBrowserCdpWorker(Ui ui,Connector connector,LongSupplier clock){
+        this(ui,connector,clock,MdoBrowserCdpBinding::bindNetwork);
+    }
+    MdoBrowserCdpWorker(Ui ui,Connector connector,LongSupplier clock,MdoBrowserCdpNetworks.Connector networkConnector){
         if(ui==null||connector==null||clock==null||!ui.onThread())throw new IllegalArgumentException("CDP worker requires its UI owner");
         this.ui=ui;this.connector=connector;this.clock=clock;
-        executor=new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<Runnable>(LIMIT),task->{
-            Thread thread=new Thread(task,"mdo-private-cdp");thread.setDaemon(true);return thread;
+        executor=new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<Runnable>(LIMIT*2+1),task->{
+            Thread thread=new Thread(()->{
+                try(MdoBrowserCdpSession.Cooperation ignored=MdoBrowserCdpSession.cooperate(this::cooperate)){task.run();}
+                finally{threadExited();}
+            },"mdo-private-cdp");thread.setDaemon(true);return thread;
         },new ThreadPoolExecutor.AbortPolicy());
+        networks=new MdoBrowserCdpNetworks(ui,networkConnector,clock,executor,this::shutdown);
     }
+    private void cooperate(){networks.turn();}
+    private void threadExited(){if(!closed.get())shutdown();networks.ownerTerminated();}
+    void startNetwork(MdoBrowserCdpMarker marker,int timeout,MdoBrowserCdpNetworks.Events events,MdoBrowserCdpNetworks.Completion complete)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");networks.start(marker,timeout,events,complete);
+    }
+    void cancelNetwork(MdoBrowserCdpMarker.Lease lease){thread();networks.cancel(lease);}
+    int networkPending(){thread();return networks.pending();}
     private static Ui framework(){
         Handler handler=new Handler(Looper.getMainLooper());return new Ui(){
             public boolean onThread(){return Looper.myLooper()==Looper.getMainLooper();}
@@ -67,6 +82,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(marker==null||!marker.lease().current()||operation==null||complete==null||timeoutMs<100||timeoutMs>15000)
             throw new IOException("cdp_worker_arguments_invalid");
+        if(marker.lease().physicalNetwork())throw new IOException("cdp_network_scope_invalid");
         if(jobs.containsKey(marker.lease()))throw new IOException("cdp_worker_busy");
         if(jobs.size()>=LIMIT)throw new IOException("cdp_worker_limit");
         Job job=new Job(marker,timeoutMs,effect,operation,complete,existing);jobs.put(job.lease,job);
@@ -90,7 +106,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         for(Map.Entry<MdoBrowserCdpMarker.Lease,MdoBrowserCdpBinding> row:bindings.entrySet())if(!row.getKey().current()&&bindings.remove(row.getKey(),row.getValue()))row.getValue().close();
     }
     private void shutdown(){
-        closed.set(true);
+        closed.set(true);networks.closeWorker();
         for(Job job:new ArrayList<>(jobs.values())){
             job.cancel();MdoBrowserCdpMarker marker=job.marker.get();if(marker!=null)marker.close();
             job.drop();try{ui.remove(job.delivery);}catch(RuntimeException|Error ignored){}

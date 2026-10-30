@@ -2965,3 +2965,33 @@ a missing Network definition even if method signatures reference it
 neutral W4 app archive and paired plugin; no extra application or Home is
 created. The same headless deployment is restored to HTTP 200. No install,
 provider change, model/external page action or online release occurs here.
+
+## Cooperative private network owner ledger and event pump (E81a)
+
+The existing protocol worker now hosts eight private physical-network owners in
+addition to its eight ordinary jobs. Both include pending UI results in their
+quotas; one shared bounded queue admits at most those starts plus a single pump.
+Ordinary RPC waits cooperatively service another idle connection in round-robin
+order, without thread creation, busy-session reentry or deadline renewal. A
+20 ms receive slice retains 250 ms for native event/fixed-control handling.
+Readiness waits for original enable and inline control ACKs under the original
+queue-inclusive startup deadline.
+
+Each owner reports at most ready then terminal on its original UI callback, with
+one coalesced pending runnable. UI cancellation closes the exact connection and
+waits for running I/O to drain before reporting terminal/freeing its slot; queued
+ready cannot win after cancellation or an observed connection failure. A failed
+close remains a sticky reservation with cleanupConfirmed:false. This confirms
+protocol cleanup only, not WebView destruction or response denial. UI posting
+failure retires the common worker; callback faults retire their own connection.
+
+The current full native gate passes `.mdo/E81-native-full.log` with source-hashed
+`.mdo/E81-native-current.json`. The owner gate's 148 assertions use controlled
+Android/metadata peers with real Java/JSON/JNI; an additional actual two-socket
+WebSocket/JNI pair proves a page command can wait for another connection's
+continuation on that same worker, with balanced native handles/FDs/allocations.
+Original transport, dispatcher, frames/worlds, uploads and clear regressions
+also pass. Actual installed provider/framework and product routing remain
+unqualified. Next integrate sufficient native connection capacity, physical
+view/profile registration, pre-navigation readiness and original response/body/
+store/accept/cancel. No public Agent method or global Android automation is enabled.

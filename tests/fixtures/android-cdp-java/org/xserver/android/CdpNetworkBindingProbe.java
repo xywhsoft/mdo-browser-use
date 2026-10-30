@@ -35,7 +35,7 @@ public final class CdpNetworkBindingProbe {
     }
     private static JSONObject response(int id)throws Exception{return new JSONObject().put("id",id).put("result",new JSONObject());}
     private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("responseStatusCode",200));}
-    private static final class Context implements AutoCloseable{
+    static final class Context implements AutoCloseable{
         final WebView view=new WebView();final MdoBrowserCdpView adapter;
         final CdpBindingProbe.Factory peer=new CdpBindingProbe.Factory(view);
         final List<String> methods=new ArrayList<>();final List<JSONObject> commands=new ArrayList<>();

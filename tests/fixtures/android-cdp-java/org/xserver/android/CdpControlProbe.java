@@ -199,6 +199,40 @@ public final class CdpControlProbe {
             failure("cdp_event_failed",true,c::call);check(c.wire.sent.size()==1&&c.receipts.isEmpty());
         }
     }
+    private static void cooperation()throws Exception{
+        try(Context page=new Context();Context network=new Context();Context nested=new Context()){
+            network.wire.add(paused("interception-job-progress.0",null,true));network.wire.add(reply(1,null));nested.wire.add(reply(1,null));
+            final int[] turns={0};
+            try(MdoBrowserCdpSession.Cooperation scope=MdoBrowserCdpSession.cooperate(()->{
+                try{
+                    if(++turns[0]==1)nested.call();
+                    if(network.client.idle())network.client.poll(20,100);
+                    if(!network.receipts.isEmpty()&&!network.receipts.get(0).pending())page.wire.add(reply(1,null));
+                }catch(IOException problem){throw new IllegalStateException(problem);}
+            })){
+                page.call();check(turns[0]==2&&page.wire.sent.size()==1&&network.wire.sent.size()==1);
+                settled(network.receipts.get(0),true,null,true);
+            }
+            // The scheduler is scoped to this worker and no longer runs after
+            // close; nested protocol progress never recursively calls it.
+            page.wire.add(reply(2,null));page.call();check(turns[0]==2);
+        }
+        try(Context page=new Context()){
+            try(MdoBrowserCdpSession.Cooperation scope=MdoBrowserCdpSession.cooperate(()->page.wire.now=95)){
+                failure("cdp_command_timeout",true,page::call);check(page.wire.sent.size()==1);
+            }
+        }
+        try(Context network=new Context()){
+            network.action=(m,s,p)->{network.wire.now=60;network.receipts.add(network.client.continuePausedRequest());};
+            network.wire.add(paused("interception-job-slice.0",null,true));check(network.client.poll(20,100));
+            check(network.wire.budgets.get(0)==40);network.wire.add(reply(1,null));check(network.client.poll(20,100));
+            settled(network.receipts.get(0),true,null,true);
+        }
+        try(Context network=new Context()){
+            network.action=(m,s,p)->network.wire.now=100;network.wire.add(paused("interception-job-late.0",null,true));
+            failure("cdp_command_timeout",false,()->network.client.poll(20,100));check(network.wire.sent.isEmpty());
+        }
+    }
     private static void limits()throws Exception{
         try(Context c=new Context()){
             for(int i=0;i<257;i++)c.wire.add(paused("pending-"+i,null,true));failure("cdp_control_limit",true,c::call);
@@ -242,11 +276,27 @@ public final class CdpControlProbe {
             realSessions++;
         }
     }
+    private static void realCooperation()throws Exception{
+        CdpNativeProbe.fixtureStart(34);final MdoBrowserCdpSession[] network={null};List<MdoBrowserCdpSession.ControlReceipt> receipts=new ArrayList<>();
+        MdoBrowserCdpSession page=null;
+        try{
+            page=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->{});
+            network[0]=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->receipts.add(network[0].continuePausedRequest()));
+            try(MdoBrowserCdpSession.Cooperation scope=MdoBrowserCdpSession.cooperate(()->{
+                try{if(network[0].idle())network[0].poll(20,250);}catch(IOException error){throw new IllegalStateException(error);}
+            })){
+                page.call("Runtime.evaluate",null,null,1000,true);
+            }
+            check(receipts.size()==1);
+            if(receipts.get(0).pending())check(network[0].poll(20,250));
+            settled(receipts.get(0),true,null,true);
+        }finally{if(page!=null)page.close();if(network[0]!=null)network[0].close();check(CdpNativeProbe.fixtureFinish()==(1+(2<<8)));}
+    }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");ExecutorService worker=Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{successAndOrdering();invalidAndNegative();cancellationAndClocks();limits();if(args.length==0)realWire();}
+        try{worker.submit(()->{try{successAndOrdering();invalidAndNegative();cancellationAndClocks();cooperation();limits();if(args.length==0){realWire();realCooperation();}}
             catch(Exception problem){throw new RuntimeException(problem);}}).get(45,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(5,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_control_sessions\":"+realSessions+",\"real_jvm_jni_json\":true,\"provider_qualified\":false,\"downloads_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_control_sessions\":"+realSessions+",\"real_cooperative_pairs\":"+(args.length==0?1:0)+",\"real_jvm_jni_json\":true,\"provider_qualified\":false,\"downloads_activated\":false}");
     }
 }

@@ -101,14 +101,15 @@ static int ClientCommand(int Fd,int Id,const char* Method,const char* Session)
         Session?",\"sessionId\":\"":"",Session?Session:"",Session?"\"":"");
     assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
 }
-static int ClientFetchControl(int Fd,int Abort,const char* Session)
+static int ClientFetchControlId(int Fd,int Id,int Abort,const char* Session)
 {
     char Data[384];int Size=snprintf(Data,sizeof(Data),
-        "{\"id\":2,\"method\":\"Fetch.%s\",\"params\":{\"requestId\":\"interception-job-7.0\"%s}%s%s%s}",
-        Abort?"failRequest":"continueRequest",Abort?",\"errorReason\":\"Aborted\"":"",
+        "{\"id\":%d,\"method\":\"Fetch.%s\",\"params\":{\"requestId\":\"interception-job-7.0\"%s}%s%s%s}",
+        Id,Abort?"failRequest":"continueRequest",Abort?",\"errorReason\":\"Aborted\"":"",
         Session?",\"sessionId\":\"":"",Session?Session:"",Session?"\"":"");
     assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
 }
+static int ClientFetchControl(int Fd,int Abort,const char* Session){return ClientFetchControlId(Fd,2,Abort,Session);}
 static int Packet(int Fd,const char* Text){return ServerFrame(Fd,XWS_OPCODE_TEXT,1,Text,strlen(Text));}
 static int Handshake(Server* Fixture,int Fd)
 {
@@ -138,8 +139,9 @@ static int Handshake(Server* Fixture,int Fd)
 static void* Serve(void* Data)
 {
     Server* Fixture=Data;int Fd=accept(Fixture->Listener,NULL,NULL);assert(Fd>=0);Fixture->Accepted=Fd;
-    close(Fixture->Listener);struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
-    if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) goto Done;
+    if ( Fixture->Mode!=34 ) close(Fixture->Listener);
+    struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
+    if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 ) close(Fixture->Listener);goto Done;}
     if ( Fixture->Mode<=1 ) {
         Fixture->Frames+=ClientFrame(Fd,XWS_OPCODE_TEXT,"{\"id\":1}",8);
         const unsigned char First[]={0xE4,0xBD},Second[]={0xA0,'!'};
@@ -178,6 +180,20 @@ static void* Serve(void* Data)
     } else if ( Fixture->Mode==11 ) {
         Write(Fd,"\x81\x05he",4);atomic_store(&Fixture->Ready,1);
         char Byte;(void)recv(Fd,&Byte,1,0);
+    } else if ( Fixture->Mode==34 ) {
+        /* Two real connections on the same native worker: the first command
+         * cannot complete until an event on the second is continued. */
+        int Second=accept(Fixture->Listener,NULL,NULL);assert(Second>=0);close(Fixture->Listener);
+        assert(!setsockopt(Second,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
+        int FirstValid=Fixture->Valid;
+        if ( !Handshake(Fixture,Second) ) {Fixture->Valid=0;close(Second);goto Done;}
+        Fixture->Valid=Fixture->Valid&&FirstValid;
+        Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+        Packet(Second,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200}}");
+        Fixture->Frames+=ClientFetchControlId(Second,1,0,NULL);
+        Packet(Second,"{\"id\":1,\"result\":{}}");Packet(Fd,"{\"id\":1,\"result\":{}}");
+        char Byte;if ( recv(Fd,&Byte,1,0)>0 || recv(Second,&Byte,1,0)>0 ) Fixture->Valid=0;
+        close(Second);
     } else if ( Fixture->Mode>=28 && Fixture->Mode<=33 ) {
         const char* Session=Fixture->Mode==30||Fixture->Mode==31?"child-001":NULL;
         Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
