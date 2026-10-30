@@ -101,6 +101,14 @@ static int ClientCommand(int Fd,int Id,const char* Method,const char* Session)
         Session?",\"sessionId\":\"":"",Session?Session:"",Session?"\"":"");
     assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
 }
+static int ClientFetchControl(int Fd,int Abort,const char* Session)
+{
+    char Data[384];int Size=snprintf(Data,sizeof(Data),
+        "{\"id\":2,\"method\":\"Fetch.%s\",\"params\":{\"requestId\":\"interception-job-7.0\"%s}%s%s%s}",
+        Abort?"failRequest":"continueRequest",Abort?",\"errorReason\":\"Aborted\"":"",
+        Session?",\"sessionId\":\"":"",Session?Session:"",Session?"\"":"");
+    assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
+}
 static int Packet(int Fd,const char* Text){return ServerFrame(Fd,XWS_OPCODE_TEXT,1,Text,strlen(Text));}
 static int Handshake(Server* Fixture,int Fd)
 {
@@ -170,6 +178,25 @@ static void* Serve(void* Data)
     } else if ( Fixture->Mode==11 ) {
         Write(Fd,"\x81\x05he",4);atomic_store(&Fixture->Ready,1);
         char Byte;(void)recv(Fd,&Byte,1,0);
+    } else if ( Fixture->Mode>=28 && Fixture->Mode<=33 ) {
+        const char* Session=Fixture->Mode==30||Fixture->Mode==31?"child-001":NULL;
+        Fixture->Frames+=ClientCommand(Fd,1,"Runtime.evaluate",NULL);
+        char Event[384];int Length=snprintf(Event,sizeof(Event),
+            "{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\"%s}%s%s%s}",
+            Fixture->Mode==33?"":",\"responseStatusCode\":200",
+            Session?",\"sessionId\":\"":"",Session?Session:"",Session?"\"":"");
+        assert(Length>0&&(size_t)Length<sizeof(Event));Packet(Fd,Event);
+        /* Withhold the ordinary command reply until its original paused event
+         * is continued/aborted. A serialized-only dispatcher would deadlock. */
+        Fixture->Frames+=ClientFetchControl(Fd,Fixture->Mode==31,Session);
+        if ( Fixture->Mode==31 ) Packet(Fd,"{\"id\":2,\"sessionId\":\"child-001\",\"error\":{\"code\":-32601,\"message\":\"private-provider-data\"}}");
+        else if ( Fixture->Mode!=32 ) {
+            if ( Fixture->Mode==29 ) Packet(Fd,"{\"id\":1,\"result\":{}}");
+            /* Mode 30 intentionally strips the child source from its ACK. */
+            Packet(Fd,"{\"id\":2,\"result\":{}}");
+            if ( Fixture->Mode!=29 && Fixture->Mode!=30 ) Packet(Fd,"{\"id\":1,\"result\":{}}");
+        }
+        char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;
     } else if ( Fixture->Mode>=20 && Fixture->Mode<=27 ) {
         if ( Fixture->Mode==20 || Fixture->Mode==27 ) {
             Fixture->Frames+=ClientCommand(Fd,1,"Runtime.enable",NULL);

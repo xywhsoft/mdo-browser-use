@@ -106,6 +106,11 @@ def main():
     if not dispatch.get('passed') or dispatch.get('real_protocol_sessions')!=8:
         raise RuntimeError('The actual JNI protocol-session gate did not pass')
     result['jvm_dispatcher']=dispatch
+    controls=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpControlProbe'],cwd=ROOT,env=environment,text=True,timeout=60))
+    if not controls.get('passed') or controls.get('real_control_sessions')!=6 or controls.get('provider_qualified') is not False or controls.get('downloads_activated') is not False:
+        raise RuntimeError('The fixed native paused-event control gate did not pass')
+    result['jvm_native_controls']=controls
     binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not binding.get('passed') or not binding.get('real_jvm_jni_json'):

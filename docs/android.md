@@ -2884,3 +2884,35 @@ paired plugin and one source/Home. The headless service is restored to HTTP 200.
 No device install, WebView update, model call, external page action or online
 release. Global Android automation remains disabled; installed provider/main-UI/
 URI/event verification and remaining transfer/activation work are still pending.
+
+## Fixed native paused-event flow control (E79a)
+
+The private dispatcher can send exactly one fixed continuation or abort for its
+current original `Fetch.requestPaused` event, even while an ordinary RPC waits
+for completion. It freezes the source/request/stage before invoking native
+callbacks; callback JSON edits cannot retarget it. Continuation includes only
+the original request ID; abort adds fixed `Aborted`. Ordinary callback RPC
+reentry and caller-supplied wire selectors/overrides remain forbidden.
+
+Control ACKs use distinct command IDs and the original native session. They can
+arrive before/after the ordinary result and be drained by a later call/poll.
+Native-only read-only receipts retain their first terminal outcome across close,
+ownership loss or child retirement. The receipt carries no request/page data or
+authority. A known unsupported control can have no effect while an outstanding
+ordinary command remains uncertain; the two outcomes are deliberately separate.
+Unknown, duplicate or wrong-source replies fail closed without replay.
+
+Limits: 256 pending controls, 4096 lifetime request/stage/source keys, remaining
+outer send budget and a separate 5000 ms boot-elapsed ACK deadline. Polling and
+ordinary command boundaries cannot reset these bounds. Exact production Java,
+strict JSON and actual JNI/local kernel-peer tests cover six request/response
+flows, including a peer that withholds its page result until it receives the
+control; complete native regressions pass `.mdo/E79-native-full.log` and the
+source-hashed `.mdo/E79-native-current.json`. These are protocol/ownership tests,
+not an Android provider or download qualification.
+
+This foundation does not enable Fetch interception, debugging, original-body
+downloads or public Agent methods. Persistent pre-navigation network ownership,
+event pumping, response classification/stream handling, safe storage and
+accept/cancel integration still need implementation and qualification. The user
+has deferred the phone; preserve their WebView and keep overall automation off.

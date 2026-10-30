@@ -7108,3 +7108,43 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   download/activation work remain pending. Historical Windows intermittent input
   failure causes stay unattributed. Continue feasible development without asking
   again for the deferred phone or enabling unqualified automation.
+
+## E79a — continue original paused requests without ordinary RPC reentry
+
+- Original-response downloads need interception on the original connection,
+  rather than fetching a URL again. Before enabling interception, resolve the
+  deadlock in which an ordinary page command waits for a paused request while
+  the dispatcher refuses every nested command. Add only fixed native
+  `Fetch.continueRequest`/`Fetch.failRequest` flow control inside the exact
+  `Fetch.requestPaused` callback; ordinary RPC reentry still fails. Pin the
+  reviewed Chromium Fetch handler/interceptor sources in the private protocol
+  record. No Fetch activation, response stream or public Agent method is added.
+- Freeze the original native source, opaque request ID and request/response
+  stage before callbacks can mutate JSON. Continuation has no URL/method/header/
+  body override; abort uses only fixed `Aborted`. Use unique dispatcher IDs and
+  match acknowledgements by ID and original native session. An ordinary result
+  may precede its control ACK without losing either; later calls/polls drain
+  pending ACKs. Unknown/duplicate/wrong-scope replies still retire the stream.
+- Native-only atomic receipts expose no request authority or page data. Preserve
+  the first terminal outcome across UI close, ownership loss and child retirement;
+  late acknowledgements cannot upgrade it. A known unsupported control has a
+  separate no-effect result while an already issued ordinary command remains
+  uncertain. Never replay. Bound pending controls to 256, lifetime stage keys to
+  4096, send to the remaining outer budget and ACK age to 5000 boot-elapsed ms;
+  idle polls/command boundaries never renew the original deadline or replay keys.
+- Exact dispatcher/codec/JNI tests pass `.mdo/E79-control-unit.log` and the full
+  `.mdo/E79-native-full.log`/`.mdo/E79-native-current.json`: 30,840 assertions
+  including capacity/byte-clear checks and six actual local protocol sessions.
+  The peer withholds its ordinary result until receiving the fixed control.
+  Cover ACK order, frozen event mutation, duplicate stages, root/child isolation,
+  abort, provider rejection sanitization, partial send failure, UI cancellation,
+  retired-child traffic, original deadlines, clock faults and resource exhaustion.
+  The original 4,324-assertion/eight-session dispatcher gate and full native,
+  frame/world, upload/clear gates also pass; ASan/UBSan and API 26 compile pass.
+  Every recorded input hash matches. Android/DOM peers remain controlled.
+- Goal active. Commit this foundation, then compose/apply with the single service
+  stopped and verify the actual complete development APK. Original-response
+  classification/body/storage/accept/cancel integration and the persistent
+  pre-navigation network owner/pump remain unfinished. No device/provider update,
+  model/external page action, formal data change or publication; global Android
+  automation stays disabled. Do not ask again for the deferred phone.

@@ -4,6 +4,18 @@
   "checked_date": "2026-10-30",
   "sources": [
     {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/devtools/protocol/fetch_handler.cc?format=TEXT",
+      "decoded_bytes": 18085,
+      "decoded_sha256": "5aa5cfd45e4ee0570dd1945222dcbe4f87f2ee5dff539914a794f00949733ea0",
+      "facts": ["continueRequest without overrides forwards empty modifications", "Taking an original response stream changes the permitted response completion path"]
+    },
+    {
+      "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/content/browser/devtools/devtools_url_loader_interceptor.cc?format=TEXT",
+      "decoded_bytes": 69023,
+      "decoded_sha256": "a9fdb36a10092ff874dedc53c1bdfc111d9e64389e50f0f64ce79b549dc0be22",
+      "facts": ["Native interception IDs use interception-job identifiers and may carry a stage suffix", "Empty continuation modifications preserve the original request/response"]
+    },
+    {
       "url": "https://chromium.googlesource.com/v8/v8/+/61ddd471ece346840bbebbb308dceb4b4ce31b28/src/inspector/injected-script.cc?format=TEXT",
       "decoded_bytes": 52122,
       "decoded_sha256": "d5cd666ab0fe962642c5386e2fd3db2f0f35c3aba3c44c35b38badd43ee43d05",
@@ -137,6 +149,31 @@
     "provider_errors_in_exception_text": false,
     "actual_dex_definitions_verified": true,
     "test_json_runtime_packaged": false,
+    "installed_provider_verified": false
+  },
+  "native_paused_event_controls": {
+    "state": "private_dispatcher_foundation_not_activated",
+    "methods": ["Fetch.continueRequest", "Fetch.failRequest"],
+    "abort_reason": "Aborted",
+    "source": "frozen_current_Fetch_requestPaused_event_only",
+    "opaque_request_id": "1_to_256_printable_nonspace_ascii_json_escaped",
+    "overrides_or_caller_selectors": false,
+    "ordinary_rpc_reentry": false,
+    "receipt": "native_only_atomic_first_terminal_outcome_no_request_authority",
+    "reply_match": ["unique_command_id", "original_native_session"],
+    "pending_limit": 256,
+    "lifetime_stage_keys": 4096,
+    "stage_replay": false,
+    "send_budget": "remaining_original_command_or_poll_budget",
+    "ack_timeout_ms": 5000,
+    "timeout_clock": "original_boot_elapsed_realtime_never_renewed_by_idle_polls",
+    "close_and_child_retirement": "cancel_pending_never_upgrade_late_ack",
+    "negative_reply": "retire_connection_preserve_separate_ordinary_command_uncertainty",
+    "automatic_replay": false,
+    "payloads_logged_or_persisted": false,
+    "public_agent_method": false,
+    "fetch_enabled": false,
+    "downloads_activated": false,
     "installed_provider_verified": false
   },
   "binding_core": {
