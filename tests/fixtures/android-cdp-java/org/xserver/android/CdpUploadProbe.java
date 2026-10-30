@@ -30,14 +30,17 @@ public final class CdpUploadProbe {
             new MdoBrowserUploadStore.Spec("empty.bin",0,new String(new char[64]).replace('\0','b'))};
     }
     static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
-        final CdpFileInputProbe.Case peer=new CdpFileInputProbe.Case();final AtomicLong time=new AtomicLong(1000);
+        final CdpFileInputProbe.Case peer;final AtomicLong time=new AtomicLong(1000);
         final List<String> calls=new ArrayList<>();final MdoBrowserCdpUpload upload;
         final java.util.Set<String> events=new java.util.HashSet<>();
         String failure="",hookAt="",nativeKey,source,realm;boolean selected=true,opened,assigned,cleaned;
         int installs,prepared,opens,statuses,commits,disposals,disabled;boolean failureCleanup;
         Runnable onOpen,onCommit;
-        Case(String frame)throws Exception {
+        Case(String frame)throws Exception {this(frame,true);}
+        Case(String frame,boolean initialize)throws Exception {
+            peer=new CdpFileInputProbe.Case(initialize);
             peer.peer.host.plan.extra=this;peer.peer.server.worlds.evaluation=this::evaluate;
+            if(!initialize){upload=null;return;}
             JSONObject request=peer.request(frame);MdoBrowserCdpFileInput target=MdoBrowserCdpFileInput.parse(request);MdoBrowserUploadStore.Spec[] specs=manifest();
             upload=new MdoBrowserCdpUpload(target,specs,120000,time::get);
             request.put("ref","e8");specs[0]=null; // Neither caller mutation changes the captured target/manifest.

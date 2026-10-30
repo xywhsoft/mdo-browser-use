@@ -6,6 +6,7 @@
     private void executeFrames(String key,String id,WebView view,JSONObject request)throws JSONException {
         final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();final long epoch=views.epoch(key,view);
         try{
+            if(uploadBusy(key,view))throw new java.io.IOException("cdp_upload_busy");
             final MdoBrowserCdpFrameRequest operation=MdoBrowserCdpFrameRequest.parse(request);
             // Product/profile admission runs in request() before this branch.
             // No request field can enable debugging or bypass that admission.

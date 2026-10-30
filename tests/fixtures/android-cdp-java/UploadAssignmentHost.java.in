@@ -1,0 +1,118 @@
+package org.xserver.android;
+
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+import android.webkit.WebView;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import org.json.*;
+
+/** Exact product upload/chooser/ownership/router fragments. Android UI and DOM
+ * peers are controlled; no installed framework, URI or provider claim. */
+final class UploadAssignmentHost implements AutoCloseable {
+    static final class WebMessagePort {}
+    static final class Page {String getUrl(){return "https://host.invalid/app";}}
+    static final class DialogState {boolean clean=true,pending;boolean clean(){return clean;}Object snapshot(){return pending?this:null;}}
+    static class MdoBrowserDialogTarget {final WebView view;final DialogState dialogs=new DialogState();MdoBrowserDialogTarget(WebView view){this.view=view;}}
+    final class MdoBrowserChooserTarget extends MdoBrowserDialogTarget {
+        final MdoBrowserChoosers choosers;final MdoBrowserPrivatePicker privatePicker;
+        MdoBrowserChooserTarget(WebView view){super(view);Handler handler=new Handler(Looper.getMainLooper());
+            choosers=new MdoBrowserChoosers(view,new MdoBrowserChoosers.Scheduler(){public long now(){return SystemClock.elapsedRealtime();}public void at(Runnable task,long due){handler.postDelayed(task,Math.max(0,due-SystemClock.elapsedRealtime()));}public void remove(Runnable task){handler.removeCallbacks(task);}},
+                ()->views.owns("tab",view),()->views.epoch("tab",view),blocked->chooserBlocked("tab",view,blocked));
+            privatePicker=new MdoBrowserPrivatePicker(view,choosers,new MdoBrowserPrivatePicker.Scheduler(){public long now(){return SystemClock.elapsedRealtime();}public void at(Runnable task,long due){handler.postDelayed(task,Math.max(0,due-SystemClock.elapsedRealtime()));}public void remove(Runnable task){handler.removeCallbacks(task);}},
+                ()->views.owns("tab",view),()->views.epoch("tab",view));
+        }
+    }
+    static final class MdoBrowserDocument {static final int CHOOSER=1;void block(int reason,boolean value){if(reason!=CHOOSER)throw new AssertionError("Unexpected document block");}}
+    static final class Manual {boolean ready=true;boolean ready(){return ready;}}
+    final CdpUploadProbe.Case nativePeer;final WebView view;final Page host=new Page();final Manual manualChooser=new Manual();final Object activity=new Object();
+    final MdoBrowserCdpWorker cdpWorker;final MdoBrowserCdpRegistry<WebView> cdpViews;
+    final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();final MdoBrowserLifecycle<WebView> views;
+    final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();final Map<String,DialogState> windows=new HashMap<>();
+    final Map<String,MdoBrowserDocument> documents=new HashMap<>();final Map<String,Boolean> loading=new HashMap<>();
+    final Set<String> manual=new HashSet<>(),pageClosed=new HashSet<>();final List<Runnable> inputs=new ArrayList<>();
+    final Map<String,JSONObject> replies=new LinkedHashMap<>();final AtomicReference<Throwable> callbackFailure=new AtomicReference<>();
+    final Path root;boolean stopped,browserPaused,qualified,callback=true,select=true,dropReplies;int grants,responses;Runnable onGrant;
+    MdoBrowserUploadStore.ReadLease[] delivered;MdoBrowserChooserTarget chooser;
+    UploadAssignmentHost(Path root)throws Exception {
+        this.root=root;SystemClock.now=1000;nativePeer=new CdpUploadProbe.Case("leaf-frame",false);nativePeer.selected=false;
+        view=nativePeer.peer.peer.host.view;cdpWorker=nativePeer.peer.peer.host.worker;
+        cdpViews=new MdoBrowserCdpRegistry<>((view,document,current)->new MdoBrowserCdpView(view,owned->owned==view&&current.getAsBoolean(),document).marker(),cdpWorker::cancel);
+        views=new MdoBrowserLifecycle<>((view,epoch,admitted)->new MdoBrowserInput(new MdoBrowserInput.Target(){
+            public long document(){return epoch.getAsLong();}public int width(){return 100;}public int height(){return 100;}public boolean interactive(){return admitted.getAsBoolean();}
+            public boolean focused(){return true;}public boolean touch(int action,long down,long now,float x,float y){return true;}
+            public boolean key(boolean down,long started,long now,String key,int modifiers){return true;}public boolean text(String value){return true;}
+        },new MdoBrowserInput.Scheduler(){public long now(){return SystemClock.elapsedRealtime();}public void post(Runnable task,long delay){inputs.add(task);}public void remove(Runnable task){inputs.remove(task);}}),this::inputInvalidated);
+        views.put("tab",view);loading.put("tab",false);channel.attach(host.getUrl(),new WebMessagePort());documents.put("tab",new MdoBrowserDocument());
+        chooser=new MdoBrowserChooserTarget(view);dialogs.put("tab",chooser);
+        Files.createDirectory(root);uploads=new MdoBrowserUploadQueue(()->{MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(root);files.acquireCacheLease();return files;},task->new Handler(Looper.getMainLooper()).post(task),SystemClock::elapsedRealtime);
+        nativePeer.onOpen=()->{if(callback)new Handler(Looper.getMainLooper()).post(()->{try{opened();}catch(Throwable error){callbackFailure.set(error);}});};
+    }
+    private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",qualified);}
+    private void cancelCapture(String key){}
+    private boolean dialogReady(String key,WebView view){MdoBrowserDialogTarget target=dialogs.get(key);return target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);}
+    private void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,Object value,String error){
+        if(!channel.active(lease,host.getUrl())||dropReplies)return;
+        try{replies.put(id,value instanceof JSONObject?new JSONObject(value.toString()):new JSONObject().put("ok",false).put("error",error));}catch(JSONException failure){throw new AssertionError(failure);}
+    }
+    String dispatch(JSONObject request)throws Exception {
+        String id=UUID.randomUUID().toString(),key="tab",command=request.optString("command","upload");WebView web=view;
+        if(command.equals("upload")){executeUpload(key,id,view,request);return id;}
+@@UPLOAD_FENCE@@
+@@DIALOG_GATE@@
+        if(command.equals("frames")){executeFrames(key,id,view,request);return id;}
+        throw new AssertionError("Unexpected controlled host command");
+    }
+    JSONObject state()throws Exception{return uploadAssignmentState("tab",uploadState(new JSONObject()));}
+    boolean busy(){return uploadBusy("tab",view);}
+    void pump()throws Exception {Handler.drain();if(callbackFailure.get()!=null)throw new AssertionError(callbackFailure.get());}
+    void until(java.util.function.BooleanSupplier condition)throws Exception {
+        long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);while(!condition.getAsBoolean()&&System.nanoTime()<end){pump();Thread.sleep(1);}if(!condition.getAsBoolean())throw new AssertionError("Host fixture wait expired");
+    }
+    JSONObject call(JSONObject request)throws Exception {String id=dispatch(request);until(()->replies.containsKey(id));return replies.get(id);}
+    void bind()throws Exception {
+        JSONObject result=call(new JSONObject().put("command","frames").put("agent",true).put("action","list"));if(!result.getBoolean("ok"))throw new AssertionError("Original host binding unavailable: "+result);
+        AtomicReference<Throwable> failure=new AtomicReference<>();AtomicReference<Boolean> done=new AtomicReference<>();
+        cdpWorker.submitExisting(cdpViews.existing("tab",view,views.epoch("tab",view),channel.current()),12000,false,(binding,deadline)->{
+            try{MdoBrowserCdpFrames graph=binding.frames();JSONArray rows=graph.inventory(deadline).getJSONArray("frames");
+                for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);nativePeer.peer.nodes.put(graph.select(row.getString("id"),row.getString("document")).raw,row);}
+            }catch(Throwable error){failure.set(error);throw new java.io.IOException("cdp_fixture_inventory_failed");}
+            return "{\"ok\":true}".getBytes(StandardCharsets.UTF_8);
+        },value->done.set(value.code==null));until(()->done.get()!=null);if(failure.get()!=null||!done.get())throw new AssertionError("Host inventory failed",failure.get());
+    }
+    JSONObject target(String frame)throws Exception {JSONObject value=nativePeer.peer.request(frame);return new JSONObject().put("document",value.get("local_document")).put("ref",value.get("ref")).put("frame_chain",value.getJSONArray("frame_chain"));}
+    void opened()throws Exception {
+        if(!chooser.privatePicker.open(view,new Object(),(files,current)->{responses++;if(files==null)return;if(!current.getAsBoolean()||files.length!=2)throw new AssertionError("Native file grant changed");delivered=files;grants++;if(onGrant!=null)onGrant.run();if(select)nativePeer.selected=true;},1,new String[]{"application/x-mdo-browseruse-00000000000000000000000000000001"},false))throw new AssertionError("Private native callback not claimed");
+    }
+    void cancelScope(){cancelUpload("tab",view);}
+    void navigate(){cancelScope();views.navigation("tab",view);loading.put("tab",false);}
+    void reconnect(){cancelUploads();channel.invalidate();channel.attach(host.getUrl(),new WebMessagePort());cdpViews.invalidateAll();}
+    void destroyOriginal(){views.remove("tab");retireUploadData(view);}
+    int books(){return uploadBooks.size();}
+    int activeFiles(){return uploads.activeFiles();}
+    void invalidateBinding(){cdpViews.invalidate("tab",view,views.epoch("tab",view),"input_cancelled");}
+    void consume(byte[] expected)throws Exception {
+        if(delivered==null||delivered.length!=2)throw new AssertionError("Original native readers absent");AtomicReference<Throwable> failed=new AtomicReference<>();
+        Thread thread=new Thread(()->{try{byte[] all=new byte[expected.length];for(int at=0;at<all.length;at+=65536){byte[] bytes=uploads.read(delivered[0],at,Math.min(65536,all.length-at),5000);System.arraycopy(bytes,0,all,at,bytes.length);}
+            if(!Arrays.equals(all,expected)||uploads.read(delivered[1],0,1,5000).length!=0)throw new AssertionError("Original retained bytes changed");
+        }catch(Throwable error){failed.set(error);}},"native-host-retained-reader");thread.start();thread.join(7000);
+        if(thread.isAlive()||failed.get()!=null)throw new AssertionError("Retained native read failed",failed.get());
+    }
+    public void close()throws Exception {
+        try{cancelUploads();chooser.privatePicker.close();chooser.choosers.close();views.close();retireUploadData(view);cdpViews.close();channel.close();}
+        finally{uploads.close();if(!uploads.awaitStopped(5000))throw new AssertionError("Upload worker did not retire");Handler.drain();nativePeer.close();}
+        Path marker=root.resolve(MdoBrowserUploadFiles.OWNER_FILE);if(Files.exists(marker)){
+            if(!Arrays.equals(Files.readAllBytes(marker),"mdo-browser-use-private-upload-cache-v1\n".getBytes(StandardCharsets.UTF_8)))throw new AssertionError("Unknown fixture owner preserved");Files.delete(marker);}
+        Files.delete(root);
+        if(!inputs.isEmpty()||!uploadBooks.isEmpty())throw new AssertionError("Native host owner retained");
+    }
+@@DOCUMENT@@
+@@CHOOSER@@
+@@ROUTER@@
+@@UPLOAD@@
+@@ASSIGNMENT@@
+}

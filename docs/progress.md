@@ -6304,3 +6304,63 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Commit this confirmed timing defect separately from the product upload route
   being integrated in E75b. The development APK still needs its next host rebuild;
   no release, provider, phone, formal data, model call or external page change.
+
+## E75b — wire original native target/ticket assignment into the product host
+
+- Join the actual host upload route to the existing native coordinator. Freeze
+  each target with its original source, channel, already-bound marker and full
+  native frame/document chain before accepting target-bound staging. Reject
+  retargeting, including changing an unbound source into a bound one, replacing
+  a connection or reconstructing authority from a ticket. Target reservations
+  and native records are bounded to 64 per physical browser. No source path,
+  script/gesture flag, URI, nonce, protocol node or socket is caller authority.
+- One active assignment per native view. Ordinary commands and the frame router
+  are fenced; native invalidation cancels the original operation. Navigation,
+  takeover, stop and physical teardown retain their existing cancellation paths.
+  A duplicate assignment returns its pending/saved receipt without opening another
+  picker, reconnecting, granting files again or committing again. Close records
+  over a snapshot because native cancellation can reenter another view's teardown.
+- Keep native operation/retention records independently of transient input scopes.
+  Status, cancellation and explicit confirmed release use the saved native object
+  on the same physical view after navigation/channel reconnection, including in
+  manual/background states. Cancellation preserves adopted data. Reject release
+  while assignment is still pending; retained release remains idempotent. A query
+  succeeds independently of a historical assignment failure (`assignment_error`/
+  `assignment_ok`). Native replies retain original channel/view ownership; late
+  metadata cannot publish as a replacement view's result.
+- The exact product fragments, real JVM/JNI/frame/world/file queue and original
+  native callback core pass 129 new integration checks, including five frame
+  routes, mutated caller JSON, repeated assignment, pending input fencing, dropped
+  product replies, cancelled/changed owners, original-byte consumption after scope
+  expiry/reconnect, explicit release, teardown during native grant delivery and
+  late status replies (`.mdo/E75-native-final.log`). Coordinator gate passes 444,
+  chooser continuation 357 and existing native/ASan/UBSan/API 26 gates pass.
+  Staging-only exact-fragment gate remains 80 (`.mdo/E75-upload-ui.log`). UI/DOM
+  surroundings are controlled; original installed-framework/URI/renderer delivery
+  is not qualified. The staging-only fixture stubs the separate assignment hooks;
+  the new combined gate executes those exact hooks rather than claiming a stub
+  is an integration result.
+- Preserve initial fixture failures: `.mdo/E75-native-initial.log` omitted the
+  strict agent field and expected an owner marker before its lazy cache opened;
+  `.mdo/E75-native-review.log` reused a synthetic protocol engine already bound
+  for another fixture. Start that peer unbound and use the actual host's original
+  registry/worker. `.mdo/E75-host-focused.log` exposed an inaccurate busy reply
+  while the private picker was pending; return the exact active-operation reason
+  before generic document readiness. No product admission or timeout was relaxed.
+- Stop/apply/check the same deployment. Full SDK/D8/DEX/native/app/private-provider/
+  alignment/v2/v3 signature verification passes `.mdo/E75-android-final.log`: APK
+  6,395,201 bytes, SHA-256
+  `d82fd3fb61f2a71119d9bce456259b70c8dd80713f82d07ac9a1b47165f504e0`.
+  The new fragment is covered by reviewed/deployed build fingerprints. JS passes
+  319/319 in 20.561 s; Python 167/169 in 58.304 s with two existing Windows symlink
+  skips (`.mdo/E75-node-full.log`, `.mdo/E75-python-full.log`). Same service restored,
+  HTTP 200; unchanged Windows executable/paired plugin verified and reused.
+- Product upload/file-input flags depend on the existing global qualification
+  result, which remains false. No caller flag enables Android automation/debugging.
+  Native chooser-to-callback mapping, clear/directory/download/profile/activation/
+  installed-provider/main-UI work remains; URI/provider/renderer delivery is still
+  unverified and the phone remains deferred. Keep the goal active. Also resume the
+  known Windows realm audit and intermittent nested-input/drag evidence, rather
+  than treating later green runs as a root-cause fix. No phone/provider/formal
+  data changes, model calls, external page actions, extra app/Home/source copies
+  or online release.

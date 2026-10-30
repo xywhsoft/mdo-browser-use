@@ -28,6 +28,13 @@ public final class AndroidUploadUiContractTest {
     private final WebView host=new WebView();private final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
     private final List<Reply> replies=new ArrayList<>();private boolean dialog=true;
     private boolean dialogReady(String key,WebView view){return dialog;}
+    // This gate exercises staging only. The full assignment fragment is run by
+    // the actual JNI/CDP host integration fixture, not these JSON/UI doubles.
+    private boolean uploadCommand(String key,String id,WebView view,JSONObject request){return false;}
+    private Object reserveUploadTarget(String key,UploadEntry source,JSONObject request,MdoBrowserUploadQueue.Request queued){return null;}
+    private boolean uploadTargetReady(Object reserved,MdoBrowserUploadQueue.Outcome outcome){return false;}
+    private void cancelUploadTargets(UploadEntry entry){}
+    private void retireUploadTargets(WebView view){}
     private void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,Object value,String error){
         if(channel.active(lease,host.getUrl()))replies.add(new Reply(value,error));
     }

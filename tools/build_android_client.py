@@ -28,7 +28,7 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/MdoBrowserChoosers.java','host/android/MdoBrowserChooserTarget.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserPrivatePickerReply.java','host/android/browser-native-chooser.inc.java',
         'host/android/dev/BrowserUseChooserProbe.java','host/android/MdoBrowserUploadFiles.java',
         'host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserUploadRuntime.java',
-        'host/android/browser-native-upload.inc.java','host/android/dev/BrowserUseUploadProbe.java',
+        'host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','host/android/dev/BrowserUseUploadProbe.java',
         'host/android/MdoBrowserUploadUris.java','host/android/MdoBrowserUploadProxy.java','host/android/MdoBrowserUploadUriRuntime.java',
         'host/android/MdoBrowserUploadProvider.java','host/android/browser-manifest.inc.py',
         'host/android/dev/BrowserUseUploadUriProbe.java','host/android/MdoBrowserManualChooser.java','host/android/browser-manual-chooser.inc.java',

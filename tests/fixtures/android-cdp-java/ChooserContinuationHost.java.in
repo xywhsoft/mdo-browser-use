@@ -43,6 +43,9 @@ final class ChooserContinuationHost implements AutoCloseable {
         chooser=new MdoBrowserChooserTarget(view);dialogs.put("tab",chooser);chooser.choosers.interception(true);
     }
     private void cancelCapture(String key){captureCancelled++;}
+    // Read-only chooser qualification has no upload operation in progress.
+    private boolean uploadBusy(String key,WebView view){return false;}
+    private void cancelTargetedUpload(String key,WebView view,long epoch){}
     private boolean dialogReady(String key,WebView view){MdoBrowserDialogTarget target=dialogs.get(key);return target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);}
     private void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,Object value,String error){
         if(channel.current()!=lease||!channel.active(lease,host.getUrl()))return;

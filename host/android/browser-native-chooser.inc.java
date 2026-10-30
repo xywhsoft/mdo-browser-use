@@ -14,6 +14,7 @@
         return pending!=null&&pending.navigation==epoch&&pending.cancelable&&!pending.capture&&(pending.mode==0||pending.mode==1);
     }
     private void inputInvalidated(String key,WebView view,long epoch,String reason){
+        cancelTargetedUpload(key,view,epoch);
         if("file_chooser_open".equals(reason)&&views.epoch(key,view)==epoch&&chooserContinuationReady(key,view)){
             try{MdoBrowserCdpMarker original=cdpViews.existing(key,view,epoch,channel.current());if(!cdpWorker.pending(original))return;}
             catch(IllegalStateException unavailable){/* No original bound realm: ordinary retirement remains mandatory. */}
@@ -46,7 +47,7 @@
         MdoBrowserChoosers binding=target instanceof MdoBrowserChooserTarget?((MdoBrowserChooserTarget)target).choosers:null;
         MdoBrowserChoosers.Snapshot pending=binding==null?null:binding.snapshot();
         MdoBrowserPrivatePicker privatePicker=target instanceof MdoBrowserChooserTarget?((MdoBrowserChooserTarget)target).privatePicker:null;
-        return uploadState(state).put("chooser_capability",binding!=null).put("chooser_upload_capability",false)
+        return uploadAssignmentState(key,uploadState(state)).put("chooser_capability",binding!=null).put("chooser_upload_capability",false)
             .put("chooser_armed",binding!=null&&binding.intercepting()).put("chooser_open",pending!=null||privatePicker!=null&&privatePicker.pending()||target!=null&&manualChooser.busy(target.view))
             .put("manual_chooser_supported",true).put("manual_chooser_open",target!=null&&manualChooser.busy(target.view))
             .put("manual_chooser_awaiting_result",manualChooser.awaitingResult())

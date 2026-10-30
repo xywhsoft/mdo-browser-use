@@ -55,8 +55,18 @@ same-world argument proof. Original ancestor policy is checked before and after
 local inspection; no backend/object/context IDs are returned as authority.
 Only matching document/reference and boolean input flags reach the dispatcher,
 before source digest/read/staging. This read-only stage neither reads selected
-files nor assigns them. Actual Android payload/chooser/download delivery and
-installed-provider qualification remain outstanding; admission stays disabled.
+files nor assigns them. A separate native product route now freezes that original
+target together with its staging source, native binding and channel. Assignment
+requires the saved complete target and original scope; repeats read the same
+receipt and cannot replay an effect. Native status/cancel/confirmed release use
+the actual retained object after input-scope loss, within the same physical view.
+Cancellation preserves adopted data. Queries report the historical assignment
+error separately from the query result. Ordinary work is fenced during an active
+assignment. The original elapsed deadline also governs queued native steps.
+These product fragments have real JNI/file/callback-core checks with controlled
+UI/DOM peers; they are not installed-WebView/URI delivery qualification. Android
+chooser/download/profile/provider/main-UI work remains; global admission stays
+disabled and no request field can enable it.
 
 The private Android native frame bridge also records original chooser-event
 source/node evidence and can pin its exact input in the proved isolated world.

@@ -1060,7 +1060,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": "            if(manual.contains(key)&&request.optBoolean(\"agent\")",
-      "after": "            if(!dialogReady(key,web)&&!Arrays.asList(\"navigate\",\"back\",\"forward\",\"reload\",\"stop\").contains(command)&&!chooserFramesAllowed(key,web,request))throw new IllegalStateException(\"dialog_pending_or_unclean\");\n            if(manual.contains(key)&&request.optBoolean(\"agent\")"
+      "after": "            if(uploadBusy(key,web)&&!Arrays.asList(\"navigate\",\"back\",\"forward\",\"reload\",\"stop\").contains(command))throw new IllegalStateException(\"upload_operation_busy\");\n            if(!dialogReady(key,web)&&!Arrays.asList(\"navigate\",\"back\",\"forward\",\"reload\",\"stop\").contains(command)&&!chooserFramesAllowed(key,web,request))throw new IllegalStateException(\"dialog_pending_or_unclean\");\n            if(manual.contains(key)&&request.optBoolean(\"agent\")"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -1384,6 +1384,12 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "for(WebView web:owned){root.removeView(web);web.destroy();MdoBrowserDocument document=retiring.get(web);",
       "after": "for(WebView web:owned){root.removeView(web);web.destroy();retireUploadData(web);MdoBrowserDocument document=retiring.get(web);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-upload-assignment.inc.java",
+      "suffix": "\n    private JSONObject browserUseSupport;"
     }
   ],
   "files": [

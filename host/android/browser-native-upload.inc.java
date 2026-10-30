@@ -20,12 +20,13 @@
         UploadDataEntry created=new UploadDataEntry(view);uploadDataOwners.put(key,created);return created.owner;
     }
     private void retireUploadData(WebView view){
+        retireUploadTargets(view);
         for(Iterator<UploadEntry> at=uploadOwners.values().iterator();at.hasNext();){UploadEntry entry=at.next();if(entry.view==view){entry.scope.cancel();at.remove();}}
         for(Iterator<UploadDataEntry> at=uploadDataOwners.values().iterator();at.hasNext();){UploadDataEntry entry=at.next();if(entry.view==view){entry.owner.close();at.remove();}}
     }
-    private void cancelUpload(String key){UploadEntry entry=uploadOwners.remove(key);if(entry!=null)entry.scope.cancel();}
+    private void cancelUpload(String key){UploadEntry entry=uploadOwners.remove(key);if(entry!=null){entry.scope.cancel();cancelUploadTargets(entry);}}
     private void cancelUpload(String key,WebView expected){UploadEntry entry=uploadOwners.get(key);if(entry!=null&&entry.view==expected)cancelUpload(key);}
-    private void cancelUploads(){for(UploadEntry entry:uploadOwners.values())entry.scope.cancel();uploadOwners.clear();}
+    private void cancelUploads(){List<UploadEntry> owned=new ArrayList<>(uploadOwners.values());uploadOwners.clear();for(UploadEntry entry:owned){entry.scope.cancel();cancelUploadTargets(entry);}}
     private JSONObject uploadState(JSONObject state)throws JSONException {
         return state.put("upload_staging_capability",true).put("upload_staging_ready",uploads!=null&&uploads.ready())
             .put("upload_staging_cleanup_failed",uploads!=null&&uploads.cleanupFailed()).put("upload_staging_files",uploads==null?0:uploads.activeFiles())
@@ -49,13 +50,15 @@
     }
     private void executeUpload(String key,String id,WebView view,JSONObject request)throws Exception {
         String action=uploadText(request,"action");long epoch=views.epoch(key,view);
-        if(!views.owns(key,view)||epoch<=0||stopped||browserPaused||manual.contains(key)||channel.current()==null)throw new IllegalStateException("upload_owner_changed");
+        if(!views.owns(key,view)||epoch<=0||stopped||channel.current()==null||!channel.active(channel.current(),host.getUrl()))throw new IllegalStateException("upload_owner_changed");
+        if(!Arrays.asList("status","cancel","release").contains(action)&&(browserPaused||manual.contains(key)))throw new IllegalStateException("upload_owner_changed");
+        if(uploadCommand(key,id,view,request))return;
         if(!Arrays.asList("begin","chunk","seal","status","cancel","release").contains(action))throw new UnsupportedOperationException("upload_assignment_unsupported");
         // This path receives bytes only. A source ref, frame chain, chooser or
         // directory must not be mistaken for a verified Android grant target.
         MdoBrowserUploadQueue.Request queued;
         if("begin".equals(action)){
-            uploadFields(request,"action","upload_key","files","navigation","timeout_ms");
+            uploadFields(request,"action","upload_key","files","navigation","timeout_ms","document","ref","frame_chain");
             if(Boolean.TRUE.equals(loading.get(key))||!dialogReady(key,view))throw new IllegalStateException("upload_document_unavailable");
             if(uploadNumber(request,"navigation",1,9007199254740991L)!=epoch)throw new IllegalStateException("upload_owner_changed");
             long timeout=request.has("timeout_ms")?uploadNumber(request,"timeout_ms",1000,120000):60000;
@@ -82,15 +85,17 @@
             if(entry!=null)entry.scope.cancel();entry=new UploadEntry(view,epoch,uploadData(key,view));uploadOwners.put(key,entry);
         }
         final UploadEntry original=entry;final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
+        final Object reserved=reserveUploadTarget(key,entry,request,queued);
         if(uploads==null)uploads=MdoBrowserUploadRuntime.get(activity);
         if(!uploads.submit(entry.scope,queued,outcome->{
             if(!views.owns(key,view)||views.epoch(key,view)!=epoch||uploadOwners.get(key)!=original||!original.scope.live()){
                 reply(lease,id,null,"upload_owner_changed");return;
             }
             try{
+                boolean bound=uploadTargetReady(reserved,outcome);
                 MdoBrowserUploadStore.Snapshot value=outcome.value;
                 if(outcome.ok()&&value!=null&&!Arrays.asList("status","cancel","release").contains(action)&&android.os.SystemClock.elapsedRealtime()>=value.expires){reply(lease,id,null,"upload_expired");return;}
-                JSONObject result=new JSONObject().put("ok",outcome.ok()).put("staged_only",true).put("assignment_supported",false)
+                JSONObject result=new JSONObject().put("ok",outcome.ok()).put("staged_only",true).put("assignment_supported",bound)
                     .put("retained",false).put("effect_may_have_occurred",false).put("staging_may_have_changed",outcome.stagingMayHaveChanged);
                 if(!outcome.ok()){
                     JSONObject error=new JSONObject().put("code",outcome.code).put("effect_may_have_occurred",false);

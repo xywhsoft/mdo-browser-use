@@ -18,20 +18,22 @@ steps; E72 preserves an idle original connection for strictly scoped chooser
 metadata while ordinary operations remain fenced. E73 adds an internal UI
 coordinator joining the original native callback, file queue and fixed-world
 steps. E74 gives each physical native browser an independent file-data owner,
-retired on actual view destruction. The coordinator's product route is not yet
-wired; these foundations do not enable automatic assignment in the main interface.
+retired on actual view destruction. E75 wires the product target/ticket assignment
+route, saved receipts and retained status/cancel/release across input-scope loss.
+Product/provider qualification still gates this route; automatic assignment is
+not enabled in the main interface on the unqualified Android adapter.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E74)
+## Complete development host APK (E46/E75)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,391,105 bytes, SHA-256
-`3fcd7b9361f2464812426d41990f3707ecdf681f0182fb0ff670de6452aa4b2c`.
+Current APK: 6,395,201 bytes, SHA-256
+`d82fd3fb61f2a71119d9bce456259b70c8dd80713f82d07ac9a1b47165f504e0`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2651,3 +2653,68 @@ Next join actual assignment/target admission, ordinary-input fencing and retaine
 ticket status/release across transient scope loss. Automatic upload and Android
 automation/debug admission remain off; phone/provider/main-UI qualification stays
 deferred. No model calls, external pages, formal data changes or online release.
+
+### Product target/ticket assignment and retained controls (E75)
+
+The actual `browser-upload-assignment.inc.java` route now joins the native upload
+coordinator. A target-bound `begin` freezes the complete local ref/document/frame
+chain together with the original transient source, native channel and already
+bound marker. Reject caller JSON changes, target removal/addition on an existing
+source key and replacement bindings. The native worker still revalidates the
+actual graph/world/input and ancestors before any grant or assignment. Plain
+staging remains available without pretending to bind a target or grant files.
+Records/reservations stay bounded to 64 per physical browser.
+
+| Native operation | Ownership and lifetime |
+| --- | --- |
+| Target-bound begin | Freeze original target/source/channel/binding; no native picker or file grant yet. |
+| Assign | Exact saved target/ticket and live original scope; one coordinator per view, no effect replay. |
+| Repeated assign | Return only pending/saved original receipt; never reconnect, reopen or commit again. |
+| Status/cancel | Native historical record on the same physical view may outlive navigation/input/channel scope; cancellation keeps adopted data. |
+| Confirmed release | Use the saved native retention object, refuse a pending assignment, and permit idempotent release after scope loss. |
+| Physical view close | Retire the original data owner; old view events cannot affect a replacement. |
+
+Ordinary commands and the frame router are fenced while the private assignment
+is active. Native input invalidation cancels that exact operation. Navigation,
+stop, takeover and physical close remain valid cancellation paths. Snapshot
+records before native cancellation, which can synchronously reenter teardown.
+Queries expose `assignment_ok`/`assignment_error` separately from their own result;
+a historical failed assignment must not make successful status/release look like
+a failed query. Replies keep their original native channel/view provenance;
+a late status response cannot report itself as belonging to a new view.
+Receipts identify the original navigation and are marked `receipt_only`.
+
+Fix a confirmed deadline bug separately in commit `dc6766d`: the coordinator used
+elapsed realtime but started its native steps on `System.nanoTime`. Pass the same
+original clock to the native steps, so device suspend cannot renew their budget.
+The queued-worker-expiry regression fails against the previous code (check 340,
+`.mdo/E75-clock-before-fix.log`), then passes with no picker opening or file commit.
+This is controlled clock regression, not physical Doze qualification.
+
+The exact product-fragment/real JNI/CDP/frame/world/file-queue/native-callback-core
+gate passes 129 checks (`.mdo/E75-native-final.log`). It covers five frame routes,
+source/target mutation, duplicates, fencing, lost product replies, changed scopes,
+retained byte consumption after navigation/reconnect/expiry, explicit release,
+reentrant view teardown during native delivery and late metadata. Existing native
+gates and ASan/UBSan/API 26 compilation pass; coordinator 444 and read-only chooser
+continuation 357 pass. The separate staging-fragment gate stays 80. Android UI/
+DOM peers are controlled; this does not verify installed-framework/ContentProvider/
+renderer URI assignment. The old staging-only fixture explicitly stubs assignment
+hooks, and only the new combined fixture qualifies the actual product fragments.
+
+Initial logs preserve fixture agent/admission/cache/engine-initialization errors
+(`.mdo/E75-native-initial.log`, `.mdo/E75-native-review.log`) and the inaccurate
+busy reply found in `.mdo/E75-host-focused.log`. Use one unbound synthetic peer
+for the actual original host binding. Do not relax the native protocol grammar,
+product admission, original-binding requirement or deadlines to make these pass.
+Full SDK/D8/DEX/ABI/app/provider/alignment/signing passes
+`.mdo/E75-android-final.log` (current APK above). JS 319/319 and Python 167/169
+(two existing Windows symlink skips) pass `.mdo/E75-node-full.log` and
+`.mdo/E75-python-full.log`; the same service is restored.
+
+The global product/provider qualification remains false, so the main interface
+still cannot perform automatic Android assignment. No flag enables that gate.
+Intercepted-chooser mapping, clear/directory/download/profile/activation and actual
+provider/main-UI/URI delivery remain outstanding. Phone testing remains deferred;
+no provider/formal data changes, model calls, external page actions, extra copies
+or online release. The unchanged Windows executable and paired plugin are reused.
