@@ -17,12 +17,13 @@ E71 joins the original native frame/world verifier to fixed private picker
 steps; E72 preserves an idle original connection for strictly scoped chooser
 metadata while ordinary operations remain fenced. E73 adds an internal UI
 coordinator joining the original native callback, file queue and fixed-world
-steps. Its product route and physical browser data-owner lifecycle are not yet
-wired; it does not enable automatic assignment in the main interface.
+steps. E74 gives each physical native browser an independent file-data owner,
+retired on actual view destruction. The coordinator's product route is not yet
+wired; these foundations do not enable automatic assignment in the main interface.
 Automatic chooser assignment remains unavailable and these components do not
 enable automation.
 
-## Complete development host APK (E46/E73)
+## Complete development host APK (E46/E74)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -30,7 +31,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,391,105 bytes, SHA-256
-`eb672e409a00330c791ea0deee9ff732ca3810e48655a40b02ccbc70a31f57d2`.
+`3fcd7b9361f2464812426d41990f3707ecdf681f0182fb0ff670de6452aa4b2c`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. No account, Home, QA page or signing
@@ -2615,3 +2616,38 @@ Next implement the product route and physical data owner lifecycle, intercepted
 chooser mapping and outstanding platform qualification. Phone remains deferred,
 current provider/formal data unchanged, Android automation/debugging disabled.
 No model calls, external page actions, online release or extra app/Home copies.
+
+### Physical native browser owns retained file data (E74)
+
+The actual upload host now associates each exact WebView/browser generation with
+one native `RetentionOwner`, separate from every transient upload/document scope.
+Only the UI registry holds the view. The file worker receives a plain atomic
+lifetime flag and cannot retain an Activity, WebView, channel or controller.
+Navigation, input cancellation, channel loss and background cancellation of
+staging scopes do not close this owner or delete potentially consumed files.
+
+After the original physical view is destroyed, both the individual close/crash
+path and complete-host shutdown loop call exact-object retirement. It cancels
+remaining transient scopes, closes only that view's retained-data owner and lets
+the existing file worker reclaim files/quotas. A stale view close cannot revoke
+another view with the same browser key, and a fresh owner cannot revive old file
+leases. Limit the registry to eight physical views; reject aliasing and unretired
+key replacement. The original SDK close hooks compile in the actual mdo host.
+
+The exact production upload fragment with UI/JSON doubles and real file worker
+passes 80 checks (`.mdo/E74-upload-ui-initial.log`). A controlled native grant
+adopts actual file bytes under the host owner. Its original scope is cancelled,
+navigation rotates, and the next scope retains the same physical data owner.
+Actual file reads survive, foreign/stale retirement is harmless, exact physical
+retirement reclaims data, and a replacement view receives a distinct owner.
+This is not installed Android framework/private-context/URI qualification.
+
+All native transport/JVM/JNI/CDP/world/callback/coordinator gates, ASan/UBSan and
+API 26 compile pass `.mdo/E74-native-full.log`. Complete SDK/D8/DEX/native/app/
+provider/alignment/signature checks pass `.mdo/E74-android-build.log` (current APK
+above). JS 319/319 and Python 167/169 (two existing Windows symlink skips) pass
+`.mdo/E74-node-full.log`/`.mdo/E74-python-full.log`; restore the same service.
+Next join actual assignment/target admission, ordinary-input fencing and retained
+ticket status/release across transient scope loss. Automatic upload and Android
+automation/debug admission remain off; phone/provider/main-UI qualification stays
+deferred. No model calls, external pages, formal data changes or online release.

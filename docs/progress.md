@@ -6245,3 +6245,42 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Phone remains deferred by the user, preserving the current WebView/formal data.
   No model calls, external page operations, extra app/Home/source copies or
   online release.
+
+## E74 — tie retained files to the actual physical browser lifetime
+
+- Give each exact native WebView/browser generation a plain retained-file data
+  owner, independent of its transient upload scope. Navigation, dialog/input
+  cancellation, channel loss and background retirement of staging scopes keep
+  that data owner alive. Only the UI map holds the view; the worker sees the
+  existing native atomic lifetime flag. The registry is bounded to eight physical
+  views and rejects aliasing or a replacement view claiming an unretired key.
+- Wire exact physical retirement after native destruction in both the actual
+  single-view close/crash path and complete-host shutdown loop. Retire only the
+  original object, cancel its remaining transient scopes, close its data owner
+  and let the existing file worker perform bounded cleanup. A stale close event
+  cannot retire a new view reusing the browser key; a new owner cannot revive
+  old retained leases.
+- Extend the exact production upload-fragment/real-file-worker fixture from 39
+  to 80 checks (`.mdo/E74-upload-ui-initial.log`). Construct a controlled native
+  grant, adopt actual staged file bytes under the host's owner, cancel the scope,
+  rotate the navigation and verify the new scope shares the same data owner.
+  Actual file reads survive transient cancellation; foreign retirement and early
+  key reuse do not revoke them. Exact physical retirement releases files/quotas;
+  replacement owners, stale closes, aliasing and the eight-view bound are checked.
+  This uses UI/JSON doubles, not installed-framework/provider qualification.
+- Stop/apply/check the same host and rerun the native JVM/JNI/CDP/world/callback/
+  file-coordinator/transport gates plus ASan/UBSan/API 26 compile
+  (`.mdo/E74-native-full.log`). Full SDK/D8/DEX/ABI/payload/private-provider/
+  alignment/v2/v3 signing pass `.mdo/E74-android-build.log`: APK 6,391,105 bytes,
+  SHA-256 `3fcd7b9361f2464812426d41990f3707ecdf681f0182fb0ff670de6452aa4b2c`.
+  JS passes 319/319 in 22.324 s; Python 167/169 in 101.179 s with the same two
+  Windows symlink skips (`.mdo/E74-node-full.log`, `.mdo/E74-python-full.log`).
+  The same headless service is restored, HTTP 200; reuse Windows/plugin outputs.
+- Still wire the actual assignment route, original target/operation admission,
+  ordinary-input fencing and retained ticket status/release across scope loss.
+  The physical owner is ready but public upload flags and Android automation/
+  debugging remain disabled. Intercepted chooser mapping, Android downloads/
+  profile/activation/provider/main-UI and Windows realm/intermittent-input work
+  remain. Goal stays active. Phone/provider/formal data remain untouched per the
+  user's deferral. No model calls, external page operations, extra app/Home/source
+  copies or online release.

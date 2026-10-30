@@ -55,7 +55,7 @@
         MdoBrowserDialogTarget dialog=dialogs.remove(key);if(dialog!=null)dialog.close();
         CaptureEntry capture=captures.remove(key);if(capture!=null)capture.capture.close();
         MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
-        if(document!=null)document.close();root.removeView(view);view.destroy();
+        if(document!=null)document.close();root.removeView(view);view.destroy();retireUploadData(view);
         if(popup!=null)popup.viewDestroyed(view);
         if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
         if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();

@@ -1,9 +1,28 @@
     private static final class UploadEntry {
-        final WebView view;final MdoBrowserUploadStore.Scope scope;
-        UploadEntry(WebView view,long epoch){this.view=view;scope=new MdoBrowserUploadStore.Scope(epoch);}
+        final WebView view;final MdoBrowserUploadStore.Scope scope;final MdoBrowserUploadStore.RetentionOwner data;
+        UploadEntry(WebView view,long epoch,MdoBrowserUploadStore.RetentionOwner data){this.view=view;scope=new MdoBrowserUploadStore.Scope(epoch);this.data=data;}
+    }
+    // A transient document/channel scope must not own files already handed to
+    // the renderer. Keep the physical browser's native data owner independently.
+    // Only this UI map holds a WebView; the file worker receives its plain flag.
+    private static final class UploadDataEntry {
+        final WebView view;final MdoBrowserUploadStore.RetentionOwner owner=new MdoBrowserUploadStore.RetentionOwner();
+        UploadDataEntry(WebView view){this.view=view;}
     }
     private final Map<String,UploadEntry> uploadOwners=new HashMap<>();
+    private final Map<String,UploadDataEntry> uploadDataOwners=new HashMap<>();
     private MdoBrowserUploadQueue uploads;
+    private MdoBrowserUploadStore.RetentionOwner uploadData(String key,WebView view){
+        UploadDataEntry original=uploadDataOwners.get(key);
+        if(original!=null){if(original.view!=view||!original.owner.live())throw new IllegalStateException("upload_data_owner_changed");return original.owner;}
+        if(uploadDataOwners.size()>=8)throw new IllegalStateException("upload_data_owner_limit");
+        for(UploadDataEntry entry:uploadDataOwners.values())if(entry.view==view)throw new IllegalStateException("upload_data_owner_changed");
+        UploadDataEntry created=new UploadDataEntry(view);uploadDataOwners.put(key,created);return created.owner;
+    }
+    private void retireUploadData(WebView view){
+        for(Iterator<UploadEntry> at=uploadOwners.values().iterator();at.hasNext();){UploadEntry entry=at.next();if(entry.view==view){entry.scope.cancel();at.remove();}}
+        for(Iterator<UploadDataEntry> at=uploadDataOwners.values().iterator();at.hasNext();){UploadDataEntry entry=at.next();if(entry.view==view){entry.owner.close();at.remove();}}
+    }
     private void cancelUpload(String key){UploadEntry entry=uploadOwners.remove(key);if(entry!=null)entry.scope.cancel();}
     private void cancelUpload(String key,WebView expected){UploadEntry entry=uploadOwners.get(key);if(entry!=null&&entry.view==expected)cancelUpload(key);}
     private void cancelUploads(){for(UploadEntry entry:uploadOwners.values())entry.scope.cancel();uploadOwners.clear();}
@@ -60,7 +79,7 @@
         }
         UploadEntry entry=uploadOwners.get(key);
         if(entry==null||entry.view!=view||entry.scope.navigation!=epoch||!entry.scope.live()){
-            if(entry!=null)entry.scope.cancel();entry=new UploadEntry(view,epoch);uploadOwners.put(key,entry);
+            if(entry!=null)entry.scope.cancel();entry=new UploadEntry(view,epoch,uploadData(key,view));uploadOwners.put(key,entry);
         }
         final UploadEntry original=entry;final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
         if(uploads==null)uploads=MdoBrowserUploadRuntime.get(activity);

@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Actual native fragment with view/JSON/UI doubles and real worker/file I/O.
  * No Android framework/private Context/routing qualification is inferred. */
@@ -52,6 +53,42 @@ public final class AndroidUploadUiContractTest {
         Runnable task;while((task=main.poll())!=null)task.run();check(replies.size()==previous+1&&replies.get(previous).error==null);
         JSONObject result=(JSONObject)replies.get(previous).value;check(Boolean.TRUE.equals(result.get("ok")));return result;
     }
+    private MdoBrowserUploadQueue.Outcome nativeFile(MdoBrowserUploadQueue queue,MdoBrowserUploadStore.Scope scope,MdoBrowserUploadQueue.Request request,ConcurrentLinkedQueue<Runnable> main)throws Exception{
+        AtomicReference<MdoBrowserUploadQueue.Outcome> result=new AtomicReference<>();check(queue.submit(scope,request,result::set));
+        waitFor(()->!main.isEmpty());Runnable task;while((task=main.poll())!=null)task.run();check(result.get()!=null&&result.get().ok());return result.get();
+    }
+    private void retainedLifecycle(WebView view,MdoBrowserUploadQueue queue,ConcurrentLinkedQueue<Runnable> main)throws Exception{
+        JSONObject source=execute(view,begin("retained","native-data.bin",1,hash(new byte[]{0})),main);String ticket=(String)source.get("ticket");
+        execute(view,object("action","chunk","ticket",ticket,"navigation",1,"file",0,"offset",0,"base64","AA=="),main);
+        execute(view,object("action","seal","ticket",ticket,"navigation",1),main);
+        UploadEntry original=uploadOwners.get("owned");MdoBrowserUploadStore.RetentionOwner data=original.data;
+        MdoBrowserUploadStore.ReadLease reader=nativeFile(queue,original.scope,MdoBrowserUploadQueue.Request.access(ticket,0),main).reader;
+        // Controlled native grant, never public/caller URI authority. This tests
+        // the actual host's data owner with real retained file-worker state.
+        Object claim=new Object();check(reader.claimPicker(claim,1000));
+        MdoBrowserUploadStore.PickerGrant grant=MdoBrowserUploadStore.pickerGrant(new MdoBrowserUploadStore.ReadLease[]{reader},claim,1000);
+        MdoBrowserUploadStore.Retention retained=nativeFile(queue,original.scope,MdoBrowserUploadQueue.Request.retain(grant,data),main).retention;
+        check(retained.adopt());cancelUpload("owned",view);check(!original.scope.live()&&data.live());
+        views.epoch=2;execute(view,begin("next-document","empty",0,hash(new byte[0])).put("navigation",2),main);
+        check(uploadOwners.get("owned")!=original&&uploadOwners.get("owned").data==data);
+        cancelUploads();check(data.live()&&retained.live(122001));
+        AtomicReference<Throwable> failure=new AtomicReference<>();Thread read=new Thread(()->{try{check(Arrays.equals(new byte[]{0},queue.read(reader,0,1,5000)));}catch(Throwable error){failure.set(error);}},"retained-native-ui-file");
+        read.start();read.join(6000);check(!read.isAlive());if(failure.get()!=null)throw new AssertionError(failure.get());
+        retireUploadData(new WebView());check(data.live());
+        WebView replacement=new WebView();views.map.put("owned",replacement);
+        rejects("upload_data_owner_changed",()->executeUpload("owned","request",replacement,begin("foreign","empty",0,hash(new byte[0])).put("navigation",2)));
+        check(data.live());views.map.remove("owned");retireUploadData(view);check(!data.live());waitFor(()->queue.activeFiles()==0);
+        check(nativeFile(queue,original.scope,MdoBrowserUploadQueue.Request.retained(retained,false),main).retainedValue.cleanupConfirmed);
+        views.map.put("owned",replacement);views.epoch=1;
+        execute(replacement,begin("new-browser","empty",0,hash(new byte[0])),main);
+        check(uploadOwners.get("owned").data!=data&&uploadOwners.get("owned").data.live()&&!retained.live(1000));
+        rejects("upload_data_owner_changed",()->uploadData("alias",replacement));
+        List<WebView> extra=new ArrayList<>();for(int i=0;i<7;i++){WebView other=new WebView();extra.add(other);check(uploadData("other-"+i,other).live());}
+        rejects("upload_data_owner_limit",()->uploadData("ninth",new WebView()));
+        retireUploadData(view);check(uploadOwners.get("owned").data.live());
+        for(WebView other:extra)retireUploadData(other);retireUploadData(replacement);check(uploadDataOwners.isEmpty()&&uploadOwners.isEmpty());
+        waitFor(()->queue.activeFiles()==0);check(queue.reservedBytes()==0);
+    }
     private void run(Path root)throws Exception{
         Files.createDirectory(root);ConcurrentLinkedQueue<Runnable> main=new ConcurrentLinkedQueue<>();AtomicInteger opened=new AtomicInteger();
         MdoBrowserUploadQueue queue=new MdoBrowserUploadQueue(()->{opened.incrementAndGet();return new MdoBrowserUploadFiles(root);},task->{main.add(task);return true;},android.os.SystemClock::elapsedRealtime);
@@ -82,15 +119,16 @@ public final class AndroidUploadUiContractTest {
             // A queued result cannot silently bind to a replacement native
             // view that reused the same tab name and navigation number.
             int previous=replies.size();executeUpload("owned","request",view,begin("old","empty",0,hash(new byte[0])));
-            waitFor(()->!main.isEmpty());cancelUpload("owned",view);WebView replacement=new WebView();views.map.put("owned",replacement);
+            waitFor(()->!main.isEmpty());cancelUpload("owned",view);WebView replacement=new WebView();views.map.put("owned",replacement);retireUploadData(view);
             main.poll().run();check(replies.size()==previous+1&&"upload_owner_changed".equals(replies.get(previous).error));
             JSONObject current=execute(replacement,begin("current","empty",0,hash(new byte[0])),main);cancelUpload("owned",view);
             check(Boolean.TRUE.equals(execute(replacement,object("action","seal","ticket",current.get("ticket"),"navigation",1),main).get("sealed")));
             previous=replies.size();executeUpload("owned","request",replacement,object("action","status","ticket",current.get("ticket")));
             waitFor(()->!main.isEmpty());channel.attach(host.getUrl(),new WebMessagePort());main.poll().run();check(replies.size()==previous);
             cancelUploads();waitFor(()->queue.activeFiles()==0);check(queue.reservedBytes()==0);
+            retainedLifecycle(replacement,queue,main);
         }finally{
-            cancelUploads();queue.close();check(queue.awaitStopped(5000));Runnable task;while((task=main.poll())!=null)task.run();
+            cancelUploads();for(UploadDataEntry entry:new ArrayList<>(uploadDataOwners.values()))retireUploadData(entry.view);queue.close();check(queue.awaitStopped(5000));Runnable task;while((task=main.poll())!=null)task.run();
             check(queue.unfinishedDeliveries()==0);Files.delete(root);
         }
     }
