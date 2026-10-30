@@ -116,6 +116,11 @@ def main():
     if not binding.get('passed') or not binding.get('real_jvm_jni_json'):
         raise RuntimeError('The private native-view binding core gate did not pass')
     result['jvm_binding']=binding
+    network_binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpNetworkBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
+    if not network_binding.get('passed') or not network_binding.get('physical_scope_separate') or network_binding.get('provider_qualified') is not False or network_binding.get('product_downloads_activated') is not False:
+        raise RuntimeError('The private physical-network target proof gate did not pass')
+    result['jvm_network_binding']=network_binding
     registry=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpRegistryProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not registry.get('passed') or not registry.get('native_ui_calls_doubled'):

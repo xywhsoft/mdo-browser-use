@@ -51,6 +51,9 @@ public final class CdpBindingProbe {
                 public void admitChild(String child)throws IOException{session.admitChild(child);}
                 public void retireChild(String child)throws IOException{session.retireChild(child);}
                 public boolean poll(int wait)throws IOException{return session.poll(wait);}
+                public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
+                public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
+                public int pendingControls()throws IOException{return session.pendingControls();}
                 public void close(){session.close();}
             };
         }

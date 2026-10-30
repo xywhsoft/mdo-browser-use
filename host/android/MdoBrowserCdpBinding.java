@@ -26,6 +26,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         default void admitChild(String child)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default void retireChild(String child)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default boolean poll(int timeoutMs)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default int pendingControls()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
     interface Factory {Peer open(String target,int timeoutMs,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException;}
@@ -37,6 +40,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public void admitChild(String child)throws IOException{session.admitChild(child);}
                 public void retireChild(String child)throws IOException{session.retireChild(child);}
                 public boolean poll(int wait)throws IOException{return session.poll(wait);}
+                public MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException{return session.continuePausedRequest();}
+                public MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException{return session.abortPausedRequest();}
+                public int pendingControls()throws IOException{return session.pendingControls();}
                 public void close(){session.close();}
             };
         }catch(RuntimeException|Error failure){session.close();throw failure;}
@@ -76,9 +82,16 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     private static final class Contexts implements MdoBrowserCdpSession.Events {
         final Map<Integer,Context> contexts=new HashMap<>();final Set<Integer> seen=new HashSet<>();
         final Map<Integer,String> identities=new HashMap<>();
-        volatile boolean dirty;boolean unsupported;Context armed;volatile MdoBrowserCdpSession.Events forward;
+        volatile boolean dirty;boolean unsupported,network;Context armed;volatile MdoBrowserCdpSession.Events forward;
         public void event(String method,String session,JSONObject params) throws IOException {
             try {
+                if(network){
+                    // Ownership was proved before promotion on the original
+                    // connection. New document metadata grants no frame/world
+                    // authority and must not accumulate over a view lifetime.
+                    if("Inspector.detached".equals(method)||"Inspector.targetCrashed".equals(method)||"Inspector.targetReloadedAfterCrash".equals(method))dirty=true;
+                    MdoBrowserCdpSession.Events receiver=forward;if(receiver!=null)receiver.event(method,session,params);return;
+                }
                 if(session!=null){MdoBrowserCdpSession.Events childReceiver=forward;
                     if(childReceiver==null)throw problem("cdp_binding_context_invalid");childReceiver.event(method,session,params);return;}
                 if("Runtime.executionContextCreated".equals(method)) {
@@ -106,6 +119,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             }
             if(root==null)throw problem("cdp_binding_context_unsupported");armed=root;return root;
         }
+        void network(){network=true;armed=null;contexts.clear();identities.clear();seen.clear();}
     }
     private final Peer peer;private final MdoBrowserCdpMarker.Lease lease;private final Contexts contexts;
     private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;
@@ -121,8 +135,12 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         return bind(marker,timeoutMs,events,MdoBrowserCdpBinding::targets,NATIVE);
     }
     static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory) throws IOException {
+        return bind(marker,timeoutMs,events,targets,factory,false);
+    }
+    private static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory,boolean network) throws IOException {
         if(marker==null||events==null||targets==null||factory==null||timeoutMs<100||timeoutMs>15000)throw problem("cdp_binding_arguments_invalid");
         long started=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpMarker.Lease lease=marker.lease();
+        if(lease.physicalNetwork()!=network)throw problem("cdp_network_scope_invalid");
         if(lease.busy())throw problem("cdp_binding_busy");
         MdoBrowserCdpMarker.Ticket ticket=null;Peer peer=null;boolean success=false,cleanupAttempted=false;
         Context cleanupRoot=null;Contexts cleanupOwner=null;
@@ -171,6 +189,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 remaining(started,timeoutMs,lease);contexts.forward=events;
                 MdoBrowserCdpBinding bound=new MdoBrowserCdpBinding(peer,lease,contexts,root);
                 lease.transfer(peer,bound);
+                if(network)contexts.network();
                 ticket.close();success=true;return bound;
             }
             throw problem(unsupported?"cdp_binding_context_unsupported":"cdp_binding_target_not_found");
@@ -190,6 +209,42 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 if(ticket!=null)marker.discard(ticket);
             }
         }
+    }
+    /** A separate physical-view proof, never a promotion of an ordinary
+     * document binding. This private facade exposes no page/frame RPC. */
+    static Network bindNetwork(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events)throws IOException {
+        return bindNetwork(marker,timeoutMs,events,MdoBrowserCdpBinding::targets,NATIVE);
+    }
+    static Network bindNetwork(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory)throws IOException {
+        long start=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpBinding bound=bind(marker,timeoutMs,events,targets,factory,true);
+        try{
+            // Runtime metadata is only needed for the initial exact target
+            // proof. Stop its stream before a long-lived network connection.
+            bound.peer.call("Runtime.disable",new JSONObject(),remaining(start,timeoutMs,bound.lease));
+            bound.current();return new Network(bound);
+        }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
+    }
+    static final class Network implements AutoCloseable {
+        private final MdoBrowserCdpBinding bound;private boolean enableAttempted,enabled;
+        private Network(MdoBrowserCdpBinding bound){this.bound=bound;}
+        void enableResponses(int timeoutMs)throws IOException {
+            bound.current();if(enableAttempted)throw problem("cdp_network_enable_replayed");
+            if(timeoutMs<10||timeoutMs>5000)throw problem("cdp_arguments_invalid");
+            enableAttempted=true;
+            try{
+                JSONObject pattern=new JSONObject().put("urlPattern","*").put("requestStage","Response");
+                JSONObject params=new JSONObject().put("patterns",new JSONArray().put(pattern)).put("handleAuthRequests",false);
+                bound.call("Fetch.enable",params,null,timeoutMs,true);bound.current();enabled=true;
+            }catch(JSONException failure){bound.close();throw problem("cdp_network_arguments_invalid");}
+            catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
+        }
+        boolean poll(int timeoutMs)throws IOException {active();return bound.poll(timeoutMs);}
+        private void active()throws IOException {bound.current();if(!enabled)throw problem("cdp_network_not_enabled");}
+        private void control()throws IOException {bound.current();if(!enableAttempted)throw problem("cdp_network_not_enabled");}
+        MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {control();return bound.peer.continuePausedRequest();}
+        MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {control();return bound.peer.abortPausedRequest();}
+        int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
+        @Override public void close(){bound.close();}
     }
     private static Context match(Peer peer,Contexts contexts,MdoBrowserCdpMarker.Ticket ticket,long started,int timeout,MdoBrowserCdpMarker.Lease lease) throws IOException,JSONException {
         peer.call("Runtime.enable",new JSONObject(),remaining(started,timeout,lease));

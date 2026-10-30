@@ -2927,3 +2927,31 @@ manifest/DEX/alignment/v2-v3-signature verification passes
 `.mdo/E79-android-build.log`. Current source/builder/native/paired-plugin hashes
 match their receipts. The same headless service is restored; no installation,
 provider change, external page/model action or online publication was performed.
+
+## Separate physical-network target proof (E80a)
+
+Ordinary document execution still invalidates its lease on navigation. A native
+owner can separately construct a physical-network marker and prove the exact
+original target using the same independent native nonce/unique-context/cleanup/
+loader checks. It cannot upgrade an ordinary marker or expose frame execution.
+One proof attempt per physical marker prevents implicit reconnect/rebinding.
+
+After proof, the private facade disables Runtime metadata and discards its
+context maps; subsequent document contexts do not grant authority or accumulate
+over the view lifetime. Only a fixed response-stage Fetch enable, exact native
+paused-event controls and bounded event/ACK polling are exposed. Auth handling,
+arbitrary wire methods, caller targets and request/header/body rewriting are
+absent. A failed enable closes the connection without replay. Original-owner
+close, Inspector detach, renderer crash or post-crash reload retire it; a reused
+target ID is not permission to recover automatically.
+
+The exact Java/JSON/JNI gate passes 1,978 assertions, with controlled UI and
+protocol metadata peers, including document replacement and simultaneous native
+continuation ACKs during activation. Full original dispatcher/native-control/
+frame/world/upload/file-clear and ASan/UBSan/API 26 gates pass
+`.mdo/E80-native-current.log` with source-hashed `.mdo/E80-native-current.json`.
+This proves the private connection core only. The product still needs the
+physical-owner registry, initial-navigation barrier, persistent event pump,
+original body/store and accept/cancel joins. Closing a protocol connection alone
+is not proof that a paused response was denied. Actual provider/framework
+qualification and global Android automation remain false; the phone stays deferred.

@@ -12,6 +12,8 @@ import java.util.concurrent.atomic.AtomicReference;
 /** A fixed native housekeeping expression, not Agent/page-provided code. One
  * instance belongs to one exact UI view/document generation. Its owner must
  * close it before navigation, teardown, takeover or loss of host admission.
+ * A separately constructed physical-network marker survives document changes
+ * only under its native view owner's lifetime; it cannot grant frame/world use.
  * Only a thread-safe lease crosses to the protocol worker; callbacks retain
  * neither the native view nor its UI owner. */
 final class MdoBrowserCdpMarker implements AutoCloseable {
@@ -43,10 +45,12 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         private final AtomicBoolean live=new AtomicBoolean(true);
         private final AtomicReference<AutoCloseable> channel=new AtomicReference<>();
         Lease(MdoBrowserCdpMarker marker){owner=new WeakReference<>(marker);}
+        boolean physicalNetwork(){MdoBrowserCdpMarker marker=owner.get();return marker!=null&&marker.network;}
         boolean current(){return live.get()&&owner.get()!=null;}
         boolean busy(){return channel.get()!=null;}
         boolean worldName()throws IOException {
             MdoBrowserCdpMarker marker=owner.get();if(!current()||marker==null)throw new IOException("cdp_binding_owner_changed");
+            if(marker.network)throw new IOException("cdp_network_scope_invalid");
             boolean admitted=marker.document.world();if(!current())throw new IOException("cdp_binding_owner_changed");return admitted;
         }
         void track(AutoCloseable next) throws IOException {
@@ -144,17 +148,26 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         }
     }
     private final Ui ui;private volatile View view;private final Budget budget;private final DocumentQuota document;
+    private final boolean network;private final AtomicBoolean networkRequested=new AtomicBoolean();
     private final Lease lease;private final AtomicReference<Ticket> active=new AtomicReference<>();
     MdoBrowserCdpMarker(Ui ui,View view,Budget budget) {
         this(ui,view,budget,new DocumentQuota());
     }
     MdoBrowserCdpMarker(Ui ui,View view,Budget budget,DocumentQuota document) {
-        if(ui==null||view==null||budget==null||document==null||!ui.onThread())throw new IllegalArgumentException("Marker requires its owning UI thread");
-        this.ui=ui;this.view=view;this.budget=budget;this.document=document;lease=new Lease(this);
+        this(ui,view,budget,document,false);
     }
+    private MdoBrowserCdpMarker(Ui ui,View view,Budget budget,DocumentQuota document,boolean network) {
+        if(ui==null||view==null||budget==null||document==null||!ui.onThread())throw new IllegalArgumentException("Marker requires its owning UI thread");
+        this.ui=ui;this.view=view;this.budget=budget;this.document=document;this.network=network;lease=new Lease(this);
+    }
+    /** Native physical owner only: close on view replacement/destruction,
+     * renderer loss, takeover or host admission loss, not ordinary navigation.
+     * One proof attempt; never upgrade/reuse a document marker for networking. */
+    static MdoBrowserCdpMarker network(Ui ui,View view,Budget budget,DocumentQuota document){return new MdoBrowserCdpMarker(ui,view,budget,document,true);}
     Lease lease(){return lease;}
     Ticket request() throws IOException {
         if(!lease.current())throw new IOException("cdp_binding_owner_changed");
+        if(network&&!networkRequested.compareAndSet(false,true))throw new IOException("cdp_network_rebind_forbidden");
         Ticket ticket=new Ticket(this);
         if(!active.compareAndSet(null,ticket))throw new IOException("cdp_binding_busy");
         try {

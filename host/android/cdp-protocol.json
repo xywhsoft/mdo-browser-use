@@ -206,6 +206,24 @@
     "framework_calls_doubled_in_jvm_gate": true,
     "provider_verified": false
   },
+  "physical_network_binding": {
+    "state": "private_proof_and_fixed_protocol_facade_not_host_routed",
+    "marker_scope": "distinct_native_physical_view_owner_never_document_scope_upgrade",
+    "initial_proof": "same_native_nonce_callback_unique_context_and_exact_original_connection",
+    "proof_attempts_per_marker": 1,
+    "ordinary_frame_or_world_execution": false,
+    "post_proof_runtime_metadata": "disable_and_do_not_accumulate_new_document_context_ids",
+    "document_navigation": "retains_only_original_physical_connection_not_document_authority",
+    "renderer_or_inspector_loss": "retire_without_reconnect_or_replay",
+    "native_owner_close": "closes_original_connection_from_ui_thread",
+    "response_interception_enable": "fixed_response_pattern_once_no_auth_handling",
+    "paused_controls": "original_frozen_event_only",
+    "arbitrary_cdp_or_target_selectors": false,
+    "product_event_pump": false,
+    "original_body_storage": false,
+    "product_downloads_activated": false,
+    "installed_provider_verified": false
+  },
   "async_dispatch": {
     "state": "private_dispatch_and_lifecycle_hooks_packaged",
     "persistent_worker_threads": 1,

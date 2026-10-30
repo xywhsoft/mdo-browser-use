@@ -7174,3 +7174,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Preserve the deferred phone/current provider and formal data; Android overall
   automation remains disabled. No device install, runtime dependency or online
   release is introduced by this packaging phase.
+
+## E80a — prove a distinct physical-view network connection
+
+- A document-scoped binding deliberately dies at navigation and cannot own an
+  original download response across that navigation. Add a separately created
+  native physical-network marker, not an upgrade of an existing document marker.
+  Use the same native callback/independent nonce/unique-context negative probe,
+  original context value, cleanup and stable-root-loader proof before retaining
+  the exact original connection. One proof attempt per physical marker; failed
+  or closed connections cannot silently rebind that marker to another response.
+- Ordinary frame binding refuses the network marker; network binding refuses a
+  document marker, and its lease cannot reserve execution-world names. Expose
+  only a private network facade: fixed one-time response-stage `Fetch.enable`
+  without auth interception, exact paused-event continue/abort and bounded poll/
+  pending-control observation. No caller-selected target or arbitrary page/frame
+  RPC is added. Disable Runtime metadata after proof and discard its document
+  maps instead of accumulating recycled IDs over the physical view lifetime.
+- Navigation/context replacement no longer grants or erases network ownership.
+  Inspector detach, renderer crash/reload, original native-owner close and lost
+  lease retire the original connection with no automatic reconnect/replay.
+  A failed/uncertain Fetch enable is never repeated. The native physical owner
+  must close this lease on takeover, host admission loss, renderer/view retirement
+  or replacement; this private core is not yet routed into the product lifecycle.
+- Actual production marker/adapter/binder/dispatcher/strict JSON/JNI gate passes
+  1,978 assertions with controlled UI/metadata peers, including 300 document
+  context replacements per continuation/abort path, source proof failures,
+  activation failure, ACKs during activation, foreign-source traffic and native
+  owner close (`.mdo/E80-native-current.log`/`.mdo/E80-native-current.json`).
+  Existing eight local dispatcher sessions, six native flow-control sessions,
+  full frame/world/upload/file-clear, ASan/UBSan and API 26 gates pass as well.
+  Every recorded source hash matches. These are not installed-provider results.
+- Goal active. Finish the product physical-owner registry and event pump before
+  initial navigation, original-response classification/body storage and retained
+  accept/cancel integration. Preserve the user-deferred phone/current provider.
+  This phase has not yet changed the E79 APK or deployed source; package after
+  validation. No model, external page, device install, formal data or publication.
