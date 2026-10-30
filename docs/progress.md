@@ -7605,3 +7605,39 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   text transport handling and actual provider/main-UI qualification remain open.
   Phone and WebView update stay deferred. No install, formal data edit, extra
   application/Home/source copy, actual model/external page action or publication.
+
+## E86a — cache original download bytes with independent integrity proof
+
+- Reuse the existing directory-relative upload backend, exclusive process lease,
+  replacement checks and bounded crash inventory. Downloads have a distinct
+  owner/header/leaf purpose, 64 MiB per file, 128 MiB reserved payload and 32
+  leaves. Reserve the native maximum before writing; shrink only after sealing.
+  Never infer success from an orphan's immutable pending header.
+- Add worker-confined download writers: hash the original chunks, flush and hash
+  the actual writable file, reopen read-only through the pinned directory and
+  hash again. Withhold hash/reads until these agree. This proves storage only;
+  product completion must also require the exact original BodyResult success,
+  EOF, IO.close and Fetch.failRequest receipts. The file/protocol worker join is
+  still open, and product download interception remains disabled.
+- Fix leased CREATE_NEW/path replacement admission in the shared backend. Read
+  back its unique header before confirming file identity; failed admission cannot
+  unlink a replacement merely because attributes were sampled from that path.
+  Failed cleanup preserves its slot/byte reservation for later inspection.
+- Actual filesystem gate passes 63 checks, including original-byte readback,
+  quota/slot limits, empty/binary data, tampering, replacement preservation,
+  foreign inventory, abrupt child-JVM recovery and both upload/download creation
+  races (`.mdo/E86-download-files.log`). Current upload regression passes
+  63 primitive, 161 recovery, 99 queue and 318 native-read checks. These are
+  Linux/JVM filesystem proofs, not Android UID/cache/provider qualification.
+- Full JNI/protocol/worker/frame/world/input/upload/clear/ASan/UBSan/API26 gates
+  pass (`.mdo/E86-native-final.log`, `.mdo/E86-native-current.json`); all recorded
+  hashes match. Python passes 173/175 in 52.012 s, with only the two existing
+  Windows symlink-privilege skips (`.mdo/E86-python-full.log`). Seven APK contracts
+  are included. Overlay composes 115 files; Android builders now require actual
+  DownloadFiles/Writer/Failure DEX definitions. E85 APK remains the last built
+  output until current assembly completes.
+- Goal active. File-worker/body coordination, native cache authority, exact
+  navigation/download ownership, list/accept/cancel/read/save, unsupported text
+  handling and real provider/main-UI qualification remain open. Phone/provider
+  update remain deferred; no install, model/external-page action, formal data
+  edit, app/Home/source copy or publication.

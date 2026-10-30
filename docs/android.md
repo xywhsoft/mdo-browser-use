@@ -3202,3 +3202,35 @@ can complete before that old reply while preserving source/receipt ownership.
 Full current native/worker/frame/world/upload/clear gates and seven APK contracts
 pass. Cache/product joins and installed-provider/main-UI qualification remain
 unfinished; overall automation stays disabled.
+
+
+## Original-byte download storage (E86a)
+
+`MdoBrowserDownloadFiles` reuses the pinned-directory upload backend with a
+separate native purpose, lease, owner marker and immutable pending leaf header.
+Limits are 64 MiB/file, 128 MiB reserved payload and 32 leaves. The native maximum
+is reserved before creation; successful sealing shrinks its charge to actual
+bytes. Crash recovery validates the whole bounded inventory first and accounts
+physical payload bytes; unknown entries are preserved before any deletion.
+
+The file worker supplies ordered original chunks. An incremental source SHA-256
+must agree with independent flushed-descriptor and reopened-read-only hashes.
+Only sealed writers provide hashes or range reads. A successful file seal is
+not network completion: the product coordinator must also require the original
+BodyResult success, EOF and both cleanup acknowledgements. No filename, path or
+source digest is accepted from a webpage. Native Context/UID authority and the
+body/file-worker/product join remain outstanding, so Android automation stays
+disabled.
+
+The shared leased-file creator now reopens and verifies its unique original
+header before admitting the file identity. Merely sampling a fileKey after
+CREATE_NEW is insufficient if the pathname was replaced. An unproven replacement
+is retained with its reservation; cleanup cannot unlink the foreign file.
+
+`tools/android_download_files_probe.py` exercises actual directory-relative I/O,
+63 assertions and abrupt child-JVM recovery in the existing reusable QA output.
+It covers both upload/download replacement races, tampering, budgets, zero-byte
+completion, unknown inventory and ownership/thread boundaries. Current upload
+primitive/recovery/queue/read regressions and the full native gate also pass.
+Android private-cache/framework/provider qualification remains false; these
+Linux/JVM filesystem results do not qualify the installed WebView or main UI.
