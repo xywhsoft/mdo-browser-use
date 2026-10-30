@@ -6970,3 +6970,28 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - Goal active. Next join failure teardown in the actual product create path,
   then package the reviewed Android source. No phone/provider/online/model or
   external page changes. Android global automation admission remains disabled.
+
+## E78b — give product creation one native retirement owner
+
+- The actual automation `bindDocument` failure path destroyed its WebView and
+  removed the lifecycle binding, then the surrounding create failure handler
+  destroyed that same original view again. Move native retirement to that outer
+  owner, which already tears down input, document, capture/dialog/popup and file
+  ownership together. Keep the original profile refusal and do not load a page
+  or silently fall back to a manual/default profile.
+- Add a bounded, project-owned exact-fragment JVM gate: inject the real create,
+  binding and close/destroy methods, run the real lifecycle/input/wheel cores,
+  and control only the UI/provider/data peers. The actual prior product methods
+  fail the double-destruction assertion (`.mdo/E78-create-red.log`). Early fixture
+  syntax/dependency errors are preserved separately (`.mdo/E78-create-initial.log`,
+  `.mdo/E78-create-compiled.log`), not attributed to the product.
+- 28 checks pass (`.mdo/E78-create-fixed.log`): original profile failure retires
+  exactly once; input setup, settings, attach, bounds, load and reply failures
+  leave no active bindings; manual unsupported-world browsing still works;
+  reattachment does not reload and deferred popup adoption preserves its exact
+  native child. Published source hashes identify the injected methods. This is
+  controlled Java 8 execution, not installed Android/framework qualification.
+- Goal active. Next fence new native creation if original teardown itself fails,
+  rather than treating an erased UI map entry as confirmed native release. Then
+  package E78 with all source/build receipts. E77 APK unchanged for now; phone,
+  WebView/provider, formal data and online release remain untouched.

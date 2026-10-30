@@ -34,7 +34,10 @@
             documents.put(key,document);
         }catch(MdoBrowserWorld.Failure failure){
             documentFailures.put(key,failure.code);
-            if(automation){views.remove(key);documentFailures.remove(key);view.destroy();throw new UnsupportedOperationException(failure.code);}
+            // The create route owns the one native retirement attempt. Keep
+            // this exact view registered until its failure handler tears down
+            // input, document and transfer state together; never destroy here.
+            if(automation)throw new UnsupportedOperationException(failure.code);
         }
     }
     private boolean closeDocument(String key){
