@@ -208,7 +208,7 @@
     "provider_verified": false
   },
   "physical_network_binding": {
-    "state": "private_proof_and_fixed_protocol_facade_not_host_routed",
+    "state": "physical_view_startup_routed_admission_disabled",
     "marker_scope": "distinct_native_physical_view_owner_never_document_scope_upgrade",
     "initial_proof": "same_native_nonce_callback_unique_context_and_exact_original_connection",
     "proof_attempts_per_marker": 1,
@@ -220,7 +220,7 @@
     "response_interception_enable": "fixed_response_pattern_once_no_auth_handling",
     "paused_controls": "original_frozen_event_only",
     "arbitrary_cdp_or_target_selectors": false,
-    "product_event_pump": false,
+    "product_event_pump": true,
     "original_body_storage": false,
     "product_downloads_activated": false,
     "installed_provider_verified": false
@@ -239,7 +239,7 @@
     "installed_framework_verified": false
   },
   "cooperative_network_owners": {
-    "state": "private_shared_worker_and_pump_not_product_routed",
+    "state": "product_network_lifecycle_joined_admission_disabled",
     "persistent_protocol_threads": 1,
     "physical_owners_including_pending_ui_results": 8,
     "ordinary_jobs_including_pending_ui_results": 8,
@@ -257,6 +257,36 @@
     "caller_runs_or_reconnect": false,
     "downloads_activated": false,
     "installed_provider_verified": false
+  },
+  "product_network_startup": {
+    "state": "integrated_unqualified_global_admission_disabled",
+    "owner": [
+      "exact_native_view",
+      "confirmed_profile_document",
+      "original_host_channel"
+    ],
+    "initial_document": "owned_about_blank_before_target_request",
+    "ready_proof": [
+      "observed_warmup_epoch",
+      "current_native_url_still_blank",
+      "original_native_binding",
+      "response_enable_and_inline_control_acknowledged"
+    ],
+    "startup_timeout_ms": 15000,
+    "cleanup_observation_timeout_ms": 5000,
+    "target_navigation": "at_most_once_after_ready_never_replayed_on_error_or_late_callback",
+    "failed_target_dispatch": "retain_original_view_and_navigation_uncertainty",
+    "unsent_failure": "retire_original_view_only_after_protocol_cleanup_confirmed",
+    "host_loss_or_takeover": "revoke_atomic_worker_authority_before_drain",
+    "unknown_cleanup": "sticky_creation_and_close_receipt_fence",
+    "cleanup_observation_expiry": "retain_pending_capacity_without_poisoning_host; original_terminal_result_still_required",
+    "late_confirmed_cleanup": "reclaim_only_unsent_uncreated_view_never_rewrite_original_receipt",
+    "structured_failure": "bounded_reason_and_native_create_uncertainty_receipt_forwarded_to_shared_agent_result",
+    "response_body_retention": false,
+    "automatic_rearm": false,
+    "managed_popup_network_qualified": false,
+    "initial_download_interception_advertised": false,
+    "provider_qualified": false
   },
   "frame_graph": {
     "state": "private_metadata_graph_and_session_routing_packaged",

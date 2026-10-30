@@ -1,6 +1,8 @@
             if("create".equals(command)) {
                 nativeCreationAdmission();
+                final boolean networkRequired=request.optBoolean("automation")||request.optBoolean("intercept_downloads");
                 if(web!=null){
+                    networkAttach(key,web,networkRequired);
                     PopupLink link=popupLinks.get(key);
                     if(request.has("popup")&&(link==null||link.view!=web||!link.id.equals(request.optString("popup"))||!link.opener.equals(request.optString("opener"))))
                         throw new IllegalStateException("popup_binding_mismatch");
@@ -13,12 +15,13 @@
                     MdoBrowserPopups.Snapshot pending=popupSource==null?null:popupSource.snapshot();
                     if(opener.equals(key)||pending==null||!pending.id.equals(popupId))throw new IllegalStateException("popup_request_unavailable");
                 }else if(!opener.isEmpty())throw new IllegalArgumentException("popup_binding_mismatch");
+                if(popupSource!=null&&networkRequired)throw new UnsupportedOperationException("popup_network_unqualified");
                 if(views.size()>=8)throw new IllegalStateException("Native browser view limit reached (8)");
                 String target=popupSource==null?request.optString("url","about:blank"):"about:blank";if(!"about:blank".equals(target))target=url(target);
                 web=new WebView(activity);final WebView createdView=web;
                 try{
                     views.put(key,web);
-                    if(popupSource==null)bindDocument(key,web,request.optBoolean("automation"));
+                    if(popupSource==null)bindDocument(key,web,networkRequired);
                     else documentFailures.put(key,"popup_world_unqualified");
                     web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);
                     web.getSettings().setAllowFileAccess(false);web.getSettings().setAllowContentAccess(false);
@@ -28,8 +31,8 @@
                     bindDialogs(key,web);
                     web.setWebViewClient(new WebViewClient(){
                         @Override public void onScaleChanged(WebView view,float oldScale,float newScale){if(views.owns(key,view))cancelCapture(key);views.scaleChanged(key,view,newScale);}
-                        @Override public void onPageStarted(WebView view,String address,Bitmap icon){if(!views.owns(key,view))return;documentNavigation(key,view);if(!views.navigation(key,view))return;loading.put(key,true);errors.remove(key);errorCodes.remove(key);locations.put(key,address);}
-                        @Override public void onPageFinished(WebView view,String address){if(views.owns(key,view)){loading.put(key,false);documentLoaded(key,view);}}
+                        @Override public void onPageStarted(WebView view,String address,Bitmap icon){if(!views.owns(key,view))return;documentNavigation(key,view);if(!views.navigation(key,view))return;loading.put(key,true);errors.remove(key);errorCodes.remove(key);locations.put(key,address);networkNavigation(key,view,address);}
+                        @Override public void onPageFinished(WebView view,String address){if(views.owns(key,view)){documentLoaded(key,view);if(!networkLoaded(key,view,address))loading.put(key,false);}}
                         @Override public void onReceivedError(WebView view,WebResourceRequest navigation,WebResourceError error){
                             if(views.owns(key,view)&&navigation.isForMainFrame()){cancelNavigationRequest(key,view);loading.put(key,false);errors.put(key,error.getDescription().toString());errorCodes.put(key,error.getErrorCode());}
                         }
@@ -56,7 +59,8 @@
                             try{reply(lease,id,new JSONObject().put("created",true).put("popup_attached",true),null);}
                             catch(JSONException error){reply(lease,id,null,"popup_result_invalid");}
                         });
-                    }else{web.loadUrl(target);reply(id,new JSONObject().put("created",true),null);}
+                    }else if(networkRequired){networkBegin(key,web,id,target);}
+                    else{web.loadUrl(target);reply(id,new JSONObject().put("created",true),null);}
                 }catch(RuntimeException|JSONException|OutOfMemoryError failure){
                     // Once a transport may have been sent, preserve its exact
                     // child until consumption/explicit close. Never reload a URL.

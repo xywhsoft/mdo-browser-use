@@ -26,7 +26,7 @@ WORK=dev.ENV/'host/android-program'
 OUTPUT=ROOT/'dist/mdo-browser-use-dev-android-arm64-v8a.apk'
 PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
-HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
+HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoBrowser$NetworkEntry','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpJson','MdoBrowserCdpSession',
               'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult',
               'MdoBrowserCdpMarker','MdoBrowserCdpView','MdoBrowserCdpBinding','MdoBrowserCdpBinding$Network','MdoBrowserCdpRegistry','MdoBrowserCdpWorker',

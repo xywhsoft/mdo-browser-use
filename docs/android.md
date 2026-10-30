@@ -3020,3 +3020,36 @@ No installation, provider update, formal data change, model/external page action
 or online publication. Product view/profile registration, pre-navigation barrier
 and original-response/body/store/accept/cancel still need integration; global
 Android automation and provider/framework qualification remain false.
+
+## Product physical ownership and first-navigation barrier (E82a)
+
+The reviewed create route now registers the exact native view, confirmed managed
+profile document and original host channel before the initial target is sent.
+It loads an owned blank document, checks its observed epoch/native URL, starts
+the original native binding and waits for enable/control acknowledgements. Only
+then does it dispatch the target once. Pending creation cannot navigate another
+URL. Duplicate ready and changed channel/epoch/URL never reload. Manual browsing
+keeps its existing path; an existing manual view cannot become an intercepted
+Agent view by reattachment. Managed popup transport remains unqualified.
+
+Takeover revokes atomic worker authority before chooser/world cancellation.
+Channel/background loss, initial stop, native close and destruction are joined
+to the same entry; normal document navigation preserves physical ownership.
+Protocol drain and view destruction release separate resources. In-progress
+retirement fences new view creation and close confirmation. Observation expiry
+alone keeps that pending reservation; it is not an irreversible native cleanup
+fault. An authoritative late drain can reclaim an unsent startup view without
+changing its old uncertain receipt. Actual unconfirmed native close stays a
+sticky fault. Created blank views and possibly sent target requests are retained.
+
+The shared C/JS action path receives a bounded native_create failure receipt with
+created/navigation uncertainty and protocol/view cleanup flags. Canonical native
+protocol reasons survive; provider strings do not. Invalid receipts remain
+uncertain. UI guidance distinguishes clean failure before a URL from uncertain
+navigation and never automatically retries. Product-fragment tests pass 138
+assertions with controlled UI/provider peers; full JS and native-core gates pass
+the E82 logs recorded in progress. These do not qualify an installed provider.
+Overall Android automation and initial-download-interception admission stay off.
+The response callback currently continues original responses; body retention,
+download storage/accept/cancel, explicit rearm and managed popup networking still
+need implementation/qualification before activation.

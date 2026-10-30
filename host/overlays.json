@@ -1380,6 +1380,32 @@
       "before": "    private JSONObject browserUseSupport;",
       "after_file": "host/android/browser-upload-assignment.inc.java",
       "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private boolean nativeViewCleanupFailed;",
+      "after_file": "host/android/browser-network.inc.java",
+      "suffix": "    private boolean nativeViewCleanupFailed;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "            if(\"bounds\".equals(command)){",
+      "after": "            networkCommand(key,web,command,request.optBoolean(\"agent\"));\n            if(\"bounds\".equals(command)){"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "else if(\"stop\".equals(command)){cancelPopup(key);cancelDialog(key);cancelCapture(key);views.stop(key,web);",
+      "after": "else if(\"stop\".equals(command)){networkStop(key,web);cancelPopup(key);cancelDialog(key);cancelCapture(key);views.stop(key,web);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"native_view_retiring\",nativeRetiringViews.size()),null);return;}",
+      "after": ".put(\"native_view_retiring\",nativeRetiringViews.size()).put(\"network_cleanup_failed\",networkCleanupFailed).put(\"network_retiring\",networkRetiring()),null);return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "manualChooser.cancel(web);MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.MANUAL,",
+      "after": "if(\"takeover\".equals(command))networkRetire(key,web,\"network_user_takeover\");manualChooser.cancel(web);MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.MANUAL,"
     }
   ],
   "files": [

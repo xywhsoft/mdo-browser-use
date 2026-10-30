@@ -5,7 +5,12 @@ if(['observe','act','navigate_to','wait_for','dialog','chooser','capture','uploa
   if(isRemoteTarget()&&browser.url&&['localhost','127.0.0.1','[::1]'].includes(new URL(browser.url).hostname))throw new Error('目标设备的本地网址需要预览服务映射');
   try{await ensureNativeBrowser({bridge,sdk:caller,browser,clientId,requireDownloads:true,requireAutomation:true,
     alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:'local'),bounds:{x:0,y:0,width:1024,height:768,scale:1}});}
-  catch(error){if(error.code==='unsupported_capability')return{ok:false,action:action.id,error:{code:error.code,message:error.message,capability_reason:error.capability_reason,effect_may_have_occurred:false}};throw error;}
+  catch(error){
+    if(error.code==='unsupported_capability')return{ok:false,action:action.id,error:{code:error.code,message:error.message,capability_reason:error.capability_reason,effect_may_have_occurred:false}};
+    if(error.code==='native_create_failed')return{ok:false,action:action.id,error:{code:error.code,message:error.message,creation_reason:error.creation_reason,
+      native_create:error.native_create,effect_may_have_occurred:error.effect_may_have_occurred===true}};
+    throw error;
+  }
   browserViews.set(id,{row:browser,execute:(operation,parameters={})=>bridge.call(operation,{browser:id,...parameters})});
 }
 if (command === "act" || command === "navigate_to" || command === "capture" || command === "upload" && ["set","clear"].includes(params.action)) {

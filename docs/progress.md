@@ -7328,3 +7328,48 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and retained accept/cancel still require integration and qualification. Phone
   deferred/current WebView retained; no device install, formal data change,
   model/external page action or online release.
+
+## E82a — join physical ownership to product creation and native lifecycle
+
+- Add the reviewed product network fragment: bind exact view, confirmed profile
+  document and original host channel, with at most eight physical entries. Agent/
+  interception creation confirms the managed profile first, loads only the owned
+  blank document, observes its epoch/current native URL and waits for original
+  binding/response-enable/control ACKs before sending the target URL at most once.
+  Pending startup refuses competing navigation; manual creation keeps its old
+  path. Existing manual views cannot be silently upgraded. Managed popup network
+  adoption remains explicitly unqualified, rather than bypassing first-response
+  interception. Global automation/interception capability admission stays false.
+- Join navigation, close/destruction, host channel/background loss, stop during
+  startup and takeover. Revoke atomic worker admission before chooser/world/input
+  cancellation callbacks. Ordinary document navigation retains the same physical
+  source. Duplicate ready, stale channel/epoch/URL, cancellation and late callbacks
+  never reissue a URL. View destruction and original protocol drain jointly release
+  the original entry/quota; pending cleanup fences new creation and close receipts.
+- Failed pre-navigation startup retires only the original view after confirmed
+  protocol cleanup. An uncertain target dispatch preserves that view and carries
+  a structured native_create receipt. The shared JS create/reveal path forwards
+  bounded canonical reasons and exact navigation uncertainty; malformed receipts
+  remain uncertain. Guidance distinguishes a clean unsent failure from a possibly
+  sent navigation, without provider text or an automatic retry.
+- A new controlled time-delay reproduction caught a permanently poisoned host
+  after cleanup observation exceeded five seconds (`.mdo/E82-cleanup-observation-red.log`).
+  Keep pending capacity after observation expiry; authoritative late cleanup can
+  reclaim an unsent view and allow a later explicit creation, while the original
+  uncertain receipt remains unchanged. Actual failed/unconfirmed native cleanup
+  still keeps its sticky fault. Ready blank views and possibly sent targets are
+  not discarded by this delayed cleanup path.
+- Exact product create/bind/close/network/takeover fragments with real lifecycle/
+  input cores pass 138 assertions (`.mdo/E82-create-network-final.log`,
+  `.mdo/E82-create-current.json`). UI/provider/protocol peers are controlled.
+  Full JS 333/333 in 19.252 s (`.mdo/E82-node-current.log`), plus final receipt
+  guidance tests; actual core/JSON/JNI/kernel/worker/frame/world/upload/clear/
+  ASan/UBSan/API 26 gates pass `.mdo/E82-native-current.log`/`.json`. All recorded
+  input hashes match. The 113-file overlay plan composes without writes.
+- Goal active. Build and exercise the updated app archive because shared create
+  handling changed, then compile the complete APK and public gates. Original
+  response classification/body/cache/accept/cancel, explicit rearm/recovery and
+  managed popup network qualification remain unfinished; current private response
+  events pass through on their original connection. No new runtime dependency,
+  app/Home/source copy, device/provider update, model/external page call, formal
+  data edit or publication. Preserve the deferred phone/current WebView.

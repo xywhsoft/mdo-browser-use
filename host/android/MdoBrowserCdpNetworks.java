@@ -51,6 +51,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         if(found==null)return;found.cancel();if(executor.remove(found))found.finish("cdp_network_cancelled");else schedule();
     }
     int pending(){thread();int count=0;synchronized(gate){for(Slot slot:slots)if(slot!=null)count++;}return count;}
+    boolean pending(MdoBrowserCdpMarker.Lease lease){thread();synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease)return true;}return false;}
     private void schedule(){
         if(closed.get())return;boolean needed=false;
         synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.stage==READY){needed=true;break;}}

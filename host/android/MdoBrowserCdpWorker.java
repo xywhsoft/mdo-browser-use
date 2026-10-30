@@ -62,6 +62,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     }
     void cancelNetwork(MdoBrowserCdpMarker.Lease lease){thread();networks.cancel(lease);}
     int networkPending(){thread();return networks.pending();}
+    boolean networkPending(MdoBrowserCdpMarker marker){thread();return marker!=null&&networks.pending(marker.lease());}
     private static Ui framework(){
         Handler handler=new Handler(Looper.getMainLooper());return new Ui(){
             public boolean onThread(){return Looper.myLooper()==Looper.getMainLooper();}

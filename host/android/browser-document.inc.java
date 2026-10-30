@@ -4,6 +4,8 @@
         if(stopped)throw new IllegalStateException("native_browser_closed");
         if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
         if(!nativeRetiringViews.isEmpty())throw new IllegalStateException("native_view_retirement_busy");
+        if(networkCleanupFailed)throw new IllegalStateException("network_cleanup_failed");
+        if(networkRetiring()!=0)throw new IllegalStateException("native_view_retirement_busy");
     }
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
@@ -48,6 +50,7 @@
         }
     }
     private boolean closeDocument(String key){
+        WebView networkView=views.get(key);if(networkView!=null)networkRetire(key,networkView,"network_document_closed");
         WebView owned=views.get(key);if(owned!=null)cdpViews.invalidate(key,owned,views.epoch(key,owned),"input_cancelled");
         MdoBrowserPopups<WebView> popup=windows.get(key);if(popup!=null)popup.close();
         navigationRequests.remove(key);
@@ -56,13 +59,13 @@
         MdoBrowserDocument document=documents.remove(key);
         documentFailures.remove(key);
         if(document!=null)document.close();
-        return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&(document==null||document.cleanupConfirmed())&&(dialog==null||dialog.dialogs.clean())&&chooserClean(dialog);
+        return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&networkClean()&&(document==null||document.cleanupConfirmed())&&(dialog==null||dialog.dialogs.clean())&&chooserClean(dialog);
     }
     private boolean closeAndDestroyDocument(String key,WebView view){
         boolean reserved=false;
         try{
             if(!nativeRetiringViews.add(view))return false;reserved=true;
-            long epoch=views.epoch(key,view);cancelUpload(key,view);
+            long epoch=views.epoch(key,view);networkRetire(key,view,"network_view_closed");cancelUpload(key,view);
             if(views.owns(key,view))views.remove(key);
             cdpViews.invalidate(key,view,epoch,"input_closed");
             MdoBrowserPopups<WebView> popup=windows.remove(key);if(popup!=null)popup.close();
@@ -76,7 +79,8 @@
             if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
             if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
             if(document!=null)document.viewDestroyed(view);
-            boolean clean=document==null||document.cleanupConfirmed();if(!clean)nativeViewCleanupFailed=true;return clean;
+            networkDestroyed(key,view);
+            boolean clean=document==null||document.cleanupConfirmed();if(!clean)nativeViewCleanupFailed=true;return clean&&networkClean();
         }catch(RuntimeException|Error failure){nativeViewCleanupFailed=true;throw failure;}
         finally{if(reserved)nativeRetiringViews.remove(view);}
     }
@@ -93,6 +97,7 @@
         MdoBrowserDocument document=documents.get(key);if(document!=null)document.loaded();
     }
     private void blockDocuments(int reason,boolean value){
+        if(value)networkRetireAll("network_host_admission_lost");
         if(value)cdpViews.invalidateAll();
         if(value)cancelCaptures();
         for(MdoBrowserDocument document:new ArrayList<>(documents.values()))document.block(reason,value);
@@ -106,7 +111,7 @@
             .put("native_view_cleanup_failed",nativeViewCleanupFailed).put("native_view_retiring",nativeRetiringViews.size())
             .put("native_document",document==null||document.identity()==null?JSONObject.NULL:document.identity())
             .put("adapter","android-main-document-v1")
-            .put("profile_isolation",document!=null&&document.profileAssigned());
+            .put("profile_isolation",document!=null&&document.profileAssigned()).put("network",networkState(key));
     }
     private void documentFailure(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String identity,long epoch,String code,boolean sent){
         try{reply(lease,id,new JSONObject().put("ok",false).put("native_document",identity==null?JSONObject.NULL:identity).put("navigation",epoch)

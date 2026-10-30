@@ -25,7 +25,11 @@ def main():
     overlay=dev.ROOT/'host/overlays.json'
     closes=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before')=='if(web!=null){views.remove(key);root.removeView(web);web.destroy();}']
     if len(closes)!=1:raise RuntimeError('Expected the exact reviewed native close-command route')
+    takeovers=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('manualChooser.cancel(web);MdoBrowserDocument document=')]
+    if len(takeovers)!=1:raise RuntimeError('Expected original network revocation before takeover cancellation')
     fragments={
+        '@@NETWORK_TAKEOVER_PREFIX@@':takeovers[0],
+        '@@NETWORK@@':(dev.ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8'),
         '@@CLOSE_COMMAND@@':closes[0],
         '@@CREATION_GUARD@@':document[document.index('    private boolean nativeViewCleanupFailed'):document.index('    private final Map<String,MdoBrowserDocument>')],
         '@@CAPABILITIES@@':capability[capability.index('    JSONObject capabilities()'):capability.index('    void automationAdmission')],
@@ -41,8 +45,14 @@ def main():
     mocks={
         'android/os/Build.java':'package android.os; public final class Build {public static class VERSION {public static int SDK_INT=35;}}',
         'android/os/Looper.java':'package android.os; public final class Looper {public static Looper getMainLooper(){return null;}}',
-        'android/os/Handler.java':'package android.os; public final class Handler {public Handler(Looper ignored){}public boolean postDelayed(Runnable task,long delay){return true;}public void removeCallbacks(Runnable task){}}',
-        'android/os/SystemClock.java':'package android.os; public final class SystemClock {public static long uptimeMillis(){return 100;}}',
+        'android/os/Handler.java':'''package android.os; import java.util.*; public final class Handler {
+            public static boolean fail;private static final Map<Runnable,Long> tasks=new LinkedHashMap<>();public Handler(Looper ignored){}
+            public boolean postDelayed(Runnable task,long delay){if(fail)return false;tasks.put(task,SystemClock.elapsedRealtime()+delay);return true;}
+            public void removeCallbacks(Runnable task){tasks.remove(task);}public static void reset(){tasks.clear();fail=false;SystemClock.now=100;}
+            public static void tick(){for(Map.Entry<Runnable,Long> row:new ArrayList<>(tasks.entrySet()))if(row.getValue()<=SystemClock.now&&tasks.remove(row.getKey())!=null)row.getKey().run();}
+            public static int pending(){return tasks.size();}}
+        ''',
+        'android/os/SystemClock.java':'package android.os; public final class SystemClock {public static long now=100;public static long uptimeMillis(){return now;}public static long elapsedRealtime(){return now;}}',
         'android/net/http/SslError.java':'package android.net.http; public final class SslError {public int getPrimaryError(){return 1;}}',
     }
     paths=[]
@@ -56,7 +66,7 @@ def main():
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*map(linux,paths)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidCreateContractTest'],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     result=json.loads(run.stdout);result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
-        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
+        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
 

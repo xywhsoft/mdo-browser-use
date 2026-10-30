@@ -24,3 +24,27 @@ test('unsupported provider reaches the shared UI receipt without creating or rev
     assert.deepEqual(calls,['browser.get','capabilities']);assert.equal(browserViews.size,0);
   }
 });
+
+test('failed native startup preserves navigation uncertainty and never exposes a browser view',async()=>{
+  for(const mayHaveNavigated of [false,true]){
+    const calls=[],browserViews=new Map();
+    const native_create={created_may_have_occurred:true,navigation_may_have_occurred:mayHaveNavigated,network_cleanup_confirmed:true,view_cleanup_confirmed:!mayHaveNavigated};
+    const result=await reveal({command:'act',id:'tab',params:{op:'click'},action:{id:'original-action',context:{}},browserViews,clientId:'android',
+      api:{bind(){return{async call(method){calls.push(method);return{id:'tab',url:'https://fixture.invalid/'};}};}},
+      bridge:{async call(method){calls.push(method);return method==='capabilities'?{browser_use:{available:true},initial_download_interception:true}:
+        {ok:false,created:false,error:{code:mayHaveNavigated?'network_navigation_uncertain':'network_start_timeout',message:'private-provider-detail'},native_create};}}
+    });
+    assert.equal(result.ok,false);assert.equal(result.error.code,'native_create_failed');assert.equal(result.error.effect_may_have_occurred,mayHaveNavigated);
+    assert.deepEqual(result.error.native_create,native_create);assert.equal(browserViews.size,0);assert(!JSON.stringify(result).includes('private-provider-detail'));
+    assert.equal(result.error.message.includes('原标签'),mayHaveNavigated);assert.equal(result.error.message.includes('已清理'),!mayHaveNavigated);
+    assert.deepEqual(calls,['browser.get','capabilities','create']);
+  }
+});
+
+test('malformed native creation receipts remain uncertain and sanitize error details',async()=>{
+  for(const native_create of [undefined,{}, {navigation_may_have_occurred:false}]){
+    await assert.rejects(ensureNativeBrowser({browser:{id:'tab'},clientId:'android',sdk:{},bridge:{async call(){return{ok:false,error:{code:'private URL https://example.invalid/'},native_create};}}}),
+      error=>error.code==='native_create_failed'&&error.creation_reason==='native_create_result_invalid'&&error.effect_may_have_occurred===true&&
+        error.native_create.network_cleanup_confirmed===false&&Object.isFrozen(error.native_create));
+  }
+});
