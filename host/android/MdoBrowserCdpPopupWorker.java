@@ -101,7 +101,7 @@ final class MdoBrowserCdpPopupWorker {
         Job job=new Job(lease,timeout,events,nativeSource);
         synchronized(gate){int index=-1;for(int i=0;i<jobs.length;i++){
             if(jobs[i]!=null&&jobs[i].lease==lease)throw new IOException("cdp_popup_prepare_busy");if(jobs[i]==null)index=i;
-        }if(index<0)throw new IOException("cdp_popup_prepare_limit");if(nativeSource!=null){nativeSource.claim(lease);try{nativeSource.retainUiOwner();job.retirement=nativeSource.retirement();job.request.retirement=job.retirement;job.retirement.onDelivered(job.retirementDelivered);}catch(IOException|RuntimeException|Error error){nativeSource.abandon();throw error;}}jobs[index]=job;active.incrementAndGet();}
+        }if(index<0)throw new IOException("cdp_popup_prepare_limit");if(nativeSource!=null){nativeSource.claim(lease);try{nativeSource.retainUiOwner();job.retirement=nativeSource.retirement();job.request.retirement=job.retirement;job.retirement.onDelivered(job.retirementDelivered);job.retirement.onQuiescence(job.nativeQuiescence);}catch(IOException|RuntimeException|Error error){nativeSource.abandon();throw error;}}jobs[index]=job;active.incrementAndGet();}
         try{executor.execute(job);}catch(RejectedExecutionException error){remove(job);active.decrementAndGet();if(nativeSource!=null)nativeSource.abandon();throw new IOException("cdp_worker_unavailable");}
         catch(RuntimeException|Error error){remove(job);active.decrementAndGet();if(nativeSource!=null)nativeSource.abandon();throw error;}
         return job.request;
@@ -190,6 +190,8 @@ final class MdoBrowserCdpPopupWorker {
         final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;final Request request;
         final MdoBrowserCdpPopupNative nativeSource;volatile boolean nativeCancelRequested;long cancelBorn;private boolean nativeStopDelivered;
         private MdoBrowserCdpPopupNative.Retirement retirement;
+        final Runnable nativeQuiescence=this::quiesceNative;
+        private void quiesceNative(){request.cancelled.set(true);nativeCancelRequested=true;post();wake.run();}
         final Runnable retirementDelivered=this::retirementDelivered;
         private void retirementDelivered(){
             thread();synchronized(this){if(stage!=TERMINAL||events!=null||delivering||terminalDelivered)return;terminalDelivered=true;}
@@ -214,8 +216,9 @@ final class MdoBrowserCdpPopupWorker {
             try{
                 remaining();if(poisoned!=null)throw new IOException(poisoned);
                 MdoBrowserCdpBinding.Network original=source.resolve(lease);remaining();
-                if(broker==null)broker=factory.create(()->!closed.get(),clock);
+                if(broker==null){broker=factory.create(()->!closed.get(),clock);if(broker!=null)broker.guardNativeClose();}
                 if(broker==null)throw new IOException("cdp_popup_broker_connection_invalid");
+                if(retirement!=null)broker.retainNative(retirement);
                 registration=broker.register(original);if(!broker.armed())broker.arm(remaining());
                 remaining();synchronized(this){if(stage==TERMINAL)return;stage=READY;request.result.set(new Result(true,false,null,enabled(),false,false));}post();
             }catch(IOException error){
@@ -254,7 +257,7 @@ final class MdoBrowserCdpPopupWorker {
             try{
                 if(nativeSource!=null&&value!=null&&value.ready&&!request.cancelled.get()&&stage==READY&&(retirement==null||!retirement.current()||!retirement.belongsTo(nativeSource)||!nativeSource.ready())){request.cancelled.set(true);value=null;wake.run();}
                 if(nativeSource!=null&&stage==READY&&(retirement==null||!retirement.belongsTo(nativeSource)||!nativeSource.current())){request.cancelled.set(true);wake.run();}
-                if(value!=null&&value.terminal&&retirement!=null)retirement.deliver();
+                if(retirement!=null&&(value!=null&&value.terminal||retirement.quiescenceRequested())){retirement.deliver();if(retirement.quiescenceDelivered())nativeStopDelivered=true;}
                 else if(nativeCancelRequested&&!nativeStopDelivered&&retirement!=null){nativeStopDelivered=true;retirement.rejectOriginal();wake.run();}
                 if(value!=null&&(value.terminal||!request.cancelled.get()&&lease.current()&&stage==READY)){
                     if(action!=null)action.state(value);

@@ -17,7 +17,7 @@ final class MdoBrowserCdpPopupNative {
     private static final UiRetention[] UI_OWNERS=new UiRetention[8];
     static boolean creationConfirmed(){return !CREATION_UNCERTAIN.get();}
     static int retainedUiOwners(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null)count++;return count;}
-    static int pendingRetirements(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null&&owner.retirement.requested.get()&&!owner.retirement.delivered.get())count++;return count;}
+    static int pendingRetirements(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null&&owner.retirement.pending())count++;return count;}
     static void reconcileRetirements(){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.retirement.deliver();}
     static void viewDestroyed(WebView exact){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.destroyed(exact);}
     private static boolean destructionAllowed(WebView exact){
@@ -50,20 +50,63 @@ final class MdoBrowserCdpPopupNative {
             if(owner.source.view.get()==exact&&owner.rootDestruction==destruction){if(owner.source.scope==owner.scope)owner.source.reject();owner.sweep();}
         }
     }
+    /** One original browser wire and at most eight data-only native barriers.
+     * All permits are revoked before any UI notification. Retaining the wire
+     * cannot retain a session, broker, worker, listener or SDK/UI owner. */
+    static final class CloseGate implements MdoBrowserCdpSession.CloseBarrier {
+        private final Retirement[] owners=new Retirement[8];
+        private WeakReference<MdoBrowserCdpSession.Wire> wire=new WeakReference<>(null);
+        private MdoBrowserCdpSession.WireCancellation cancellation;private boolean stopping,attempted,complete,failed;
+        @Override public synchronized void bind(MdoBrowserCdpSession.Wire original,MdoBrowserCdpSession.WireCancellation cancel)throws IOException {
+            if(stopping||cancellation!=null||original==null||cancel==null)throw new IOException("cdp_popup_close_scope_invalid");
+            wire=new WeakReference<>(original);cancellation=cancel;
+        }
+        synchronized void add(Retirement original)throws IOException {
+            if(stopping||original==null)throw new IOException("cdp_popup_close_scope_invalid");int slot=-1;
+            for(int i=0;i<owners.length;i++){if(owners[i]==original)return;if(owners[i]==null||owners[i].nativeSettled.get())slot=i;}
+            if(slot<0)throw new IOException("cdp_popup_close_owner_limit");
+            if(!original.closeGate.compareAndSet(null,this))throw new IOException("cdp_popup_close_scope_invalid");owners[slot]=original;
+        }
+        @Override public void close(MdoBrowserCdpSession.Wire original){
+            synchronized(this){
+                if(original==null||wire.get()!=original)throw new IllegalStateException("Native popup transport changed");if(stopping)return;stopping=true;
+                for(Retirement owner:owners)if(owner!=null&&!owner.nativeSettled.get())owner.quiesceRequested.set(true);
+            }
+            for(Retirement owner:owners)if(owner!=null&&!owner.nativeSettled.get())owner.notifyQuiescence();settled();
+        }
+        void settled(){
+            MdoBrowserCdpSession.WireCancellation original;
+            synchronized(this){if(!stopping||attempted)return;for(Retirement owner:owners)if(owner!=null&&!owner.nativeSettled.get())return;attempted=true;original=cancellation;}
+            try{original.close();synchronized(this){complete=true;cancellation=null;}}
+            catch(RuntimeException|Error failure){synchronized(this){failed=true;}CREATION_UNCERTAIN.set(true);}
+        }
+        synchronized boolean pending(){return stopping&&!attempted;}
+        synchronized boolean complete(){return complete;}
+        synchronized boolean failed(){return failed;}
+    }
     /** Worker-visible cancellation intent. It carries only a weak link to its
      * original UI record, never a core, host, view or replacement claim. */
     static final class Retirement {
         private final WeakReference<UiRetention> owner;
         private final MdoBrowserPopups.Scope scope;
         private final AtomicBoolean requested=new AtomicBoolean(),delivered=new AtomicBoolean();
+        private final AtomicBoolean quiesceRequested=new AtomicBoolean(),quiesceDelivered=new AtomicBoolean(),nativeSettled=new AtomicBoolean();
+        private final AtomicReference<CloseGate> closeGate=new AtomicReference<>();
         private WeakReference<Runnable> notification=new WeakReference<>(null);
+        private WeakReference<Runnable> quiescenceNotification=new WeakReference<>(null);
         private boolean releaseAllowed;
         private Retirement(UiRetention owner){this.owner=new WeakReference<>(owner);scope=owner.scope;}
         synchronized void request(boolean released){if(!requested.get()){releaseAllowed=released;requested.set(true);}}
-        boolean pending(){return requested.get()&&!delivered.get();}
-        boolean current(){return creationConfirmed()&&!requested.get()&&scope.current();}
+        boolean pending(){return requested.get()&&!delivered.get()||quiesceRequested.get()&&!quiesceDelivered.get();}
+        boolean current(){return creationConfirmed()&&!requested.get()&&!quiesceRequested.get()&&scope.current();}
+        boolean quiescenceRequested(){return quiesceRequested.get();}
+        boolean quiescenceDelivered(){return quiesceDelivered.get();}
         boolean belongsTo(MdoBrowserCdpPopupNative source){return source!=null&&source.scope==scope;}
         void onDelivered(Runnable callback){thread();if(callback==null||requested.get()||delivered.get()||notification.get()!=null)throw new IllegalStateException("Native retirement notification is already bound");notification=new WeakReference<>(callback);}
+        void onQuiescence(Runnable callback){thread();if(callback==null||quiesceRequested.get()||quiescenceNotification.get()!=null)throw new IllegalStateException("Native quiescence notification is already bound");quiescenceNotification=new WeakReference<>(callback);}
+        private void notifyQuiescence(){Runnable callback=quiescenceNotification.get();if(callback!=null)try{callback.run();}catch(RuntimeException|Error ignored){/* UI recovery can reconcile the original record */}}
+        private void settled(){nativeSettled.set(true);CloseGate original=closeGate.get();if(original!=null)original.settled();}
+        private void failed(UiRetention original){CREATION_UNCERTAIN.set(true);if(original.source.scope==original.scope&&original.source.failure==null)original.source.failure="cdp_popup_native_retirement_unconfirmed";}
         private void notifyDelivered(){Runnable callback=notification.get();notification.clear();if(callback!=null)try{callback.run();}catch(RuntimeException|Error ignored){/* native retirement is independent of observer bookkeeping */}}
         void rejectOriginal()throws IOException {
             thread();UiRetention original=owner.get();if(original==null||original.released)return;
@@ -75,12 +118,17 @@ final class MdoBrowserCdpPopupNative {
             }
         }
         void deliver(){
-            thread();if(!requested.get()||!delivered.compareAndSet(false,true))return;
+            thread();
+            if(quiesceRequested.get()&&quiesceDelivered.compareAndSet(false,true)){
+                UiRetention original=owner.get();if(original==null||original.released)settled();
+                else try{rejectOriginal();original.sweep();}catch(IOException|RuntimeException|Error failure){failed(original);}
+            }
+            if(!requested.get()||!delivered.compareAndSet(false,true))return;
             UiRetention original=owner.get();if(original==null||original.released){notifyDelivered();return;}
             try{
-                rejectOriginal();if(original.source.scope==original.scope)original.source.finish(releaseAllowed);
+                if(!quiesceDelivered.get())rejectOriginal();if(original.source.scope==original.scope)original.source.finish(releaseAllowed);
             }catch(IOException|RuntimeException|Error failure){
-                CREATION_UNCERTAIN.set(true);if(original.source.scope==original.scope&&original.source.failure==null)original.source.failure="cdp_popup_native_retirement_unconfirmed";
+                failed(original);
             }finally{try{original.ending();}finally{notifyDelivered();}}
         }
     }
@@ -98,7 +146,7 @@ final class MdoBrowserCdpPopupNative {
             sweep();
         }
         void sweep(){
-            if(released||!ending||sweeping)return;sweeping=true;
+            if(released||!ending&&!retirement.quiesceDelivered.get()||sweeping)return;sweeping=true;
             try{
                 for(Created child:book.constructions)if(child!=null&&child.construction!=null&&child.construction.destroyed())try{child.close();}catch(IOException error){/* no false physical release */}
                 if(core.protocolHasObligations(scope))return;
@@ -109,6 +157,7 @@ final class MdoBrowserCdpPopupNative {
                     catch(RuntimeException|Error error){rootFailed=true;CREATION_UNCERTAIN.set(true);if(source.failure==null)source.failure="cdp_popup_native_owner_cleanup_unconfirmed";return;}
                 }
                 for(Created child:book.constructions)if(child!=null)return;
+                retirement.settled();if(!ending)return;
                 core.releaseProtocolUi(scope);released=true;for(int i=0;i<UI_OWNERS.length;i++)if(UI_OWNERS[i]==this)UI_OWNERS[i]=null;
                 if(book.retention.get()==this)book.retention.clear();if(source.retention.get()==this)source.retention.clear();
             }finally{sweeping=false;}

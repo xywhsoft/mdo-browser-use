@@ -35,6 +35,27 @@ public final class CdpNativeProbe {
         byte[] bytes=("{\"webSocketDebuggerUrl\":\"ws://localhost"+path+"\"}").getBytes(StandardCharsets.US_ASCII);
         try{return MdoBrowserCdpNative.browserEndpointFromJson(bytes);}finally{Arrays.fill(bytes,(byte)0);}
     }
+    private static void nativeCloseJoin(ExecutorService worker)throws Exception {
+        android.webkit.WebView view=new android.webkit.WebView();MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);
+        MdoBrowserPopups<android.webkit.WebView> core=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){public long now(){return 0;}public void at(Runnable task,long at){}public void remove(Runnable task){}},budget,()->true,()->1L,value->{});
+        MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
+        MdoBrowserCdpPopupNative source=new MdoBrowserCdpPopupNative(adapter,view,core);source.claim(adapter.marker().lease());source.retainUiOwner();check(source.ready());
+        MdoBrowserCdpPopupNative.Retirement retirement=source.retirement();MdoBrowserCdpPopupNative.CloseGate gate=new MdoBrowserCdpPopupNative.CloseGate();gate.add(retirement);
+        final Runnable[] consumed={null};final int[] sends={0};check(core.open(new MdoBrowserPopups.Transport<android.webkit.WebView>(){
+            public Object token(){return this;}public void send(android.webkit.WebView child,Runnable ack){check(child==null);sends[0]++;consumed[0]=ack;}
+        },false));
+        MdoBrowserCdpNative.Channel channel=null;
+        try{
+            start(51);channel=on(worker,()->MdoBrowserCdpNative.openBrowser(endpoint("/devtools/browser"),1000));final MdoBrowserCdpNative.Channel original=channel;
+            MdoBrowserCdpSession session=on(worker,()->{MdoBrowserCdpSession opened=MdoBrowserCdpSession.ownedBrowser(original,()->true,(m,s,p)->{},()->0L);opened.deferPopupClose(gate);return opened;});
+            Future<?> reading=worker.submit(()->{try{failure("cdp_session_closed",()->original.receive(5000));}catch(Exception error){throw new RuntimeException(error);}});
+            awaitRead();session.close();check(gate.pending()&&!gate.complete()&&sends[0]==0&&!reading.isDone());
+            MdoBrowserCdpPopupNative.reconcileRetirements();check(sends[0]==1&&gate.pending()&&!reading.isDone()&&budget.used()==1);
+            retirement.request(true);retirement.deliver();consumed[0].run();reading.get(2,TimeUnit.SECONDS);
+            check(gate.complete()&&!gate.pending()&&!gate.failed()&&budget.used()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+            consumed[0].run();session.close();check(finish()==1);
+        }finally{if(channel!=null)channel.close();core.close();core.viewDestroyed(view);adapter.close();view.destroy();}
+    }
     public static void main(String[] ignored) throws Exception {
         Looper.getMainLooper();System.loadLibrary("xs");
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.open("test-001",100));
@@ -43,6 +64,7 @@ public final class CdpNativeProbe {
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.openBrowser(null,100));
         ExecutorService worker=Executors.newSingleThreadExecutor();
         try {
+            nativeCloseJoin(worker);
             start(48);on(worker,()->{
                 check(MdoBrowserCdpNative.browserEndpoint(1000).path.equals("/devtools/browser/00000000-0000-4000-8000-000000000001"));return null;
             });check(finish()==1);
@@ -96,12 +118,14 @@ public final class CdpNativeProbe {
             check(finish()==(1+(3<<8)));
             for(int cycle=0;cycle<24;cycle++) {
                 boolean browser=cycle>=16;start(browser?51:3);MdoBrowserCdpNative.Channel channel=on(worker,()->browser?MdoBrowserCdpNative.openBrowser(endpoint("/devtools/browser"),1000):MdoBrowserCdpNative.open("test-001",1000));
+                MdoBrowserCdpSession.WireCancellation cancellation=channel.cancellation();java.lang.reflect.Field[] fields=cancellation.getClass().getDeclaredFields();
+                check(cancellation==channel.cancellation()&&fields.length==1&&fields[0].getType()==java.util.concurrent.atomic.AtomicLong.class&&java.lang.reflect.Modifier.isFinal(fields[0].getModifiers()));
                 failure("cdp_requires_background_thread",()->channel.receive(10));
                 ExecutorService wrong=Executors.newSingleThreadExecutor();
                 try {on(wrong,()->{failure("cdp_wrong_worker",()->channel.receive(10));return null;});}
                 finally {wrong.shutdownNow();check(wrong.awaitTermination(2,TimeUnit.SECONDS));}
                 Future<?> reading=worker.submit(()->{try {failure("cdp_session_closed",()->channel.receive(5000));}catch(Exception error){throw new RuntimeException(error);}});
-                awaitRead();long started=System.nanoTime();channel.close();channel.close();
+                awaitRead();long started=System.nanoTime();if(cycle%2==0)channel.close();else cancellation.close();cancellation.close();channel.close();
                 reading.get(2,TimeUnit.SECONDS);check(System.nanoTime()-started<TimeUnit.SECONDS.toNanos(1));
                 on(worker,()->{failure("cdp_session_closed",()->channel.send(new byte[]{'x'},100));return null;});
                 check(finish()==1);
@@ -128,6 +152,6 @@ public final class CdpNativeProbe {
                 return null;
             });check(finish()==1);
         } finally {worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"read_only_browser_discovery\":true,\"browser_transport\":true,\"android_looper_doubled\":true,\"cancel_cycles\":24,\"browser_cancel_cycles\":8,\"android_device_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"read_only_browser_discovery\":true,\"browser_transport\":true,\"android_looper_doubled\":true,\"native_popup_close_join\":true,\"cancel_cycles\":24,\"browser_cancel_cycles\":8,\"data_only_cancel_cycles\":12,\"data_only_browser_cancel_cycles\":4,\"android_device_qualified\":false}");
     }
 }

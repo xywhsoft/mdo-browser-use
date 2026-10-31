@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E133:** reproduce browser-session failure closing its wire before
+  native rejection. Bind an eight-owner original-scope close barrier before
+  commands; revoke all permits before notifications and wait for every registered
+  native Message/task-owned child. Retain only weak wire identity and a
+  preallocated atomic cancellation handle, with no worker/session/SDK graph.
+  Eight new modes pass 256 assertions; fresh native passes 123 inputs,
+  77 modes/2,719 checks, controller 342 and actual JNI 264 including the real
+  blocked-read/native-consumption join. Product 789, saving 47, Python 173/175 and
+  twenty actual APK class/method definitions pass. Full product coordination,
+  child-session/promotion/body routing and process/provider qualification remain
+  open; phone/WebView deferral is preserved.
 - **Android E132:** reproduce retained native UI ownership after rejected result
   delivery and worker termination. Publish immutable original-scope retirement
   intent independently of listeners; reconcile on existing UI delivery, resume
@@ -10728,3 +10739,68 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   delivery audit. Public protected Android popup admission and provider/framework/
   automation qualification stay false; unavailable isolated worlds do not permit
   a main-world Agent fallback.
+
+### E133 — native quiescence before local browser-wire cancellation
+
+- Reproduce an order defect beneath the shared worker: an invalid browser event
+  triggers Session.close before the upper failure handler reaches native cleanup.
+  Two original native Messages are still unconsumed when the old browser wire
+  closes. Preserve E133-transport-before.log (check 12) and E133-before.json;
+  bind all four original production hashes to the verified E132 native snapshot.
+- Install one browser-session close barrier before its first protocol command.
+  Register each original native retirement before opener registration/arming.
+  Revoke all affected allocation/proof permits before any weak UI notification.
+  Logical close immediately revokes protocol authority; requested local browser
+  wire cancellation waits for every registered original Message and owned child.
+  UI recovery continues through existing delivery/resume/creation hooks. A real
+  renderer/socket failure is not reversed, and unknown cleanup remains fenced.
+- Add a bounded eight-owner gate that reuses settled slots only, preserves exact
+  original binding and tolerates reentrant/duplicate close without replay. Separate
+  quiescence delivery from terminal release permission, so preparatory rejection
+  cannot freeze a false terminal permission or prevent a later known clean source
+  release. Native capacity stays charged until actual consumption/destruction;
+  timeout, worker exit, one sibling's ACK or listener loss is not enough.
+- Ownership review found that retaining the Wire would also retain Channel's
+  owner Thread. Preallocate a concrete CancelHandle before native open; it shares
+  only the AtomicLong handle. Bind this cancellation credential and a weak wire
+  identity before any command. Late native ACK uses the existing nonblocking
+  cancellation primitive, without UI send/receive or another thread/timer. Preserve
+  the separate existing reader/worker-exit barrier. Cancellation failure fences
+  further native creation; no automatic retry and no terminal-result upgrade.
+- Eight new shared-worker scenarios pass 256 checks: internal failure, shutdown,
+  UI delivery loss, elapsed timeout, sent child, failed physical destruction,
+  reentrant close and cancellation failure. Native-controller checks cover all
+  permits revoked before the first callback, weak notification failure, exact/
+  duplicate binding and sixteen sequential actions through reusable slots.
+  Actual JVM/JNI checks exercise twelve data-only cancellations (four browser
+  cycles), plus a joint original native popup -> actual blocked browser read ->
+  cancellation -> balanced native resource release. No extra product executor.
+- Final E133-native.log passes 123 source hashes, ASan/UBSan/API26/JVM/JNI,
+  77 worker modes/2,719 assertions, controller 342, actual JNI 264 and broker
+  261/two native flows. Fresh product passes 789/18-input checks, including 77
+  asynchronous close checks; fresh saving passes 47/six inputs and binds the
+  native receipt. Python passes 173/175 in 51.908 seconds, with the same two
+  Windows symlink-privilege skips. Hash-check and reuse unchanged E130 actual
+  Windows WebView2 301/six input cycles, popup 110/25/7/13 inputs and applicable
+  unchanged evidence; do not describe those as fresh runs.
+- Apply only while stopped, rebuild the complete Android development APK and
+  inspect twenty actual class/method definitions. Verify the APK CancelHandle has
+  only its AtomicLong field, the gate stores a weak wire identity and the test
+  product host is absent. Signing/private provider/JNI/ARM64/16-KiB/ZIP checks pass.
+  APK: 6,522,177 bytes, SHA-256
+  c81516dee0bee7df60c84ce03c9663b2bca43c50ce57d9ff3ca7eb65c234dba6.
+  Packed Windows program, ARM64 host and plugin bytes remain unchanged.
+- E133-final-identities.py/log joins current sources/artifacts, before/fixed-after
+  evidence, new native/product/save/DEX receipts and scoped reused results.
+  Development service restored: HTTP 200 on 63625, PID 28112; single deployment
+  about 3,446.2 MiB and D: about 37.47 GiB free. No phone/ADB/WebView change,
+  application/Home/source copy, new runtime dependency, model call, external
+  browser page, production account/config edit or publication.
+- Goal remains active. This stage proves the registered-participant local browser
+  transport path, not complete process membership or arbitrary child-session
+  retirement. Continue full product preparation/action/adoption coordination,
+  independent child promotion, remaining process/child-session failure joins,
+  guarded bootstrap/resume, response/body routing and platform/delivery audit.
+  Public protected Android popup admission and provider/framework/automation
+  qualification stay false. Unavailable isolated worlds do not permit a main-world
+  Agent fallback.

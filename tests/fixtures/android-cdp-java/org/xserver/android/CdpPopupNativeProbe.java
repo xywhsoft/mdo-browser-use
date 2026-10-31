@@ -168,8 +168,46 @@ public final class CdpPopupNativeProbe {
         }
     }
     public static void main(String[] args)throws Exception{
-        retirementDelivery();deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        closeBarriers();retirementDelivery();deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"transport_quiescence_identity\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+    }
+    private static final class CloseWire implements MdoBrowserCdpSession.Wire {
+        int closes;public void send(byte[] bytes,int timeout){throw new AssertionError("UI protocol send");}public byte[] receive(int timeout){throw new AssertionError("UI protocol receive");}
+        public void close(){closes++;}
+    }
+    private static void closeBarriers()throws Exception{
+        CloseWire ordinaryWire=new CloseWire();MdoBrowserCdpSession ordinary=MdoBrowserCdpSession.owned(ordinaryWire,()->true,(m,s,p)->{},()->0L);
+        unavailable("cdp_popup_close_scope_invalid",()->ordinary.deferPopupClose(new MdoBrowserCdpPopupNative.CloseGate()));ordinary.close();check(ordinaryWire.closes==1);
+        CloseWire browserWire=new CloseWire();MdoBrowserCdpSession browser=MdoBrowserCdpSession.ownedBrowser(browserWire,()->true,(m,s,p)->{},()->0L);
+        MdoBrowserCdpPopupNative.CloseGate empty=new MdoBrowserCdpPopupNative.CloseGate();browser.deferPopupClose(empty);
+        unavailable("cdp_popup_close_scope_invalid",()->browser.deferPopupClose(empty));browser.close();browser.close();check(browserWire.closes==1&&empty.complete());
+        unavailable("cdp_session_closed",()->browser.deferPopupClose(empty));
+        MdoBrowserCdpPopupNative.CloseGate gate=new MdoBrowserCdpPopupNative.CloseGate();CloseWire wire=new CloseWire();
+        gate.bind(wire,wire.cancellation());unavailable("cdp_popup_close_scope_invalid",()->gate.bind(wire,wire.cancellation()));
+        try(Case a=new Case();Case b=new Case()){
+            check(a.source.ready()&&b.source.ready());
+            a.source.retainUiOwner();b.source.retainUiOwner();MdoBrowserCdpPopupNative.Retirement one=a.source.retirement(),two=b.source.retirement();
+            gate.add(one);gate.add(one);gate.add(two);unavailable("cdp_popup_close_scope_invalid",()->new MdoBrowserCdpPopupNative.CloseGate().add(one));
+            Transport at=new Transport(),bt=new Transport();check(a.core.open(at,false)&&b.core.open(bt,false));
+            one.onQuiescence(()->{check(!one.current()&&!two.current());MdoBrowserCdpPopupNative.reconcileRetirements();});
+            two.onQuiescence(()->{throw new IllegalStateException("controlled_weak_notification_failure");});gate.close(wire);
+            check(gate.pending()&&!gate.complete()&&!gate.failed()&&wire.closes==0&&at.sends==1&&bt.sends==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==2);
+            unavailable("cdp_popup_close_scope_invalid",()->gate.add(one));
+            one.request(true);two.request(true);MdoBrowserCdpPopupNative.reconcileRetirements();at.ack();check(wire.closes==0&&b.budget.used()==1);
+            bt.ack();check(wire.closes==1&&gate.complete()&&!gate.pending()&&!gate.failed()&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+            gate.close(wire);at.ack();bt.ack();check(wire.closes==1&&MdoBrowserCdpPopupNative.creationConfirmed());
+            try{gate.close(new CloseWire());throw new AssertionError("Replacement wire was accepted");}catch(IllegalStateException expected){check(true);}
+        }
+        MdoBrowserCdpPopupNative.CloseGate reusable=new MdoBrowserCdpPopupNative.CloseGate();CloseWire next=new CloseWire();
+        reusable.bind(next,next.cancellation());
+        try(Case c=new Case()){
+            for(int i=0;i<16;i++){
+                if(i!=0)c.source.claim(c.adapter.marker().lease());check(c.source.ready());
+                c.source.retainUiOwner();MdoBrowserCdpPopupNative.Retirement action=c.source.retirement();reusable.add(action);action.request(true);action.deliver();
+                check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&next.closes==0);
+            }
+            reusable.close(next);check(next.closes==1&&reusable.complete());
+        }
     }
     private static void preparedRetirement()throws Exception{
         WebView root=new WebView(),other=new WebView(),child=new WebView(),foreignChild=new WebView();

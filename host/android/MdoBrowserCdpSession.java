@@ -25,7 +25,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         void send(byte[] bytes,int timeoutMs) throws IOException;
         byte[] receive(int timeoutMs) throws IOException;
         @Override void close();
+        default WireCancellation cancellation(){return this::close;}
     }
+    interface WireCancellation {void close();}
+    /** A browser-popup transport may outlive logical session cancellation until
+     * its original native Messages/children are settled. No protocol I/O here. */
+    interface CloseBarrier {void bind(Wire original,WireCancellation cancellation)throws IOException;void close(Wire original);}
     interface Clock {long now();}
     interface Events {void event(String method,String session,JSONObject params) throws IOException;}
     interface Cooperator {void turn();}
@@ -269,6 +274,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private PausedEvent paused;private AttachedTarget attached;private long activeStarted;private int activeTimeout;private String controlFault;
     private Navigation navigation;private int navigationCount;
     private volatile Wire wire;
+    private volatile CloseBarrier closeBarrier;
     private int serial,bodyCursor,offerCursor;private boolean busy;
 
     private MdoBrowserCdpSession(BooleanSupplier current,Events events,Clock clock){this(current,events,clock,false);}
@@ -297,6 +303,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     static MdoBrowserCdpSession ownedBrowser(Wire wire,BooleanSupplier current,Events events,Clock clock){
         MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,clock,true);session.wire=Objects.requireNonNull(wire);return session;
+    }
+    void deferPopupClose(CloseBarrier barrier)throws IOException {
+        guard(false);synchronized(controlGate){
+            if(!browserTarget||barrier==null||closeBarrier!=null||closed.get()||busy||serial!=0)throw failure("cdp_popup_close_scope_invalid",false);
+            barrier.bind(wire,wire.cancellation());
+            closeBarrier=barrier;
+        }
     }
     private Failure failure(String code,boolean effect){return new Failure(code,0,effect);}
     private void guard(boolean effect) throws Failure {
@@ -1096,6 +1109,6 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             for(Offer offer:offers)if(offer!=null)finishOffer(offer,false,false,"cdp_offer_connection_closed");
             for(Body body:bodies)if(body!=null)finishBody(body,false,"cdp_body_connection_closed");streamIds.clear();retiredBodyReads.clear();
         }
-        if(first){Wire connection=wire;if(connection!=null)connection.close();}
+        if(first){Wire connection=wire;if(connection!=null){CloseBarrier barrier=closeBarrier;if(barrier==null)connection.close();else barrier.close(connection);}}
     }
 }

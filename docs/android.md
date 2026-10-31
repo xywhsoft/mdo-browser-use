@@ -4699,3 +4699,47 @@ not installed-provider qualification. All-source native quiescence before global
 broker teardown remains outstanding; recording all affected cancellation intents
 before close is only one part of that work. Protected Android popup admission
 remains disabled, and the user's phone/WebView deferral is unchanged.
+
+## Registered native owners and browser wire cancellation (E133)
+
+Session-internal failure could close the browser transport before the worker's
+failure handler requested native rejection. A joint two-source regression
+reproduces that order. The worker now installs one close barrier before the first
+browser command and registers each original native retirement with that barrier
+before registration/arming. Logical session close still immediately cancels
+protocol admission, replies and retained request authority. Its local wire
+cancellation waits for all registered original native Messages and task-owned
+children to settle. A socket/renderer that has already failed cannot be revived
+by this barrier; unknown outcomes remain fenced.
+
+The barrier revokes every affected permit before any weak UI notification. The
+existing UI delivery/recovery paths reject each original scope independently.
+Consumption of one source does not release another source's charge. Timeout,
+worker exit or lost UI delivery does not stand in for native consumption. Failed
+destructors and failed transport cancellation are not replayed automatically.
+Process-wide pause cleanup and local transport cancellation are distinct receipts;
+late cancellation cannot rewrite an earlier terminal result.
+
+The eight-slot barrier reuses only settled slots. It retains a weak wire identity
+and a cancellation credential, not the wire's worker Thread/session/broker graph.
+The production credential is allocated before native open and contains only the
+shared AtomicLong handle. It uses the existing nonblocking native close primitive;
+there is no UI send/receive, second executor, timer, reconnect or command replay.
+Completion of this cancellation call is distinct from draining an already running
+reader; the existing worker-exit fence still applies.
+
+Eight shared-worker scenarios cover internal failure, explicit shutdown, lost UI
+delivery, elapsed timeout, a sent child, physical teardown failure, reentrant
+close and cancellation failure. Native-controller checks cover two-source
+revocation before notification, original binding, duplicate close, callback
+failure and sixteen sequential actions through the bounded slots. Actual JNI
+tests verify the data-only credential in twelve cancellation cycles (four browser
+cycles), and join a real blocked browser read to the original native popup
+consumption callback. The rebuilt APK's credential fields and twenty actual class/
+method definitions are checked, rather than inferred from class-name strings.
+
+This proves the registered-participant local browser-wire path with controlled
+SDK/provider peers and real JNI transport. Full product action/adoption routing,
+independent child-session/promotion/body routing, complete process membership and
+installed-provider qualification remain outstanding. Protected Android popup
+admission stays disabled. Phone/WebView changes remain deferred.

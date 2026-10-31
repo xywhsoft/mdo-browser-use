@@ -74,6 +74,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private final List<Registration> registrations=new ArrayList<>();private final List<Candidate> candidates=new ArrayList<>();
     private final List<Release> releases=new ArrayList<>();private final Set<String> seenTargets=new HashSet<>();
     private final AtomicBoolean closed=new AtomicBoolean();private volatile MdoBrowserCdpSession session;
+    private MdoBrowserCdpPopupNative.CloseGate nativeClose;
     private volatile int state=NEW;private volatile boolean enabledMayHaveOccurred,cleanupConfirmed=true;
     private volatile String failure;private boolean attachedSeen;
     MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent){this(hostCurrent,android.os.SystemClock::elapsedRealtime,NATIVE);}
@@ -96,6 +97,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private int remaining(long born,int timeout)throws IOException{
         guard();long used=now()-born;if(used<0||used>timeout-10)throw fail("cdp_popup_broker_timeout");return timeout-(int)used;
     }
+    void guardNativeClose()throws IOException{guard();if(state!=NEW||nativeClose!=null)throw problem("cdp_popup_close_scope_invalid");nativeClose=new MdoBrowserCdpPopupNative.CloseGate();}
+    void retainNative(MdoBrowserCdpPopupNative.Retirement original)throws IOException{guard();if(nativeClose==null)throw problem("cdp_popup_close_scope_invalid");nativeClose.add(original);}
     Registration register(MdoBrowserCdpBinding.Network owner)throws IOException {
         guard();if(state!=NEW&&state!=ARMED)throw problem("cdp_popup_broker_state_invalid");
         if(owner==null)throw problem("cdp_popup_opener_invalid");prune();
@@ -111,6 +114,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         try{
             session=connector.open(remaining(born,timeout),this::current,this::event);guard();
             if(session==null)throw problem("cdp_popup_broker_connection_invalid");prune();if(registrations.isEmpty())throw problem("cdp_popup_opener_unavailable");
+            if(nativeClose!=null)session.deferPopupClose(nativeClose);
             JSONObject params=new JSONObject().put("autoAttach",true).put("waitForDebuggerOnStart",true).put("flatten",true)
                 .put("filter",new JSONArray().put(new JSONObject().put("type","page").put("exclude",false)).put(new JSONObject().put("exclude",true)));
             cleanupConfirmed=false;enabledMayHaveOccurred=true;
@@ -242,7 +246,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         catch(RuntimeException|Error error){throw fail("cdp_popup_broker_failed");}
     }
     boolean armed(){return state==ARMED&&!closed.get();}
-    boolean cleanupConfirmed(){return cleanupConfirmed;}
+    boolean cleanupConfirmed(){return cleanupConfirmed&&(nativeClose==null||!nativeClose.failed());}
     boolean enabledMayHaveOccurred(){return enabledMayHaveOccurred;}
     private IOException fail(String code){if(failure==null)failure=safe(code);state=FAILED;try{close();}finally{if(Thread.currentThread()==worker)clear();}return problem(failure);}
     private void clear(){for(Candidate candidate:candidates)candidate.retired();for(Registration registration:registrations)registration.close();candidates.clear();registrations.clear();releases.clear();seenTargets.clear();}

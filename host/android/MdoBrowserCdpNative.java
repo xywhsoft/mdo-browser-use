@@ -90,9 +90,17 @@ final class MdoBrowserCdpNative {
         try {Library.ready();validateNative(bytes,maximum);}
         catch(UnsatisfiedLinkError failure){throw new IOException("cdp_native_unavailable");}
     }
+    /** Preallocated before native open. Deferred cancellation retains only the
+     * atomic handle, never Channel's worker Thread or its executor/host graph. */
+    static final class CancelHandle implements MdoBrowserCdpSession.WireCancellation {
+        private final AtomicLong handle;
+        private CancelHandle(AtomicLong handle){this.handle=handle;}
+        @Override public void close(){long value=handle.getAndSet(0);if(value!=0)closeNative(value);}
+    }
     static final class Channel implements MdoBrowserCdpSession.Wire {
         private final Thread owner;
         private final AtomicLong handle=new AtomicLong();
+        private final CancelHandle cancellation=new CancelHandle(handle);
         private Channel(Thread owner){this.owner=owner;}
         private long current(int timeoutMs) throws IOException {
             worker(timeoutMs);
@@ -120,10 +128,8 @@ final class MdoBrowserCdpNative {
             return reply;
         }
         /** May run on a cancelling/UI thread; never waits for the worker. */
-        @Override public void close() {
-            long value=handle.getAndSet(0);
-            if(value!=0)closeNative(value);
-        }
+        @Override public void close(){cancellation.close();}
+        @Override public CancelHandle cancellation(){return cancellation;}
     }
     private static native byte[] discoverNative(int timeoutMs) throws IOException;
     private static native byte[] discoverBrowserNative(int timeoutMs) throws IOException;

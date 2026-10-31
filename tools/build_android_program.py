@@ -26,7 +26,7 @@ WORK=dev.ENV/'host/android-program'
 OUTPUT=ROOT/'dist/mdo-browser-use-dev-android-arm64-v8a.apk'
 PACKAGE=client.PACKAGE
 RECEIPT=OUTPUT.with_suffix('.receipt.json')
-HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoBrowser$BrowserClose','MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Retirement','MdoBrowserCdpPopupNative$Destruction','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
+HOST_CLASSES=('XsActivity','XsService','MdoBrowser','MdoBrowser$ClearAction','MdoBrowser$BrowserClose','MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Retirement','MdoBrowserCdpPopupNative$CloseGate','MdoBrowserCdpSession$CloseBarrier','MdoBrowserCdpSession$WireCancellation','MdoBrowserCdpNative$CancelHandle','MdoBrowserCdpPopupNative$Destruction','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoRuntime','MdoBrowserWorld','MdoBrowserWorld$Failure','MdoBrowserDocument','MdoBrowserManualChooser','MdoBrowserPickerUris',
               'MdoBrowserUploadProvider','MdoBrowserCdpNative','MdoBrowserCdpNative$Channel','MdoBrowserCdpNative$BrowserEndpoint','MdoBrowserCdpJson','MdoBrowserCdpSession',
               'MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$AttachedTarget','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpResponse',
               'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',

@@ -38,7 +38,7 @@ public final class CdpPopupWorkerProbe {
         final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger(),guards=new AtomicInteger();
         final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile CountDownLatch armEntered,armRelease;
         final Map<String,CdpBindingProbe.Factory> nativeTargets=new ConcurrentHashMap<>();final AtomicInteger nativeOpens=new AtomicInteger(),barriers=new AtomicInteger();
-        volatile String barrierMode="normal";volatile Runnable proofConfirmed;
+        volatile String barrierMode="normal";volatile Runnable proofConfirmed,closeHook;volatile boolean closeFailure;
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
         public MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock){creates.incrementAndGet();threads.add(Thread.currentThread());Wire next=new Wire();wire=next;
             return new MdoBrowserCdpPopupBroker(current,clock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,events,clock::getAsLong);},
@@ -80,7 +80,7 @@ public final class CdpPopupWorkerProbe {
                 }catch(IOException error){throw error;}catch(RuntimeException|Error error){throw error;}catch(Exception error){throw new IOException("fixture_command_failed");}
             }
             public byte[] receive(int timeout){threads.add(Thread.currentThread());receives.incrementAndGet();byte[] value=incoming.poll();if(value==null)try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();}return value;}
-            public void close(){closes.incrementAndGet();}
+            public void close(){closes.incrementAndGet();Runnable hook=closeHook;if(hook!=null)hook.run();if(closeFailure)throw new IllegalStateException("controlled_original_transport_close_failure");}
         }
     }
     private static class Observer implements MdoBrowserCdpPopupWorker.Events {
@@ -590,6 +590,40 @@ public final class CdpPopupWorkerProbe {
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
         }
     }
+    private static void transportQuiescence(String mode)throws Exception{
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.networkTargets.put(two.adapter.marker(),"other-root");c.ready(one);c.ready(two);
+            try(NativeSource a=new NativeSource(c,one);NativeSource b=new NativeSource(c,two)){
+                Observer oa=new Observer(c),ob=new Observer(c);MdoBrowserCdpPopupWorker.Request ra=c.worker.prepareNativePopups(a.source,1500,oa);ready(c,ra,oa);
+                MdoBrowserCdpPopupWorker.Request rb=c.worker.prepareNativePopups(b.source,1500,ob);ready(c,rb,ob);a.open();b.open();
+                boolean sent=mode.equals("quiescence-sent"),physicalFailure=mode.equals("quiescence-physical-failure");
+                PopupProductHost product=new PopupProductHost(a.views);WebView child=null;
+                if(sent||physicalFailure){
+                    backend.wire.add(attached("held-native","owned"));waitFor(()->oa.candidates.size()==1,c,true);check(oa.candidates.get(0).requestProtection());waitFor(()->oa.protectedTargets.size()==1,c,true);
+                    MdoBrowserCdpPopupNative.Created created=product.construct(a.source,ra.allocateNative(a.source),"owned");child=created.view();
+                    if(sent){a.adopting=child;a.source.adopt(created);}else product.failClose=true;
+                }
+                backend.closeFailure=mode.equals("quiescence-close-failure");
+                if(mode.equals("quiescence-reentrant"))backend.closeHook=()->{check(c.ui.onThread()&&a.budget.used()==0&&b.budget.used()==0);MdoBrowserCdpPopupNative.reconcileRetirements();c.worker.close();};
+                boolean shutdown=mode.equals("quiescence-shutdown"),lost=mode.equals("quiescence-ui-loss");
+                if(shutdown||lost){c.ui.reject=lost;c.worker.close();}else{
+                    JSONObject invalid=attached("invalid-global","owned");invalid.getJSONObject("params").getJSONObject("targetInfo").put("type","worker");backend.wire.add(invalid);
+                }
+                waitFor(()->ra.result().terminal&&rb.result().terminal,c,false);
+                check(backend.closes.get()==0&&a.sends==(sent?1:0)&&b.sends==0);
+                if(lost){waitFor(c.worker::terminated,c,false);c.ui.reject=false;product.resume();}
+                if(mode.equals("quiescence-timeout"))c.time.addAndGet(600000);
+                c.ui.drain();check(a.sends==1&&b.sends==1&&backend.closes.get()==0&&a.budget.used()==1&&b.budget.used()==1);
+                a.ack();check(backend.closes.get()==0&&b.budget.used()==1);b.ack();
+                check(backend.closes.get()==(physicalFailure?0:1)&&a.budget.used()==0&&b.budget.used()==0);
+                if(child!=null)check(child.destroyed==(physicalFailure?0:1));
+                a.ack();b.ack();MdoBrowserCdpPopupNative.reconcileRetirements();
+                check(backend.closes.get()==(physicalFailure?0:1)&&MdoBrowserCdpPopupNative.retainedUiOwners()==(physicalFailure?1:0));
+                check(MdoBrowserCdpPopupNative.creationConfirmed()==!(physicalFailure||backend.closeFailure));
+                check(!ra.result().sourceReleased&&!rb.result().sourceReleased&&!ra.result().processCleanupConfirmed&&!rb.result().processCleanupConfirmed&&backend.resumes.get()==0&&backend.detaches.get()==0);
+            }
+        }
+    }
     private static void deliveryLoss(String mode)throws Exception{
         if(mode.equals("delivery-loss-scope")){
             Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
@@ -966,7 +1000,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("delivery-loss"))deliveryLoss(mode);
+        if(mode.startsWith("quiescence"))transportQuiescence(mode);
+        else if(mode.startsWith("delivery-loss"))deliveryLoss(mode);
         else if(mode.startsWith("product-disposal"))productDisposal(mode);
         else if(mode.startsWith("host-destruction"))hostDestruction(mode);
         else if(mode.startsWith("owner-lifetime"))ownerLifetime(mode.equals("owner-lifetime-sent"));
@@ -982,6 +1017,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }
