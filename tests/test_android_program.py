@@ -48,7 +48,7 @@ class ActualDexClassesTests(unittest.TestCase):
 
     def test_class_reference_cannot_substitute_for_implementation(self):
         for required in ('MdoBrowserCdpPopupNative$UiRetention','MdoBrowserPopups$ProtocolUi','MdoBrowserCdpWorker$Guard','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoBrowserCdpNetworks$Navigation','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpBinding$Network','MdoBrowserCdpBinding$Network$Navigation','MdoBrowserCdpBinding$Network$Selection','MdoBrowserCdpNetworkRequests','MdoBrowserCdpNetworkRequests$Command','MdoBrowserCdpNetworkRequests$Receipt','MdoBrowserCdpNetworkRequests$Link','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Commit','MdoBrowserCdpNetworkFrames$Start','MdoBrowserCdpNetworkFrames$Traversal','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope',
-                         'MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Destruction',
+                         'MdoBrowser$BrowserClose','MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Destruction',
                          'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpResponse',
                          'MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
                          'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',

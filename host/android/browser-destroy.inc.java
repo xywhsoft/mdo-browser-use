@@ -1,7 +1,7 @@
     void pause(){browserPaused=true;cancelPopups();cancelDialogs();blockDocuments(MdoBrowserDocument.BACKGROUND,true);views.background(true);}
     void resume(){browserPaused=false;views.background(false);blockDocuments(MdoBrowserDocument.BACKGROUND,false);}
     void destroy(){
-        stopped=true;
+        stopped=true;cancelBrowserCloses();
         // Capture and register every exact physical owner before any logical
         // close can synchronously acknowledge a native child transport.
         Map<WebView,MdoBrowserPopups<WebView>> popupRetiring=new IdentityHashMap<>();
@@ -16,7 +16,7 @@
             for(WebView web:owned){
                 MdoBrowserDialogTarget dialog=null;for(MdoBrowserDialogTarget target:dialogRetiring)if(target.view==web){dialog=target;break;}
                 CaptureEntry capture=null;for(CaptureEntry entry:captureRetiring)if(entry.view==web){capture=entry;break;}
-                closing.add(prepareNativeDestruction(web,popupRetiring.get(web),dialog,capture,retiring.get(web)));
+                closing.add(prepareNativeDestruction(null,web,popupRetiring.get(web),dialog,capture,retiring.get(web)));
             }
             manualChooser.close();cancelUploads();networkRetireAll("network_host_closed");cdpWorker.close();cdpViews.close();channel.close();if(port!=null)port.close();
             for(MdoBrowserPopups<WebView> popup:new ArrayList<>(windows.values()))popup.close();

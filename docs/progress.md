@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E130:** make the actual product close command wait for final exact
+  native/network/private-file cleanup and reply once on its original channel.
+  Bound observation to five seconds and 32 requests on the existing UI Handler;
+  timeout/channel loss/shutdown never manufacture cleanup or replay destruction.
+  Product passes 789/18-input checks, including 77 asynchronous-close assertions;
+  fresh native 120-input/52-mode, save 47, actual Windows WebView2 301/six-cycle
+  and Python 173/175 gates pass. Rebuild and inspect eleven actual APK class/
+  constructor/method definitions. Protected popup coordination, the combined
+  Created-to-product-disposer callback, global quiescence and provider
+  qualification remain open.
 - **Android E129:** join single-view and whole-Activity physical teardown to the
   original native Message-consumption barriers. Register all exact UI destructors
   before logical callbacks, prepare every row before activation and preserve
@@ -10500,3 +10510,75 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   provider/framework/automation qualification remain false; controlled lifecycle
   and native tests do not qualify an installed WebView or permit main-world Agent
   fallback when isolated-world support is unavailable.
+
+## E130 — final product close receipts (2026-11-01)
+
+- Previous goal turn made progress through E129. Route the actual Android native
+  close command through an original-channel final-receipt watcher. Capture the
+  request, native destruction record, document/dialog and original network owner
+  before logical retirement. Wait for that exact physical cleanup, original
+  protocol drain and private download-file retirement. Keep the existing
+  synchronous disposer facade for internal callers; share its returned exact
+  destruction record rather than performing another teardown.
+- Bound observation to five seconds/100-ms intervals and 32 pending requests,
+  using the existing UI Handler. No new executor, timer thread or dependency.
+  A duplicate/oversize/full-capacity request or invalid original channel is
+  rejected before native effects. Repeated valid observations join the same
+  original pending destructor; failed destruction is never replayed. Ordinary
+  completed closes return immediately.
+- Emit one scoped final cleanup receipt. Timeout, clock reversal and scheduler
+  refusal leave cleanup unconfirmed; distinguish observation expiry and failure.
+  Late native/network cleanup may settle retained resources without modifying
+  the original terminal object or delivering another result. An explicit later
+  request may observe that same original pending record. Another tab's pending
+  native close does not replace this tab's cleanup proof, while aggregate host
+  retirement diagnostics remain visible.
+- Channel replacement/invalidation and Activity shutdown drop only reply
+  observation. Actual native retirement continues under E129. Physical exceptions
+  reply on the captured original lease rather than leaking through the current
+  channel's generic error path. Recheck ownership before removing UI metadata
+  after reentrant callbacks; preserve a replacement registered under the same key.
+- Add a dedicated compiled product-close contract using the actual new route and
+  watcher, existing real product teardown fragments and controlled SDK/provider
+  peers. It passes 77 new assertions, with 789 total checks and 18 current hashes.
+  Cover immediate close, delayed native acknowledgement, repeated close, network
+  drain, download-file retirement, network failure, timeouts, invalid clock,
+  scheduler refusal, late receipts, explicit later observation, channel loss,
+  shutdown, 32-request pressure, malformed/duplicate admission, physical/document
+  failures, reused keys and an unrelated pending close. The first new run exposed
+  a fixture scheduling mistake: moving the one mock clock backwards cannot also
+  make its future timer due. Invoke the exact observer directly for that clock
+  fault; retain real scheduled observation for ordinary deadlines. Final Java
+  rerun passes and records async_close_checks separately.
+- E130-native.log passes with 120 current hashes, ASan/UBSan/API26/JVM/JNI,
+  balanced native resources/exit invariants, 52 worker modes/2,136 assertions,
+  controller 278 and broker 261/two native flows. Fresh JS/C saving passes 47 and
+  binds the new native receipt. Fresh actual Windows WebView2 passes 301 and six
+  nested-fill/interrupted-drag cycles with six current input hashes and unchanged
+  native host; no new crash diagnostics or private upload reservations. Python
+  passes 173/175 in 54.230 seconds, with two existing Windows symlink-privilege
+  skips. Reuse unchanged E129 popup 110/25/7 (13 hashes) and applicable unchanged
+  E105/E106/E125 evidence only within their verified scope, not as fresh runs.
+- Compose 123 reviewed host files, apply only while stopped and rebuild actual
+  Android Java/DEX/APK. Include the close fragment in build fingerprints and
+  require BrowserClose's actual class definition, not a type reference. Inspect
+  actual constructor/method definitions in eleven APK classes, including the new
+  execute/poll/done/cancel close methods and existing native retirement. Private
+  provider, signing, JNI/ARM64/16-KiB/zip checks pass. APK: 6,518,081 bytes,
+  SHA-256 b88c66031f47726125b34a6f0ac4f39ca231fc40d4af3426ace3ab3ac6cf27b5.
+  ARM64 host, packed Windows program and plugin bytes remain unchanged. The E130
+  final-identity script joins current code, scoped product/native/save/Windows/DEX
+  evidence and artifact/signing identities.
+- Development service restored: HTTP 200 on 63625, PID 25772; deployment about
+  3,445.2 MiB, D: about 37.61 GiB free. Phone and WebView stay deferred. No ADB,
+  extra application/Home/source copy, runtime dependency, model call, external
+  browser page, production account/config change or publication.
+- Goal remains active. Next qualify the combined Created.close -> exact product
+  disposer -> native destruction activation path: separate product and Native
+  gates currently do not execute that recursive join, and the closing guard may
+  prevent its synchronous physical acknowledgement. Continue the full product
+  preparation/action/adoption coordinator, independent child promotion, global
+  multi-source failure quiescence, guarded bootstrap/resume, response/body routing
+  and platform/delivery audit. Public protected Android popup admission and all
+  provider/framework/automation qualification remain false; no main-world Agent
+  fallback for unavailable isolated-world support.

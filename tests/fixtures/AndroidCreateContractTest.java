@@ -582,6 +582,7 @@ public final class AndroidCreateContractTest {
         }
         deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"framework_verified\":false,\"network_calls\":0}");
+        int asyncCloseChecks=AndroidCloseContractTest.run();checks+=asyncCloseChecks;
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

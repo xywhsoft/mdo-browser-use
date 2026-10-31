@@ -253,11 +253,15 @@ final class AndroidCreateHost {
     void cancelUploads(){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
     Runnable beforeScopedReply;
-    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){if(beforeScopedReply!=null){Runnable original=beforeScopedReply;beforeScopedReply=null;original.run();}if(channel.current()==lease&&channel.active(lease,host.getUrl())&&!stopped){replies++;lastReply=result;}}
+    final Map<String,JSONObject> scopedResults=new HashMap<>();final Map<String,String> scopedErrors=new HashMap<>();final List<String> scopedIds=new ArrayList<>();
+    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){if(beforeScopedReply!=null){Runnable original=beforeScopedReply;beforeScopedReply=null;original.run();}if(channel.current()==lease&&channel.active(lease,host.getUrl())&&!stopped){replies++;lastReply=result;scopedIds.add(id);scopedResults.put(id,result);scopedErrors.put(id,error);}}
     private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",false);}
     boolean retire(String key,WebView view){return closeAndDestroyDocument(key,view);}
     boolean chooserClean(MdoBrowserDialogTarget target){return target==null||!cleanupFault.equals("chooser");}
     boolean closeCommand(String key){WebView web=views.get(key);@@CLOSE_COMMAND@@ return worldClean;}
+    void closeRequest(String key,String id){String command="close";@@CLOSE_ROUTE@@}
+    int closeRequests(){return browserCloses.size();}
+    void observeCloses(){for(BrowserClose operation:new ArrayList<>(browserCloses.values()))browserClosePoll(operation);}
     JSONObject network(String key)throws JSONException{return networkState(key);}
     void startPage(String key,String url){WebView view=views.get(key);view.url=url;view.client.onPageStarted(view,url,null);}
     void finishPage(String key,String url){WebView view=views.get(key);view.client.onPageFinished(view,url);}
@@ -304,6 +308,7 @@ final class AndroidCreateHost {
     @@BIND@@
     @@CLOSE_DOCUMENT@@
     @@CLOSE@@
+    @@ASYNC_CLOSE@@
     @@DESTROY@@
     @@VIEW@@
     MdoBrowserCdpPopupNative.Created protocolPopup(MdoBrowserCdpPopupNative source,String key)throws java.io.IOException{

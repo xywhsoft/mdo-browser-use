@@ -1459,6 +1459,17 @@
       "before": "    private JSONObject browserUseSupport;",
       "after_file": "host/android/browser-view.inc.java",
       "suffix": "\n    private JSONObject browserUseSupport;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private boolean nativeViewCleanupFailed;",
+      "after_file": "host/android/browser-close.inc.java",
+      "suffix": "    private boolean nativeViewCleanupFailed;"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "if(\"close\".equals(command)) {boolean worldClean=web==null?closeDocument(key):true;if(web!=null){worldClean=closeAndDestroyDocument(key,web);}manual.remove(key);loading.remove(key);errors.remove(key);errorCodes.remove(key);crashed.remove(key);locations.remove(key);reply(id,new JSONObject().put(\"world_cleanup_confirmed\",worldClean).put(\"native_view_cleanup_failed\",nativeViewCleanupFailed).put(\"native_view_retiring\",nativeRetiringViews.size()).put(\"network_cleanup_failed\",networkCleanupFailed).put(\"network_retiring\",networkRetiring()),null);return;}",
+      "after": "if(\"close\".equals(command)) {executeBrowserClose(key,id);return;}"
     }
   ],
   "files": [

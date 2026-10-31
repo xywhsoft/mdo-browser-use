@@ -28,6 +28,8 @@ def main():
     overlay=dev.ROOT/'host/overlays.json'
     closes=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before')=='if(web!=null){views.remove(key);root.removeView(web);web.destroy();}']
     if len(closes)!=1:raise RuntimeError('Expected the exact reviewed native close-command route')
+    close_routes=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('if("close".equals(command)) {boolean worldClean=')]
+    if len(close_routes)!=1:raise RuntimeError('Expected one exact asynchronous close-command route')
     takeovers=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('manualChooser.cancel(web);MdoBrowserDocument document=')]
     if len(takeovers)!=1:raise RuntimeError('Expected original network revocation before takeover cancellation')
     updates=[row for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before','').startswith('if("takeover".equals(command))networkRetire(key,web,')]
@@ -50,6 +52,8 @@ def main():
         '@@NETWORK_TAKEOVER_PREFIX@@':takeover,
         '@@NETWORK@@':(dev.ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8'),
         '@@CLOSE_COMMAND@@':closes[0],
+        '@@CLOSE_ROUTE@@':close_routes[0],
+        '@@ASYNC_CLOSE@@':(dev.ROOT/'host/android/browser-close.inc.java').read_text(encoding='utf-8'),
         '@@CREATION_GUARD@@':document[document.index('    private boolean nativeViewCleanupFailed'):document.index('    private final Map<String,MdoBrowserDocument>')],
         '@@CAPABILITIES@@':capability[capability.index('    JSONObject capabilities()'):capability.index('    void automationAdmission')],
         '@@BIND@@':document[document.index('    private void bindDocument'):document.index('    private boolean closeDocument')],
@@ -81,17 +85,17 @@ def main():
     for name,text in mocks.items():
         path=output/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text,encoding='utf-8');paths.append(path)
     production=[dev.ROOT/'host/android/MdoBrowserLifecycle.java',dev.ROOT/'host/android/MdoBrowserInput.java',dev.ROOT/'host/android/MdoBrowserWheel.java']
-    fixture=dev.ROOT/'tests/fixtures/AndroidCreateContractTest.java';paths.extend([*production,generated,fixture])
+    fixture=dev.ROOT/'tests/fixtures/AndroidCreateContractTest.java';close_fixture=dev.ROOT/'tests/fixtures/AndroidCloseContractTest.java';paths.extend([*production,generated,fixture,close_fixture])
     classes=output/'classes';classes.mkdir(exist_ok=True)
     def linux(path):
         path=path.resolve().as_posix();return '/mnt/'+path[0].lower()+path[2:]
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*map(linux,paths)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidCreateContractTest'],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     result=json.loads(run.stdout)
-    if not result.get('passed') or not result.get('native_control_ui_join') or result.get('framework_verified') is not False:
+    if not result.get('passed') or not result.get('native_control_ui_join') or not result.get('native_async_close_receipts') or result.get('framework_verified') is not False:
         raise RuntimeError('Original native history/reload UI admission contract did not pass')
     result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
-        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-destroy.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-view.inc.java',dev.ROOT/'host/android/browser-native-upload.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
+        [*production,template,fixture,close_fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-close.inc.java',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-destroy.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-view.inc.java',dev.ROOT/'host/android/browser-native-upload.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
 

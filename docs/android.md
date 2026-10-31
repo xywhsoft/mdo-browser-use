@@ -4598,8 +4598,38 @@ progress.md.
 
 The full product preparation/action/adoption coordinator, independent child
 promotion, global multi-source failure quiescence, guarded bootstrap/resume and
-response/body routing remain unfinished. Pending close still reports unconfirmed
-cleanup; a complete asynchronous product close waiter remains part of that
-coordinator. Public protected Android popup admission and provider/framework/
+response/body routing remain unfinished. E130 below adds the asynchronous product
+close receipt. Public protected Android popup admission and provider/framework/
 automation qualification remain false. Phone and WebView changes stay deferred;
 unavailable isolated-world support does not permit main-world Agent execution.
+
+## Final product close receipts (E130)
+
+The native product close command now captures its original channel/request and
+physical destruction, document, dialog and network/download owners before
+retirement. It waits for that exact physical view and its original protocol and
+private-file cleanup, then returns one final scoped receipt. Another tab's pending
+native retirement remains visible in host diagnostics without replacing this
+tab's cleanup proof. Repeated observations can share one physical destructor.
+
+Observation uses the existing UI Handler at 100-ms intervals, for at most five
+seconds, with a limit of 32 outstanding requests. It creates no worker/thread or
+runtime dependency. A timeout, invalid clock interval or rejected scheduler does
+not certify cleanup or replay destruction. The returned observation-expired and
+observation-failed flags distinguish those cases. A late native/network receipt
+can still clean the original resource, but cannot rewrite an already delivered
+terminal result. A fresh explicit close may observe the retained original record.
+
+Channel loss drops the old observation; it cannot send a result to a replacement
+channel. Activity shutdown cancels the reply watchers while actual native
+retirement continues under E129. Immediate physical failures also use the original
+reply channel instead of falling through to an unscoped current-port error.
+Metadata cleanup checks physical ownership again after reentrant UI callbacks.
+
+The exact product route, watcher and whole-host shutdown are exercised together
+with controlled SDK/provider peers. The APK has verified close-route/watcher and
+BrowserClose constructor definitions. These tests do not qualify an installed
+provider or enable protected popup admission. Separate Native and product gates
+also do not yet prove the recursive path from Created.close into the product
+disposer and back through native destruction activation; that combined callback
+must be covered before enabling the protected product coordinator.
