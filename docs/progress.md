@@ -8889,3 +8889,25 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   The user deferred the phone; no reconnection/provider update was attempted.
   Public Android admission and all qualification flags stay false. No model
   calls, publication or production-data modifications occurred.
+
+## W5 — revalidate current Windows frame behavior and desktop availability (2026-10-31)
+
+- Run the actual WebView2 cross-site/OOPIF frame workflow in the sole deployment
+  using local fixtures. All 260 assertions pass, including original-world input,
+  Unicode nested fill, input/drag interruption, source-retirement recovery and
+  private file-picker handoff. Final input is idle, cleanup fences are clear,
+  private-cache reservations are zero and no native exception diagnostic is new.
+  Preserve .mdo/W5-frames-current.log and W5-frames-current.json. This run did not
+  reproduce the historical E68 nested-fill/child-navigation-drag interruptions;
+  it does not identify their original cause or establish permanent resolution.
+- Read the current Computer Use skill/guidance/confirmation rules and recheck its
+  supported node_repl/@oai/sky initialization entry. It still fails before app
+  inventory with kernel_assets_unavailable: cannot write kernel assets because
+  the system cannot find the specified path (OS error 3). No window action was
+  issued. Record .mdo/W5-desktop-state.json. Normal-desktop screenshots and
+  permission-prompt pixels remain unverified; the native API result is separate
+  evidence, not a replacement for those pixels. Do not keep retrying this
+  unchanged helper error.
+- No Windows product code or release changed. The test restored this project's
+  headless service. Phone/provider testing remains deferred and the full goal
+  remains active; continue independently testable navigation/transfer work.
