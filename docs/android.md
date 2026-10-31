@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E119)
+## Complete development host APK (E46/E120)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,497,601 bytes, SHA-256
-`fc0cc24091e5719750c9e4d35836412d0559de7985dd71ec291c09da51e52b55`.
+Current APK: 6,501,697 bytes, SHA-256
+`ba61b2ff4a1a14fe333b0eb94c97e10f4b8b3854bb5f27ad4a52d2d455c38ce1`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -4404,3 +4404,42 @@ The public Android popup route remains disabled. Exact native child transport,
 fresh ownership/takeover lineage, bootstrap/resume and scoped body routing still
 need their original-proof joins and qualification. No installed provider behavior
 is inferred from controlled metadata, and phone/WebView checks stay deferred.
+
+
+## Original native callback ownership and one-time handoff (E120)
+
+A physical network lease may remain valid while a task is losing control and
+retiring its original interception. That is insufficient authority to send a
+native popup Message. The original UI now claims a separate opaque action scope,
+with the exact opener/controller/navigation epoch and a fresh owner predicate.
+The main host keeps the original adapter and supplies an action predicate that
+requires its ready, current, nonretired, nondraining, nonmanual entry and original
+host channel. Cleanup keeps its original weaker physical lease.
+
+Accepted native callbacks retain their original scope. Cancellation and owner
+loss are sticky; a later manual callback cannot be sent, invalidated or released
+by an old task's scoped rejection. A same-owner canceled scope continues to hold
+native admission until its original cleanup finishes. No callback is admitted
+for that action before its original preparation-ready UI delivery. The worker
+checks current ownership before delivering ready/candidate/protection results.
+
+The private pending handle and adoption receipt bind one original native send
+and its queue-consumption barrier. Wrong/foreign/expired/replayed handles and the
+ordinary ID-based adoption path cannot bypass that scope. Only weak native child
+references escape the controller; these handles contain no UI owner predicate or
+native transport. Send failure, timeout and owner loss retain uncertainty, even
+if a barrier arrives later. A consumed Message does not prove a fresh unowned
+child, its CDP target, document, isolated world, response or body authorization.
+Those joins and the public protected-popup route remain pending/disabled.
+
+Original source/controller checks pass 120; fourteen shared-worker modes pass
+491. Exact main-host fragments pass 657, including cleanup-only takeover and
+fresh rearm. Existing popup ownership/callback checks remain 110/25; that gate
+now hashes its eight original inputs before/after execution. Full native gates
+cover 117 inputs; JS/C saving passes 47; Python passes 173/175 with two existing
+Windows symlink privilege skips. See .mdo/E120-final-identities.log and E120
+native/product/popup/save/package receipts. Actual APK/DEX includes Scope,
+Pending and Adoption definitions and retains the verified ARM64 host and signer.
+Phone/provider/framework checks remain deferred, with all qualification flags
+false. Windows/plugin artifacts and their rechecked applicable evidence are
+unchanged; no model, external browser page or publication was used.

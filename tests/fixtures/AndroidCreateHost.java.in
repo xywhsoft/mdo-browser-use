@@ -88,10 +88,11 @@ final class AndroidCreateHost {
         MdoBrowserCdpMarker(BooleanSupplier current){this.current=current;}Lease lease(){return lease;}void close(){lease.live=false;}
     }
     static final class MdoBrowserCdpView {
-        interface Owner {boolean current(WebView view);}final MdoBrowserCdpMarker marker;
-        MdoBrowserCdpView(WebView view,Owner owner){marker=new MdoBrowserCdpMarker(()->owner.current(view));}
-        static MdoBrowserCdpView network(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota quota){MdoBrowserCdpView result=new MdoBrowserCdpView(view,owner);result.marker.quota=quota;return result;}
+        interface Owner {boolean current(WebView view);}final MdoBrowserCdpMarker marker;final WebView view;final Owner popupOwner;
+        MdoBrowserCdpView(WebView view,Owner owner,Owner popupOwner){this.view=view;this.popupOwner=popupOwner;marker=new MdoBrowserCdpMarker(()->owner.current(view));}
+        static MdoBrowserCdpView network(WebView view,Owner owner,Owner popupOwner,MdoBrowserCdpMarker.DocumentQuota quota){MdoBrowserCdpView result=new MdoBrowserCdpView(view,owner,popupOwner);result.marker.quota=quota;return result;}
         MdoBrowserCdpMarker marker(){return marker;}
+        boolean popupCurrent(WebView exact){return view==exact&&marker.lease.live&&popupOwner.current(exact);}
     }
     static class NativeConnection {int continued,downloads,turns;void continuePausedRequest(){continued++;}}
     static final class MdoBrowserCdpBinding {static final class Network extends NativeConnection {}}
@@ -250,6 +251,7 @@ final class AndroidCreateHost {
         if("takeover".equals(command))manual.add(key);else manual.remove(key);
     }
     @@NETWORK@@
+    MdoBrowserCdpView popupAdapter(String key){return networkViews.get(key).adapter;}
     @@NATIVE_NAVIGATION@@
     @@NAVIGATION@@
     @@CREATION_GUARD@@

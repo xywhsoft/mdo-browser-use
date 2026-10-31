@@ -1807,3 +1807,15 @@ IDs stay bounded and private until the still-pending native adoption/proof join.
 Specific native capacity, duplicate, stage, timeout and reply errors survive
 cleanup reporting; provider messages/URL/headers are not forwarded. Public JS/C
 signatures, permissions and Android capability flags remain unchanged.
+
+
+E120 binds the private native source to a distinct original UI action scope.
+Physical transport cleanup remains separate from fresh operation ownership.
+Pending callback/adoption handles carry original opaque identities and an
+at-most-once send/consumption receipt; supplied IDs cannot select another native
+callback. Retired task cleanup cannot send a later human callback, and delayed
+ready/candidate/protection notifications recheck original ownership on UI.
+
+These private handles do not grant fresh native child, CDP target, isolated world
+or response/body authority. Ordinary public JS/C APIs and Android capability
+flags remain unchanged; protected Android popup admission is still disabled.

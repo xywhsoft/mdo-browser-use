@@ -9,7 +9,7 @@
         final MdoBrowserCdpMarker.DocumentQuota quota;
         final java.util.concurrent.atomic.AtomicBoolean live=new java.util.concurrent.atomic.AtomicBoolean(true);
         final long born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->networkWatch(this);
-        MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;MdoBrowserCdpDownloads.Connection downloadConnection;long warmupEpoch,retiredAt;
+        MdoBrowserCdpView adapter;MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;MdoBrowserCdpDownloads.Connection downloadConnection;long warmupEpoch,retiredAt;
         NativeNavigation navigation;
         boolean warming=true,starting,ready,created,retired,draining,rearm,responsesDisabled,protocolDrained=true,destroyed,replySent,cleanupObservationExpired;
         String code;
@@ -114,7 +114,9 @@
             final WebView view=entry.view;
             int budget=networkRemaining(entry,100);
             if(!networkCurrent(entry)||entry.rearm&&(Boolean.TRUE.equals(loading.get(entry.key))||views.epoch(entry.key,view)!=entry.warmupEpoch))throw new IllegalStateException("network_owner_changed");
-            entry.marker=MdoBrowserCdpView.network(view,owned->owned==view&&networkCurrent(entry)&&entry.live.get(),entry.quota).marker();
+            entry.adapter=MdoBrowserCdpView.network(view,owned->owned==view&&networkCurrent(entry)&&entry.live.get(),
+                owned->owned==view&&networkCurrent(entry)&&entry.live.get()&&entry.ready&&!entry.retired&&!entry.draining&&!manual.contains(entry.key),entry.quota);
+            entry.marker=entry.adapter.marker();
             // The worker callback uses only atomic admission and the original
             // native connection. Never consult UI objects from this thread.
             final java.util.concurrent.atomic.AtomicBoolean live=entry.live;

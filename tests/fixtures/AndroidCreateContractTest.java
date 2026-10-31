@@ -205,6 +205,19 @@ public final class AndroidCreateContractTest {
         android.os.SystemClock.now+=5500;android.os.Handler.tick();check(slow.cancelled==1&&!slow.marker.lease.live&&timeout.network("tab").data.get("code").equals("network_retirement_timeout"),"Expired retirement did not fall back to bounded native teardown");
         check(Boolean.FALSE.equals(timeout.network("tab").data.get("responses_disabled")),"Timeout invented a disable acknowledgement");slow.closed(true);timeout.closeCommand("tab");
     }
+    static void originalPopupActionOwner()throws Exception{
+        AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(host,"tab");AndroidCreateHost.WebView view=host.views.get("tab");
+        AndroidCreateHost.MdoBrowserCdpView old=host.popupAdapter("tab");
+        check(!old.popupCurrent(view),"Warmup granted popup action ownership before native readiness");
+        original.ready();check(old.popupCurrent(view),"Original ready native entry lost popup action ownership");
+        host.startPage("tab",view.url);host.finishPage("tab",view.url);host.takeover("tab");
+        check(old.marker.lease.live&&old.marker.current.getAsBoolean()&&!old.popupCurrent(view),"Cleanup-only physical lease retained popup action ownership");
+        original.retired();check(!old.popupCurrent(view),"Retired original entry revived popup ownership");
+        host.returnControl("tab");AndroidCreateHost.MdoBrowserCdpView fresh=host.popupAdapter("tab");
+        check(fresh!=old&&!fresh.popupCurrent(view)&&!old.popupCurrent(view),"Rearm revived an old scope or skipped fresh native readiness");
+        host.cdpWorker.calls.get(1).ready();check(fresh.popupCurrent(view)&&!old.popupCurrent(view),"Fresh rearm readiness authorized the previous native entry");
+        host.closeCommand("tab");check(!fresh.popupCurrent(view)&&!old.popupCurrent(view),"Closed native view retained popup action ownership");
+    }
     static void rearmFailuresKeepManualPage()throws Exception{
         for(int mode=0;mode<8;mode++){
             AndroidCreateHost host=networkHost();AndroidCreateHost.NetworkCall original=startNetwork(host,"tab");original.ready();AndroidCreateHost.WebView view=host.views.get("tab");
@@ -477,7 +490,7 @@ public final class AndroidCreateContractTest {
             host.closeCommand("tab");
         }
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

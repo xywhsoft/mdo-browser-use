@@ -9800,3 +9800,68 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   body routing and broader qualification/delivery work still remain. This fixed
   protective setup does not activate the public Android popup route. Device
   checks remain deferred; all provider/framework/automation flags stay false.
+
+
+## E120 — original native popup action scope and consumption receipt (2026-10-31)
+
+- Continue sequentially on master in the existing deployment; phone and installed
+  WebView changes remain deferred. Preserve the full original Browser Use goal.
+- Reproduce a private native-source defect before changing product code:
+  .mdo/E120-ownership-before.log fails the exact later-human-window assertion.
+  The old physical lease/controller join could send a later manual callback
+  after the previous task lost ownership. This controlled native-source test is
+  not an installed-provider reproduction or a public popup-route claim.
+- Add a UI-owned original action scope, separate from the physical cleanup lease.
+  Capture exact controller/opener/navigation lineage; readiness requires the
+  original preparation-ready UI callback. Main-host adapters now persist with
+  separate fresh action ownership: current ready entry, original channel, no
+  retirement/drain/manual takeover. Existing cancel/close immediately invalidates
+  action scope. Worker-visible handles retain weak owners and data only.
+- Freeze original native pending handles and typed one-send/queue-consumption
+  receipts. Reject foreign, expired, replayed and opener/null child submissions.
+  ID-based generic adoption cannot bypass a scoped callback. Preserve original
+  send failure, timeout and owner loss through late barriers. These receipts do
+  not prove fresh unowned child/target/world/body authority or resume a child.
+- Scope original rejection so old cleanup never sends a later manual callback.
+  A still-owned canceled scope continues to block late callbacks until original
+  cleanup finishes. Do not reuse a dead scope after an owner flag flips back;
+  fresh explicit preparation creates a new generation. Keep native uncertainty,
+  held candidate detachment and global disable ACK as distinct obligations.
+- Add 120 original source/controller checks, including inline/late consumption,
+  send exception/OOM, expiry, takeover, sticky loss, scoped cancel and reprepare.
+  Fourteen shared-worker modes pass 491 checks, including owner loss before UI
+  readiness and an already queued candidate. No extra executor or UI I/O.
+  Exact main-host fragments pass 657, covering initial readiness, cleanup-only
+  takeover, rearm without old-scope revival and exact close.
+- Preserve E120-native-targeted.log and E120-native-complete.log. A former test
+  assumed the background ready result implied UI acknowledgement. The new native
+  gate exposes that race. Await the original Observer ready callback before
+  triggering an action; queued/expired tests instead assert admission is held.
+  E120-native-ui-ready.log and authoritative E120-native-final.log pass; do not
+  delay/retry or weaken the product readiness gate.
+- Full ASan/UBSan/API26/JVM/JNI gates pass 117 current source hashes, including
+  the new native-source fixture. Original discovery 401, balanced allocations,
+  WebSocket invariant/cancellation gates, attached release 2,595, broker 177/two
+  actual native flows and worker exit eight still pass. Existing popup controller
+  and framework callback checks pass 110/25; the probe now fingerprints eight
+  original inputs before/after execution. Shared JS/C saving passes 47 and binds
+  exact native receipt c5322b3be4a66947daf824e5793c2a87776535daf207a231642c4710220e4d8e.
+  Python passes 173/175 in 57.690 seconds, two existing Windows privilege skips.
+- Reapply reviewed host sources while stopped. Rebuild complete Java/DEX/APK and
+  require actual Scope/Pending/Adoption definitions. Verify eight JNI exports,
+  retained v2/v3 signer, private provider, ARM64/16 KiB alignment and exact app/
+  native payloads. Reuse the unchanged verified ARM64 host; no new native build.
+  APK: 6,501,697 bytes, SHA-256
+  ba61b2ff4a1a14fe333b0eb94c97e10f4b8b3854bb5f27ad4a52d2d455c38ce1.
+- E120-final-identities.log verifies current native 117/product 13/popup eight/
+  save six hashes and APK/archive/plugin identities. Recheck unchanged E118
+  actual Windows frame/input 301 plus its actual development host hash, E105
+  world/document proof and applicable unchanged E106 JS/packed Windows evidence.
+  These are reused original proofs, not new platform/provider runs. Windows and
+  plugin artifacts remain unchanged. E120 snapshots retain all boundaries.
+- Headless HTTP 200 is restored on 63625, PID 2684; deployment about 3,442.0 MiB,
+  D: about 39.8 GiB free. No additional app/Home/source copy, runtime dependency,
+  phone/provider change, model call, external browser page, publication or
+  production account/config edit. Goal stays active. Original native child/CDP
+  target correlation, fresh child ownership, guarded bootstrap/resume, scoped
+  response/body routing and broader cross-platform qualification/delivery remain.

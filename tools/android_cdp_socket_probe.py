@@ -147,6 +147,12 @@ def main():
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
         popup_worker_results.append(popup_worker)
     result['jvm_popup_worker']=popup_worker_results
+    popup_native=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpPopupNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
+    if (not popup_native.get('passed') or not popup_native.get('original_callback_ownership') or not popup_native.get('typed_native_consumption')
+            or popup_native.get('native_popup_adoption_qualified') is not False or popup_native.get('provider_qualified') is not False):
+        raise RuntimeError('The original native popup callback ownership/consumption gate did not pass')
+    result['jvm_popup_native']=popup_native
     worker_exit=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpWorkerExitProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not worker_exit.get('passed') or not worker_exit.get('original_worker_exit_fence') or worker_exit.get('provider_qualified') is not False:

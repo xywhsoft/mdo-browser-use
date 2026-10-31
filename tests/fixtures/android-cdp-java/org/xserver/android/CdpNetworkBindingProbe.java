@@ -44,9 +44,10 @@ public final class CdpNetworkBindingProbe {
         final List<MdoBrowserCdpSession.ControlReceipt> controls=new ArrayList<>();
         final List<MdoBrowserCdpNetworkFrames.Origin> origins=new ArrayList<>();
         MdoBrowserCdpBinding.Network network;boolean rejectDisable,rejectEnable,rejectMetadata,breakEnable,pausedEnable,abort,rejectPage,brokenTree,treeRaceApplied,expectSubframe;int treeRaces;
+        boolean popupOwned=true;
         Context(boolean physical){this(physical,new WebView(),new MdoBrowserCdpMarker.DocumentQuota());}
         Context(boolean physical,WebView original,MdoBrowserCdpMarker.DocumentQuota quota){view=original;peer=new CdpBindingProbe.Factory(view);
-            adapter=physical?MdoBrowserCdpView.network(view,v->v==view,quota):new MdoBrowserCdpView(view,v->v==view);
+            adapter=physical?MdoBrowserCdpView.network(view,v->v==view,v->v==view&&popupOwned,quota):new MdoBrowserCdpView(view,v->v==view);
             peer.extra=(command,wire)->{
                 String method=command.getString("method");methods.add(method);commands.add(command);int id=command.getInt("id");
                 if("Page.enable".equals(method)){

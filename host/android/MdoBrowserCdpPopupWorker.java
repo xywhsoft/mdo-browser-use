@@ -78,7 +78,7 @@ final class MdoBrowserCdpPopupWorker {
         try{
             MdoBrowserCdpPopupBroker current=broker;
             if(current==null){for(Job job:snapshot())if(job.stage==READY||job.stage==CANCELLING||job.stage==NATIVE_CANCELLING)job.finish("cdp_popup_worker_failed",false,true);return;}
-            for(Job job:snapshot())if(job.stage==READY&&(job.request.cancelled.get()||!job.lease.current())){
+            for(Job job:snapshot())if(job.stage==READY&&(job.request.cancelled.get()||!job.lease.current()||job.nativeSource!=null&&!job.nativeSource.live())){
                 if(job.nativeSource!=null){job.beginNativeCancel();continue;}
                 for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration))throw new IOException("cdp_popup_native_cancel_required");
                 job.releaseRegistration();
@@ -179,6 +179,8 @@ final class MdoBrowserCdpPopupWorker {
                 else{value=null;pending=new ArrayList<>();protectedTargets=new ArrayList<>();candidates.clear();protections.clear();}
             }
             try{
+                if(nativeSource!=null&&value!=null&&value.ready&&!request.cancelled.get()&&stage==READY&&!nativeSource.ready()){request.cancelled.set(true);value=null;wake.run();}
+                if(nativeSource!=null&&stage==READY&&!nativeSource.current()){request.cancelled.set(true);wake.run();}
                 if(nativeCancelRequested&&!nativeStopDelivered&&nativeSource!=null){nativeStopDelivered=true;nativeSource.reject();wake.run();}
                 if(value!=null&&(value.terminal||!request.cancelled.get()&&lease.current()&&stage==READY)){
                     if(value.terminal&&nativeSource!=null)nativeSource.finish(value.sourceReleased);action.state(value);

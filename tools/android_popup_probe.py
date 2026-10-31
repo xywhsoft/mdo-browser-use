@@ -3,6 +3,7 @@
 Uses the existing JDK/QA directory; no framework or device result is implied.
 """
 import json
+import hashlib
 import subprocess
 import sys
 import dev
@@ -46,6 +47,8 @@ def main():
     sources=[dev.ROOT/name for name in ('host/android/MdoBrowserPopups.java','host/android/MdoBrowserWindowTarget.java',
         'host/android/MdoBrowserDialogs.java','host/android/MdoBrowserDialogTarget.java',
         'tests/fixtures/AndroidPopupContractTest.java','tests/fixtures/AndroidPopupTargetContractTest.java')]
+    inputs=[*sources,dev.ROOT/'tools/android_popup_probe.py',dev.ROOT/'tools/android_dialog_probe.py']
+    hashes={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     for name,source in MOCKS.items():
         path=classes.parent/'src'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(source,encoding='utf-8',newline='\n');sources.append(path)
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
@@ -55,6 +58,9 @@ def main():
         run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.'+target],
             cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
         report[key]=json.loads(run.stdout.strip())['checks']
+    if any(hashlib.sha256((dev.ROOT/name).read_bytes()).hexdigest()!=value for name,value in hashes.items()):
+        raise RuntimeError('Native popup contract inputs changed during execution')
+    report['source_sha256']=hashes
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 
