@@ -31,12 +31,12 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         private static final MdoBrowserCdpSession.NavigationResult TIMED_OUT=MdoBrowserCdpSession.navigationFailure("cdp_navigation_timeout",false);
         private static final MdoBrowserCdpSession.NavigationResult CLOSED_UNSENT=MdoBrowserCdpSession.navigationFailure("cdp_navigation_connection_closed",false);
         private static final MdoBrowserCdpSession.NavigationResult CLOSED_SENT=MdoBrowserCdpSession.navigationFailure("cdp_navigation_connection_closed",true);
-        private String url;private final int timeout;private final long born;
+        private String url;private final String action;private final int timeout;private final long born;
         private final AtomicReference<MdoBrowserCdpSession.NavigationResult> outcome=new AtomicReference<>();
         private volatile MdoBrowserCdpBinding.Network.Navigation source;private volatile boolean issued;
         private volatile MdoBrowserCdpNetworkFrames.Origin committed;
         private volatile boolean cancelled;
-        private Navigation(String url,int timeout,long born){this.url=url;this.timeout=timeout;this.born=born;}
+        private Navigation(String url,String action,int timeout,long born){this.url=url;this.action=action;this.timeout=timeout;this.born=born;}
         MdoBrowserCdpSession.NavigationResult result(){MdoBrowserCdpBinding.Network.Navigation original=source;
             if(original!=null&&original.result()!=null)finish(original.result());return outcome.get();}
         boolean dispatched(){MdoBrowserCdpSession.NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
@@ -57,7 +57,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         private void service(MdoBrowserCdpBinding.Network connection,Events events,LongSupplier clock,boolean retiring)throws IOException {
             String target;int budget;
             MdoBrowserCdpBinding.Network.Navigation original=source;
-            if(original!=null){result();if(committed==null)committed=connection.navigationOrigin(original);return;}
+            if(original!=null){result();if(!cancelled&&committed==null)committed=connection.navigationOrigin(original);return;}
             if(result()!=null||issued)return;
             boolean allowed=events.navigationAllowed();
             synchronized(this){
@@ -70,7 +70,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
                 target=url;url=null;issued=true;budget=(int)(timeout-age);
             }
             // Never hold a UI decision/observation monitor during socket I/O.
-            try{source=connection.navigateRoot(target,budget);result();}
+            try{source=action==null?connection.navigateRoot(target,budget):connection.traverseRoot(action,budget);result();}
             catch(MdoBrowserCdpSession.Failure failure){finish(MdoBrowserCdpSession.navigationFailure(failure.getMessage(),failure.effectMayHaveOccurred));}
             catch(IOException|RuntimeException|Error failure){finish(MdoBrowserCdpSession.navigationFailure("cdp_navigation_dispatch_failed",true));}
         }
@@ -115,7 +115,14 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     Navigation navigate(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(!MdoBrowserCdpSession.navigationUrl(url)||timeout<100||timeout>600000)throw new IOException("cdp_navigation_arguments_invalid");
-        Navigation request=new Navigation(url,timeout,clock.getAsLong());
+        return admit(lease,new Navigation(url,null,timeout,clock.getAsLong()));
+    }
+    Navigation traverse(MdoBrowserCdpMarker.Lease lease,String action,int timeout)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");
+        if(!java.util.Arrays.asList("back","forward","reload").contains(action)||timeout<100||timeout>600000)throw new IOException("cdp_navigation_arguments_invalid");
+        return admit(lease,new Navigation(null,action,timeout,clock.getAsLong()));
+    }
+    private Navigation admit(MdoBrowserCdpMarker.Lease lease,Navigation request)throws IOException {
         synchronized(gate){Slot owner=null;for(Slot slot:slots)if(slot!=null&&slot.lease==lease){owner=slot;break;}
             if(owner==null||owner.stage!=READY||owner.retiring.get()||owner.cancelled.get()||!lease.current())throw new IOException("cdp_network_owner_unavailable");
             if(owner.navigation!=null&&owner.navigation.result()==null)throw new IOException("cdp_navigation_pending");owner.navigation=request;

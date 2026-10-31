@@ -119,7 +119,7 @@ def main():
     navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNavigationProbe'],cwd=ROOT,env=environment,text=True,timeout=40))
     if (not navigation.get('passed') or not navigation.get('original_navigation_receipts') or not navigation.get('same_connection_body_progress')
-            or navigation.get('real_control_sessions')!=2 or not navigation.get('fixed_control_ack_not_completion')
+            or navigation.get('real_control_event_candidates')!=2 or navigation.get('real_control_sessions')!=2 or not navigation.get('fixed_control_ack_not_completion')
             or navigation.get('real_navigation_sessions')!=2 or navigation.get('real_commit_sessions')!=2 or navigation.get('framework_verified') is not False
             or navigation.get('provider_qualified') is not False or navigation.get('product_navigation_activated') is not False):
         raise RuntimeError('The fixed original native navigation/async body-pipeline gate did not pass')
@@ -131,7 +131,7 @@ def main():
     result['jvm_response_metadata']=responses
     ancestry=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNetworkFramesProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
-    if (not ancestry.get('passed') or not ancestry.get('actual_network_ancestry') or not ancestry.get('native_navigation_epochs')
+    if (not ancestry.get('passed') or not ancestry.get('actual_network_ancestry') or not ancestry.get('native_navigation_epochs') or not ancestry.get('root_control_event_proofs')
             or ancestry.get('framework_verified') is not False or ancestry.get('provider_qualified') is not False):
         raise RuntimeError('The physical network frame ancestry gate did not pass')
     if not ancestry.get('same_document_epoch_separate'):raise RuntimeError('Same-document position must not replace the original download document epoch')
@@ -178,6 +178,7 @@ def main():
     navigation_owner=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNetworkNavigationProbe',str(output/'network-navigation-files')],cwd=ROOT,env=environment,text=True,timeout=45))
     if (not navigation_owner.get('passed') or not navigation_owner.get('original_ui_admission') or not navigation_owner.get('shared_worker_body_progress')
+            or not navigation_owner.get('history_completion_guard') or not navigation_owner.get('bfcache_and_same_document_history')
             or not navigation_owner.get('same_document_destination_guard') or not navigation_owner.get('exact_queued_cancellation') or not navigation_owner.get('original_native_commit_matching') or not navigation_owner.get('bounded_commit_history') or not navigation_owner.get('real_guarded_files')
             or navigation_owner.get('framework_verified') is not False or navigation_owner.get('provider_qualified') is not False):
         raise RuntimeError('The original UI navigation admission/shared native worker gate did not pass')
@@ -196,7 +197,7 @@ def main():
     result['jvm_binding']=binding
     network_binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNetworkBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
-    if not network_binding.get('passed') or not network_binding.get('physical_scope_separate') or not network_binding.get('native_history_selection') or not network_binding.get('history_ack_not_completion') or network_binding.get('provider_qualified') is not False or network_binding.get('product_downloads_activated') is not False:
+    if not network_binding.get('passed') or not network_binding.get('physical_scope_separate') or not network_binding.get('native_history_selection') or not network_binding.get('history_ack_not_completion') or not network_binding.get('post_history_native_proof_failures') or network_binding.get('provider_qualified') is not False or network_binding.get('product_downloads_activated') is not False:
         raise RuntimeError('The private physical-network target proof gate did not pass')
     result['jvm_network_binding']=network_binding
     network_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

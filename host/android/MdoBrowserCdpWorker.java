@@ -66,6 +66,10 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.navigate(lease,url,timeout);
     }
+    MdoBrowserCdpNetworks.Navigation traverseNetwork(MdoBrowserCdpMarker.Lease lease,String action,int timeout)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.traverse(lease,action,timeout);
+    }
+
     int networkPending(){thread();return networks.pending();}
     boolean networkPending(MdoBrowserCdpMarker marker){thread();return marker!=null&&networks.pending(marker.lease());}
     private static Ui framework(){

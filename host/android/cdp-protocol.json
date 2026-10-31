@@ -24,7 +24,7 @@
     "installed_provider_verified": false,
     "product_navigation_activated": false,
     "history_controls": {
-      "state": "private_native_receipts_and_selection_staged_completion_join_pending",
+      "state": "private_native_history_reload_event_and_entry_proofs_packaged_ui_join_pending",
       "actions": ["back", "forward", "reload"],
       "commands": ["Page.getNavigationHistory", "Page.navigateToHistoryEntry", "Page.reload"],
       "history_entry_limit": 512,
@@ -35,6 +35,18 @@
       "reload_loader_precondition_required": true,
       "deadline_includes_preflight": true,
       "empty_ack_is_page_completion": false,
+      "completion": "original_ACK_plus_post_admission_matching_root_start_and_commit_then_current_native_entry_and_frame",
+      "same_document_history": "unchanged_original_document_loader_and_matching_destination_event",
+      "bfcache": "explicit_restore_commit_and_original_selected_entry_fresh_frame_proof",
+      "reload": "matching_reload_start_and_fresh_loader_commit",
+      "current_entry_id_rechecked": true,
+      "duplicate_url_is_entry_identity": false,
+      "native_position_and_start_scope_retained": true,
+      "completion_queries": "only_on_a_new_candidate_revision_within_original_budget",
+      "completed_read_guard": "target_frame_loader_entry_and_destination_before_and_after_operation",
+      "subsequent_navigation_revokes_without_resurrection": true,
+      "raw_history_urls_retained": false,
+      "worker_route": "private_traverseNetwork_on_existing_shared_executor",
       "goto_completion_reused": false,
       "automatic_retry": false,
       "ui_route_activated": false,
@@ -96,7 +108,9 @@
         "Navigate omits loaderId for same-document navigation",
         "getNavigationHistory returns currentIndex and native entry IDs",
         "navigateToHistoryEntry and reload have empty result acknowledgments",
-        "reload accepts an optional original loaderId precondition"
+        "reload accepts an optional original loaderId precondition",
+        "frameStartedNavigating exposes typed native starts but does not guarantee completion",
+        "FrameNavigated distinguishes an explicit BackForwardCacheRestore commit"
       ]
     },
     {

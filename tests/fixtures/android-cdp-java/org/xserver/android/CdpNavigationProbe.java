@@ -175,7 +175,7 @@ public final class CdpNavigationProbe {
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
         try{worker.submit(()->{try{nativeClassification();admission();invalidReplies();failureAndOrdering();traversalReceipts();if(args.length==0){realWire(42);realWire(43);realCommitWire(44);realCommitWire(45);realControlWire(46);realControlWire(47);}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(3,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"real_control_sessions\":"+realControlSessions+",\"fixed_control_ack_not_completion\":true,\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"real_control_sessions\":"+realControlSessions+",\"fixed_control_ack_not_completion\":true,\"real_control_event_candidates\":"+realControlSessions+",\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
     }
     private static void realCommitWire(int mode)throws Exception{
         // UUID's process-wide entropy descriptors are initialized before the
@@ -201,15 +201,21 @@ public final class CdpNavigationProbe {
         CdpNativeProbe.fixtureStart(mode);MdoBrowserCdpSession session=null;
         try(MdoBrowserCdpNetworkFrames originalFrames=frames){
             frames.initialize(new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","initial-loader")),frames.revision());
-            long revision=frames.revision();session=MdoBrowserCdpSession.open("test-001",500,()->true,frames);
+            long revision=frames.revision();MdoBrowserCdpNetworkFrames.Origin previous=frames.origin("frame-owned");session=MdoBrowserCdpSession.open("test-001",500,()->true,frames);
             MdoBrowserCdpSession.Navigation navigation=mode==46?session.historyRoot("frame-owned",17,15000):session.reloadRoot("frame-owned","initial-loader",15000);
             for(int i=0;i<30&&navigation.pending();i++)session.poll(20,100);
             check(navigation.receiptOnly&&navigation.result()!=null&&navigation.result().ok&&navigation.result().acknowledged);
             check(!navigation.result().downloadKnown&&!navigation.result().loaderPresent&&!navigation.matchesSameDocument("frame-owned"));
             session.call("Runtime.evaluate",null,null,1000,false);
             check(!navigation.matchesCommittedLoader("frame-owned","native-control-loader")&&frames.navigationOrigin(navigation,revision)==null);
-            check(frames.rootLoader().equals("native-control-loader"));realControlSessions++;
-        }finally{if(session!=null)session.close();check(CdpNativeProbe.fixtureFinish()==(1+(2<<8)));}
+            check(frames.rootLoader().equals("native-control-loader"));
+            byte[] destination=MdoBrowserCdpSession.navigationDigest("https://history.invalid/target");
+            MdoBrowserCdpNetworkFrames.Traversal proof=frames.traversal(navigation,revision,mode==46?"back":"reload","initial-loader",previous,destination);
+            check(proof!=null&&proof.origin.current()&&!proof.sameDocument);MdoBrowserCdpNetworkFrames.Origin download=frames.origin("frame-owned");
+            session.call("Runtime.evaluate",null,null,1000,false);
+            check(!proof.origin.current()&&download.current()&&frames.traversal(navigation,revision,mode==46?"back":"reload","initial-loader",previous,destination)==null);
+            realControlSessions++;
+        }finally{if(session!=null)session.close();check(CdpNativeProbe.fixtureFinish()==(1+(3<<8)));}
     }
     private static int entropyDescriptors()throws IOException{
         try(java.util.stream.Stream<java.nio.file.Path> paths=java.nio.file.Files.list(java.nio.file.Paths.get("/proc/self/fd"))){

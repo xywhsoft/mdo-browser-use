@@ -8636,3 +8636,79 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Phone/main-UI/installed-provider verification is deferred at the user's request;
   device/framework/automation qualification stays false. No provider update,
   formal-data change or online publication occurred.
+
+## E104 — prove native history/reload commitment and guard reads (2026-10-31)
+
+- Join a receipt-only control ACK with a matching post-admission native root
+  start and commit. History accepts its typed same-document start plus unchanged
+  original document/loader and destination event, or a typed cross-document
+  start/loader commit. An explicit BackForwardCacheRestore commit can restore an
+  older loader; a new native history entry/frame check is still mandatory.
+  Reload requires a reload start and newly committed loader. Missing, wrong,
+  pre-admission, child or superseded evidence cannot grant this proof.
+- Track one current root start and the existing bounded 32-commit ledger. Retain
+  destination equality digests, never raw event URLs or history titles. A later
+  root start invalidates the retained control proof even before a new document
+  commits. Position/document changes also revoke it; an already retained proof
+  cannot be replaced with a later matching result. Ordinary download provenance
+  survives a start without a document replacement.
+- Before publishing commitment, read current native history and frame metadata
+  on the original physical target. Match the originally selected entry ID,
+  current loader, URL/fragment digest and stable original ledger revision.
+  Duplicate URLs cannot stand in for entry identity. Query only on a new
+  candidate revision and within the original preflight/dispatch budget. A local
+  proof-budget expiry sends no further work and does not by itself retire a
+  still-valid physical connection. ACKs remain immutable and distinct from
+  document proof, DOM/load readiness and download completion.
+- Add private traverseNetwork admission on the existing single worker. Preserve
+  cancellation, queued budget, pending-download admission and no replay. Route
+  retained control proofs through before/after read guards: exact physical
+  target, document loader, selected history entry and committed destination must
+  still match. Reject before evaluation when possible; discard returned bytes
+  and retain effect uncertainty if the operation already ran. Superseding starts,
+  same-URL entry replacement, post-read URL/loader change and cancellation are
+  covered without adopting another current page.
+- Check the pinned primary Page protocol for typed starts, possible cancellation,
+  reload loader preconditions and explicit BFCache commit type. Inspect Chromium
+  138.0.7204.0's PageHandler mapping of reload/history start enums as a reference,
+  not proof of the installed provider:
+  https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl
+  and https://raw.githubusercontent.com/chromium/chromium/138.0.7204.0/content/browser/devtools/protocol/page_handler.cc.
+- Full ASan/UBSan/API26 and real JVM/JNI/JSON/socket gates pass: navigation
+  receipts 238 (including two real control start/commit/revocation socket sessions),
+  ancestry 121, physical binding 2,460, navigation broker/guard 536 and shared
+  worker 195. Negative proof cases cover unavailable evidence, wrong native
+  entry despite matching URL, root/loader/destination changes, document.open,
+  malformed history, unreachable pages and original deadline exhaustion.
+  Exact product lifecycle remains 450. All 103 native and 13 product input hashes
+  match current bytes. No native/UI qualification is inferred from controlled
+  renderer or framework peers.
+- Preserve .mdo/E104-navigation-first-failure.log and
+  E104-navigation-fixture-failure.log. A newly added post-read case initially
+  dereferenced Context.network, which direct Context.bind sets but the shared
+  worker connector does not. That fixture threw before returning its buffer.
+  Remove that invalid direct poll and exercise the real cooperative RPC turn;
+  the 536-assertion focused/full runs pass without weakening byte clearing or
+  uncertainty checks. Only the verified empty fixed QA directory was removed
+  between attempts; no application/Home/source copy was created.
+- All 364 JS tests pass sequentially (21.429 seconds); Python passes 173/175
+  (47.176 seconds), with the two existing Windows symlink-privilege skips. Seven
+  final APK contracts and 12 actual packed Windows runtime checks pass. Require
+  actual DEX definitions for the new native Start and Traversal classes, including
+  missing-class rejection. Full Android QA APK: 6,473,025 bytes, SHA-256
+  c92a805866ccdd3374e96b11c3dc40a4c655c86bc714949818c9f2a926b34f0f.
+  Windows remains 6,937,299 bytes, SHA-256
+  1265e71f1fad8503887dd8c37b5e6144da7e9834a0ce0647efe13ea75b59f99c.
+  Native ARM64/16 KiB engine, six JNI exports, private provider, retained v2/v3
+  signer and paired 247,351-byte/22-file plugin are verified and unchanged.
+  Evidence: .mdo/E104-native-current.json, E104-product-current.json,
+  E104-android-receipt.json, E104-final-identities.log and E104 test/build logs.
+- Restore the sole headless service: PID 28620, HTTP 200 on 63625, about 3,441.6
+  MiB. Goal active. Next connect the private control kind/commit proof to original
+  UI navigation records and shared JS/C observation/waiting; empty control ACKs
+  must not be treated as goto download metadata. DOM/load readiness remains a
+  separate check. Same-location no-op qualification, exact request/download
+  association, remaining transfers and documented full-goal verification remain.
+  Phone/installed-provider/main-UI checks stay deferred at the user's request;
+  device/framework/automation flags remain false. No online publication, provider
+  update or formal-data modification occurred.

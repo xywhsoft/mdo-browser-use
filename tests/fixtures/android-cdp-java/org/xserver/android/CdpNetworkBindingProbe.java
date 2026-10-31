@@ -247,11 +247,49 @@ public final class CdpNetworkBindingProbe {
             run(()->{for(String action:new String[]{null,"goto","Page.reload"})rejected("cdp_navigation_arguments_invalid",()->c.network.traverseRoot(action,1500));rejected("cdp_navigation_arguments_invalid",()->c.network.traverseRoot("back",99));return null;});check(c.commands.size()==before);
         }
     }
+    private static void traversalCompletionFailures()throws Exception{
+        for(int mode=0;mode<11;mode++)try(Context c=new Context(true)){
+            final int scenario=mode;c.bind();c.enable();CdpBindingProbe.Factory.Extra previous=c.peer.extra;final boolean[] sent={false};final int[] postQueries={0};
+            c.peer.extra=(command,wire)->{
+                String method=command.getString("method");int id=command.getInt("id");
+                if(method.equals("Page.getNavigationHistory")){
+                    JSONObject value=history();if(sent[0]){postQueries[0]++;value.put("currentIndex",0);
+                        if(scenario==4)value.getJSONArray("entries").getJSONObject(0).put("id",777);
+                        if(scenario==7)wire.queue(new JSONObject().put("method","Page.documentOpened").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","control-loader"))));
+                        if(scenario==8)android.os.SystemClock.now=3000;
+                        if(scenario==9)value.put("currentIndex",true);
+                    }
+                    wire.queue(new JSONObject().put("id",id).put("result",value));return true;
+                }
+                if(method.equals("Page.getFrameTree")){
+                    JSONObject root=new JSONObject().put("id","frame-owned").put("loaderId",sent[0]?(scenario==6?"wrong-loader":"control-loader"):"load-owned").put("url",sent[0]?(scenario==5?"https://history.invalid/wrong":"https://history.invalid/0"):"https://history.invalid/1#original");
+                    if(sent[0]&&scenario==10)root.put("unreachableUrl","https://history.invalid/0");
+                    wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",root))));return true;
+                }
+                if(method.equals("Page.navigateToHistoryEntry")){
+                    sent[0]=true;wire.queue(response(id));
+                    if(scenario!=0)wire.queue(new JSONObject().put("method","Page.frameStartedNavigating").put("params",new JSONObject().put("frameId","frame-owned").put("loaderId","control-loader").put("url",scenario==2?"https://history.invalid/wrong":"https://history.invalid/0").put("navigationType",scenario==3?"differentDocument":"historyDifferentDocument")));
+                    if(scenario!=1)wire.queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","control-loader"))));return true;
+                }return previous.send(command,wire);
+            };
+            try{if(mode==8)android.os.SystemClock.now=1000;
+                run(()->{
+                    MdoBrowserCdpBinding.Network.Navigation ticket=c.network.traverseRoot("back",1500);
+                    for(int i=0;i<(scenario==0||scenario==1?2:3);i++)c.network.poll(100);
+                    check(ticket.result().ok);
+                    if(scenario==9)rejected("cdp_history_snapshot_invalid",()->c.network.navigationOrigin(ticket));
+                    else check(c.network.navigationOrigin(ticket)==null);
+                    int count=postQueries[0];check(c.network.navigationOrigin(ticket)==null&&postQueries[0]==count);
+                    check(count==(scenario<4?0:1));return null;
+                });
+            }finally{android.os.SystemClock.now=Long.MIN_VALUE;}
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");worker=Executors.newSingleThreadExecutor();
-        try{scope();navigation();failures();rootNavigationReceipt();foreignNavigation();traversalSelections();}
+        try{scope();navigation();failures();rootNavigationReceipt();foreignNavigation();traversalSelections();traversalCompletionFailures();}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));Handler.drain();}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni_json\":true,\"physical_scope_separate\":true,\"native_history_selection\":true,\"history_ack_not_completion\":true,\"document_navigation_tested\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni_json\":true,\"physical_scope_separate\":true,\"native_history_selection\":true,\"history_ack_not_completion\":true,\"post_history_native_proof_failures\":true,\"document_navigation_tested\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
     private static void foreignNavigation()throws Exception{
         try(Context first=new Context(true);Context second=new Context(true)){

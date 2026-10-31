@@ -261,9 +261,74 @@ public final class CdpNetworkNavigationProbe {
             source.context.wire().queue(within("frame-owned",url));check(!original.pageCurrent()&&document.equals(original.pageDocument()));
         }
     }
+    private static JSONObject controlHistory(int current,int replacement)throws Exception{
+        org.json.JSONArray entries=new org.json.JSONArray();
+        for(int i=0;i<3;i++)entries.put(new JSONObject().put("id",replacement!=0&&i==current?replacement:17+i).put("url",i==1?"https://history.invalid/current":"https://history.invalid/target").put("title","private-title"));
+        return new JSONObject().put("currentIndex",current).put("entries",entries);
+    }
+    private static JSONObject nativeFrame(String loader,String url)throws Exception{return new JSONObject().put("id","frame-owned").put("loaderId",loader).put("url",url);}
+    private static JSONObject started(String loader,String url,String type)throws Exception{
+        return new JSONObject().put("method","Page.frameStartedNavigating").put("params",new JSONObject().put("frameId","frame-owned").put("loaderId",loader).put("url",url).put("navigationType",type));
+    }
+    private static void historyProofs()throws Exception{
+        for(int mode=0;mode<14;mode++)try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("history-proof-"+mode)){
+            final int scenario=mode;boolean reload=mode==3,within=mode==1,restored=mode==2;String action=reload?"reload":mode==4?"forward":"back";
+            String destination=reload?"https://history.invalid/current":"https://history.invalid/target";
+            CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;
+            AtomicInteger index=new AtomicInteger(1),replacement=new AtomicInteger(),mutations=new AtomicInteger(),historyQueries=new AtomicInteger();
+            java.util.concurrent.atomic.AtomicReference<String> loader=new java.util.concurrent.atomic.AtomicReference<>("load-owned"),url=new java.util.concurrent.atomic.AtomicReference<>("https://history.invalid/current");
+            source.context.peer.extra=(command,wire)->{
+                String method=command.getString("method");int id=command.getInt("id");
+                if(method.equals("Page.getNavigationHistory")){historyQueries.incrementAndGet();wire.queue(new JSONObject().put("id",id).put("result",controlHistory(index.get(),replacement.get())));return true;}
+                if(method.equals("Page.getFrameTree")){wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",nativeFrame(loader.get(),url.get())))));return true;}
+                if(method.equals("Page.navigateToHistoryEntry")||method.equals("Page.reload")){
+                    mutations.incrementAndGet();check(command.length()==3&&command.getJSONObject("params").length()==1);
+                    check(reload?command.getJSONObject("params").getString("loaderId").equals("load-owned"):command.getJSONObject("params").getInt("entryId")== (action.equals("back")?17:19));
+                    index.set(reload?1:action.equals("back")?0:2);url.set(destination);loader.set(within||restored?"load-owned":"control-loader");
+                    if(scenario%2==0)wire.queue(new JSONObject().put("id",id).put("result",new JSONObject()));
+                    wire.queue(started(within||restored?"request-token":"control-loader",destination,reload?"reload":within?"historySameDocument":"historyDifferentDocument"));
+                    if(within)wire.queue(within("frame-owned",destination));
+                    else wire.queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",nativeFrame(loader.get(),destination)).put("type",restored?"BackForwardCacheRestore":"Navigation")));
+                    if(scenario%2!=0)wire.queue(new JSONObject().put("id",id).put("result",new JSONObject()));return true;
+                }return previous.send(command,wire);
+            };
+            MdoBrowserCdpNetworks.Navigation original=test.host.worker.traverseNetwork(source.context.adapter.marker().lease(),action,10000);
+            await(original::pageCurrent);check(original.result().ok&&original.result().acknowledged&&!original.result().loaderPresent&&!original.result().downloadKnown&&original.sameDocument()==within&&mutations.get()==1);
+            check(historyQueries.get()==2);String originalDocument=original.pageDocument();
+            MdoBrowserCdpMarker document=test.host.document();CdpBindingProbe.Factory reader=test.host.documents.get(document);
+            if(mode==6)test.host.documentTargets.put(document,"foreign-target");
+            reader.extra=(command,wire)->{
+                String method=command.getString("method");int id=command.getInt("id");
+                if(method.equals("Page.getNavigationHistory")){wire.queue(new JSONObject().put("id",id).put("result",controlHistory(index.get(),replacement.get())));return true;}
+                if(method.equals("Page.getFrameTree")){wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",nativeFrame(loader.get(),url.get())))));return true;}
+                return false;
+            };
+            if(mode==5)replacement.set(777);if(mode==7)url.set("https://history.invalid/other");if(mode==13)original.cancel();
+            AtomicInteger evaluations=new AtomicInteger();java.util.concurrent.atomic.AtomicReference<byte[]> payload=new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> receipt=new java.util.concurrent.atomic.AtomicReference<>();
+            JSONObject replacementStart=started("another-token",destination,"historyDifferentDocument");
+            test.host.worker.submitGuarded(document,1500,true,original,(binding,deadline)->{
+                evaluations.incrementAndGet();byte[] bytes=new byte[]{31,32};payload.set(bytes);
+                if(scenario==8)replacement.set(778);
+                if(scenario==9)loader.set("other-loader");
+                if(scenario==10)original.cancel();
+                if(scenario==11){source.context.wire().queue(replacementStart);}
+                if(scenario==12)url.set("https://history.invalid/changed-after-read");
+                return bytes;
+            },result->{if(result.bytes!=null)check(result.bytes[0]==31);receipt.set(result);});
+            await(()->{test.host.ui.drain();return receipt.get()!=null;});
+            MdoBrowserCdpWorker.Result result=receipt.get();boolean success=mode<5;
+            check((result.code==null)==success&&(result.bytes!=null)==success);
+            check(evaluations.get()==(mode==5||mode==6||mode==7||mode==13?0:1));
+            if(result.effectMayHaveOccurred!=(evaluations.get()==1))throw new AssertionError("History mode "+mode+" uncertainty "+result.code);
+            check(true);if(payload.get()!=null)for(byte value:payload.get()){if(value!=0)throw new AssertionError("History mode "+mode+" uncleared payload, result "+result.code);check(true);}
+            check(original.result().ok&&mutations.get()==1&&original.pageDocument().equals(originalDocument));
+            if(mode==11)check(!original.pageCurrent());
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

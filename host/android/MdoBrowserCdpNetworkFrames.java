@@ -14,16 +14,29 @@ import org.json.JSONObject;
 final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,AutoCloseable {
     private static final int LIMIT=32,DEPTH=32,LIFETIME=4096;
     /** Private bounded root commit history, not a public wire-ID lookup. */
-    private static final class Commit {
-        final String loader;final long revision;final Origin origin;final byte[] destination;
-        Commit(String loader,long revision,Origin origin){this(loader,revision,origin,null);}
-        Commit(String loader,long revision,Origin origin,byte[] destination){this.loader=loader;this.revision=revision;this.origin=origin;this.destination=destination;}
+    private static final class Start {
+        final String loader,type;final long revision;final byte[] destination;final Scope scope=new Scope();
+        Start(String loader,String type,long revision,byte[] destination){this.loader=loader;this.type=type;this.revision=revision;this.destination=destination;}
+        void revoke(){scope.active=false;if(destination!=null)java.util.Arrays.fill(destination,(byte)0);}
     }
+    static final class Traversal {
+        final String loader;final long revision;final Origin origin;final boolean sameDocument;
+        private Traversal(Commit commit){loader=commit.loader;revision=commit.revision;sameDocument=commit.destination!=null;origin=commit.position.with(commit.started.scope);}
+    }
+    private static final class Commit {
+        final String loader;final long revision;final Origin origin,position;final byte[] destination;final Start started;final boolean restored;
+        Commit(String loader,long revision,Origin origin,Origin position,byte[] destination,Start started,boolean restored){
+            this.loader=loader;this.revision=revision;this.origin=origin;this.position=position;this.destination=destination;this.started=started;this.restored=restored;
+        }
+    }
+    private Start started;
     private final Commit[] commits=new Commit[LIMIT];private int commitCursor;
     private static final class Scope {volatile boolean active=true;}
     static final class Origin {
         final String frame,document;final boolean root;private final Scope[] ancestry;
         private Origin(Frame node,Scope[] ancestry,boolean root){frame=node.alias;document=node.document;this.ancestry=ancestry;this.root=root;}
+        private Origin(Origin original,Scope[] ancestry){frame=original.frame;document=original.document;root=original.root;this.ancestry=ancestry;}
+        private Origin with(Scope scope){Scope[] extended=java.util.Arrays.copyOf(ancestry,ancestry.length+1);extended[extended.length-1]=scope;return new Origin(this,extended);}
         boolean current(){for(Scope scope:ancestry)if(!scope.active)return false;return true;}
     }
     private static final class Frame {
@@ -90,9 +103,17 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     }
     @Override public void event(String method,String child,JSONObject params)throws IOException {
         current();if(!method.equals("Page.frameAttached")&&!method.equals("Page.frameNavigated")&&!method.equals("Page.documentOpened")&&
-            !method.equals("Page.navigatedWithinDocument")&&!method.equals("Page.frameDetached")&&!method.equals("Page.frameSubtreeWillBeDetached"))return;
+            !method.equals("Page.frameStartedNavigating")&&!method.equals("Page.navigatedWithinDocument")&&!method.equals("Page.frameDetached")&&!method.equals("Page.frameSubtreeWillBeDetached"))return;
         try{
             if(child!=null)throw fail("download_frame_session_unproven");
+            if(method.equals("Page.frameStartedNavigating")){
+                String raw=id(params,"frameId");if(!raw.equals(root))return;
+                Object url=params.opt("url"),load=params.opt("loaderId"),type=params.opt("navigationType");
+                if(!(url instanceof String)||((String)url).length()>8192||!loader(load)||!(type instanceof String)||
+                   !java.util.Arrays.asList("reload","reloadBypassingCache","restore","restoreWithPost","historySameDocument","historyDifferentDocument","sameDocument","differentDocument").contains(type))throw fail("download_frame_metadata_invalid");
+                if(started!=null)started.revoke();revision++;
+                started=new Start((String)load,(String)type,revision,MdoBrowserCdpSession.navigationUrl((String)url)?MdoBrowserCdpSession.navigationDigest((String)url):null);return;
+            }
             if(method.equals("Page.navigatedWithinDocument")){
                 String raw=id(params,"frameId");if(!raw.equals(root))return;
                 Object url=params.opt("url"),type=params.opt("navigationType");
@@ -100,8 +121,8 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
                    !("fragment".equals(type)||"historyApi".equals(type)||"other".equals(type)))throw fail("download_frame_metadata_invalid");
                 Frame node=frames.get(root);node.move();revision++;
                 if(ready&&MdoBrowserCdpSession.navigationUrl((String)url)){
-                    Origin document=origin(root);Scope[] scopes=java.util.Arrays.copyOf(document.ancestry,document.ancestry.length+1);scopes[scopes.length-1]=node.position;
-                    retain(new Commit(node.loader,revision,new Origin(node,scopes,true),MdoBrowserCdpSession.navigationDigest((String)url)));
+                    Origin position=origin(root).with(node.position);
+                    retain(new Commit(node.loader,revision,position,position,MdoBrowserCdpSession.navigationDigest((String)url),started,false));
                 }return;
             }
             if(method.equals("Page.frameAttached")){String raw=id(params,"frameId"),parent=id(params,"parentFrameId");attach(raw,parent,"");revision++;return;}
@@ -111,9 +132,11 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
                 if(raw.equals(root)){if(value.has("parentId"))throw fail("download_frame_root_changed");node=frames.get(root);}
                 else{Frame previous=frames.get(raw);String parent=value.has("parentId")?id(value,"parentId"):previous==null?null:previous.parent;
                     if(parent==null)throw fail("download_frame_parent_unproven");node=attach(raw,parent,(String)load);}
+                Object type=params.opt("type");if(method.equals("Page.frameNavigated")&&params.has("type")&&!"Navigation".equals(type)&&!"BackForwardCacheRestore".equals(type))throw fail("download_frame_metadata_invalid");
                 descendants(raw,false);node.navigate((String)load);revision++;
+                if(raw.equals(root)&&method.equals("Page.documentOpened")&&started!=null){started.revoke();started=null;}
                 if(ready&&raw.equals(root)&&method.equals("Page.frameNavigated")){
-                    retain(new Commit((String)load,revision,origin(root)));
+                    Origin document=origin(root);retain(new Commit((String)load,revision,document,document.with(node.position),null,started,"BackForwardCacheRestore".equals(type)));
                 }return;
             }
             String raw=id(params,"frameId");if(raw.equals(root))throw fail("download_frame_root_changed");Frame node=frames.get(raw);if(node==null)return;
@@ -146,6 +169,24 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
             Commit commit=commits[(commitCursor+LIMIT-1-i)%LIMIT];
             if(commit!=null&&commit.destination!=null&&commit.revision>after&&commit.loader.equals(loader)&&
                java.security.MessageDigest.isEqual(commit.destination,destination))return commit.origin;
+        }return null;
+    }
+    Traversal traversal(MdoBrowserCdpSession.Navigation navigation,long after,String action,String previousLoader,Origin previous,byte[] destination)throws IOException {
+        current();MdoBrowserCdpSession.NavigationResult receipt=navigation==null?null:navigation.result();
+        if(!ready||navigation==null||!navigation.receiptOnly||receipt==null||!receipt.acknowledged||!receipt.ok)return null;
+        for(int i=0;i<LIMIT;i++){
+            Commit commit=commits[(commitCursor+LIMIT-1-i)%LIMIT];Start start=commit==null?null:commit.started;
+            if(start==null||!start.scope.active||start.destination==null||commit.revision<=after||start.revision<=after||start.revision>=commit.revision||
+               !commit.position.current()||!java.security.MessageDigest.isEqual(start.destination,destination))continue;
+            boolean same=commit.destination!=null;
+            if(action.equals("reload")){
+                if(same||commit.restored||!start.type.equals("reload")||!commit.loader.equals(start.loader)||commit.loader.equals(previousLoader))continue;
+            }else if(action.equals("back")||action.equals("forward")){
+                if(same){
+                    if(!start.type.equals("historySameDocument")||previous==null||!previous.current()||!commit.loader.equals(previousLoader)||!java.security.MessageDigest.isEqual(commit.destination,destination))continue;
+                }else if(!start.type.equals("historyDifferentDocument")||!commit.restored&&!commit.loader.equals(start.loader))continue;
+            }else return null;
+            return new Traversal(commit);
         }return null;
     }
     /** Called after the physical native worker is drained, or on that worker.

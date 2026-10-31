@@ -111,8 +111,44 @@ public final class CdpNetworkFramesProbe {
         check(one.length==32&&java.security.MessageDigest.isEqual(one,two)&&!java.security.MessageDigest.isEqual(one,other));
         refused("cdp_navigation_destination_invalid",()->MdoBrowserCdpSession.navigationDigest("https://user:private@private.invalid/"));
     }
+    private static void traversalEvents()throws Exception{
+        String destination="https://history.invalid/target";byte[] digest=MdoBrowserCdpSession.navigationDigest(destination);
+        for(int mode=0;mode<17;mode++)try(MdoBrowserCdpNetworkFrames frames=open()){
+            final int scenario=mode;MdoBrowserCdpNetworkFrames.Origin previous=frames.origin("root");
+            CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
+            try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,frames,wire)){
+                String action=mode==12?"reload":"back";MdoBrowserCdpSession.Navigation ticket=mode==12?session.reloadRoot("root","load-root",5000):session.historyRoot("root",17,5000);
+                int id=wire.commands.get(0).getInt("id");long before=frames.revision();
+                JSONObject start=new JSONObject().put("frameId",mode==9?"child":"root").put("loaderId",mode==11?"wrong-loader":mode==13?"load-root":"fresh-loader").put("url",mode==6?"https://history.invalid/wrong":destination).put("navigationType",mode==7?"differentDocument":mode==12?"reload":"historyDifferentDocument");
+                if(mode!=0)frames.event("Page.frameStartedNavigating",null,start);
+                if(mode==4)start.put("url","https://history.invalid/changed-input").put("loaderId","changed-input");
+                if(mode==8)before=frames.revision();
+                if(mode!=1){JSONObject committed=frame("root",null,mode==13||mode==16?"load-root":"fresh-loader");frames.event(mode==10?"Page.documentOpened":"Page.frameNavigated",null,new JSONObject().put("frame",committed).put("type",mode==16?"BackForwardCacheRestore":"Navigation"));}
+                check(frames.traversal(ticket,before,action,"load-root",previous,digest)==null);
+                if(mode!=2){wire.add(mode==3?new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","private-error")):new JSONObject().put("id",id).put("result",new JSONObject()));session.poll(100);}
+                if(mode==14)frames.event("Page.frameStartedNavigating",null,new JSONObject().put("frameId","root").put("loaderId","next-loader").put("url",destination).put("navigationType","historyDifferentDocument"));
+                if(mode==15)for(int i=0;i<32;i++)frames.event("Page.frameNavigated",null,new JSONObject().put("frame",frame("root",null,"unrelated-"+i)));
+                MdoBrowserCdpNetworkFrames.Traversal proof=frames.traversal(ticket,before,action,"load-root",previous,digest);
+                boolean valid=mode==4||mode==5||mode==12||mode==13||mode==16;
+                check((proof!=null)==valid);
+                if(proof!=null){
+                    check(proof.origin.current()&&!proof.sameDocument);MdoBrowserCdpNetworkFrames.Origin retained=proof.origin;
+                    if(mode==5)frames.event("Page.navigatedWithinDocument",null,new JSONObject().put("frameId","root").put("url",destination));
+                    else frames.event("Page.frameStartedNavigating",null,new JSONObject().put("frameId","root").put("loaderId","future").put("url",destination).put("navigationType","historyDifferentDocument"));
+                    check(!retained.current());
+                }
+            }wire.cleared();
+        }
+        for(int mode=0;mode<5;mode++)try(MdoBrowserCdpNetworkFrames frames=open()){
+            MdoBrowserCdpNetworkFrames.Origin previous=frames.origin("root");JSONObject start=new JSONObject().put("frameId","root").put("loaderId","next").put("url",destination).put("navigationType","reload");
+            if(mode==0)start.put("url",17);if(mode==1)start.put("navigationType","unknown");if(mode==2)start.put("loaderId",true);if(mode==3)start.put("url",String.join("",java.util.Collections.nCopies(8193,"a")));
+            final int scenario=mode;refused(mode==4?"download_frame_session_unproven":"download_frame_metadata_invalid",()->frames.event("Page.frameStartedNavigating",scenario==4?"foreign-session":null,start));check(!previous.current());
+        }
+    }
     public static void main(String[] args)throws Exception{
-        ancestry();removalAndSwap();bootstrap();limitsAndFaults();withinDocumentLedger();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"actual_network_ancestry\":true,\"native_navigation_epochs\":true,\"same_document_epoch_separate\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
+        try{worker.submit(()->{try{ancestry();removalAndSwap();bootstrap();limitsAndFaults();withinDocumentLedger();traversalEvents();}catch(Exception failure){throw new RuntimeException(failure);}}).get(20,java.util.concurrent.TimeUnit.SECONDS);}
+        finally{worker.shutdownNow();check(worker.awaitTermination(2,java.util.concurrent.TimeUnit.SECONDS));}
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"actual_network_ancestry\":true,\"native_navigation_epochs\":true,\"same_document_epoch_separate\":true,\"root_control_event_proofs\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }
