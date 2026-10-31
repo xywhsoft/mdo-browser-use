@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E110)
+## Complete development host APK (E46/E112)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,477,121 bytes, SHA-256
-`474af41bde569562284df197d9cd6672ca719926e7cd0f12e51d383235926fbc`.
+Current APK: 6,481,217 bytes, SHA-256
+`86f0212457b30506701d0c70d460f47c54aaf3e78bc1a1555bbce26a518988ff`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -92,10 +92,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E110-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E110-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E112-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E112-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E110. Native/component evidence is recorded separately below.
+attempted in E106-E112. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -4101,3 +4101,36 @@ ARM64 filesystem/framework behavior, installed-provider network interception,
 main-UI routing or complete public SDK admission on a phone. Those qualifications
 remain false/deferred; the product gate and current WebView are unchanged. Current
 evidence is in .mdo/E111-android-save-current.json and E111-android-save-final.log.
+
+## Page-close download retention and automatic reaping (E112)
+
+The original Android page-close callback now retires its original network
+connection immediately. It keeps completed original source bytes and their
+controller records; unfinished sources retain their existing cleanup/failure
+rules. Native state distinguishes close_requested from closed_by_page, which is
+the shared popup manager's permission to automatically remove the native owner.
+
+Automatic reaping requires confirmed original protocol retirement, no retained
+download records or pending file cleanup, and no original-controller read/release
+reply waiter. Known unconfirmed network cleanup blocks this permission. No socket
+or disk I/O is performed by this UI observation. A closed page's verified bytes
+remain readable before explicit release; releasing still cancels unfinished
+reads according to the original file-lifetime rules. Waiting for reply delivery
+after file/record cleanup prevents automatic removal from swallowing that result.
+The shared manager separately waits for the final broker/UI acknowledgement.
+
+The exact product popup-state and download-command fragments are tested together
+with the real controller/file worker. The previous implementation fails check 82
+with a retained verified original response. The final 101 assertions cover its
+read after page close, blocked worker/read/release ordering, zero records with
+still-pending replies, final reaping, protocol/global cleanup fences, ordinary
+unmanaged page close and an unclosed view. Full native gates cover 109 current
+inputs; shared popup/download JS checks pass 29, the JS/C save integration passes
+47, and Python passes 173/175 with the two existing privilege skips.
+
+The actual APK is rebuilt and verified. These are component/packaging results:
+the callback's framework/provider/main-UI qualification remains deferred and
+protected popup network adoption stays explicitly unqualified. No provider or
+public Android automation gate is enabled by the new close-state semantics.
+See .mdo/E112-page-close-before-fix.log, E112-native-current.json,
+E112-save-current.json and E112-final-identities.log for current evidence.

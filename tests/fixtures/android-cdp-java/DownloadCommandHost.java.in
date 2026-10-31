@@ -14,17 +14,22 @@ final class DownloadCommandHost {
         boolean active(Lease original,String url){return lease==original&&original.active;}
     }
     static final class NetworkEntry {
-        final String key;final WebView view;final MdoBrowserCdpDownloads downloads;boolean ready=true,retired;
+        final String key;final WebView view;final MdoBrowserCdpDownloads downloads;boolean ready=true,retired,protocolDrained;
         NetworkEntry(String key,WebView view,MdoBrowserCdpDownloads downloads){this.key=key;this.view=view;this.downloads=downloads;}
     }
     static final class HostPage {String getUrl(){return "http://127.0.0.1/owned-ui";}}
     static final class Reply {final Object result;final String error;Reply(Object result,String error){this.result=result;this.error=error;}}
     final Map<String,NetworkEntry> networkViews=new HashMap<>();
+    static final class PopupLink {String opener,id;boolean ready;}
+    final Map<String,MdoBrowserPopups<WebView>> windows=new HashMap<>();
+    final Map<String,PopupLink> popupLinks=new HashMap<>();
+    final Set<String> pageClosed=new HashSet<>();
+    final MdoBrowserPopups.Budget popupBudget=new MdoBrowserPopups.Budget(8);
     final Map<String,Reply> replies=new HashMap<>();
     final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
     final HostPage host=new HostPage();
     final android.os.Handler networkHandler=new android.os.Handler(android.os.Looper.getMainLooper());
-    boolean stopped;
+    boolean stopped,networkCleanupFailed;
     final class Views {boolean owns(String key,WebView view){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.view==view;}}
     final Views views=new Views();
     boolean networkCurrent(NetworkEntry entry){return !stopped&&networkViews.get(entry.key)==entry&&entry.ready&&!entry.retired&&channel.active(channel.current(),host.getUrl());}
@@ -37,5 +42,8 @@ final class DownloadCommandHost {
     int pendingReads(){return downloadReads.size();}
     int retirement(){int count=0;for(NetworkEntry entry:networkViews.values())count+=entry.downloads.retiringFiles();return count;}
     void cancelWaiters(){cancelDownloadReleases();}
+    JSONObject state(String key)throws Exception{return popupState(key,new JSONObject().put("downloads",downloadList(key)));}
+    MdoBrowserCdpDownloads.Release releaseReceipt(String id){return downloadReleases.get(id).release;}
+    @@POPUP_STATE@@
     @@DOWNLOAD_COMMANDS@@
 }

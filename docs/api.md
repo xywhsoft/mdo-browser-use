@@ -1747,3 +1747,11 @@ metadata for the retained record. Release still requires confirmed original-sour
 and file cleanup; association retirement performs no source I/O. Known references,
 frozen released snapshots and active resource limits remain unchanged. This is a
 private lifetime correction with no SDK signature or platform-admission change.
+
+E112 aligns private Android page-close state with the shared retained-download
+contract. close_requested reports page closure; its original callback retires
+protocol ownership and blocks fresh page input. closed_by_page is delayed until original protocol/file
+cleanup, explicit record release and pending read/release reply delivery finish;
+it authorizes automatic owner reaping rather than proving file publication.
+Verified cached response bytes retain their existing read/save rules before
+release. SDK signatures and Android provider/automation qualification are unchanged.

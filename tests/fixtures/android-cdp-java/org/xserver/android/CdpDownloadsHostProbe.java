@@ -136,9 +136,46 @@ public final class CdpDownloadsHostProbe {
             }finally{barrier.resume.countDown();host.cancelWaiters();}
         }
     }
+    private static void closedPageRetainsDownloads()throws Exception{
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("closed-page-retained-download")){
+            CdpDownloadsProbe.Source source=test.source();DownloadCommandHost host=new DownloadCommandHost();host.add("tab",source.context.view,source.controller);
+            String id=source.offer("closed-page-original");source.chunks.add(new JSONObject().put("data","AQIDBA==").put("base64Encoded",true).put("eof",true));source.controller.accept(id,64,10000);source.complete(id);
+            host.pageClosed.add("tab");JSONObject closed=host.state("tab");
+            check(!closed.getBoolean("closed_by_page")&&closed.getBoolean("close_requested")&&closed.getJSONArray("downloads").length()==1);
+            test.host.worker.cancelNetwork(source.context.adapter.marker().lease());await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});
+            host.networkViews.get("tab").retired=true;host.networkViews.get("tab").protocolDrained=true;
+            check(!host.state("tab").getBoolean("closed_by_page")&&source.controller.get(id).verified);
+            host.execute("tab","closed-readable",command("read",id));await(()->host.replies.containsKey("closed-readable"));
+            check(host.result("closed-readable").getString("base64").equals("AQIDBA=="));
+            CdpDownloadQueueProbe.ReadBarrier barrier=new CdpDownloadQueueProbe.ReadBarrier(ticket(source));
+            try{
+                host.execute("tab","close-read",command("read",id));check(barrier.entered.await(1,TimeUnit.SECONDS));
+                host.execute("tab","close-release",command("release",id));check(host.pendingReads()==1&&host.pendingReleases()==1);
+                MdoBrowserCdpDownloads.Release release=host.releaseReceipt("close-release");barrier.resume.countDown();
+                long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+                while(!release.finished()){if(System.nanoTime()>=end)throw new AssertionError("Retained page release did not finish");Thread.sleep(2);}
+                check(source.controller.list().length==0&&test.budget.used()==0&&host.pendingReads()==1&&host.pendingReleases()==1);
+                check(!host.state("tab").getBoolean("closed_by_page"));
+                await(()->host.replies.containsKey("close-read")&&host.replies.containsKey("close-release"));
+                check("download_read_cancelled".equals(host.replies.get("close-read").error)&&host.result("close-release").getBoolean("released"));
+                check(host.state("tab").getBoolean("closed_by_page")&&host.state("tab").getBoolean("close_requested"));
+                host.networkViews.get("tab").protocolDrained=false;check(!host.state("tab").getBoolean("closed_by_page"));
+                host.networkViews.get("tab").protocolDrained=true;check(host.state("tab").getBoolean("closed_by_page"));
+                host.networkCleanupFailed=true;check(!host.state("tab").getBoolean("closed_by_page"));host.networkCleanupFailed=false;
+            }finally{barrier.resume.countDown();host.cancelWaiters();}
+        }
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("closed-page-no-download")){
+            CdpDownloadsProbe.Source source=test.source();DownloadCommandHost host=new DownloadCommandHost();host.add("tab",source.context.view,source.controller);
+            host.pageClosed.add("tab");check(!host.state("tab").getBoolean("closed_by_page"));
+            test.host.worker.cancelNetwork(source.context.adapter.marker().lease());await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});
+            host.networkViews.get("tab").retired=true;host.networkViews.get("tab").protocolDrained=true;check(host.state("tab").getBoolean("closed_by_page"));
+            host.pageClosed.remove("tab");check(!host.state("tab").getBoolean("close_requested")&&!host.state("tab").getBoolean("closed_by_page"));
+            host.pageClosed.add("ordinary-manual");check(host.state("ordinary-manual").getBoolean("closed_by_page"));
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted host download evidence preserved");Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);
-        commands();cancelAndDisconnectedInspect();uncertainRelease();pendingFilesSurviveRearm();for(int mode=0;mode<6;mode++)revokedRead(mode);Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_commands\":true,\"real_native_controller_files\":true,\"framework_verified\":false,\"provider_qualified\":false,\"product_downloads_activated\":false}");
+        commands();cancelAndDisconnectedInspect();uncertainRelease();pendingFilesSurviveRearm();for(int mode=0;mode<6;mode++)revokedRead(mode);closedPageRetainsDownloads();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_commands\":true,\"real_native_controller_files\":true,\"closed_page_retains_downloads\":true,\"framework_verified\":false,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
 }

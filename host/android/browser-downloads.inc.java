@@ -27,6 +27,18 @@
     private boolean downloadControlReady(String key){
         NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.downloads!=null&&entry.ready&&!entry.retired&&networkCurrent(entry);
     }
+    /** Page close is a request, not permission to discard original transfer
+     * records or their UI replies. This observation performs no native I/O. */
+    private boolean downloadPageCloseReady(String key){
+        NetworkEntry entry=networkViews.get(key);if(entry==null)return true;
+        if(networkCleanupFailed||!entry.retired||!entry.protocolDrained)return false;
+        if(entry.downloads==null)return true;
+        try{if(entry.downloads.list().length!=0||entry.downloads.retiringFiles()!=0)return false;}
+        catch(java.io.IOException failure){return false;}
+        for(DownloadRead operation:downloadReads.values())if(operation.entry.downloads==entry.downloads)return false;
+        for(DownloadRelease operation:downloadReleases.values())if(operation.entry.downloads==entry.downloads)return false;
+        return true;
+    }
     private String downloadFailure(String key){
         NetworkEntry entry=networkViews.get(key);return entry==null||entry.downloads==null||entry.downloads.failure()==null?"":entry.downloads.failure();
     }

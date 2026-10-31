@@ -29,7 +29,9 @@
             }
             public void close(WebView source){
                 if(source!=view||!views.owns(key,view))return;
-                pageClosed.add(key);core.close();cancelDialog(key);cancelCapture(key);views.stop(key,view);
+                pageClosed.add(key);
+                try{networkRetire(key,view,"network_page_closed");}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
+                core.close();cancelDialog(key);cancelCapture(key);views.stop(key,view);
                 MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.POPUP,true);
                 view.stopLoading();views.visibility(key,view,false);view.setVisibility(View.INVISIBLE);notifyPopup(key);
             }
@@ -43,10 +45,11 @@
     private void cancelPopup(String key){MdoBrowserPopups<WebView> core=windows.get(key);if(core!=null)core.cancel();}
     private void cancelPopups(){for(MdoBrowserPopups<WebView> core:new ArrayList<>(windows.values()))core.cancel();}
     private JSONObject popupState(String key,JSONObject state)throws JSONException {
-        MdoBrowserPopups<WebView> core=windows.get(key);PopupLink link=popupLinks.get(key);
+        MdoBrowserPopups<WebView> core=windows.get(key);PopupLink link=popupLinks.get(key);boolean requested=pageClosed.contains(key);
         state.put("popup_capability",core!=null&&!pageClosed.contains(key)).put("popup_pending",core!=null&&core.busy())
             .put("popup_cleanup_failed",core!=null&&!core.clean()).put("popup_budget_used",popupBudget.used())
-            .put("popup_budget_limit",popupBudget.limit).put("closed_by_page",pageClosed.contains(key));
+            .put("popup_budget_limit",popupBudget.limit).put("close_requested",requested)
+            .put("closed_by_page",requested&&downloadPageCloseReady(key));
         if(link!=null)state.put("opener",link.opener).put("popup",link.id).put("popup_attached",link.ready);
         return state;
     }

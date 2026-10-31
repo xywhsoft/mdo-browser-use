@@ -15,6 +15,13 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E112:** distinguish page-close requests from permission to reap the
+  native owner. Retire the original connection, retain verified downloads until
+  explicit release, and preserve in-flight read/release replies even after file
+  and record quotas return to zero. The exact product-fragment regression fails
+  the old implementation and passes 101 checks. Full native gates (109 inputs),
+  JS/C save 47, shared close JS 29 and 173/175 Python cases pass; the actual APK
+  is rebuilt. Protected popup admission and installed-provider checks remain open.
 - **Android/shared E111:** join the exact Android retained-download commands,
   native JVM/JNI controller/files, shared JS producer and actual C task-host
   stream/receiver/publication services. All 47 assertions pass for complete
@@ -9218,3 +9225,58 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   on 63625, PID 26784, about 3,439.3 MiB. No model call, external page, production
   data change or publication occurred. Goal active: continue remaining platform,
   popup/transfer integration and broader delivery/qualification work.
+
+## E112 — retain original downloads across page-close and reply delivery (2026-10-31)
+
+- Find a component-integration gap while inspecting protected popup admission:
+  Android popup state reports closed_by_page immediately for a closed page.
+  The shared manager treats that flag as permission to remove the native owner,
+  while the adapter does not distinguish retained original downloads or pending
+  read/release replies. Protected Android popup network creation is currently
+  rejected, so this controlled deficiency is not represented as a live reported
+  production incident or evidence that the gated route is already available.
+- Reproduce with the exact original popup-state fragment plus real download
+  controller/files and a completed verified source. E111 production behavior
+  fails check 82 (.mdo/E112-page-close-before-fix.log). Compile the actual popup
+  controller alongside that fixture rather than substituting its budget type.
+- The native close callback immediately retires only its original network
+  connection, preserving completed source/file verification behavior and existing
+  unfinished-source cancellation/cleanup rules. Expose close_requested separately.
+  Permit closed_by_page only after original protocol retirement is confirmed,
+  all original records are explicitly released, file cleanup has drained and the
+  original controller's pending read/release reply watchers finish. A known
+  network cleanup failure keeps that permission false. Observation does no I/O.
+- Read the exact verified bytes after page close and network retirement. Hold a
+  real file-worker read, start release, let file/record cleanup finish without
+  pumping UI replies, and require close permission to remain false with zero
+  records/quotas. Deliver original replies and require final reaping permission.
+  Verify protocol/global cleanup fences, unclosed state and ordinary no-network
+  page close. Release still correctly returns download_read_cancelled for a read
+  that had not finished; the initial fixture incorrectly expected bytes after
+  release. Preserve E112-read-release-fixture.log and correct that expectation;
+  add a successful read before release instead of weakening the product rule.
+- The product host gate passes 101 assertions and requires
+  closed_page_retains_downloads. Full ASan/UBSan/API26/JVM/JNI/socket gates pass
+  with 109 current native inputs, including E111's compiled save peer and the
+  exact popup-state/controller/protocol sources. Re-run the unchanged shared
+  JS/C save integration: all 47 checks pass with one original source claim and
+  zero retained resources. Shared popup/download JS tests pass 29; Python passes
+  173/175 in 52.954 seconds with two existing Windows symlink privilege skips.
+- Reuse E106 product 647/13-input, E105 world/document seven-input and W6 actual
+  native 301/six-input evidence only after current hash verification. E106 full
+  JS 372 and packed Windows 12 evidence are reused with unchanged product JS and
+  archive inputs; targeted close JS checks above are newly executed. These are
+  not unavailable device/framework results and do not replace their scope.
+- Actual refreshed Android APK: 6,481,217 bytes, SHA-256
+  86f0212457b30506701d0c70d460f47c54aaf3e78bc1a1555bbce26a518988ff.
+  Current source, actual DEX, private provider, retained signer, six JNI exports
+  and ARM64/16 KiB payload verify. Windows/plugin artifacts keep their exact E106
+  hashes. Evidence: .mdo/E112-native-current.json, E112-save-current.json,
+  E112-android-receipt.json, E112-final-identities.py/log and E112 gate/build logs.
+  No runtime dependency or extra app/source/Home deployment was added.
+- Restore headless HTTP 200 on 63625, PID 24284, about 3,439.5 MiB. Goal active.
+  Protected Android popup adoption, non-goto provenance, installed-provider/
+  Activity/ARM64 qualification, desktop pixels and broader delivery work remain.
+  Phone/WebView changes stay deferred and public Android qualification/admission
+  flags remain false. No model call, external page, publication or production
+  data change occurred.

@@ -19,6 +19,13 @@
   "rejection": "Complete original Message once with a null WebView; never re-send after an uncertain effect",
   "adoption": "Fresh attached unnavigated child, original transport, no loadUrl replay; HTTP-only initial popup navigation is not guaranteed by this callback",
   "isolated_world": "Popup replaces the child's native contents. No popup document world is installed or claimed qualified yet",
+  "page_close": {
+    "close_requested": "original_page_has_closed_new_input_is_not_admitted",
+    "closed_by_page": "automatic_reaping_only_after_original_protocol_cleanup_records_file_cleanup_and_UI_read_release_waiters_end",
+    "completed_download_bytes": "retained_under_original_controller_until_explicit_release",
+    "unconfirmed_network_cleanup": "retain_owner_no_automatic_reaping",
+    "framework_verified": false
+  },
   "automation_available": false,
   "framework_verified": false
 }
