@@ -33,11 +33,12 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     }
     static final class Snapshot {
         final String id,name,mime,state,error,sha256,failureSource;final long received,expected,maximum,sequence;
-        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed,frameCurrent,root;final String sourceFrame,sourceDocument;
+        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed,frameCurrent,root;final String sourceFrame,sourceDocument,sourceRequest;
         private Snapshot(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
             id=row.id;name=row.offer.metadata().name;mime=row.offer.metadata().mime;sequence=row.sequence;expected=row.expected;maximum=row.maximum;this.state=state;this.error=error;received=bytes;sha256=hash;
             this.verified=verified;cacheCleanupConfirmed=cacheClean;sourceCleanupConfirmed=sourceClean;failureSource=source;
             frameCurrent=row.origin.current();root=row.origin.root;sourceFrame=row.origin.frame;sourceDocument=row.origin.document;
+            sourceRequest=row.offer.sourceRequestReference();
         }
         boolean terminal(){return state.equals("completed")||state.equals("failed")||state.equals("cancelled");}
         JSONObject json()throws JSONException {
@@ -45,7 +46,8 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
                 .put("received",received).put("expected_size",expected<0?JSONObject.NULL:expected).put("max_bytes",maximum)
                 .put("interrupt_reason",0).put("failure_source",failureSource==null?"":failureSource).put("error",error==null?"":error)
                 .put("native",new JSONObject().put("cache_cleanup_confirmed",cacheCleanupConfirmed).put("source_cleanup_confirmed",sourceCleanupConfirmed)
-                    .put("source_frame",sourceFrame).put("source_document",sourceDocument).put("source_is_root",root).put("source_current",frameCurrent));
+                    .put("source_frame",sourceFrame).put("source_document",sourceDocument).put("source_is_root",root).put("source_current",frameCurrent)
+                    .put("source_request_ref",sourceRequest==null?JSONObject.NULL:sourceRequest));
             if(verified&&state.equals("completed"))out.put("size",received).put("sha256",sha256);return out;
         }
     }
@@ -173,7 +175,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     private void publish(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
         Snapshot old=row.snapshot;
         if(old!=null&&old.maximum==row.maximum&&old.state.equals(state)&&Objects.equals(old.error,error)&&old.received==bytes&&Objects.equals(old.sha256,hash)&&
-            old.verified==verified&&old.cacheCleanupConfirmed==cacheClean&&old.sourceCleanupConfirmed==sourceClean&&old.frameCurrent==row.origin.current()&&Objects.equals(old.failureSource,source))return;
+            old.verified==verified&&old.cacheCleanupConfirmed==cacheClean&&old.sourceCleanupConfirmed==sourceClean&&old.frameCurrent==row.origin.current()&&Objects.equals(old.sourceRequest,row.offer.sourceRequestReference())&&Objects.equals(old.failureSource,source))return;
         row.snapshot=new Snapshot(row,state,error,bytes,hash,verified,cacheClean,sourceClean,source);
     }
     private void retire(Row row){
@@ -181,6 +183,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     }
     private void summarize(Row row){
         if(row.retired)return;
+        Snapshot old=row.snapshot;if(old!=null&&!Objects.equals(old.sourceRequest,row.offer.sourceRequestReference()))publish(row,old.state,old.error,old.received,old.sha256,old.verified,old.cacheCleanupConfirmed,old.sourceCleanupConfirmed,old.failureSource);
         if(row.releasing){
             MdoBrowserDownloadQueue.Snapshot file=row.ticket==null?null:row.ticket.snapshot();
             if(file==null||file.state.equals("released")&&file.fileCleanupConfirmed){

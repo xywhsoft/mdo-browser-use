@@ -41,6 +41,8 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             if(original!=null&&original.result()!=null)finish(original.result());return outcome.get();}
         boolean dispatched(){MdoBrowserCdpSession.NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
         boolean pageCommitted(){return committed!=null;}
+        String requestReference(){MdoBrowserCdpBinding.Network.Navigation original=source;return original==null?null:original.requestReference();}
+        String requestAssociationError(){MdoBrowserCdpBinding.Network.Navigation original=source;return original==null?null:original.requestAssociationError();}
         boolean sameDocument(){MdoBrowserCdpBinding.Network.Navigation original=source;return original!=null&&original.sameDocument();}
         boolean pageCurrent(){MdoBrowserCdpNetworkFrames.Origin original=committed;return original!=null&&original.current();}
         String pageDocument(){MdoBrowserCdpNetworkFrames.Origin original=committed;return original==null?null:original.document;}

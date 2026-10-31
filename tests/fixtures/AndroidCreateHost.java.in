@@ -103,6 +103,7 @@ final class AndroidCreateHost {
             MdoBrowserCdpSession.NavigationResult outcome;boolean issued,cancelled,committed,current,control,within;
             boolean sameDocument(){if(control)return committed&&within;return outcome!=null&&outcome.acknowledged&&outcome.ok&&outcome.downloadKnown&&!outcome.download&&!outcome.loaderPresent;}
             boolean pageCommitted(){return committed;}boolean pageCurrent(){return committed&&current;}String pageDocument(){return committed?"nd-fixture-original":null;}
+            String requestReference(){return "nr-00000000-0000-4000-8000-000000000001";}String requestAssociationError(){return null;}
             MdoBrowserCdpSession.NavigationResult result(){return outcome;}boolean dispatched(){return outcome==null?issued:outcome.effectMayHaveOccurred;}
             void cancel(){cancelled=true;if(!issued&&outcome==null)outcome=new MdoBrowserCdpSession.NavigationResult(false,false,false,false,false,false,"cdp_navigation_cancelled");}
             void ack(boolean known,boolean download,boolean loader,String code){outcome=new MdoBrowserCdpSession.NavigationResult(true,code==null,known,download,true,loader,code);}

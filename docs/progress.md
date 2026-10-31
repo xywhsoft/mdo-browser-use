@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E106:** join original typed goto ACK/loader, root Document request
+  identity and the frozen retained response using opaque references. Handle
+  metadata after body completion without refetching or borrowing a concurrent
+  download. Keep the pre-ACK permission boundary explicit. All 372 JS cases,
+  173/175 Python cases (two existing privilege skips), native sanitizer/JVM gates,
+  647 product assertions, 12 packed Windows checks and actual APK checks pass.
+  Both development programs are refreshed. Installed Android/provider/main-UI
+  qualification stays deferred; this is not full-goal completion.
 - **Android E99:** privately correlate an original navigation loader with its
   validated root-frame commit, retaining a bounded 32-event history and opaque
   document identity. Reply/event reordering, other owners/frames, replacement,
@@ -8771,3 +8779,59 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   installed provider/main-UI qualification and documented full-goal work remain.
   Phone/provider update checks stay deferred. No online publication or formal
   data modification occurred.
+
+## E106 — join original native request and retained download identities (2026-10-31)
+
+- Add a private root-Document request ledger. Link the original typed goto
+  download ACK/loader to native Network.requestWillBeSent request identity and
+  frozen Fetch.networkId. Publish only an opaque nr reference; no protocol
+  selector, request URL, headers or body is retained by the ledger. Enable fixed
+  Network metadata with zero requested buffer/post-data budgets before Fetch.
+  Root frame, owner, request-admission revision and original ACK must agree.
+  Controls with empty ACKs have no inferred download identity.
+- Bound the ledger to 4,096 requests, 32 redirects per request and 32 deferred
+  response links. Reject identity/loader rebinding, malformed root metadata and
+  quota exhaustion without replaying effects or abandoning original stream
+  cleanup. Already proven original facts remain inspectable. Links hold original
+  immutable protocol evidence, not a binding, UI callback or current-navigation
+  lookup. Delay resolution when metadata follows Fetch or even body completion.
+- Extend native/UI download snapshots and shared JS/C navigation handling with
+  the original opaque request reference. After a typed download ACK, select only
+  its one retained response; missing/ambiguous proof cannot borrow a concurrent
+  same-browser download. Preserve the pre-ACK browser_scope permission boundary:
+  native ACK may wait for original body cleanup, so exact attribution cannot be
+  required before the user can decide. No body is read before explicit approval.
+- Reproduce late metadata against the pre-fix compiled ledger: the new regression
+  fails at request identity check 66 (.mdo/E106-requests-late-before-fix.log).
+  The fixed ledger passes 105 assertions. Broker tests pass 595 assertions,
+  including five ACK/Fetch/metadata/body orderings and an unrelated response.
+  The real native socket/JNI/strict-JSON fixture retains the request link while
+  the download ACK is withheld until original stream/request cleanup. Full
+  binding coverage passes 2,518 assertions. These controlled peers do not qualify
+  an installed provider.
+- Correct two development integration failures: aggregate frame/request events
+  under the existing single observer (.mdo/E106-binding-first-failure.log), and
+  include the new Java class in the actual APK copy and source-hash inventories
+  (.mdo/E106-android-package-missing-class.log). The final real APK compiles and
+  its DEX definition gate requires the ledger, Receipt and Link implementations.
+- All 372 JS tests pass in 23.548 seconds. Python passes 173/175 in 46.665 seconds
+  with two existing Windows symlink-privilege skips. Native ASan/UBSan/API26 and
+  JVM/JNI/socket gates pass; all 105 native and 13 product source hashes match.
+  Product UI projection passes 647 assertions. E105 world/document evidence is
+  reused only after verifying its seven unchanged hashes. Seven APK contracts
+  and 12 actual packed Windows runtime checks pass.
+- Windows: 6,937,880 bytes, SHA-256
+  35bdd50f041729a2002e9e15b81b540fe9a5ed11461dea41da0e9b0e5d034179.
+  Full Android QA APK: 6,477,121 bytes, SHA-256
+  d68f5b43831ceb8e72648fca9105c0b20e9ae4820d13e0d904aa8cc8098452a1.
+  Native ARM64/16 KiB engine, six JNI exports, private provider, retained v2/v3
+  signer and paired 247,351-byte/22-file plugin are verified. Evidence:
+  .mdo/E106-native-current.json, E106-product-current.json,
+  E106-android-receipt.json, E106-final-identities.log and E106 test/build logs.
+- Restore the sole headless service: PID 32920, HTTP 200 on 63625, about 3,442.1
+  MiB. Goal active. Late responses first retained only after a newer navigation
+  replaced the captured command may remain unassociated; no false exact claim is
+  made. Remaining transfer integration, same-location no-op behavior, installed
+  provider/main-UI checks and full-goal verification remain. Phone/provider
+  changes stay deferred, public Android admission and all qualification flags
+  remain false. No publication, model call or production data edit occurred.

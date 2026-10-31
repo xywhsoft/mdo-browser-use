@@ -768,3 +768,49 @@ test('native control post-read staleness takeover and timeout cancel only the or
     assert(!f.calls.some(([command])=>['navigate','stop','close'].includes(command)));
   }
 });
+
+const nativeRequestRef='nr-00000000-0000-4000-8000-000000000099';
+function associatedDownloadFixture(mode){
+  const f=nativeNavigationFixture('download'),execute=f.options.view.execute;let polls=0;
+  f.options.params.timeout_ms=mode==='unmatched'?180:500;
+  f.options.view.execute=async(command,params)=>{
+    const out=await execute(command,params);if(command==='state'&&out.native_navigation){polls++;
+      Object.assign(out.native_navigation,{loader_present:mode!=='missing-loader',request_association_supported:true,request_ref:mode==='bad-ref'?'nr-invalid':nativeRequestRef});
+      if(mode==='before-ack')out.native_navigation.phase='sent';
+    }return out;
+  };
+  f.options.downloads=()=>{
+    if(!f.calls.some(([command])=>command==='navigate'))return{ok:true,armed:true,downloads:[{id:'old',state:'completed'}]};
+    const rows=[{id:'old',state:'completed'},{id:'unrelated',state:'pending',native:{source_request_ref:'nr-unrelated'}}];
+    if(mode!=='unmatched')rows.push({id:'original',state:mode==='completed'?'completed':'pending',native:{source_request_ref:mode==='delayed'&&polls<3?null:nativeRequestRef}});
+    if(mode==='ambiguous')rows.push({id:'duplicate',state:'completed',native:{source_request_ref:nativeRequestRef}});
+    return{ok:true,armed:true,downloads:rows};
+  };
+  return f;
+}
+test('native download identity selects only its original request despite concurrent pending responses',async()=>{
+  for(const mode of ['pending','completed','delayed']){
+    const f=associatedDownloadFixture(mode),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.ok,true);assert.equal(out.result.source_association,'original_navigation');assert.equal(out.result.navigation_ref,f.reference);
+    assert.deepEqual(out.result.downloads.map(row=>row.id),['original']);assert(!f.calls.some(([command])=>['automation','input','navigation_cancel'].includes(command)));
+  }
+});
+test('response permission before a native ACK remains explicit browser scope without deadlocking or claiming attribution',async()=>{
+  const f=associatedDownloadFixture('before-ack'),out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.outcome,'download_pending');assert.equal(out.result.completed,false);assert.equal(out.result.source_association,'browser_scope');assert.equal(out.result.navigation_ref,f.reference);
+  assert(out.result.downloads.some(row=>row.id==='original'));assert(!f.calls.some(([command])=>['automation','input','navigation_cancel'].includes(command)));
+});
+test('invalid ambiguous or missing native download request proof never borrows another response',async()=>{
+  for(const mode of ['bad-ref','missing-loader','ambiguous','unmatched']){
+    const f=associatedDownloadFixture(mode),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.ok,false);assert.equal(out.result.error.code,'download_identity_unavailable');assert.equal(out.result.error.effect_may_have_occurred,true);
+    assert.equal(out.result.downloads,undefined);assert(!f.calls.some(([command])=>['automation','input','navigation_cancel'].includes(command)));
+  }
+});
+test('original creation observation uses the same exact download request identity filter',async()=>{
+  const out=await executeBrowserAutomation({command:'observe',params:{timeout_ms:500},initialNavigation:initialRef,action:{id:'initial-original-request'},api:{async call(){return{state:'pending'};}},
+    downloads:()=>({ok:true,armed:true,downloads:[{id:'other',state:'pending'},{id:'original',state:'pending',native:{source_request_ref:nativeRequestRef}}]}),
+    view:{async execute(command){assert.equal(command,'state');return{loading:true,automation:true,initial_navigation_pending:true,native_navigation:{id:initialRef,initial:true,phase:'acknowledged',acknowledged:true,ok:true,
+      dispatched:true,download_known:true,download:true,loader_present:true,request_association_supported:true,request_ref:nativeRequestRef}};}}});
+  assert.equal(out.result.ok,true);assert.equal(out.result.source_association,'original_navigation');assert.deepEqual(out.result.downloads.map(row=>row.id),['original']);
+});

@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E94)
+## Complete development host APK (E46/E106)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,452,545 bytes, SHA-256
-`2ce13ed7860e583a3c927c22e71e07830ba0b8b8cfd5d2ce227a3583188ac0d3`.
+Current APK: 6,477,121 bytes, SHA-256
+`d68f5b43831ceb8e72648fca9105c0b20e9ae4820d13e0d904aa8cc8098452a1`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -92,8 +92,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E64-android-build.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E64-python-full.log` (165/167 pass, two existing symlink skips).
+`.mdo/E106-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E106-python-full.log` (173/175 pass, two existing symlink skips).
+The old inventory is historical; no phone reconnection or provider update was
+attempted in E106. Its native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -3934,3 +3936,30 @@ Missing-event same-location/no-op behavior, native history/reload, precise downl
 association and remaining full-goal work still need completion. Installed Android/
 provider/main-UI/public JS-C verification remains deferred. Device/framework/
 automation qualification stays false; the phone and installed WebView are unchanged.
+
+## Original request/download association (E106)
+
+The private adapter now joins the original typed goto download ACK/loader,
+root-Document Network request identity and the retained Fetch response's frozen
+networkId. It exposes an opaque nr reference, never caller-selected wire IDs.
+The metadata ledger stores no request URL, headers or body. It is bounded to
+4,096 request identities, 32 redirects per request and 32 deferred response
+links. Malformed/rebound/ambiguous metadata disables new unproven associations;
+it does not replay a request, approve a body or abandon transfer cleanup.
+
+Metadata can arrive after the paused response or after its body completes. A
+retained original response may then acquire its reference when the original ACK
+and loader prove it. Shared JS/C results select one matching response and report
+source_association:original_navigation. Other concurrent downloads cannot mask
+that result. Before the ACK, the existing pending permission boundary remains
+explicitly browser_scope; requiring exact attribution there could prevent the
+decision needed to drain the original response and obtain its ACK. History and
+reload ACKs without loader proof cannot claim an exact download association.
+
+Five controlled ordering cases, a real native socket/JNI/JSON download sequence,
+105 request-ledger assertions, 595 broker assertions and complete packaging checks
+pass. These are component/packaging results; installed Android/provider/main-UI
+qualification remains deferred. Late responses first retained after a newer
+navigation replaces the captured command may remain unassociated. Full transfer
+and broader goal work remains open. E103-E105 history/control progress is recorded
+in docs/progress.md; earlier pending notes above are historical snapshots.

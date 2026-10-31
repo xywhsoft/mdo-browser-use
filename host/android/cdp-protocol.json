@@ -92,6 +92,23 @@
       "installed_provider_verified": false
     }
   },
+  "download_request_association": {
+    "state": "private_original_goto_loader_network_id_fetch_id_chain_packaged_provider_unqualified",
+    "network_enable_buffers": {"maxTotalBufferSize": 0, "maxResourceBufferSize": 0, "maxPostDataSize": 0},
+    "source": "original_typed_download_ACK_loader_plus_root_Document_Network_request_and_frozen_Fetch_networkId",
+    "native_identity_limit": 4096,
+    "redirect_limit": 32,
+    "pending_late_metadata_limit": 32,
+    "late_metadata": "bounded_deferred_join_including_after_body_completion",
+    "caller_wire_selectors": false,
+    "raw_urls_headers_or_bodies_retained": false,
+    "published_identity": "opaque_nr_reference_only",
+    "metadata_ambiguity": "disable_correlation_without_replaying_or_abandoning_transfer_cleanup",
+    "before_ack_permission": "explicit_browser_scope_pending_boundary_not_exact_attribution",
+    "after_ack": "exact_single_retained_response_only_no_concurrent_response_substitution",
+    "control_without_native_loader": "no_exact_download_attribution_inferred",
+    "installed_provider_verified": false
+  },
   "sources": [
     {
       "url": "https://chromium.googlesource.com/chromium/src/+/138.0.7204.0/net/base/net_error_list.h?format=TEXT",

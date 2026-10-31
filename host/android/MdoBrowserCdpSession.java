@@ -86,6 +86,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             !(result.downloadKnown&&result.download)&&this.frame.equals(frame)&&this.loader!=null&&this.loader.equals(loader);}
         boolean matchesSameDocument(String frame){NavigationResult result=result();return result!=null&&result.acknowledged&&result.ok&&
             result.downloadKnown&&!result.download&&!result.loaderPresent&&this.frame.equals(frame);}
+        boolean matchesDownloadLoader(String frame,String loader){NavigationResult result=result();return !receiptOnly&&result!=null&&result.acknowledged&&result.ok&&result.downloadKnown&&result.download&&result.loaderPresent&&this.frame.equals(frame)&&this.loader!=null&&this.loader.equals(loader);}
         private void finish(NavigationResult result){outcome.compareAndSet(null,result);}
     }
     private static final NavigationResult NAVIGATION_NOT_SENT=new NavigationResult(false,false,false,false,"cdp_navigation_not_sent",false);
@@ -137,10 +138,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * applies the first acceptance to this frozen event, never a supplied ID. */
     static final class Offer {
         private final MdoBrowserCdpSession owner;private PausedEvent original;private final MdoBrowserCdpResponse metadata;
+        private final String networkId;private MdoBrowserCdpNetworkRequests.Link requestLink;private boolean associated;
         private final long born;private final AtomicReference<OfferDecision> decision=new AtomicReference<>();
         private final AtomicBoolean cancelled=new AtomicBoolean();private final AtomicReference<OfferResult> outcome=new AtomicReference<>();
         private volatile Body claimed;private boolean issued;private String abortCode;
-        private Offer(MdoBrowserCdpSession owner,PausedEvent original,long born){this.owner=owner;this.original=original;metadata=original.response;this.born=born;}
+        private Offer(MdoBrowserCdpSession owner,PausedEvent original,long born){this.owner=owner;this.original=original;metadata=original.response;networkId=original.networkId;this.born=born;}
+        String networkIdentity(){return networkId;}
+        void associateRequest(MdoBrowserCdpNetworkRequests.Link link){if(associated)throw new IllegalStateException("Original response already associated");associated=true;requestLink=link;}
+        String sourceRequestReference(){return requestLink==null?null:requestLink.reference();}
         MdoBrowserCdpResponse metadata(){return metadata;}
         OfferResult result(){return outcome.get();}
         void accept(long maximum,int timeoutMs)throws IOException {
@@ -172,9 +177,10 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private static final ControlResult CONTROL_TIMEOUT_RESULT=new ControlResult(false,"cdp_control_timeout",0,true);
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
     private static final class PausedEvent {
-        final String request,session,key;final MdoBrowserCdpResponse response;boolean used;
+        final String request,session,key,networkId;final MdoBrowserCdpResponse response;boolean used;
         PausedEvent(MdoBrowserCdpJson.Message message){
             response=MdoBrowserCdpResponse.inspect(message.value);
+            Object network=message.value.opt("networkId");networkId="Document".equals(message.value.opt("resourceType"))&&MdoBrowserCdpNetworkFrames.identity(network)?(String)network:null;
             session=message.session;Object raw=message.value.opt("requestId");String id=raw instanceof String?(String)raw:null;
             boolean valid=id!=null&&!id.isEmpty()&&id.length()<=256;
             if(valid)for(int i=0;i<id.length();i++)if(id.charAt(i)<33||id.charAt(i)>126){valid=false;break;}

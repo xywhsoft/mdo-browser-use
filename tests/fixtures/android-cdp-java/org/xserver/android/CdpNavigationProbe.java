@@ -10,7 +10,7 @@ import org.json.JSONObject;
 /** Actual dispatcher/codec plus original local-kernel JNI navigation/body
  * pipeline. The native browser/provider/Android callbacks remain unqualified. */
 public final class CdpNavigationProbe {
-    private static int checks,realSessions,realCommitSessions,realControlSessions,entropyBefore,entropyAfter;
+    private static int checks,realSessions,realCommitSessions,realControlSessions,realRequestJoins,entropyBefore,entropyAfter;
     private interface Work {void run()throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Navigation check "+(checks+1));checks++;}
     private static void refused(String code,Work work)throws Exception{
@@ -121,22 +121,26 @@ public final class CdpNavigationProbe {
     }
     private static void realWire(int mode)throws Exception{
         CdpNativeProbe.fixtureStart(mode);final MdoBrowserCdpSession[] session={null};List<MdoBrowserCdpSession.Body> bodies=new ArrayList<>();
+        MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("frame-owned");final MdoBrowserCdpSession.Navigation[] original={null};List<MdoBrowserCdpNetworkRequests.Link> links=new ArrayList<>();
         try{
-            session[0]=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->bodies.add(session[0].takePausedBody(64,15000)));
-            MdoBrowserCdpSession.Navigation navigation=session[0].navigateRoot("about:blank","frame-owned",15000);check(navigation.pending()&&session[0].idle());
+            session[0]=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->{
+                requests.event(m,s,p);if(m.equals("Fetch.requestPaused")){links.add(requests.link(p.optString("networkId"),p.optString("frameId"),0,original[0],"nr-native-original"));bodies.add(session[0].takePausedBody(64,15000));}
+            });
+            MdoBrowserCdpSession.Navigation navigation=session[0].navigateRoot("about:blank","frame-owned",15000);original[0]=navigation;check(navigation.pending()&&session[0].idle());
             if(mode==42){
                 for(int i=0;i<20&&bodies.isEmpty();i++)session[0].poll(20,100);check(bodies.size()==1);MdoBrowserCdpSession.Body body=bodies.get(0);
-                for(int i=0;i<20&&!body.ready();i++)session[0].poll(20,100);check(body.ready()&&navigation.pending());
+                for(int i=0;i<20&&!body.ready();i++)session[0].poll(20,100);check(body.ready()&&navigation.pending()&&links.size()==1&&links.get(0)!=null&&links.get(0).reference()==null);
                 try(MdoBrowserCdpSession.BodyChunk bytes=session[0].readBody(body,1000)){check(bytes.eof&&bytes.data.length==1&&bytes.data[0]==9);}
                 check(body.result().ok&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed);
                 for(int i=0;i<20&&navigation.pending();i++)session[0].poll(20,100);
                 check(navigation.result().acknowledged&&navigation.result().ok&&navigation.result().downloadKnown&&navigation.result().download);
+                check("nr-native-original".equals(links.get(0).reference()));realRequestJoins++;
                 session[0].call("Runtime.evaluate",null,null,1000,false);
             }else{
                 session[0].call("Runtime.evaluate",null,null,1000,false);check(!navigation.pending()&&navigation.result().acknowledged&&!navigation.result().ok&&!navigation.result().downloadKnown&&!navigation.result().download&&navigation.result().nativeError.equals("net::ERR_NAME_NOT_RESOLVED"));
             }
             check(session[0].pendingBodies()==0&&session[0].pendingControls()==0);realSessions++;
-        }finally{if(session[0]!=null)session[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==42?6:2)<<8)));}
+        }finally{requests.close();if(session[0]!=null)session[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==42?6:2)<<8)));}
     }
     private static MdoBrowserCdpSession.Navigation control(Case c,boolean reload,int timeout)throws Exception{
         c.wire.extra=command->{
@@ -175,7 +179,7 @@ public final class CdpNavigationProbe {
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
         try{worker.submit(()->{try{nativeClassification();admission();invalidReplies();failureAndOrdering();traversalReceipts();if(args.length==0){realWire(42);realWire(43);realCommitWire(44);realCommitWire(45);realControlWire(46);realControlWire(47);}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(3,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"real_control_sessions\":"+realControlSessions+",\"fixed_control_ack_not_completion\":true,\"real_control_event_candidates\":"+realControlSessions+",\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_native_download_request_join\":"+realRequestJoins+",\"real_navigation_sessions\":"+realSessions+",\"real_control_sessions\":"+realControlSessions+",\"fixed_control_ack_not_completion\":true,\"real_control_event_candidates\":"+realControlSessions+",\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
     }
     private static void realCommitWire(int mode)throws Exception{
         // UUID's process-wide entropy descriptors are initialized before the

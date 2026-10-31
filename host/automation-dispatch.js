@@ -39,6 +39,14 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   let dispatched = false,dragRequested = false,downloadCheckpointUntil=0,checkpointNavigation,inputFrameChain=null,inputFrameSnapshot=null,inputFocus=null,inputTarget=null;
   let nativeNavigationReference=null,retainNativeNavigation=false;
+  const originalDownloads=(native,rows)=>{
+    if(native.request_association_supported!==true)return{rows,association:'browser_scope'};
+    if(native.loader_present!==true||typeof native.request_ref!=='string'||!/^nr-[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(native.request_ref))return{error:fail('download_identity_unavailable','The original navigation has no proven native request identity; inspect the retained download records')};
+    const matched=rows.filter(row=>row.native?.source_request_ref===native.request_ref);
+    if(matched.length>1)return{error:fail('download_identity_unavailable','More than one response claims the original navigation; inspect the retained records without retrying')};
+    if(!matched.length&&native.request_association_error)return{error:fail('download_identity_unavailable','The native request identity chain is unavailable; inspect its retained records without retrying')};
+    return{rows:matched,association:'original_navigation'};
+  };
   // This action may attach while its first managed target is still loading.
   // Retain only that original record, never adopt a replacement while waiting.
   let initialNavigationReference=command==='observe'||command==='wait_for'?initialNavigation:null,initialNavigationDocument=null,initialPageNavigation;
@@ -135,7 +143,12 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     if(state.downloads_armed&&['act','navigate_to','wait_for'].includes(command)){
       const downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
-      if(downloads.some(row=>row.state==='pending'))return downloadBoundary(downloads);
+      if(downloads.some(row=>row.state==='pending')){
+        const expected=nativeNavigationReference||initialNavigationReference,native=state.native_navigation;
+        const exact=expected&&native?.id===expected&&native.request_association_supported===true&&
+          (native.phase==='failed'||native.page_error||native.scope_revoked||native.phase==='acknowledged'&&native.acknowledged===true&&native.ok===true&&native.download_known===true&&native.download===true);
+        if(!exact){const boundary=downloadBoundary(downloads);if(expected){boundary.result.navigation_ref=expected;boundary.result.source_association='browser_scope';}return boundary;}
+      }
     }
     if (state.closed_by_page) return { handled: true, result: { ok: true, outcome: "closed", completed: false, dispatched, action: action.id } };
     // A submitted response can start navigation before DownloadStarting/its
@@ -202,7 +215,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           return fail('context_changed','The original initial navigation was replaced or revoked while this observation was waiting');
         if(initial.phase==='acknowledged'&&initial.acknowledged===true&&initial.ok===true&&initial.download_known===true&&initial.download===true){
           const downloads=(await view.execute('downloads',{action:'list',agent:true})).downloads||[];
-          if(downloads.length){const boundary=downloadBoundary(downloads);boundary.result.navigation_ref=initialNavigationReference;boundary.result.source_association='browser_scope';return boundary;}
+          const selected=originalDownloads(initial,downloads);if(selected.error)return selected.error;
+          if(selected.rows.length){const boundary=downloadBoundary(selected.rows);boundary.result.navigation_ref=initialNavigationReference;boundary.result.source_association=selected.association;return boundary;}
           return fail('download_identity_unavailable','The initial navigation reported a download without a retained download identity; inspect its receipt before retrying');
         }
         if(initialPageNavigation!==undefined&&state.navigation!==initialPageNavigation)
@@ -435,9 +449,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           if(nativeControl&&(native.download_known!==false||native.download!==false||native.loader_present!==false))return fail('navigation_uncertain','The control ACK contains inconsistent page or download metadata; inspect its original receipt');
           if(nativeControl&&params.action==='reload'&&native.same_document===true)return fail('navigation_uncertain','The original reload did not prove a new document; inspect its retained receipt');
           if(native.download_known===true&&native.download===true){
-            nativeDownload=true;
+            nativeDownload=true;retainNativeNavigation=true;
             const downloads=((await view.execute('downloads',{action:'list',agent:true})).downloads||[]).filter(row=>!oldDownloadIds.has(row.id));
-            if(downloads.length){retainNativeNavigation=true;const boundary=downloadBoundary(downloads);boundary.result.navigation_ref=nativeReference;boundary.result.source_association='browser_scope';return boundary;}
+            const selected=originalDownloads(native,downloads);if(selected.error)return selected.error;
+            if(selected.rows.length){const boundary=downloadBoundary(selected.rows);boundary.result.navigation_ref=nativeReference;boundary.result.source_association=selected.association;return boundary;}
             if(current.state.download_error)return fail('download_identity_unavailable','The original download could not retain its native source; do not repeat navigation');
             await pause(20);continue;
           }

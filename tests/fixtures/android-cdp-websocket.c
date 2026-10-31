@@ -252,7 +252,8 @@ static void* Serve(void* Data)
     } else if ( Fixture->Mode==42 || Fixture->Mode==43 ) {
         Fixture->Frames+=ClientBodyCommand(Fd,1,"Page.navigate","{\"url\":\"about:blank\",\"frameId\":\"frame-owned\"}");
         if ( Fixture->Mode==42 ) {
-            Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment\"}]}}");
+            Packet(Fd,"{\"method\":\"Network.requestWillBeSent\",\"params\":{\"requestId\":\"network-original\",\"loaderId\":\"native-download-loader\",\"frameId\":\"frame-owned\",\"type\":\"Document\"}}");
+            Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"params\":{\"requestId\":\"interception-job-7.0\",\"networkId\":\"network-original\",\"frameId\":\"frame-owned\",\"responseStatusCode\":200,\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\"},\"responseHeaders\":[{\"name\":\"Content-Disposition\",\"value\":\"attachment\"}]}}");
             Fixture->Frames+=ClientBodyCommand(Fd,2,"Fetch.takeResponseBodyAsStream","{\"requestId\":\"interception-job-7.0\"}");
             Packet(Fd,"{\"id\":2,\"result\":{\"stream\":\"stream-7.0\"}}");
             Fixture->Frames+=ClientBodyCommand(Fd,3,"IO.read","{\"handle\":\"stream-7.0\",\"size\":64}");
@@ -261,7 +262,7 @@ static void* Serve(void* Data)
             Fixture->Frames+=ClientFetchControlId(Fd,5,1,NULL);Packet(Fd,"{\"id\":5,\"result\":{}}");
             /* The navigation ACK is withheld until the exact same connection
              * has completed its original stream/request cleanup. */
-            Packet(Fd,"{\"id\":1,\"result\":{\"frameId\":\"frame-owned\",\"isDownload\":true,\"errorText\":\"net::ERR_ABORTED\"}}");
+            Packet(Fd,"{\"id\":1,\"result\":{\"frameId\":\"frame-owned\",\"loaderId\":\"native-download-loader\",\"isDownload\":true,\"errorText\":\"net::ERR_ABORTED\"}}");
             Fixture->Frames+=ClientCommand(Fd,6,"Runtime.evaluate",NULL);Packet(Fd,"{\"id\":6,\"result\":{}}");
         } else {
             Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);

@@ -326,9 +326,53 @@ public final class CdpNetworkNavigationProbe {
             if(mode==11)check(!original.pageCurrent());
         }
     }
+    private static JSONObject requestEvent(String id,String loader)throws Exception{
+        return new JSONObject().put("method","Network.requestWillBeSent").put("params",new JSONObject().put("requestId",id).put("loaderId",loader).put("frameId","frame-owned").put("type","Document").put("request",new JSONObject().put("url","https://same-url.invalid/never-retain").put("postData","fixture-only")));
+    }
+    private static JSONObject responseEvent(String id,String network)throws Exception{
+        return new JSONObject().put("method","Fetch.requestPaused").put("params",CdpBodyProbe.paused(id).put("frameId","frame-owned").put("resourceType","Document").put("networkId",network));
+    }
+    private static void originalRequestAssociation()throws Exception{
+        for(int mode=0;mode<5;mode++)try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("original-request-"+mode)){
+            final int scenario=mode;CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;AtomicInteger originalId=new AtomicInteger(),sends=new AtomicInteger();
+            source.context.peer.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                originalId.set(command.getInt("id"));sends.incrementAndGet();
+                if(scenario<3)wire.queue(requestEvent("network-original","download-loader"));wire.queue(responseEvent("interception-original","network-original"));
+                if(scenario==0||scenario>=3)wire.queue(new JSONObject().put("id",originalId.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","download-loader").put("isDownload",true)));
+                return true;
+            };
+            MdoBrowserCdpNetworks.Navigation navigation=navigate(test,source,15000);
+            await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});
+            String original=source.controller.list()[0].id;check(source.claims.get()==0&&source.reads.get()==0&&navigation.requestReference()!=null);
+            if(mode==1||mode==2){
+                check(source.snapshot(original).sourceRequest==null&&navigation.result()==null);
+                source.context.wire().queue(new JSONObject().put("id",originalId.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId",mode==2?"unrelated-loader":"download-loader").put("isDownload",true)));
+            }
+            await(()->navigation.result()!=null);check(navigation.result().ok&&!navigation.pageCommitted());
+            if(mode>=3){
+                check(source.snapshot(original).sourceRequest==null);
+                if(mode==4){source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(original,64,3000);source.complete(original);check(source.snapshot(original).sourceRequest==null);}
+                source.context.wire().queue(requestEvent("network-original","download-loader"));await(()->source.snapshot(original).sourceRequest!=null);
+            }
+            if(mode==2)check(source.snapshot(original).sourceRequest==null);
+            else check(navigation.requestReference().equals(source.snapshot(original).sourceRequest));
+            source.context.wire().queue(requestEvent("network-unrelated","other-loader"));source.context.wire().queue(responseEvent("interception-unrelated","network-unrelated"));
+            await(()->{try{return source.controller.list().length==2;}catch(IOException error){throw new AssertionError(error);}});
+            String unrelated=source.controller.list()[1].id;check(source.snapshot(unrelated).sourceRequest==null&&source.claims.get()==(mode==4?1:0));
+            if(mode==1){
+                source.context.wire().queue(requestEvent("network-original","rebound-loader"));
+                await(()->navigation.requestAssociationError()!=null);check(source.snapshot(original).sourceRequest.equals(navigation.requestReference()));
+            }
+            if(mode!=4){source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(original,64,3000);source.complete(original);}
+            check(source.snapshot(original).verified&&source.snapshot(original).received==4&&sends.get()==1);
+            String json=source.snapshot(original).json().toString();check(!json.contains("network-original")&&!json.contains("download-loader")&&!json.contains("same-url.invalid"));
+            source.release(original);source.controller.cancel(unrelated);await(()->source.state(unrelated,"cancelled"));source.release(unrelated);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

@@ -153,6 +153,8 @@
         MdoBrowserCdpSession.NavigationResult result=operation.ticket.result();
         JSONObject value=new JSONObject().put("id",operation.id).put("phase",result==null?(operation.ticket.dispatched()?"sent":"queued"):result.ok?"acknowledged":"failed")
             .put("action",operation.action).put("receipt_kind",operation.control?"control":"navigate").put("control_supported",true)
+            .put("request_association_supported",true).put("request_ref",operation.ticket.requestReference()==null?JSONObject.NULL:operation.ticket.requestReference())
+            .put("request_association_error",operation.ticket.requestAssociationError()==null?JSONObject.NULL:operation.ticket.requestAssociationError())
             .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched()).put("initial",operation.initial)
             .put("page_commit_supported",true).put("same_document_supported",true).put("same_document",operation.ticket.sameDocument()).put("page_committed",operation.ticket.pageCommitted()).put("page_current",operation.ticket.pageCurrent())
             .put("page_document",operation.ticket.pageDocument()==null?JSONObject.NULL:operation.ticket.pageDocument()).put("page_error",operation.pageError==null?JSONObject.NULL:operation.pageError);

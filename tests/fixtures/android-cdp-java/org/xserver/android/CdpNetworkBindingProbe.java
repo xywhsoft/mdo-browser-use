@@ -43,7 +43,7 @@ public final class CdpNetworkBindingProbe {
         final List<String> methods=new ArrayList<>();final List<JSONObject> commands=new ArrayList<>();
         final List<MdoBrowserCdpSession.ControlReceipt> controls=new ArrayList<>();
         final List<MdoBrowserCdpNetworkFrames.Origin> origins=new ArrayList<>();
-        MdoBrowserCdpBinding.Network network;boolean rejectDisable,rejectEnable,breakEnable,pausedEnable,abort,rejectPage,brokenTree,treeRaceApplied,expectSubframe;int treeRaces;
+        MdoBrowserCdpBinding.Network network;boolean rejectDisable,rejectEnable,rejectMetadata,breakEnable,pausedEnable,abort,rejectPage,brokenTree,treeRaceApplied,expectSubframe;int treeRaces;
         Context(boolean physical){this(physical,new WebView(),new MdoBrowserCdpMarker.DocumentQuota());}
         Context(boolean physical,WebView original,MdoBrowserCdpMarker.DocumentQuota quota){view=original;peer=new CdpBindingProbe.Factory(view);
             adapter=physical?MdoBrowserCdpView.network(view,v->v==view,quota):new MdoBrowserCdpView(view,v->v==view);
@@ -52,6 +52,10 @@ public final class CdpNetworkBindingProbe {
                 if("Page.enable".equals(method)){
                     check(wire.proofRead&&wire.cleanupAttempts==1&&wire.id.equals("owned")&&command.getJSONObject("params").length()==0);
                     wire.queue(rejectPage?new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","private-page-error")):response(id));return true;
+                }
+                if("Network.enable".equals(method)){
+                    JSONObject params=command.getJSONObject("params");check(command.length()==3&&params.length()==3&&params.getInt("maxTotalBufferSize")==0&&params.getInt("maxResourceBufferSize")==0&&params.getInt("maxPostDataSize")==0);
+                    wire.queue(rejectMetadata?new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","private-metadata-error")):response(id));return true;
                 }
                 if("Page.getFrameTree".equals(method)&&wire.frameQueries>=2&&brokenTree){wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",new JSONObject().put("id","unproved-root").put("loaderId","load-owned")))));return true;}
                 if("Page.getFrameTree".equals(method)&&wire.frameQueries>=2&&(treeRaces>0||treeRaceApplied)){
@@ -152,14 +156,14 @@ public final class CdpNetworkBindingProbe {
         }
     }
     private static void failures()throws Exception{
-        for(int mode=0;mode<3;mode++)try(Context c=new Context(true)){
-            c.rejectDisable=mode==0;c.rejectEnable=mode==1;c.breakEnable=mode==2;
+        for(int mode=0;mode<4;mode++)try(Context c=new Context(true)){
+            c.rejectDisable=mode==0;c.rejectEnable=mode==1;c.breakEnable=mode==2;c.rejectMetadata=mode==3;
             if(mode==0){rejected("cdp_method_unsupported",c::bind);check(c.methods.stream().noneMatch("Fetch.enable"::equals));}
             else{
-                c.bind();IOException error=rejected(mode==1?"cdp_method_unsupported":"cdp_transport_failed",c::enable);
+                c.bind();IOException error=rejected(mode==2?"cdp_transport_failed":"cdp_method_unsupported",c::enable);
                 check(error instanceof MdoBrowserCdpSession.Failure&&((MdoBrowserCdpSession.Failure)error).effectMayHaveOccurred==(mode==2));
                 run(()->{rejected("cdp_binding_owner_changed",()->c.network.enableResponses(100));return null;});
-                check(c.methods.stream().filter("Fetch.enable"::equals).count()==1);
+                check(c.methods.stream().filter("Fetch.enable"::equals).count()==(mode==3?0:1));
             }
             check(c.wire().closed.get()&&c.view.evaluations==1);
         }

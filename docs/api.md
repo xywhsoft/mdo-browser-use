@@ -1690,3 +1690,23 @@ native cleanup is failed or retirement is still active. Normal already-complete
 closure stays idempotent. Failed creation gives the typed cleanup uncertainty
 priority, retaining primary/cleanup exceptions privately. No provider text or
 profile/cache path is added to the public result. See [Android E78 verification](android.md).
+
+## Original navigation download provenance (Android E106)
+
+The shared C/JS dispatcher can return a download boundary with an opaque
+navigation_ref and source_association. On the private exact-capable Android
+adapter, original_navigation means one retained response matched the original
+typed native download ACK through its loader and request identity. Native state
+request_ref and a download's native.source_request_ref contain opaque nr
+references only. These fields identify records; they grant no body access.
+
+Before that ACK, browser_scope explicitly identifies a pending permission
+boundary rather than proof that every listed download belongs to this action.
+Existing hosts without exact association retain that behavior. Missing or
+conflicting exact identity yields download_identity_unavailable while retaining
+the original result for inspection. Do not automatically repeat navigation,
+substitute another download or infer file completion from the ACK. Existing
+download approval/status/read/save interfaces remain unchanged.
+
+The Android implementation is packaged but publicly gated until installed
+provider/main-UI qualification. See [current limits and evidence](android.md).
