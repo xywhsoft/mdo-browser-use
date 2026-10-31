@@ -66,11 +66,20 @@ final class MdoBrowserCdpNative {
                 throw new IOException("cdp_arguments_invalid");
         }
         byte[] id=targetId.getBytes(StandardCharsets.US_ASCII);
+        return openBytes(id,timeoutMs,false);
+    }
+    /** Browser-scoped transport only. The popup coordinator must independently
+     * prove an original owned opener before any attachment or target effects. */
+    static Channel openBrowser(BrowserEndpoint endpoint,int timeoutMs)throws IOException {
+        worker(timeoutMs);if(endpoint==null)throw new IOException("cdp_arguments_invalid");
+        return openBytes(endpoint.path.getBytes(StandardCharsets.US_ASCII),timeoutMs,true);
+    }
+    private static Channel openBytes(byte[] id,int timeoutMs,boolean browser)throws IOException {
         // Allocate the wrapper/atomic before opening: OOM cannot lose a handle.
         Channel pending=new Channel(Thread.currentThread());
         try {
             Library.ready();
-            pending.handle.set(openNative(id,timeoutMs));
+            pending.handle.set(browser?openBrowserNative(id,timeoutMs):openNative(id,timeoutMs));
             return pending;
         } catch (UnsatisfiedLinkError failure) {
             throw new IOException("cdp_native_unavailable");
@@ -119,6 +128,7 @@ final class MdoBrowserCdpNative {
     private static native byte[] discoverNative(int timeoutMs) throws IOException;
     private static native byte[] discoverBrowserNative(int timeoutMs) throws IOException;
     private static native long openNative(byte[] targetId,int timeoutMs) throws IOException;
+    private static native long openBrowserNative(byte[] browserPath,int timeoutMs) throws IOException;
     private static native void sendNative(long handle,byte[] bytes,int timeoutMs) throws IOException;
     private static native byte[] receiveNative(long handle,int timeoutMs) throws IOException;
     private static native void closeNative(long handle);

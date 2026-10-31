@@ -35,21 +35,26 @@ Java_org_xserver_android_MdoBrowserCdpNative_discoverNative(JNIEnv* Env,jclass T
     return MdoCdpJniBytes(Env,&Reply,0);
 }
 
-JNIEXPORT jlong JNICALL
-Java_org_xserver_android_MdoBrowserCdpNative_openNative(JNIEnv* Env,jclass Type,jbyteArray Id,jint Timeout)
+static jlong MdoCdpJniOpen(JNIEnv* Env,jbyteArray Id,jint Timeout,int Browser)
 {
-    (void)Type;unsigned char Text[128];uint64_t Handle=0;
+    unsigned char Text[128];uint64_t Handle=0;
     enum MdoCdpSocketCode Code=MDO_CDP_SOCKET_ARGUMENTS;
     jsize Size=Id?(*Env)->GetArrayLength(Env,Id):0;
     if ( (*Env)->ExceptionCheck(Env) ) return 0;
     if ( Size<1 || Size>(jsize)sizeof(Text) || Timeout<10 || Timeout>5000 ) goto Done;
     (*Env)->GetByteArrayRegion(Env,Id,0,Size,(jbyte*)Text);
-    if ( !(*Env)->ExceptionCheck(Env) ) Code=mdoCdpWsOpen((const char*)Text,(size_t)Size,Timeout,&Handle);
+    if ( !(*Env)->ExceptionCheck(Env) ) Code=Browser?mdoCdpWsOpenBrowser((const char*)Text,(size_t)Size,Timeout,&Handle):mdoCdpWsOpen((const char*)Text,(size_t)Size,Timeout,&Handle);
 Done:
     MdoCdpClear(Text,sizeof(Text));
     if ( Code!=MDO_CDP_SOCKET_OK ) MdoCdpJniThrow(Env,Code);
     return (jlong)Handle;
 }
+JNIEXPORT jlong JNICALL
+Java_org_xserver_android_MdoBrowserCdpNative_openNative(JNIEnv* Env,jclass Type,jbyteArray Id,jint Timeout)
+{(void)Type;return MdoCdpJniOpen(Env,Id,Timeout,0);}
+JNIEXPORT jlong JNICALL
+Java_org_xserver_android_MdoBrowserCdpNative_openBrowserNative(JNIEnv* Env,jclass Type,jbyteArray Path,jint Timeout)
+{(void)Type;return MdoCdpJniOpen(Env,Path,Timeout,1);}
 
 JNIEXPORT jbyteArray JNICALL
 Java_org_xserver_android_MdoBrowserCdpNative_discoverBrowserNative(JNIEnv* Env,jclass Type,jint Timeout)

@@ -44,7 +44,7 @@ def main():
     websocket=output/'websocket-test'
     subprocess.run(['gcc',*flags,str(ROOT/'tests/fixtures/android-cdp-websocket.c'),str(xrt),'-o',str(websocket)],cwd=ROOT,check=True)
     wire=json.loads(subprocess.check_output([str(websocket)],cwd=ROOT,env=environment,text=True,timeout=120))
-    if not wire.get('passed') or wire.get('allocations')!=wire.get('releases'):
+    if not wire.get('passed') or not wire.get('browser_transport') or wire.get('allocations')!=wire.get('releases'):
         raise RuntimeError('The native WebSocket gate did not confirm balanced cleanup')
     result['websocket']=wire
     # Run the actual private Java facade through actual JNI on the existing
@@ -107,7 +107,7 @@ def main():
                     str(generated),str(upload_generated),str(download_generated),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
-    if not vm.get('passed') or not vm.get('read_only_browser_discovery') or not vm.get('real_jvm_jni'):
+    if not vm.get('passed') or not vm.get('read_only_browser_discovery') or not vm.get('browser_transport') or not vm.get('real_jvm_jni'):
         raise RuntimeError('The actual JVM/JNI worker gate did not pass')
     result['jvm_worker']=vm
     dispatch=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

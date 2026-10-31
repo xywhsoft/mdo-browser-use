@@ -12,6 +12,9 @@
  * Receive TIMEOUT retains partial data; total assembly has a separate deadline.
  * No handle is reused. At most eight opening/live/draining sessions exist. */
 enum MdoCdpSocketCode mdoCdpWsOpen(const char* Id,size_t Size,int TimeoutMs,uint64_t* Handle);
+/* Fixed browser namespace only, from checked discovery. Opening does not
+ * establish WebView ownership or authorize target attachment/effects. */
+enum MdoCdpSocketCode mdoCdpWsOpenBrowser(const char* Path,size_t Size,int TimeoutMs,uint64_t* Handle);
 enum MdoCdpSocketCode mdoCdpWsSend(uint64_t Handle,const unsigned char* Data,size_t Size,int TimeoutMs);
 MdoCdpDiscovery mdoCdpWsReceive(uint64_t Handle,int TimeoutMs);
 void mdoCdpWsClose(uint64_t Handle);

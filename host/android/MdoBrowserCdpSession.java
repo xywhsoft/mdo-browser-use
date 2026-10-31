@@ -247,6 +247,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             session.guard(false);return session;
         } catch(IOException|RuntimeException|Error failure){session.close();throw failure;}
     }
+    /** Private browser connection; carries no page/popup ownership by itself. */
+    static MdoBrowserCdpSession openBrowser(MdoBrowserCdpNative.BrowserEndpoint endpoint,int timeoutMs,BooleanSupplier current,Events events)throws IOException {
+        MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,android.os.SystemClock::elapsedRealtime);
+        try{
+            session.guard(false);session.wire=MdoBrowserCdpNative.openBrowser(endpoint,timeoutMs);
+            session.guard(false);return session;
+        }catch(IOException|RuntimeException|Error failure){session.close();throw failure;}
+    }
     /* Package-private deterministic seam; real-JVM tests also use open/native. */
     static MdoBrowserCdpSession owned(Wire wire,BooleanSupplier current,Events events,Clock clock) {
         MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,clock);session.wire=Objects.requireNonNull(wire);return session;

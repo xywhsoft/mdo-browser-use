@@ -133,7 +133,8 @@ static int Handshake(Server* Fixture,int Fd)
     if ( !Key ) return 0;
     Key+=21;char Accept[XWS_ACCEPT_CAPACITY];
     if ( !xrtWsAccept((xstrview){Key,XWS_KEY_SIZE},Accept,sizeof(Accept)) ) return 0;
-    char Expected[512];int Length=snprintf(Expected,sizeof(Expected),"GET /devtools/page/test-001 HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %.*s\r\nSec-WebSocket-Version: 13\r\n\r\n",XWS_KEY_SIZE,Key);
+    const char* Path=Fixture->Mode==50?"/devtools/browser/00000000-0000-4000-8000-000000000001":Fixture->Mode>=49&&Fixture->Mode<=53?"/devtools/browser":"/devtools/page/test-001";
+    char Expected[512];int Length=snprintf(Expected,sizeof(Expected),"GET %s HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %.*s\r\nSec-WebSocket-Version: 13\r\n\r\n",Path,XWS_KEY_SIZE,Key);
     Fixture->Valid=Length==(int)Used&&!memcmp(Expected,Request,Used);
     char Reply[8192];
     if ( Fixture->Invalid ) {
@@ -141,7 +142,7 @@ static int Handshake(Server* Fixture,int Fd)
     } else Length=snprintf(Reply,sizeof(Reply),"HTTP/1.1 101 WebSocket Protocol Handshake\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n",Accept);
     assert(Length>0&&(size_t)Length<sizeof(Reply));
     /* Fragment every handshake byte in one mode, preserving real kernel I/O. */
-    if ( Fixture->Mode==1 || Fixture->Mode==9 ) {
+    if ( Fixture->Mode==1 || Fixture->Mode==9 || Fixture->Mode==52 ) {
         for ( int I=0;I<Length;I++ ) {if ( Fixture->Mode==9 ) usleep(10000);if ( !Write(Fd,Reply+I,1) ) return 0;}
         return 1;
     }
@@ -154,7 +155,11 @@ static void* Serve(void* Data)
     struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
     if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 || Fixture->Mode==38 ) close(Fixture->Listener);goto Done;}
     if(Fixture->Mode==48)goto Done; /* Read-only HTTP metadata; no WS or command. */
-    if ( Fixture->Mode<=1 ) {
+    if ( Fixture->Mode==49 || Fixture->Mode==50 || Fixture->Mode==52 ) {
+        Fixture->Frames+=ClientCommand(Fd,1,"Browser.getVersion",NULL);
+        if(!Fixture->Frames||!Packet(Fd,"{\"id\":1,\"result\":{\"protocolVersion\":\"1.3\"}}"))goto Done;
+        char Byte;(void)recv(Fd,&Byte,1,0);
+    } else if ( Fixture->Mode<=1 ) {
         Fixture->Frames+=ClientFrame(Fd,XWS_OPCODE_TEXT,"{\"id\":1}",8);
         const unsigned char First[]={0xE4,0xBD},Second[]={0xA0,'!'};
         if ( !ServerFrame(Fd,XWS_OPCODE_TEXT,0,First,sizeof(First)) || !ServerFrame(Fd,XWS_OPCODE_PING,1,"hi",2) ||
@@ -166,7 +171,7 @@ static void* Serve(void* Data)
         Write(Fd,"\x81\x05he",4);atomic_store(&Fixture->Ready,1);
         while ( !atomic_load(&Fixture->Release) ) usleep(1000);
         Write(Fd,"llo",3);while ( !atomic_load(&Fixture->Observed) ) usleep(1000);
-    } else if ( Fixture->Mode==3 ) {
+    } else if ( Fixture->Mode==3 || Fixture->Mode==51 ) {
         atomic_store(&Fixture->Ready,1);char Byte;atomic_store(&Fixture->Observed,recv(Fd,&Byte,1,0)==0);
     } else if ( Fixture->Mode==4 ) {
         ServerFrame(Fd,XWS_OPCODE_TEXT,1,"message",7);
@@ -451,6 +456,9 @@ static void TestJniFaults(void)
     }
     FakeBytes Id={8,(unsigned char*)"test-001"},Command={2,(unsigned char*)"ok"};
     JniFault=3;Check(!Java_org_xserver_android_MdoBrowserCdpNative_openNative(&Env,NULL,(jbyteArray)&Id,100));Check(JniPending);ResetJni();
+    FakeBytes Browser={(jsize)strlen("/devtools/browser"),(unsigned char*)"/devtools/browser"};
+    JniFault=3;Check(!Java_org_xserver_android_MdoBrowserCdpNative_openBrowserNative(&Env,NULL,(jbyteArray)&Browser,100));Check(JniPending&&!JniError[0]);ResetJni();
+    Check(!Java_org_xserver_android_MdoBrowserCdpNative_openBrowserNative(&Env,NULL,(jbyteArray)&Id,100));Check(JniPending&&!strcmp(JniError,"cdp_arguments_invalid"));ResetJni();
     for ( int Fault=0;Fault<=1;Fault++ ) {
         Server Fixture;pthread_t Thread=Start(&Fixture,3,NULL);uint64_t Handle=Open();
         if ( Fault ) FailAllocation=1;else JniFault=3;
@@ -481,6 +489,48 @@ static void TestJniFaults(void)
     Check(JniPending&&!strcmp(JniError,"cdp_allocation_failed"));ResetJni();
     Java_org_xserver_android_MdoBrowserCdpNative_validateNative(&Env,NULL,(jbyteArray)&Json,123);
     Check(JniPending&&!strcmp(JniError,"cdp_json_invalid"));ResetJni();
+}
+static void TestBrowserTransport(void)
+{
+    const char* Base="/devtools/browser";
+    const char* Uuid="/devtools/browser/00000000-0000-4000-8000-000000000001";
+    const char* Invalid[]={"","test-001","/devtools/page/test-001","ws://localhost/devtools/browser","/devtools/browser/","/devtools/browser/a","/devtools/browser?x=1","/devtools/browser#x","/devtools/browser/../../page/x","/devtools/browser/%30","/devtools/browser\r\nX: y","/devtools/browser/00000000_0000-4000-8000-000000000001","/devtools/browser/00000000-0000-4000-8000-00000000000g"};
+    size_t BaseSize=strlen(Base);int Before=Fds();uint64_t Handle=99;
+    for(size_t I=0;I<sizeof(Invalid)/sizeof(Invalid[0]);I++)Check(mdoCdpWsOpenBrowser(Invalid[I],strlen(Invalid[I]),100,&Handle)==MDO_CDP_SOCKET_ARGUMENTS&&!Handle);
+    Check(mdoCdpWsOpenBrowser(NULL,BaseSize,100,&Handle)==MDO_CDP_SOCKET_ARGUMENTS&&!Handle);
+    Check(mdoCdpWsOpenBrowser(Base,BaseSize+1,100,&Handle)==MDO_CDP_SOCKET_ARGUMENTS&&!Handle);
+    Check(mdoCdpWsOpenBrowser(Base,BaseSize,0,&Handle)==MDO_CDP_SOCKET_ARGUMENTS&&!Handle);
+    Check(mdoCdpWsOpenBrowser(Base,BaseSize,100,NULL)==MDO_CDP_SOCKET_ARGUMENTS);
+    Check(mdoCdpWsOpenBrowser(Base,BaseSize,100,&Handle)==MDO_CDP_SOCKET_UNAVAILABLE&&!Handle);
+    FailAllocation=1;Check(mdoCdpWsOpenBrowser(Base,BaseSize,100,&Handle)==MDO_CDP_SOCKET_MEMORY&&!Handle);FailAllocation=0;
+    JNIEnv Env=&JniTable;
+    for(int Cycle=0;Cycle<12;Cycle++){
+        int Mode=Cycle%3==2?52:49+Cycle%3;const char* Path=Mode==50?Uuid:Base;
+        Server Fixture;pthread_t Thread=Start(&Fixture,Mode,NULL);
+        FakeBytes Id={(jsize)strlen(Path),(unsigned char*)Path};
+        Handle=(uint64_t)Java_org_xserver_android_MdoBrowserCdpNative_openBrowserNative(&Env,NULL,(jbyteArray)&Id,1000);
+        Check(Handle>0&&!JniPending);
+        const char* Command="{\"id\":1,\"method\":\"Browser.getVersion\",\"params\":{}}";
+        Check(mdoCdpWsSend(Handle,(const unsigned char*)Command,strlen(Command),1000)==MDO_CDP_SOCKET_OK);
+        MdoCdpDiscovery Reply=mdoCdpWsReceive(Handle,1000);
+        const char* Expected="{\"id\":1,\"result\":{\"protocolVersion\":\"1.3\"}}";
+        Check(Reply.Code==MDO_CDP_SOCKET_OK&&Reply.Size==strlen(Expected)&&!memcmp(Reply.Data,Expected,Reply.Size));mdoCdpDiscoveryFree(&Reply);
+        mdoCdpWsClose(Handle);mdoCdpWsClose(Handle);Join(Thread,&Fixture);Check(Fixture.Frames==1);Check(Fds()==Before);
+    }
+    const char* Bad[]={"HTTP/1.1 302 Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n\r\n","HTTP/1.1 101 OK\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: wrong\r\n\r\n"};
+    for(size_t I=0;I<sizeof(Bad)/sizeof(Bad[0]);I++){
+        Server Fixture;pthread_t Thread=Start(&Fixture,53,Bad[I]);
+        Check(mdoCdpWsOpenBrowser(Base,BaseSize,1000,&Handle)==MDO_CDP_SOCKET_HTTP&&!Handle);Join(Thread,&Fixture);Check(Fds()==Before);
+    }
+    for(int Cycle=0;Cycle<2;Cycle++){
+        Server Fixture;pthread_t Thread=Start(&Fixture,51,NULL);
+        Check(mdoCdpWsOpenBrowser(Base,BaseSize,1000,&Handle)==MDO_CDP_SOCKET_OK);
+        while(!atomic_load(&Fixture.Ready))usleep(1000);
+        pthread_t Reader;assert(!pthread_create(&Reader,NULL,BlockedRead,&Handle));
+        /* close may win before or after receive borrows; both must retire. */
+        mdoCdpWsClose(Handle);assert(!pthread_join(Reader,NULL));Join(Thread,&Fixture);Check(Fds()==Before);
+    }
+    Check(Allocated==Freed);
 }
 /* The actual JVM loads this small fixture library, not an xs engine copy.
  * Its only extra JNI methods control the local same-process test peer. */
@@ -618,6 +668,7 @@ int main(void)
     uint64_t Handles[MDO_CDP_WS_MAX];Server Fixtures[MDO_CDP_WS_MAX];pthread_t Threads[MDO_CDP_WS_MAX];
     for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) {Threads[I]=Start(&Fixtures[I],6,NULL);Handles[I]=Open();while ( !atomic_load(&Fixtures[I].Ready) ) usleep(1000);}
     Check(mdoCdpWsOpen("test-001",8,100,&Handle)==MDO_CDP_SOCKET_LIMIT&&!Handle);
+    Check(mdoCdpWsOpenBrowser("/devtools/browser",strlen("/devtools/browser"),100,&Handle)==MDO_CDP_SOCKET_LIMIT&&!Handle);
     MdoCdpWsSlot* Pins[MDO_CDP_WS_MAX];
     for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) {Pins[I]=MdoCdpWsBorrow(Handles[I]);assert(Pins[I]);mdoCdpWsClose(Handles[I]);Join(Threads[I],&Fixtures[I]);}
     Check(mdoCdpWsOpen("test-001",8,100,&Handle)==MDO_CDP_SOCKET_LIMIT&&!Handle);
@@ -629,15 +680,18 @@ int main(void)
         mdoCdpWsClose(Handle);Join(Thread,&Fixture);
     }
     /* Kernel peer checks also precede every WebSocket opening request. */
+    for(int Browser=0;Browser<2;Browser++){
     int Sync[2],Observed[2];assert(!pipe(Sync)&&!pipe(Observed));pid_t Owner=getpid(),Child=fork();assert(Child>=0);
     if ( !Child ) {close(Sync[0]);close(Observed[0]);int Listener=Listen(Owner);assert(write(Sync[1],"r",1)==1);
         int Fd=accept(Listener,NULL,NULL);assert(Fd>=0);char Byte;ssize_t N=recv(Fd,&Byte,1,0);assert(write(Observed[1],&N,sizeof(N))==sizeof(N));close(Fd);close(Listener);_exit(0);}
     close(Sync[1]);close(Observed[1]);char Ready;assert(read(Sync[0],&Ready,1)==1);
-    Check(mdoCdpWsOpen("test-001",8,1000,&Handle)==MDO_CDP_SOCKET_PEER&&!Handle);ssize_t N=-1;assert(read(Observed[0],&N,sizeof(N))==sizeof(N));Check(N==0);
+    Check((Browser?mdoCdpWsOpenBrowser("/devtools/browser",strlen("/devtools/browser"),1000,&Handle):mdoCdpWsOpen("test-001",8,1000,&Handle))==MDO_CDP_SOCKET_PEER&&!Handle);ssize_t N=-1;assert(read(Observed[0],&N,sizeof(N))==sizeof(N));Check(N==0);
     close(Sync[0]);close(Observed[0]);int Status;assert(waitpid(Child,&Status,0)==Child);Check(WIFEXITED(Status)&&!WEXITSTATUS(Status));
+    }
     FailAllocation=1;Check(mdoCdpWsOpen("test-001",8,100,&Handle)==MDO_CDP_SOCKET_MEMORY&&!Handle);FailAllocation=0;
     TestJniFaults();
+    TestBrowserTransport();
     Check(Fds()==Before);Check(Allocated==Freed);
     for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) Check(!MdoCdpWsSlots[I].Reserved);
-    printf("{\"passed\":true,\"checks\":%d,\"allocations\":%d,\"releases\":%d,\"cancel_cycles\":64,\"descriptor_balanced\":true,\"xrt_rfc6455\":true,\"jni_compiled\":true,\"device_qualified\":false}\n",Checks,(int)Allocated,(int)Freed);return 0;
+    printf("{\"passed\":true,\"checks\":%d,\"allocations\":%d,\"releases\":%d,\"cancel_cycles\":64,\"browser_cancel_cycles\":2,\"browser_transport\":true,\"descriptor_balanced\":true,\"xrt_rfc6455\":true,\"jni_compiled\":true,\"device_qualified\":false}\n",Checks,(int)Allocated,(int)Freed);return 0;
 }

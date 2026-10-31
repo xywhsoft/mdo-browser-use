@@ -15,6 +15,13 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E114:** add the private browser WebSocket/worker route using the
+  checked endpoint, existing kernel-peer/RFC6455/boot-clock protections and the
+  same eight page/browser opening/live/draining slots. Browser transport passes
+  1,307 native WebSocket and 232 JVM/JNI assertions, including eight browser
+  cancellation cycles and original-owner revocation. Full native, JS/C save 47,
+  173/175 Python and rebuilt ARM64/APK gates pass with eight JNI exports. This
+  establishes the internal connection, not popup attachment/admission.
 - **Android E113:** add private read-only same-process browser endpoint discovery
   for the protected-popup coordinator. Fixed /json/version, 16 KiB response cap,
   kernel PID/UID check before request bytes and a typed localhost/browser-path
@@ -9339,3 +9346,55 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   than popup adoption. Protected popup/public Android admission and installed
   provider/framework/automation flags stay false. Other broader goal gaps remain;
   no phone/provider change, model call, external browser page or publication.
+
+## E114 — private browser WebSocket and original-worker lifetime (2026-10-31)
+
+- Continue E113's fixed endpoint into a private browser connection. Validate the
+  browser namespace independently in native C: exact /devtools/browser, optionally
+  one canonical UUID segment, with no URL/page/path fallback. Factor the existing
+  page handshake implementation behind private fixed-kind wrappers, preserving
+  the old page entry ABI, PID/UID-before-bytes check, absolute boot-clock timeout,
+  RFC6455 validation, input/output limits, monotonic handles and byte wiping.
+- Both kinds share the existing eight opening/live/draining slots. Java accepts
+  only the checked private BrowserEndpoint type, allocates the wrapper before
+  native opening and uses the same original-worker Channel/cancel rules. The
+  private session wrapper guards original ownership before and after opening;
+  revocation during opening closes that exact new handle, never reconnects.
+  No JS/C public command or popup attachment/resume call site is added.
+- Exercise real abstract Unix sockets/JNI for both plain and UUID paths and a
+  byte-fragmented browser handshake, followed by a fixed read-only version RPC
+  through the actual session codec. Cover bad paths, JNI copy failure, OOM,
+  unavailable peer, redirect/bad accept, shared quota refusal, foreign PID before
+  any request, balanced descriptors/allocations and two native blocked-reader
+  close cycles. Actual JVM/JNI additionally covers eight browser worker/cancel
+  cycles, UI/wrong-worker refusal and owner revocation before/after opening.
+- Preserve E114-native-first.log: the initial new shared-quota fixture supplied
+  16 bytes for the 17-byte base path, so native argument validation correctly
+  rejected it before quota checking. Correct the fixture to use actual string
+  lengths, retaining the invalid-length case. No production validator relaxation
+  is needed. Full final ASan/UBSan/API26/socket/JVM/JNI gates pass 109 current
+  input hashes: discovery 401/93 balanced allocations, WebSocket 1,307/234
+  balanced allocations and JVM worker 232/24 cancel cycles (eight browser).
+- Re-run JS/C saving of original Android response bytes: 47 pass, one original
+  source claim and no retained resources. Python passes 173/175 in 60.330 seconds;
+  two existing Windows symlink privilege skips remain explicit. Current E106
+  product 647/13-input, E105 world/document seven-input and W6 actual native
+  301/six-input proofs are rechecked. Reuse E106 JS 372/packed Windows 12 only
+  after unchanged product/app-archive hashes verify; Windows/plugin stay unchanged.
+- Rebuild the actual ARM64 host, 3,548,144 bytes, SHA-256
+  022caf0ab9e9b7bcdf32ecf3ecce1dfb6b77485958c5fb709b48f42c8af488d9.
+  Actual APK: 6,481,217 bytes, SHA-256
+  93d2ecfa8110b5471b4c3310cb3d08c9fd84b26da38c322f19d5d68d3ea60dbb.
+  Verify actual DEX, eight matching JNI exports, exact compiler/native/app inputs,
+  private provider, ARM64/16 KiB/zip layout and retained v2/v3 signer. Evidence:
+  .mdo/E114-native-current.json, E114-save-current.json, E114-android-receipt.json,
+  E114-final-identities.py/log and E114 full gate/build logs. No extra app, Home,
+  source deployment, product runtime dependency or browser engine is added.
+- Restore headless service HTTP 200 on 63625, PID 25104, about 3,440.0 MiB.
+  Scope is actual native socket/JVM/JNI components with controlled protocol/UI
+  peers plus actual ARM64/package verification, not installed-provider execution.
+  Protected popup admission, Android framework/provider/automation qualification
+  remain false. Next join original-opener scoped auto-attach/pause, Fetch before
+  first response, original native transport/child proof, exact resume and bounded
+  cleanup. Other goal gaps remain; goal active. Phone/WebView changes stay deferred;
+  no model call, external browser page, publication or production data change.

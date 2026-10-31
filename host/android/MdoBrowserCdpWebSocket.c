@@ -113,6 +113,19 @@ static int MdoCdpWsTarget(const char* Id,size_t Size)
     }
     return 1;
 }
+static int MdoCdpWsBrowser(const char* Path,size_t Size)
+{
+    static const char Base[]="/devtools/browser";size_t Prefix=sizeof(Base)-1;
+    if ( !Path || Size<Prefix || memcmp(Path,Base,Prefix) ) return 0;
+    if ( Size==Prefix ) return 1;
+    if ( Size!=Prefix+37 || Path[Prefix]!='/' ) return 0;
+    for ( size_t I=0;I<36;I++ ) {
+        unsigned char Ch=(unsigned char)Path[Prefix+1+I];
+        if ( I==8 || I==13 || I==18 || I==23 ) {if ( Ch!='-' ) return 0;}
+        else if ( !((Ch>='0'&&Ch<='9')||(Ch>='a'&&Ch<='f')||(Ch>='A'&&Ch<='F')) ) return 0;
+    }
+    return 1;
+}
 static enum MdoCdpSocketCode MdoCdpWsHeaders(const unsigned char* Data,size_t End,const char* Key)
 {
     size_t Line=MdoCdpLine(Data,0,End);
@@ -152,11 +165,11 @@ static enum MdoCdpSocketCode MdoCdpWsHeaders(const unsigned char* Data,size_t En
     }
     return MDO_CDP_SOCKET_HTTP;
 }
-enum MdoCdpSocketCode mdoCdpWsOpen(const char* Id,size_t Size,int TimeoutMs,uint64_t* Handle)
+static enum MdoCdpSocketCode MdoCdpWsOpenKind(const char* Id,size_t Size,int TimeoutMs,uint64_t* Handle,int Browser)
 {
     if ( Handle ) *Handle=0;
     uint64_t End;
-    if ( !Handle || !MdoCdpWsTarget(Id,Size) || !MdoCdpWsDeadline(TimeoutMs,&End) ) return MDO_CDP_SOCKET_ARGUMENTS;
+    if ( !Handle || !(Browser?MdoCdpWsBrowser(Id,Size):MdoCdpWsTarget(Id,Size)) || !MdoCdpWsDeadline(TimeoutMs,&End) ) return MDO_CDP_SOCKET_ARGUMENTS;
     MdoCdpWsSlot* Slot=NULL;
     pthread_mutex_lock(&MdoCdpWsGate);
     if ( MdoCdpWsSerial<INT64_MAX ) for ( size_t I=0;I<MDO_CDP_WS_MAX;I++ ) if ( !MdoCdpWsSlots[I].Reserved ) {
@@ -178,7 +191,7 @@ enum MdoCdpSocketCode mdoCdpWsOpen(const char* Id,size_t Size,int TimeoutMs,uint
     if ( !MDO_CDP_RANDOM(Random,sizeof(Random)) ) {Code=MDO_CDP_SOCKET_RANDOM;goto Done;}
     size_t KeySize=0;
     if ( !xrtBase64Encode(Random,sizeof(Random),Key,sizeof(Key),&KeySize,NULL) || KeySize!=XWS_KEY_SIZE ) {Code=MDO_CDP_SOCKET_PROTOCOL;goto Done;}
-    int Length=snprintf(Request,sizeof(Request),"GET /devtools/page/%.*s HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n",(int)Size,Id,Key);
+    int Length=snprintf(Request,sizeof(Request),"GET %s%.*s HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %s\r\nSec-WebSocket-Version: 13\r\n\r\n",Browser?"":"/devtools/page/",(int)Size,Id,Key);
     if ( Length<1 || (size_t)Length>=sizeof(Request) ) {Code=MDO_CDP_SOCKET_ARGUMENTS;goto Done;}
     Code=MdoCdpSend(Session->Fd,Request,(size_t)Length,End);if ( Code!=MDO_CDP_SOCKET_OK ) goto Done;
     while ( !Head ) {
@@ -200,6 +213,10 @@ Done:
     if ( Code!=MDO_CDP_SOCKET_OK ) {pthread_mutex_lock(&MdoCdpWsGate);memset(Slot,0,sizeof(*Slot));pthread_mutex_unlock(&MdoCdpWsGate);}
     return Code;
 }
+enum MdoCdpSocketCode mdoCdpWsOpen(const char* Id,size_t Size,int TimeoutMs,uint64_t* Handle)
+{return MdoCdpWsOpenKind(Id,Size,TimeoutMs,Handle,0);}
+enum MdoCdpSocketCode mdoCdpWsOpenBrowser(const char* Path,size_t Size,int TimeoutMs,uint64_t* Handle)
+{return MdoCdpWsOpenKind(Path,Size,TimeoutMs,Handle,1);}
 static enum MdoCdpSocketCode MdoCdpWsWrite(MdoCdpWs* Session,unsigned char Opcode,const unsigned char* Data,size_t Size,uint64_t End)
 {
     unsigned char Head[XWS_FRAME_HEAD_MAX],Chunk[4096];size_t HeadSize=0;

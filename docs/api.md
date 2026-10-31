@@ -1760,3 +1760,8 @@ E113 adds only private read-only Android browser endpoint discovery for future
 popup coordination. Metadata is not a WebView/task ownership capability and
 does not open/attach/resume targets. Public JS/C signatures, permissions and
 Android popup/provider/automation admission remain unchanged.
+
+E114 connects that private browser endpoint to the existing native worker/session
+transport, sharing its eight-slot budget, deadlines, cancel and original-owner
+guards. It exposes no raw browser RPC to plugins/Agents and does not attach/pause/
+resume popup targets. Public JS/C API and Android admission remain unchanged.

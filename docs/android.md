@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E113)
+## Complete development host APK (E46/E114)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,481,217 bytes, SHA-256
-`12407073c41e97e1a499143af2858662e10f696926e543f888e760a4b6d0c293`.
+`93d2ecfa8110b5471b4c3310cb3d08c9fd84b26da38c322f19d5d68d3ea60dbb`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -62,7 +62,7 @@ the compiled private provider attributes. The DEX gate also requires the new
 `MdoBrowserCdpSession$ControlReceipt`/`ControlResult` and
 `MdoBrowserCdpBinding$Network`, network ledger/slot/result and cooperative
 scheduler definitions and the private `MdoBrowserCdpNative$BrowserEndpoint`.
-All seven matching JNI exports are checked in the actual ARM64 host.
+All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
 artifact and checked against every current reviewed source file; no
@@ -94,10 +94,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E113-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E113-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E114-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E114-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E113. Native/component evidence is recorded separately below.
+attempted in E106-E114. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -4168,3 +4168,33 @@ ARM64 host and APK are rebuilt; actual DEX and all seven JNI exports verify.
 See .mdo/E113-native-current.json, E113-save-current.json,
 E113-android-receipt.json and E113-final-identities.log. No phone/provider change
 or public Android admission occurs; framework/provider/automation flags stay false.
+
+## Private browser transport and original-worker cleanup (E114)
+
+The checked BrowserEndpoint now opens a private browser WebSocket through the
+same native transport as page connections. C independently validates the fixed
+browser namespace; no arbitrary URL, page path, TCP or fallback is accepted.
+Browser/page sessions share eight opening/live/draining slots, same-process UID/
+PID checks before any request, one absolute boot-clock handshake budget, strict
+RFC6455, bounded frames, monotonic handles and sensitive-buffer clearing.
+The actual Java worker/session facade retains UI/wrong-worker refusal and
+thread-safe cancellation. If original ownership changes during opening, its
+post-open guard closes that exact handle. No retry/replay is introduced.
+
+The real local socket/JVM/JNI tests exercise plain/UUID and fragmented handshakes,
+fixed read-only version RPCs through the actual codec, path/type/copy/allocation
+faults, invalid accepts/redirects, foreign-process rejection before bytes, shared
+quota and blocking-receive cleanup. Native WebSocket passes 1,307 assertions with
+234 balanced allocations and two browser close cycles; JVM worker passes 232,
+including eight browser cancellation cycles and before/after-open owner loss.
+Full native gates retain 109 current inputs, JS/C saving passes 47 and Python
+passes 173/175 with two existing privilege skips. Actual ARM64 and refreshed APK
+verify all eight JNI exports, actual DEX and source/signer/payload identities.
+See .mdo/E114-final-identities.log and E114 native/save/APK receipts.
+
+This private connection alone grants no original opener/WebView/popup ownership.
+It does not auto-attach, pause or resume any renderer in the product route.
+Those joins and native transport proof still precede protected-popup admission.
+Controlled protocol/UI peers and ARM64 packaging do not qualify installed
+provider/framework behavior. Public Android automation/provider flags stay false;
+the phone and installed WebView are left unchanged.

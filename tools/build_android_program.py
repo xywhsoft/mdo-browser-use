@@ -177,7 +177,7 @@ def assemble():
     toolchain=json.loads((native.NATIVE/'tools/android/toolchain.lock.json').read_text(encoding='utf-8'))
     nm=sdk/'ndk'/toolchain['ndk']/'toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm'
     symbols=subprocess.check_output([str(nm),'--dynamic','--defined-only',str(library)],text=True)
-    for entry in ('discoverNative','discoverBrowserNative','openNative','sendNative','receiveNative','closeNative','validateNative'):
+    for entry in ('discoverNative','discoverBrowserNative','openNative','openBrowserNative','sendNative','receiveNative','closeNative','validateNative'):
         if not re.search(r'\bT Java_org_xserver_android_MdoBrowserCdpNative_'+entry+r'$',symbols,re.M):
             raise RuntimeError('The Android host lacks a matching private CDP JNI entry')
     if plan['toolchain_lock_sha256']!=setup['lock_sha256']:raise RuntimeError('Android tooling lock changed')

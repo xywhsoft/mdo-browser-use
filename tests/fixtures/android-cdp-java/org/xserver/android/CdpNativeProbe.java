@@ -31,11 +31,16 @@ public final class CdpNativeProbe {
         try {check(bytes!=null&&expected.equals(new String(bytes,StandardCharsets.UTF_8)));}
         finally {if(bytes!=null)Arrays.fill(bytes,(byte)0);}
     }
+    private static MdoBrowserCdpNative.BrowserEndpoint endpoint(String path)throws IOException {
+        byte[] bytes=("{\"webSocketDebuggerUrl\":\"ws://localhost"+path+"\"}").getBytes(StandardCharsets.US_ASCII);
+        try{return MdoBrowserCdpNative.browserEndpointFromJson(bytes);}finally{Arrays.fill(bytes,(byte)0);}
+    }
     public static void main(String[] ignored) throws Exception {
         Looper.getMainLooper();System.loadLibrary("xs");
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.open("test-001",100));
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.discover(100));
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.browserEndpoint(100));
+        failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.openBrowser(null,100));
         ExecutorService worker=Executors.newSingleThreadExecutor();
         try {
             start(48);on(worker,()->{
@@ -57,6 +62,22 @@ public final class CdpNativeProbe {
                 try{failure("cdp_json_invalid",()->MdoBrowserCdpNative.browserEndpointFromJson(duplicate));}finally{Arrays.fill(duplicate,(byte)0);}
                 return null;
             });
+            for(int mode:new int[]{49,50,52}){
+                start(mode);on(worker,()->{
+                    MdoBrowserCdpNative.BrowserEndpoint selected=endpoint(mode==50?"/devtools/browser/00000000-0000-4000-8000-000000000001":"/devtools/browser");
+                    try(MdoBrowserCdpSession session=MdoBrowserCdpSession.openBrowser(selected,1000,()->true,(method,child,params)->{throw new AssertionError("Unexpected browser event");})){
+                        check("1.3".equals(session.call("Browser.getVersion",new org.json.JSONObject(),null,1000,false).getString("protocolVersion")));
+                    }return null;
+                });check(finish()==(1+(1<<8)));
+            }
+            on(worker,()->{
+                failure("cdp_arguments_invalid",()->MdoBrowserCdpNative.openBrowser(null,100));
+                failure("cdp_owner_changed",()->MdoBrowserCdpSession.openBrowser(endpoint("/devtools/browser"),100,()->false,(method,child,params)->{}));return null;
+            });
+            start(51);on(worker,()->{
+                final int[] guards={0};failure("cdp_owner_changed",()->MdoBrowserCdpSession.openBrowser(endpoint("/devtools/browser"),1000,()->++guards[0]==1,(method,child,params)->{}));
+                check(guards[0]==2);return null;
+            });check(finish()==1);
             on(worker,()->{
                 for(String id:new String[]{null,"","https://host/page","a/b","a.b","a\r\nb","\u4f60"})
                     failure("cdp_arguments_invalid",()->MdoBrowserCdpNative.open(id,100));
@@ -73,8 +94,8 @@ public final class CdpNativeProbe {
                 return null;
             });
             check(finish()==(1+(3<<8)));
-            for(int cycle=0;cycle<16;cycle++) {
-                start(3);MdoBrowserCdpNative.Channel channel=on(worker,()->MdoBrowserCdpNative.open("test-001",1000));
+            for(int cycle=0;cycle<24;cycle++) {
+                boolean browser=cycle>=16;start(browser?51:3);MdoBrowserCdpNative.Channel channel=on(worker,()->browser?MdoBrowserCdpNative.openBrowser(endpoint("/devtools/browser"),1000):MdoBrowserCdpNative.open("test-001",1000));
                 failure("cdp_requires_background_thread",()->channel.receive(10));
                 ExecutorService wrong=Executors.newSingleThreadExecutor();
                 try {on(wrong,()->{failure("cdp_wrong_worker",()->channel.receive(10));return null;});}
@@ -107,6 +128,6 @@ public final class CdpNativeProbe {
                 return null;
             });check(finish()==1);
         } finally {worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"read_only_browser_discovery\":true,\"android_looper_doubled\":true,\"cancel_cycles\":16,\"android_device_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"read_only_browser_discovery\":true,\"browser_transport\":true,\"android_looper_doubled\":true,\"cancel_cycles\":24,\"browser_cancel_cycles\":8,\"android_device_qualified\":false}");
     }
 }

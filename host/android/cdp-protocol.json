@@ -10,7 +10,7 @@
     "endpoint": "ws://localhost/devtools/browser_with_optional_single_canonical_UUID_path_segment",
     "redirect_TCP_credentials_query_fragment_or_encoded_path": false,
     "retained_metadata": "private_browser_path_only_no_Browser_UserAgent_or_other_provider_fields",
-    "target_opened_or_attached": false,
+    "discovery_opens_or_attaches_target": false,
     "original_WebView_or_popup_authority_proved": false,
     "debugging_enabled": false,
     "installed_provider_verified": false,
@@ -35,6 +35,21 @@
         "facts": "root_popup_navigation_throttling_consults_browser_target_handlers"
       }
     ]
+  },
+  "browser_target_transport": {
+    "state": "private_worker_transport_not_popup_admission",
+    "path": "checked_devtools_browser_namespace_only_optional_canonical_UUID",
+    "kernel_peer": "same_PID_and_UID_before_any_handshake_bytes",
+    "shared_page_and_browser_opening_live_draining_limit": 8,
+    "same_absolute_boot_clock_deadline_and_RFC6455_validation": true,
+    "UI_or_wrong_worker_IO": false,
+    "cancel_wakes_original_blocked_receive": true,
+    "owner_revoked_during_open_closes_original_handle": true,
+    "opening_proves_WebView_or_popup_authority": false,
+    "automatic_target_attach_or_debugger_resume": false,
+    "retry_or_TCP_fallback": false,
+    "installed_provider_verified": false,
+    "product_popup_network_admission": false
   },
   "navigation_receipts": {
     "state": "managed_initial_and_goto_native_receipts_and_commit_join_packaged_provider_unqualified",
