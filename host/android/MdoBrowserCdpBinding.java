@@ -171,6 +171,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         return bind(marker,timeoutMs,events,targets,factory,false);
     }
     private static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory,boolean network) throws IOException {
+        return bind(marker,timeoutMs,events,targets,factory,network,null);
+    }
+    private static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory,boolean network,java.util.function.BooleanSupplier operation) throws IOException {
         if(marker==null||events==null||targets==null||factory==null||timeoutMs<100||timeoutMs>15000)throw problem("cdp_binding_arguments_invalid");
         long started=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpMarker.Lease lease=marker.lease();
         if(lease.physicalNetwork()!=network)throw problem("cdp_network_scope_invalid");
@@ -181,13 +184,14 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             List<String> candidates=targets.discover(remaining(started,timeoutMs,lease));
             if(candidates.isEmpty()||candidates.size()>64||new HashSet<>(candidates).size()!=candidates.size())throw problem("cdp_binding_targets_unavailable");
             for(String id:candidates)if(!MdoBrowserCdpJson.token(id))throw problem("cdp_binding_discovery_invalid");
-            remaining(started,timeoutMs,lease);ticket=marker.request();
+            remaining(started,timeoutMs,lease);operation(operation);ticket=marker.request(operation);
             if(!ticket.await(remaining(started,timeoutMs,lease))) {
                 remaining(started,timeoutMs,lease);
                 throw problem(ticket.pending()?"cdp_binding_timeout":ticket.failure());
             }
             boolean unsupported=false;
             for(String id:candidates) {
+                operation(operation);
                 Contexts contexts=new Contexts();Context root;
                 try {
                     peer=factory.open(id,remaining(started,timeoutMs,lease),()->lease.current()&&!contexts.dirty,contexts);
@@ -197,7 +201,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                     unsupported|=contexts.unsupported||"cdp_binding_context_unsupported".equals(missing.getMessage());
                     unsupported|=missing instanceof MdoBrowserCdpSession.Failure&&((MdoBrowserCdpSession.Failure)missing).protocolCode==-32601;
                     if(peer!=null){lease.untrack(peer);peer.close();peer=null;}
-                    remaining(started,timeoutMs,lease);continue;
+                    operation(operation);remaining(started,timeoutMs,lease);continue;
                 }
                 if(root==null){lease.untrack(peer);peer.close();peer=null;continue;}
                 // Prove the provider honors uniqueContextId before revealing the
@@ -243,19 +247,45 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             }
         }
     }
+    private static void operation(java.util.function.BooleanSupplier scope)throws IOException {
+        if(scope!=null&&!scope.getAsBoolean())throw problem("cdp_binding_owner_changed");
+    }
     /** A separate physical-view proof, never a promotion of an ordinary
      * document binding. This private facade exposes no page/frame RPC. */
     static Network bindNetwork(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events)throws IOException {
         return bindNetwork(marker,timeoutMs,events,MdoBrowserCdpBinding::targets,NATIVE);
     }
     static Network bindNetwork(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory)throws IOException {
-        long start=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpBinding bound=bind(marker,timeoutMs,events,targets,factory,true);
+        return bindNetwork(marker,timeoutMs,events,targets,factory,null);
+    }
+    private static Network bindNetwork(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory,java.util.function.BooleanSupplier operation)throws IOException {
+        long start=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpBinding bound=bind(marker,timeoutMs,events,targets,factory,true,operation);
         try{
             // Runtime metadata is only needed for the initial exact target
             // proof. Stop its stream before a long-lived network connection.
             bound.peer.call("Runtime.disable",new JSONObject(),remaining(start,timeoutMs,bound.lease));
             bound.current();return new Network(bound);
         }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
+    }
+    /** Same physical-marker proof on only the frozen retained target. A second
+     * private target connection cannot resume the Browser connection's wait.
+     * No discovery guess, caller target ID, navigation or body access occurs. */
+    static Network bindPopupNative(MdoBrowserCdpPopupNative.Child child,List<MdoBrowserCdpSession.AttachedTarget> originals,int timeout,
+                                  java.util.function.BooleanSupplier current,Factory factory)throws IOException {
+        if(child==null||originals==null||originals.isEmpty()||originals.size()>7||current==null||!current.getAsBoolean()||!child.current())throw problem("cdp_popup_native_child_invalid");
+        List<String> targets=new ArrayList<>();
+        for(MdoBrowserCdpSession.AttachedTarget original:originals){
+            if(original==null||!original.waiting||!"page".equals(original.type)||!original.protectionConfirmed()||original.resumeConfirmed()||original.detachConfirmed()||targets.contains(original.target))throw problem("cdp_popup_native_child_invalid");
+            targets.add(original.target);
+        }
+        Factory transport=factory==null?NATIVE:factory;
+        java.util.function.BooleanSupplier operation=()->child.current()&&current.getAsBoolean();
+        Network bound=bindNetwork(child.marker(),timeout,(m,s,p)->{},ignored->targets,
+            (target,wait,alive,events)->{
+                if(!operation.getAsBoolean()||!alive.getAsBoolean())throw problem("cdp_popup_native_child_changed");
+                return transport.open(target,wait,()->alive.getAsBoolean()&&operation.getAsBoolean(),events);
+            },operation);
+        if(!child.current()||!current.getAsBoolean()){bound.close();throw problem("cdp_popup_native_child_changed");}return bound;
     }
     static final class Network implements AutoCloseable {
         /** Constructed only after the original physical WebView proof. It is
@@ -265,8 +295,11 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             private PopupSource(Network original){this.original=original;}
             String target()throws IOException{original.active();if(original.retiring)throw problem("cdp_network_retiring");return original.bound.target;}
             boolean current(){return original.enabled&&!original.retiring&&!original.bound.closed.get()&&original.bound.lease.current()&&!original.bound.contexts.dirty;}
+            boolean owns(MdoBrowserCdpMarker.Lease lease){return current()&&original.bound.lease==lease;}
         }
         private PopupSource popupSource;
+        boolean physicalCurrent(){return !retiring&&!bound.closed.get()&&bound.lease.current()&&!bound.contexts.dirty;}
+        boolean matchesPopup(MdoBrowserCdpSession.AttachedTarget original){return original!=null&&bound.target.equals(original.target)&&physicalCurrent();}
         PopupSource popupSource()throws IOException{active();if(retiring)throw problem("cdp_network_retiring");if(popupSource==null)popupSource=new PopupSource(this);return popupSource;}
         /** Ephemeral native selection, not a public entry-ID or URL lookup. */
         private static final class Selection {

@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 /** A fixed native housekeeping expression, not Agent/page-provided code. One
  * instance belongs to one exact UI view/document generation. Its owner must
@@ -72,9 +73,10 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         final AtomicBoolean dispatched=new AtomicBoolean();
         private final WeakReference<MdoBrowserCdpMarker> owner;
         private final Cell cell;private final Runnable task;
-        private volatile String failure;
-        Ticket(MdoBrowserCdpMarker marker) {
+        private volatile String failure;private volatile BooleanSupplier operation;
+        Ticket(MdoBrowserCdpMarker marker,BooleanSupplier operation) {
             owner=new WeakReference<>(marker);name="__mdo_cdp_"+nonce();value=nonce();
+            this.operation=operation;
             // The fixed source label reveals no identifier/token to resource
             // profiling. No function/global-property/DOM hook is called.
             source="let "+name+"=\""+value+"\";"+name+"\n//# sourceURL=mdo-native-binding.js";
@@ -83,6 +85,7 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         boolean pending(){return state.get()<2;}
         boolean confirmed(){return state.get()==2;}
         String failure(){return failure==null?"cdp_binding_cancelled":failure;}
+        private boolean current(){BooleanSupplier scope=operation;try{return scope==null||scope.getAsBoolean();}catch(RuntimeException|OutOfMemoryError error){return false;}}
         private void fail(String code){failure=code;state.set(3);synchronized(this){notifyAll();}}
         boolean await(int timeoutMs) throws IOException {
             MdoBrowserCdpMarker marker=owner.get();
@@ -92,13 +95,14 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
                 long used=android.os.SystemClock.elapsedRealtime()-start;
                 if(used<0||used>=timeoutMs)return false;
                 if(!pending())return confirmed();
+                if(!current()){fail("cdp_binding_owner_changed");return false;}
                 // Object.wait counts uptime. Recheck elapsed time promptly on
                 // resume, including a callback delivered after the deadline.
                 try{wait(Math.min(20,timeoutMs-used));}catch(InterruptedException interrupted){Thread.currentThread().interrupt();close();throw new IOException("cdp_binding_cancelled");}
             }}
         }
         @Override public void close() {
-            int before=state.getAndSet(3);MdoBrowserCdpMarker marker=owner.get();
+            int before=state.getAndSet(3);operation=null;MdoBrowserCdpMarker marker=owner.get();
             synchronized(this){notifyAll();}
             if(marker==null)return;
             marker.active.compareAndSet(this,null);
@@ -115,7 +119,7 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
             try {
                 MdoBrowserCdpMarker marker=ticket.owner.get();
                 View view=marker==null?null:marker.view;
-                if(view==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!view.current()) {
+                if(view==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!ticket.current()||!view.current()) {
                     ticket.fail("cdp_binding_owner_changed");return;
                 }
                 if(!("\""+ticket.value+"\"").equals(json)){ticket.fail("cdp_binding_marker_failed");return;}
@@ -132,7 +136,7 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
             MdoBrowserCdpMarker marker=ticket.owner.get();
             try {
                 View view=marker==null?null:marker.view;
-                if(view==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!view.current()) {
+                if(view==null||!marker.ui.onThread()||!marker.lease.current()||marker.active.get()!=ticket||!ticket.current()||!view.current()) {
                     ticket.fail("cdp_binding_owner_changed");ticket.cell.budget.release(ticket.cell);return;
                 }
                 if(ticket.state.get()!=1){ticket.cell.budget.release(ticket.cell);return;}
@@ -165,10 +169,11 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
      * One proof attempt; never upgrade/reuse a document marker for networking. */
     static MdoBrowserCdpMarker network(Ui ui,View view,Budget budget,DocumentQuota document){return new MdoBrowserCdpMarker(ui,view,budget,document,true);}
     Lease lease(){return lease;}
-    Ticket request() throws IOException {
+    Ticket request() throws IOException {return request(null);}
+    Ticket request(BooleanSupplier operation) throws IOException {
         if(!lease.current())throw new IOException("cdp_binding_owner_changed");
         if(network&&!networkRequested.compareAndSet(false,true))throw new IOException("cdp_network_rebind_forbidden");
-        Ticket ticket=new Ticket(this);
+        Ticket ticket=new Ticket(this,operation);
         if(!active.compareAndSet(null,ticket))throw new IOException("cdp_binding_busy");
         try {
             if(!lease.current())throw new IOException("cdp_binding_owner_changed");

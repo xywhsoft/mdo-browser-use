@@ -19,7 +19,8 @@ import java.util.function.LongSupplier;
 final class MdoBrowserCdpPopupWorker {
     interface Factory {MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock);}
     interface Source {MdoBrowserCdpBinding.Network resolve(MdoBrowserCdpMarker.Lease lease)throws IOException;}
-    interface Events {void state(Result result);void candidate(MdoBrowserCdpPopupBroker.Candidate candidate);default void protection(MdoBrowserCdpPopupBroker.Candidate candidate){}}
+    interface Events {void state(Result result);void candidate(MdoBrowserCdpPopupBroker.Candidate candidate);default void protection(MdoBrowserCdpPopupBroker.Candidate candidate){}
+        default void nativeProof(MdoBrowserCdpPopupNative.Child child){}}
     static final class Result {
         final boolean ready,terminal,processMayHaveBeenEnabled,sourceReleased,processCleanupConfirmed;final String code;
         private Result(boolean ready,boolean terminal,String code,boolean enabled,boolean released,boolean clean){
@@ -28,8 +29,19 @@ final class MdoBrowserCdpPopupWorker {
     }
     static final class Request implements AutoCloseable {
         private final AtomicBoolean cancelled=new AtomicBoolean();private final AtomicReference<Result> result=new AtomicReference<>();private volatile Runnable wake;
-        private Request(Runnable wake){this.wake=wake;}
+        private final MdoBrowserCdpMarker.Lease lease;private final ArrayDeque<MdoBrowserCdpPopupNative.Child> nativeQueue=new ArrayDeque<>();
+        private Request(Runnable wake,MdoBrowserCdpMarker.Lease lease){this.wake=wake;this.lease=lease;}
         Result result(){return result.get();}
+        synchronized boolean proveNative(MdoBrowserCdpPopupNative.Child child)throws IOException {
+            Result value=result.get();if(cancelled.get()||value==null||!value.ready||value.terminal||child==null||!child.current()||!child.belongsTo(lease))throw new IOException("cdp_popup_native_proof_unavailable");
+            if(nativeQueue.size()>=7)throw new IOException("cdp_popup_native_proof_limit");if(!child.enqueue())return false;
+            nativeQueue.add(child);Runnable notify=wake;if(notify!=null)notify.run();return true;
+        }
+        private synchronized MdoBrowserCdpPopupNative.Child takeNative(){return nativeQueue.poll();}
+        private synchronized void terminal(Result value){result.set(value);wake=null;MdoBrowserCdpPopupNative.Child child;
+            while((child=nativeQueue.poll())!=null)child.finish(false,"cdp_popup_prepare_cancelled",0,false);}
+        private BooleanSupplier proofScope(){AtomicBoolean stop=cancelled;AtomicReference<Result> latest=result;MdoBrowserCdpMarker.Lease original=lease;
+            return ()->{Result value=latest.get();return !stop.get()&&original.current()&&value!=null&&value.ready&&!value.terminal;};}
         @Override public void close(){Result value=result.get();if(value!=null&&value.terminal)return;cancelled.set(true);Runnable notify=wake;if(notify!=null)notify.run();}
     }
     private static final int QUEUED=0,STARTING=1,READY=2,CANCELLING=3,NATIVE_CANCELLING=4,TERMINAL=5;
@@ -108,6 +120,15 @@ final class MdoBrowserCdpPopupWorker {
                         if(!protection.ok&&job.nativeSource!=null){job.cancelCode=protection.code;job.request.cancelled.set(true);job.beginNativeCancel();break;}
                     }
                 }
+                if(!protectedOne&&!job.request.cancelled.get()){
+                    MdoBrowserCdpPopupNative.Child child=job.request.takeNative();if(child!=null){protectedOne=true;
+                        if(job.nativeSource==null)child.finish(false,"cdp_popup_native_source_required",0,false);
+                        else try{current.proveNative(job.registration,child,1500,job.request.proofScope());}
+                        catch(IOException error){child.finish(false,safe(error.getMessage()),0,true);throw error;}
+                        catch(RuntimeException|Error error){child.finish(false,"cdp_popup_native_proof_failed",0,true);throw error;}
+                        job.offerNative(child);
+                    }
+                }
             }
             if(!current.armed()&&current.cleanupConfirmed())broker=null;
         }catch(IOException error){failAll(safe(error.getMessage()));}
@@ -124,14 +145,15 @@ final class MdoBrowserCdpPopupWorker {
     }
     void ownerTerminated(){close();for(Job job:snapshot())job.finish("cdp_worker_closed",false,clean());}
     private final class Job implements Runnable {
-        final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;final Request request=new Request(()->{wake.run();});
+        final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;final Request request;
         final MdoBrowserCdpPopupNative nativeSource;volatile boolean nativeCancelRequested;long cancelBorn;private boolean nativeStopDelivered;
         String cancelCode="cdp_popup_prepare_cancelled";
         final Set<String> notified=new HashSet<>();final ArrayDeque<MdoBrowserCdpPopupBroker.Candidate> candidates=new ArrayDeque<>();
         final Set<String> protectionNotified=new HashSet<>();final ArrayDeque<MdoBrowserCdpPopupBroker.Candidate> protections=new ArrayDeque<>();
+        final ArrayDeque<MdoBrowserCdpPopupNative.Child> nativeProofs=new ArrayDeque<>();
         final Runnable delivery=this::deliver;volatile int stage=QUEUED;volatile MdoBrowserCdpPopupBroker.Registration registration;
         private Events events;private boolean posted,delivering,readyDelivered,terminalDelivered;
-        Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource){this.lease=lease;this.timeout=timeout;this.events=events;this.nativeSource=nativeSource;born=clock.getAsLong();}
+        Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource){this.lease=lease;this.timeout=timeout;this.events=events;this.nativeSource=nativeSource;born=clock.getAsLong();request=new Request(()->{wake.run();},lease);}
         void beginNativeCancel(){synchronized(this){if(stage==TERMINAL)return;cancelBorn=clock.getAsLong();stage=NATIVE_CANCELLING;nativeCancelRequested=true;}post();}
         void releaseRegistration(){synchronized(this){if(stage==TERMINAL)return;registration.close();registration=null;stage=CANCELLING;}}
         private int remaining()throws IOException {
@@ -162,8 +184,11 @@ final class MdoBrowserCdpPopupWorker {
         void offerProtection(MdoBrowserCdpPopupBroker.Candidate candidate){
             synchronized(this){if(stage!=READY||request.cancelled.get())return;if(protections.size()>=7){request.cancelled.set(true);return;}protections.add(candidate);}post();
         }
+        void offerNative(MdoBrowserCdpPopupNative.Child child){
+            synchronized(this){if(stage!=READY||request.cancelled.get())return;if(nativeProofs.size()>=7){request.cancelled.set(true);return;}nativeProofs.add(child);}post();
+        }
         void finish(String code,boolean released,boolean clean){
-            synchronized(this){if(stage==TERMINAL)return;stage=TERMINAL;candidates.clear();protections.clear();request.result.set(new Result(false,true,code,enabled(),released,clean));request.wake=null;active.decrementAndGet();}post();
+            synchronized(this){if(stage==TERMINAL)return;stage=TERMINAL;candidates.clear();protections.clear();nativeProofs.clear();request.terminal(new Result(false,true,code,enabled(),released,clean));active.decrementAndGet();}post();
         }
         private void post(){
             synchronized(this){if(events==null){if(stage==TERMINAL)remove(this);return;}if(posted||delivering||terminalDelivered)return;posted=true;}
@@ -171,12 +196,12 @@ final class MdoBrowserCdpPopupWorker {
             if(!accepted){synchronized(this){posted=false;events=null;}request.cancelled.set(true);if(stage==TERMINAL)remove(this);unavailable.run();}
         }
         private void deliver(){
-            thread();Events action;Result value;List<MdoBrowserCdpPopupBroker.Candidate> pending,protectedTargets;
+            thread();Events action;Result value;List<MdoBrowserCdpPopupBroker.Candidate> pending,protectedTargets;List<MdoBrowserCdpPopupNative.Child> provenTargets;
             synchronized(this){
                 posted=false;if(delivering||terminalDelivered||events==null)return;delivering=true;action=events;value=request.result.get();
-                if(value!=null&&value.terminal){terminalDelivered=true;pending=new ArrayList<>();protectedTargets=new ArrayList<>();}
-                else if(stage==READY&&!request.cancelled.get()&&lease.current()){pending=new ArrayList<>(candidates);candidates.clear();protectedTargets=new ArrayList<>(protections);protections.clear();if(readyDelivered)value=null;else readyDelivered=true;}
-                else{value=null;pending=new ArrayList<>();protectedTargets=new ArrayList<>();candidates.clear();protections.clear();}
+                if(value!=null&&value.terminal){terminalDelivered=true;pending=new ArrayList<>();protectedTargets=new ArrayList<>();provenTargets=new ArrayList<>();}
+                else if(stage==READY&&!request.cancelled.get()&&lease.current()){pending=new ArrayList<>(candidates);candidates.clear();protectedTargets=new ArrayList<>(protections);protections.clear();provenTargets=new ArrayList<>(nativeProofs);nativeProofs.clear();if(readyDelivered)value=null;else readyDelivered=true;}
+                else{value=null;pending=new ArrayList<>();protectedTargets=new ArrayList<>();provenTargets=new ArrayList<>();candidates.clear();protections.clear();nativeProofs.clear();}
             }
             try{
                 if(nativeSource!=null&&value!=null&&value.ready&&!request.cancelled.get()&&stage==READY&&!nativeSource.ready()){request.cancelled.set(true);value=null;wake.run();}
@@ -187,9 +212,10 @@ final class MdoBrowserCdpPopupWorker {
                 }
                 for(MdoBrowserCdpPopupBroker.Candidate candidate:pending)if(!request.cancelled.get()&&lease.current()&&candidate.current())action.candidate(candidate);
                 for(MdoBrowserCdpPopupBroker.Candidate candidate:protectedTargets)if(!request.cancelled.get()&&lease.current()&&candidate.current())action.protection(candidate);
+                for(MdoBrowserCdpPopupNative.Child child:provenTargets)if(!request.cancelled.get()&&lease.current()&&child.current())action.nativeProof(child);
             }
             catch(RuntimeException|Error error){request.cancelled.set(true);wake.run();}
-            finally{boolean again; synchronized(this){delivering=false;if(terminalDelivered)events=null;Result latest=request.result.get();again=latest!=null&&latest.terminal||!candidates.isEmpty()||!protections.isEmpty()||nativeCancelRequested&&!nativeStopDelivered;}
+            finally{boolean again; synchronized(this){delivering=false;if(terminalDelivered)events=null;Result latest=request.result.get();again=latest!=null&&latest.terminal||!candidates.isEmpty()||!protections.isEmpty()||!nativeProofs.isEmpty()||nativeCancelRequested&&!nativeStopDelivered;}
                 if(terminalDelivered)remove(this);else if(again)post();}
         }
     }

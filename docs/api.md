@@ -1819,3 +1819,21 @@ ready/candidate/protection notifications recheck original ownership on UI.
 These private handles do not grant fresh native child, CDP target, isolated world
 or response/body authority. Ordinary public JS/C APIs and Android capability
 flags remain unchanged; protected Android popup admission is still disabled.
+
+
+E121 adds private native-source child handles, Request.proveNative(child) and an
+original UI nativeProof(child) notification on the existing worker. The handle
+requires the exact successful native consumption receipt and physical adapter.
+The worker matches one fixed native marker across the original opener's known
+protected candidates; UI callers cannot choose a protocol target. It requires
+unique-context rejection/control, matching value, scoped cleanup and a subsequent
+original Browser-connection attachment barrier. It grants no world, navigation,
+request continuation, response/body or public Android capability authority.
+
+Proof outcomes refer to the proof phase: even a refusal before proof I/O does
+not undo the prior successful native handoff. The host must retain its adoption
+receipt. Closing a proof handle retires its marker/connection, not the native
+view. Fresh UI registry, contents-swap/pending-target joins and exact child
+teardown remain required before enabling the product route. Requests are bounded,
+single-use, cancellation-aware and delivered only to the current original UI;
+public JS/C signatures and Android capability flags remain unchanged.

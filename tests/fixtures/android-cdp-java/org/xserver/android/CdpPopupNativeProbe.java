@@ -119,8 +119,29 @@ public final class CdpPopupNativeProbe {
             c.ownerFailure=false;check(!c.core.open(late,true)&&late.sends==0);
         }
     }
+    private static void childMarker()throws Exception{
+        try(Case c=new Case();Case other=new Case()){
+            check(c.source.ready()&&other.source.ready());Transport original=new Transport();check(c.core.open(original,false));WebView view=new WebView();
+            MdoBrowserPopups.Adoption adoption=c.source.adopt(c.source.pending(),view);
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota())){
+                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,view,adapter));
+                original.ack();check(adoption.ok());
+                unavailable("cdp_popup_native_child_invalid",()->other.source.child(adoption,view,adapter));
+                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,new WebView(),adapter));
+                try(MdoBrowserCdpPopupNative.Child child=c.source.child(adoption,view,adapter)){
+                    check(child.current()&&child.belongsTo(c.source.lease())&&!child.belongsTo(other.source.lease())&&child.proof()==null&&view.evaluations==0);
+                    unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,view,adapter));
+                    java.util.concurrent.atomic.AtomicBoolean permit=new java.util.concurrent.atomic.AtomicBoolean(true);
+                    MdoBrowserCdpMarker.Ticket ticket=child.marker().request(permit::get);permit.set(false);android.os.Handler.drain();
+                    check(!ticket.pending()&&!ticket.confirmed()&&ticket.failure().equals("cdp_binding_owner_changed")&&view.evaluations==0);ticket.close();
+                    c.core.cancel();check(!child.current());child.close();check(!child.current()&&!child.proof().ok&&!child.proof().effectMayHaveOccurred);
+                }
+            }
+            c.source.reject();check(c.source.confirmed());c.source.finish(true);other.source.reject();other.source.finish(true);
+        }
+    }
     public static void main(String[] args)throws Exception{
-        ownership();adoption();stale();cancellation();
+        ownership();adoption();stale();cancellation();childMarker();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

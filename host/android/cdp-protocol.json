@@ -161,6 +161,42 @@
         "sha256": "bb280686ab4e602a56f3abfc24c47f141b62da387d0ba7d7aa7cf23f7f2111e6",
         "facts": "Request_stage_precedes_send_Response_stage_precedes_body_requests_remain_paused_until_explicit_original_flow_control"
       }
+    },
+    "native_target_proof": {
+      "state": "private_consumed_native_handoff_and_retained_target_marker_proof_not_product_popup_admission",
+      "source": "one_original_successful_native_consumption_receipt_exact_UI_child_adapter_and_sticky_opener_scope",
+      "worker": "same_original_executor_bounded_seven_child_queue_one_1500ms_proof_per_turn_shared_with_fixed_protection_work",
+      "target_selection": "all_known_original_protected_unproven_waiting_candidates_of_original_opener_no_UI_target_selector",
+      "matching": "one_fixed_native_marker_ticket_global_lexical_name_then_unique_context_negative_control_value_and_unique_context_cleanup",
+      "connection": "independent_private_target_connection_only_to_frozen_retained_original_targets",
+      "original_browser_barrier": "exact_Target_getTargetInfo_then_revalidate_original_held_protected_attachment_after_all_preceding_events",
+      "duplicate_or_foreign_handoff": "refused_before_remote_proof_no_second_attempt",
+      "cancellation": "data_only_original_request_scope_checked_before_queued_UI_marker_during_wait_and_callback_before_each_target_open_and_before_publication_suppress_stale_UI_callback",
+      "runtime_resume_sent": false,
+      "request_continuation_sent": false,
+      "page_body_or_download_authority_granted": false,
+      "fresh_child_registry_integration_complete": false,
+      "complete_pending_target_capture_proven": false,
+      "installed_provider_marker_while_paused_verified": false,
+      "product_route_enabled": false,
+      "references": [
+        {
+          "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/third_party/blink/renderer/core/exported/web_dev_tools_agent_impl.cc",
+          "bytes": 25075,
+          "sha256": "70504693c9ee4b9591426b25d1117a05be66b0c43b4599062bd6b37bf3633559",
+          "facts": "new_window_wait_uses_nested_page_wait_loop_and_page_pauser_not_a_native_view_ownership_proof"
+        },
+        {
+          "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/third_party/blink/renderer/core/frame/local_frame_mojo_handler.cc",
+          "bytes": 59177,
+          "sha256": "f1f6b6c0e4330bded15618222997560d8d1d1b627dfaffd005b5b5b49429010d",
+          "facts": "native_JavaScriptExecuteRequest_runs_fixed_script_on_its_native_frame_no_target_ID_derived_from_metadata"
+        }
+      ],
+      "marker_guard_lifetime": "clear_operation_guard_on_ticket_close_no_retained_job_or_UI_owner_after_retirement",
+      "original_transport_receipt_proves_contents_swap": false,
+      "cooperative_document_wait": "same_worker_native_proof_can_finish_while_original_document_RPC_is_pending_no_extra_executor_session_reentry_or_outer_deadline_reset",
+      "child_handle_lifetime": "weak_native_marker_and_data_only_leases_UI_adapter_retains_native_lifetime"
     }
   },
   "navigation_receipts": {

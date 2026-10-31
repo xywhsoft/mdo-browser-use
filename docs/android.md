@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E120)
+## Complete development host APK (E46/E121)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,501,697 bytes, SHA-256
-`ba61b2ff4a1a14fe333b0eb94c97e10f4b8b3854bb5f27ad4a52d2d455c38ce1`.
+Current APK: 6,505,793 bytes, SHA-256
+`984b875098a083f429ba3ab7fca42d7f39232cae4b91517e879beed7c445d3c1`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -4443,3 +4443,59 @@ Pending and Adoption definitions and retains the verified ARM64 host and signer.
 Phone/provider/framework checks remain deferred, with all qualification flags
 false. Windows/plugin artifacts and their rechecked applicable evidence are
 unchanged; no model, external browser page or publication was used.
+
+
+## Fixed native-view marker matched to retained targets (E121)
+
+The private original UI source can now create one opaque child handle from a
+successful native send/consumption receipt and the exact physical child adapter.
+Wrong/foreign/unconsumed/replayed receipts fail before protocol proof. The handle
+keeps weak marker ownership and data leases, so a queued proof cannot retain its
+native view or UI owner after retirement.
+
+The existing worker accepts at most seven child proof requests and performs one
+bounded proof per turn. It freezes the known protected, waiting candidates of
+the original opener and uses one native marker ticket to match the physical view
+across that set. The caller supplies no target ID. A decoy peer sees no native
+marker expression. The existing negative unique-context control, native value
+check and exact-context cleanup remain required. A separate per-target private
+connection performs the proof; the original Browser connection then validates
+its exact retained/protected attachment after an ordered Target.getTargetInfo
+reply and preceding detach/pause events. Native proof emits no debugger resume,
+request continuation, navigation, world installation or body command.
+
+Cancellation is checked before queued native marker execution, while awaiting
+its callback, before each candidate connection and before result publication.
+Closing the marker ticket drops its operation guard. A new regression fails
+before the connection guard and passes afterward: cancellation following a
+nonmatching peer must not open the next candidate. Pending document RPCs can
+also service the proof on the same worker without ordinary session reentry or
+resetting their deadline. Success notifications are suppressed after cancel.
+
+The native frame script entry and new-window page wait are distinct mechanisms;
+see the pinned Chromium
+[native script handler](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/third_party/blink/renderer/core/frame/local_frame_mojo_handler.cc)
+and [page-wait implementation](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/third_party/blink/renderer/core/exported/web_dev_tools_agent_impl.cc).
+Their bytes/hashes are retained in cdp-protocol.json. An installed provider's
+ability to complete this marker while paused remains unverified, not inferred
+from those sources or controlled metadata.
+
+Twenty-six shared-worker modes pass 899 checks; the twelve new proof modes add
+408, including decoys, foreign opener handles, absent guards, marker failure,
+ignored unique contexts, wrong barriers, detach, owner loss, cancellation between
+candidates, stale UI and cooperative RPC waits. Native-source/controller checks
+pass 134. Full ASan/UBSan/API26/JVM/JNI gates cover 117 input hashes; existing popup
+ownership/callback checks remain 110/25. JS/C saving passes 47; Python passes
+173/175 with the two existing Windows privilege skips. Actual rebuilt APK/DEX
+includes Child and verifies the retained native binary, signer and exact payloads.
+See .mdo/E121-final-identities.log and E121 native/save/popup/package evidence.
+
+This proves a private marker-to-retained-target association under the tested
+scope. Fresh child registry integration, confirmation of the original native
+contents swap, complete pending-target capture, guarded bootstrap/resume, body
+routing and installed-provider qualification still remain. A failed proof does
+not undo an earlier native handoff, and closing the proof handle does not destroy
+the native view. Exact UI child teardown and original target detachment remain
+separate cleanup obligations. The public protected Android popup route and all
+provider/framework/automation qualification flags remain false. Phone and WebView
+changes stay deferred; Windows/plugin artifacts remain unchanged.

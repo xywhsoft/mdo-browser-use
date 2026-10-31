@@ -44,7 +44,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
      * child ownership, document readiness or isolated-world authorization. */
     static final class Adoption {
         private final Pending original;private final WeakReference<Object> child;
-        private final AtomicInteger state=new AtomicInteger();private volatile String code;private volatile boolean consumed;
+        private final AtomicInteger state=new AtomicInteger();private volatile String code;private volatile boolean consumed;private boolean childClaimed;
         private Adoption(Pending original,Object child){this.original=original;this.child=new WeakReference<>(child);}
         boolean pending(){return state.get()==0;}
         boolean ok(){return state.get()==1;}
@@ -200,6 +200,11 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     }
     boolean adoptedTo(Adoption original,T exact){
         thread();return original!=null&&original.original.scope.owner.get()==this&&original.child.get()==exact;
+    }
+    boolean claimAdopted(Scope scope,Adoption original,T exact){
+        thread();if(!protocolCurrent(scope)||original==null||original.original.scope!=scope||!original.ok()||!original.nativeConsumed()||
+            !adoptedTo(original,exact)||original.childClaimed)return false;
+        original.childClaimed=true;return true;
     }
     Stop stopForProtocol(Scope scope){
         thread();if(scope==null||protocol==null||protocol.scope!=scope||protocolStop!=null)throw new IllegalStateException("popup_native_scope_unavailable");

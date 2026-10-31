@@ -410,6 +410,22 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             guard(true);original.protectionConfirmed=true;
         }catch(org.json.JSONException error){close();throw failure("cdp_attach_protection_arguments_invalid",false);}
     }
+    /** Ordered Browser-connection barrier after a separate native-marker proof.
+     * Original detach/pause events are consumed before this matching reply. */
+    void confirmProtectedAttachment(AttachedTarget original,int timeout)throws IOException {
+        protectedAttachment(original);
+        try{
+            JSONObject reply=call("Target.getTargetInfo",new JSONObject().put("targetId",original.target),null,timeout,false);
+            protectedAttachment(original);JSONObject info=reply.getJSONObject("targetInfo");
+            if(!original.target.equals(info.opt("targetId"))||!"page".equals(info.opt("type")))throw failure("cdp_attach_confirmation_invalid",false);
+        }catch(org.json.JSONException error){throw failure("cdp_attach_confirmation_invalid",false);}
+    }
+    private void protectedAttachment(AttachedTarget original)throws IOException {
+        guard(false);synchronized(controlGate){
+            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||original.resumed||original.detached||
+                heldAttachments==null||heldAttachments.get(original.session)!=original||!children.contains(original.session))throw failure("cdp_attach_event_invalid",false);
+        }
+    }
     /** Preserve only original request IDs while native adoption is unproven.
      * No URL/headers/body/JSON/caller selector or continuation is retained. */
     void retainAttachedRequest(AttachedTarget original)throws IOException {

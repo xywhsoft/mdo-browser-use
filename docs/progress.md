@@ -9865,3 +9865,75 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   production account/config edit. Goal stays active. Original native child/CDP
   target correlation, fresh child ownership, guarded bootstrap/resume, scoped
   response/body routing and broader cross-platform qualification/delivery remain.
+
+
+## E121 — native-view marker association with retained targets (2026-10-31)
+
+- Continue sequentially on master in the single deployment. Previous E120 was
+  progress (4e51331); there is no stopped job to restart or phone blocker to
+  escalate. Preserve the full Browser Use goal and deferred phone/WebView choice.
+- Join one original successful native consumption receipt to its exact child
+  adapter. Reject foreign, unconsumed, wrong-child and duplicate claims before
+  proof. Child handles retain only weak marker ownership and data leases; their
+  UI adapter owns the native lifetime. No caller-provided target/script exists.
+- Add one-use bounded Request.proveNative and nativeProof UI delivery to the
+  original worker. Freeze the original opener's known protected waiting set;
+  reuse one fixed marker ticket across decoy/actual target peers. Require the
+  existing unique-context negative control, matching value and exact cleanup.
+  A separate native target connection stays private; an ordered original Browser
+  Target.getTargetInfo reply rechecks the exact held/protected attachment after
+  preceding events. Publish only the matched candidate's physical association.
+  Do not send a managed resume, continuation, navigation, world or body command.
+- Native marker dispatch/callback/wait and every new target open now check the
+  original proof operation scope. Clear the ticket's guard on close to prevent a
+  retained provider callback from keeping a retired job/UI owner. Preserve
+  original request cancellation and suppress late UI success; never extend the
+  outer document RPC deadline or create another executor.
+- Preserve E121-between-before.log, which deterministically fails the late-open
+  assertion after the first nonmatching candidate closes and cancels its request.
+  E121-between-after.log passes with no second connection and covers a queued
+  marker canceled before any evaluation. E121-proof-cooperative.log verifies the
+  proof can complete while the original document RPC awaits it on this same
+  executor. No sleep/retry substitutes for the original synchronization.
+- Twelve new shared-worker proof modes pass 408 checks; all 26 modes pass 899.
+  Cover two same-opener candidates, no marker expression sent to a decoy,
+  foreign-source refusal before I/O, replay, absent guard, bad marker, ignored
+  unique context, wrong attachment barrier, detach, owner loss, in-flight cancel,
+  stale UI, between-candidate cancellation and cooperative RPC waits. Native
+  source/controller checks pass 134, including unconsumed/foreign/duplicate child
+  claims and the before-dispatch cancellation gate.
+- Authoritative E121-native-verified.log covers 117 current input hashes and full
+  ASan/UBSan/API26/JVM/JNI gates. Discovery 401, balanced native allocations,
+  WebSocket invariant/cancellation gates (diagnostic assertion count 1,307),
+  attached release 2,595, broker 177/two actual native flows and full worker exit
+  eight remain passing. New proof peers/Android UI are controlled metadata, not
+  installed-provider or new actual-native-flow qualification. E121-native-complete
+  and E121-native-final are earlier passing revisions, retained as such.
+- Fresh popup ownership/callback checks pass 110/25 with eight before/after input
+  hashes. Shared JS/C saving passes 47 and binds native receipt
+  3cad8859b2500b008f33c4332b94da9d0ca7dbcc99a5b253ef0a6aa0c5b1a672.
+  Python passes 173/175 in 56.732 seconds, two existing Windows privilege skips.
+- Apply reviewed host sources while stopped. Rebuild actual Java/DEX/APK and
+  require the new Child definition. Verify eight JNI exports, private provider,
+  retained v2/v3 signer, ARM64/16 KiB/zip alignment and exact app/native payloads.
+  Reuse the unchanged verified ARM64 host. APK: 6,505,793 bytes, SHA-256
+  984b875098a083f429ba3ab7fca42d7f39232cae4b91517e879beed7c445d3c1.
+  Windows/plugin bytes are unchanged; no native rebuild is required.
+- E121-final-identities.log validates current native 117/popup eight/save six
+  hashes and actual APK/source/archive/plugin identities. Recheck unchanged E120
+  product UI 657/13 hashes, E118 actual Windows frame/input 301/six hashes plus
+  its actual development host binary, E105 world/document proof, and applicable
+  E106 JS/packed Windows evidence. Reuse is explicit, not a fresh platform run.
+- Headless service is restored: HTTP 200 on 63625, PID 1192, about 3,442.3 MiB;
+  D: about 39.5 GiB free. No extra app/Home/source copy, runtime dependency,
+  device/provider change, model call, external browser page, publication or
+  production account/config edit. Two pinned Chromium reference hashes distinguish
+  native script entry from the nested new-window wait; they do not qualify an
+  installed provider's paused marker behavior.
+- Goal remains active. The marker proves the tested current native-view/retained-
+  target association, not fresh unowned child registry membership, completion of
+  the original native contents swap or complete pending-target capture. A failed
+  proof does not undo native handoff; closing its handle does not destroy a view.
+  Exact UI teardown/detach, guarded bootstrap/resume, scoped body routing and
+  broader platform qualification/delivery remain. Public protected Android popup
+  admission and provider/framework/automation qualification stay false.
