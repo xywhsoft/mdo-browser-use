@@ -51,6 +51,16 @@ Done:
     return (jlong)Handle;
 }
 
+JNIEXPORT jbyteArray JNICALL
+Java_org_xserver_android_MdoBrowserCdpNative_discoverBrowserNative(JNIEnv* Env,jclass Type,jint Timeout)
+{
+    (void)Type;MdoCdpDiscovery Reply=mdoCdpDiscoverBrowser(Timeout);
+    if ( Reply.Code!=MDO_CDP_SOCKET_OK ) {
+        enum MdoCdpSocketCode Code=Reply.Code;mdoCdpDiscoveryFree(&Reply);MdoCdpJniThrow(Env,Code);return NULL;
+    }
+    return MdoCdpJniBytes(Env,&Reply,0);
+}
+
 JNIEXPORT void JNICALL
 Java_org_xserver_android_MdoBrowserCdpNative_sendNative(JNIEnv* Env,jclass Type,jlong Handle,jbyteArray Bytes,jint Timeout)
 {
@@ -96,7 +106,7 @@ Java_org_xserver_android_MdoBrowserCdpNative_validateNative(JNIEnv* Env,jclass T
 {
     (void)Type;jsize Size=Bytes?(*Env)->GetArrayLength(Env,Bytes):0;
     if ( (*Env)->ExceptionCheck(Env) ) return;
-    if ( (Maximum!=(jint)MDO_CDP_WS_SEND_MAX&&Maximum!=(jint)MDO_CDP_WS_MESSAGE) || Size<1 || Size>Maximum ) {
+    if ( (Maximum!=(jint)MDO_CDP_WS_SEND_MAX&&Maximum!=(jint)MDO_CDP_WS_MESSAGE&&Maximum!=(jint)MDO_CDP_BROWSER_DISCOVERY_MAX) || Size<1 || Size>Maximum ) {
         MdoCdpJniThrow(Env,MDO_CDP_SOCKET_JSON);return;
     }
     unsigned char* Data=MDO_CDP_ALLOC((size_t)Size);

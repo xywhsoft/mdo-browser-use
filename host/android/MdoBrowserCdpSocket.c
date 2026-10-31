@@ -198,7 +198,7 @@ void mdoCdpDiscoveryFree(MdoCdpDiscovery* Reply)
     memset(Reply,0,sizeof(*Reply));
 }
 
-MdoCdpDiscovery mdoCdpDiscover(int TimeoutMs)
+static MdoCdpDiscovery MdoCdpDiscoverFixed(int TimeoutMs,const char* Request,size_t RequestSize,size_t Maximum)
 {
     MdoCdpDiscovery Reply={0};uint64_t Now;int Fd=-1;
     if ( TimeoutMs<10 || TimeoutMs>5000 ) {Reply.Code=MDO_CDP_SOCKET_ARGUMENTS;return Reply;}
@@ -208,8 +208,7 @@ MdoCdpDiscovery mdoCdpDiscover(int TimeoutMs)
     unsigned char Header[MDO_CDP_HEADER_MAX];size_t Used=0,Head=0,Length=0;
     enum MdoCdpSocketCode Code=MdoCdpConnect(&Fd,End);
     if ( Code!=MDO_CDP_SOCKET_OK ) goto Done;
-    static const char Request[]="GET /json/list HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n";
-    Code=MdoCdpSend(Fd,Request,sizeof(Request)-1u,End);if ( Code!=MDO_CDP_SOCKET_OK ) goto Done;
+    Code=MdoCdpSend(Fd,Request,RequestSize,End);if ( Code!=MDO_CDP_SOCKET_OK ) goto Done;
     while ( !Head ) {
         if ( Used==sizeof(Header) ) {Code=MDO_CDP_SOCKET_LIMIT;goto Done;}
         size_t Count=0;Code=MdoCdpRead(Fd,Header+Used,sizeof(Header)-Used,&Count,End);
@@ -219,6 +218,7 @@ MdoCdpDiscovery mdoCdpDiscover(int TimeoutMs)
             if ( !memcmp(Header+I,"\r\n\r\n",4) ) {Head=I+4;break;}
     }
     Code=MdoCdpHeaders(Header,Head,&Length);if ( Code!=MDO_CDP_SOCKET_OK ) goto Done;
+    if ( Length>Maximum ) {Code=MDO_CDP_SOCKET_LIMIT;goto Done;}
     if ( Used-Head>Length ) {Code=MDO_CDP_SOCKET_HTTP;goto Done;}
     Reply.Capacity=Length+1;Reply.Data=MDO_CDP_ALLOC(Reply.Capacity);
     if ( !Reply.Data ) {Code=MDO_CDP_SOCKET_MEMORY;goto Done;}
@@ -235,6 +235,17 @@ Done:
     for ( size_t I=0;I<sizeof(Header);I++ ) ClearHeader[I]=0;
     if ( Code!=MDO_CDP_SOCKET_OK ) mdoCdpDiscoveryFree(&Reply);
     Reply.Code=Code;return Reply;
+}
+
+MdoCdpDiscovery mdoCdpDiscover(int TimeoutMs)
+{
+    static const char Request[]="GET /json/list HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n";
+    return MdoCdpDiscoverFixed(TimeoutMs,Request,sizeof(Request)-1u,MDO_CDP_BODY_MAX);
+}
+MdoCdpDiscovery mdoCdpDiscoverBrowser(int TimeoutMs)
+{
+    static const char Request[]="GET /json/version HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n";
+    return MdoCdpDiscoverFixed(TimeoutMs,Request,sizeof(Request)-1u,MDO_CDP_BROWSER_DISCOVERY_MAX);
 }
 
 const char* mdoCdpSocketCode(enum MdoCdpSocketCode Code)

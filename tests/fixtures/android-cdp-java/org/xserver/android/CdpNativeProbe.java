@@ -35,8 +35,28 @@ public final class CdpNativeProbe {
         Looper.getMainLooper();System.loadLibrary("xs");
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.open("test-001",100));
         failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.discover(100));
+        failure("cdp_requires_background_thread",()->MdoBrowserCdpNative.browserEndpoint(100));
         ExecutorService worker=Executors.newSingleThreadExecutor();
         try {
+            start(48);on(worker,()->{
+                check(MdoBrowserCdpNative.browserEndpoint(1000).path.equals("/devtools/browser/00000000-0000-4000-8000-000000000001"));return null;
+            });check(finish()==1);
+            on(worker,()->{
+                failure("cdp_arguments_invalid",()->MdoBrowserCdpNative.browserEndpoint(0));
+                failure("cdp_browser_unavailable",()->MdoBrowserCdpNative.browserEndpointFromJson("{}".getBytes(StandardCharsets.UTF_8)));
+                for(String url:new String[]{"","https://localhost/devtools/browser","wss://localhost/devtools/browser","ws://remote.invalid/devtools/browser","ws://localhost:80/devtools/browser","ws://user@localhost/devtools/browser","ws://localhost/devtools/page/test-001","ws://localhost/devtools/browser/","ws://localhost/devtools/browser/a","ws://localhost/devtools/browser?x=1","ws://localhost/devtools/browser#x","ws://localhost/devtools/browser/../../page/x","ws://localhost/devtools/browser/%30%30","ws://localhost.evil/devtools/browser","ws://localhost\\@evil/devtools/browser","WS://localhost/devtools/browser"}){
+                    byte[] bytes=new org.json.JSONObject().put("webSocketDebuggerUrl",url).toString().getBytes(StandardCharsets.UTF_8);
+                    try{failure("cdp_browser_endpoint_invalid",()->MdoBrowserCdpNative.browserEndpointFromJson(bytes));}finally{Arrays.fill(bytes,(byte)0);}
+                }
+                for(String json:new String[]{"[]","{\"webSocketDebuggerUrl\":17}","{\"webSocketDebuggerUrl\":true}"}){
+                    byte[] bytes=json.getBytes(StandardCharsets.UTF_8);try{failure("cdp_browser_endpoint_invalid",()->MdoBrowserCdpNative.browserEndpointFromJson(bytes));}finally{Arrays.fill(bytes,(byte)0);}
+                }
+                byte[] plain="{\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser\"}".getBytes(StandardCharsets.UTF_8);
+                try{check(MdoBrowserCdpNative.browserEndpointFromJson(plain).path.equals("/devtools/browser"));}finally{Arrays.fill(plain,(byte)0);}
+                byte[] duplicate="{\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser\",\"webSocketDebuggerUrl\":\"ws://evil\"}".getBytes(StandardCharsets.UTF_8);
+                try{failure("cdp_json_invalid",()->MdoBrowserCdpNative.browserEndpointFromJson(duplicate));}finally{Arrays.fill(duplicate,(byte)0);}
+                return null;
+            });
             on(worker,()->{
                 for(String id:new String[]{null,"","https://host/page","a/b","a.b","a\r\nb","\u4f60"})
                     failure("cdp_arguments_invalid",()->MdoBrowserCdpNative.open(id,100));
@@ -87,6 +107,6 @@ public final class CdpNativeProbe {
                 return null;
             });check(finish()==1);
         } finally {worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"android_looper_doubled\":true,\"cancel_cycles\":16,\"android_device_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni\":true,\"read_only_browser_discovery\":true,\"android_looper_doubled\":true,\"cancel_cycles\":16,\"android_device_qualified\":false}");
     }
 }

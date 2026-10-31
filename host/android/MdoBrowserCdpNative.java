@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 /** Private native-worker boundary, never an Agent/extension protocol. Target
  * discovery alone does not establish owned WebView identity. Bind the target
@@ -29,6 +31,31 @@ final class MdoBrowserCdpNative {
     private static void worker(int timeoutMs) throws IOException {
         if (Looper.myLooper()==Looper.getMainLooper())throw new IOException("cdp_requires_background_thread");
         if (timeoutMs<10||timeoutMs>5000)throw new IOException("cdp_arguments_invalid");
+    }
+    /** Same-process metadata only. It is not proof of an owned popup and does
+     * not open/attach/resume any browser or renderer target. */
+    static final class BrowserEndpoint {
+        final String path;
+        private BrowserEndpoint(String path){this.path=path;}
+    }
+    static BrowserEndpoint browserEndpoint(int timeoutMs)throws IOException {
+        worker(timeoutMs);byte[] bytes=null;
+        try{Library.ready();bytes=discoverBrowserNative(timeoutMs);return browserEndpointFromJson(bytes);}
+        catch(UnsatisfiedLinkError unavailable){throw new IOException("cdp_native_unavailable");}
+        finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);}
+    }
+    static BrowserEndpoint browserEndpointFromJson(byte[] bytes)throws IOException {
+        validate(bytes,16384);
+        try{
+            Object value=new JSONObject(new String(bytes,StandardCharsets.UTF_8)).opt("webSocketDebuggerUrl");
+            if(value==null||value==JSONObject.NULL)throw new IOException("cdp_browser_unavailable");
+            if(!(value instanceof String))throw new IOException("cdp_browser_endpoint_invalid");
+            String url=(String)value,prefix="ws://localhost",base="/devtools/browser";
+            if(!url.startsWith(prefix)||url.length()>128)throw new IOException("cdp_browser_endpoint_invalid");
+            String path=url.substring(prefix.length());
+            if(!path.equals(base)&&!path.matches("/devtools/browser/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))throw new IOException("cdp_browser_endpoint_invalid");
+            return new BrowserEndpoint(path);
+        }catch(JSONException invalid){throw new IOException("cdp_browser_endpoint_invalid");}
     }
     static Channel open(String targetId,int timeoutMs) throws IOException {
         worker(timeoutMs);
@@ -90,6 +117,7 @@ final class MdoBrowserCdpNative {
         }
     }
     private static native byte[] discoverNative(int timeoutMs) throws IOException;
+    private static native byte[] discoverBrowserNative(int timeoutMs) throws IOException;
     private static native long openNative(byte[] targetId,int timeoutMs) throws IOException;
     private static native void sendNative(long handle,byte[] bytes,int timeoutMs) throws IOException;
     private static native byte[] receiveNative(long handle,int timeoutMs) throws IOException;

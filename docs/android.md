@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E112)
+## Complete development host APK (E46/E113)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,14 +54,16 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,481,217 bytes, SHA-256
-`86f0212457b30506701d0c70d460f47c54aaf3e78bc1a1555bbce26a518988ff`.
+`12407073c41e97e1a499143af2858662e10f696926e543f888e760a4b6d0c293`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
 `MdoBrowserCdpFileInput$BeforeClear`, `MdoBrowser$ClearAction` and native
 `MdoBrowserCdpSession$ControlReceipt`/`ControlResult` and
 `MdoBrowserCdpBinding$Network`, network ledger/slot/result and cooperative
-scheduler definitions. No account, Home, QA page or signing
+scheduler definitions and the private `MdoBrowserCdpNative$BrowserEndpoint`.
+All seven matching JNI exports are checked in the actual ARM64 host.
+No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
@@ -92,10 +94,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E112-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E112-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E113-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E113-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E112. Native/component evidence is recorded separately below.
+attempted in E106-E113. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -4134,3 +4136,35 @@ protected popup network adoption stays explicitly unqualified. No provider or
 public Android automation gate is enabled by the new close-state semantics.
 See .mdo/E112-page-close-before-fix.log, E112-native-current.json,
 E112-save-current.json and E112-final-identities.log for current evidence.
+
+## Browser target metadata for popup coordination (E113)
+
+The private native worker can read the fixed /json/version endpoint through the
+same process-and-UID checked abstract Unix socket. It enforces a 16 KiB body cap,
+strict JSON/duplicate-key validation and a typed localhost/browser-path parser.
+Only /devtools/browser or that path with one canonical UUID segment is retained.
+No redirects, TCP/port/credential selectors or caller URLs are accepted. Raw
+provider/version metadata and native/JNI byte copies are discarded/cleared.
+Discovery does not open a target, establish original WebView ownership or enable
+debugging/automation. The existing page-list discovery remains unchanged.
+
+This is a prerequisite for the protected-popup coordinator: Chromium's
+[onCreateWindow implementation](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/android_webview/docs/how-does-on-create-window-work.md)
+replaces the temporary child's native contents. A listener attached to the blank
+child cannot by itself prove interception of the resumed original popup. The
+version-pinned [Target handler](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/protocol/target_handler.cc)
+also requires a Browser target for autoAttachRelated. Reference identities are
+recorded in host/android/cdp-protocol.json; these source facts are not installed
+provider qualification. Browser opening, exact opener scope, pause/Fetch/transport
+ownership and bounded resume/cleanup still need to be joined before admission.
+
+Actual local socket/JVM/JNI tests cover fixed GET, foreign-process rejection
+before bytes, fragmented reads, body cap, redirects, allocation/conversion
+failures, deadlines, descriptor balance and adversarial URLs/types/duplicates.
+C passes 401 checks with 93 balanced allocations, JVM worker 164; full native
+ASan/UBSan/API26 gates retain 109 current source inputs. Shared JS/C saving passes
+47 and Python passes 173/175 with the two existing privilege skips. The actual
+ARM64 host and APK are rebuilt; actual DEX and all seven JNI exports verify.
+See .mdo/E113-native-current.json, E113-save-current.json,
+E113-android-receipt.json and E113-final-identities.log. No phone/provider change
+or public Android admission occurs; framework/provider/automation flags stay false.

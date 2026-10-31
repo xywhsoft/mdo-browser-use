@@ -1755,3 +1755,8 @@ cleanup, explicit record release and pending read/release reply delivery finish;
 it authorizes automatic owner reaping rather than proving file publication.
 Verified cached response bytes retain their existing read/save rules before
 release. SDK signatures and Android provider/automation qualification are unchanged.
+
+E113 adds only private read-only Android browser endpoint discovery for future
+popup coordination. Metadata is not a WebView/task ownership capability and
+does not open/attach/resume targets. Public JS/C signatures, permissions and
+Android popup/provider/automation admission remain unchanged.

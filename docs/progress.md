@@ -15,6 +15,13 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E113:** add private read-only same-process browser endpoint discovery
+  for the protected-popup coordinator. Fixed /json/version, 16 KiB response cap,
+  kernel PID/UID check before request bytes and a typed localhost/browser-path
+  parser pass 401 native and 164 JVM/JNI assertions. Full native gates, shared
+  JS/C save 47 and 173/175 Python cases pass; rebuilt ARM64 host and actual APK
+  verify seven JNI exports. No target is opened/attached by this phase and popup
+  admission/provider qualification remain false.
 - **Android E112:** distinguish page-close requests from permission to reap the
   native owner. Retire the original connection, retain verified downloads until
   explicit release, and preserve in-flight read/release replies even after file
@@ -9280,3 +9287,55 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Phone/WebView changes stay deferred and public Android qualification/admission
   flags remain false. No model call, external page, publication or production
   data change occurred.
+
+## E113 — private same-process browser endpoint discovery (2026-10-31)
+
+- Continue the protected-popup dependency directly. Chromium's documented
+  onCreateWindow flow replaces the blank child's native AwContents and resumes
+  its pending contents; intercepting only the temporary blank target does not
+  prove interception of that original popup. Version-pinned Chromium sources
+  distinguish browser WebSocket discovery and Browser-only autoAttachRelated.
+  Record exact primary-source URLs, byte counts and SHA-256 in cdp-protocol.json.
+- Add a private fixed GET /json/version over the existing abstract Unix socket.
+  Reuse same PID/UID-before-request verification, boot-clock deadline, strict
+  headers and response wiping. Enforce a smaller 16 KiB body cap before allocation;
+  preserve the original /json/list ABI and behavior. No caller-supplied URL, TCP
+  transport, redirect or debugging enablement is introduced.
+- Return only a typed private browser path after strict native duplicate-key/JSON
+  validation and exact ws://localhost/devtools/browser path checking, optionally
+  with one canonical UUID segment. Refuse ports, credentials, foreign hosts,
+  encoded/traversal/query/fragment/page paths and wrong JSON types. Discard other
+  provider metadata and clear JNI/native byte copies on all paths. No target is
+  opened/attached and this metadata is not WebView/task/popup ownership proof.
+- Extend actual same-process socket tests, foreign PID rejection before any GET,
+  fragmented reads, cap/redirect/OOM/deadline/FD balance and four JNI conversion
+  faults for both fixed endpoints. Add a real HTTP-only socket/JVM/JNI fixture
+  plus adversarial Java parser checks. First run exposed the existing native JSON
+  validator's two-value maximum whitelist; add only the new fixed 16 KiB value,
+  retaining strict validation. Preserve E113-native-first.log for that failure.
+- Final full native ASan/UBSan/API26/JVM/JNI gates pass 109 current input hashes:
+  C 401 assertions/93 balanced allocations, JVM worker 164, download host 101,
+  request identity 176, navigation receipts 243 and network broker 1,247. Shared
+  Android-original-response to JS/C-save integration passes 47, still one source
+  claim and zero retained resources. Python passes 173/175 in 51.541 seconds;
+  the two existing Windows symlink privilege cases remain explicitly skipped.
+- Rebuild actual ARM64 libxs.so (3,547,632 bytes, SHA-256
+  41c7b688b1d82978d9fb948ceb02ad0631ed2b15f41d6ef25e9054aefd530abc), then
+  build/verify the actual APK (6,481,217 bytes, SHA-256
+  12407073c41e97e1a499143af2858662e10f696926e543f888e760a4b6d0c293).
+  Require the actual BrowserEndpoint DEX definition and seven JNI exports;
+  source/compiler/native/private-provider/alignment/v2-v3 signer checks pass.
+  No extra application, Home, source checkout or runtime dependency is added.
+- Read-only final identity proof rechecks all current native/save inputs, E106
+  product 647/13-input, E105 world/document seven-input and W6 actual native
+  301/six-input evidence. E106 full JS 372 and packed Windows 12 are reused only
+  with unchanged product JS and exact Windows app archive; Windows/plugin hashes
+  remain unchanged. Evidence: .mdo/E113-native-current.json, E113-save-current.json,
+  E113-android-receipt.json, E113-final-identities.py/log and E113 gate/build logs.
+- Restore one headless service on 63625, PID 36444, HTTP 200, about 3,439.7 MiB.
+  Goal remains active. Next: browser socket and original-opener scoped target
+  pause, original Fetch activation, native transport/child ownership proof,
+  exact resume and bounded failure cleanup. This phase is preparation rather
+  than popup adoption. Protected popup/public Android admission and installed
+  provider/framework/automation flags stay false. Other broader goal gaps remain;
+  no phone/provider change, model call, external browser page or publication.

@@ -39,7 +39,7 @@ def main():
     subprocess.run(['gcc',*flags,'-c',str(ROOT/'tests/fixtures/android-cdp-xrt.c'),'-o',str(xrt)],cwd=ROOT,check=True)
     subprocess.run(['gcc',*flags,str(fixture),str(xrt),'-o',str(binary)],cwd=ROOT,check=True)
     result=json.loads(subprocess.check_output([str(binary)],cwd=ROOT,env=environment,text=True,timeout=120))
-    if not result.get('passed') or result.get('allocations')!=result.get('releases'):
+    if not result.get('passed') or not result.get('read_only_browser_discovery') or result.get('allocations')!=result.get('releases'):
         raise RuntimeError('The native transport gate did not confirm balanced cleanup')
     websocket=output/'websocket-test'
     subprocess.run(['gcc',*flags,str(ROOT/'tests/fixtures/android-cdp-websocket.c'),str(xrt),'-o',str(websocket)],cwd=ROOT,check=True)
@@ -107,7 +107,7 @@ def main():
                     str(generated),str(upload_generated),str(download_generated),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
-    if not vm.get('passed') or not vm.get('real_jvm_jni'):
+    if not vm.get('passed') or not vm.get('read_only_browser_discovery') or not vm.get('real_jvm_jni'):
         raise RuntimeError('The actual JVM/JNI worker gate did not pass')
     result['jvm_worker']=vm
     dispatch=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

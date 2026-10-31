@@ -2,6 +2,40 @@
   "format": "mdo.browser-use.android-cdp-foundation.v1",
   "state": "private_frame_owner_and_command_route_packaged_admission_disabled",
   "checked_date": "2026-10-31",
+  "browser_target_discovery": {
+    "state": "private_read_only_preparation_not_popup_admission",
+    "request": "GET /json/version",
+    "kernel_peer": "same_PID_and_UID_before_any_request_bytes",
+    "response_limit_bytes": 16384,
+    "endpoint": "ws://localhost/devtools/browser_with_optional_single_canonical_UUID_path_segment",
+    "redirect_TCP_credentials_query_fragment_or_encoded_path": false,
+    "retained_metadata": "private_browser_path_only_no_Browser_UserAgent_or_other_provider_fields",
+    "target_opened_or_attached": false,
+    "original_WebView_or_popup_authority_proved": false,
+    "debugging_enabled": false,
+    "installed_provider_verified": false,
+    "next_required_join": "original_opener_scope_browser_target_pause_Fetch_activation_native_transport_owner_proof_and_exact_resume_cleanup",
+    "references": [
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/devtools_http_handler.cc",
+        "bytes": 37024,
+        "sha256": "32a0b91d3e6b473e5e33afe13646f1ab19677be91d3eefdd48bce3ce00799849",
+        "facts": "json_version_reports_browser_websocket_path_separate_from_page_targets"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/protocol/target_handler.cc",
+        "bytes": 57881,
+        "sha256": "a986770776e0ae219c2d043fbc6a8487ccbe153ddc1b65eb74eea6015a7e2068",
+        "facts": "autoAttachRelated_requires_Browser_target_page_connection_cannot_be_assumed_equivalent"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/devtools_instrumentation.cc",
+        "bytes": 110945,
+        "sha256": "041c1018fee9137516770f4425d4483e3b0dad6ffc1a0310dcf866762066443c",
+        "facts": "root_popup_navigation_throttling_consults_browser_target_handlers"
+      }
+    ]
+  },
   "navigation_receipts": {
     "state": "managed_initial_and_goto_native_receipts_and_commit_join_packaged_provider_unqualified",
     "command": "Page.navigate",

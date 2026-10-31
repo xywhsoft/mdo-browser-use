@@ -77,7 +77,7 @@ static int Listen(pid_t Owner)
     assert(!bind(Fd,(struct sockaddr*)&Address,(socklen_t)(offsetof(struct sockaddr_un,sun_path)+1+(size_t)Size)));
     assert(!listen(Fd,4));return Fd;
 }
-typedef struct Server {int Listener;const char* Reply;size_t Bytes,Chunk;unsigned Delay;int RequestValid;} Server;
+typedef struct Server {int Listener;const char* Reply;size_t Bytes,Chunk;unsigned Delay;int RequestValid,Version;} Server;
 static void* Serve(void* Raw)
 {
     Server* Fixture=Raw;int Fd=accept(Fixture->Listener,NULL,NULL);assert(Fd>=0);close(Fixture->Listener);
@@ -87,7 +87,7 @@ static void* Serve(void* Raw)
         ssize_t Read=recv(Fd,Request+Size,sizeof(Request)-1-Size,0);if ( Read<=0 ) break;
         Size+=(size_t)Read;Request[Size]=0;if ( strstr(Request,"\r\n\r\n") ) break;
     }
-    Fixture->RequestValid=!strcmp(Request,"GET /json/list HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n");
+    Fixture->RequestValid=!strcmp(Request,Fixture->Version?"GET /json/version HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n":"GET /json/list HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n");
     for ( size_t Done=0;Done<Fixture->Bytes; ) {
         if ( Fixture->Delay ) usleep(Fixture->Delay*1000u);
         size_t Chunk=Fixture->Chunk?Fixture->Chunk:Fixture->Bytes;
@@ -97,12 +97,14 @@ static void* Serve(void* Raw)
     }
     close(Fd);return NULL;
 }
-static MdoCdpDiscovery Request(const char* Reply,size_t Size,size_t Chunk,unsigned Delay,int Timeout)
+static MdoCdpDiscovery RequestKind(const char* Reply,size_t Size,size_t Chunk,unsigned Delay,int Timeout,int Version)
 {
-    int Before=Fds();Server Fixture={Listen(getpid()),Reply,Size,Chunk,Delay,0};pthread_t Thread;
-    assert(!pthread_create(&Thread,NULL,Serve,&Fixture));MdoCdpDiscovery Value=mdoCdpDiscover(Timeout);
+    int Before=Fds();Server Fixture={Listen(getpid()),Reply,Size,Chunk,Delay,0,Version};pthread_t Thread;
+    assert(!pthread_create(&Thread,NULL,Serve,&Fixture));MdoCdpDiscovery Value=Version?mdoCdpDiscoverBrowser(Timeout):mdoCdpDiscover(Timeout);
     assert(!pthread_join(Thread,NULL));Check(Fixture.RequestValid);Check(Fds()==Before);return Value;
 }
+static MdoCdpDiscovery Request(const char* Reply,size_t Size,size_t Chunk,unsigned Delay,int Timeout)
+{return RequestKind(Reply,Size,Chunk,Delay,Timeout,0);}
 static void Invalid(const char* Reply,enum MdoCdpSocketCode Expected)
 {
     MdoCdpDiscovery Value=Request(Reply,strlen(Reply),0,0,500);
@@ -139,12 +141,12 @@ static void JavaSet(JNIEnv* Env,jbyteArray Array,jsize Start,jsize Size,const jb
 static jboolean JavaException(JNIEnv* Env){(void)Env;return JavaRaised?JNI_TRUE:JNI_FALSE;}
 static const struct JNINativeInterface_ JavaTable={.FindClass=JavaFind,.ThrowNew=JavaThrow,.DeleteLocalRef=JavaDelete,
     .NewByteArray=JavaNew,.SetByteArrayRegion=JavaSet,.ExceptionCheck=JavaException};
-static void TestJava(const char* Good,size_t Bytes,int Fault)
+static void TestJava(const char* Good,size_t Bytes,int Fault,int Version)
 {
     int Before=Fds();JavaRaised=0;JavaError[0]=0;LastJavaBytes=NULL;
     JavaAllocationFault=Fault==1;JavaCopyFault=Fault==2;JavaClassFault=Fault==4;FailAllocation=Fault==3||Fault==4;
-    Server Fixture={Listen(getpid()),Good,Bytes,0,0,0};pthread_t Thread;assert(!pthread_create(&Thread,NULL,Serve,&Fixture));
-    JNIEnv Env=&JavaTable;jbyteArray Value=Java_org_xserver_android_MdoBrowserCdpNative_discoverNative(&Env,NULL,500);
+    Server Fixture={Listen(getpid()),Good,Bytes,0,0,0,Version};pthread_t Thread;assert(!pthread_create(&Thread,NULL,Serve,&Fixture));
+    JNIEnv Env=&JavaTable;jbyteArray Value=Version?Java_org_xserver_android_MdoBrowserCdpNative_discoverBrowserNative(&Env,NULL,500):Java_org_xserver_android_MdoBrowserCdpNative_discoverNative(&Env,NULL,500);
     assert(!pthread_join(Thread,NULL));Check(Fixture.RequestValid);Check(Fds()==Before);
     if ( !Fault ) {Check(!JavaRaised && Value==(jbyteArray)LastJavaBytes);Check(LastJavaBytes->Size==2 && !memcmp(LastJavaBytes->Data,"[]",2));}
     else {Check(JavaRaised && !Value);if ( Fault==3 ) Check(!strcmp(JavaError,"cdp_allocation_failed"));}
@@ -193,6 +195,7 @@ int main(void)
     Check(Oom.Code==MDO_CDP_SOCKET_MEMORY);Check(!Oom.Data);mdoCdpDiscoveryFree(&Oom);
     /* An unrelated process can guess the name while WebView debugging is off.
      * Reject its kernel credentials before disclosing even the GET request. */
+    for(int Version=0;Version<2;Version++){
     int Sync[2],Observed[2];assert(!pipe(Sync)&&!pipe(Observed));pid_t Parent=getpid(),Child=fork();assert(Child>=0);
     if ( !Child ) {
         close(Sync[0]);close(Observed[0]);int Listener=Listen(Parent);assert(write(Sync[1],"1",1)==1);
@@ -201,15 +204,22 @@ int main(void)
         int Count=Read>0?(int)Read:0;assert(write(Observed[1],&Count,sizeof(Count))==sizeof(Count));close(Fd);close(Listener);_exit(0);
     }
     close(Sync[1]);close(Observed[1]);char Ready;assert(read(Sync[0],&Ready,1)==1);
-    MdoCdpDiscovery Foreign=mdoCdpDiscover(500);Check(Foreign.Code==MDO_CDP_SOCKET_PEER);Check(!Foreign.Data);
+    MdoCdpDiscovery Foreign=Version?mdoCdpDiscoverBrowser(500):mdoCdpDiscover(500);Check(Foreign.Code==MDO_CDP_SOCKET_PEER);Check(!Foreign.Data);
     int Count=-1;assert(read(Observed[0],&Count,sizeof(Count))==sizeof(Count));Check(Count==0);
     close(Sync[0]);close(Observed[0]);int Status=0;assert(waitpid(Child,&Status,0)==Child);Check(WIFEXITED(Status)&&WEXITSTATUS(Status)==0);
+    }
     for ( int I=0;I<64;I++ ) {MdoCdpDiscovery V=Request(Good,sizeof(Good)-1,0,0,500);Check(V.Code==MDO_CDP_SOCKET_OK);mdoCdpDiscoveryFree(&V);}
-    for ( int Fault=0;Fault<5;Fault++ ) TestJava(Good,sizeof(Good)-1,Fault);
+    for ( int Version=0;Version<2;Version++ ) for ( int Fault=0;Fault<5;Fault++ ) TestJava(Good,sizeof(Good)-1,Fault,Version);
+    for ( int Cycle=0;Cycle<16;Cycle++ ) {MdoCdpDiscovery V=RequestKind(Good,sizeof(Good)-1,Cycle==0?1:0,0,500,1);Check(V.Code==MDO_CDP_SOCKET_OK&&V.Size==2&&!memcmp(V.Data,"[]",2));mdoCdpDiscoveryFree(&V);}
+    const char* VersionInvalid[]={"HTTP/1.1 200 OK\r\nContent-Length: 16385\r\nContent-Type: application/json\r\n\r\n","HTTP/1.1 302 Found\r\nContent-Length: 2\r\nContent-Type: application/json\r\n\r\n[]"};
+    for(int I=0;I<2;I++){MdoCdpDiscovery V=RequestKind(VersionInvalid[I],strlen(VersionInvalid[I]),0,0,500,1);Check(V.Code==(I?MDO_CDP_SOCKET_HTTP:MDO_CDP_SOCKET_LIMIT));Check(!V.Data&&!V.Size&&!V.Capacity);mdoCdpDiscoveryFree(&V);}
+    FailAllocation=1;MdoCdpDiscovery VersionOom=RequestKind(Good,sizeof(Good)-1,0,0,500,1);Check(VersionOom.Code==MDO_CDP_SOCKET_MEMORY&&!VersionOom.Data);mdoCdpDiscoveryFree(&VersionOom);
+    MdoCdpDiscovery VersionTimeout=RequestKind(Good,sizeof(Good)-1,1,10,50,1);Check(VersionTimeout.Code==MDO_CDP_SOCKET_TIMEOUT&&!VersionTimeout.Data);mdoCdpDiscoveryFree(&VersionTimeout);
+    MdoCdpDiscovery BadVersionTimeout=mdoCdpDiscoverBrowser(5001);Check(BadVersionTimeout.Code==MDO_CDP_SOCKET_ARGUMENTS);
     JNIEnv Env=&JavaTable;JavaRaised=0;JavaError[0]=0;
     Check(!Java_org_xserver_android_MdoBrowserCdpNative_discoverNative(&Env,NULL,0));
     Check(JavaRaised && !strcmp(JavaError,"cdp_arguments_invalid"));
     Check(Fds()==Before);Check(Allocated==Freed);
-    printf("{\"passed\":true,\"checks\":%d,\"real_abstract_unix\":true,\"same_process\":true,\"foreign_pid_refused_before_request\":true,\"jni_conversion_faults\":4,\"allocations\":%d,\"releases\":%d}\n",Checks,Allocated,Freed);
+    printf("{\"passed\":true,\"checks\":%d,\"real_abstract_unix\":true,\"same_process\":true,\"foreign_pid_refused_before_request\":true,\"read_only_browser_discovery\":true,\"jni_conversion_faults\":4,\"allocations\":%d,\"releases\":%d}\n",Checks,Allocated,Freed);
     return 0;
 }

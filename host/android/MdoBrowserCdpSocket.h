@@ -2,6 +2,7 @@
 #define MDO_BROWSER_CDP_SOCKET_H
 
 #include <stddef.h>
+#define MDO_CDP_BROWSER_DISCOVERY_MAX 16384u
 
 /* Private transport, not an Agent/extension protocol. Discovery is read-only,
  * same PID+UID only, with one absolute timeout and no TCP/path fallback. */
@@ -19,6 +20,8 @@ typedef struct MdoCdpDiscovery {
 } MdoCdpDiscovery;
 
 MdoCdpDiscovery mdoCdpDiscover(int TimeoutMs);
+/* Fixed read-only browser metadata endpoint; this grants no target authority. */
+MdoCdpDiscovery mdoCdpDiscoverBrowser(int TimeoutMs);
 void mdoCdpDiscoveryFree(MdoCdpDiscovery* Reply);
 const char* mdoCdpSocketCode(enum MdoCdpSocketCode Code);
 

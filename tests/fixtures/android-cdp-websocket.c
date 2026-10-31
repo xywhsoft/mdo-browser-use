@@ -123,6 +123,12 @@ static int Handshake(Server* Fixture,int Fd)
         if ( !Read(Fd,Request+Used,1) ) return 0;
         Used++;if ( strstr(Request,"\r\n\r\n") ) break;
     }
+    if(Fixture->Mode==48){
+        Fixture->Valid=!strcmp(Request,"GET /json/version HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n");
+        const char Body[]="{\"Browser\":\"synthetic-only\",\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser/00000000-0000-4000-8000-000000000001\"}";
+        char Reply[512];int Size=snprintf(Reply,sizeof(Reply),"HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n%s",sizeof(Body)-1,Body);
+        assert(Size>0&&(size_t)Size<sizeof(Reply));return Fixture->Valid&&Write(Fd,Reply,(size_t)Size);
+    }
     char* Key=strstr(Request,"\r\nSec-WebSocket-Key: ");
     if ( !Key ) return 0;
     Key+=21;char Accept[XWS_ACCEPT_CAPACITY];
@@ -147,6 +153,7 @@ static void* Serve(void* Data)
     if ( Fixture->Mode!=34 && Fixture->Mode!=38 ) close(Fixture->Listener);
     struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
     if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 || Fixture->Mode==38 ) close(Fixture->Listener);goto Done;}
+    if(Fixture->Mode==48)goto Done; /* Read-only HTTP metadata; no WS or command. */
     if ( Fixture->Mode<=1 ) {
         Fixture->Frames+=ClientFrame(Fd,XWS_OPCODE_TEXT,"{\"id\":1}",8);
         const unsigned char First[]={0xE4,0xBD},Second[]={0xA0,'!'};
