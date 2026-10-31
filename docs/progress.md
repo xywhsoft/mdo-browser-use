@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E110:** reclaim deferred request associations when their download
+  records are released. Reproduce the old false limit on the 33rd sequential
+  cancelled/released record; cancel/release and complete/release now each pass
+  40 cycles with zero file/record reservations. Retained cancelled records still
+  receive late metadata, and the live association limit remains enforced.
+  Broker/request gates pass 1,247/176 assertions; full native gates, 173/175 Python
+  cases (two existing privilege skips) and the refreshed actual APK pass.
+  Installed-provider/main-UI and broader Browser Use qualification remain open.
 - **Android E109:** pin a native goto download to its original captured document,
   rather than a replacement document present when the response arrives. Retain
   ambiguous-source failures without claiming a body or poisoning later actions.
@@ -9055,3 +9063,52 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   testing stays deferred, all qualification flags/public Android admission stay
   false, desktop visual availability and historical Windows attribution remain
   unresolved. No model calls, online release or production-data changes occurred.
+
+## E110 — reclaim released deferred download associations (2026-10-31)
+
+- Confirm a component resource-lifetime defect against E109 production classes:
+  sequentially retain a response with missing Network metadata, cancel its exact
+  source, confirm cleanup and explicitly release its record. The old ledger keeps
+  that deferred Link in its 32-slot pending set. Response 33 incorrectly trips
+  cdp_request_pending_limit and loses correlation despite zero live record/file
+  reservations. The integration regression fails at check 1,047 in
+  .mdo/E110-released-links-before-fix.log. This is controlled component evidence,
+  not a claim about an installed provider or reported production incident.
+- Retire only the metadata association when its record is actually retired,
+  abandoned before publication or the owner closes. Mark it with a volatile flag
+  from the receipt/UI thread; only the original worker changes its pending array
+  while processing metadata or admitting the next Link. Retiring the association
+  performs no native I/O and does not bypass source abort/close or file cleanup.
+  Explicit release still requires terminal state and confirmed original-source
+  cleanup, followed by cache cleanup before its record reservation is returned.
+- Cancelling alone does not retire an inspectable record's association. Preserve
+  E106/E109 late metadata/ACK handling after cancellation or body completion until
+  release. Known original references remain inspectable. Released snapshots stay
+  frozen; an old association cannot acquire newly arriving metadata after its
+  retirement has been observed by the original worker. Active pending limits,
+  native identity/loader validation and frozen source epochs are unchanged.
+- Both cancelled/released and completed/released paths pass 40 sequential cycles
+  with one original native goto, zero file/record reservations between cycles,
+  followed by a fresh exactly associated response. The broker passes 1,247
+  assertions. The identity gate passes 176, including foreign receipt-thread,
+  repeated retirement, late metadata and retained-reference cases; the existing
+  active 32-link overflow rejection remains covered. Require released_request_links
+  in the complete native gate. No new execution/stream/permission authority exists.
+- Full ASan/UBSan/API26/JVM/JNI/socket gates pass with 105 current source hashes.
+  Python passes 173/175 in 50.954 seconds, with two existing Windows symlink
+  privilege skips. Reuse E106 JS 372 and packed Windows 12 checks only after exact
+  source/artifact verification. E106 product 647 and E105 world/document evidence
+  retain their current 13/seven input hashes. No framework result is inferred.
+- Actual refreshed Android APK: 6,477,121 bytes, SHA-256
+  474af41bde569562284df197d9cd6672ca719926e7cd0f12e51d383235926fbc.
+  Current source, actual DEX, private provider, retained signer, six JNI exports
+  and ARM64/16 KiB native payload verify. Windows and paired plugin retain their
+  E106 identities. Evidence: .mdo/E110-native-current.json,
+  E110-android-receipt.json, E110-final-identities.py/log and E110 gate/build logs.
+  No runtime dependency or extra application/source/Home deployment was added.
+- Restore the sole headless service: PID 25048, HTTP 200 on 63625, about 3,438.0
+  MiB. Goal active. Remaining non-goto provenance, transfer/platform integration,
+  installed-provider/main-UI checks, desktop visual availability, historical
+  Windows attribution and whole-goal qualification remain open. Phone/provider
+  changes stay deferred and public Android admission/all qualification flags stay
+  false. No model call, publication or production-data modification occurred.

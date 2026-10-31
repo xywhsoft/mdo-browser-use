@@ -54,6 +54,24 @@ public final class CdpRequestProbe {
             }wire.cleared();
         }
     }
+    private static void retiredLinks()throws Exception{
+        try(MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root")){
+            CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
+            java.util.concurrent.ExecutorService receipts=Executors.newSingleThreadExecutor();
+            try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,(m,s,p)->{},wire)){
+                MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(0,navigation,"nr-retained",epoch);ack(wire,session,1,"loader",true);
+                MdoBrowserCdpNetworkRequests.Link last=null;
+                for(int i=0;i<40;i++){
+                    MdoBrowserCdpNetworkRequests.Link link=requests.link("released-"+i,"root");check(link!=null&&link.reference()==null&&requests.failure()==null);
+                    receipts.submit(()->{link.retire();link.retire();}).get(2,TimeUnit.SECONDS);last=link;
+                }
+                requests.event("Network.requestWillBeSent",null,request("released-39","loader"));
+                check(last.reference()==null&&requests.failure()==null);
+                MdoBrowserCdpNetworkRequests.Link known=requests.link("released-39","root");check(known.reference().equals("nr-retained"));
+                receipts.submit(()->known.retire()).get(2,TimeUnit.SECONDS);check(known.reference().equals("nr-retained"));
+            }finally{receipts.shutdownNow();check(receipts.awaitTermination(2,TimeUnit.SECONDS));}wire.cleared();
+        }
+    }
     private static void cases()throws Exception{
         for(int mode=0;mode<16;mode++)try(MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root")){
             CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
@@ -89,7 +107,7 @@ public final class CdpRequestProbe {
                 check(requests.link("overflow","root")==null&&requests.failure().equals("cdp_request_pending_limit"));check(late.reference().equals("nr-late"));
             }wire.cleared();
         }
-        commandHistory();
+        commandHistory();retiredLinks();
         try(MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root")){
             for(int i=0;i<4096;i++)requests.event("Network.requestWillBeSent",null,request("r-"+i,"l-"+i));check(requests.failure()==null);
             requests.event("Network.requestWillBeSent",null,request("overflow","overflow"));check(requests.failure().equals("cdp_request_identity_limit"));

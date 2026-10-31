@@ -23,11 +23,13 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
     /** Only immutable native evidence and the original typed ACK survive.
      * No binding, WebView, UI callback or current-navigation lookup is retained. */
     static final class Link {
-        private volatile Receipt request;private final Command[] candidates;private final String frame,network;private final Object owner;
+        private volatile Receipt request;private volatile boolean retired;private final Command[] candidates;private final String frame,network;private final Object owner;
         private final AtomicReference<String> proved=new AtomicReference<>();
         private Link(Object owner,String network,Receipt request,Command[] candidates,String frame){this.owner=owner;this.network=network;this.request=request;this.candidates=candidates;this.frame=frame;}
-        private void resolve(Receipt original){if(original.owner==owner&&original.valid)request=original;}
-        private boolean awaiting(){if(request!=null)return false;for(Command command:candidates)if(command.eligible())return true;return false;}
+        private void resolve(Receipt original){if(!retired&&original.owner==owner&&original.valid)request=original;}
+        private boolean awaiting(){if(retired||request!=null)return false;for(Command command:candidates)if(command.eligible())return true;return false;}
+        /** May run on a receipt/UI thread. Only the owning worker prunes slots. */
+        void retire(){retired=true;}
         String reference(){
             String original=proved.get();if(original!=null)return original;
             Receipt source=request;if(source==null||!source.valid)return null;String matched=null;
@@ -80,7 +82,10 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
         if(loaders.containsKey((String)loader)){disable("cdp_request_loader_rebound");return;}
         if(requests.size()>=LIMIT){disable("cdp_request_identity_limit");return;}
         Receipt receipt=new Receipt(owner,(String)loader,++serial);requests.put((String)id,receipt);loaders.put((String)loader,receipt);
-        for(int i=0;i<pending.length;i++)if(pending[i]!=null&&pending[i].network.equals(id)){pending[i].resolve(receipt);pending[i]=null;}
+        for(int i=0;i<pending.length;i++)if(pending[i]!=null){
+            if(!pending[i].awaiting())pending[i]=null;
+            else if(pending[i].network.equals(id)){pending[i].resolve(receipt);pending[i]=null;}
+        }
     }
     void admit(long after,MdoBrowserCdpSession.Navigation navigation,String reference,MdoBrowserCdpNetworkFrames.Origin epoch)throws IOException{
         current();if(fault!=null)return;

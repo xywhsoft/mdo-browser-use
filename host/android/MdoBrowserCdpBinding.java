@@ -384,7 +384,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 else if(requests.failure()!=null&&bound.rootFrame.equals(offer.metadata().frame)){source=MdoBrowserCdpNetworkFrames.unproven(source);kind="unproven";}
                 offer.bindSourceEpoch(source,kind);return offer;
             }
-            catch(IOException|RuntimeException|Error failure){offer.cancel();throw failure;}
+            catch(IOException|RuntimeException|Error failure){offer.cancel();offer.retireRequestAssociation();throw failure;}
         }
         int pendingOffers()throws IOException {bound.current();return bound.peer.pendingOffers();}
         MdoBrowserCdpSession.Body takePausedBody(long maxBytes,int timeoutMs)throws IOException {control();if(retiring)throw problem("cdp_network_retiring");pausedOrigin();return bound.peer.takePausedBody(maxBytes,timeoutMs);}

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E109)
+## Complete development host APK (E46/E110)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,477,121 bytes, SHA-256
-`751b83a640f469c259873f222619cfe4f026af9f4b2afbcb15ce3e1f8ac73837`.
+`474af41bde569562284df197d9cd6672ca719926e7cd0f12e51d383235926fbc`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -92,10 +92,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E109-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E109-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E110-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E110-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E109. Native/component evidence is recorded separately below.
+attempted in E106-E110. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -4046,3 +4046,24 @@ Holding the native abort ACK also proves that a rejected source immediately
 reports cancelling with download_frame_unproven. An early accept retains that
 same known cause instead of reporting a generic frame change. Cleanup confirmation
 remains required before releasing the exact original source.
+
+## Released deferred request associations (E110)
+
+Explicitly releasing a download now ends its deferred native-request metadata
+association as well as its record/file ownership. The old implementation leaked
+those pending Link slots after confirmed cancellation/release; the 33rd sequential
+missing-metadata response incorrectly disabled correlation. The original worker
+now prunes retired Links before new admission or late metadata delivery. UI/receipt
+threads mark association retirement only and never mutate worker-owned arrays.
+
+Cancellation alone preserves an inspectable record and its late-metadata path.
+Source abort/close confirmation and cache cleanup requirements remain unchanged;
+retiring metadata grants no I/O, stream or execution authority. Known references
+and released snapshots retain their original facts. The existing 32-live-Link
+limit and native identity checks remain in force.
+
+Cancel/release and complete/release each pass 40 sequential cycles, followed by a
+fresh exact association, with zero file/record reservations between cycles.
+The broker/request gates pass 1,247/176 assertions; full native gates and the
+refreshed actual APK pass. These component/packaging results do not qualify an
+installed Android provider, actual Activity UI or deferred device recovery.

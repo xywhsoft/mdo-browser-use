@@ -1740,3 +1740,10 @@ Ambiguous provenance retains a failed record and cleanup receipt; a subsequent
 explicit well-proven action can proceed. Completed verified bytes retain their
 existing task-owned read/save rules. Android qualification and public SDK
 signatures are unchanged; broader non-goto initiating-document proof is pending.
+
+E110 ends deferred native-request metadata waiting when a download record is
+explicitly released or its owner abandons it. Cancellation alone preserves late
+metadata for the retained record. Release still requires confirmed original-source
+and file cleanup; association retirement performs no source I/O. Known references,
+frozen released snapshots and active resource limits remain unchanged. This is a
+private lifetime correction with no SDK signature or platform-admission change.

@@ -512,9 +512,32 @@ public final class CdpNetworkNavigationProbe {
             source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(next,64,3000);source.complete(next);check(source.snapshot(next).verified&&source.claims.get()==1&&source.controller.failure()==null);source.release(next);
         }
     }
+    private static void releasedRequestLinks()throws Exception{
+        for(boolean complete:new boolean[]{false,true})try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("released-request-links-"+complete)){
+            CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;AtomicInteger sends=new AtomicInteger();
+            source.context.peer.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                sends.incrementAndGet();wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","original-loader").put("isDownload",true)));return true;
+            };
+            MdoBrowserCdpNetworks.Navigation navigation=navigate(test,source,15000);await(()->navigation.result()!=null);check(navigation.result().ok);
+            for(int i=0;i<40;i++){
+                source.context.wire().queue(responseEvent("released-response-"+i,"missing-network-"+i));
+                await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});
+                String id=source.controller.list()[0].id;MdoBrowserCdpDownloads.Snapshot row=source.snapshot(id);
+                check(row.state.equals("pending")&&row.frameCurrent&&row.sourceEpochKind.equals("navigation_candidates")&&row.sourceRequest==null&&source.controller.failure()==null);
+                if(complete){source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(id,64,3000);source.complete(id);check(source.snapshot(id).verified);}
+                else{source.controller.cancel(id);await(()->source.state(id,"cancelled"));}
+                source.release(id);check(source.controller.list().length==0&&test.budget.used()==0&&test.files.reservations()==0&&test.files.reservedBytes()==0);
+            }
+            check(sends.get()==1&&source.claims.get()==(complete?40:0)&&source.reads.get()==(complete?40:0)&&source.controller.failure()==null);
+            source.context.wire().queue(requestEvent("fresh-proven-network","original-loader"));source.context.wire().queue(responseEvent("fresh-proven-response","fresh-proven-network"));
+            await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});String fresh=source.controller.list()[0].id;
+            check(navigation.requestReference().equals(source.snapshot(fresh).sourceRequest)&&source.snapshot(fresh).sourceEpochKind.equals("original_navigation"));source.controller.cancel(fresh);await(()->source.state(fresh,"cancelled"));source.release(fresh);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();sameLocationNoop();lateResponseEpoch();ambiguousResponseEpoch();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"same_location_noop_proof\":true,\"original_download_epoch\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();sameLocationNoop();lateResponseEpoch();ambiguousResponseEpoch();releasedRequestLinks();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"same_location_noop_proof\":true,\"original_download_epoch\":true,\"released_request_links\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

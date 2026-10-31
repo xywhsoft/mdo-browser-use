@@ -122,7 +122,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
                         if(!row.origin.current()){revokeFrame(row);publish(row,"cancelling",row.error,0,null,false,true,false,row.failureSource);}
                         else publish(row,"pending",null,0,null,false,true,false,null);
                         rows[slot]=row;published=true;}
-                }finally{if(!published){budget.release();if(offer!=null)offer.cancel();}}
+                }finally{if(!published){budget.release();if(offer!=null){offer.cancel();offer.retireRequestAssociation();}}}
             }
             if(declined)network.abortPausedRequest();
         }
@@ -183,7 +183,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
         row.snapshot=new Snapshot(row,state,error,bytes,hash,verified,cacheClean,sourceClean,source);
     }
     private void retire(Row row){
-        row.retired=true;if(row.charged){row.charged=false;budget.release();}for(int i=0;i<rows.length;i++)if(rows[i]==row)rows[i]=null;
+        row.offer.retireRequestAssociation();row.retired=true;if(row.charged){row.charged=false;budget.release();}for(int i=0;i<rows.length;i++)if(rows[i]==row)rows[i]=null;
     }
     private void summarize(Row row){
         if(row.retired)return;

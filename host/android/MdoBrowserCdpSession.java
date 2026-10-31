@@ -147,6 +147,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         String networkIdentity(){return networkId;}
         void associateRequest(MdoBrowserCdpNetworkRequests.Link link){if(associated)throw new IllegalStateException("Original response already associated");associated=true;requestLink=link;}
         String sourceRequestReference(){return requestLink==null?null:requestLink.reference();}
+        /** End metadata waiting only; source cancellation/cleanup is independent. */
+        void retireRequestAssociation(){if(requestLink!=null)requestLink.retire();}
         void bindSourceEpoch(MdoBrowserCdpNetworkFrames.Origin epoch,String kind){
             if(sourceEpoch!=null||epoch==null||!("response_frame".equals(kind)||"navigation_candidates".equals(kind)||"unproven".equals(kind)))throw new IllegalStateException("Invalid original source epoch");
             sourceEpoch=epoch;epochKind=kind;
