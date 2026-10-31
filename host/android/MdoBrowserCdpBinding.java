@@ -337,7 +337,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 owner.active();document.current();
             }
         }
-        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private final MdoBrowserCdpNetworkRequests requests;private Navigation lastNavigation;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
+        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private final MdoBrowserCdpNetworkRequests requests;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
         private Network(MdoBrowserCdpBinding bound)throws IOException {
             this.bound=bound;frames=new MdoBrowserCdpNetworkFrames(bound.rootFrame,bound.rootLoader);requests=new MdoBrowserCdpNetworkRequests(bound.rootFrame);
             final MdoBrowserCdpNetworkFrames ancestry=frames;final MdoBrowserCdpNetworkRequests lineage=requests;
@@ -375,7 +375,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpNetworkFrames.Origin pausedOrigin()throws IOException {control();return frames.origin(bound.peer.pausedResponse().frame);}
         MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {
             control();if(retiring)throw problem("cdp_network_retiring");pausedOrigin();MdoBrowserCdpSession.Offer offer=bound.peer.retainPausedResponse();
-            try{Navigation original=lastNavigation;offer.associateRequest(original==null?null:requests.link(offer.networkIdentity(),offer.metadata().frame,original.requestRevision,original.original,original.requestReference));return offer;}
+            try{offer.associateRequest(requests.link(offer.networkIdentity(),offer.metadata().frame));return offer;}
             catch(IOException|RuntimeException|Error failure){offer.cancel();throw failure;}
         }
         int pendingOffers()throws IOException {bound.current();return bound.peer.pendingOffers();}
@@ -390,7 +390,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         Navigation navigateRoot(String url,int timeoutMs)throws IOException {
             active();if(retiring)throw problem("cdp_network_retiring");frames.origin(bound.rootFrame);
             Navigation ticket=new Navigation(this,frames.revision(),frames.rootLoader(),frames.origin(bound.rootFrame),MdoBrowserCdpSession.navigationDigest(url));
-            lastNavigation=ticket;ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);return ticket;
+            ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);requests.admit(ticket.requestRevision,ticket.original,ticket.requestReference);return ticket;
         }
         Navigation traverseRoot(String action,int timeoutMs)throws IOException {
             active();if(retiring)throw problem("cdp_network_retiring");
@@ -411,7 +411,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             }catch(MdoBrowserCdpSession.Failure failure){throw new MdoBrowserCdpSession.Failure(failure.getMessage(),failure.protocolCode,false);}
             catch(IOException failure){throw new MdoBrowserCdpSession.Failure("cdp_binding_timeout".equals(failure.getMessage())?"cdp_navigation_timeout":failure.getMessage(),0,false);}
             catch(JSONException invalid){throw new MdoBrowserCdpSession.Failure("cdp_history_snapshot_invalid",0,false);}
-            lastNavigation=ticket;ticket.original=action.equals("reload")?bound.peer.reloadRoot(bound.rootFrame,ticket.previousLoader,budget):bound.peer.historyRoot(bound.rootFrame,ticket.selection.entry,budget);
+            ticket.original=action.equals("reload")?bound.peer.reloadRoot(bound.rootFrame,ticket.previousLoader,budget):bound.peer.historyRoot(bound.rootFrame,ticket.selection.entry,budget);
             return ticket;
         }
         MdoBrowserCdpNetworkFrames.Origin navigationOrigin(Navigation ticket)throws IOException {

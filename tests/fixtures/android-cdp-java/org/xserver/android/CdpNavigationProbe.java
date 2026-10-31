@@ -121,12 +121,12 @@ public final class CdpNavigationProbe {
     }
     private static void realWire(int mode)throws Exception{
         CdpNativeProbe.fixtureStart(mode);final MdoBrowserCdpSession[] session={null};List<MdoBrowserCdpSession.Body> bodies=new ArrayList<>();
-        MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("frame-owned");final MdoBrowserCdpSession.Navigation[] original={null};List<MdoBrowserCdpNetworkRequests.Link> links=new ArrayList<>();
+        MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("frame-owned");List<MdoBrowserCdpNetworkRequests.Link> links=new ArrayList<>();
         try{
             session[0]=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->{
-                requests.event(m,s,p);if(m.equals("Fetch.requestPaused")){links.add(requests.link(p.optString("networkId"),p.optString("frameId"),0,original[0],"nr-native-original"));bodies.add(session[0].takePausedBody(64,15000));}
+                requests.event(m,s,p);if(m.equals("Fetch.requestPaused")){links.add(requests.link(p.optString("networkId"),p.optString("frameId")));bodies.add(session[0].takePausedBody(64,15000));}
             });
-            MdoBrowserCdpSession.Navigation navigation=session[0].navigateRoot("about:blank","frame-owned",15000);original[0]=navigation;check(navigation.pending()&&session[0].idle());
+            MdoBrowserCdpSession.Navigation navigation=session[0].navigateRoot("about:blank","frame-owned",15000);requests.admit(0,navigation,"nr-native-original");check(navigation.pending()&&session[0].idle());
             if(mode==42){
                 for(int i=0;i<20&&bodies.isEmpty();i++)session[0].poll(20,100);check(bodies.size()==1);MdoBrowserCdpSession.Body body=bodies.get(0);
                 for(int i=0;i<20&&!body.ready();i++)session[0].poll(20,100);check(body.ready()&&navigation.pending()&&links.size()==1&&links.get(0)!=null&&links.get(0).reference()==null);

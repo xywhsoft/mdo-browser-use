@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E106)
+## Complete development host APK (E46/E107)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,477,121 bytes, SHA-256
-`d68f5b43831ceb8e72648fca9105c0b20e9ae4820d13e0d904aa8cc8098452a1`.
+`3f450f13370d2550723f07b2213f3ba6bcc32b532c57a6f8771a8fe2f200ad01`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -92,10 +92,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E106-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E106-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E107-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E107-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106. Its native/component evidence is recorded separately below.
+attempted in E106/E107. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -3963,3 +3963,20 @@ qualification remains deferred. Late responses first retained after a newer
 navigation replaces the captured command may remain unassociated. Full transfer
 and broader goal work remains open. E103-E105 history/control progress is recorded
 in docs/progress.md; earlier pending notes above are historical snapshots.
+
+## Late responses after another navigation (E107)
+
+The private request ledger now retains 32 original goto command candidates.
+At response retention it freezes that set rather than looking up the last
+navigation. An old response first arriving after a newer command can still prove
+its original root/loader/ACK. New commands cannot be attached retroactively.
+Unknown eligible ACKs or conflicting matches cannot select a winner. Retained
+links survive command-history eviction; a response first seen after its original
+command is evicted may remain unassociated. This improves provenance without
+granting body permission or replaying navigation.
+
+Request/broker assertions pass 132/622, including metadata before/after the new
+command and after response retention, frozen candidates and history limits.
+Full native gates and the actual refreshed APK pass; current evidence is in
+.mdo/E107-final-identities.log. Product/provider/main-UI qualification remains
+deferred and public Android admission is still disabled.

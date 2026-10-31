@@ -370,9 +370,29 @@ public final class CdpNetworkNavigationProbe {
             source.release(original);source.controller.cancel(unrelated);await(()->source.state(unrelated,"cancelled"));source.release(unrelated);
         }
     }
+    private static void overlappingRequestAssociation()throws Exception{
+        for(int mode=0;mode<3;mode++)try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("overlap-request-"+mode)){
+            CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;AtomicInteger sends=new AtomicInteger();
+            source.context.peer.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                int ordinal=sends.incrementAndGet();wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId",ordinal==1?"older-loader":"newer-loader").put("isDownload",true)));return true;
+            };
+            MdoBrowserCdpNetworks.Navigation older=navigate(test,source,15000);await(()->older.result()!=null);check(older.result().ok);
+            if(mode==0)source.context.wire().queue(requestEvent("older-network","older-loader"));
+            MdoBrowserCdpNetworks.Navigation newer=navigate(test,source,15000);await(()->newer.result()!=null);check(newer.result().ok);
+            if(mode==1)source.context.wire().queue(requestEvent("older-network","older-loader"));
+            source.context.wire().queue(responseEvent("older-response","older-network"));
+            await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});
+            String id=source.controller.list()[0].id;if(mode==2)source.context.wire().queue(requestEvent("older-network","older-loader"));
+            await(()->source.snapshot(id).sourceRequest!=null);check(source.snapshot(id).sourceRequest.equals(older.requestReference())&&!source.snapshot(id).sourceRequest.equals(newer.requestReference()));
+            check(source.claims.get()==0&&source.reads.get()==0&&sends.get()==2);
+            source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(id,64,3000);source.complete(id);
+            check(source.snapshot(id).verified&&source.snapshot(id).received==4&&source.snapshot(id).sourceRequest.equals(older.requestReference()));source.release(id);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

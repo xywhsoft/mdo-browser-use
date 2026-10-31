@@ -10,34 +10,46 @@ import org.json.JSONObject;
  * crosses this boundary. Correlation failure disables correlation, not existing
  * transfer cleanup. Captured evidence grants no stream or permission. */
 final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,AutoCloseable {
-    private static final int LIMIT=4096,REDIRECTS=32;
+    private static final int LIMIT=4096,REDIRECTS=32,COMMANDS=32;
     static final class Receipt {
         private final Object owner;final String loader;final long born;private volatile boolean valid=true;private int redirects;
         Receipt(Object owner,String loader,long born){this.owner=owner;this.loader=loader;this.born=born;}
     }
+    private static final class Command {
+        final long after;final MdoBrowserCdpSession.Navigation navigation;final String reference;
+        Command(long after,MdoBrowserCdpSession.Navigation navigation,String reference){this.after=after;this.navigation=navigation;this.reference=reference;}
+        boolean eligible(){MdoBrowserCdpSession.NavigationResult result=navigation.result();return result==null||result.acknowledged&&result.ok&&result.downloadKnown&&result.download&&result.loaderPresent;}
+    }
     /** Only immutable native evidence and the original typed ACK survive.
      * No binding, WebView, UI callback or current-navigation lookup is retained. */
     static final class Link {
-        private volatile Receipt request;private final MdoBrowserCdpSession.Navigation navigation;private final String frame,reference,network;private final Object owner;private final long after;
+        private volatile Receipt request;private final Command[] candidates;private final String frame,network;private final Object owner;
         private final AtomicReference<String> proved=new AtomicReference<>();
-        private Link(Object owner,String network,long after,Receipt request,MdoBrowserCdpSession.Navigation navigation,String frame,String reference){this.owner=owner;this.network=network;this.after=after;this.request=request;this.navigation=navigation;this.frame=frame;this.reference=reference;}
-        private void resolve(Receipt original){if(original.owner==owner&&original.valid&&original.born>after)request=original;}
-        private boolean awaiting(){MdoBrowserCdpSession.NavigationResult result=navigation.result();return request==null&&(result==null||result.acknowledged&&result.ok&&result.downloadKnown&&result.download&&result.loaderPresent);}
+        private Link(Object owner,String network,Receipt request,Command[] candidates,String frame){this.owner=owner;this.network=network;this.request=request;this.candidates=candidates;this.frame=frame;}
+        private void resolve(Receipt original){if(original.owner==owner&&original.valid)request=original;}
+        private boolean awaiting(){if(request!=null)return false;for(Command command:candidates)if(command.eligible())return true;return false;}
         String reference(){
             String original=proved.get();if(original!=null)return original;
-            Receipt source=request;if(source!=null&&source.valid&&navigation.matchesDownloadLoader(frame,source.loader))proved.compareAndSet(null,reference);
+            Receipt source=request;if(source==null||!source.valid)return null;String matched=null;
+            for(Command command:candidates){
+                if(source.born<=command.after)continue;
+                if(command.navigation.result()==null)return null;
+                if(command.navigation.matchesDownloadLoader(frame,source.loader)){if(matched!=null)return null;matched=command.reference;}
+            }
+            if(matched!=null&&source.valid)proved.compareAndSet(null,matched);
             return proved.get();
         }
     }
     private final Thread worker=Thread.currentThread();private final Object owner=new Object();private final String root;
     private final Map<String,Receipt> requests=new LinkedHashMap<>(),loaders=new LinkedHashMap<>();
     private final Link[] pending=new Link[32];
+    private final Command[] commands=new Command[COMMANDS];private int commandCount;
     private long serial;private volatile boolean closed;private volatile String fault;
     MdoBrowserCdpNetworkRequests(String root){if(!MdoBrowserCdpNetworkFrames.identity(root))throw new IllegalArgumentException("Invalid original root");this.root=root;}
     private void current()throws IOException{if(Thread.currentThread()!=worker)throw new IOException("cdp_wrong_worker");if(closed)throw new IOException("cdp_request_owner_closed");}
     long revision()throws IOException{current();return serial;}
     String failure(){return fault;}
-    private void disable(String code){fault=code;for(Receipt receipt:requests.values())receipt.valid=false;requests.clear();loaders.clear();java.util.Arrays.fill(pending,null);}
+    private void disable(String code){fault=code;for(Receipt receipt:requests.values())receipt.valid=false;requests.clear();loaders.clear();java.util.Arrays.fill(pending,null);java.util.Arrays.fill(commands,null);commandCount=0;}
     @Override public void event(String method,String child,JSONObject params)throws IOException{
         current();if(fault!=null||!method.equals("Network.requestWillBeSent")||child!=null||!"Document".equals(params.opt("type"))||!root.equals(params.opt("frameId")))return;
         Object id=params.opt("requestId"),loader=params.opt("loaderId");
@@ -56,15 +68,29 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
         Receipt receipt=new Receipt(owner,(String)loader,++serial);requests.put((String)id,receipt);loaders.put((String)loader,receipt);
         for(int i=0;i<pending.length;i++)if(pending[i]!=null&&pending[i].network.equals(id)){pending[i].resolve(receipt);pending[i]=null;}
     }
-    Link link(String networkId,String frame,long after,MdoBrowserCdpSession.Navigation navigation,String reference)throws IOException{
+    void admit(long after,MdoBrowserCdpSession.Navigation navigation,String reference)throws IOException{
+        current();if(fault!=null)return;
+        if(after<0||after>serial||navigation==null||navigation.receiptOnly||!MdoBrowserCdpNetworkFrames.identity(reference))throw new IOException("cdp_request_command_invalid");
+        for(int i=0;i<commandCount;i++)if(commands[i].navigation==navigation)throw new IOException("cdp_request_command_replayed");
+        Command admitted=new Command(after,navigation,reference);
+        int kept=0;for(int i=0;i<commandCount;i++){
+            Command command=commands[i];
+            if(command.eligible())commands[kept++]=command;
+        }
+        java.util.Arrays.fill(commands,kept,commandCount,null);commandCount=kept;
+        if(commandCount==COMMANDS){System.arraycopy(commands,1,commands,0,COMMANDS-1);commandCount--;}
+        commands[commandCount]=admitted;commandCount++;
+    }
+    Link link(String networkId,String frame)throws IOException{
         current();Receipt request=networkId==null?null:requests.get(networkId);
-        if(fault!=null||!MdoBrowserCdpNetworkFrames.identity(networkId)||!root.equals(frame)||navigation==null||navigation.receiptOnly)return null;
-        if(request!=null&&(request.owner!=owner||!request.valid||request.born<=after))return null;
-        if(request!=null)return new Link(owner,networkId,after,request,navigation,root,reference);
+        if(fault!=null||!MdoBrowserCdpNetworkFrames.identity(networkId)||!root.equals(frame)||commandCount==0)return null;
+        if(request!=null&&(request.owner!=owner||!request.valid))return null;
+        Command[] candidates=java.util.Arrays.copyOf(commands,commandCount);
+        if(request!=null){boolean eligible=false;for(Command command:candidates)if(command.eligible()&&request.born>command.after)eligible=true;if(!eligible)return null;return new Link(owner,networkId,request,candidates,root);}
         int slot=-1;for(int i=0;i<pending.length;i++){if(pending[i]!=null&&!pending[i].awaiting())pending[i]=null;if(pending[i]==null)slot=i;}
         if(slot<0){disable("cdp_request_pending_limit");return null;}
-        Link link=new Link(owner,networkId,after,null,navigation,root,reference);pending[slot]=link;return link;
+        Link link=new Link(owner,networkId,null,candidates,root);pending[slot]=link;return link;
     }
     /** Retained original facts remain inspectable after native teardown. */
-    @Override public void close(){closed=true;if(Thread.currentThread()==worker||!worker.isAlive()){requests.clear();loaders.clear();java.util.Arrays.fill(pending,null);}}
+    @Override public void close(){closed=true;if(Thread.currentThread()==worker||!worker.isAlive()){requests.clear();loaders.clear();java.util.Arrays.fill(pending,null);java.util.Arrays.fill(commands,null);commandCount=0;}}
 }

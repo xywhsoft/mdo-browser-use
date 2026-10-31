@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E107:** remove last-navigation-only download attribution. Retain 32
+  original goto candidates and freeze each response's candidate set. Older
+  responses can keep their original identity after a newer navigation; future
+  commands cannot acquire that response. Request/broker checks pass 132/622,
+  native sanitizer/JVM gates pass, Python passes 173/175 (two existing privilege
+  skips), and the refreshed real APK passes its DEX/signature/payload checks.
+  Unchanged E106 JS/Windows and product evidence is explicitly reused. Installed
+  Android/provider/main-UI qualification remains deferred.
 - **Android E106:** join original typed goto ACK/loader, root Document request
   identity and the frozen retained response using opaque references. Handle
   metadata after body completion without refetching or borrowing a concurrent
@@ -8835,3 +8843,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   provider/main-UI checks and full-goal verification remain. Phone/provider
   changes stay deferred, public Android admission and all qualification flags
   remain false. No publication, model call or production data edit occurred.
+
+## E107 — retain old navigation candidates for late original responses (2026-10-31)
+
+- Reproduce E106's known false negative using the current compiled production
+  classes: after two original goto ACKs, retain the older response for the first
+  time. Its source reference never resolves (.mdo/E107-overlap-before-fix.log).
+  This is missing attribution, not evidence of an incorrect file or approval.
+- Replace the binding's lastNavigation lookup with a bounded private history of
+  32 original typed goto commands. Each response freezes only the candidates
+  present when it is retained; later commands cannot acquire it. Use original
+  admission revision, root, loader and settled typed ACKs to prove exactly one
+  candidate. Do not choose between conflicting or unresolved eligible ACKs.
+  Failed/non-download commands can be pruned; eviction can leave an unretained
+  very old response unassociated, while already retained links preserve their
+  immutable candidates. No WebView, binding/UI callback, URL or body is added to
+  these command records. Allocate a new command before mutating history slots.
+- Add three broker cases with older metadata before/after the newer command and
+  after response retention. All keep the older reference, claim no body before
+  explicit approval, finish exact bytes and drain file/source cleanup. New ledger
+  cases cover pending ACKs, conflicting loaders, candidate freezing, duplicate
+  admission, the 32-command boundary and uncached retained facts after eviction.
+  The first draft fixture tried two simultaneously pending native navigations;
+  correct it to respect the existing one-pending-command contract rather than
+  changing production admission (.mdo/E107-fixture-pending-command.log).
+- Full native ASan/UBSan/API26/JVM/JNI/strict-JSON/socket gates pass with 105 current
+  input hashes. Request identity passes 132 assertions; broker navigation passes
+  622. Require their new history/overlap coverage markers. Python passes 173/175
+  in 57.072 seconds with two existing Windows symlink-privilege skips. No JS or
+  packed Windows app bytes changed: reuse E106's 372 JS and 12 actual Windows
+  checks after source/archive/hash verification. Reuse E106 product 647 and E105
+  world/document evidence only after confirming their 13/seven unchanged hashes.
+- Build the full Android QA APK again and require the actual private Command
+  implementation in DEX, not just a class reference. Current APK is 6,477,121
+  bytes, SHA-256
+  3f450f13370d2550723f07b2213f3ba6bcc32b532c57a6f8771a8fe2f200ad01.
+  Source/archive/native-engine/paired-plugin identities, private provider, six
+  JNI exports, ARM64/16 KiB layout and retained signer pass. Evidence:
+  .mdo/E107-native-current.json, E107-android-receipt.json,
+  E107-final-identities.log and E107 test/build logs. Windows and paired plugin
+  retain the exact E106 identities. No new runtime dependency or deployment copy.
+- Restore the sole headless service: PID 17356, HTTP 200 on 63625, about 3,442.2
+  MiB. Goal active. Remaining transfer integration, same-location no-op handling,
+  installed provider/main-UI checks and documented full-goal verification remain.
+  The user deferred the phone; no reconnection/provider update was attempted.
+  Public Android admission and all qualification flags stay false. No model
+  calls, publication or production-data modifications occurred.

@@ -1710,3 +1710,10 @@ download approval/status/read/save interfaces remain unchanged.
 
 The Android implementation is packaged but publicly gated until installed
 provider/main-UI qualification. See [current limits and evidence](android.md).
+
+E107 preserves the original candidate set when another navigation starts before
+an old response arrives. It retains 32 original goto candidates and never lets a
+future command acquire an already retained response. Beyond that history limit,
+an unseen old response may remain unassociated; missing proof does not authorize
+repeating its request. This changes private provenance handling, not the public
+download approval/read/save signatures or Android qualification status.
