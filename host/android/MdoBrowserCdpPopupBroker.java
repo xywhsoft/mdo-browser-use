@@ -87,6 +87,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private volatile MdoBrowserCdpBinding.Network nativeBound;private volatile MdoBrowserCdpPopupNative.Child nativeChild;
         private volatile Handoff handoff;
         private volatile DocumentPeer documentPeer;
+        private MdoBrowserCdpDownloads.Connection downloads;
         private Candidate(Registration[] possibleOpeners,MdoBrowserCdpSession.AttachedTarget original,long born,AtomicBoolean brokerClosed){this.possibleOpeners=possibleOpeners;this.original=original;this.born=born;this.brokerClosed=brokerClosed;}
         boolean current(){
             if(retired||brokerClosed.get())return false;Handoff transfer=handoff;if(transfer!=null&&transfer.transferred())return transfer.current();
@@ -106,7 +107,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         int retainedRequestCount(){return original.retainedRequestCount();}
         int retainedResponseCount(){return original.retainedResponseCount();}
         private void reconcileHandoff(){Handoff transfer=handoff;if(transfer!=null&&transfer.transferred()){possibleOpeners=NO_OPENERS;provenOpener=null;MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;nativeChild=null;if(bound!=null)bound.close();}}
-        private void retired(){retired=true;DocumentPeer document=documentPeer;documentPeer=null;if(document!=null)document.retire();Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
+        private void retired(){retired=true;MdoBrowserCdpDownloads.Connection transfers=downloads;downloads=null;if(transfers!=null)transfers.disconnect();DocumentPeer document=documentPeer;documentPeer=null;if(document!=null)document.retire();Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
             MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;if(bound!=null)bound.close();nativeChild=null;}
     }
     /** Worker-owned document facade on the exact original Browser session.
@@ -123,6 +124,14 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         String target()throws IOException{guard();return candidate.original.target;}
         void observe(MdoBrowserCdpSession.Events next)throws IOException{guard();if(next==null||receiver!=null)throw problem("cdp_controller_busy");receiver=next;}
         void controller(MdoBrowserCdpBinding bound)throws IOException{guard();if(bound==null||binding!=null)throw problem("cdp_controller_busy");binding=bound;}
+        void downloads(MdoBrowserCdpDownloads.Connection transfers)throws IOException {
+            guard();if(transfers==null||binding==null||!binding.responseReady(binding.rootFrame))throw problem("cdp_popup_response_admission_required");
+            if(candidate.downloads!=null&&candidate.downloads!=transfers)throw problem("cdp_controller_busy");transfers.attach(handoff);candidate.downloads=transfers;
+        }
+        private MdoBrowserCdpBinding responseDocument(){
+            if(closed.get()||fault!=null||!document.current())return null;MdoBrowserCdpBinding bound=binding;if(bound==null)return null;
+            try{return bound.responseReady(bound.rootFrame)?bound:null;}catch(IOException error){close();return null;}
+        }
         MdoBrowserCdpSession.AttachedResponse nextResponse()throws IOException {
             guard();MdoBrowserCdpBinding bound=binding;if(bound==null||!bound.responseReady(bound.rootFrame))throw problem("cdp_popup_response_admission_required");
             MdoBrowserCdpResponse next=host.session.peekAttachedResponse(candidate.original);if(next==null)return null;
@@ -164,7 +173,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             }
         }
         private void retire(){close();for(String child:new ArrayList<>(children.keySet())){try{host.session.retireChild(child);}catch(IOException ignored){}host.nestedDocuments.remove(child,this);}children.clear();}
-        @Override public void close(){closed.set(true);receiver=null;binding=null;}
+        @Override public void close(){closed.set(true);receiver=null;MdoBrowserCdpBinding original=binding;binding=null;if(original!=null)original.retireResponseOrigins();}
     }
     private static final class Release {
         final MdoBrowserCdpSession.ControlReceipt receipt;
@@ -307,8 +316,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private void drain(long born,int timeout)throws IOException{
         while(session.pendingControls()!=0){int left=remaining(born,timeout);session.poll(Math.min(20,left),left);prune();}prune();
     }
-    /** One fixed command per pump turn on the existing worker. Fair across the
-     * bounded child set; protected responses remain opaque and paused. */
+    /** One fixed flow/response decision per turn on the existing worker. Fair
+     * across bounded children; Bodies still require native UI acceptance. */
     private boolean serviceManaged(int timeout)throws IOException {
         int count=candidates.size();for(int n=0;n<count;n++){
             int index=(managedTurn+n)%count;Candidate candidate=candidates.get(index);Handoff handoff=candidate.handoff;
@@ -322,6 +331,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 if(session.continueProtectedRequest(candidate.original,handoff::current,timeout)){
                     handoff.continuedRequests.incrementAndGet();managedTurn=(index+1)%count;return true;
                 }
+                if(candidate.downloads!=null){DocumentPeer document=candidate.documentPeer;MdoBrowserCdpBinding bound=document==null?null:document.responseDocument();
+                    if(candidate.downloads.attachedTurn(handoff,bound,timeout)){managedTurn=(index+1)%count;return true;}}
             }catch(IOException|RuntimeException|Error error){
                 int protocol=error instanceof MdoBrowserCdpSession.Failure?((MdoBrowserCdpSession.Failure)error).protocolCode:0;
                 boolean effect=!(error instanceof MdoBrowserCdpSession.Failure)||((MdoBrowserCdpSession.Failure)error).effectMayHaveOccurred;

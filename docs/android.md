@@ -4972,3 +4972,69 @@ routing and process/navigation recovery are still outstanding. Public protected
 admission and installed-provider/framework/automation qualification stay false.
 The phone/WebView deferral remains in force; there was no device or external-
 website test, model call, new runtime dependency or production change.
+
+### E139: share the product download controller with attached popup responses
+
+The original popup broker can now feed MdoBrowserCdpDownloads.Connection, using
+the existing shared file worker, receipt budget, pending/accept/cancel/read/release
+state machine and immutable UI snapshots. Its authority is the exact physical
+Handoff, not a replaceable document binding. Related new document bindings can
+explicitly attach the same connection; every existing row retains its own original
+AttachedResponse for body reads. There is no new socket, executor or alternate
+download state protocol. Candidate retirement disconnects that original controller
+without inventing stream/request cleanup confirmation.
+
+Proved attached frames issue data-only download provenance: opaque frame/document
+aliases, a weak handle to the original document Lease, and atomic graph/ancestor
+epoch fences.
+Document close, graph failure, frame replacement/removal and frame/ancestor loading
+revoke the original fences. Recreating a frame or binding cannot reactivate them.
+UI snapshots never read a worker-owned frame graph or invoke a worker callback.
+Decided responses drop their document-admission closure; terminal transfers drop
+the row's original-response handle. Retained files therefore do not keep an old
+binding alive through that closure or a strong provenance Lease.
+Without an original navigation-request ledger, provenance remains response_frame
+with a null source request reference; it never fabricates original_navigation.
+
+The broker pumps pending rows cooperatively on its original executor. Bytes still
+need explicit native UI acceptance, the existing eight pending-Offer/32-receipt
+budgets and the ordinary byte/time/EOF/close/abort checks. Stale permissions cancel
+unfinished sources/cache writes. A fully completed source and verified file remain
+readable after a document or physical page closes, with their own original IDs,
+hash and ordering. An interrupted/unconfirmed source is not reported completed or
+normally releasable. New/replacement controllers cannot borrow another record.
+
+Attached pass/abort acknowledgement waits run outside the download UI snapshot
+monitor. Normal document retirement is handled locally; an already selected exact
+event may be aborted under its still-current physical owner. Transport failures,
+protocol corruption and loss of physical ownership keep their original failure
+and quiescence handling. There is no broad catch-and-retry or weaker-world fallback.
+
+Fifteen joint worker/native/controller/file modes pass 856 checks: actual verified
+binary readback and release, explicit cancellation, size policy, frame/ancestor/
+document revocation, old UI acceptance, a stale binding callback, native detach,
+pass-through, both shared receipt and pending-Offer saturation, competing controller
+refusal, document rebind and completed-file reads after close. Every native
+response/body I/O in these modes also asserts that the download UI monitor is not
+held; they also inspect weak provenance and cleared document/response references.
+Controlled renderers/real native protocol/file components do not qualify an
+installed Android framework/provider.
+
+Complete preparation/action/adoption and task-policy coordination, product UI
+publication/lifetime, nested OOPIF response routing and full process/navigation/
+takeover recovery remain required. Public protected admission and installed-
+provider/framework/automation qualification stay false. Phone/WebView testing
+remains deferred; no external browser/model or production/account change is made.
+
+Final native evidence passes 123 current hashes, 149 worker modes/5,868 checks,
+original attachment 2,686/two actual native sessions, controller 360 and JNI 264.
+Fresh product/popup/save checks and Python 173/175 pass; two existing Windows
+symlink-privilege cases are skipped. The rebuilt development APK passes signing,
+ARM64/JNI/16-KiB/ZIP and 47 actual class/method definition groups, including the
+six-field weak provenance, atomic graph/node fences and per-row original response
+release.
+E139-final-identities.py/log binds those source/artifact identities and explicitly
+scoped unchanged Windows/world evidence. No installed-provider result is inferred.
+The next coordinator tests must cover initial frame loading while the first
+response is paused, document readiness and original navigation provenance; these
+controlled renderer modes do not establish that real provider ordering.

@@ -198,7 +198,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * Later body flow follows its frozen physical owner rather than a new DOM. */
     static final class AttachedResponse {
         private final MdoBrowserCdpSession owner;private final AttachedTarget attachment;private final PausedEvent original;
-        private final BooleanSupplier sourceOwner,admission;private boolean decided;
+        private final BooleanSupplier sourceOwner;private BooleanSupplier admission;private boolean decided;
         private final AtomicReference<ControlResult> outcome=new AtomicReference<>();
         private AttachedResponse(MdoBrowserCdpSession owner,AttachedTarget attachment,PausedEvent original,BooleanSupplier scope,BooleanSupplier admission){this.owner=owner;this.attachment=attachment;this.original=original;sourceOwner=scope;this.admission=admission;}
         MdoBrowserCdpResponse metadata(){return original.response;}
@@ -525,7 +525,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(!abort&&!owned(response.admission))throw failure("cdp_attach_response_admission_required",false);
         if(!abort&&!"pass".equals(response.original.response.kind))throw failure("cdp_attach_response_not_passable",false);
         JSONObject params;try{params=new JSONObject().put("requestId",response.original.request);if(abort)params.put("errorReason","Aborted");}catch(org.json.JSONException error){throw failure("cdp_attach_response_invalid",false);}
-        response.decided=true;
+        response.decided=true;response.admission=null;
         try{protectedCall(response.attachment,response.sourceOwner,abort?"Fetch.failRequest":"Fetch.continueRequest",params,timeout);releaseResponse(response);response.outcome.set(new ControlResult(true,null,0,true));}
         catch(IOException|RuntimeException|Error error){int protocol=error instanceof Failure?((Failure)error).protocolCode:0;boolean effect=!(error instanceof Failure)||((Failure)error).effectMayHaveOccurred;
             response.outcome.set(new ControlResult(false,error instanceof Failure?error.getMessage():"cdp_attach_response_failed",protocol,effect));throw error;}
@@ -533,7 +533,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private Offer responseOffer(AttachedResponse response)throws IOException{
         responseGuard(response);if(!owned(response.admission))throw failure("cdp_attach_response_admission_required",false);if(!"candidate".equals(response.original.response.kind))throw failure("cdp_body_not_candidate",false);
         synchronized(controlGate){int slot=0;while(slot<offers.length&&offers[slot]!=null)slot++;if(slot==offers.length)throw failure("cdp_body_limit",false);
-            Offer offer=new Offer(this,response.original,clock.now());response.decided=true;offers[slot]=offer;releaseResponse(response);return offer;}
+            Offer offer=new Offer(this,response.original,clock.now());response.decided=true;response.admission=null;offers[slot]=offer;releaseResponse(response);return offer;}
     }
     /** Preserve original request IDs before adoption. After explicit protected
      * resume, also retain opaque response IDs without exposing metadata/body.

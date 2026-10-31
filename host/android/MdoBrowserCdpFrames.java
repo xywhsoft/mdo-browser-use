@@ -27,6 +27,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     }
     private static final class Node {
         final String raw,alias;String parent,loader,session,document;boolean loading,swapped;
+        java.util.concurrent.atomic.AtomicBoolean epoch=new java.util.concurrent.atomic.AtomicBoolean(true);
         Node(String raw,String parent,String loader,String session,boolean root){this.raw=raw;this.parent=parent;this.loader=loader;this.session=session;
             alias=root?"f0":"f-"+UUID.randomUUID();document="fd-"+UUID.randomUUID();}
     }
@@ -38,6 +39,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     private final MdoBrowserCdpWorlds worlds;private final MdoBrowserCdpChoosers choosers;
     private final Map<String,Source> sources=new LinkedHashMap<>();private final Map<String,Node> nodes=new LinkedHashMap<>();
     private final Set<String> seenSessions=new LinkedHashSet<>();private long revision;private String fault;
+    private final java.util.concurrent.atomic.AtomicBoolean live=new java.util.concurrent.atomic.AtomicBoolean(true);
     MdoBrowserCdpFrames(MdoBrowserCdpBinding binding)throws IOException {
         if(binding==null)throw problem("cdp_frame_arguments_invalid");this.binding=binding;
         sources.put(null,new Source(null,binding.rootFrame,null));
@@ -45,9 +47,9 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     }
     private static IOException problem(String code){return new IOException(code);}
     private void current()throws IOException {
-        if(Thread.currentThread()!=owner)throw problem("cdp_wrong_worker");if(fault!=null)throw problem(fault);binding.current();
+        if(Thread.currentThread()!=owner)throw problem("cdp_wrong_worker");if(fault!=null)throw problem(fault);binding.current();if(!live.get())throw problem("cdp_frame_retired");
     }
-    private IOException invalid(String code){fault=code;return problem(code);}
+    private IOException invalid(String code){fault=code;live.set(false);return problem(code);}
     private static String id(JSONObject value,String field)throws IOException {
         Object text=value.opt(field);if(!(text instanceof String)||!MdoBrowserCdpJson.token((String)text))throw problem("cdp_frame_metadata_invalid");return(String)text;
     }
@@ -68,7 +70,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         Node node=nodes.get(raw);
         if(node==null){if(nodes.size()>=FRAME_LIMIT)throw invalid("cdp_frame_limit");node=new Node(raw,parent,load,session,raw.equals(binding.rootFrame));nodes.put(raw,node);revision++;}
         else if(committed||!Objects.equals(parent,node.parent)||!Objects.equals(session,node.session)||load.isEmpty()||!load.equals(node.loader)){
-            node.document="fd-"+UUID.randomUUID();node.parent=parent;node.loader=load;node.session=session;node.swapped=false;revision++;
+            node.epoch.set(false);node.epoch=new java.util.concurrent.atomic.AtomicBoolean(true);node.document="fd-"+UUID.randomUUID();node.parent=parent;node.loader=load;node.session=session;node.swapped=false;revision++;
         }
         return node;
     }
@@ -76,7 +78,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         if(raw.equals(binding.rootFrame)&&includeRoot)throw invalid("cdp_frame_root_changed");
         List<String> remove=new ArrayList<>();remove.add(raw);
         for(int i=0;i<remove.size();i++)for(Node node:nodes.values())if(Objects.equals(node.parent,remove.get(i))&&!remove.contains(node.raw))remove.add(node.raw);
-        for(String key:remove)if(includeRoot||!key.equals(raw)){nodes.remove(key);for(Source source:sources.values())source.loading.remove(key);}revision++;
+        for(String key:remove)if(includeRoot||!key.equals(raw)){Node old=nodes.remove(key);if(old!=null)old.epoch.set(false);for(Source source:sources.values())source.loading.remove(key);}revision++;
     }
     @Override public void event(String method,String session,JSONObject params)throws IOException {
         current();Source source=source(session);
@@ -127,7 +129,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
             if("Page.frameDetached".equals(method)){
                 String reason=params.getString("reason");if("remove".equals(reason)){remove(raw,true);return;}
                 if(!"swap".equals(reason)||raw.equals(binding.rootFrame))throw invalid("cdp_frame_detach_invalid");
-                remove(raw,false);node.document="fd-"+UUID.randomUUID();node.loading=true;node.swapped=true;revision++;return;
+                remove(raw,false);node.epoch.set(false);node.epoch=new java.util.concurrent.atomic.AtomicBoolean(true);node.document="fd-"+UUID.randomUUID();node.loading=true;node.swapped=true;revision++;return;
             }
             if("Page.frameNavigated".equals(method)||"Page.documentOpened".equals(method)){
                 if(raw.equals(binding.rootFrame))throw invalid("cdp_frame_root_changed");
@@ -136,8 +138,8 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
                 if(parentNode==null||!within(parentNode,parentSource)||raw.equals(parent))throw invalid("cdp_frame_parent_unproven");
                 remove(raw,false);node=upsert(raw,parent,loader(frame),session,true);node.loading=true;source.loading.put(raw,true);return;
             }
-            if("Page.frameStartedLoading".equals(method)){if(!node.loading){node.loading=true;revision++;}}
-            else if("Page.frameStoppedLoading".equals(method)){if(node.loading){node.loading=false;revision++;}}
+            if("Page.frameStartedLoading".equals(method)){if(!node.loading){node.epoch.set(false);node.loading=true;revision++;}}
+            else if("Page.frameStoppedLoading".equals(method)){if(node.loading){node.epoch=new java.util.concurrent.atomic.AtomicBoolean(true);node.loading=false;revision++;}}
         }catch(JSONException error){throw invalid("cdp_frame_metadata_invalid");}
     }
     private JSONObject call(Source source,String method,JSONObject params,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
@@ -247,6 +249,12 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     boolean responseReady(String raw)throws IOException {
         current();Node node=nodes.get(raw);return node!=null&&attached(node,true)&&worlds.ready(node.alias,node.document);
     }
+    MdoBrowserCdpNetworkFrames.Origin responseOrigin(String raw)throws IOException {
+        if(!responseReady(raw))throw problem("download_frame_unproven");Node node=nodes.get(raw);List<java.util.concurrent.atomic.AtomicBoolean> epochs=new ArrayList<>();epochs.add(live);
+        for(Node at=node;at!=null;at=nodes.get(at.parent)){if(epochs.size()>DEPTH_LIMIT)throw problem("download_frame_unproven");epochs.add(at.epoch);}
+        return binding.issueResponseOrigin(node.alias,node.document,raw.equals(binding.rootFrame),epochs.toArray(new java.util.concurrent.atomic.AtomicBoolean[0]));
+    }
+    void retire(){live.set(false);}
     JSONObject evaluate(String frame,String document,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         Route route=select(frame,document);refresh(deadline);validate(route);return worlds.evaluate(route,expression,effect,deadline);
     }

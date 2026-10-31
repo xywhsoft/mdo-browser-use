@@ -34,11 +34,19 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     private static final class Scope {volatile boolean active=true;}
     static final class Origin {
         final String frame,document;final boolean root;private final Scope[] ancestry;
-        private Origin(Frame node,Scope[] ancestry,boolean root){frame=node.alias;document=node.document;this.ancestry=ancestry;this.root=root;}
-        private Origin(Origin original,Scope[] ancestry){frame=original.frame;document=original.document;root=original.root;this.ancestry=ancestry;}
-        private Origin(Origin original,Scope blocked){frame=original.frame;document="";root=original.root;ancestry=new Scope[]{blocked};}
+        private final java.lang.ref.WeakReference<MdoBrowserCdpMarker.Lease> documentOwner;private final java.util.concurrent.atomic.AtomicBoolean[] documentScopes;
+        private Origin(Frame node,Scope[] ancestry,boolean root){frame=node.alias;document=node.document;this.ancestry=ancestry;this.root=root;documentOwner=null;documentScopes=null;}
+        private Origin(Origin original,Scope[] ancestry){frame=original.frame;document=original.document;root=original.root;this.ancestry=ancestry;documentOwner=original.documentOwner;documentScopes=original.documentScopes;}
+        private Origin(Origin original,Scope blocked){frame=original.frame;document="";root=original.root;ancestry=new Scope[]{blocked};documentOwner=original.documentOwner;documentScopes=original.documentScopes;}
+        private Origin(String frame,String document,boolean root,MdoBrowserCdpMarker.Lease owner,java.util.concurrent.atomic.AtomicBoolean[] scopes){this.frame=frame;this.document=document;this.root=root;ancestry=new Scope[0];documentOwner=new java.lang.ref.WeakReference<>(owner);documentScopes=scopes.clone();}
         private Origin with(Scope scope){Scope[] extended=java.util.Arrays.copyOf(ancestry,ancestry.length+1);extended[extended.length-1]=scope;return new Origin(this,extended);}
-        boolean current(){for(Scope scope:ancestry)if(!scope.active)return false;return true;}
+        boolean current(){if(documentOwner!=null){MdoBrowserCdpMarker.Lease owner=documentOwner.get();if(owner==null||!owner.current())return false;for(java.util.concurrent.atomic.AtomicBoolean scope:documentScopes)if(!scope.get())return false;}for(Scope scope:ancestry)if(!scope.active)return false;return true;}
+    }
+    /** Only the native attached-frame controller issues these aliases and
+     * atomic epoch fences. UI reads retain no frame graph or worker callback. */
+    static Origin attached(String frame,String document,boolean root,MdoBrowserCdpMarker.Lease owner,java.util.concurrent.atomic.AtomicBoolean[] scopes)throws IOException {
+        if(frame==null||document==null||owner==null||scopes==null||scopes.length<2||scopes.length>34)throw new IOException("download_frame_unproven");
+        for(java.util.concurrent.atomic.AtomicBoolean scope:scopes)if(scope==null)throw new IOException("download_frame_unproven");return new Origin(frame,document,root,owner,scopes);
     }
     /** Known physical frame, unproven document. Never an executable/new epoch. */
     static Origin unproven(Origin frame){Scope blocked=new Scope();blocked.active=false;return new Origin(frame,blocked);}

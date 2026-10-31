@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E139:** feed original popup responses into the existing product
+  download controller/file queue and UI decision state machine. Keep one physical
+  connection across document rebind, with atomic frame/document/ancestor provenance
+  and exact per-response bodies. Native ACK waits release the UI snapshot monitor;
+  normal document retirement remains local. Fifteen new modes pass 856 checks,
+  including quotas, stale permissions, source loss and completed-file retention.
+  Full native passes 123 inputs and 149 worker modes/5,868 checks; fresh product,
+  popup, saving and Python 173/175 pass. Actual APK passes signing and 47 inspected
+  definition groups. Full product publication/policy coordination and installed-
+  provider qualification remain incomplete; public admission stays disabled.
 - **Android E138:** private first-response decisions and original-session body
   transfer now require the exact native document and isolated root/response frame.
   Preserve frame identity for ordinary passable responses; reuse bounded Offers,
@@ -11150,3 +11160,70 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   multi-child/process/navigation recovery and platform/delivery audit. This private
   component join does not enable public protected admission. Installed provider,
   framework and automation qualification stay false. Preserve the phone deferral.
+
+
+### E139 — product download controller on the original popup connection
+
+- Connect original popup responses to the existing MdoBrowserCdpDownloads,
+  shared bounded file queue, receipt budget and accept/cancel/read/release state
+  machine. Bind connection authority to the exact physical Handoff, preserving
+  old rows and their own AttachedResponse across explicit document rebind. The
+  existing broker pumps these records on its original executor; no new socket,
+  executor, download API or runtime dependency is introduced.
+- Issue opaque response-frame/document provenance from proved isolated frames.
+  Snapshots retain only strings, a weak document-Lease handle and atomic graph/
+  ancestor epoch fences. Invalidate on document/graph/frame/ancestor changes;
+  replacement bindings never reactivate old fences. Do not manufacture a request
+  reference or original_navigation provenance without that original ledger.
+  Clear the response's admission closure after its single decision and the row's
+  original-response handle at source termination, avoiding retention of old
+  document bindings through completed cache records.
+- Preserve actual source EOF/close/abort and file/hash evidence. Cancel pending
+  or unfinished data after source revocation. Retain fully completed verified
+  files across native close, with original IDs/order and explicit read/release.
+  A detached/unconfirmed source never becomes a completed or normally releasable
+  download. Both the eight pending-Offer and shared 32-receipt limits still apply.
+- Review identified synchronous response ACK waits holding the UI snapshot
+  monitor and ordinary epoch loss reaching global failure handling. Move native
+  waits outside that monitor; handle only recognized document retirement locally,
+  aborting an already selected original response under its exact physical owner.
+  Transport/protocol/physical-owner errors retain their original failure handling.
+  Regression assertions inspect actual monitor ownership on every native response
+  and body I/O; a retired-binding callback preserves the valid physical owner.
+- E139-targeted.log passes fifteen joined worker/native/controller/file modes/
+  856 checks: verified binary readback/release, cancellation, size policy, document/
+  local-frame/ancestor revocation, stale UI acceptance and callbacks, native detach,
+  pass-through, both quota limits, competing controller refusal, explicit rebind
+  and completed-cache reads after close. Also check weak lease provenance and
+  cleared admission/terminal-response references. Controlled renderers do not qualify an
+  installed Android provider or the public product coordinator.
+- Final E139-native.log passes 123 current hashes, ASan/UBSan/API26/JVM/JNI,
+  149 worker modes/5,868 assertions, original attachment 2,686/two actual native
+  sessions, controller 360 and JNI 264. Fresh popup passes 110 +25 native callback
+  +7 owner scope; fresh product passes 789/18 inputs including 77 asynchronous
+  close checks; fresh saving passes 47/six inputs bound to current native evidence.
+  Final Python passes 173/175 in 49.859 seconds; the two existing Windows symlink-
+  privilege cases remain skipped. E130 Windows 301/six cycles and E105 world
+  evidence are reused only after checking every scoped source/native-host hash.
+- Apply reviewed overlays only while stopped, restore the same local service,
+  then rebuild the actual development APK. Signing/private-provider/JNI/ARM64/
+  16-KiB/ZIP gates pass. E139-dex.py/log verifies 47 actual class/method groups,
+  six-field weak/atomic provenance, graph/node fences and the per-row original
+  response, whose reference is cleared after source termination.
+  APK: 6,538,561 bytes, SHA-256
+  0b1364744672489fc5f1baefdb6d26d04a5cb96fdd2b17e4257e35f24f22ed63.
+  Windows program, ARM64 native host and plugin bytes remain unchanged.
+  E139-final-identities.py/log binds final sources, artifacts and scoped evidence.
+- Development service restored: HTTP 200 on 63625, PID 14884; one deployment about
+  3,449.2 MiB and D: about 36.92 GiB free. No additional app/Home/source copy,
+  ADB/phone/WebView change, new runtime dependency, model/external-browser call,
+  production/account/config change or publication.
+- Goal remains active. Continue complete preparation/action/adoption/task-policy
+  coordination, native product UI publication/lifetime, nested OOPIF response
+  routing, multi-child/process/navigation/takeover recovery and platform/delivery
+  audit. This private controller join does not enable public protected admission;
+  installed provider/framework/automation qualification stays false. Preserve the
+  user's phone/WebView deferral.
+  Next coordinator checks must include initial frame-loading/paused-response/
+  document-ready ordering and original navigation provenance. The controlled
+  renderer modes above do not establish that installed-provider sequence.

@@ -581,8 +581,16 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     MdoBrowserCdpSession.AttachedResponse nextAttachedResponse()throws IOException {
         current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");return ((MdoBrowserCdpPopupBroker.DocumentPeer)peer).nextResponse();
     }
+    MdoBrowserCdpNetworkFrames.Origin responseOrigin(String raw)throws IOException {current();if(frames==null)throw problem("download_frame_unproven");return frames.responseOrigin(raw);}
+    MdoBrowserCdpNetworkFrames.Origin issueResponseOrigin(String frame,String document,boolean root,java.util.concurrent.atomic.AtomicBoolean[] scopes)throws IOException {
+        current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");return MdoBrowserCdpNetworkFrames.attached(frame,document,root,lease,scopes);
+    }
+    void attachDownloads(MdoBrowserCdpDownloads.Connection downloads)throws IOException {
+        current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");((MdoBrowserCdpPopupBroker.DocumentPeer)peer).downloads(downloads);
+    }
+    void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){
-        contexts.forward=null;contexts.dirty=true;lease.untrack(this);lease.untrack(peer);
+        contexts.forward=null;contexts.dirty=true;if(frames!=null)frames.retire();lease.untrack(this);lease.untrack(peer);
         try{peer.close();}catch(RuntimeException|Error failure){cleanupFailed.set(true);throw failure;}
     }}
 }

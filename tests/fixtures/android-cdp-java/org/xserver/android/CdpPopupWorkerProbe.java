@@ -44,6 +44,7 @@ public final class CdpPopupWorkerProbe {
         volatile String managedResumeMode,managedFlowMode="normal";volatile Runnable managedResumeHook,managedFlowHook;
         final AtomicInteger continues=new AtomicInteger();final ConcurrentLinkedQueue<String> continuedIds=new ConcurrentLinkedQueue<>();
         volatile String responseMode;volatile boolean holdRead;final AtomicInteger responsePasses=new AtomicInteger(),responseAborts=new AtomicInteger(),bodyClaims=new AtomicInteger(),bodyReads=new AtomicInteger(),bodyCloses=new AtomicInteger(),lateRead=new AtomicInteger();
+        volatile Runnable responseIo;
         DocumentRenderer documentRenderer;
         static final class DocumentRenderer {
             final CdpFramesProbe.Plan frames=new CdpFramesProbe.Plan();final CdpWorldsProbe.Engine worlds;
@@ -73,11 +74,12 @@ public final class CdpPopupWorkerProbe {
                 threads.add(Thread.currentThread());try{JSONObject command=new JSONObject(new String(bytes,StandardCharsets.UTF_8));String method=command.getString("method");int id=command.getInt("id");
                     if(documentRenderer!=null&&command.has("sessionId")&&!method.startsWith("Fetch.")&&!method.startsWith("IO.")&&!method.equals("Runtime.runIfWaitingForDebugger")){documentRenderer.command(command,this);return;}
                     if(responseMode!=null&&(method.equals("Fetch.takeResponseBodyAsStream")||method.equals("Fetch.failRequest")||method.startsWith("IO.")||method.equals("Fetch.continueRequest")&&continues.get()>0)){
+                        Runnable audit=responseIo;if(audit!=null)audit.run();
                         JSONObject params=command.getJSONObject("params");String child=command.getString("sessionId");check(command.length()==4&&child.equals("proof-real"));JSONObject value=new JSONObject();
                         if(method.startsWith("IO.")){check(params.getString("handle").equals("original-child-stream"));
                             if(method.equals("IO.read")){check(params.length()==2&&params.getInt("size")==65536);bodyReads.incrementAndGet();if(holdRead){lateRead.set(id);return;}value.put("data","AAH/").put("base64Encoded",true).put("eof",true);}
                             else{check(method.equals("IO.close")&&params.length()==1);bodyCloses.incrementAndGet();}
-                        }else{check(params.getString("requestId").equals("initial-0")||params.getString("requestId").equals("response-extra"));
+                        }else{check(params.getString("requestId").equals("initial-0")||params.getString("requestId").startsWith("response-extra"));
                             if(method.equals("Fetch.takeResponseBodyAsStream")){check(params.length()==1);bodyClaims.incrementAndGet();value.put("stream","original-child-stream");}
                             else if(method.equals("Fetch.failRequest")){check(params.length()==2&&params.getString("errorReason").equals("Aborted"));responseAborts.incrementAndGet();}
                             else{check(params.length()==1);responsePasses.incrementAndGet();}
@@ -898,7 +900,9 @@ public final class CdpPopupWorkerProbe {
     private static void refused(String code,IoWork work)throws IOException{try{work.run();throw new AssertionError("Expected "+code);}catch(IOException error){check(code.equals(error.getMessage())&&error.getCause()==null);}}
     private static JSONObject responsePaused(String id,String mode)throws Exception{
         JSONObject params=CdpBodyProbe.paused(id).put("frameId",mode.equals("response-frame")?"foreign-frame":"frame-owned");
-        if(mode.equals("response-pass")||mode.equals("response-arguments"))params.put("responseHeaders",new org.json.JSONArray().put(new JSONObject().put("name","Content-Type").put("value","text/html")));
+        if(mode.equals("transfer-frame-epoch")||mode.equals("transfer-ancestor"))params.put("frameId","root-local");
+        if(mode.equals("response-pass")||mode.equals("response-arguments")||mode.equals("transfer-pass"))params.put("responseHeaders",new org.json.JSONArray().put(new JSONObject().put("name","Content-Type").put("value","text/html")));
+        else if(mode.startsWith("transfer"))params.getJSONArray("responseHeaders").put(new JSONObject().put("name","Content-Length").put("value","3"));
         return new JSONObject().put("method","Fetch.requestPaused").put("sessionId","proof-real").put("params",params);
     }
     private static void managedResponse(String mode,String directory)throws Exception{
@@ -973,6 +977,99 @@ public final class CdpPopupWorkerProbe {
                 else check(c.backend.responseAborts.get()==1&&c.backend.responsePasses.get()==0);
                 check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.continues.get()==1);
                 if(handoff.current()){handoff.close();waitFor(promoted::ended,c.host,true);}check(view.destroyed==1&&c.backend.closes.get()==1&&c.backend.detaches.get()==0);renderer.wire.close();
+            }
+        }
+    }
+    private static void managedTransfers(String mode,String directory)throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            PopupProductHost product=new PopupProductHost(c.source.views);product.cdpViews.worker=c.host.worker;
+            MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView view=created.view();c.source.adopting=view;
+            MdoBrowserPopups.Adoption adoption=c.source.source.adopt(created);c.source.ack();
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());MdoBrowserCdpPopupNative.Child child=c.source.source.child(adoption,created,adapter)){
+                c.backend.nativeTargets.put("target-proof-real",proofPeer(view,"success",null,null));check(c.request.proveNative(child));waitFor(()->!c.observer.provenChildren.isEmpty(),c.host,true);
+                MdoBrowserCdpPopupBroker.Handoff handoff=child.handoff();MdoBrowserCdpPopupBroker.Candidate candidate=c.observer.candidates.get(0);
+                MdoBrowserCdpPopupNative.Promotion promoted=product.handoff("owned",c.source.source,created,child);c.request.close();terminal(c.host,c.request,c.observer);
+                c.backend.responseMode=mode;c.backend.managedResumeMode="normal";product.activate(promoted,handoff);waitFor(()->candidate.retainedResponseCount()==1,c.host,true);
+                MdoBrowserCdpMarker marker=product.documentMarker("owned",promoted,handoff);MdoBrowserCdpPopupNative.Document proof=promoted.document(marker);
+                Backend.DocumentRenderer renderer=new Backend.DocumentRenderer(view);renderer.frames.omitChild=true;c.backend.documentRenderer=renderer;
+                int opens=c.backend.opens.get(),nativeOpens=c.backend.nativeOpens.get();java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
+                MdoBrowserCdpDownloads.Budget budget=new MdoBrowserCdpDownloads.Budget();
+                if(mode.equals("transfer-budget"))for(int i=0;i<32;i++)check(budget.acquire());
+                try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),c.host.time::get);MdoBrowserCdpDownloads downloads=new MdoBrowserCdpDownloads(queue,budget)){
+                    MdoBrowserCdpDownloads.Connection connection=downloads.connection();java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> result=new java.util.concurrent.atomic.AtomicReference<>();
+                    java.lang.reflect.Field gateField=MdoBrowserCdpDownloads.class.getDeclaredField("gate");gateField.setAccessible(true);Object controllerGate=gateField.get(downloads);c.backend.responseIo=()->check(!Thread.holdsLock(controllerGate));
+                    MdoBrowserCdpWorker.Completion complete=value->{check(c.host.ui.onThread());result.set(value);};
+                    c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{
+                        refused("cdp_popup_response_admission_required",()->binding.attachDownloads(connection));binding.frames().inventory(deadline);binding.attachDownloads(connection);binding.attachDownloads(connection);return new byte[]{1};
+                    },complete);waitFor(()->result.get()!=null,c.host,true);if(result.get().code!=null)throw new AssertionError("Transfer bind "+result.get().code);
+                    if(mode.equals("transfer-pending-limit")){
+                        for(int i=0;i<8;i++)c.backend.wire.add(responsePaused("response-extra-"+i,mode));waitFor(()->c.backend.responseAborts.get()==1,c.host,true);
+                        check(downloads.list().length==8&&budget.used()==8&&downloads.failure().equals("download_pending_limit")&&c.backend.bodyClaims.get()==0&&candidate.retainedResponseCount()==0);
+                        MdoBrowserCdpDownloads.Snapshot[] rows=downloads.list();for(MdoBrowserCdpDownloads.Snapshot row:rows)downloads.cancel(row.id);
+                        waitFor(()->c.backend.responseAborts.get()==9,c.host,true);
+                        for(MdoBrowserCdpDownloads.Snapshot row:rows){waitFor(()->{try{return downloads.get(row.id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);check(downloads.get(row.id).sourceCleanupConfirmed);MdoBrowserCdpDownloads.Release release=downloads.release(row.id);waitFor(release::finished,c.host,true);check(release.released());}
+                        check(downloads.list().length==0&&budget.used()==0&&queue.retainedTickets()==0);
+                    }else if(mode.equals("transfer-pass")||mode.equals("transfer-budget")){
+                        waitFor(()->c.backend.responsePasses.get()+c.backend.responseAborts.get()==1,c.host,true);check(downloads.list().length==0&&candidate.retainedResponseCount()==0&&c.backend.bodyClaims.get()==0);
+                        if(mode.equals("transfer-pass"))check(c.backend.responsePasses.get()==1&&budget.used()==0);
+                        else{check(downloads.failure().equals("download_receipt_limit")&&budget.used()==32);for(int i=0;i<32;i++)budget.release();}
+                    }else{
+                        waitFor(()->{try{return downloads.list().length==1;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
+                        MdoBrowserCdpDownloads.Snapshot pending=downloads.list()[0];String id=pending.id;
+                        java.lang.reflect.Field rowsField=MdoBrowserCdpDownloads.class.getDeclaredField("rows");rowsField.setAccessible(true);Object retained=((Object[])rowsField.get(downloads))[0];
+                        java.lang.reflect.Field responseField=retained.getClass().getDeclaredField("response");responseField.setAccessible(true);Object frozen=responseField.get(retained);java.lang.reflect.Field admission=frozen.getClass().getDeclaredField("admission");admission.setAccessible(true);check(admission.get(frozen)==null);
+                        java.lang.reflect.Field originField=retained.getClass().getDeclaredField("origin");originField.setAccessible(true);Object origin=originField.get(retained);java.lang.reflect.Field ownerField=origin.getClass().getDeclaredField("documentOwner");ownerField.setAccessible(true);check(ownerField.get(origin) instanceof java.lang.ref.WeakReference&&((java.lang.ref.WeakReference<?>)ownerField.get(origin)).get()==marker.lease());
+                        check(pending.state.equals("pending")&&pending.expected==3&&pending.frameCurrent&&pending.root!=java.util.Arrays.asList("transfer-frame-epoch","transfer-ancestor").contains(mode)&&(pending.root?pending.sourceFrame.equals("f0"):pending.sourceFrame.startsWith("f-"))&&pending.sourceDocument.startsWith("fd-")&&pending.sourceRequest==null&&pending.sourceEpochKind.equals("response_frame")&&budget.used()==1);
+                        String metadata=pending.json().toString();check(!metadata.contains("private.invalid")&&!metadata.contains("proof-real")&&!metadata.contains("frame-owned")&&!metadata.contains("initial-0"));
+                        check(c.backend.bodyClaims.get()==0&&c.backend.bodyReads.get()==0&&queue.retainedTickets()==0);
+                        if(mode.equals("transfer-other-controller")){
+                            try(MdoBrowserCdpDownloads other=new MdoBrowserCdpDownloads(queue,budget)){
+                                result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{refused("cdp_controller_busy",()->binding.attachDownloads(other.connection()));return new byte[]{1};},complete);
+                                waitFor(()->result.get()!=null,c.host,true);check(result.get().code==null&&other.list().length==0&&downloads.list().length==1&&budget.used()==1);
+                            }
+                        }
+                        boolean cancel=mode.equals("transfer-cancel")||mode.equals("transfer-other-controller"),limit=mode.equals("transfer-limit");
+                        boolean pendingEpoch=mode.equals("transfer-pending-epoch"),frameEpoch=mode.equals("transfer-frame-epoch")||mode.equals("transfer-ancestor");
+                        if(mode.equals("transfer-retired-binding")){
+                            result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{marker.lease().invalidate();check(!connection.attachedTurn(handoff,binding,100));return new byte[]{1};},complete);
+                            waitFor(()->result.get()!=null,c.host,true);check(result.get().code.equals("cdp_worker_cancelled")&&handoff.current());pendingEpoch=true;
+                        }
+                        if(pendingEpoch){marker.lease().invalidate();failure("download_frame_changed",()->downloads.accept(id,65536,3000));}
+                        else if(cancel)downloads.cancel(id);else if(limit)downloads.accept(id,2,3000);
+                        else{
+                            c.backend.holdRead=mode.equals("transfer-epoch")||mode.equals("transfer-detach")||frameEpoch;downloads.accept(id,65536,3000);
+                            if(c.backend.holdRead){waitFor(()->c.backend.lateRead.get()>0,c.host,true);
+                                if(mode.equals("transfer-epoch"))marker.lease().invalidate();else if(frameEpoch)c.backend.wire.add(new JSONObject().put("method","Page.frameStartedLoading").put("sessionId","proof-real").put("params",new JSONObject().put("frameId",mode.equals("transfer-ancestor")?"frame-owned":"root-local")));else c.backend.wire.add(detached("proof-real"));
+                            }
+                        }
+                        waitFor(()->{try{return downloads.get(id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);MdoBrowserCdpDownloads.Snapshot done=downloads.get(id);
+                        check(responseField.get(retained)==null);
+                        if(cancel||limit||mode.equals("transfer-epoch")||pendingEpoch||frameEpoch){
+                            check(!done.verified&&done.sourceCleanupConfirmed&&done.cacheCleanupConfirmed&&c.backend.responseAborts.get()==1);
+                            if(mode.equals("transfer-epoch")||frameEpoch){check(!done.frameCurrent&&done.error.equals("download_frame_changed")&&c.backend.bodyCloses.get()==1&&handoff.current());
+                                c.backend.wire.add(ack(c.backend.lateRead.get(),"proof-real").put("result",new JSONObject().put("data","unread-late-bytes").put("eof",true)));int before=c.backend.receives.get();waitFor(()->c.backend.receives.get()>before+2,c.host,true);check(handoff.current());
+                            }else check(c.backend.bodyClaims.get()==0&&queue.retainedTickets()==0&&done.error.equals(pendingEpoch?"download_frame_changed":limit?"download_limit":"cancelled"));
+                        }else if(mode.equals("transfer-detach")){waitFor(promoted::ended,c.host,true);check(!done.verified&&!done.sourceCleanupConfirmed&&!handoff.current()&&c.backend.closes.get()==1);}
+                        else{
+                            check(done.state.equals("completed")&&done.verified&&done.sourceCleanupConfirmed&&done.received==3&&done.sha256.equals("26a66b061e8f48f39927c312f25293959729eee95978e2892d49d3512a5cc092"));
+                            if(mode.equals("transfer-close-retain")){handoff.close();waitFor(promoted::ended,c.host,true);check(downloads.get(id).verified&&downloads.get(id).sourceCleanupConfirmed&&!downloads.get(id).frameCurrent);}
+                            MdoBrowserDownloadQueue.Read read=downloads.read(id,0,10);waitFor(read::finished,c.host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);
+                            if(mode.equals("transfer-rebind")){
+                                marker.lease().invalidate();MdoBrowserCdpMarker next=product.documentMarker("owned",promoted,handoff);MdoBrowserCdpPopupNative.Document nextProof=promoted.document(next);result.set(null);
+                                c.host.worker.submitDocument(next,handoff,nextProof,3000,false,(binding,deadline)->{binding.frames().inventory(deadline);binding.attachDownloads(connection);return new byte[]{1};},complete);
+                                waitFor(()->result.get()!=null,c.host,true);check(result.get().code==null&&renderer.resets==1&&downloads.get(id).verified&&!downloads.get(id).frameCurrent);
+                                c.backend.wire.add(responsePaused("response-extra",mode));waitFor(()->{try{return downloads.list().length==2;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
+                                MdoBrowserCdpDownloads.Snapshot second=downloads.list()[1];check(second.state.equals("pending")&&second.frameCurrent&&!second.sourceDocument.equals(done.sourceDocument)&&budget.used()==2);
+                                downloads.cancel(second.id);waitFor(()->{try{return downloads.get(second.id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);
+                                MdoBrowserCdpDownloads.Release released=downloads.release(second.id);waitFor(released::finished,c.host,true);check(released.released()&&budget.used()==1&&downloads.get(id).verified);
+                            }
+                        }
+                        if(!mode.equals("transfer-detach")){MdoBrowserCdpDownloads.Release release=downloads.release(id);waitFor(release::finished,c.host,true);check(release.released()&&budget.used()==0&&downloads.list().length==0);}
+                    }
+                    check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.continues.get()==1);
+                    if(handoff.current()){handoff.close();waitFor(promoted::ended,c.host,true);}check(view.destroyed==1&&c.backend.closes.get()==1&&c.backend.detaches.get()==0);
+                    downloads.close();queue.close();check(queue.awaitStopped(3000)&&!queue.cleanupFailed()&&queue.reservations()==0&&queue.retainedReads()==0&&budget.used()==0);
+                }finally{java.nio.file.Files.deleteIfExists(root.resolve(".mdo-browser-download-owner-v1"));java.nio.file.Files.delete(root);renderer.wire.close();}
             }
         }
     }
@@ -1386,7 +1483,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("response"))managedResponse(mode,args[1]);
+        if(mode.startsWith("transfer"))managedTransfers(mode,args[1]);
+        else if(mode.startsWith("response"))managedResponse(mode,args[1]);
         else if(mode.startsWith("document"))managedDocument(mode);
         else if(mode.startsWith("activation"))managedActivation(mode);
         else if(mode.startsWith("handoff"))protectedHandoff(mode);
@@ -1408,6 +1506,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }
