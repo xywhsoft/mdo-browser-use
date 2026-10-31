@@ -15,10 +15,12 @@ final class MdoBrowserCdpPopupNative {
     static final class Child implements AutoCloseable {
         private final MdoBrowserPopups.Scope source;private final MdoBrowserCdpMarker.Lease opener;
         private final WeakReference<MdoBrowserCdpMarker> marker;private final MdoBrowserCdpMarker.Lease lease;
+        private final MdoBrowserLifecycle.Fresh<WebView> birth;
         private final AtomicBoolean live=new AtomicBoolean(true),queued=new AtomicBoolean(),attempted=new AtomicBoolean();
         private final AtomicReference<MdoBrowserCdpSession.ControlResult> proof=new AtomicReference<>();
-        private Child(MdoBrowserPopups.Scope source,MdoBrowserCdpMarker.Lease opener,MdoBrowserCdpMarker marker){this.source=source;this.opener=opener;this.marker=new WeakReference<>(marker);lease=marker.lease();}
-        boolean current(){return live.get()&&source.current()&&opener.current()&&lease.current();}
+        private Child(MdoBrowserPopups.Scope source,MdoBrowserCdpMarker.Lease opener,MdoBrowserCdpMarker marker,MdoBrowserLifecycle.Fresh<WebView> birth){this.source=source;this.opener=opener;this.marker=new WeakReference<>(marker);lease=marker.lease();this.birth=birth;}
+        boolean current(){return live.get()&&birth.current()&&source.current()&&opener.current()&&lease.current();}
+        boolean nativeDestroyed(){return birth.destroyed();}
         boolean belongsTo(MdoBrowserCdpMarker.Lease exact){return opener==exact;}
         boolean ownedBy(MdoBrowserCdpBinding.Network.PopupSource source){return source!=null&&source.owns(opener);}
         MdoBrowserCdpMarker marker(){return marker.get();}
@@ -58,15 +60,16 @@ final class MdoBrowserCdpPopupNative {
     boolean ready(){thread();MdoBrowserPopups<WebView> core=owner.get();return claimed&&core!=null&&core.readyProtocol(scope);}
     boolean live(){MdoBrowserPopups.Scope value=scope;return value!=null&&value.current();}
     MdoBrowserPopups.Pending pending(){thread();MdoBrowserPopups<WebView> core=owner.get();return claimed&&core!=null?core.pendingProtocol(scope):null;}
-    MdoBrowserPopups.Adoption adopt(MdoBrowserPopups.Pending original,WebView child){
+    MdoBrowserPopups.Adoption adopt(MdoBrowserPopups.Pending original,MdoBrowserLifecycle.Fresh<WebView> child){
         thread();MdoBrowserPopups<WebView> core=owner.get();
-        if(!claimed||core==null)throw new IllegalStateException("popup_request_unavailable");
-        return core.adoptProtocol(scope,original,child);
+        if(!claimed||core==null||original==null||core.pendingProtocol(scope)!=original||!original.current()||child==null)throw new IllegalStateException("popup_request_unavailable");
+        return core.adoptProtocol(scope,original,child.claim(view.get()));
     }
-    Child child(MdoBrowserPopups.Adoption original,WebView exact,MdoBrowserCdpView adapter)throws IOException {
+    Child child(MdoBrowserPopups.Adoption original,MdoBrowserLifecycle.Fresh<WebView> birth,MdoBrowserCdpView adapter)throws IOException {
         thread();try{MdoBrowserPopups<WebView> core=owner.get();
+            WebView exact=birth==null?null:birth.attached(view.get());
             if(!claimed||core==null||adapter==null||!adapter.popupCurrent(exact)||adapter.physicalLease(exact).busy())throw new IOException("cdp_popup_native_child_invalid");
-            Child child=new Child(scope,lease,adapter.marker());
+            Child child=new Child(scope,lease,adapter.marker(),birth);
             if(!core.claimAdopted(scope,original,exact))throw new IOException("cdp_popup_native_child_invalid");return child;
         }catch(RuntimeException|OutOfMemoryError error){throw new IOException("cdp_popup_native_child_invalid");}
     }

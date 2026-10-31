@@ -20,6 +20,8 @@
         UploadDataEntry created=new UploadDataEntry(view);uploadDataOwners.put(key,created);return created.owner;
     }
     private void retireUploadData(WebView view){
+        // Post-destroy only: removal or retiring a proof is not native teardown.
+        views.viewDestroyed(view);
         retireUploadTargets(view);
         for(Iterator<UploadEntry> at=uploadOwners.values().iterator();at.hasNext();){UploadEntry entry=at.next();if(entry.view==view){entry.scope.cancel();at.remove();}}
         for(Iterator<UploadDataEntry> at=uploadDataOwners.values().iterator();at.hasNext();){UploadDataEntry entry=at.next();if(entry.view==view){entry.owner.close();at.remove();}}

@@ -9937,3 +9937,64 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Exact UI teardown/detach, guarded bootstrap/resume, scoped body routing and
   broader platform qualification/delivery remain. Public protected Android popup
   admission and provider/framework/automation qualification stay false.
+
+## E122 — fresh native child registry and exact destruction receipts (2026-10-31)
+
+- Continue sequentially in this project on master. The phone and its current
+  WebView remain deferred; no ADB inventory, install or provider-change request.
+- The UI lifecycle registry now issues an opaque Fresh token immediately after
+  the host constructs its own popup WebView, before configuration, navigation or
+  transport. It binds the exact opener reference/generation and child instance;
+  no tab ID, blank existing view or previously registered instance can substitute.
+  The private typed native adoption/marker adapter accepts this token, once,
+  rather than an arbitrary WebView supplied by its caller. Worker-held child
+  handles keep only weak/data lifetime evidence, with no native UI operation.
+- Pre-adoption navigation, manual takeover, hiding and background transitions
+  invalidate birth authority; returning control does not revive it. Legitimate
+  native navigation after adoption remains possible. A stale birth prevents child
+  proof even when the original source and physical marker are independently live.
+- Removed popup children keep their exact tab key and one of the eight native
+  capacity slots until the host's exact WebView.destroy() call returns and the
+  post-destroy hook acknowledges that same instance. The final shutdown inventory
+  includes these retiring instances. Value-equal/late callbacks cannot release a
+  replacement, and reentrant input cancellation cannot take a retiring key.
+  Proof close, input cancellation, registry removal and timeout are not physical
+  destruction receipts. Input cleanup, target detach and process disable ACK
+  remain separate; a destroyed native view does not mask another cleanup failure.
+- Actual product creation checks capacity/retiring keys before construction and
+  rejects a missing registered opener without allocating a child. It claims birth
+  before marking native handoff as possibly sent, preserving pre-handoff cleanup.
+  The legacy product fixture now registers its actual opener instead of only a
+  controller; E122-product-before.log records that old fixture mismatch, not a
+  reproduced installed-provider defect. Final product UI checks pass 660/13 hashes.
+- Input contract checks pass 177, lifecycle 150, channel 22, guard 63, wheel 66 and
+  hover 82 (E122-input-final.log). Final native-source/controller checks pass 169,
+  including foreign birth, one-use claims, native acknowledgement versus proof
+  retirement and independently stale registry births. All 26 shared-worker modes
+  pass 899. E122-native-verified.log is authoritative for 118 current input hashes;
+  earlier E122-native/final logs are earlier revisions. ASan/UBSan/API26/JVM/JNI,
+  balanced transport resources, broker flows and worker-exit fences remain passing.
+- Popup callback gates pass 110/25; JS/C saving passes 47 and binds current native
+  receipt f2daab218e27f7ca1d6f146a23aca23967c6a1c037d2483a72402ee7862c0661.
+  Python passes 173/175 in 51.752 seconds, with two Windows symlink-privilege skips.
+- Apply reviewed changes while stopped and rebuild the actual Android Java/DEX/APK,
+  requiring the new Lifecycle$Fresh definition. Eight JNI exports, retained v2/v3
+  signer, private provider, ARM64/16 KiB/zip alignment and exact app/native payloads
+  pass. APK: 6,505,793 bytes, SHA-256
+  c466165ee2e23eaf4e81f7a59cb196311ff18961cf5d1f04e2190b59f7586c92.
+  Reuse the unchanged verified ARM64 host and Windows/plugin bytes.
+- E122-final-identities.log checks current native 118/popup eight/save six/product
+  13 hashes and APK/source/archive/plugin identities. It explicitly rechecks the
+  unchanged E118 actual Windows frame/input 301 and native-host identity, E105
+  world/document proofs and applicable E106 JS/packed Windows evidence; these are
+  reused evidence, not fresh platform runs. Service restored: HTTP 200, port 63625,
+  PID 10788; deployment about 3,442.7 MiB, D: about 38.8 GiB free. No extra app/Home/
+  source copy, runtime dependency, model call, external browser page, publication
+  or production account/config change.
+- Goal remains active. Fresh construction/destruction admission is integrated in
+  the actual host and typed private adapter; the protected product coordinator,
+  original native contents swap and complete pending-target capture are still
+  unqualified. Guarded bootstrap/resume, body routing, platform qualification and
+  delivery remain. Public protected Android popup admission and all installed-
+  provider/framework/automation qualification flags remain false. No fallback to
+  main-world automation is introduced for the user's preserved WebView version.

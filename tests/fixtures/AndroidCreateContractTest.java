@@ -32,10 +32,15 @@ public final class AndroidCreateContractTest {
         check(original.loads==1&&original.destroys==0&&host.views.size()==1,"Unsupported isolated world broke manual browsing");
         check(host.profileRequests.size()==1&&host.profileRequests.get(0)==null,"Manual view requested an automation profile");
         host.create("tab",request(false));check(host.created.size()==1&&original.loads==1,"Reattachment recreated or reloaded the page");
-        AndroidCreateHost.MdoBrowserPopups<AndroidCreateHost.WebView> parent=new AndroidCreateHost.MdoBrowserPopups<>();parent.deferred=true;host.windows.put("opener",parent);
-        host.create("child",new AndroidCreateHost.JSONObject().put("popup","popup").put("opener","opener"));AndroidCreateHost.WebView child=host.created.get(1);
+        AndroidCreateHost.MdoBrowserPopups<AndroidCreateHost.WebView> parent=new AndroidCreateHost.MdoBrowserPopups<>();parent.deferred=true;host.windows.put("tab",parent);
+        host.windows.put("missing-view",parent);
+        try{host.create("orphan",new AndroidCreateHost.JSONObject().put("popup","popup").put("opener","missing-view"));throw new AssertionError("Missing native opener accepted");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("popup_request_unavailable")&&host.created.size()==1&&parent.adopts==0,"Missing opener allocated a native view");}
+        host.create("child",new AndroidCreateHost.JSONObject().put("popup","popup").put("opener","tab"));AndroidCreateHost.WebView child=host.created.get(1);
         check(parent.adopts==1&&child.loads==0&&child.destroys==0&&host.popupLinks.containsKey("child"),"Pending native popup was replayed or destroyed");
         parent.pending.done(true,null,true);check(host.popupLinks.get("child").ready&&child.loads==0,"Popup confirmation navigated to another page");
+        host.closeCommand("child");check(child.destroys==1&&host.views.size()==1,"Native popup destruction did not release original child reservation");
+        host.create("child",request(false));check(host.created.size()==3&&host.views.get("child")!=child,"Destroyed popup kept a reusable tab key reserved");
     }
     static void failedCleanup()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();host.fault="destroy";

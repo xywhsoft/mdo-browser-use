@@ -20,7 +20,8 @@ public final class CdpPopupNativeProbe {
         void ack(){consumed.run();}
     }
     private static final class Case implements AutoCloseable {
-        final WebView view=new WebView();boolean actionOwned=true,ownerFailure;long epoch=1,now;
+        final WebView view=new WebView();boolean actionOwned=true,ownerFailure;long epoch=1,now;int births;
+        final MdoBrowserLifecycle<WebView> views=PopupLifecycleFixture.registry();
         final MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);
         final List<Runnable> timers=new ArrayList<>();
         final MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,v->{if(ownerFailure)throw new IllegalStateException("controlled-owner-failure");return v==view&&actionOwned;},new MdoBrowserCdpMarker.DocumentQuota());
@@ -28,8 +29,9 @@ public final class CdpPopupNativeProbe {
             public long now(){return now;}public void at(Runnable task,long at){timers.add(task);}public void remove(Runnable task){timers.remove(task);}
         },budget,()->true,()->epoch,blocked->{});
         final MdoBrowserCdpPopupNative source;
-        Case()throws Exception{source=new MdoBrowserCdpPopupNative(adapter,view,core);source.claim(adapter.marker().lease());}
-        public void close(){core.close();core.viewDestroyed(view);adapter.close();check(budget.used()==0&&timers.isEmpty());}
+        Case()throws Exception{views.put("root",view);source=new MdoBrowserCdpPopupNative(adapter,view,core);source.claim(adapter.marker().lease());}
+        MdoBrowserLifecycle.Fresh<WebView> fresh(WebView child){return views.putPopup("child"+(++births),view,child);}
+        public void close(){PopupLifecycleFixture.destroyAll(views);core.close();core.viewDestroyed(view);adapter.close();check(budget.used()==0&&timers.isEmpty());}
     }
     private static void ownership()throws Exception{
         try(Case c=new Case()){
@@ -53,37 +55,39 @@ public final class CdpPopupNativeProbe {
             MdoBrowserPopups.Pending pending=c.source.pending(),wrong=foreign.source.pending();
             check(pending!=null&&pending==c.source.pending()&&pending.current()&&!pending.userInitiated&&pending.epoch==1);
             check(wrong!=null&&wrong.userInitiated);
-            denied(()->c.source.adopt(wrong,new WebView()));denied(()->c.source.adopt(pending,c.view));denied(()->c.source.adopt(pending,null));
+            MdoBrowserLifecycle.Fresh<WebView> foreignChild=foreign.fresh(new WebView());
+            denied(()->c.source.adopt(pending,foreignChild));check(foreignChild.claim(foreign.view)!=null&&original.sends==0);
+            denied(()->c.source.adopt(wrong,c.fresh(new WebView())));denied(()->c.source.adopt(pending,c.fresh(c.view)));denied(()->c.source.adopt(pending,null));
             denied(()->c.core.adopt(pending.id,new WebView(),(ok,code,may)->{}));check(original.sends==0&&pending.current());
-            WebView child=new WebView();MdoBrowserPopups.Adoption receipt=c.source.adopt(pending,child);
+            WebView child=new WebView();MdoBrowserPopups.Adoption receipt=c.source.adopt(pending,c.fresh(child));
             check(original.sends==1&&original.child==child&&!pending.current()&&c.source.pending()==null);
             check(receipt.pending()&&!receipt.ok()&&!receipt.nativeConsumed()&&receipt.mayHaveOccurred());
             check(c.core.adoptedTo(receipt,child)&&!c.core.adoptedTo(receipt,new WebView())&&!foreign.core.adoptedTo(receipt,child));
-            denied(()->c.source.adopt(pending,new WebView()));original.ack();original.ack();
+            denied(()->c.source.adopt(pending,c.fresh(new WebView())));original.ack();original.ack();
             check(!receipt.pending()&&receipt.ok()&&receipt.nativeConsumed()&&receipt.failure()==null&&original.sends==1&&c.budget.used()==0);
             c.source.reject();check(c.source.confirmed());c.source.finish(true);
             c.source.claim(c.adapter.marker().lease());check(c.source.ready());
             Transport replacement=new Transport();check(c.core.open(replacement,false));MdoBrowserPopups.Pending next=c.source.pending();
-            check(next!=null&&next!=pending&&!pending.current());denied(()->c.source.adopt(pending,new WebView()));check(replacement.sends==0);
+            check(next!=null&&next!=pending&&!pending.current());denied(()->c.source.adopt(pending,c.fresh(new WebView())));check(replacement.sends==0);
             c.source.reject();replacement.ack();check(!next.current()&&c.source.confirmed());c.source.finish(true);
             foreign.source.reject();other.ack();foreign.source.finish(true);
         }
         for(int mode=0;mode<5;mode++)try(Case c=new Case()){
             check(c.source.ready());Transport original=new Transport();check(c.core.open(original,false));MdoBrowserPopups.Pending pending=c.source.pending();
             original.fail=mode==0;original.oom=mode==1;original.inline=mode==4;
-            MdoBrowserPopups.Adoption receipt=c.source.adopt(pending,new WebView());
+            MdoBrowserPopups.Adoption receipt=c.source.adopt(pending,c.fresh(new WebView()));
             if(mode<2){check(!receipt.pending()&&!receipt.ok()&&receipt.failure().equals("popup_transport_unconfirmed"));original.ack();check(!receipt.ok()&&receipt.nativeConsumed());}
             else if(mode==2){c.actionOwned=false;original.ack();check(!receipt.ok()&&receipt.nativeConsumed()&&receipt.failure().equals("popup_source_changed"));}
             else if(mode==3){c.now=5001;for(Runnable timer:new ArrayList<>(c.timers))timer.run();check(!receipt.ok()&&receipt.failure().equals("popup_transport_unconfirmed"));original.ack();check(!receipt.ok());}
             else check(receipt.ok()&&receipt.nativeConsumed()&&!receipt.pending());
-            check(original.sends==1&&!pending.current());denied(()->c.source.adopt(pending,new WebView()));
+            check(original.sends==1&&!pending.current());denied(()->c.source.adopt(pending,c.fresh(new WebView())));
         }
     }
     private static void stale()throws Exception{
         try(Case c=new Case()){
             check(c.source.ready());Transport nativeWindow=new Transport();check(c.core.open(nativeWindow,false));MdoBrowserPopups.Pending pending=c.source.pending();
             c.actionOwned=false;check(!c.source.current()&&!c.source.live()&&!pending.current());c.actionOwned=true;
-            check(!c.source.current()&&!c.source.ready());denied(()->c.source.adopt(pending,new WebView()));check(nativeWindow.sends==0);
+            check(!c.source.current()&&!c.source.ready());denied(()->c.source.adopt(pending,c.fresh(new WebView())));check(nativeWindow.sends==0);
             c.source.reject();check(nativeWindow.sends==1&&nativeWindow.child==null);nativeWindow.ack();check(c.source.confirmed());c.source.finish(true);
             c.source.claim(c.adapter.marker().lease());check(c.source.ready());
             c.epoch++;check(!c.source.current());c.source.reject();check(c.source.confirmed());c.source.finish(true);
@@ -109,7 +113,7 @@ public final class CdpPopupNativeProbe {
         }
         try(Case c=new Case()){
             check(c.source.ready());Transport original=new Transport();check(c.core.open(original,false));MdoBrowserPopups.Pending expired=c.source.pending();
-            c.now=15000;denied(()->c.source.adopt(expired,new WebView()));
+            c.now=15000;denied(()->c.source.adopt(expired,c.fresh(new WebView())));
             check(original.sends==1&&original.child==null&&!expired.current());original.ack();c.source.reject();check(c.source.confirmed());c.source.finish(true);
         }
         try(Case c=new Case()){
@@ -122,26 +126,49 @@ public final class CdpPopupNativeProbe {
     private static void childMarker()throws Exception{
         try(Case c=new Case();Case other=new Case()){
             check(c.source.ready()&&other.source.ready());Transport original=new Transport();check(c.core.open(original,false));WebView view=new WebView();
-            MdoBrowserPopups.Adoption adoption=c.source.adopt(c.source.pending(),view);
+            MdoBrowserLifecycle.Fresh<WebView> fresh=c.fresh(view);
+            MdoBrowserPopups.Adoption adoption=c.source.adopt(c.source.pending(),fresh);
             try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota())){
-                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,view,adapter));
+                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,fresh,adapter));
                 original.ack();check(adoption.ok());
-                unavailable("cdp_popup_native_child_invalid",()->other.source.child(adoption,view,adapter));
-                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,new WebView(),adapter));
-                try(MdoBrowserCdpPopupNative.Child child=c.source.child(adoption,view,adapter)){
+                unavailable("cdp_popup_native_child_invalid",()->other.source.child(adoption,fresh,adapter));
+                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,c.fresh(new WebView()),adapter));
+                try(MdoBrowserCdpPopupNative.Child child=c.source.child(adoption,fresh,adapter)){
                     check(child.current()&&child.belongsTo(c.source.lease())&&!child.belongsTo(other.source.lease())&&child.proof()==null&&view.evaluations==0);
-                    unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,view,adapter));
+                    unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,fresh,adapter));
                     java.util.concurrent.atomic.AtomicBoolean permit=new java.util.concurrent.atomic.AtomicBoolean(true);
                     MdoBrowserCdpMarker.Ticket ticket=child.marker().request(permit::get);permit.set(false);android.os.Handler.drain();
                     check(!ticket.pending()&&!ticket.confirmed()&&ticket.failure().equals("cdp_binding_owner_changed")&&view.evaluations==0);ticket.close();
                     c.core.cancel();check(!child.current());child.close();check(!child.current()&&!child.proof().ok&&!child.proof().effectMayHaveOccurred);
+                    check(!child.nativeDestroyed());c.views.remove("child1");check(!child.nativeDestroyed());
+                    c.views.viewDestroyed(new WebView());check(!child.nativeDestroyed());c.views.viewDestroyed(view);check(child.nativeDestroyed());
                 }
             }
             c.source.reject();check(c.source.confirmed());c.source.finish(true);other.source.reject();other.source.finish(true);
         }
     }
+    private static void birthInvalidation()throws Exception{
+        for(int mode=0;mode<4;mode++)try(Case c=new Case()){
+            check(c.source.ready());Transport original=new Transport();check(c.core.open(original,false));WebView view=new WebView();
+            MdoBrowserLifecycle.Fresh<WebView> fresh=c.fresh(view);MdoBrowserPopups.Adoption adoption=c.source.adopt(c.source.pending(),fresh);original.ack();
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
+                MdoBrowserCdpPopupNative.Child child=c.source.child(adoption,fresh,adapter)){
+                check(child.current()&&c.source.live()&&adapter.popupCurrent(view));
+                if(mode==0){c.views.manual("child1",view,true);c.views.manual("child1",view,false);}
+                if(mode==1){c.views.visibility("child1",view,false);c.views.visibility("child1",view,true);}
+                if(mode==2){c.views.background(true);c.views.background(false);}
+                if(mode==3)c.views.remove("child1");
+                check(c.source.live()&&adapter.popupCurrent(view)&&!child.current()&&!child.enqueue()&&!child.nativeDestroyed());
+                // Neither a live source/marker nor closing its proof can revive
+                // a stale registry birth or certify physical destruction.
+                child.close();check(!child.nativeDestroyed());
+                if(mode==3){c.views.viewDestroyed(view);check(child.nativeDestroyed());}
+            }
+            c.source.reject();check(c.source.confirmed());c.source.finish(true);
+        }
+    }
     public static void main(String[] args)throws Exception{
-        ownership();adoption();stale();cancellation();childMarker();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

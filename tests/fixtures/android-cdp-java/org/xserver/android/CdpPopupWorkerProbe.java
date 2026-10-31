@@ -187,9 +187,10 @@ public final class CdpPopupWorkerProbe {
     }
     private static final class NativeSource implements AutoCloseable {
         final CdpNetworkWorkerProbe.Case host;final MdoBrowserPopups<WebView> core;final MdoBrowserCdpPopupNative source;
+        final MdoBrowserLifecycle<WebView> views=PopupLifecycleFixture.registry();int births;
         final MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);final WebView view;int sends;Runnable consumed;boolean fail;WebView adopting;
         NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network)throws Exception{
-            this.host=host;view=network.view;
+            this.host=host;view=network.view;views.put("root",view);
             core=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
                 public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}
             },budget,()->true,()->1L,blocked->check(host.ui.onThread()));
@@ -199,11 +200,12 @@ public final class CdpPopupWorkerProbe {
             private final Object token=new Object();public Object token(){return token;}
             public void send(WebView child,Runnable callback){check(host.ui.onThread()&&child==adopting);sends++;consumed=callback;if(fail)throw new IllegalStateException("controlled-native-send-failure");}
         },false));}
+        MdoBrowserLifecycle.Fresh<WebView> fresh(WebView child){return views.putPopup("child"+(++births),view,child);}
         void ack(){check(host.ui.onThread());consumed.run();}
         boolean blocked(){return !core.open(new MdoBrowserPopups.Transport<WebView>(){
             public Object token(){return this;}public void send(WebView child,Runnable callback){throw new AssertionError("Blocked callback dispatched");}
         },false);}
-        public void close(){core.close();core.viewDestroyed(view);}
+        public void close(){PopupLifecycleFixture.destroyAll(views);core.close();core.viewDestroyed(view);}
     }
     private static JSONObject detached(String id)throws Exception{return new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId",id));}
     private static void nativeJoin(boolean detachFirst)throws Exception{
@@ -302,10 +304,10 @@ public final class CdpPopupWorkerProbe {
                 Observer observer=new Observer(c);MdoBrowserCdpPopupWorker.Request request=c.worker.prepareNativePopups(source.source,1500,observer);ready(c,request,observer);
                 source.open();backend.wire.add(attached("proof-decoy","owned"));backend.wire.add(attached("proof-real","owned"));waitFor(()->observer.candidates.size()==2,c,true);
                 if(!variant.equals("no-guard")){for(MdoBrowserCdpPopupBroker.Candidate candidate:observer.candidates)check(candidate.requestProtection());waitFor(()->observer.protectedTargets.size()==2,c,true);}
-                WebView childView=new WebView();source.adopting=childView;MdoBrowserPopups.Adoption adoption=source.source.adopt(source.source.pending(),childView);source.ack();
+                WebView childView=new WebView();source.adopting=childView;MdoBrowserLifecycle.Fresh<WebView> fresh=source.fresh(childView);MdoBrowserPopups.Adoption adoption=source.source.adopt(source.source.pending(),fresh);source.ack();
                 check(adoption.ok()&&adoption.nativeConsumed()&&source.sends==1);
                 try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(childView,v->v==childView,new MdoBrowserCdpMarker.DocumentQuota());
-                    MdoBrowserCdpPopupNative.Child child=source.source.child(adoption,childView,adapter)){
+                    MdoBrowserCdpPopupNative.Child child=source.source.child(adoption,fresh,adapter)){
                     CountDownLatch entered=variant.equals("owner")||variant.equals("cancel")?new CountDownLatch(1):null,release=entered==null?null:new CountDownLatch(1);
                     CdpBindingProbe.Factory real=proofPeer(childView,variant,entered,release),decoy=proofPeer(new WebView(),"success",null,null);
                     if(variant.equals("between"))decoy.extra=new CdpBindingProbe.Factory.Extra(){
@@ -370,9 +372,9 @@ public final class CdpPopupWorkerProbe {
         CdpNetworkBindingProbe.Context other=c.source();
         try(NativeSource source=new NativeSource(c,other)){
             source.source.claim(other.adapter.marker().lease());check(source.source.ready());source.open();WebView view=new WebView();source.adopting=view;
-            MdoBrowserPopups.Adoption adoption=source.source.adopt(source.source.pending(),view);source.ack();
+            MdoBrowserLifecycle.Fresh<WebView> fresh=source.fresh(view);MdoBrowserPopups.Adoption adoption=source.source.adopt(source.source.pending(),fresh);source.ack();
             try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
-                MdoBrowserCdpPopupNative.Child child=source.source.child(adoption,view,adapter)){
+                MdoBrowserCdpPopupNative.Child child=source.source.child(adoption,fresh,adapter)){
                 failure("cdp_popup_native_proof_unavailable",()->original.proveNative(child));check(child.proof()==null&&backend.nativeOpens.get()==0&&view.evaluations==0);
             }
             source.source.reject();check(source.source.confirmed());source.source.finish(true);

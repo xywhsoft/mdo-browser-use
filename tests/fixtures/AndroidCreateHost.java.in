@@ -204,7 +204,7 @@ final class AndroidCreateHost {
     @@DOCUMENT_NAVIGATION@@
     @@DOCUMENT_LOADED@@
     void notifyPopup(String key){}
-    void retireUploadData(WebView view){retired++;}
+    void retireUploadData(WebView view){views.viewDestroyed(view);retired++;}
     void cancelUpload(String key,WebView view){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
     Runnable beforeScopedReply;

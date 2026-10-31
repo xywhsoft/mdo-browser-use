@@ -36,7 +36,74 @@ public final class AndroidLifecycleContractTest {
         void terminated(String code){check(results.size()==1&&code.equals(results.get(0).code)&&results.get(0).effectMayHaveOccurred,"Input lifetime receipt");
             check(clock.tasks.isEmpty(),"Lifetime retained input timer");}
     }
+    static void freshChildren()throws Exception {
+        Case c=new Case();View parent=new View(),ordinary=new View(),child=new View();
+        c.views.put("root",parent);c.views.put("ordinary",ordinary);
+        rejects(()->c.views.putPopup("ordinary-reused",parent,ordinary));
+        rejects(()->c.views.putPopup("self",parent,parent));
+        rejects(()->c.views.putPopup("foreign",new View(),new View()));
+        MdoBrowserLifecycle.Fresh<View> birth=c.views.putPopup("child",parent,child);
+        check(birth.current()&&!birth.destroyed(),"Fresh child has no original lifetime");
+        rejects(()->birth.attached(parent));rejects(()->birth.claim(new View()));
+        check(birth.claim(parent)==child&&birth.attached(parent)==child,"Birth did not claim exact child");
+        rejects(()->birth.claim(parent));rejects(()->c.views.viewDestroyed(child));
+        c.views.navigation("child",child);
+        check(birth.current()&&birth.attached(parent)==child,"Legitimate native navigation invalidated adopted child");
+        check(c.views.remove("child")==child&&!birth.current()&&!birth.destroyed(),"Removal fabricated native destruction");
+        check(c.views.size()==3&&c.views.values().stream().anyMatch(view->view==child),"Retired child disappeared from native inventory");
+        rejects(()->c.views.checkNew("child"));
+        c.views.viewDestroyed(new View());check(!birth.destroyed(),"Value-equal callback released original child");
+        c.views.viewDestroyed(child);check(birth.destroyed()&&c.views.size()==2,"Exact destruction did not release child capacity");
+        View replacement=new View();c.views.put("child",replacement);c.views.viewDestroyed(child);
+        check(c.views.owns("child",replacement),"Late destruction invalidated replacement");
+        rejects(()->c.views.putPopup("reused",parent,child));
+        c.views.close();
+
+        for(String reason:new String[]{"navigation","manual","visibility","background","parent-navigation"}){
+            Case lifetime=new Case();View root=new View(),popup=new View();lifetime.views.put("root",root);
+            MdoBrowserLifecycle.Fresh<View> fresh=lifetime.views.putPopup("popup",root,popup);
+            switch(reason){
+                case "navigation":lifetime.views.navigation("popup",popup);break;
+                case "manual":lifetime.views.manual("popup",popup,true);lifetime.views.manual("popup",popup,false);break;
+                case "visibility":lifetime.views.visibility("popup",popup,false);lifetime.views.visibility("popup",popup,true);break;
+                case "background":lifetime.views.background(true);lifetime.views.background(false);break;
+                default:lifetime.views.navigation("root",root);
+            }
+            rejects(()->fresh.claim(root));
+            check(!fresh.destroyed(),"Invalidation fabricated destruction");
+            lifetime.views.close();check(lifetime.views.size()==1&&lifetime.views.values().get(0)==popup,"Shutdown lost unconfirmed native child");
+            lifetime.views.viewDestroyed(popup);check(fresh.destroyed()&&lifetime.views.size()==0,"Shutdown did not accept exact final receipt");
+        }
+        Case capacity=new Case();View root=new View();capacity.views.put("root",root);
+        List<View> children=new ArrayList<>();
+        for(int i=0;i<7;i++){View popup=new View();children.add(popup);capacity.views.putPopup("popup"+i,root,popup);capacity.views.remove("popup"+i);}
+        rejects(()->capacity.views.checkNew("overflow"));rejects(()->capacity.views.putPopup("overflow",root,new View()));
+        capacity.views.viewDestroyed(children.get(0));capacity.views.putPopup("replacement",root,new View());
+        check(capacity.views.size()==8,"Unconfirmed native children escaped capacity limit");
+        List<View> owned=capacity.views.values();capacity.views.close();for(View view:owned)capacity.views.viewDestroyed(view);
+        check(capacity.views.size()==0,"Bulk native acknowledgement leaked child capacity");
+
+        Case reentrant=new Case();View owner=new View(),held=new View();reentrant.views.put("root",owner);
+        MdoBrowserLifecycle.Fresh<View> pending=reentrant.views.putPopup("popup",owner,held);pending.claim(owner);
+        boolean[] reserved={false};reentrant.views.input("popup",held).tap(1,1,result->{
+            try{reentrant.views.put("popup",new View());}catch(IllegalStateException expected){reserved[0]=true;}
+        });reentrant.clock.down();reentrant.views.remove("popup");
+        check(reserved[0]&&!pending.destroyed()&&reentrant.views.size()==2,"Reentrant input callback stole pending child's identity");
+        reentrant.views.viewDestroyed(held);reentrant.views.put("popup",new View());reentrant.views.close();
+
+        Case dirty=new Case();View origin=new View(),unclean=new View();dirty.views.put("root",origin);
+        MdoBrowserLifecycle.Fresh<View> retired=dirty.views.putPopup("popup",origin,unclean);
+        dirty.views.input("popup",unclean).tap(1,1,result->{});dirty.clock.down();unclean.clean=false;dirty.views.remove("popup");dirty.views.viewDestroyed(unclean);
+        check(retired.destroyed()&&!dirty.views.cleanupConfirmed(),"Native destruction masked independent input cleanup failure");dirty.views.close();
+
+        Case cross=new Case();View opener=new View(),popup=new View();cross.views.put("root",opener);
+        MdoBrowserLifecycle.Fresh<View> fresh=cross.views.putPopup("popup",opener,popup);boolean[] denied={false};
+        Thread worker=new Thread(()->{try{fresh.claim(opener);}catch(IllegalStateException expected){denied[0]=true;}check(fresh.current()&&!fresh.destroyed(),"Data-only worker receipt changed");});
+        worker.start();worker.join();check(denied[0]&&fresh.claim(opener)==popup,"Worker consumed UI birth token");
+        cross.views.close();cross.views.viewDestroyed(popup);
+    }
     public static void main(String[] args)throws Exception {
+        freshChildren();
         Case replacement=new Case();View original=new View(),next=new View();replacement.views.put("tab",original);replacement.press(original);
         check(replacement.views.epoch("tab",original)==1,"Initial epoch");check(replacement.views.remove("tab")==original,"Wrong retired view");
         replacement.terminated("input_closed");check(original.events.equals(Arrays.asList(0,3)),"Old view was not cancelled before retirement");

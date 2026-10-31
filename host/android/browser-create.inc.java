@@ -13,14 +13,16 @@
                 final MdoBrowserPopups<WebView> popupSource=popupId.isEmpty()?null:windows.get(opener);
                 if(!popupId.isEmpty()){
                     MdoBrowserPopups.Snapshot pending=popupSource==null?null:popupSource.snapshot();
-                    if(opener.equals(key)||pending==null||!pending.id.equals(popupId))throw new IllegalStateException("popup_request_unavailable");
+                    if(opener.equals(key)||views.get(opener)==null||pending==null||!pending.id.equals(popupId))throw new IllegalStateException("popup_request_unavailable");
                 }else if(!opener.isEmpty())throw new IllegalArgumentException("popup_binding_mismatch");
                 if(popupSource!=null&&networkRequired)throw new UnsupportedOperationException("popup_network_unqualified");
-                if(views.size()>=8)throw new IllegalStateException("Native browser view limit reached (8)");
+                views.checkNew(key);
                 String target=popupSource==null?request.optString("url","about:blank"):"about:blank";if(!"about:blank".equals(target))target=url(target);
                 web=new WebView(activity);final WebView createdView=web;
                 try{
-                    views.put(key,web);
+                    final WebView exactOpener=popupSource==null?null:views.get(opener);
+                    final MdoBrowserLifecycle.Fresh<WebView> fresh=popupSource==null?null:views.putPopup(key,exactOpener,web);
+                    if(fresh==null)views.put(key,web);
                     if(popupSource==null)bindDocument(key,web,networkRequired);
                     else documentFailures.put(key,"popup_world_unqualified");
                     web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);
@@ -50,9 +52,10 @@
                     });
                     crashed.remove(key);pageClosed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);loading.put(key,true);
                     if(popupSource!=null){
+                        final WebView freshChild=fresh.claim(exactOpener);
                         final PopupLink link=new PopupLink(web,opener,popupId);popupLinks.put(key,link);
                         final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
-                        popupSource.adopt(popupId,web,(ok,code,mayHaveOccurred)->{
+                        popupSource.adopt(popupId,freshChild,(ok,code,mayHaveOccurred)->{
                             if(!views.owns(key,createdView)||popupLinks.get(key)!=link){reply(lease,id,null,"popup_binding_lost");return;}
                             if(!ok){pageClosed.add(key);createdView.setVisibility(View.INVISIBLE);notifyPopup(key);reply(lease,id,null,code);return;}
                             link.ready=true;
