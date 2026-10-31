@@ -43,6 +43,8 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         default boolean serviceBodies(int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default int pendingControls()throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         default MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.Navigation historyRoot(String frame,int entry,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
+        default MdoBrowserCdpSession.Navigation reloadRoot(String frame,String loader,int timeout)throws IOException {throw new IOException("cdp_session_routing_unsupported");}
         @Override void close();
     }
     interface Factory {Peer open(String target,int timeoutMs,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException;}
@@ -71,6 +73,8 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 public boolean serviceBodies(int timeout)throws IOException{return session.serviceBodies(timeout);}
                 public int pendingControls()throws IOException{return session.pendingControls();}
                 public MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException{return session.navigateRoot(url,frame,timeout);}
+                public MdoBrowserCdpSession.Navigation historyRoot(String frame,int entry,int timeout)throws IOException{return session.historyRoot(frame,entry,timeout);}
+                public MdoBrowserCdpSession.Navigation reloadRoot(String frame,String loader,int timeout)throws IOException{return session.reloadRoot(frame,loader,timeout);}
                 public void close(){session.close();}
             };
         }catch(RuntimeException|Error failure){session.close();throw failure;}
@@ -254,29 +258,57 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
     }
     static final class Network implements AutoCloseable {
+        /** Ephemeral native selection, not a public entry-ID or URL lookup. */
+        private static final class Selection {
+            final int current,entry;final byte[] currentDestination,destination;
+            private Selection(int current,int entry,byte[] currentDestination,byte[] destination){this.current=current;this.entry=entry;this.currentDestination=currentDestination;this.destination=destination;}
+            static Selection read(JSONObject snapshot,String action)throws IOException {
+                try{
+                    if(snapshot==null||!(snapshot.opt("currentIndex") instanceof Integer))throw problem("cdp_history_snapshot_invalid");
+                    JSONArray entries=snapshot.getJSONArray("entries");int index=snapshot.getInt("currentIndex"),size=entries.length();
+                    if(size>512)throw problem("cdp_history_limit");
+                    if(size==0&&index==-1)throw problem("cdp_history_unavailable");
+                    if(index<0||index>=size)throw problem("cdp_history_snapshot_invalid");
+                    Set<Integer> identifiers=new HashSet<>();
+                    for(int i=0;i<size;i++){
+                        JSONObject item=entries.getJSONObject(i);Object id=item.opt("id"),url=item.opt("url");
+                        if(!(id instanceof Integer)||!identifiers.add((Integer)id)||!(url instanceof String)||((String)url).isEmpty()||((String)url).length()>8192)
+                            throw problem("cdp_history_snapshot_invalid");
+                    }
+                    int selected=index+(action.equals("back")?-1:action.equals("forward")?1:0);
+                    if(selected<0||selected>=size)throw problem("cdp_history_unavailable");
+                    JSONObject current=entries.getJSONObject(index),target=entries.getJSONObject(selected);
+                    String currentUrl=current.getString("url"),targetUrl=target.getString("url");
+                    if(!MdoBrowserCdpSession.navigationUrl(currentUrl)||!MdoBrowserCdpSession.navigationUrl(targetUrl))throw problem("cdp_history_destination_unsupported");
+                    return new Selection(current.getInt("id"),target.getInt("id"),MdoBrowserCdpSession.navigationDigest(currentUrl),MdoBrowserCdpSession.navigationDigest(targetUrl));
+                }catch(JSONException invalid){throw problem("cdp_history_snapshot_invalid");}
+            }
+        }
         static final class Navigation {
             private final Network owner;private final long revision;private MdoBrowserCdpSession.Navigation original;
             private final String previousLoader;private final MdoBrowserCdpNetworkFrames.Origin previous;private final byte[] destination;
+            private final Selection selection;
             private Navigation(Network owner,long revision,String previousLoader,MdoBrowserCdpNetworkFrames.Origin previous,byte[] destination){
-                this.owner=owner;this.revision=revision;this.previousLoader=previousLoader;this.previous=previous;this.destination=destination;
+                this(owner,revision,previousLoader,previous,destination,null);
+            }
+            private Navigation(Network owner,long revision,String previousLoader,MdoBrowserCdpNetworkFrames.Origin previous,byte[] destination,Selection selection){
+                this.owner=owner;this.revision=revision;this.previousLoader=previousLoader;this.previous=previous;this.destination=destination;this.selection=selection;
             }
             MdoBrowserCdpSession.NavigationResult result(){return original==null?null:original.result();}
             boolean pending(){return result()==null;}
+            boolean receiptOnly(){return original!=null&&original.receiptOnly;}
             boolean sameDocument(){return original!=null&&original.matchesSameDocument(owner.bound.rootFrame);}
             private boolean matchesDocument(String frame,String loader){return sameDocument()?previous.current()&&owner.bound.rootFrame.equals(frame)&&previousLoader.equals(loader):original!=null&&original.matchesCommittedLoader(frame,loader);}
             void checkDocument(MdoBrowserCdpBinding document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
                 owner.active();document.current();
+                if(selection!=null)throw problem("cdp_navigation_document_unproven");
                 if(!owner.bound.target.equals(document.target)||!matchesDocument(document.rootFrame,document.rootLoader))
                     throw problem("cdp_navigation_document_changed");
                 try{
                     JSONObject root=frame(document.peer,android.os.SystemClock.elapsedRealtime(),deadline.remaining(),document.lease);
                     if(!matchesDocument(root.optString("id"),root.optString("loaderId")))throw problem("cdp_navigation_document_changed");
                     if(sameDocument()){
-                        Object url=root.opt("url"),fragment=root.opt("urlFragment");
-                        if(!(url instanceof String)||root.has("urlFragment")&&(!(fragment instanceof String)||!((String)fragment).isEmpty()&&!((String)fragment).startsWith("#")||((String)url).contains("#")))
-                            throw problem("cdp_navigation_document_unproven");
-                        String location=(String)url+(fragment instanceof String?(String)fragment:"");
-                        byte[] digest=MdoBrowserCdpSession.navigationDigest(location);
+                        byte[] digest=MdoBrowserCdpSession.navigationFrameDigest(root);
                         try{if(!java.security.MessageDigest.isEqual(destination,digest))throw problem("cdp_navigation_destination_changed");}
                         finally{java.util.Arrays.fill(digest,(byte)0);}
                     }
@@ -332,8 +364,31 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             Navigation ticket=new Navigation(this,frames.revision(),frames.rootLoader(),frames.origin(bound.rootFrame),MdoBrowserCdpSession.navigationDigest(url));
             ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);return ticket;
         }
+        Navigation traverseRoot(String action,int timeoutMs)throws IOException {
+            active();if(retiring)throw problem("cdp_network_retiring");
+            if(!Arrays.asList("back","forward","reload").contains(action)||timeoutMs<100||timeoutMs>600000)
+                throw new MdoBrowserCdpSession.Failure("cdp_navigation_arguments_invalid",0,false);
+            Navigation ticket;int budget;long started=android.os.SystemClock.elapsedRealtime();
+            try{
+                MdoBrowserCdpNetworkFrames.Origin previous=frames.origin(bound.rootFrame);String loader=frames.rootLoader();
+                Selection selected=Selection.read(bound.call("Page.getNavigationHistory",new JSONObject(),null,remaining(started,timeoutMs,bound.lease),false),action);
+                JSONObject root=frame(bound.peer,started,timeoutMs,bound.lease);
+                if(!previous.current()||!bound.rootFrame.equals(root.opt("id"))||!loader.equals(root.opt("loaderId")))throw problem("cdp_history_snapshot_changed");
+                byte[] current=MdoBrowserCdpSession.navigationFrameDigest(root);
+                try{if(!java.security.MessageDigest.isEqual(current,selected.currentDestination))throw problem("cdp_history_snapshot_changed");}
+                finally{Arrays.fill(current,(byte)0);}
+                bound.current();long used=android.os.SystemClock.elapsedRealtime()-started;
+                if(used<0||used>timeoutMs-100)throw problem("cdp_navigation_timeout");budget=(int)(timeoutMs-used);
+                ticket=new Navigation(this,frames.revision(),loader,previous,selected.destination,selected);
+            }catch(MdoBrowserCdpSession.Failure failure){throw new MdoBrowserCdpSession.Failure(failure.getMessage(),failure.protocolCode,false);}
+            catch(IOException failure){throw new MdoBrowserCdpSession.Failure("cdp_binding_timeout".equals(failure.getMessage())?"cdp_navigation_timeout":failure.getMessage(),0,false);}
+            catch(JSONException invalid){throw new MdoBrowserCdpSession.Failure("cdp_history_snapshot_invalid",0,false);}
+            ticket.original=action.equals("reload")?bound.peer.reloadRoot(bound.rootFrame,ticket.previousLoader,budget):bound.peer.historyRoot(bound.rootFrame,ticket.selection.entry,budget);
+            return ticket;
+        }
         MdoBrowserCdpNetworkFrames.Origin navigationOrigin(Navigation ticket)throws IOException {
             bound.current();if(ticket==null||ticket.owner!=this)throw problem("cdp_navigation_owner_changed");
+            if(ticket.selection!=null)return null; // An empty ACK is not page completion.
             return ticket.sameDocument()?frames.sameDocumentOrigin(ticket.original,ticket.revision,ticket.previousLoader,ticket.destination,ticket.previous):frames.navigationOrigin(ticket.original,ticket.revision);
         }
         boolean responsesMayHaveOccurred(){return responsesAttempted;}

@@ -23,6 +23,23 @@
     "automatic_retry": false,
     "installed_provider_verified": false,
     "product_navigation_activated": false,
+    "history_controls": {
+      "state": "private_native_receipts_and_selection_staged_completion_join_pending",
+      "actions": ["back", "forward", "reload"],
+      "commands": ["Page.getNavigationHistory", "Page.navigateToHistoryEntry", "Page.reload"],
+      "history_entry_limit": 512,
+      "selection": "native_original_target_currentIndex_and_neighbor_entry_only",
+      "preflight": "original_current_document_loader_and_native_destination_equality",
+      "retained_destination": "sha256_equality_digest_only",
+      "caller_entry_or_loader_id": false,
+      "reload_loader_precondition_required": true,
+      "deadline_includes_preflight": true,
+      "empty_ack_is_page_completion": false,
+      "goto_completion_reused": false,
+      "automatic_retry": false,
+      "ui_route_activated": false,
+      "installed_provider_verified": false
+    },
     "native_commit": {
       "state": "private_original_loader_root_commit_join_packaged",
       "source": "Page.navigate loaderId plus validated Page.frameNavigated root loader",
@@ -76,7 +93,10 @@
         "Its experimental isDownload flag is optional and does not prove file completion",
         "Page.frameNavigated associates the frame with its newly committed loader",
         "Page.documentOpened is a distinct event and cannot establish navigation commitment",
-        "Navigate omits loaderId for same-document navigation"
+        "Navigate omits loaderId for same-document navigation",
+        "getNavigationHistory returns currentIndex and native entry IDs",
+        "navigateToHistoryEntry and reload have empty result acknowledgments",
+        "reload accepts an optional original loaderId precondition"
       ]
     },
     {

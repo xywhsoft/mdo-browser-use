@@ -8579,3 +8579,60 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Android/provider/main-UI/public JS-C verification stays deferred, and all three
   qualification flags remain false. No phone/provider update, formal-data change
   or online publication occurred.
+
+## E103 — stage fixed history/reload receipts and native selection (2026-10-31)
+
+- Add fixed private `Page.navigateToHistoryEntry` and `Page.reload` commands to
+  the existing asynchronous navigation slot. Retain its 4,096 lifetime limit,
+  100 ms send cap, original deadline, typed immutable terminal outcome,
+  owner/session checks, cancellation and no replay. Reload always carries the
+  original native loader precondition; there is no fallback without it. A
+  `-32601` rejection preserves an explicit unsupported/no-effect outcome.
+- Keep empty control ACKs distinct from goto replies: no loader, download
+  classification or document completion is inferred. Nonempty/mismatched ACKs
+  fail closed. The ledger cannot obtain goto or same-document authority from
+  these receipt-only tickets, even if a root commit event also arrives.
+- Native history preflight reads the original physical target's history and
+  selects only its back/forward neighbor or current reload entry. Reject
+  malformed indexes/IDs/URLs, duplicate IDs, unavailable entries, more than 512
+  entries, and unsupported current/selected destinations before mutation. Match
+  the current native root, loader, original document and URL/fragment digest
+  again; include all queries in the original timeout. Preflight failures are
+  explicitly no-effect. Caller entry/loader IDs, provider prose, raw history URLs
+  and titles are neither exposed nor retained in the selection record.
+- Reuse the E102 native frame-destination digest validation, one worker and the
+  existing connection. Extend both native/test peers without adding a public
+  protocol route. Package the new Selection class and require its actual DEX
+  definition, including the negative missing-class contract.
+- Re-read the pinned primary Page protocol definition (same revision/hash in
+  cdp-protocol.json): history entry IDs/currentIndex, empty history/reload ACKs
+  and the optional reload loader precondition. Provider support remains
+  unqualified; the precondition must not be silently omitted on older providers.
+- Full ASan/UBSan, Android API26 compile, real JVM/JNI/JSON and local socket gate
+  passes. Original navigation receipts pass 234 assertions, including two new
+  real control socket sessions with opposite ACK/root-event order. Native
+  physical binding passes 2,327 assertions, including destination/loader/root
+  races, expired preflight budget, provider rejection and no mutation on failed
+  selection. Socket/native allocation and descriptor checks remain strict.
+  Shared worker passes 195; exact product lifecycle passes 450. All 103 native
+  and 13 product source hashes match current bytes.
+- All 364 JS tests pass sequentially (21.566 seconds); Python passes 173/175
+  (48.629 seconds), with the two existing Windows symlink-privilege skips. All
+  seven final APK contracts and 12 actual packed Windows runtime checks pass.
+  Windows artifact is unchanged: 6,937,299 bytes, SHA-256
+  1265e71f1fad8503887dd8c37b5e6144da7e9834a0ce0647efe13ea75b59f99c.
+  Full Android QA APK is 6,468,929 bytes, SHA-256
+  7697032d6519204329a88e120e48a0c8eed3dfd5ae6262b1867fc08a267b3c81.
+  Actual DEX definitions, six JNI exports, original ARM64/16 KiB engine, private
+  provider, source/archive identities and retained v2/v3 signer pass. Native
+  engine and paired 247,351-byte/22-file plugin remain unchanged. Evidence:
+  .mdo/E103-native-current.json, E103-product-current.json,
+  E103-android-receipt.json, E103-final-identities.log and E103 test/build logs.
+- Restore the sole headless service: PID 5520, HTTP 200 on 63625, about 3,441.4
+  MiB. Goal active. This stage does not activate history/reload in UI/JS or claim
+  page completion: original post-history/current-entry and event completion proof,
+  reload correlation, shared/UI admission, same-location no-op qualification,
+  request/download association, remaining transfers and full-goal work remain.
+  Phone/main-UI/installed-provider verification is deferred at the user's request;
+  device/framework/automation qualification stays false. No provider update,
+  formal-data change or online publication occurred.

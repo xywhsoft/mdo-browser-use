@@ -76,8 +76,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     static final class Navigation {
         private final int id,timeout;private final long born;private final String frame;
+        final boolean receiptOnly;
         private final AtomicReference<NavigationResult> outcome=new AtomicReference<>();private volatile boolean issued;private volatile String loader;
-        private Navigation(int id,String frame,long born,int timeout){this.id=id;this.frame=frame;this.born=born;this.timeout=timeout;}
+        private Navigation(int id,String frame,long born,int timeout,boolean receiptOnly){this.id=id;this.frame=frame;this.born=born;this.timeout=timeout;this.receiptOnly=receiptOnly;}
         NavigationResult result(){return outcome.get();}
         boolean pending(){return result()==null;}
         boolean effectMayHaveOccurred(){NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
@@ -447,6 +448,24 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     Navigation navigateRoot(String url,String frame,int timeoutMs)throws IOException {
         guard(false);
         if(timeoutMs<100||timeoutMs>600000||!MdoBrowserCdpNetworkFrames.identity(frame)||!navigationUrl(url))throw failure("cdp_navigation_arguments_invalid",false);
+        try{return navigationCommand("Page.navigate",new JSONObject().put("url",url).put("frameId",frame),frame,timeoutMs,false);}
+        catch(org.json.JSONException invalid){throw failure("cdp_navigation_arguments_invalid",false);}
+    }
+    /** Native history selection supplies the entry; no public raw-ID route. */
+    Navigation historyRoot(String frame,int entryId,int timeoutMs)throws IOException {
+        guard(false);
+        if(timeoutMs<100||timeoutMs>600000||!MdoBrowserCdpNetworkFrames.identity(frame))throw failure("cdp_navigation_arguments_invalid",false);
+        try{return navigationCommand("Page.navigateToHistoryEntry",new JSONObject().put("entryId",entryId),frame,timeoutMs,true);}
+        catch(org.json.JSONException invalid){throw failure("cdp_navigation_arguments_invalid",false);}
+    }
+    /** Keep the original loader precondition; never silently retry unguarded. */
+    Navigation reloadRoot(String frame,String loader,int timeoutMs)throws IOException {
+        guard(false);
+        if(timeoutMs<100||timeoutMs>600000||!MdoBrowserCdpNetworkFrames.identity(frame)||!MdoBrowserCdpNetworkFrames.identity(loader))throw failure("cdp_navigation_arguments_invalid",false);
+        try{return navigationCommand("Page.reload",new JSONObject().put("loaderId",loader),frame,timeoutMs,true);}
+        catch(org.json.JSONException invalid){throw failure("cdp_navigation_arguments_invalid",false);}
+    }
+    private Navigation navigationCommand(String method,JSONObject params,String frame,int timeoutMs,boolean receiptOnly)throws IOException {
         enter(Math.min(5000,timeoutMs));byte[] bytes=null;Navigation ticket=null;boolean attempted=false;
         try{
             synchronized(controlGate){
@@ -454,15 +473,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 if(navigationCount>=4096)throw failure("cdp_navigation_limit",false);
                 if(serial==Integer.MAX_VALUE){close();throw failure("cdp_id_exhausted",false);}
                 int id=serial+1;
-                bytes=MdoBrowserCdpJson.encode(id,"Page.navigate",new JSONObject().put("url",url).put("frameId",frame),null);
-                ticket=new Navigation(id,frame,clock.now(),timeoutMs);serial=id;navigationCount++;navigation=ticket;ticket.issued=true;attempted=true;
+                bytes=MdoBrowserCdpJson.encode(id,method,params,null);
+                ticket=new Navigation(id,frame,clock.now(),timeoutMs,receiptOnly);serial=id;navigationCount++;navigation=ticket;ticket.issued=true;attempted=true;
             }
             wire.send(bytes,Math.min(100,timeoutMs));guard(true);expireNavigation(true);return ticket;
         }catch(Failure failure){if(attempted){if(ticket!=null)ticket.finish(NAVIGATION_SEND_FAILED);close();}throw failure;}
         catch(IOException|RuntimeException|Error failure){if(attempted){if(ticket!=null)ticket.finish(NAVIGATION_SEND_FAILED);close();}
             throw failure(attempted?"cdp_navigation_send_failed":"cdp_navigation_dispatch_failed",attempted);
-        }catch(org.json.JSONException failure){throw failure("cdp_navigation_arguments_invalid",false);}
-        finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
+        }finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
     }
     static boolean navigationUrl(String url){
         if(url==null||url.isEmpty()||url.length()>8192)return false;
@@ -483,11 +501,22 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         catch(java.security.NoSuchAlgorithmException failure){throw new IOException("cdp_navigation_digest_unavailable");}
         finally{Arrays.fill(bytes,(byte)0);}
     }
+    static byte[] navigationFrameDigest(JSONObject root)throws IOException {
+        if(root==null)throw new IOException("cdp_navigation_document_unproven");
+        Object url=root.opt("url"),fragment=root.opt("urlFragment");
+        if(!(url instanceof String)||root.has("urlFragment")&&(!(fragment instanceof String)||!((String)fragment).isEmpty()&&!((String)fragment).startsWith("#")||((String)url).contains("#")))
+            throw new IOException("cdp_navigation_document_unproven");
+        return navigationDigest((String)url+(fragment instanceof String?(String)fragment:""));
+    }
     private boolean navigationReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
         synchronized(controlGate){
             Navigation original=navigation;if(original==null||message.id!=original.id)return false;
             if(message.session!=null){original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_mismatch",effect);}
             if(message.failed){original.finish(new NavigationResult(true,false,false,false,message.error==-32601?"cdp_navigation_unsupported":"cdp_navigation_rejected",message.error!=-32601));navigation=null;return true;}
+            if(original.receiptOnly){
+                if(message.value.length()!=0){original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_invalid",effect);}
+                original.finish(new NavigationResult(true,true,false,false,null,true));navigation=null;return true;
+            }
             JSONObject value=message.value;Object frame=value.opt("frameId"),loader=value.opt("loaderId"),download=value.opt("isDownload"),error=value.opt("errorText");
             if(!original.frame.equals(frame)||value.has("loaderId")&&!MdoBrowserCdpNetworkFrames.identity(loader)||
                 value.has("isDownload")&&!(download instanceof Boolean)||value.has("errorText")&&(!(error instanceof String)||((String)error).length()>4096)){

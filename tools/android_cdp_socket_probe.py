@@ -119,6 +119,7 @@ def main():
     navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNavigationProbe'],cwd=ROOT,env=environment,text=True,timeout=40))
     if (not navigation.get('passed') or not navigation.get('original_navigation_receipts') or not navigation.get('same_connection_body_progress')
+            or navigation.get('real_control_sessions')!=2 or not navigation.get('fixed_control_ack_not_completion')
             or navigation.get('real_navigation_sessions')!=2 or navigation.get('real_commit_sessions')!=2 or navigation.get('framework_verified') is not False
             or navigation.get('provider_qualified') is not False or navigation.get('product_navigation_activated') is not False):
         raise RuntimeError('The fixed original native navigation/async body-pipeline gate did not pass')
@@ -195,7 +196,7 @@ def main():
     result['jvm_binding']=binding
     network_binding=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNetworkBindingProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
-    if not network_binding.get('passed') or not network_binding.get('physical_scope_separate') or network_binding.get('provider_qualified') is not False or network_binding.get('product_downloads_activated') is not False:
+    if not network_binding.get('passed') or not network_binding.get('physical_scope_separate') or not network_binding.get('native_history_selection') or not network_binding.get('history_ack_not_completion') or network_binding.get('provider_qualified') is not False or network_binding.get('product_downloads_activated') is not False:
         raise RuntimeError('The private physical-network target proof gate did not pass')
     result['jvm_network_binding']=network_binding
     network_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

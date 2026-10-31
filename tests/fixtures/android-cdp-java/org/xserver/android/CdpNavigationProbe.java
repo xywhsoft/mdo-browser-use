@@ -10,7 +10,7 @@ import org.json.JSONObject;
 /** Actual dispatcher/codec plus original local-kernel JNI navigation/body
  * pipeline. The native browser/provider/Android callbacks remain unqualified. */
 public final class CdpNavigationProbe {
-    private static int checks,realSessions,realCommitSessions,entropyBefore,entropyAfter;
+    private static int checks,realSessions,realCommitSessions,realControlSessions,entropyBefore,entropyAfter;
     private interface Work {void run()throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Navigation check "+(checks+1));checks++;}
     private static void refused(String code,Work work)throws Exception{
@@ -138,11 +138,44 @@ public final class CdpNavigationProbe {
             check(session[0].pendingBodies()==0&&session[0].pendingControls()==0);realSessions++;
         }finally{if(session[0]!=null)session[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==42?6:2)<<8)));}
     }
+    private static MdoBrowserCdpSession.Navigation control(Case c,boolean reload,int timeout)throws Exception{
+        c.wire.extra=command->{
+            String method=command.getString("method");if(!(method.equals("Page.reload")||method.equals("Page.navigateToHistoryEntry")))return false;
+            c.request=command.getInt("id");JSONObject params=command.getJSONObject("params");check(command.length()==3&&params.length()==1);
+            check(reload?method.equals("Page.reload")&&params.getString("loaderId").equals("original-loader"):method.equals("Page.navigateToHistoryEntry")&&params.getInt("entryId")==17);return true;
+        };
+        return reload?c.session.reloadRoot("frame-owned","original-loader",timeout):c.session.historyRoot("frame-owned",17,timeout);
+    }
+    private static void traversalReceipts()throws Exception{
+        for(boolean reload:new boolean[]{false,true}){
+            try(Case c=new Case()){
+                MdoBrowserCdpSession.Navigation original=control(c,reload,1000);check(original.receiptOnly&&original.pending());
+                int sent=c.wire.commands.size();refused("cdp_navigation_pending",()->control(c,!reload,1000));check(c.wire.commands.size()==sent);
+                c.wire.add(ack(c.request,new JSONObject()));c.session.poll(100);MdoBrowserCdpSession.NavigationResult result=original.result();
+                check(result.acknowledged&&result.ok&&result.effectMayHaveOccurred&&!result.loaderPresent&&!result.downloadKnown&&!result.download);
+                check(!original.matchesSameDocument("frame-owned")&&!original.matchesCommittedLoader("frame-owned","original-loader"));
+                control(c,reload,1000);c.session.close();check(original.result()==result);
+            }
+            for(int mode=0;mode<5;mode++)try(Case c=new Case()){
+                MdoBrowserCdpSession.Navigation original=control(c,reload,1000);
+                if(mode==0){c.wire.add(ack(c.request,new JSONObject().put("frameId","frame-owned")));refused("cdp_navigation_reply_invalid",()->c.session.poll(100));check(!original.result().ok);}
+                if(mode==1){c.session.admitChild("foreign");c.wire.add(new JSONObject().put("id",c.request).put("sessionId","foreign").put("result",new JSONObject()));refused("cdp_navigation_reply_mismatch",()->c.session.poll(100));}
+                if(mode==2){c.wire.now=1001;refused("cdp_navigation_timeout",()->c.session.poll(100));check(original.result().code.equals("cdp_navigation_timeout"));}
+                if(mode==3){c.live.set(false);try{c.session.poll(100);throw new AssertionError("A revoked traversal was polled");}catch(IOException expected){check(original.result()!=null&&!original.result().ok);}}
+                if(mode==4){c.wire.add(new JSONObject().put("id",c.request).put("error",new JSONObject().put("code",-32601).put("message","private-provider-error")));c.session.poll(100);check(original.result().acknowledged&&!original.result().ok&&!original.result().effectMayHaveOccurred&&original.result().code.equals("cdp_navigation_unsupported"));}
+            }
+        }
+        try(Case c=new Case()){
+            refused("cdp_navigation_arguments_invalid",()->c.session.reloadRoot("frame-owned","",1000));
+            refused("cdp_navigation_arguments_invalid",()->c.session.historyRoot("",17,1000));
+            refused("cdp_navigation_arguments_invalid",()->c.session.historyRoot("frame-owned",17,99));check(c.wire.commands.isEmpty());
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{nativeClassification();admission();invalidReplies();failureAndOrdering();if(args.length==0){realWire(42);realWire(43);realCommitWire(44);realCommitWire(45);}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{nativeClassification();admission();invalidReplies();failureAndOrdering();traversalReceipts();if(args.length==0){realWire(42);realWire(43);realCommitWire(44);realCommitWire(45);realControlWire(46);realControlWire(47);}}catch(Exception failure){throw new RuntimeException(failure);}}).get(30,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(3,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_navigation_receipts\":true,\"same_connection_body_progress\":"+(realSessions==2)+",\"real_navigation_sessions\":"+realSessions+",\"real_control_sessions\":"+realControlSessions+",\"fixed_control_ack_not_completion\":true,\"real_commit_sessions\":"+realCommitSessions+",\"jvm_entropy_fds_before\":"+entropyBefore+",\"jvm_entropy_fds_after\":"+entropyAfter+",\"framework_verified\":false,\"provider_qualified\":false,\"product_navigation_activated\":false}");
     }
     private static void realCommitWire(int mode)throws Exception{
         // UUID's process-wide entropy descriptors are initialized before the
@@ -161,6 +194,21 @@ public final class CdpNavigationProbe {
             session.call("Runtime.evaluate",null,null,1000,false);
             check(!original.current()&&frames.navigationOrigin(navigation,revision)==original&&navigation.result().ok);
             realCommitSessions++;
+        }finally{if(session!=null)session.close();check(CdpNativeProbe.fixtureFinish()==(1+(2<<8)));}
+    }
+    private static void realControlWire(int mode)throws Exception{
+        MdoBrowserCdpNetworkFrames frames=new MdoBrowserCdpNetworkFrames("frame-owned","initial-loader");
+        CdpNativeProbe.fixtureStart(mode);MdoBrowserCdpSession session=null;
+        try(MdoBrowserCdpNetworkFrames originalFrames=frames){
+            frames.initialize(new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","initial-loader")),frames.revision());
+            long revision=frames.revision();session=MdoBrowserCdpSession.open("test-001",500,()->true,frames);
+            MdoBrowserCdpSession.Navigation navigation=mode==46?session.historyRoot("frame-owned",17,15000):session.reloadRoot("frame-owned","initial-loader",15000);
+            for(int i=0;i<30&&navigation.pending();i++)session.poll(20,100);
+            check(navigation.receiptOnly&&navigation.result()!=null&&navigation.result().ok&&navigation.result().acknowledged);
+            check(!navigation.result().downloadKnown&&!navigation.result().loaderPresent&&!navigation.matchesSameDocument("frame-owned"));
+            session.call("Runtime.evaluate",null,null,1000,false);
+            check(!navigation.matchesCommittedLoader("frame-owned","native-control-loader")&&frames.navigationOrigin(navigation,revision)==null);
+            check(frames.rootLoader().equals("native-control-loader"));realControlSessions++;
         }finally{if(session!=null)session.close();check(CdpNativeProbe.fixtureFinish()==(1+(2<<8)));}
     }
     private static int entropyDescriptors()throws IOException{

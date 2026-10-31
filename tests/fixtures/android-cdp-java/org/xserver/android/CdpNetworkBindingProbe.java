@@ -24,7 +24,7 @@ public final class CdpNetworkBindingProbe {
     private static void check(boolean value){if(!value)throw new AssertionError("Network binding check "+(checks+1));checks++;}
     private static IOException rejected(String code,Operation work)throws Exception{
         try{work.run();throw new AssertionError("Missing network binding failure: "+code);}
-        catch(IOException error){check(code.equals(error.getMessage()));check(error.getCause()==null);return error;}
+        catch(IOException error){if(!code.equals(error.getMessage()))throw new AssertionError("Expected "+code+", received "+error.getMessage());check(true);check(error.getCause()==null);return error;}
     }
     private static <T>T run(Callable<T> work)throws Exception{
         Future<T> future=worker.submit(work);long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(10);
@@ -186,11 +186,72 @@ public final class CdpNetworkBindingProbe {
             check(dispatched[0]==1);
         }
     }
+    private static JSONObject history()throws Exception{
+        JSONArray entries=new JSONArray();for(int i=0;i<3;i++)entries.put(new JSONObject().put("id",17+i).put("url","https://history.invalid/"+i+(i==1?"#original":"")).put("title","private-title"));
+        return new JSONObject().put("currentIndex",1).put("entries",entries);
+    }
+    private static void traversalSelections()throws Exception{
+        for(String action:new String[]{"back","forward","reload"})try(Context c=new Context(true)){
+            c.bind();c.enable();CdpBindingProbe.Factory.Extra previous=c.peer.extra;final int[] issued={0};
+            c.peer.extra=(command,wire)->{
+                String method=command.getString("method");int id=command.getInt("id");JSONObject params=command.getJSONObject("params");
+                if(method.equals("Page.getNavigationHistory")){check(params.length()==0);wire.queue(new JSONObject().put("id",id).put("result",history()));return true;}
+                if(method.equals("Page.getFrameTree")){check(params.length()==0);wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","load-owned").put("url","https://history.invalid/1").put("urlFragment","#original")))));return true;}
+                if(method.equals("Page.reload")||method.equals("Page.navigateToHistoryEntry")){
+                    check(command.length()==3&&params.length()==1);check(action.equals("reload")?method.equals("Page.reload")&&params.getString("loaderId").equals("load-owned"):method.equals("Page.navigateToHistoryEntry")&&params.getInt("entryId")== (action.equals("back")?17:19));
+                    issued[0]++;wire.queue(response(id));return true;
+                }return previous.send(command,wire);
+            };
+            MdoBrowserCdpBinding.Network.Navigation ticket=run(()->{MdoBrowserCdpBinding.Network.Navigation original=c.network.traverseRoot(action,1500);check(original.pending()&&original.receiptOnly());c.network.poll(100);check(c.network.navigationOrigin(original)==null);return original;});
+            check(issued[0]==1&&ticket.result().ok&&ticket.result().acknowledged&&!ticket.result().downloadKnown&&!ticket.result().loaderPresent&&!ticket.sameDocument());
+            run(()->{c.network.cancelTransfers();rejected("cdp_network_retiring",()->c.network.traverseRoot(action,1500));return null;});check(issued[0]==1);
+        }
+        String[] reasons={"cdp_history_snapshot_invalid","cdp_history_snapshot_invalid","cdp_history_unavailable","cdp_history_unavailable","cdp_history_limit","cdp_history_destination_unsupported","cdp_history_snapshot_changed","cdp_history_snapshot_changed","cdp_history_snapshot_changed","cdp_history_snapshot_invalid","cdp_history_snapshot_invalid","cdp_history_snapshot_invalid","cdp_navigation_timeout","cdp_history_snapshot_changed","cdp_history_destination_unsupported","cdp_method_unsupported","cdp_session_closed","cdp_navigation_timeout"};
+        for(int index=0;index<reasons.length;index++)try(Context c=new Context(true)){
+            final int mode=index;c.bind();c.enable();CdpBindingProbe.Factory.Extra previous=c.peer.extra;final int[] issued={0};
+            c.peer.extra=(command,wire)->{
+                String method=command.getString("method");int id=command.getInt("id");
+                if(method.equals("Page.getNavigationHistory")){
+                    JSONObject snapshot=history();JSONArray entries=snapshot.getJSONArray("entries");
+                    if(mode==0)entries.getJSONObject(2).put("id",17);
+                    if(mode==1)snapshot.put("currentIndex",3);
+                    if(mode==2)snapshot.put("currentIndex",-1).put("entries",new JSONArray());
+                    if(mode==3)snapshot.put("currentIndex",0);
+                    if(mode==4){for(int i=3;i<513;i++)entries.put(new JSONObject().put("id",17+i).put("url","https://history.invalid/"+i));}
+                    if(mode==5)entries.getJSONObject(0).put("url","file:///private");
+                    if(mode==9)entries.getJSONObject(0).put("id","17");
+                    if(mode==10)entries.getJSONObject(0).put("url",17);
+                    if(mode==11)entries.getJSONObject(0).put("url",String.join("",java.util.Collections.nCopies(8193,"a")));
+                    if(mode==14)entries.getJSONObject(1).put("url","https://secret@history.invalid/1");
+                    if(mode==15){wire.queue(new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","private-history-error")));return true;}
+                    if(mode==17)android.os.SystemClock.now=3000;
+                    wire.queue(new JSONObject().put("id",id).put("result",snapshot));return true;
+                }
+                if(method.equals("Page.getFrameTree")){
+                    JSONObject root=new JSONObject().put("id",mode==7?"other-root":"frame-owned").put("loaderId",mode==8?"other-loader":"load-owned").put("url",mode==6?"https://history.invalid/other":"https://history.invalid/1").put("urlFragment","#original");
+                    if(mode==13)wire.queue(new JSONObject().put("method","Page.documentOpened").put("params",new JSONObject().put("frame",root)));
+                    if(mode==16)c.adapter.close();
+                    if(mode==12)android.os.SystemClock.now=2450;
+                    wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",root))));return true;
+                }
+                if(method.equals("Page.reload")||method.equals("Page.navigateToHistoryEntry")){issued[0]++;wire.queue(response(id));return true;}
+                return previous.send(command,wire);
+            };
+            try{if(mode==12||mode==17)android.os.SystemClock.now=1000;
+                IOException failure=rejected(reasons[mode],()->run(()->c.network.traverseRoot("back",1500)));
+                check(failure instanceof MdoBrowserCdpSession.Failure&&!((MdoBrowserCdpSession.Failure)failure).effectMayHaveOccurred&&issued[0]==0);
+            }finally{android.os.SystemClock.now=Long.MIN_VALUE;}
+        }
+        try(Context c=new Context(true)){
+            c.bind();c.enable();int before=c.commands.size();
+            run(()->{for(String action:new String[]{null,"goto","Page.reload"})rejected("cdp_navigation_arguments_invalid",()->c.network.traverseRoot(action,1500));rejected("cdp_navigation_arguments_invalid",()->c.network.traverseRoot("back",99));return null;});check(c.commands.size()==before);
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");worker=Executors.newSingleThreadExecutor();
-        try{scope();navigation();failures();rootNavigationReceipt();foreignNavigation();}
+        try{scope();navigation();failures();rootNavigationReceipt();foreignNavigation();traversalSelections();}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));Handler.drain();}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni_json\":true,\"physical_scope_separate\":true,\"document_navigation_tested\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_jvm_jni_json\":true,\"physical_scope_separate\":true,\"native_history_selection\":true,\"history_ack_not_completion\":true,\"document_navigation_tested\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
     private static void foreignNavigation()throws Exception{
         try(Context first=new Context(true);Context second=new Context(true)){

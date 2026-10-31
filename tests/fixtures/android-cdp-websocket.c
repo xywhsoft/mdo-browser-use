@@ -226,6 +226,15 @@ static void* Serve(void* Data)
         Fixture->Frames+=ClientCommand(Fd,6,"Runtime.evaluate",NULL);
         Packet(Fd,"{\"id\":3,\"result\":{\"data\":\"private-late-data\",\"eof\":true}}");Packet(Fd,"{\"id\":6,\"result\":{}}");
         char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;
+    } else if ( Fixture->Mode==46 || Fixture->Mode==47 ) {
+        Fixture->Frames+=Fixture->Mode==46?
+            ClientBodyCommand(Fd,1,"Page.navigateToHistoryEntry","{\"entryId\":17}"):
+            ClientBodyCommand(Fd,1,"Page.reload","{\"loaderId\":\"initial-loader\"}");
+        if ( Fixture->Mode==46 ) Packet(Fd,"{\"id\":1,\"result\":{}}");
+        Packet(Fd,"{\"method\":\"Page.frameNavigated\",\"params\":{\"frame\":{\"id\":\"frame-owned\",\"loaderId\":\"native-control-loader\"}}}");
+        if ( Fixture->Mode==47 ) Packet(Fd,"{\"id\":1,\"result\":{}}");
+        Fixture->Frames+=ClientCommand(Fd,2,"Runtime.evaluate",NULL);Packet(Fd,"{\"id\":2,\"result\":{}}");
+        {char Byte;if ( recv(Fd,&Byte,1,0)>0 ) Fixture->Valid=0;}
     } else if ( Fixture->Mode==44 || Fixture->Mode==45 ) {
         Fixture->Frames+=ClientBodyCommand(Fd,1,"Page.navigate","{\"url\":\"about:blank\",\"frameId\":\"frame-owned\"}");
         if ( Fixture->Mode==44 ) Packet(Fd,"{\"id\":1,\"result\":{\"frameId\":\"frame-owned\",\"loaderId\":\"native-commit-loader\",\"isDownload\":false}}");
