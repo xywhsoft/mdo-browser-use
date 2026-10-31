@@ -390,9 +390,65 @@ public final class CdpNetworkNavigationProbe {
             check(source.snapshot(id).verified&&source.snapshot(id).received==4&&source.snapshot(id).sourceRequest.equals(older.requestReference()));source.release(id);
         }
     }
+    private static void sameLocationNoop()throws Exception{
+        for(int mode=0;mode<26;mode++)try(CdpNetworkWorkerProbe.Case test=new CdpNetworkWorkerProbe.Case()){
+            final int scenario=mode;String url=mode==17?"https://noop.invalid/current":"https://noop.invalid/current#same",target=mode==2?"https://noop.invalid/other#target":url;
+            CdpNetworkBindingProbe.Context source=test.source();CdpBindingProbe.Factory.Extra previous=source.peer.extra;AtomicInteger sends=new AtomicInteger(),snapshots=new AtomicInteger(),evaluations=new AtomicInteger();
+            source.peer.extra=(command,wire)->{
+                String method=command.getString("method");int id=command.getInt("id");
+                if(method.equals("Page.enable")&&scenario==22){wire.queue(started("prior-start","https://noop.invalid/pending","differentDocument"));wire.queue(new JSONObject().put("id",id).put("result",new JSONObject()));return true;}
+                if(method.equals("Page.getFrameTree")){
+                    boolean after=sends.get()>0;JSONObject root=nativeFrame(after&&scenario==7?"wrong-loader":after&&scenario==23?"seed-loader":"load-owned",after&&(scenario==6||scenario==25&&snapshots.get()==0)?"https://noop.invalid/wrong":"https://noop.invalid/current");
+                    if(scenario!=17)root.put("urlFragment","#same");
+                    if(!after&&(scenario==1||scenario==23||scenario==24))root.remove("url");if(!after&&scenario==15||after&&scenario==11)root.put("urlFragment",17);
+                    if(!after&&scenario==16||after&&scenario==10)root.put("unreachableUrl","https://private.invalid/error");if(after&&scenario==18)root.put("id","foreign-root");
+                    if(after){snapshots.incrementAndGet();if(scenario==8)wire.queue(started("other-start",url,"differentDocument"));
+                        if(scenario==9)wire.queue(new JSONObject().put("method","Page.documentOpened").put("params",new JSONObject().put("frame",nativeFrame("load-owned",url))));}
+                    wire.queue(new JSONObject().put("id",id).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",root))));
+                    if(after&&scenario==25&&snapshots.get()==1)wire.queue(new JSONObject().put("method","Page.frameAttached").put("params",new JSONObject().put("frameId","late-child").put("parentFrameId","frame-owned")));return true;
+                }
+                if(method.equals("Page.navigate")){
+                    sends.incrementAndGet();check(command.getJSONObject("params").getString("url").equals(target));JSONObject reply=answer(id,scenario==4);
+                    if(sends.get()==1&&scenario==23){wire.queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",nativeFrame("seed-loader",url))));reply.getJSONObject("result").put("loaderId","seed-loader");}
+                    if(sends.get()==1&&scenario==24)wire.queue(within("frame-owned",url));
+                    if(scenario==3)reply.getJSONObject("result").remove("isDownload");if(scenario==5)reply.getJSONObject("result").put("loaderId","cross-document-loader");wire.queue(reply);return true;
+                }
+                if(sends.get()>0&&method.equals("Runtime.evaluate"))evaluations.incrementAndGet();
+                return previous.send(command,wire);
+            };
+            test.ready(source);
+            if(mode==23||mode==24){MdoBrowserCdpNetworks.Navigation seed=test.worker.navigateNetwork(source.adapter.marker().lease(),target,10000);await(seed::pageCurrent);check(seed.result().ok&&seed.pageCommitted()&&snapshots.get()==0);}
+            int expectedSends=mode==23||mode==24?2:1;
+            MdoBrowserCdpNetworks.Navigation navigation=test.worker.navigateNetwork(source.adapter.marker().lease(),target,10000);
+            await(()->navigation.result()!=null);check(navigation.result().ok&&navigation.result().acknowledged);
+            boolean qualified=java.util.Arrays.asList(0,12,13,14,17,19,20,21,23,24).contains(mode);
+            MdoBrowserCdpMarker document=test.document();CdpBindingProbe.Factory reader=test.documents.get(document);
+            java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> receipt=new java.util.concurrent.atomic.AtomicReference<>();
+            reader.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.getFrameTree"))return false;
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameTree",new JSONObject().put("frame",nativeFrame(scenario==20?"wrong-loader":scenario==23?"seed-loader":"load-owned",scenario==19?"https://noop.invalid/replaced":url)))));return true;
+            };
+            if(qualified){await(navigation::pageCurrent);check(navigation.pageCommitted()&&navigation.sameDocument()&&snapshots.get()==1);}
+            else{
+                test.worker.submit(document,1500,false,(binding,deadline)->new byte[]{1},result->receipt.set(result));await(()->{test.ui.drain();return receipt.get()!=null;});
+                if(mode==25){receipt.set(null);test.worker.submit(document,1500,false,(binding,deadline)->new byte[]{2},result->receipt.set(result));await(()->{test.ui.drain();return receipt.get()!=null;});}
+                check(!navigation.pageCommitted()&&!navigation.pageCurrent());
+            }
+            check(sends.get()==expectedSends&&evaluations.get()==0&&snapshots.get()<=1);
+            if(!qualified)continue;
+            if(mode==12){source.wire().queue(within("frame-owned",url+"-away"));source.wire().queue(within("frame-owned",url));await(()->!navigation.pageCurrent());}
+            if(mode==13){source.wire().queue(started("next-start",url,"differentDocument"));await(()->!navigation.pageCurrent());}
+            if(mode==14)source.wire().queue(new JSONObject().put("method","Page.frameAttached").put("params",new JSONObject().put("frameId","unrelated-child").put("parentFrameId","frame-owned")));
+            if(mode==21)navigation.cancel();
+            receipt.set(null);AtomicInteger reads=new AtomicInteger();
+            test.worker.submitGuarded(document,1500,true,navigation,(binding,deadline)->{reads.incrementAndGet();return new byte[]{11};},result->receipt.set(result));
+            await(()->{test.ui.drain();return receipt.get()!=null;});boolean allowed=mode==0||mode==14||mode==17||mode==23||mode==24;
+            check((receipt.get().code==null)==allowed&&reads.get()==(allowed?1:0));check(navigation.result().ok&&sends.get()==expectedSends);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();sameLocationNoop();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"same_location_noop_proof\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

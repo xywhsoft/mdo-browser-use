@@ -183,7 +183,7 @@ def main():
     navigation_owner=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNetworkNavigationProbe',str(output/'network-navigation-files')],cwd=ROOT,env=environment,text=True,timeout=45))
     if (not navigation_owner.get('passed') or not navigation_owner.get('original_ui_admission') or not navigation_owner.get('shared_worker_body_progress')
-            or not navigation_owner.get('overlapping_navigation_downloads') or not navigation_owner.get('late_metadata_after_body_completion') or not navigation_owner.get('original_request_download_join') or not navigation_owner.get('history_completion_guard') or not navigation_owner.get('bfcache_and_same_document_history')
+            or not navigation_owner.get('same_location_noop_proof') or not navigation_owner.get('overlapping_navigation_downloads') or not navigation_owner.get('late_metadata_after_body_completion') or not navigation_owner.get('original_request_download_join') or not navigation_owner.get('history_completion_guard') or not navigation_owner.get('bfcache_and_same_document_history')
             or not navigation_owner.get('same_document_destination_guard') or not navigation_owner.get('exact_queued_cancellation') or not navigation_owner.get('original_native_commit_matching') or not navigation_owner.get('bounded_commit_history') or not navigation_owner.get('real_guarded_files')
             or navigation_owner.get('framework_verified') is not False or navigation_owner.get('provider_qualified') is not False):
         raise RuntimeError('The original UI navigation admission/shared native worker gate did not pass')

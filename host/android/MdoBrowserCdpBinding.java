@@ -287,16 +287,18 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         static final class Navigation {
             private final Network owner;private final long revision;private MdoBrowserCdpSession.Navigation original;
             private final long requestRevision;private final String requestReference="nr-"+java.util.UUID.randomUUID();
-            private final String previousLoader;private final MdoBrowserCdpNetworkFrames.Origin previous;private final byte[] destination;
+            private final String previousLoader;private final MdoBrowserCdpNetworkFrames.Origin previous,unchanged;private final byte[] destination;
             private final Selection selection;private final long born;private final int timeout;
             private long inspectedRevision=Long.MIN_VALUE;private volatile MdoBrowserCdpNetworkFrames.Traversal proven;
             private byte[] committedDestination;
-            private Navigation(Network owner,long revision,String previousLoader,MdoBrowserCdpNetworkFrames.Origin previous,byte[] destination)throws IOException {
-                this(owner,revision,previousLoader,previous,destination,null,0,0);
+            private MdoBrowserCdpNetworkFrames.Origin noOp;
+            private Navigation(Network owner,long revision,String previousLoader,MdoBrowserCdpNetworkFrames.Origin previous,byte[] destination,int timeout)throws IOException {
+                this(owner,revision,previousLoader,previous,destination,null,android.os.SystemClock.elapsedRealtime(),timeout);
             }
             private Navigation(Network owner,long revision,String previousLoader,MdoBrowserCdpNetworkFrames.Origin previous,byte[] destination,Selection selection,long born,int timeout)throws IOException {
                 this.owner=owner;this.revision=revision;this.previousLoader=previousLoader;this.previous=previous;this.destination=destination;this.selection=selection;this.born=born;this.timeout=timeout;
                 requestRevision=owner.requests.revision();
+                unchanged=selection==null?owner.frames.sameLocationOrigin(destination):null;
             }
             String requestReference(){return requestReference;}
             String requestAssociationError(){return owner.requests.failure();}
@@ -389,7 +391,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         int pendingControls()throws IOException {bound.current();return bound.peer.pendingControls();}
         Navigation navigateRoot(String url,int timeoutMs)throws IOException {
             active();if(retiring)throw problem("cdp_network_retiring");frames.origin(bound.rootFrame);
-            Navigation ticket=new Navigation(this,frames.revision(),frames.rootLoader(),frames.origin(bound.rootFrame),MdoBrowserCdpSession.navigationDigest(url));
+            Navigation ticket=new Navigation(this,frames.revision(),frames.rootLoader(),frames.origin(bound.rootFrame),MdoBrowserCdpSession.navigationDigest(url),timeoutMs);
             ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);requests.admit(ticket.requestRevision,ticket.original,ticket.requestReference);return ticket;
         }
         Navigation traverseRoot(String action,int timeoutMs)throws IOException {
@@ -436,7 +438,21 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
                 }catch(JSONException invalid){throw problem("cdp_history_snapshot_invalid");}
                 catch(IOException failure){if("cdp_binding_timeout".equals(failure.getMessage())){bound.current();return null;}throw failure;}
             }
-            return ticket.sameDocument()?frames.sameDocumentOrigin(ticket.original,ticket.revision,ticket.previousLoader,ticket.destination,ticket.previous):frames.navigationOrigin(ticket.original,ticket.revision);
+            if(!ticket.sameDocument())return frames.navigationOrigin(ticket.original,ticket.revision);
+            if(ticket.noOp!=null)return ticket.noOp;
+            MdoBrowserCdpNetworkFrames.Origin event=frames.sameDocumentOrigin(ticket.original,ticket.revision,ticket.previousLoader,ticket.destination,ticket.previous);
+            if(event!=null)return event;
+            if(ticket.unchanged==null||!ticket.unchanged.current()||ticket.inspectedRevision!=Long.MIN_VALUE)return null;
+            ticket.inspectedRevision=frames.revision();
+            try{
+                JSONObject root=frame(bound.peer,ticket.born,ticket.timeout,bound.lease);
+                if(!bound.rootFrame.equals(root.opt("id"))||!ticket.previousLoader.equals(root.opt("loaderId"))||root.has("unreachableUrl")&&!"".equals(root.opt("unreachableUrl")))return null;
+                byte[] digest=MdoBrowserCdpSession.navigationFrameDigest(root);
+                try{if(java.security.MessageDigest.isEqual(digest,ticket.destination)&&ticket.unchanged.current()){bound.current();ticket.noOp=ticket.unchanged;}}
+                finally{Arrays.fill(digest,(byte)0);}
+                return ticket.noOp;
+            }catch(JSONException invalid){return null;}
+            catch(IOException failure){if(Arrays.asList("cdp_binding_timeout","cdp_navigation_document_unproven","cdp_navigation_destination_invalid").contains(failure.getMessage())){bound.current();return null;}throw failure;}
         }
         boolean responsesMayHaveOccurred(){return responsesAttempted;}
         void cancelTransfers()throws IOException {active();retiring=true;bound.peer.cancelTransfers();}

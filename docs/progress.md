@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E108:** prove an unchanged-location goto without inventing a missing
+  navigation event. Require the original known native URL digest/position, a
+  typed non-download/no-loader ACK and one fresh matching native frame snapshot.
+  Preserve DOM readiness and all original read guards. Twenty-six ordering and
+  rejection scenarios bring the broker gate to 817 assertions; complete native
+  gates and 173/175 Python cases pass (two existing privilege skips). The full
+  Android development APK is rebuilt. Installed/provider/main-UI qualification
+  and whole-goal work remain open.
 - **Android E107:** remove last-navigation-only download attribution. Retain 32
   original goto candidates and freeze each response's candidate set. Older
   responses can keep their original identity after a newer navigation; future
@@ -8911,3 +8919,63 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
 - No Windows product code or release changed. The test restored this project's
   headless service. Phone/provider testing remains deferred and the full goal
   remains active; continue independently testable navigation/transfer work.
+
+## E108 — prove an unchanged-location goto without a synthetic event (2026-10-31)
+
+- Reproduce the missing-event wait using the E107 production classes and a new
+  controlled native-worker regression: successful original typed non-download
+  ACK, absent loader, unchanged exact URL/fragment and no navigation event never
+  produce a current original page (.mdo/E108-noop-before-fix.log). This establishes
+  the adapter's missing proof path, not an installed-provider observation.
+- Keep one private SHA-256 location digest for the root, derived from original
+  native bootstrap/frame/within-document metadata. Store no URL text. Retain its
+  original document/position and quiet-root scope before dispatch. An unresolved
+  prior root start blocks eligibility. A later start, position move, document
+  replacement or closure revokes that original scope without resurrection.
+  Digest ownership is independent of bounded commit-history entries.
+- Following only the original explicit non-download ACK without loader, prefer
+  the existing matching same-document event proof. Otherwise require an eligible
+  original location and one fresh native root/frame/loader/destination snapshot,
+  within the original budget, while that exact scope remains current. Missing,
+  malformed, foreign or unreachable-page metadata proves nothing. Send no script,
+  input, reload or repeated navigation. Keep initial warmup and history/reload
+  requirements unchanged. Shared JS/C waiting still proves DOM readiness and
+  validates the original native record on every read.
+- Cover 26 controlled cases: combined and split fragments, absent prior metadata,
+  different targets, incomplete/download/cross-document ACKs, changed URL/loader/
+  frame, malformed/error metadata, prior/during/later starts, document.open,
+  position movement away and back, unrelated child events, cancellation and
+  guarded-reader mismatches. Also navigate normally and within-document first,
+  then issue the exact unchanged-location goto. Require one qualifying snapshot,
+  one send per requested action and no post-send Runtime evaluation. Guarded
+  operations execute only under the exact current proof. All 817 broker assertions
+  pass; require same_location_noop_proof in the full gate.
+- Final review catches a draft allowing another snapshot after an unrelated
+  child event advanced the ledger revision. The new case first supplies a
+  contradictory root snapshot and then an unrelated child event; the old draft
+  incorrectly completes after a second snapshot (check 816,
+  .mdo/E108-noop-single-snapshot-red.log). Permit exactly one snapshot attempt
+  for that original action. A later coincidental match cannot revive its proof.
+  Full native and Python gates are rerun against this final implementation.
+- Full ASan/UBSan/API26 and JVM/JNI/strict-JSON/socket gates pass, with all 105
+  native source hashes verified. Python passes 173/175 in 55.892 seconds; two
+  existing Windows symlink-privilege skips remain. E106 JS 372 and packed Windows
+  12-check evidence are reused only with unchanged JS and executable/archive
+  identities. E106 product UI 647 and E105 world/document evidence retain their
+  exact 13/seven current hashes; no unavailable framework evidence is counted.
+- Build the actual Android development APK and verify current source/archive,
+  DEX implementations, private provider, retained signer, six JNI exports and
+  ARM64/16 KiB native payload. APK: 6,477,121 bytes, SHA-256
+  d7a1d3fd29d0f84f77558a3221f0510a77f9a8f14ac11c6b5ce61b6c0b9fdd43.
+  Windows and paired plugin retain the exact E106 identities. Evidence:
+  .mdo/E108-native-current.json, E108-android-receipt.json,
+  E108-final-identities.log and E108 test/build logs. No runtime dependency or
+  deployment/source/Home copy was added.
+- Restore the sole headless service: PID 5064, HTTP 200 on 63625, about 3,437.6
+  MiB. Goal active. This completes the strictly proven same-location component
+  path, not provider qualification or an unconditional no-event fallback.
+  Remaining transfer/platform integration, installed provider/main-UI checks,
+  desktop visual availability, historical Windows fault attribution and full-goal
+  verification remain. Phone/provider changes stay deferred, public Android
+  admission and all qualification flags stay false. No model call, online
+  publication or production-data modification occurred.

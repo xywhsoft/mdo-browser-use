@@ -1717,3 +1717,11 @@ future command acquire an already retained response. Beyond that history limit,
 an unseen old response may remain unassociated; missing proof does not authorize
 repeating its request. This changes private provenance handling, not the public
 download approval/read/save signatures or Android qualification status.
+
+E108 can complete an unchanged-location goto through the existing same_document
+result path when original native metadata and a fresh post-ACK snapshot prove
+the exact unchanged document/position. It does not invent a navigation event,
+infer success from URL equality alone or repeat navigation. The shared C/JS wait
+still requires DOM readiness and original-record/read guards. An unresolved start
+or missing/mismatched metadata keeps that outcome unproven. This private adapter
+change neither enables unqualified Android providers nor changes SDK signatures.

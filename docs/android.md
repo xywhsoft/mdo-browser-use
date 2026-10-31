@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E107)
+## Complete development host APK (E46/E108)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,477,121 bytes, SHA-256
-`3f450f13370d2550723f07b2213f3ba6bcc32b532c57a6f8771a8fe2f200ad01`.
+`d7a1d3fd29d0f84f77558a3221f0510a77f9a8f14ac11c6b5ce61b6c0b9fdd43`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -92,10 +92,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E107-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E107-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E108-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E108-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106/E107. Native/component evidence is recorded separately below.
+attempted in E106-E108. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -3980,3 +3980,31 @@ command and after response retention, frozen candidates and history limits.
 Full native gates and the actual refreshed APK pass; current evidence is in
 .mdo/E107-final-identities.log. Product/provider/main-UI qualification remains
 deferred and public Android admission is still disabled.
+
+## Unchanged-location goto proof (E108)
+
+An exact unchanged-location goto can now qualify without fabricating a missing
+within-document event. Before dispatch, retain the original known native URL
+equality digest and unchanged document/position under a quiet root. After its
+original explicit non-download/no-loader ACK, require one fresh matching native
+frame/loader/location snapshot while that original scope remains current.
+The existing same-document event proof still takes priority when available.
+
+This is stricter than comparing the toolbar URL after an ACK. Absent or malformed
+prior metadata, unreachable pages, a prior unresolved start, a new start, changed
+position/document/loader or scope loss cannot establish this proof. Movement away
+and back cannot revive the old scope. Root location storage is one SHA-256 digest,
+independent of retained commit digests; no URL, script or body is retained for it.
+There is no navigation retry, injected script/input, reload shortcut or relaxed
+initial-create transition. DOM readiness remains a separate shared JS/C check.
+
+The broker covers 26 normal/adversarial scenarios and passes 817 assertions,
+including an ordinary or within-document navigation followed by the unchanged
+goto, original read guards and cancellation. Full native gates and the actual
+refreshed APK pass. These remain controlled component/packaging results; installed
+Android/provider/main-UI qualification is deferred and public admission stays off.
+
+Only one completion-snapshot attempt is allowed for that original action. A
+contradictory/malformed/missing snapshot cannot be retried after an unrelated
+child event to manufacture an eventual match. The regression fails the prior
+draft and passes the final implementation.

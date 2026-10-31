@@ -22,8 +22,12 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current refreshed preview (E82, including W4/W3b/W3a/W2/W1/E66/F21) is **6,934,716 bytes**, SHA-256
-`d6b3822bf5d4c927925f0c1001713d54568ff794defa35621f85654f6512e818`.
+The current verified Windows preview (E106 shared dispatcher, including
+W4/W3b/W3a/W2/W1/E66/F21) is **6,937,880 bytes**, SHA-256
+`35bdd50f041729a2002e9e15b81b540fe9a5ed11461dea41da0e9b0e5d034179`.
+E107/E108 change private Android Java components and reuse these unchanged
+Windows app bytes only after archive/source/hash verification. Current evidence
+is recorded in `docs/progress.md` and the adjacent artifact receipt.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
