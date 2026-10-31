@@ -4743,3 +4743,51 @@ SDK/provider peers and real JNI transport. Full product action/adoption routing,
 independent child-session/promotion/body routing, complete process membership and
 installed-provider qualification remain outstanding. Protected Android popup
 admission stays disabled. Phone/WebView changes remain deferred.
+
+## Native ownership promotion (E134; protocol handoff outstanding)
+
+The product's private promoteProtocolPopup seam now transfers a consumed,
+physically proved child into independent native ownership. It requires the exact
+constructed child, its original allocated proof, successful native-marker result,
+consumed native adoption, matching registry/key and a current close barrier. It
+does not accept a supplied WebView or mint ownership from a tab ID. No document
+world, profile, navigation, body handling or protocol promotion is granted.
+
+The registry prepares an independent receipt before committing it. Recheck exact
+view/opener identities, parent generation, own generation and input cleanup before
+commit. Legacy fresh/adoption proof becomes unusable at commit. The independent
+receipt describes physical ownership only; it has weak view/registry links and no
+opener lease. Own removal/destruction still retires it. Visibility and human
+takeover remain native host policy, not an automatic grant of Agent admission.
+
+Native ownership moves from the parent's construction book to an eight-slot UI
+pool. A data-only dependency keeps the original browser close barrier charged
+until this independent task-owned child is destroyed or explicitly handed to its
+human owner. The parent's UI record can release without rooting its controller
+through this dependency. Construction allocation and weak parent links are
+cleared; the old child proof connection and its opener/allocation links retire.
+The new opaque proof identity contains no old Child, marker lease or network.
+The shared host/registry/disposer remain UI-owned for actual native destruction.
+
+Explicit close, global quiescence and recovery use the exact existing product
+destructor. The independent window can itself have an outstanding native Message;
+that callback must settle before physical destruction. Rejected UI posting keeps
+the owner for resume/creation recovery. Failures do not replay SDK destruction or
+upgrade a historical failure after later physical acknowledgement. Taking human
+control preserves the window while retiring task authority; physical destruction
+is reported separately. Diagnostics include native_promoted_owners.
+
+Ten joint product/native/shared-worker scenarios cover parent close, explicit
+close, parent-scope reuse, global shutdown, lost UI posting, cleanup failure,
+human takeover, denied promotion, two children and a nested native callback.
+Runtime field checks verify old parent references are cleared. Additional registry
+checks cover stale preparation, old-proof revocation, parent removal, visibility,
+human ownership and reserved identity until post-destroy ACK. The APK has checked
+independent/promotion field shapes and 23 actual class/method definitions.
+
+The joint fixture explicitly controls the native ownership terminal, without
+certifying a Browser-session handoff. The original paused attachment, first
+request/response controls and independent document/world bootstrap still need
+coordinator routing. Native view ownership alone is insufficient for any of those
+permissions. The public protected-popup route and provider/framework/automation
+qualification remain disabled; the user's phone/WebView deferral is preserved.

@@ -162,7 +162,8 @@ def main():
                  'host-destruction','host-destruction-unsent','host-destruction-inline','host-destruction-human','host-destruction-human-inline','host-destruction-failure','host-destruction-nested-parent','host-destruction-nested-child',
                  'product-disposal','product-disposal-sent','product-disposal-consumed','product-disposal-configuration','product-disposal-network','product-disposal-failure','product-disposal-logical-failure','product-disposal-nested','product-disposal-reentrant',
                  'delivery-loss','delivery-loss-retry','delivery-loss-create','delivery-loss-queued','delivery-loss-multiple','delivery-loss-sent','delivery-loss-unsent','delivery-loss-scope',
-                 'quiescence-failure','quiescence-shutdown','quiescence-ui-loss','quiescence-timeout','quiescence-sent','quiescence-physical-failure','quiescence-reentrant','quiescence-close-failure'):
+                 'quiescence-failure','quiescence-shutdown','quiescence-ui-loss','quiescence-timeout','quiescence-sent','quiescence-physical-failure','quiescence-reentrant','quiescence-close-failure',
+                 'promotion-parent-close','promotion-request-close','promotion-parent-reuse','promotion-global','promotion-ui-loss','promotion-failure','promotion-human','promotion-denied','promotion-multiple','promotion-nested'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
@@ -172,13 +173,14 @@ def main():
                 or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
+                or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
         popup_worker_results.append(popup_worker)
     result['jvm_popup_worker']=popup_worker_results
     popup_native=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpPopupNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
-    if (not popup_native.get('passed') or not popup_native.get('original_callback_ownership') or not popup_native.get('typed_native_consumption') or not popup_native.get('retirement_delivery_identity') or not popup_native.get('transport_quiescence_identity')
+    if (not popup_native.get('passed') or not popup_native.get('original_callback_ownership') or not popup_native.get('typed_native_consumption') or not popup_native.get('retirement_delivery_identity') or not popup_native.get('transport_quiescence_identity') or not popup_native.get('independent_registry_receipts')
             or popup_native.get('native_popup_adoption_qualified') is not False or popup_native.get('provider_qualified') is not False):
         raise RuntimeError('The original native popup callback ownership/consumption gate did not pass')
     result['jvm_popup_native']=popup_native

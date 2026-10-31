@@ -168,8 +168,27 @@ public final class CdpPopupNativeProbe {
         }
     }
     public static void main(String[] args)throws Exception{
-        closeBarriers();retirementDelivery();deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"transport_quiescence_identity\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        independentRegistry();closeBarriers();retirementDelivery();deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"independent_registry_receipts\":true,\"transport_quiescence_identity\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+    }
+    private static void independentRegistry()throws Exception{
+        try(Case c=new Case()){
+            WebView child=new WebView();MdoBrowserLifecycle.Fresh<WebView> birth=c.fresh(child);birth.claim(c.view);
+            MdoBrowserLifecycle.Independent<WebView> old=c.views.prepareIndependent(birth,c.view,child);c.views.navigation("child1",child);
+            denied(()->c.views.commitIndependent(old,c.view,child));check(birth.current()&&!old.current()&&child.destroyed==0);
+            MdoBrowserLifecycle.Independent<WebView> pending=c.views.prepareIndependent(birth,c.view,child);c.views.navigation("root",c.view);
+            denied(()->c.views.commitIndependent(pending,c.view,child));check(!pending.current()&&child.destroyed==0);
+        }
+        try(Case c=new Case()){
+            WebView child=new WebView();MdoBrowserLifecycle.Fresh<WebView> birth=c.fresh(child);birth.claim(c.view);
+            MdoBrowserLifecycle.Independent<WebView> owner=c.views.prepareIndependent(birth,c.view,child);c.views.commitIndependent(owner,c.view,child);
+            check(owner.current()&&!birth.current()&&owner.view()==child&&!owner.destroyed());denied(()->birth.attached(c.view));denied(()->c.views.commitIndependent(owner,c.view,child));
+            c.views.remove("root");c.view.destroy();c.views.viewDestroyed(c.view);check(owner.current()&&owner.view()==child);
+            c.views.visibility("child1",child,false);check(owner.current());denied(owner::view);c.views.visibility("child1",child,true);check(owner.view()==child);
+            c.views.manual("child1",child,true);check(owner.current()&&owner.humanOwned());denied(owner::view);
+            c.views.remove("child1");check(!owner.current()&&!owner.destroyed());denied(()->c.views.checkNew("child1"));child.destroy();c.views.viewDestroyed(child);
+            check(owner.destroyed()&&child.destroyed==1&&child.evaluations==0);c.views.checkNew("child1");
+        }
     }
     private static final class CloseWire implements MdoBrowserCdpSession.Wire {
         int closes;public void send(byte[] bytes,int timeout){throw new AssertionError("UI protocol send");}public byte[] receive(int timeout){throw new AssertionError("UI protocol receive");}

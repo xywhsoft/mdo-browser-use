@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E134:** implement the private product native ownership handoff for
+  consumed/proved children. Prepare/commit exact registry ownership, retire old
+  proof/parent references, retain independent UI owners and keep the original
+  wire barrier charged through data-only dependencies. Parent native UI ownership
+  may end without destroying that child. Ten joint modes pass 354 assertions;
+  fresh native passes 123 inputs, 87 modes/3,073 checks and controller 360.
+  Fresh popup 110/25/7, current product 789/18 inputs, saving 47, Python 173/175
+  and 23 actual APK definitions/ownership field checks pass. This is native UI
+  ownership only: original Browser-session, document/world and body handoff remain
+  incomplete, with public protected admission and provider qualification false.
 - **Android E133:** reproduce browser-session failure closing its wire before
   native rejection. Bind an eight-owner original-scope close barrier before
   commands; revoke all permits before notifications and wait for every registered
@@ -10804,3 +10814,71 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Public protected Android popup admission and provider/framework/automation
   qualification stay false. Unavailable isolated worlds do not permit a main-world
   Agent fallback.
+
+### E134 — independent native UI ownership for proved children
+
+- Inspect cancellation before changing it: allocated Child.current already uses
+  the original request allocation scope, so no new cancellation bug is inferred.
+  Proceed with the missing native ownership transfer needed for full promotion.
+  Add actual product promoteProtocolPopup, separate from future protocol/session
+  and document/world handoff. Keep popup_world_unqualified and the public route
+  disabled; no navigation, profile/world initialization or debugger resume.
+- Mint a registry Independent receipt only from the exact claimed Fresh child.
+  Prepare before mutation, recheck original view/opener, both generations and
+  input cleanliness at commit, then irrevocably retire legacy parent proof.
+  Physical ownership survives parent removal and uses weak native/registry links;
+  own removal/destruction, visibility and human control retain their separate
+  meanings. A removed child keeps its identity reservation until real destroy ACK.
+- Move the consumed/physically proved child from its original UI construction
+  book into a bounded eight-slot independent UI pool. Keep a data-only dependency
+  on the original browser cancellation barrier. Parent UI retention can release
+  while an independent child remains; close the local wire only after all owned
+  dependencies settle. A child can own another native Message, which must be
+  consumed before SDK destruction. Preserve human ownership on task close.
+- Audit the retained object graph as well as behavior. Drop the old construction
+  allocation and weak parent/book links on commit, close the old marker proof
+  connection and clear the retired Child's opener/allocation links. Runtime
+  reflection checks all five links. Promotion data carries an opaque identity,
+  independent registry receipt and weak notification, not Child/marker/network/
+  SDK/Thread objects. Shared host/registry/disposal stay in the UI owner only.
+- Existing UI delivery plus resume/creation reconciliation handles requested and
+  global close, including rejected posts after the parent's UI record is gone.
+  Exact product teardown and post-destroy notification include promoted owners.
+  Failed destruction stays retained/fenced without automatic replay; a later
+  exact physical acknowledgement can release capacity without erasing failure.
+  Add native_promoted_owners diagnostics.
+- Ten joint modes exercise actual product promotion/destruction, native registry/
+  ownership and the real shared worker with controlled SDK/protocol peers: parent
+  close, explicit close, parent-scope reuse, global shutdown, lost UI post, cleanup
+  failure, human takeover, denial, two independent children and a nested callback.
+  They pass 354 assertions. The native ownership terminal is explicitly controlled
+  by this fixture; no successful Browser-session handoff is manufactured. Add 18
+  registry assertions for prepared-epoch mismatch, old-proof revocation, parent
+  removal, visibility, human control and exact post-destroy capacity release.
+- Final E134-native.log passes 123 source hashes, ASan/UBSan/API26/JVM/JNI,
+  87 worker modes/3,073 assertions, controller 360 and actual JNI 264. Refresh
+  popup evidence after the lifecycle change: 110/25/7, 13 inputs. Product 789
+  (including 77 async-close checks) matches its 18 current inputs. Its focused
+  stub refuses promotion rather than faking a pass; the joint native gate executes
+  the real implementation. Fresh saving passes 47/six inputs and binds current
+  native evidence. Python passes 173/175 in 50.463 seconds, with the same two
+  Windows symlink-privilege skips. Reuse E130 actual Windows 301/six-cycle and
+  E105 world evidence only after verifying their unchanged inputs/native host.
+- Rebuild the actual Android development APK after applying reviewed files only
+  while stopped. Inspect 23 actual class/method definitions, promotion/independent/
+  Fresh data field shapes, preallocated atomic cancel handle and weak wire identity;
+  confirm the test host is absent. Signing/private provider/JNI/ARM64/16-KiB/ZIP
+  gates pass. APK: 6,526,273 bytes, SHA-256
+  0f49221ca5928820162d9de4a445b6efcc1ace1685628f34d28d698551f31d0e.
+  Packed Windows program, ARM64 host and plugin bytes are unchanged.
+- E134-final-identities.py/log joins final code/artifacts and scoped evidence.
+  Development service restored: HTTP 200 on 63625, PID 17596; deployment about
+  3,446.7 MiB and D: about 37.25 GiB free. No ADB/phone/WebView change, extra
+  application/Home/source copy, new runtime dependency, model call, external
+  browser page, production data/config edit or publication.
+- Goal remains active. Continue the complete preparation/action/adoption
+  coordinator, original Browser attachment/first-response controls, independent
+  child protocol and document/world bootstrap, body routing, remaining process
+  failure joins and platform/delivery audit. Native UI ownership is not Agent
+  authorization or protocol promotion. Provider/framework/automation qualification
+  stays false and unavailable isolated worlds do not permit a main-world fallback.

@@ -38,12 +38,13 @@ public final class CdpPopupWorkerProbe {
         final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger(),guards=new AtomicInteger();
         final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile CountDownLatch armEntered,armRelease;
         final Map<String,CdpBindingProbe.Factory> nativeTargets=new ConcurrentHashMap<>();final AtomicInteger nativeOpens=new AtomicInteger(),barriers=new AtomicInteger();
+        final Set<String> proofTargets=ConcurrentHashMap.newKeySet();{proofTargets.add("target-proof-real");}
         volatile String barrierMode="normal";volatile Runnable proofConfirmed,closeHook;volatile boolean closeFailure;
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
         public MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock){creates.incrementAndGet();threads.add(Thread.currentThread());Wire next=new Wire();wire=next;
             return new MdoBrowserCdpPopupBroker(current,clock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,events,clock::getAsLong);},
                 (target,timeout,alive,events)->{threads.add(Thread.currentThread());nativeOpens.incrementAndGet();CdpBindingProbe.Factory peer=nativeTargets.get(target);
-                    if(peer==null)throw new IOException("cdp_fixture_unregistered_target");return peer.open(target.equals("target-proof-real")?"owned":"other",timeout,alive,events);});}
+                    if(peer==null)throw new IOException("cdp_fixture_unregistered_target");return peer.open(proofTargets.contains(target)?"owned":"other",timeout,alive,events);});}
         private final class Wire implements MdoBrowserCdpSession.Wire {
             final ConcurrentLinkedQueue<byte[]> incoming=new ConcurrentLinkedQueue<>();
             void add(JSONObject packet){incoming.add(packet.toString().getBytes(StandardCharsets.UTF_8));}
@@ -70,7 +71,7 @@ public final class CdpPopupWorkerProbe {
                         JSONObject reply=ack(id,guardMode.equals("reply")?null:child);if(guardMode.equals("nonempty"))reply.getJSONObject("result").put("unexpected",true);add(reply);
                     }else if(method.equals("Runtime.runIfWaitingForDebugger")){resumes.incrementAndGet();add(ack(id,command.getString("sessionId")));}
                     else if(method.equals("Target.getTargetInfo")){
-                        JSONObject p=command.getJSONObject("params");if(command.length()!=3||p.length()!=1||!p.getString("targetId").equals("target-proof-real"))throw new AssertionError("Caller-selected target barrier");barriers.incrementAndGet();
+                        JSONObject p=command.getJSONObject("params");if(command.length()!=3||p.length()!=1||!proofTargets.contains(p.getString("targetId")))throw new AssertionError("Caller-selected target barrier");barriers.incrementAndGet();
                         if(barrierMode.equals("detach"))add(detached("proof-real"));
                         add(new JSONObject().put("id",id).put("result",new JSONObject().put("targetInfo",new JSONObject().put("targetId",barrierMode.equals("wrong")?"foreign":p.getString("targetId")).put("type","page"))));
                         Runnable callback=proofConfirmed;if(callback!=null)callback.run();
@@ -590,6 +591,82 @@ public final class CdpPopupWorkerProbe {
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
         }
     }
+    /** Native UI ownership terminal is controlled here; the Browser attachment
+     * is deliberately not promoted or represented as a clean protocol handoff. */
+    private static void nativePromotion(String mode)throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            PopupProductHost product=new PopupProductHost(c.source.views);MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView view=created.view();
+            c.source.adopting=view;MdoBrowserPopups.Adoption adoption=c.source.source.adopt(created);c.source.ack();
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
+                MdoBrowserCdpPopupNative.Child child=c.source.source.child(adoption,created,adapter)){
+                failure("cdp_popup_native_promotion_unavailable",()->product.promote("owned",c.source.source,created,child));
+                CdpBindingProbe.Factory peer=proofPeer(view,"success",null,null);c.backend.nativeTargets.put("target-proof-real",peer);
+                check(c.request.proveNative(child));waitFor(()->!c.observer.provenChildren.isEmpty(),c.host,true);check(child.proof().ok);
+                MdoBrowserCdpPopupNative.Created second=null;MdoBrowserCdpPopupNative.Child secondProof=null;MdoBrowserCdpView secondAdapter=null;WebView secondView=null;
+                if(mode.equals("promotion-multiple")){
+                    c.source.open();c.backend.wire.add(attached("proof-second","owned"));waitFor(()->c.observer.candidates.size()==2,c.host,true);check(c.observer.candidates.get(1).requestProtection());waitFor(()->c.observer.protectedTargets.size()==2,c.host,true);
+                    second=product.construct(c.source.source,c.request.allocateNative(c.source.source),"second");secondView=second.view();c.source.adopting=secondView;
+                    MdoBrowserPopups.Adoption next=c.source.source.adopt(second);c.source.ack();final WebView exactSecond=secondView;
+                    secondAdapter=MdoBrowserCdpView.network(exactSecond,v->v==exactSecond,new MdoBrowserCdpMarker.DocumentQuota());secondProof=c.source.source.child(next,second,secondAdapter);
+                    c.backend.proofTargets.add("target-proof-second");c.backend.nativeTargets.put("target-proof-second",proofPeer(secondView,"success",null,null));check(c.request.proveNative(secondProof));waitFor(()->c.observer.provenChildren.size()==2,c.host,true);
+                }
+                CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+                c.host.worker.submit(c.host.document(),10000,false,(binding,deadline)->{entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}return new byte[]{1};},c.host.documentResults::add);
+                try{
+                    waitFor(()->entered.getCount()==0,c.host,true);int evaluations=view.evaluations;
+                    if(mode.equals("promotion-denied")){
+                        failure("cdp_popup_native_promotion_unavailable",()->product.promote("wrong",c.source.source,created,child));
+                        c.source.views.visibility("owned",view,false);failure("cdp_popup_native_promotion_unavailable",()->product.promote("owned",c.source.source,created,child));
+                        check(MdoBrowserCdpPopupNative.promotedUiOwners()==0&&view.destroyed==0);return;
+                    }
+                    MdoBrowserCdpPopupNative.Retirement original=c.source.source.retirement();MdoBrowserCdpPopupNative.Promotion promoted=product.promote("owned",c.source.source,created,child);
+                    check(promoted.current()&&promoted.matches(child)&&promoted.view()==view&&!child.current()&&!promoted.ended()&&!promoted.nativeDestroyed());
+                    for(String name:new String[]{"owner","book","allocation"}){java.lang.reflect.Field field=MdoBrowserCdpPopupNative.Created.class.getDeclaredField(name);field.setAccessible(true);Object value=field.get(created);check(value==null||value instanceof java.lang.ref.WeakReference&&((java.lang.ref.WeakReference<?>)value).get()==null);}
+                    for(String name:new String[]{"opener","allocation"}){java.lang.reflect.Field field=MdoBrowserCdpPopupNative.Child.class.getDeclaredField(name);field.setAccessible(true);check(field.get(child)==null);}
+                    check(MdoBrowserCdpPopupNative.promotedUiOwners()==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==1&&view.evaluations==evaluations&&product.documentFailures.get("owned").equals("popup_world_unqualified"));
+                    MdoBrowserCdpPopupNative.Promotion other=second==null?null:product.promote("second",c.source.source,second,secondProof);if(other!=null){check(other.current()&&other.matches(secondProof)&&MdoBrowserCdpPopupNative.promotedUiOwners()==2);secondProof.close();secondAdapter.close();}
+                    failure("cdp_popup_native_promotion_unavailable",()->c.source.source.promote(created,child));child.close();
+                    original.request(true);original.deliver();check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==(other==null?1:2)&&promoted.current()&&promoted.view()==view&&view.destroyed==0);
+                    if(mode.equals("promotion-parent-reuse")){c.source.source.claim(c.source.source.lease());c.source.source.retainUiOwner();check(c.source.source.ready());}
+                    if(mode.equals("promotion-parent-close")){
+                        product.windows.put("root",c.source.core);product.retire("root",c.source.view);c.source.source.lease().invalidate();
+                        check(c.source.view.destroyed==1&&promoted.current()&&promoted.view()==view&&view.destroyed==0);
+                    }
+                    if(other!=null){check(other.current()&&secondView.destroyed==0&&c.backend.closes.get()==0);c.host.worker.close();check(c.backend.closes.get()==0&&!other.current()&&secondView.destroyed==0);Handler.drain();check(other.ended()&&other.nativeDestroyed()&&secondView.destroyed==1&&c.backend.closes.get()==1);}
+                    if(mode.equals("promotion-human")){c.source.views.manual("owned",view,true);check(!promoted.current()&&view.destroyed==0);}
+                    if(mode.equals("promotion-global")||mode.equals("promotion-ui-loss")){
+                        Handler.rejectPost=mode.equals("promotion-ui-loss");c.host.worker.close();check(!promoted.current()&&c.backend.closes.get()==0&&view.destroyed==0);
+                        if(Handler.rejectPost){Handler.drain();check(view.destroyed==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==1);Handler.rejectPost=false;product.resume();}
+                        else Handler.drain();
+                        check(promoted.ended()&&promoted.nativeDestroyed()&&view.destroyed==1&&c.backend.closes.get()==1);
+                    }else{
+                        if(mode.equals("promotion-failure"))product.failClose=true;
+                        MdoBrowserPopups<WebView> nestedCore=null;MdoBrowserCdpView nestedAdapter=null;final Runnable[] nestedAck={null};final int[] nestedSends={0};
+                        MdoBrowserPopups.Budget nestedBudget=new MdoBrowserPopups.Budget(8);
+                        if(mode.equals("promotion-nested")){
+                            nestedCore=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){public long now(){return c.host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}},nestedBudget,()->true,()->1L,blocked->{});
+                            nestedAdapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());MdoBrowserCdpPopupNative nested=new MdoBrowserCdpPopupNative(nestedAdapter,view,nestedCore);
+                            nested.claim(nestedAdapter.marker().lease());nested.retainUiOwner();check(nested.ready());product.windows.put("owned",nestedCore);
+                            check(nestedCore.open(new MdoBrowserPopups.Transport<WebView>(){public Object token(){return this;}public void send(WebView ignored,Runnable ack){nestedSends[0]++;nestedAck[0]=ack;}},false));
+                        }
+                        promoted.close();Handler.drain();
+                        if(nestedCore!=null){check(!promoted.ended()&&!promoted.failed()&&view.destroyed==0&&nestedBudget.used()==1&&nestedSends[0]==1);nestedAck[0].run();check(view.destroyed==1&&nestedBudget.used()==0&&nestedSends[0]==1);nestedAdapter.close();nestedCore.close();nestedCore.viewDestroyed(view);}
+                        if(mode.equals("promotion-failure")){
+                            check(promoted.failed()&&!promoted.ended()&&!promoted.nativeDestroyed()&&view.destroyed==0&&!MdoBrowserCdpPopupNative.creationConfirmed());
+                            promoted.close();Handler.drain();check(view.destroyed==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==1);
+                            c.source.dispose("owned",view);MdoBrowserCdpPopupNative.viewDestroyed(view);
+                            check(promoted.failed()&&promoted.ended()&&promoted.nativeDestroyed()&&view.destroyed==1&&!MdoBrowserCdpPopupNative.creationConfirmed());
+                        }else if(mode.equals("promotion-human")){
+                            check(promoted.ended()&&!promoted.nativeDestroyed()&&view.destroyed==0&&c.source.views.owns("owned",view));product.retire("owned",view);check(promoted.nativeDestroyed()&&view.destroyed==1);
+                        }else check(promoted.ended()&&promoted.nativeDestroyed()&&view.destroyed==1);
+                    }
+                    if(mode.equals("promotion-parent-reuse")){check(c.source.source.current()&&c.source.source.failure()==null);MdoBrowserCdpPopupNative.Retirement fresh=c.source.source.retirement();fresh.request(true);fresh.deliver();}
+                    promoted.close();Handler.drain();MdoBrowserCdpPopupNative.reconcileRetirements();
+                    check(MdoBrowserCdpPopupNative.promotedUiOwners()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&view.destroyed==1&&c.backend.resumes.get()==0&&c.backend.detaches.get()==0&&view.evaluations==evaluations);
+                }finally{Handler.rejectPost=false;release.countDown();}
+            }
+        }
+    }
     private static void transportQuiescence(String mode)throws Exception{
         Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.networkTargets.put(two.adapter.marker(),"other-root");c.ready(one);c.ready(two);
@@ -1000,7 +1077,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("quiescence"))transportQuiescence(mode);
+        if(mode.startsWith("promotion"))nativePromotion(mode);
+        else if(mode.startsWith("quiescence"))transportQuiescence(mode);
         else if(mode.startsWith("delivery-loss"))deliveryLoss(mode);
         else if(mode.startsWith("product-disposal"))productDisposal(mode);
         else if(mode.startsWith("host-destruction"))hostDestruction(mode);
@@ -1017,6 +1095,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

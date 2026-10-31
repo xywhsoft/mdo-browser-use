@@ -199,6 +199,7 @@ final class AndroidCreateHost {
         static boolean safe=true;static boolean creationConfirmed(){return safe;}
         static int retainedUiOwners(){return 0;}
         static int pendingRetirements(){return 0;}
+        static int promotedUiOwners(){return 0;}
         static void reconcileRetirements(){}
         interface Destruction {boolean ready();void destroy();}
         static boolean registerDestruction(WebView view,Destruction destruction){
@@ -210,6 +211,11 @@ final class AndroidCreateHost {
         }
         static void viewDestroyed(WebView view){if(view.destroys!=1||view.host.views.values().contains(view))throw new AssertionError("Native owner notified before exact destruction/registry ACK");view.host.nativeRetirementNotifications++;}
         interface Disposal {void destroy(String key,WebView exact);}
+        // This focused create/close fixture never certifies promotion. The joint
+        // worker fixture executes the real native implementation and disposer.
+        static final class Child {}
+        static final class Promotion {WebView view(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}void close(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}}
+        Promotion promote(Created original,Child proof){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}
         final WebView opener;Disposal disposal;int calls;Created latest;
         MdoBrowserCdpPopupNative(WebView opener){this.opener=opener;}
         static final class Created {

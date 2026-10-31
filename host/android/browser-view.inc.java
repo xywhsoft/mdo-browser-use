@@ -25,6 +25,18 @@
             throw failure;
         }
     }
+    /** Native ownership handoff only. The complete coordinator must separately
+     * transfer the protected original protocol session and bootstrap a world. */
+    private MdoBrowserCdpPopupNative.Promotion promoteProtocolPopup(String key,MdoBrowserCdpPopupNative source,
+            MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException {
+        nativeCreationAdmission();
+        if(source==null||original==null)throw new java.io.IOException("cdp_popup_native_promotion_unavailable");
+        WebView exact;try{exact=original.view();}catch(IllegalStateException stale){throw new java.io.IOException("cdp_popup_native_promotion_unavailable");}
+        if(!views.owns(key,exact)||popupLinks.containsKey(key))throw new java.io.IOException("cdp_popup_native_promotion_unavailable");
+        MdoBrowserCdpPopupNative.Promotion promoted=source.promote(original,proof);
+        try{if(promoted.view()!=exact||!views.owns(key,exact))throw new IllegalStateException("popup_binding_mismatch");return promoted;}
+        catch(RuntimeException|Error failure){promoted.close();throw failure;}
+    }
     /** Common native policy/listeners, with no navigation or UI publication. */
     private void configureBrowserView(String key,WebView web){
         web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);
