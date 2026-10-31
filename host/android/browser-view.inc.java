@@ -37,6 +37,11 @@
             MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException {
         return transferProtocolPopup(key,source,original,proof,true);
     }
+    /** Queue fixed debugger/request flow only for the committed native owner.
+     * This neither publishes a tab nor grants document/world/body access. */
+    private void activateProtocolPopup(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException {
+        nativeCreationAdmission();if(handoff==null||!handoff.owns(owner)||!owner.current())throw new java.io.IOException("cdp_popup_activation_unavailable");handoff.activate();
+    }
     private MdoBrowserCdpPopupNative.Promotion transferProtocolPopup(String key,MdoBrowserCdpPopupNative source,
             MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof,boolean protectedAttachment)throws java.io.IOException {
         nativeCreationAdmission();

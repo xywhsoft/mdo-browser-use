@@ -164,7 +164,10 @@ def main():
                  'delivery-loss','delivery-loss-retry','delivery-loss-create','delivery-loss-queued','delivery-loss-multiple','delivery-loss-sent','delivery-loss-unsent','delivery-loss-scope',
                  'quiescence-failure','quiescence-shutdown','quiescence-ui-loss','quiescence-timeout','quiescence-sent','quiescence-physical-failure','quiescence-reentrant','quiescence-close-failure',
                  'promotion-parent-close','promotion-request-close','promotion-parent-reuse','promotion-global','promotion-ui-loss','promotion-failure','promotion-human','promotion-denied','promotion-multiple','promotion-nested',
-                 'handoff-denied','handoff-request-close','handoff-parent-close','handoff-parent-reuse','handoff-expiry','handoff-response','handoff-limit','handoff-global','handoff-ui-loss','handoff-disposal-failure'):
+                 'handoff-denied','handoff-request-close','handoff-parent-close','handoff-parent-reuse','handoff-expiry','handoff-response','handoff-limit','handoff-global','handoff-ui-loss','handoff-disposal-failure',
+                 'activation-success','activation-parent-close','activation-expiry','activation-owner-loss',
+                 'activation-resume-unsupported','activation-resume-rejected','activation-resume-nonempty','activation-resume-mismatch','activation-resume-timeout','activation-resume-send-failure',
+                 'activation-flow-rejected','activation-flow-nonempty','activation-flow-foreign','activation-flow-timeout','activation-flow-send-failure','activation-flow-limit','activation-flow-owner-loss'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
@@ -174,6 +177,7 @@ def main():
                 or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
+                or popup_worker.get('protected_attachment_activation_tested') is not mode.startswith('activation')
                 or popup_worker.get('protected_attachment_handoff_tested') is not mode.startswith('handoff')
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):

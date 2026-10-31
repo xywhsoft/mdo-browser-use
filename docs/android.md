@@ -4830,3 +4830,47 @@ handoff/product/worker methods and checked seven-field receipt structure. This i
 paused attachment ownership only; complete child-session execution, first-response
 controls, independent document/world bootstrap, body routing and installed-provider
 qualification remain outstanding. Protected public admission remains disabled.
+
+
+### E136: guarded debugger resume and original-request flow
+
+The private product activateProtocolPopup seam accepts only the exact committed
+native owner and its Handoff. It queues a single-use intent; UI code performs no
+protocol I/O. The existing process worker first sends fixed
+Runtime.runIfWaitingForDebugger on the original protected session. An empty ACK
+confirms resume without detaching the session. It then sends fixed
+Fetch.continueRequest with each original retained request ID, one command per pump
+turn. It accepts no caller target/request selector, replacement URL, method,
+headers or body. The cursor rotates across the bounded child list; full multi-child
+coordinator qualification remains separate.
+
+Each command checks the independent native owner before dispatch and throughout
+all receive/event callbacks. A lost owner, timeout, failed/partial send, mismatched
+reply or rejection never reconnects or retries. Invalid arguments and callback
+reentry are rejected before consuming one-shot state. The original resume result
+is historical acknowledgement; a later flow failure is recorded separately and
+neither result substitutes for current ownership. Eleven data-only Handoff fields
+carry identity, clock/stop/activation flags, native receipt, static-code results and
+an atomic continuation count. No session, original Child/allocation or SDK field
+is added to the receipt.
+
+Fetch interception stays enabled. After explicit protected resume begins, first
+responses are retained privately, including a response arriving before the matching
+request-continuation ACK. No metadata/body is exposed or response released. Request
+and opaque response retention share 32 slots; duplicate IDs, invalid sessions and
+resource overflow fail closed. Pre-activation response events still fail closed.
+The original capture deadline remains in force while bootstrap is unfinished.
+This phase does not create or publish a document/world, authorize Agent execution,
+release responses or connect the body/download pipeline.
+
+Seventeen joint product/native/shared-worker modes pass 571 assertions: successful
+original/next-request flow, parent close, expiry, ownership loss, unsupported or
+rejected resume, nonempty/mismatched reply, timeout, partial send, rejected or
+malformed continuation, foreign session, response overflow and cancellation during
+continuation. Separate original-attachment checks reject invalid/null/dead-owner
+arguments without I/O or consumed state, then successfully use the same retained
+request; callback reentry cannot issue a second command. Actual APK inspection
+checks the new methods and eleven-field receipt. Installed-provider/framework and
+public automation qualification remain false. Continue independent child protocol,
+document/world bootstrap, response release/body routing and full product
+coordination before enabling the protected route.

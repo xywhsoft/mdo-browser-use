@@ -177,9 +177,38 @@ public final class CdpAttachedTargetProbe {
             check(CdpNativeProbe.fixtureFinish()==(1+(3<<8)));realSessions++;
         }
     }
+    private static void protectedFlowAdmission()throws Exception{
+        try(Case test=new Case()){
+            test.action=(method,child,params)->{if(method.equals("Target.attachedToTarget"))test.metadata.add(test.client.retainAttachedTarget());else if(method.equals("Fetch.requestPaused"))test.client.retainAttachedRequest(test.metadata.get(0));else throw new IOException("cdp_fixture_event_invalid");};
+            test.wire.after=command->{String method=command.getString("method");int id=command.getInt("id");
+                if(method.equals("Target.getTargets")){test.wire.add(attached("managed"));test.wire.add(ack(id,null));}
+                else if(method.equals("Fetch.enable")){test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","managed").put("params",new JSONObject().put("requestId","original")));test.wire.add(ack(id,"managed"));}
+                else if(method.equals("Runtime.runIfWaitingForDebugger")){check(command.length()==4&&command.getString("sessionId").equals("managed")&&command.getJSONObject("params").length()==0);test.wire.add(ack(id,"managed"));}
+                else if(method.equals("Fetch.continueRequest")){
+                    check(command.length()==4&&command.getString("sessionId").equals("managed")&&command.getJSONObject("params").length()==1&&command.getJSONObject("params").getString("requestId").equals("original"));
+                    failure("cdp_reentry_forbidden",()->test.client.continueProtectedRequest(test.metadata.get(0),()->true,100));
+                    test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","managed").put("params",new JSONObject().put("requestId","original").put("responseStatusCode",200)));test.wire.add(ack(id,"managed"));
+                }else throw new AssertionError("Unexpected managed control");
+            };
+            test.call();MdoBrowserCdpSession.AttachedTarget original=test.metadata.get(0);test.client.protectAttachedTarget(original,100);int sent=test.wire.sent.size();
+            failure("cdp_attach_resume_unconfirmed",()->test.client.continueProtectedRequest(original,()->true,100));
+            failure("cdp_arguments_invalid",()->test.client.resumeProtectedAttachment(original,()->true,9));
+            failure("cdp_arguments_invalid",()->test.client.resumeProtectedAttachment(original,null,100));
+            failure("cdp_attach_owner_changed",()->test.client.resumeProtectedAttachment(original,()->false,100));
+            check(test.wire.sent.size()==sent&&!original.resumeConfirmed()&&original.retainedRequestCount()==1);
+            test.client.resumeProtectedAttachment(original,()->true,100);check(original.resumeConfirmed()&&!original.detachConfirmed()&&test.wire.sent.size()==sent+1);
+            failure("cdp_attach_resume_replayed",()->test.client.resumeProtectedAttachment(original,()->true,100));
+            failure("cdp_arguments_invalid",()->test.client.continueProtectedRequest(original,()->true,9));
+            failure("cdp_arguments_invalid",()->test.client.continueProtectedRequest(original,null,100));
+            failure("cdp_attach_owner_changed",()->test.client.continueProtectedRequest(original,()->false,100));
+            check(test.wire.sent.size()==sent+1&&original.retainedRequestCount()==1&&original.retainedResponseCount()==0);
+            check(test.client.continueProtectedRequest(original,()->true,100));check(original.retainedRequestCount()==0&&original.retainedResponseCount()==1&&test.wire.sent.size()==sent+2);
+            check(!test.client.continueProtectedRequest(original,()->true,100)&&test.wire.sent.size()==sent+2);
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();java.util.concurrent.ExecutorService worker=Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
     }

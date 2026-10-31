@@ -15,6 +15,19 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E136:** add explicit activation of the exact handed-off native child.
+  On the existing worker, acknowledge fixed debugger resume without detaching,
+  then continue only original retained request IDs. Keep Fetch interception and
+  opaque responses paused, sharing 32 retention slots with requests. Check native
+  ownership throughout every command/receive/callback, preserve historical resume
+  separately from flow failure, and reject invalid arguments before consuming
+  single-use state. Seventeen new modes pass 571 assertions; native passes
+  123 inputs, 114 worker modes/4,112 checks, original-attachment 2,633 and
+  controller 360. Fresh product/popup/save, Python 173/175 and 27 actual APK
+  definitions/eleven-field handoff checks pass. First-response release,
+  independent document/world/bootstrap/body routing, complete product coordination
+  and installed-provider qualification remain outstanding; public admission stays
+  disabled and phone/WebView testing remains deferred.
 - **Android E135:** retain the same original protected paused Browser attachment
   across the natural end of its opener preparation. Bind a single-use data-only
   handoff reservation to the proved native child before UI commit; retain the
@@ -10948,3 +10961,63 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   protocol execution or Agent authorization. All provider/framework/automation
   qualification stays false; unavailable isolated worlds never use a main-world
   fallback. The user's phone/WebView deferral remains in force.
+
+
+### E136 — protected resume, original request continuation and opaque responses
+
+- Add explicit once-only activation bound to the exact committed native Promotion
+  and Handoff. The real private product seam queues intent only; the original
+  worker acknowledges fixed debugger resume without detach, then continues each
+  original retained request with fixed arguments. One command per pump turn and
+  a bounded rotating cursor preserve the existing service structure; no new
+  executor, caller-runs/UI I/O, target selection or reconnect/retry is added.
+- Check the independent native owner before dispatch and during every protocol
+  receive/event callback, with a finally-cleared command scope. Invalid/null/dead
+  arguments and reentry cannot consume single-use state or issue I/O. Record
+  historical resume acknowledgement separately from later static-code flow failure
+  and truthful command effect uncertainty. Neither result grants current authority.
+- Keep the original Fetch guard and retain first responses privately, including
+  an event before the continuation ACK. Requests and opaque responses share a
+  32-slot limit; request removal follows only the matching empty original ACK.
+  Pre-activation responses, duplicate/foreign events, exhaustion and expiry remain
+  fail-closed. No response release, body/metadata exposure, independent document/
+  world admission, Agent execution or tab publication is added.
+- Add 17 joint product/native/shared-worker activation modes/571 assertions.
+  Exercise successful original/next request flow, subsequent parent native close,
+  expiry, owner loss, unsupported/rejected resume, malformed/mismatched replies,
+  timeout, partial sends, continuation failure/foreign session, response overflow
+  and cancellation during continuation. Direct original-attachment admission adds
+  38 checks: reject bad arguments without consuming state or I/O, subsequently
+  resume/continue exactly once, keep the response and refuse callback reentry.
+  Its current total is 2,633 checks with two actual native sessions. The direct
+  protocol fixture continues to declare that it proves no task/native ownership;
+  the joint worker fixture separately executes the actual product/native join.
+- E136-targeted.log passes all 17 new modes and the direct attachment gate.
+  E136-native.log passes 123 current hashes, ASan/UBSan/API26/JVM/JNI, 114 worker
+  modes/4,112 checks, controller 360 and actual JNI 264. Existing ten handoff modes
+  now total 468 because their field checks inspect eleven data-only receipt
+  fields. Fresh popup passes 110 +25 native callback +7 owner scope; fresh product
+  passes 789/18 inputs including 77 asynchronous close checks. Fresh save passes
+  47/six inputs bound to current native evidence. Python passes 173/175 in 53.161
+  seconds; two existing Windows symlink-privilege tests remain skipped. Reuse E130
+  actual Windows 301/six cycles and E105 world evidence only after verifying every
+  scoped input/native-host hash; these are not new installed-provider tests.
+- Apply reviewed host files only while stopped and restore the single development
+  service before HTTP-backed saving. Rebuild the actual Android development APK;
+  verify 27 class/method definitions and the eleven-field receipt in its DEX.
+  Signing/private provider/JNI/ARM64/16-KiB/ZIP gates pass. APK: 6,530,369 bytes,
+  SHA-256 8bf42c391f6d353c8a1ac21a1b745501b6aa0457b244bd6d7652b85d445dd122.
+  Windows program, ARM64 native host and plugin bytes remain unchanged.
+  E136-final-identities.py/log binds current sources, artifacts and scoped checks.
+- Development service restored: HTTP 200 on 63625, PID 16712; deployment about
+  3,447.6 MiB and D: about 37.10 GiB free. No ADB/phone/WebView change, extra
+  application/Home/source copy, new runtime dependency, model/external-browser
+  call, production/account/config change or publication.
+- Goal remains active. Continue complete preparation/action/adoption coordination,
+  independent child protocol/frame/document/world bootstrap, controlled first-
+  response release and body/download routing, remaining process failure joins,
+  multi-child coordinator and platform/delivery audit. Fixed resume and original
+  request flow alone do not qualify the complete protocol or Agent execution.
+  Public protected admission and provider/framework/automation qualification remain
+  false; unavailable isolated worlds never use a main-world fallback. Preserve
+  the user's phone/WebView deferral.

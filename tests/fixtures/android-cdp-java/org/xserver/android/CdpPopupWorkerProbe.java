@@ -41,6 +41,8 @@ public final class CdpPopupWorkerProbe {
         final Set<String> proofTargets=ConcurrentHashMap.newKeySet();{proofTargets.add("target-proof-real");}
         volatile String barrierMode="normal";volatile Runnable proofConfirmed,closeHook;volatile boolean closeFailure;
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
+        volatile String managedResumeMode,managedFlowMode="normal";volatile Runnable managedResumeHook,managedFlowHook;
+        final AtomicInteger continues=new AtomicInteger();final ConcurrentLinkedQueue<String> continuedIds=new ConcurrentLinkedQueue<>();
         public MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock){creates.incrementAndGet();threads.add(Thread.currentThread());Wire next=new Wire();wire=next;
             return new MdoBrowserCdpPopupBroker(current,clock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,events,clock::getAsLong);},
                 (target,timeout,alive,events)->{threads.add(Thread.currentThread());nativeOpens.incrementAndGet();CdpBindingProbe.Factory peer=nativeTargets.get(target);
@@ -69,7 +71,28 @@ public final class CdpPopupWorkerProbe {
                             if(guardMode.equals("response"))paused.getJSONObject("params").put("responseStatusCode",200);add(paused);
                         }
                         JSONObject reply=ack(id,guardMode.equals("reply")?null:child);if(guardMode.equals("nonempty"))reply.getJSONObject("result").put("unexpected",true);add(reply);
-                    }else if(method.equals("Runtime.runIfWaitingForDebugger")){resumes.incrementAndGet();add(ack(id,command.getString("sessionId")));}
+                    }else if(method.equals("Runtime.runIfWaitingForDebugger")){
+                        resumes.incrementAndGet();String child=command.getString("sessionId");
+                        if(managedResumeMode!=null){
+                            if(command.length()!=4||command.getJSONObject("params").length()!=0||!child.equals("proof-real"))throw new AssertionError("Unapproved protected resume");
+                            Runnable hook=managedResumeHook;if(hook!=null)hook.run();
+                            if(managedResumeMode.equals("send-failure"))throw new IOException("controlled_partial_resume_send");
+                            if(managedResumeMode.equals("timeout"))return;
+                            if(managedResumeMode.equals("unsupported")||managedResumeMode.equals("rejected")){add(new JSONObject().put("id",id).put("sessionId",child).put("error",new JSONObject().put("code",managedResumeMode.equals("unsupported")?-32601:-32000).put("message","synthetic-unread")));return;}
+                            JSONObject result=ack(id,managedResumeMode.equals("mismatch")?null:child);if(managedResumeMode.equals("nonempty"))result.getJSONObject("result").put("unexpected",true);add(result);
+                        }else add(ack(id,child));
+                    }
+                    else if(method.equals("Fetch.continueRequest")){
+                        JSONObject params=command.getJSONObject("params");String request=params.getString("requestId"),child=command.getString("sessionId");
+                        if(managedResumeMode==null||command.length()!=4||params.length()!=1||!child.equals("proof-real")||!request.equals("initial-0")&&!request.equals("managed-next"))throw new AssertionError("Unapproved original request continuation");
+                        continues.incrementAndGet();continuedIds.add(request);Runnable hook=managedFlowHook;if(hook!=null)hook.run();
+                        if(managedFlowMode.equals("send-failure"))throw new IOException("controlled_partial_continue_send");
+                        if(managedFlowMode.equals("timeout"))return;
+                        if(managedFlowMode.equals("rejected")){add(new JSONObject().put("id",id).put("sessionId",child).put("error",new JSONObject().put("code",-32000).put("message","synthetic-unread")));return;}
+                        if(managedFlowMode.equals("limit"))for(int i=0;i<33;i++)add(handoffPaused("response-overflow-"+i,true));
+                        else add(handoffPaused(request,true).put("sessionId",managedFlowMode.equals("foreign")?"foreign":child));
+                        JSONObject result=ack(id,child);if(managedFlowMode.equals("nonempty"))result.getJSONObject("result").put("unexpected",true);add(result);
+                    }
                     else if(method.equals("Target.getTargetInfo")){
                         JSONObject p=command.getJSONObject("params");if(command.length()!=3||p.length()!=1||!proofTargets.contains(p.getString("targetId")))throw new AssertionError("Caller-selected target barrier");barriers.incrementAndGet();
                         if(barrierMode.equals("detach"))add(detached("proof-real"));
@@ -683,7 +706,7 @@ public final class CdpPopupWorkerProbe {
                 // The cross-thread receipt must not retain a broker/session,
                 // original Child/allocation, registration or SDK object.
                 for(java.lang.reflect.Field field:MdoBrowserCdpPopupBroker.Handoff.class.getDeclaredFields()){
-                    Class<?> kind=field.getType();check(kind==Object.class||kind==java.util.concurrent.atomic.AtomicBoolean.class||kind==java.util.concurrent.atomic.AtomicReference.class||kind==long.class||kind==LongSupplier.class);
+                    Class<?> kind=field.getType();check(kind==Object.class||kind==java.util.concurrent.atomic.AtomicBoolean.class||kind==java.util.concurrent.atomic.AtomicInteger.class||kind==java.util.concurrent.atomic.AtomicReference.class||kind==long.class||kind==LongSupplier.class);
                 }
                 if(mode.equals("handoff-denied")){
                     handoff.close();failure("cdp_popup_handoff_unavailable",()->product.handoff("owned",c.source.source,created,child));check(!handoff.current()&&!handoff.transferred()&&child.current()&&view.destroyed==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);return;
@@ -725,6 +748,49 @@ public final class CdpPopupWorkerProbe {
                 }
                 check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0&&view.evaluations==evaluations&&MdoBrowserCdpPopupNative.promotedUiOwners()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
             }finally{Handler.rejectPost=false;}
+        }
+    }
+    private static void managedActivation(String mode)throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            PopupProductHost product=new PopupProductHost(c.source.views);MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView view=created.view();c.source.adopting=view;
+            MdoBrowserPopups.Adoption adoption=c.source.source.adopt(created);c.source.ack();
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());MdoBrowserCdpPopupNative.Child child=c.source.source.child(adoption,created,adapter)){
+                c.backend.nativeTargets.put("target-proof-real",proofPeer(view,"success",null,null));check(c.request.proveNative(child));waitFor(()->!c.observer.provenChildren.isEmpty(),c.host,true);
+                MdoBrowserCdpPopupBroker.Candidate candidate=c.observer.candidates.get(0);MdoBrowserCdpPopupBroker.Handoff handoff=child.handoff();
+                failure("cdp_popup_activation_unavailable",()->product.activate(null,handoff));check(c.backend.resumes.get()==0&&c.backend.continues.get()==0);
+                MdoBrowserCdpPopupNative.Promotion promoted=product.handoff("owned",c.source.source,created,child);c.request.close();terminal(c.host,c.request,c.observer);
+                check(handoff.current()&&candidate.retainedRequestCount()==1&&candidate.retainedResponseCount()==0&&handoff.activationResult()==null&&handoff.flowFailure()==null);
+                int evaluations=view.evaluations,opens=c.backend.opens.get(),proofs=c.backend.nativeOpens.get();check(product.documentFailures.get("owned").equals("popup_world_unqualified"));
+                if(mode.equals("activation-parent-close")){product.windows.put("root",c.source.core);product.retire("root",c.source.view);c.source.source.lease().invalidate();check(c.source.view.destroyed==1&&handoff.current());}
+                String resume=mode.startsWith("activation-resume-")?mode.substring("activation-resume-".length()):"normal";
+                String flow=mode.startsWith("activation-flow-")?mode.substring("activation-flow-".length()):"normal";
+                c.backend.managedResumeMode=resume;c.backend.managedFlowMode=flow;
+                if(resume.equals("timeout"))c.backend.managedResumeHook=()->c.host.time.addAndGet(300);
+                if(flow.equals("timeout"))c.backend.managedFlowHook=()->c.host.time.addAndGet(300);
+                if(mode.equals("activation-owner-loss"))c.backend.managedResumeHook=handoff::close;
+                if(mode.equals("activation-flow-owner-loss"))c.backend.managedFlowHook=handoff::close;
+                product.activate(promoted,handoff);waitFor(()->handoff.activationResult()!=null,c.host,true);
+                boolean failure=!resume.equals("normal")||!flow.equals("normal")||mode.equals("activation-owner-loss");
+                if(failure){
+                    waitFor(()->handoff.flowFailure()!=null&&promoted.ended(),c.host,true);
+                    MdoBrowserCdpSession.ControlResult result=handoff.flowFailure();check(!result.ok&&result.code.matches("cdp_[a-z_]{1,80}")&&c.backend.resumes.get()==1&&c.backend.continues.get()==(resume.equals("normal")&&!mode.equals("activation-owner-loss")?1:0));
+                    String expected=resume.equals("unsupported")?"cdp_method_unsupported":resume.equals("rejected")||flow.equals("rejected")?"cdp_command_rejected":resume.equals("nonempty")||flow.equals("nonempty")?"cdp_attach_control_reply_invalid":resume.equals("mismatch")?"cdp_reply_mismatch":flow.equals("foreign")?"cdp_session_mismatch":resume.equals("timeout")||flow.equals("timeout")?"cdp_command_timeout":resume.equals("send-failure")||flow.equals("send-failure")?"cdp_transport_failed":flow.equals("limit")?"cdp_attach_request_limit":"cdp_owner_changed";
+                    check(result.code.equals(expected)&&result.effectMayHaveOccurred!=resume.equals("unsupported"));
+                    check(handoff.activationResult().ok==(!flow.equals("normal"))&&view.destroyed==1&&!handoff.current()&&c.backend.closes.get()==1&&c.backend.disables.get()==0);
+                    c.backend.wire.add(ack(999,"proof-real"));Handler.drain();check(handoff.flowFailure()==result&&!handoff.current());
+                }else{
+                    waitFor(()->handoff.continuedRequests()==1&&candidate.retainedRequestCount()==0&&candidate.retainedResponseCount()==1,c.host,true);
+                    check(handoff.activationResult().ok&&handoff.activationResult().effectMayHaveOccurred&&handoff.flowFailure()==null&&handoff.current()&&view.destroyed==0&&c.backend.resumes.get()==1&&c.backend.continues.get()==1);
+                    failure("cdp_popup_activation_replayed",()->product.activate(promoted,handoff));
+                    c.backend.wire.add(handoffPaused("managed-next",false));waitFor(()->handoff.continuedRequests()==2&&candidate.retainedResponseCount()==2,c.host,true);
+                    check(candidate.retainedRequestCount()==0&&c.backend.continuedIds.toString().equals("[initial-0, managed-next]")&&handoff.current());
+                    if(mode.equals("activation-expiry")){c.host.time.addAndGet(15000);waitFor(()->promoted.ended(),c.host,true);check(c.backend.disables.get()==0);}
+                    else{c.backend.wire.add(detached("proof-real"));waitFor(()->promoted.ended()&&c.backend.closes.get()==1,c.host,true);check(c.backend.disables.get()==1);}
+                    check(view.destroyed==1&&!handoff.current()&&c.backend.closes.get()==1);
+                }
+                check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==proofs&&c.backend.guards.get()==1&&c.backend.detaches.get()==0&&view.evaluations==evaluations);
+                check(MdoBrowserCdpPopupNative.promotedUiOwners()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+            }
         }
     }
     private static void transportQuiescence(String mode)throws Exception{
@@ -1137,7 +1203,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("handoff"))protectedHandoff(mode);
+        if(mode.startsWith("activation"))managedActivation(mode);
+        else if(mode.startsWith("handoff"))protectedHandoff(mode);
         else if(mode.startsWith("promotion"))nativePromotion(mode);
         else if(mode.startsWith("quiescence"))transportQuiescence(mode);
         else if(mode.startsWith("delivery-loss"))deliveryLoss(mode);
@@ -1156,6 +1223,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

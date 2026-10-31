@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
@@ -18,7 +19,8 @@ import org.json.JSONObject;
  * Every waiting page is captured before trusting any opener metadata. A frozen
  * set of possible registrations is not native child/transport ownership proof.
  * The fixed Fetch guard blocks requests without granting native-child proof.
- * No managed debugger resume, body/page data or Agent execution is exposed.
+ * Only fixed resume/request flow is available for handed-off native children;
+ * no body/page data, document/world admission or Agent execution is exposed.
  * The host must service turns and complete the original native adoption join. */
 final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     interface Connector {MdoBrowserCdpSession open(int timeout,BooleanSupplier current,MdoBrowserCdpSession.Events events)throws IOException;}
@@ -41,13 +43,16 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     /** Single-use native/UI reservation for this exact already protected
      * Browser attachment. Only opaque identity, clock/stop data and the native
      * ownership receipt cross threads; no broker, session or parent is rooted.
-     * The original debugger wait and Fetch requests stay paused. This is not
-     * document/world admission or permission to continue/read any response. */
+     * The debugger/requests stay paused until explicit activation. Response
+     * retention is opaque; this grants no document/world or body access. */
     static final class Handoff implements AutoCloseable {
         private final Object proof;private final AtomicBoolean brokerClosed;
         private final long born;private final LongSupplier clock;
         private final AtomicBoolean cancelled=new AtomicBoolean(),committed=new AtomicBoolean();
         private final AtomicReference<MdoBrowserCdpPopupNative.Promotion> nativeOwner=new AtomicReference<>();
+        private final AtomicBoolean activationRequested=new AtomicBoolean();
+        private final AtomicReference<MdoBrowserCdpSession.ControlResult> activationResult=new AtomicReference<>(),flowFailure=new AtomicReference<>();
+        private final AtomicInteger continuedRequests=new AtomicInteger();
         private Handoff(MdoBrowserCdpPopupNative.Child child,AtomicBoolean closed,long born,LongSupplier clock){proof=child.proofIdentity();brokerClosed=closed;this.born=born;this.clock=clock;}
         private boolean eligible(){try{long age=clock.getAsLong()-born;return !cancelled.get()&&!brokerClosed.get()&&age>=0&&age<15000;}catch(RuntimeException|Error error){return false;}}
         void reserve(MdoBrowserCdpPopupNative.Child child,MdoBrowserCdpPopupNative.Promotion nativeReceipt)throws IOException {
@@ -60,6 +65,11 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         }
         boolean transferred(){MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();return committed.get()||original!=null&&original.current();}
         boolean current(){MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();return eligible()&&original!=null&&original.current();}
+        boolean owns(MdoBrowserCdpPopupNative.Promotion original){return original!=null&&nativeOwner.get()==original;}
+        void activate()throws IOException{if(!committed.get()||!current())throw problem("cdp_popup_activation_unavailable");if(!activationRequested.compareAndSet(false,true))throw problem("cdp_popup_activation_replayed");}
+        MdoBrowserCdpSession.ControlResult activationResult(){return activationResult.get();}
+        MdoBrowserCdpSession.ControlResult flowFailure(){return flowFailure.get();}
+        int continuedRequests(){return continuedRequests.get();}
         @Override public void close(){cancelled.set(true);MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();if(original!=null)original.close();}
     }
     static final class Candidate {
@@ -89,6 +99,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         boolean protectionRequested(){return protectionRequested.get();}
         MdoBrowserCdpSession.ControlResult protection(){return protection.get();}
         int retainedRequestCount(){return original.retainedRequestCount();}
+        int retainedResponseCount(){return original.retainedResponseCount();}
         private void reconcileHandoff(){Handoff transfer=handoff;if(transfer!=null&&transfer.transferred()){possibleOpeners=NO_OPENERS;provenOpener=null;MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;nativeChild=null;if(bound!=null)bound.close();}}
         private void retired(){retired=true;Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
             MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;if(bound!=null)bound.close();nativeChild=null;}
@@ -104,7 +115,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private final AtomicBoolean closed=new AtomicBoolean();private volatile MdoBrowserCdpSession session;
     private MdoBrowserCdpPopupNative.CloseGate nativeClose;
     private volatile int state=NEW;private volatile boolean enabledMayHaveOccurred,cleanupConfirmed=true;
-    private volatile String failure;private boolean attachedSeen;
+    private volatile String failure;private boolean attachedSeen;private int managedTurn;
     MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent){this(hostCurrent,android.os.SystemClock::elapsedRealtime,NATIVE);}
     MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent,LongSupplier clock){this(hostCurrent,clock,NATIVE);}
     MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent,LongSupplier clock,Connector connector){
@@ -185,7 +196,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             }}return;
         }
         if("Fetch.requestPaused".equals(method)&&child!=null){
-            for(Candidate candidate:candidates)if(candidate.original.matchesNativeSession(child)){session.retainAttachedRequest(candidate.original);return;}
+            for(Candidate candidate:candidates)if(candidate.original.matchesNativeSession(child)){if(!candidate.current())throw fail("cdp_popup_candidate_retired");session.retainAttachedRequest(candidate.original);return;}
             throw fail("cdp_popup_broker_request_scope_invalid");
         }
         if(child!=null)throw fail("cdp_popup_broker_child_unproven");
@@ -205,10 +216,34 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private void drain(long born,int timeout)throws IOException{
         while(session.pendingControls()!=0){int left=remaining(born,timeout);session.poll(Math.min(20,left),left);prune();}prune();
     }
+    /** One fixed command per pump turn on the existing worker. Fair across the
+     * bounded child set; protected responses remain opaque and paused. */
+    private boolean serviceManaged(int timeout)throws IOException {
+        int count=candidates.size();for(int n=0;n<count;n++){
+            int index=(managedTurn+n)%count;Candidate candidate=candidates.get(index);Handoff handoff=candidate.handoff;
+            if(handoff==null||!handoff.activationRequested.get())continue;
+            if(!handoff.current())throw fail("cdp_popup_candidate_retired");
+            try{
+                if(handoff.activationResult.get()==null){
+                    session.resumeProtectedAttachment(candidate.original,handoff::current,timeout);
+                    handoff.activationResult.set(new MdoBrowserCdpSession.ControlResult(true,null,0,true));managedTurn=(index+1)%count;return true;
+                }
+                if(session.continueProtectedRequest(candidate.original,handoff::current,timeout)){
+                    handoff.continuedRequests.incrementAndGet();managedTurn=(index+1)%count;return true;
+                }
+            }catch(IOException|RuntimeException|Error error){
+                int protocol=error instanceof MdoBrowserCdpSession.Failure?((MdoBrowserCdpSession.Failure)error).protocolCode:0;
+                boolean effect=!(error instanceof MdoBrowserCdpSession.Failure)||((MdoBrowserCdpSession.Failure)error).effectMayHaveOccurred;
+                MdoBrowserCdpSession.ControlResult result=new MdoBrowserCdpSession.ControlResult(false,error instanceof IOException?safe(error.getMessage()):"cdp_popup_activation_failed",protocol,effect);
+                handoff.activationResult.compareAndSet(null,result);handoff.flowFailure.compareAndSet(null,result);throw error;
+            }
+        }return false;
+    }
     boolean turn(int receiveMs,int timeout)throws IOException {
         guard();if(state!=ARMED)throw problem("cdp_popup_broker_state_invalid");
         if(receiveMs<10||receiveMs>20||timeout<receiveMs||timeout>5000)throw problem("cdp_arguments_invalid");
         try{prune();if(registrations.isEmpty()&&candidates.isEmpty()){disarm(timeout);return true;}if(!session.idle())return false;
+            if(serviceManaged(timeout)){prune();return true;}
             boolean progress=session.poll(receiveMs,timeout);prune();return progress;
         }catch(IOException error){throw fail(safe(error.getMessage()));}
         catch(RuntimeException|Error error){throw fail("cdp_popup_broker_failed");}

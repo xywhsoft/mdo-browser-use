@@ -214,7 +214,7 @@ final class AndroidCreateHost {
         // This focused create/close fixture never certifies promotion. The joint
         // worker fixture executes the real native implementation and disposer.
         static final class Child {}
-        static final class Promotion {WebView view(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}void close(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}}
+        static final class Promotion {boolean current(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}WebView view(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}void close(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}}
         Promotion promote(Created original,Child proof){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}
         Promotion handoff(Created original,Child proof){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}
         final WebView opener;Disposal disposal;int calls;Created latest;
@@ -236,6 +236,9 @@ final class AndroidCreateHost {
             WebView view=new WebView(opener.host);MdoBrowserLifecycle.Fresh<WebView> birth=registry.putPopup(pending,view);
             return latest=new Created(key,view,opener,registry,birth,disposal);
         }
+    }
+    static final class MdoBrowserCdpPopupBroker {
+        static final class Handoff {boolean owns(MdoBrowserCdpPopupNative.Promotion owner){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}void activate(){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}}
     }
     boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired,nativeRetirementNotifications;JSONObject lastReply;
     final Set<WebView> deferredDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>()),acknowledgedDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());

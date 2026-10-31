@@ -195,7 +195,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private static final ControlResult CONTROL_TIMEOUT_RESULT=new ControlResult(false,"cdp_control_timeout",0,true);
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
     private static final class PausedEvent {
-        final String request,session,key,networkId;final MdoBrowserCdpResponse response;boolean used;
+        final String request,session,key,networkId;final MdoBrowserCdpResponse response;boolean used,continuationAttempted;
         PausedEvent(MdoBrowserCdpJson.Message message){
             response=MdoBrowserCdpResponse.inspect(message.value);
             Object network=message.value.opt("networkId");networkId="Document".equals(message.value.opt("resourceType"))&&MdoBrowserCdpNetworkFrames.identity(network)?(String)network:null;
@@ -215,12 +215,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         final String target,type,opener;final boolean waiting;
         private final MdoBrowserCdpSession owner;
         private final String session;private final boolean valid;private boolean used;
-        private volatile boolean resumed,detached;
+        private volatile boolean resumed,detached;private boolean managedResumeAttempted;
         private boolean protectionAttempted;private volatile boolean protectionConfirmed;
         private final java.util.List<PausedEvent> initialRequests=new ArrayList<>();private volatile int retainedRequests;
+        private final java.util.List<PausedEvent> protectedResponses=new ArrayList<>();private volatile int retainedResponses;
         boolean resumeConfirmed(){return resumed;}boolean detachConfirmed(){return detached;}
         boolean protectionConfirmed(){return protectionConfirmed;}int retainedRequestCount(){return retainedRequests;}
-        private void clearRequests(){initialRequests.clear();retainedRequests=0;}
+        int retainedResponseCount(){return retainedResponses;}
+        private void clearRequests(){initialRequests.clear();protectedResponses.clear();retainedRequests=retainedResponses=0;}
         private AttachedTarget(MdoBrowserCdpSession owner,MdoBrowserCdpJson.Message message){
             this.owner=owner;
             Object child=message.value.opt("sessionId"),info=message.value.opt("targetInfo"),wait=message.value.opt("waitingForDebugger");
@@ -272,6 +274,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Offer[] offers=new Offer[8];
     private final Set<Integer> retiredBodyReads=new HashSet<>();
     private PausedEvent paused;private AttachedTarget attached;private long activeStarted;private int activeTimeout;private String controlFault;
+    private BooleanSupplier attachmentCommandOwner;
     private Navigation navigation;private int navigationCount;
     private volatile Wire wire;
     private volatile CloseBarrier closeBarrier;
@@ -316,7 +319,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
         if(closed.get())throw failure("cdp_session_closed",effect);
         boolean alive;
-        try {alive=current.getAsBoolean();}catch(RuntimeException|Error failure){close();throw failure("cdp_owner_changed",effect);}
+        try {alive=current.getAsBoolean()&&(attachmentCommandOwner==null||attachmentCommandOwner.getAsBoolean());}catch(RuntimeException|Error failure){close();throw failure("cdp_owner_changed",effect);}
         if(!alive){close();throw failure("cdp_owner_changed",effect);}
     }
     private void enter(int timeoutMs) throws Failure {
@@ -433,23 +436,59 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(!original.target.equals(info.opt("targetId"))||!"page".equals(info.opt("type")))throw failure("cdp_attach_confirmation_invalid",false);
         }catch(org.json.JSONException error){throw failure("cdp_attach_confirmation_invalid",false);}
     }
-    private void protectedAttachment(AttachedTarget original)throws IOException {
+    private void protectedAttachment(AttachedTarget original)throws IOException {protectedAttachment(original,false);}
+    private void protectedAttachment(AttachedTarget original,boolean allowResumed)throws IOException {
         guard(false);synchronized(controlGate){
-            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||original.resumed||original.detached||
+            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||!allowResumed&&original.resumed||original.detached||
                 heldAttachments==null||heldAttachments.get(original.session)!=original||!children.contains(original.session))throw failure("cdp_attach_event_invalid",false);
         }
     }
-    /** Preserve only original request IDs while native adoption is unproven.
-     * No URL/headers/body/JSON/caller selector or continuation is retained. */
+    /** Fixed commands for this original protected attachment only. Recheck its
+     * independent native owner before dispatch and throughout every receive and
+     * event callback; never use a caller-provided target/request/URL or retry. */
+    private void admitProtectedCommand(AttachedTarget original,BooleanSupplier owner,int timeout)throws IOException {
+        protectedAttachment(original,true);
+        if(timeout<10||timeout>5000||owner==null)throw failure("cdp_arguments_invalid",false);
+        if(busy||attachmentCommandOwner!=null)throw failure("cdp_reentry_forbidden",false);
+        boolean live;try{live=owner.getAsBoolean();}catch(RuntimeException|Error error){live=false;}
+        if(!live)throw failure("cdp_attach_owner_changed",false);
+    }
+    private void protectedCall(AttachedTarget original,BooleanSupplier owner,String method,JSONObject params,int timeout)throws IOException {
+        admitProtectedCommand(original,owner,timeout);
+        attachmentCommandOwner=owner;
+        try{JSONObject reply=call(method,params,original.session,timeout,true);if(reply.length()!=0){close();throw failure("cdp_attach_control_reply_invalid",true);}guard(true);}
+        finally{attachmentCommandOwner=null;}
+    }
+    void resumeProtectedAttachment(AttachedTarget original,BooleanSupplier owner,int timeout)throws IOException {
+        protectedAttachment(original,true);if(original.managedResumeAttempted||original.resumed)throw failure("cdp_attach_resume_replayed",false);
+        admitProtectedCommand(original,owner,timeout);
+        original.managedResumeAttempted=true;
+        protectedCall(original,owner,"Runtime.runIfWaitingForDebugger",new JSONObject(),timeout);original.resumed=true;
+    }
+    boolean continueProtectedRequest(AttachedTarget original,BooleanSupplier owner,int timeout)throws IOException {
+        protectedAttachment(original,true);if(!original.resumed)throw failure("cdp_attach_resume_unconfirmed",false);
+        admitProtectedCommand(original,owner,timeout);
+        PausedEvent request;synchronized(controlGate){if(original.initialRequests.isEmpty())return false;request=original.initialRequests.get(0);
+            if(request.continuationAttempted)throw failure("cdp_attach_request_replayed",false);request.continuationAttempted=true;}
+        try{protectedCall(original,owner,"Fetch.continueRequest",new JSONObject().put("requestId",request.request),timeout);}
+        catch(org.json.JSONException error){throw failure("cdp_attach_request_invalid",false);}
+        synchronized(controlGate){original.initialRequests.remove(request);original.retainedRequests=original.initialRequests.size();}return true;
+    }
+    /** Preserve original request IDs before adoption. After explicit protected
+     * resume, also retain opaque response IDs without exposing metadata/body.
+     * No caller selector or replacement URL/headers/body/JSON is retained. */
     void retainAttachedRequest(AttachedTarget original)throws IOException {
         guard(false);PausedEvent value=paused;
         if(!busy||value==null||original==null||original.owner!=this||!original.protectionAttempted||!original.matchesNativeSession(value.session))throw new EventFailure("cdp_attach_request_scope_invalid");
-        if(value.request==null||value.key==null||!value.key.startsWith("Q|"))throw new EventFailure("cdp_attach_response_unproven");
+        boolean response=value.key!=null&&value.key.startsWith("S|");
+        if(value.request==null||value.key==null||response&&!original.managedResumeAttempted)throw new EventFailure("cdp_attach_response_unproven");
         synchronized(controlGate){
             guard(false);if(heldAttachments==null||heldAttachments.get(original.session)!=original)throw new EventFailure("cdp_attach_request_scope_invalid");
             if(value.used||controlKeys.contains(value.key))throw new EventFailure("cdp_attach_request_duplicate");
-            if(original.initialRequests.size()>=32||controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_attach_request_limit");
-            original.initialRequests.add(value);value.used=true;controlKeys.add(value.key);original.retainedRequests=original.initialRequests.size();
+            if(original.initialRequests.size()+original.protectedResponses.size()>=32||controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_attach_request_limit");
+            if(response){original.protectedResponses.add(value);original.retainedResponses=original.protectedResponses.size();}
+            else{original.initialRequests.add(value);original.retainedRequests=original.initialRequests.size();}
+            value.used=true;controlKeys.add(value.key);
         }
     }
     /** Only while the process broker waits for its own disable ACK. Record
