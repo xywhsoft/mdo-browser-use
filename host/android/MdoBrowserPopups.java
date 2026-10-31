@@ -54,7 +54,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         private void finish(boolean ok,String reason){if(state.get()!=0)return;code=reason;state.compareAndSet(0,ok?1:2);}
     }
     private final class Protocol {
-        final Scope scope;final BooleanSupplier owned;
+        final Scope scope;final BooleanSupplier owned;Object uiAttachment;
         Protocol(Scope scope,BooleanSupplier owned){this.scope=scope;this.owned=owned;}
     }
     /** Data-only rejection evidence for the protocol worker. Only this native
@@ -174,6 +174,9 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         thread();if(!protocolSource(exact)||protocol!=null||entry!=null||actionOwner==null)throw new IllegalStateException("popup_native_scope_unavailable");
         long epoch=navigation.getAsLong();if(epoch<=0||!owned.getAsBoolean()||!actionOwner.getAsBoolean())throw new IllegalStateException("popup_source_changed");
         Scope next=new Scope(this,epoch);protocol=new Protocol(next,actionOwner);return next;
+    }
+    void attachProtocolUi(Scope exact,Object attachment){
+        thread();if(attachment==null||!protocolCurrent(exact)||protocol.uiAttachment!=null)throw new IllegalStateException("popup_native_scope_unavailable");protocol.uiAttachment=attachment;
     }
     boolean protocolCurrent(Scope scope){
         thread();if(scope==null||scope.owner.get()!=this||protocol==null||protocol.scope!=scope||!scope.current())return false;

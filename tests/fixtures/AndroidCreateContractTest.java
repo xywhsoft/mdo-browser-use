@@ -412,6 +412,14 @@ public final class AndroidCreateContractTest {
         }
     }
     public static void main(String[] args)throws Exception{
+        AndroidCreateHost fenced=new AndroidCreateHost();fenced.create("retained",request(false));AndroidCreateHost.WebView retained=fenced.views.get("retained");
+        AndroidCreateHost.MdoBrowserCdpPopupNative.safe=false;
+        try{
+            try{fenced.create("unsafe",request(false));throw new AssertionError("Uncertain popup constructor admitted another native view");}
+            catch(IllegalStateException expected){check(expected.getMessage().equals("native_popup_creation_unconfirmed")&&fenced.created.size()==1,"Constructor fence ran after native allocation");}
+            fenced.create("retained",request(false));check(fenced.created.size()==1&&fenced.views.get("retained")==retained&&retained.loads==1,"Constructor uncertainty blocked/reloaded an existing owned view");
+            check(Boolean.TRUE.equals(fenced.capabilities().data.get("native_view_cleanup_failed")),"Native construction uncertainty was hidden from capabilities");
+        }finally{AndroidCreateHost.MdoBrowserCdpPopupNative.safe=true;}
         for(int mode=0;mode<5;mode++){
             AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");int loads=view.loads;
             host.gotoPage("tab","https://native-commit.invalid/",100);

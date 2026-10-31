@@ -102,7 +102,26 @@ public final class AndroidLifecycleContractTest {
         worker.start();worker.join();check(denied[0]&&fresh.claim(opener)==popup,"Worker consumed UI birth token");
         cross.views.close();cross.views.viewDestroyed(popup);
     }
+    static void constructorReservations(){
+        Case c=new Case();View root=new View();c.views.put("root",root);
+        MdoBrowserLifecycle.Construction<View> unused=c.views.reservePopup("reserved",root);
+        check(c.views.size()==2&&c.views.values().size()==1&&c.views.get("reserved")==null,"Native key/capacity was not reserved before constructor");
+        rejects(()->c.views.checkNew("reserved"));unused.cancelBeforeStart();check(c.views.size()==1,"No-effect reservation did not release capacity");
+        MdoBrowserLifecycle.Construction<View> stale=c.views.reservePopup("stale",root);c.views.navigation("root",root);
+        rejects(stale::start);stale.cancelBeforeStart();check(c.views.size()==1,"Stale opener started a constructor");
+        MdoBrowserLifecycle.Construction<View> late=c.views.reservePopup("late",root);late.start();View orphan=new View();c.views.navigation("root",root);
+        rejects(()->c.views.putPopup(late,orphan));
+        check(c.views.size()==2&&c.views.values().stream().anyMatch(view->view==orphan),"Failed pre-registration lost the returned native instance");
+        c.views.viewDestroyed(new View());check(!late.destroyed(),"Value equality released a constructor reservation");
+        c.views.viewDestroyed(orphan);check(late.destroyed()&&c.views.size()==1,"Exact orphan destruction did not release reservation");
+        MdoBrowserLifecycle.Construction<View> normal=c.views.reservePopup("normal",root);normal.start();View child=new View();c.views.putPopup(normal,child);
+        check(c.views.size()==2&&c.views.values().size()==2,"Published constructor counted one instance twice");
+        c.views.remove("normal");c.views.viewDestroyed(child);check(normal.destroyed()&&c.views.size()==1,"Published construction lost its exact destruction receipt");
+        MdoBrowserLifecycle.Construction<View> unknown=c.views.reservePopup("unknown",root);unknown.start();rejects(unknown::cancelBeforeStart);
+        c.views.close();check(c.views.size()==1&&c.views.values().isEmpty()&&!unknown.destroyed(),"No-return constructor was reported as destroyed");
+    }
     public static void main(String[] args)throws Exception {
+        constructorReservations();
         freshChildren();
         Case replacement=new Case();View original=new View(),next=new View();replacement.views.put("tab",original);replacement.press(original);
         check(replacement.views.epoch("tab",original)==1,"Initial epoch");check(replacement.views.remove("tab")==original,"Wrong retired view");

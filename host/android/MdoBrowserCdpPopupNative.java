@@ -6,17 +6,50 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Exact UI-owned physical view/native callback join. Workers see only the
  * original lease and a data-only native rejection receipt, never a WebView. */
 final class MdoBrowserCdpPopupNative {
+    interface Disposal {void destroy(String key,WebView exact);}
+    private static final AtomicBoolean CREATION_UNCERTAIN=new AtomicBoolean();
+    static boolean creationConfirmed(){return !CREATION_UNCERTAIN.get();}
     /** UI-owned construction result. Only this class invokes the native new;
      * callers cannot certify a supplied/preexisting WebView as post-capture. */
-    static final class Created {
-        private final WeakReference<MdoBrowserCdpPopupNative> owner;private final WebView view;
-        private final MdoBrowserLifecycle.Fresh<WebView> birth;private final MdoBrowserCdpPopupWorker.Allocation allocation;
-        private Created(MdoBrowserCdpPopupNative owner,WebView view,MdoBrowserLifecycle.Fresh<WebView> birth,MdoBrowserCdpPopupWorker.Allocation allocation){this.owner=new WeakReference<>(owner);this.view=view;this.birth=birth;this.allocation=allocation;}
-        WebView view(){thread();MdoBrowserCdpPopupNative original=owner.get();if(!birth.current()||!allocation.current()||original==null||!original.current())throw new IllegalStateException("cdp_popup_native_child_invalid");return view;}
+    static final class Created implements AutoCloseable {
+        private final WeakReference<MdoBrowserCdpPopupNative> owner;private WebView view;
+        private MdoBrowserLifecycle.Fresh<WebView> birth;private final MdoBrowserCdpPopupWorker.Allocation allocation;
+        private final MdoBrowserLifecycle<WebView> registry;private final String key;private Disposal disposal;
+        private final MdoBrowserPopups.Scope action;
+        private MdoBrowserLifecycle.Construction<WebView> construction;private boolean sent,done,closing,cleanupFailed;
+        private Created(MdoBrowserCdpPopupNative owner,MdoBrowserLifecycle<WebView> registry,String key,MdoBrowserCdpPopupWorker.Allocation allocation,Disposal disposal){
+            this.owner=new WeakReference<>(owner);this.registry=registry;this.key=key;this.allocation=allocation;this.disposal=disposal;action=owner.scope;
+        }
+        void attachDisposal(Disposal cleanup){thread();MdoBrowserCdpPopupNative original=owner.get();if(cleanup==null||disposal!=null||sent||done||original==null||!original.current()||!allocation.current())throw new IllegalStateException("cdp_popup_native_child_invalid");disposal=cleanup;}
+        WebView view(){thread();if(disposal==null)throw new IllegalStateException("cdp_popup_native_disposal_required");MdoBrowserCdpPopupNative original=owner.get();if(done||view==null||birth==null||!birth.current()||!allocation.current()||original==null||!original.current())throw new IllegalStateException("cdp_popup_native_child_invalid");return view;}
+        private void finished(){done=true;MdoBrowserCdpPopupNative original=owner.get();if(original!=null)original.forget(this);}
+        private void cancelOwner(){MdoBrowserCdpPopupNative original=owner.get();if(original!=null&&original.scope==action&&original.rejecting.get()==0&&original.pending()==allocation.pending)original.reject();}
+        @Override public void close()throws IOException {
+            thread();if(done||closing)return;
+            if(construction!=null&&construction.destroyed()){finished();if(!sent)cancelOwner();return;}
+            if(sent)throw new IOException("cdp_popup_native_handoff_retained");
+            if(birth!=null&&birth.humanOwned()){finished();cancelOwner();return;}
+            if(cleanupFailed)throw new IOException(view==null?"cdp_popup_native_constructor_unconfirmed":"cdp_popup_native_child_cleanup_unconfirmed");
+            closing=true;MdoBrowserCdpPopupNative source=owner.get();if(source!=null)source.disposing.incrementAndGet();
+            try{
+                if(construction==null){finished();cancelOwner();return;}
+                if(!construction.started()){construction.cancelBeforeStart();finished();cancelOwner();return;}
+                if(construction.destroyed()){finished();cancelOwner();return;}
+                if(view==null)throw new IOException("cdp_popup_native_constructor_unconfirmed");
+                if(disposal!=null)disposal.destroy(key,view);
+                else{if(registry.owns(key,view))registry.remove(key);view.destroy();registry.viewDestroyed(view);}
+                if(!construction.destroyed()&&!registry.nativeDestroyed(view))throw new IOException("cdp_popup_native_child_cleanup_unconfirmed");finished();cancelOwner();
+            }catch(IOException|RuntimeException|Error error){
+                String code=view==null?"cdp_popup_native_constructor_unconfirmed":"cdp_popup_native_child_cleanup_unconfirmed";
+                cleanupFailed=true;CREATION_UNCERTAIN.set(true);MdoBrowserCdpPopupNative original=owner.get();if(original!=null&&original.failure==null)original.failure=code;cancelOwner();throw new IOException(code);
+            }finally{closing=false;if(source!=null)source.disposing.decrementAndGet();}
+        }
+        void retryCleanup()throws IOException {thread();if(view==null&&construction!=null&&construction.started())throw new IOException("cdp_popup_native_constructor_unconfirmed");cleanupFailed=false;close();}
     }
     /** Original consumed native handoff plus its exact physical child marker.
      * No child/target selector or UI predicate crosses to the shared worker. */
@@ -45,6 +78,12 @@ final class MdoBrowserCdpPopupNative {
     private final WeakReference<MdoBrowserPopups<WebView>> owner;private final WeakReference<MdoBrowserCdpView> adapter;
     private boolean claimed,released;private volatile MdoBrowserPopups.Scope scope;
     private volatile MdoBrowserPopups.Stop stop;private volatile String failure;
+    private final AtomicBoolean rejectStarted=new AtomicBoolean();
+    private static final class UiOwned {final Created[] constructions=new Created[7];}
+    private WeakReference<UiOwned> uiOwned=new WeakReference<>(null);
+    private final AtomicInteger disposing=new AtomicInteger();
+    private final AtomicInteger rejecting=new AtomicInteger();
+    private void forget(Created exact){UiOwned ui=uiOwned.get();if(ui!=null)for(int i=0;i<ui.constructions.length;i++)if(ui.constructions[i]==exact){ui.constructions[i]=null;return;}}
     MdoBrowserCdpPopupNative(MdoBrowserCdpView adapter,WebView exact,MdoBrowserPopups<WebView> core)throws IOException {
         thread();if(adapter==null||core==null||!core.protocolSource(exact))throw new IOException("cdp_popup_native_source_invalid");
         if(!adapter.popupCurrent(exact))throw new IOException("cdp_popup_native_source_invalid");
@@ -53,45 +92,52 @@ final class MdoBrowserCdpPopupNative {
     private static void thread(){if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("Native popup source requires its UI owner");}
     MdoBrowserCdpMarker.Lease lease(){return lease;}
     void claim(MdoBrowserCdpMarker.Lease original)throws IOException {
-        thread();if(original!=lease||!lease.current())throw new IOException("cdp_popup_native_source_invalid");
+        thread();if(!creationConfirmed())throw new IOException("cdp_popup_native_creation_unconfirmed");if(original!=lease||!lease.current())throw new IOException("cdp_popup_native_source_invalid");
         if(claimed&&released)finish(true);
         if(claimed)throw new IOException("cdp_popup_native_source_busy");
         WebView exact=view.get();MdoBrowserPopups<WebView> core=owner.get();MdoBrowserCdpView nativeView=adapter.get();
         if(exact==null||core==null||nativeView==null||!nativeView.popupCurrent(exact))throw new IOException("cdp_popup_native_source_invalid");
-        try{scope=core.claimProtocol(exact,()->nativeView.popupCurrent(exact));}
-        catch(RuntimeException|OutOfMemoryError error){throw new IOException("cdp_popup_native_source_busy");}
-        claimed=true;released=false;
+        UiOwned ui=new UiOwned();
+        try{scope=core.claimProtocol(exact,()->nativeView.popupCurrent(exact));core.attachProtocolUi(scope,ui);uiOwned=new WeakReference<>(ui);}
+        catch(RuntimeException|OutOfMemoryError error){if(scope!=null)try{core.abandonProtocol(scope);}catch(RuntimeException|OutOfMemoryError ignored){}scope=null;throw new IOException("cdp_popup_native_source_busy");}
+        rejectStarted.set(false);claimed=true;released=false;
     }
     void abandon(){
         thread();MdoBrowserPopups<WebView> core=owner.get();
         if(stop==null&&failure==null&&scope!=null&&core!=null&&core.abandonProtocol(scope)){claimed=false;scope=null;}
     }
     /** Called only on the original UI before exposing preparation/candidates. */
-    boolean current(){thread();MdoBrowserPopups<WebView> core=owner.get();return claimed&&core!=null&&core.protocolCurrent(scope);}
-    boolean ready(){thread();MdoBrowserPopups<WebView> core=owner.get();return claimed&&core!=null&&core.readyProtocol(scope);}
-    boolean live(){MdoBrowserPopups.Scope value=scope;return value!=null&&value.current();}
+    boolean current(){thread();MdoBrowserPopups<WebView> core=owner.get();return failure==null&&creationConfirmed()&&claimed&&core!=null&&core.protocolCurrent(scope);}
+    boolean ready(){thread();MdoBrowserPopups<WebView> core=owner.get();return current()&&core!=null&&core.readyProtocol(scope);}
+    boolean live(){MdoBrowserPopups.Scope value=scope;return failure==null&&creationConfirmed()&&value!=null&&value.current();}
     MdoBrowserPopups.Pending pending(){thread();MdoBrowserPopups<WebView> core=owner.get();return claimed&&core!=null?core.pendingProtocol(scope):null;}
     Created construct(MdoBrowserCdpPopupWorker.Allocation allocation,MdoBrowserLifecycle<WebView> registry,String key)throws IOException {
+        return construct(allocation,registry,key,null);
+    }
+    Created construct(MdoBrowserCdpPopupWorker.Allocation allocation,MdoBrowserLifecycle<WebView> registry,String key,Disposal disposal)throws IOException {
         thread();WebView opener=view.get();
-        if(allocation==null||registry==null||opener==null||!current()||pending()!=allocation.pending)throw new IOException("cdp_popup_native_allocation_unavailable");
-        try{registry.popupAdmission(key,opener);}catch(RuntimeException error){throw new IOException("cdp_popup_native_child_unavailable");}
-        if(!allocation.claim(this))throw new IOException("cdp_popup_native_allocation_unavailable");
-        WebView child=null;
+        if(!creationConfirmed()||allocation==null||registry==null||opener==null||!current()||pending()!=allocation.pending)throw new IOException("cdp_popup_native_allocation_unavailable");
+        UiOwned ui=uiOwned.get();if(ui==null)throw new IOException("cdp_popup_native_allocation_unavailable");Created[] constructions=ui.constructions;
+        int slot=-1;for(int i=0;i<constructions.length;i++){Created old=constructions[i];if(old!=null&&old.construction!=null&&old.construction.destroyed())constructions[i]=null;if(constructions[i]==null)slot=i;}
+        if(slot<0)throw new IOException("cdp_popup_native_child_limit");
+        final android.content.Context context=opener.getContext();Created created=new Created(this,registry,key,allocation,disposal);
+        try{created.construction=registry.reservePopup(key,opener);}catch(RuntimeException error){throw new IOException("cdp_popup_native_child_unavailable");}
+        if(!allocation.claim(this)){created.construction.cancelBeforeStart();throw new IOException("cdp_popup_native_allocation_unavailable");}
+        constructions[slot]=created;
         try{
-            child=new WebView(opener.getContext());
-            MdoBrowserLifecycle.Fresh<WebView> birth=registry.putPopup(key,opener,child);
+            created.construction.start();created.view=new WebView(context);
+            created.birth=registry.putPopup(created.construction,created.view);
             if(!current()||!allocation.current()||pending()!=allocation.pending)throw new IllegalStateException("cdp_popup_native_allocation_unavailable");
-            return new Created(this,child,birth,allocation);
+            return created;
         }catch(RuntimeException|Error error){
-            boolean clean=true;if(child!=null)try{
-                if(!registry.nativeDestroyed(child)){if(registry.owns(key,child))registry.remove(key);child.destroy();registry.viewDestroyed(child);}
-            }catch(RuntimeException|Error cleanup){clean=false;}
-            reject();if(!clean)failure="cdp_popup_native_child_cleanup_unconfirmed";
-            throw new IOException(clean?"cdp_popup_native_construct_failed":"cdp_popup_native_child_cleanup_unconfirmed");
+            String code="cdp_popup_native_construct_failed";try{created.close();}catch(IOException cleanup){code=cleanup.getMessage();}
+            if(scope==created.action)reject();throw new IOException(code);
         }
     }
     MdoBrowserPopups.Adoption adopt(Created original){
         thread();if(original==null||original.owner.get()!=this||!original.allocation.current())throw new IllegalStateException("popup_request_unavailable");
+        if(original.disposal==null)throw new IllegalStateException("cdp_popup_native_disposal_required");
+        if(original.done||original.sent)throw new IllegalStateException("popup_request_unavailable");original.sent=true;
         return adopt(original.allocation.pending,original.birth);
     }
     MdoBrowserPopups.Adoption adopt(MdoBrowserPopups.Pending original,MdoBrowserLifecycle.Fresh<WebView> child){
@@ -115,12 +161,15 @@ final class MdoBrowserCdpPopupNative {
         }catch(RuntimeException|OutOfMemoryError error){throw new IOException("cdp_popup_native_child_invalid");}
     }
     void reject(){
-        thread();if(stop!=null||failure!=null)return;
+        thread();rejecting.incrementAndGet();rejectStarted.set(true);try{UiOwned ui=uiOwned.get();if(ui!=null)for(Created child:ui.constructions)if(child!=null&&!child.sent)try{child.close();}catch(IOException error){/* sticky failure + exact retained resource */}
+        if(stop!=null)return;
         WebView exact=view.get();MdoBrowserPopups<WebView> core=owner.get();
         if(!claimed||exact==null||core==null||!core.original(exact)){failure="cdp_popup_native_source_lost";return;}
         try{stop=core.stopForProtocol(scope);}catch(RuntimeException|OutOfMemoryError error){failure="cdp_popup_native_rejection_unconfirmed";}
+        }finally{rejecting.decrementAndGet();}
     }
-    boolean confirmed(){MdoBrowserPopups.Stop value=stop;return failure==null&&value!=null&&value.confirmed();}
+    boolean rejectionPending(){MdoBrowserPopups.Stop value=stop;return disposing.get()!=0||rejecting.get()!=0||!rejectStarted.get()&&(failure!=null||!creationConfirmed())||value!=null&&value.pending();}
+    boolean confirmed(){MdoBrowserPopups.Stop value=stop;return failure==null&&!rejectionPending()&&value!=null&&value.confirmed();}
     String failure(){
         if(failure!=null)return failure;MdoBrowserPopups.Stop value=stop;
         if(value==null||value.pending()||value.confirmed())return null;

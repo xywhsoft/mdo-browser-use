@@ -110,7 +110,7 @@
             .put("phase",document==null?documentFailures.getOrDefault(key,"world_unavailable"):document.phase())
             .put("pending",document==null?0:document.pending()).put("native_outstanding",document==null?0:document.outstanding())
             .put("native_budget_used",worldBudget.used()).put("native_budget_limit",worldBudget.limit())
-            .put("native_view_cleanup_failed",nativeViewCleanupFailed).put("native_view_retiring",nativeRetiringViews.size())
+            .put("native_view_cleanup_failed",nativeViewCleanupFailed||!MdoBrowserCdpPopupNative.creationConfirmed()).put("native_view_retiring",nativeRetiringViews.size())
             .put("native_document",document==null||document.identity()==null?JSONObject.NULL:document.identity())
             .put("adapter","android-main-document-v1")
             .put("profile_isolation",document!=null&&document.profileAssigned()).put("network",networkState(key));

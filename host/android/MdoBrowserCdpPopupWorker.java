@@ -132,8 +132,9 @@ final class MdoBrowserCdpPopupWorker {
                 job.releaseRegistration();
             }
             for(Job job:snapshot())if(job.stage==NATIVE_CANCELLING){
-                String error=job.nativeSource.failure();if(error!=null)throw new IOException(error);
                 long elapsed=clock.getAsLong()-job.cancelBorn;if(elapsed<0||elapsed>=5000)throw new IOException("cdp_popup_native_cancel_timeout");
+                if(job.nativeSource.rejectionPending())continue;
+                String error=job.nativeSource.failure();if(error!=null)throw new IOException(error);
                 if(!job.nativeSource.confirmed())continue;
                 boolean held=false;for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.mayBelongTo(job.registration)){held=true;break;}
                 if(!held)job.releaseRegistration();

@@ -9,6 +9,7 @@
                     if(link!=null&&!link.ready)throw new IllegalStateException("popup_transport_unconfirmed");
                     bounds(web,request);reply(id,new JSONObject().put("attached",true),null);return;
                 }
+                if(!MdoBrowserCdpPopupNative.creationConfirmed())throw new IllegalStateException("native_popup_creation_unconfirmed");
                 final String popupId=request.optString("popup"),opener=request.optString("opener");
                 final MdoBrowserPopups<WebView> popupSource=popupId.isEmpty()?null:windows.get(opener);
                 if(!popupId.isEmpty()){

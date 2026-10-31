@@ -21,14 +21,30 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     static final class Fresh<T> {
         private final WeakReference<MdoBrowserLifecycle<T>> owner;private final WeakReference<T> view,parent;
         private final String key,parentKey;private final long parentEpoch;
-        private final AtomicBoolean live=new AtomicBoolean(true),destroyed=new AtomicBoolean();private boolean claimed;
+        private final AtomicBoolean live=new AtomicBoolean(true),destroyed=new AtomicBoolean(),humanOwned=new AtomicBoolean();private boolean claimed;
         private Fresh(MdoBrowserLifecycle<T> owner,String key,T view,String parentKey,T parent,long epoch){
             this.owner=new WeakReference<>(owner);this.key=key;this.view=new WeakReference<>(view);this.parentKey=parentKey;this.parent=new WeakReference<>(parent);parentEpoch=epoch;
         }
         boolean current(){return live.get()&&!destroyed.get()&&owner.get()!=null&&view.get()!=null;}
         boolean destroyed(){return destroyed.get();}
+        boolean humanOwned(){return humanOwned.get();}
         T claim(T opener){MdoBrowserLifecycle<T> core=owner.get();if(core==null)throw new IllegalStateException("popup_child_owner_lost");return core.popupView(this,opener,true);}
         T attached(T opener){MdoBrowserLifecycle<T> core=owner.get();if(core==null)throw new IllegalStateException("popup_child_owner_lost");return core.popupView(this,opener,false);}
+    }
+    /** UI-only capacity/key reservation, allocated before native construction.
+     * Unknown constructors retain their slot; known failed views stay enumerable. */
+    static final class Construction<T> {
+        private final WeakReference<MdoBrowserLifecycle<T>> owner;private final String key,parentKey;
+        private final WeakReference<T> parent;private final long epoch;
+        private boolean started,disposed;private T nativeView;private Fresh<T> birth;
+        private Construction(MdoBrowserLifecycle<T> owner,String key,String parentKey,T parent,long epoch){this.owner=new WeakReference<>(owner);this.key=key;this.parentKey=parentKey;this.parent=new WeakReference<>(parent);this.epoch=epoch;}
+        boolean started(){MdoBrowserLifecycle<T> core=owner.get();if(core!=null)core.thread();return started;}
+        void start(){MdoBrowserLifecycle<T> core=owner.get();if(core==null)throw new IllegalStateException("Native constructor owner lost");core.thread();
+            MdoBrowserLifecycle<T>.Entry source=core.current(parentKey,parent.get());
+            if(core.closed||started||disposed||core.constructing.get(key)!=this||source==null||source.epoch!=epoch||source.failed||source.hidden||source.manual||core.background)throw new IllegalStateException("Native constructor unavailable");started=true;}
+        void cancelBeforeStart(){MdoBrowserLifecycle<T> core=owner.get();if(core==null)return;core.thread();
+            if(started)throw new IllegalStateException("Native constructor already started");if(core.constructing.get(key)==this)core.constructing.remove(key);disposed=true;}
+        boolean destroyed(){MdoBrowserLifecycle<T> core=owner.get();if(core!=null)core.thread();return disposed||birth!=null&&birth.destroyed();}
     }
     private final class Entry {
         final T view;MdoBrowserInput input;Fresh<T> fresh;long epoch=1;double scale=Double.NaN;boolean hidden,manual,failed;
@@ -40,6 +56,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     }
     private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;private final Invalidated<T> invalidated;
     private final Map<T,Fresh<T>> retiring=new IdentityHashMap<>();private final List<History> history=new ArrayList<>();
+    private final Map<String,Construction<T>> constructing=new LinkedHashMap<>();
     private final Thread owner=Thread.currentThread();private boolean closed,cleanupFailed,background;
     MdoBrowserLifecycle(Factory<T> factory){this(factory,(key,view,epoch,reason)->{});}
     MdoBrowserLifecycle(Factory<T> factory,Invalidated<T> invalidated){
@@ -49,15 +66,17 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Browser lifecycle requires its owning UI thread");}
     private Entry current(String key,T view){Entry entry=entries.get(key);return !closed&&entry!=null&&entry.view==view?entry:null;}
     boolean owns(String key,T view){thread();return current(key,view)!=null;}
-    int size(){thread();return entries.size()+retiring.size();}
+    int size(){thread();return entries.size()+retiring.size()+constructing.size();}
     T get(String key){thread();Entry entry=entries.get(key);return entry==null?null:entry.view;}
-    List<T> values(){thread();List<T> result=new ArrayList<>();for(Entry entry:entries.values())result.add(entry.view);result.addAll(retiring.keySet());return result;}
+    List<T> values(){thread();List<T> result=new ArrayList<>();for(Entry entry:entries.values())result.add(entry.view);result.addAll(retiring.keySet());
+        for(Construction<T> pending:constructing.values())if(pending.nativeView!=null)result.add(pending.nativeView);return result;}
     /** Call before the native constructor, including when an old tab name is
      * still reserved by a removed child whose destruction is not confirmed. */
     void checkNew(String key){
         thread();if(closed)throw new IllegalStateException("Browser lifecycle closed");
         if(key==null||key.isEmpty()||key.length()>100)throw new IllegalArgumentException("Invalid native view binding");
         if(entries.containsKey(key))throw new IllegalStateException("Browser identity is already owned");
+        if(constructing.containsKey(key))throw new IllegalStateException("Native browser constructor is pending");
         for(Fresh<T> child:retiring.values())if(child.key.equals(key))throw new IllegalStateException("Native browser identity is retiring");
         if(size()>=8)throw new IllegalStateException("Native browser view limit reached (8)");
     }
@@ -82,11 +101,31 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
             if(!background&&!parent.failed&&!parent.hidden&&!parent.manual)return;break;
         }throw new IllegalStateException("popup_child_opener_invalid");
     }
+    Construction<T> reservePopup(String key,T opener){
+        popupAdmission(key,opener);
+        for(Map.Entry<String,Entry> item:entries.entrySet())if(item.getValue().view==opener){
+            Construction<T> pending=new Construction<>(this,key,item.getKey(),opener,item.getValue().epoch);constructing.put(key,pending);return pending;
+        }throw new IllegalStateException("popup_child_opener_invalid");
+    }
+    Fresh<T> putPopup(Construction<T> pending,T view){
+        thread();if(pending==null||pending.owner.get()!=this||!pending.started||pending.disposed||constructing.get(pending.key)!=pending||pending.nativeView!=null||view==null||view==pending.parent.get())throw new IllegalStateException("Native constructor binding invalid");
+        // Source construction is private new, never a borrowed native view.
+        for(int i=0;i<history.size();i++)if(history.get(i).view.get()==view)throw new IllegalStateException("Native view was already registered");
+        pending.nativeView=view;Entry parent=current(pending.parentKey,pending.parent.get());
+        if(parent==null||parent.epoch!=pending.epoch||parent.failed||parent.hidden||parent.manual||background)throw new IllegalStateException("popup_child_opener_invalid");
+        Fresh<T> child=new Fresh<>(this,pending.key,view,pending.parentKey,parent.view,pending.epoch);pending.birth=child;
+        put(pending.key,view,child,pending);return child;
+    }
     private void put(String key,T view,Fresh<T> fresh){
-        checkNew(key);remember(view,fresh);Entry entry=new Entry(view);entry.fresh=fresh;
+        put(key,view,fresh,null);
+    }
+    private void put(String key,T view,Fresh<T> fresh,Construction<T> construction){
+        if(construction==null)checkNew(key);else if(closed||constructing.get(key)!=construction||construction.nativeView!=view)throw new IllegalStateException("Native constructor binding lost");
+        remember(view,fresh);Entry entry=new Entry(view);entry.fresh=fresh;
         // Reserve physical ownership before an input factory can fail/reenter.
         // Failed fresh registration must remain recoverable until native destroy.
         if(fresh!=null)retiring.put(view,fresh);
+        if(construction!=null){constructing.remove(key);construction.nativeView=null;}
         try{
             entry.input=factory.create(view,()->entry.epoch,()->current(key,view)==entry&&!background&&!entry.hidden&&!entry.manual&&!entry.failed);
             if(entry.input==null)throw new IllegalStateException("Missing native input binding");
@@ -109,6 +148,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     void viewDestroyed(T exact){
         thread();for(Entry entry:entries.values())if(entry.view==exact)throw new IllegalStateException("Native view is still registered");
         Fresh<T> child=retiring.remove(exact);if(child!=null){child.live.set(false);child.destroyed.set(true);}
+        for(Iterator<Construction<T>> at=constructing.values().iterator();at.hasNext();){Construction<T> pending=at.next();if(pending.nativeView==exact){pending.disposed=true;pending.nativeView=null;if(pending.birth!=null){pending.birth.live.set(false);pending.birth.destroyed.set(true);}at.remove();}}
     }
     boolean nativeDestroyed(T exact){thread();for(History original:history)if(original.view.get()==exact)return original.fresh!=null&&original.fresh.destroyed();return false;}
     private void retire(Entry entry){if(entry.fresh!=null){entry.fresh.live.set(false);retiring.put(entry.view,entry.fresh);}}
@@ -126,7 +166,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     }
     void manual(String key,T view,boolean value){
         thread();Entry entry=current(key,view);if(entry==null)return;entry.manual=value;
-        if(value){if(entry.fresh!=null)entry.fresh.live.set(false);settle(entry,()->entry.input.invalidate("user_taken_control"));}
+        if(value){if(entry.fresh!=null){entry.fresh.humanOwned.set(true);entry.fresh.live.set(false);}settle(entry,()->entry.input.invalidate("user_taken_control"));}
     }
     void stop(String key,T view){thread();Entry entry=current(key,view);if(entry!=null)settle(entry,entry.input::cancel);}
     void stopAll(){thread();for(Entry entry:new ArrayList<>(entries.values()))settle(entry,entry.input::cancel);}

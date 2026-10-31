@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E125:** give native popup constructors UI-owned key/capacity
+  reservations before `new WebView`, retain known unpublished instances until
+  exact destruction acknowledgement, and fence further creation when constructor
+  return or cleanup is uncertain. Cancel unsent creations through the registered
+  host disposer; preserve human-owned and already-sent windows. Scoped cleanup
+  cannot reject a later pending popup. Thirty-six worker modes pass 1,505 checks;
+  full native, product UI 663, popup 110/25, save 47 and Python 173/175 gates pass.
+  Rebuild and verify the actual Android APK. Product coordinator wiring, sent
+  handoff retirement, global failure quiescence and provider qualification remain
+  open; the public protected Android popup route remains disabled.
 - **Android E119:** add fixed original-target Request/Response interception
   before native popup adoption, bounded retention of original paused request
   IDs and once-only UI protection results on the existing worker. It performs
@@ -10130,3 +10140,63 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   delivery verification. Keep public protected Android popup admission and all
   provider/framework/automation qualification false; do not bypass the preserved
   provider's isolated-world limitation with main-world Agent execution.
+
+## E125 — UI-owned native construction and unsent retirement (2026-10-31)
+
+- Reserve the native key and one of the eight view slots before invoking the
+  native constructor. Freeze the original opener/epoch; cancelled reservations
+  cannot start. A returned view that fails registration remains enumerable until
+  its exact post-destroy acknowledgement. A constructor with no returned pointer
+  retains its reservation, including through lifecycle shutdown; another object's
+  acknowledgement cannot release it.
+- Keep Created handles and host disposal callbacks in the UI protocol controller.
+  The worker's native source holds only a weak reference to this book, alongside
+  its existing weak/data evidence. Require a host disposer before exporting a
+  view for configuration or irreversible native handoff. Preserve the hardcoded
+  original-opener-context native constructor; callers cannot supply a factory or
+  borrowed view as proof.
+- Cancellation closes unsent owned instances through the exact host callback,
+  checks physical destruction acknowledgement and avoids double destruction.
+  Reentrant acknowledgement cannot report cleanup while disposal is running.
+  Human takeover remains sticky even after returning control, and sent handoffs
+  remain retained rather than being destroyed before native consumption. An old
+  Created's cleanup cannot reject a later Pending in the same action generation.
+- Constructor-no-return, a throwing disposer and a disposer that returns without
+  destruction acknowledgement set a sticky process creation fence. Explicit UI
+  cleanup retry can settle a known instance but does not falsely clear unknown
+  process state. New views and popup claims are refused; existing view
+  reattachment remains usable and cleanup uncertainty is visible in capabilities
+  and document state. The worker waits for this local source's queued native
+  rejection consumption before observing its cleanup failure; global failure
+  quiescence across multiple sources is not yet qualified.
+- E125-ownership-verified.log covers eight ordinary ownership scenarios (195),
+  separate constructor uncertainty (27), throwing disposal (26), missing disposal
+  acknowledgement (26), plus allocation 148/cleanup-failure 29. The final full
+  native gate binds 119 source hashes, ASan/UBSan/API26/JVM/JNI and balanced native
+  resources: 36 worker modes/1,505 checks, broker 261 with two native transport
+  flows and native-source/controller 169. No provider or popup-adoption
+  qualification is inferred from controlled fixtures.
+- Fresh input/lifecycle/channel/guard/wheel/hover checks pass
+  177/163/22/63/66/82. Fresh product UI creation passes 663 with 13 input hashes;
+  fresh popup contracts pass 110 plus 25 native callback checks with eight hashes.
+  JS/C saving passes 47 and binds the new native receipt. Python passes 173 of
+  175 in 51.294 seconds, with the two existing Windows symlink-privilege skips.
+- Apply reviewed overlays while stopped, rebuild actual Android Java/DEX/APK and
+  require the Construction/UI-book/Disposal definitions in the emitted DEX.
+  Signature/private-provider/eight-JNI-export/ARM64/16-KiB/zip alignment checks
+  pass. APK: 6,513,985 bytes, SHA-256
+  1241e3a1c782308542950050fe52a21ed199c9bec45e4034bf362625beffdafe.
+  Reuse the unchanged ARM64 host, Windows program and plugin bytes. The final
+  E125 identity script rechecks applicable E105 world/document, E118 actual
+  Windows frame/input 301 and E106 JS/packed-Windows evidence; this reuse is not
+  a fresh platform run.
+- Service restored: HTTP 200 on 63625, PID 19400; deployment about 3,443.3 MiB,
+  D: about 37.7 GiB free. Preserve the user's phone/WebView deferral and all
+  formal data. No ADB operation, extra app/Home/source copy, runtime dependency,
+  model call, external browser page, publication or production config change.
+- Goal remains active. Actual product configure/close coordinator wiring,
+  sent handoff consumption/promotion/teardown, global multi-source failure
+  quiescence, guarded bootstrap/resume, response/body routing and final platform/
+  delivery verification remain. Keep protected Android popup admission and
+  provider/framework/automation qualification false; never replace unavailable
+  isolated-world Agent execution with main-world execution.
