@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E117:** service explicit popup preparation on the original protocol
+  executor and cooperative network pump, with original UI callbacks, eight-job
+  admission, data-only cancellation and stale-ready suppression. Distinguish
+  releasing one opener from confirmed global disable; held native candidates
+  still require the unfinished native rejection/adoption join. Three ordinary
+  JVM modes pass 82 new assertions without creating another product executor.
+  Full native 114-input, save 47, Python 173/175, fresh product UI 647 and actual
+  Windows frame/input 301 gates pass. Rebuild and verify the actual Android APK;
+  provider/main-UI/popup adoption qualification remains false.
 - **Android E116:** add the private process popup broker and typed original
   physical-opener registry. A single process claim guards page-only flattened
   auto-attachment, unclaimed waits are released, existing targets detach without
@@ -9549,3 +9558,67 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   protected unqualified Android popup creation; provider/framework/automation
   qualification stays false. Phone/WebView changes remain deferred. No model
   call, external browser page, publication or production data/config change.
+
+## E117 — popup preparation on the original protocol worker (2026-10-31)
+
+- Join the private process broker to MdoBrowserCdpWorker/Networks through a
+  private preparePopups request. Admission requires the original, ready physical
+  network lease; a document lease, duplicate opener and exhausted eight-job
+  budget are rejected before native popup I/O. Reserve that budget through
+  terminal UI delivery. All opening, registration, arming, event polling and
+  confirmed disable run on the existing single executor, with its existing
+  bounded queue and rejection policy. There is no second product thread.
+- Service broker turns from the existing network pump and cooperative ordinary
+  RPC waits. This avoids starving unclaimed waiting targets while a page's own
+  document request is waiting. Use a reentry guard while broker RPCs run. Return
+  ready/state/candidate events on the original UI, bound to the original lease;
+  delayed ready events are suppressed after cancellation or lease loss. Deliver
+  each candidate once without granting native-child/body/Agent authority.
+- Request.close only marks cancellation and wakes the old worker. For a clean
+  opener without held candidates, invalidate its registration on that worker;
+  other openers keep the shared process connection. Report sourceReleased
+  separately from processCleanupConfirmed: only the last original empty disable
+  ACK proves global cleanup. Clearing a UI result or closing the socket cannot
+  substitute for that ACK. Release callbacks/wake references after terminal
+  delivery, contain callback exceptions and preserve document/network operation.
+- Native cancellation of a retained candidate is still deliberately unfinished.
+  Report cdp_popup_native_cancel_required and unconfirmed process cleanup rather
+  than resume an unproven child. Preserve the process fence; a new request fails
+  before a replacement broker/connection is created. Host close wakes native I/O
+  without waiting on UI, and its unknown cleanup remains explicit. The public
+  product route still rejects protected unqualified Android popup creation.
+- Three JVM modes pass 82 new assertions (63 normal, 12 native cancellation,
+  seven host shutdown) using the actual shared worker, marker, network binding
+  and protocol dispatcher with controlled UI/renderer/browser peers. Cover two
+  openers sharing one connection, partial/last release, duplicate admission,
+  queued cancellation/expiry before I/O, cancellation during blocked arming,
+  stale-ready suppression, cooperative document waits, once-only candidates,
+  throwing UI callbacks and uncertainty fencing without shutting down ordinary
+  document work. These peers do not qualify installed Android framework behavior.
+- Full ASan/UBSan/API26 native gates pass 114 current input hashes; the prior
+  broker 167 and original release 2,595 checks remain passing. JS/C original-source
+  saving passes 47 with one claim and no retained files/quotas. Python passes
+  173/175 in 55.839 seconds with two existing Windows symlink privilege skips.
+  Because the reviewed overlay changes, execute fresh product-fragment 647 and
+  actual WebView2 frame/input 301 gates, including six Unicode-fill/interrupted-
+  drag/recovery cycles. Capture all six frame source hashes before execution and
+  recheck them afterward; zero new native diagnostics or upload reservations.
+- Reuse the exact verified, unchanged ARM64 C host
+  022caf0ab9e9b7bcdf32ecf3ecce1dfb6b77485958c5fb709b48f42c8af488d9.
+  Package and require seven actual PopupWorker/interface/request/result/job DEX
+  definitions. Actual APK: 6,493,505 bytes, SHA-256
+  4b02852d6b3c469ae358790ced3c78f3f4cc530121f30ca2f25da19dc653299d.
+  Verify all eight JNI exports, retained v2/v3 signer, private provider, alignment
+  and current native/app payloads. Windows/plugin artifacts and product JS/C
+  remain unchanged. E105 world/document evidence is current; reuse E106 JS 372
+  and packed Windows 12 only with unchanged source/archive/artifact identities.
+  Evidence: .mdo/E117-final-identities.log, E117-native-current.json,
+  E117-save-current.json, E117-android-receipt.json, E117-product-current.json,
+  E117-frames-inputs.json, E117-frames-current.json and E117 gate/build logs.
+- Headless development service is HTTP 200 on 63625, PID 36268, about 3,441.1 MiB;
+  D: has about 43.8 GiB free. No extra app/Home/source checkout or runtime
+  dependency, phone/provider change, model call, external browser page,
+  publication or production data/config edit. Goal remains active: original
+  native popup callback/child/transport association, first-response interception,
+  scoped child body routing and qualified resume/adoption still remain, along
+  with broader platform/delivery work. Device checks stay deferred.

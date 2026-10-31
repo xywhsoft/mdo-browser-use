@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E116)
+## Complete development host APK (E46/E117)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,485,313 bytes, SHA-256
-`3d738d5dd987948ebae0ebefcd1e6810f0b7dd5c0fcaef3b9ae79139523d9f09`.
+Current APK: 6,493,505 bytes, SHA-256
+`4b02852d6b3c469ae358790ced3c78f3f4cc530121f30ca2f25da19dc653299d`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -66,6 +66,8 @@ The fixed original-event cleanup metadata `MdoBrowserCdpSession$AttachedTarget`
 must also be an actual DEX definition.
 E116 also requires the private process broker, its registry/candidate/connector/
 release classes and the original physical Network.PopupSource definition.
+E117 requires seven actual PopupWorker/interface/request/result/job definitions
+for private preparation and original-UI result delivery on the existing worker.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
@@ -4277,3 +4279,42 @@ scheduling, original native callback/child association, managed response routing
 and qualified resume/adoption remain incomplete. Framework/provider/public
 Android automation qualification is false. Current phone/WebView deferral stays
 in force; local kernel/fixture evidence does not establish installed behavior.
+
+## Original-worker popup preparation and UI lifetime (E117)
+
+The private preparePopups method now joins the process broker to the existing
+protocol executor. Its input is only an already-ready original physical network
+lease. It does not take caller debugger/target IDs and the public product does
+not call it yet. Eight request slots include pending terminal UI callbacks;
+duplicate openers are refused. Opening and fixed broker commands share the old
+worker/queue, and its network pump also services popup events during cooperative
+document RPC waits. No second executor, application copy or engine is added.
+
+Ready/state/candidate notifications return through the original UI owner.
+Cancellation or lost leases suppress delayed ready notifications. Candidate
+delivery is once-only and still proves no native child/transport/body ownership.
+Request cancellation only sets data and wakes the worker. It releases one
+registration without disabling a connection used by other openers. The result
+distinguishes sourceReleased from processCleanupConfirmed: only the final
+original empty disable ACK proves process-wide cleanup. UI callback failure is
+contained and cancels that request without crashing ordinary document work.
+
+A retained native candidate cannot yet be safely rejected/adopted by this
+coordinator. Cancelling it reports cdp_popup_native_cancel_required and explicit
+cleanup uncertainty; the original process fence prevents a replacement attempt.
+Host close also preserves unconfirmed cleanup while waking I/O without waiting
+on UI. The missing native callback/child/transport association, managed first-
+response interception and scoped body/resume joins remain necessary before any
+public protected-popup route can be enabled.
+
+Three controlled JVM modes pass 82 new assertions (63/12/7), including original
+worker/UI ownership, two-openers sharing, queued cancellation/expiry, delayed
+callbacks, cancellation during arming, cooperative waits, candidate invalidation,
+callback failures and process fencing. Full native gates cover 114 input hashes;
+broker 167, fixed release 2,595 and shared JS/C saving 47 remain passing. Python
+passes 173/175 with two Windows symlink privilege skips. Fresh product UI 647 and
+actual Windows frame/input 301 gates bind current inputs. The rebuilt actual
+APK verifies required DEX definitions, eight JNI exports and signer/source/
+payload identities. See .mdo/E117-final-identities.log and E117 receipts/logs.
+These checks do not qualify an installed Android provider or the public mdo UI;
+framework/provider/automation flags remain false and device checks stay deferred.

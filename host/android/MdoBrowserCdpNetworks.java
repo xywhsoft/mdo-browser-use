@@ -82,13 +82,29 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     private final MdoBrowserCdpWorker.Ui ui;private final Connector connector;private final LongSupplier clock;
     private final ThreadPoolExecutor executor;private final Object gate=new Object();private final Slot[] slots=new Slot[LIMIT];
     private final Runnable unavailable;
+    private final MdoBrowserCdpPopupWorker popups;
     private final AtomicBoolean closed=new AtomicBoolean(),pumpQueued=new AtomicBoolean();
     private int cursor;private boolean servicing;
     private final Runnable pump=()->{pumpQueued.set(false);if(closed.get())return;turn();schedule();};
     MdoBrowserCdpNetworks(MdoBrowserCdpWorker.Ui ui,Connector connector,LongSupplier clock,ThreadPoolExecutor executor,Runnable unavailable){
+        this(ui,connector,clock,executor,unavailable,MdoBrowserCdpPopupBroker::new);
+    }
+    MdoBrowserCdpNetworks(MdoBrowserCdpWorker.Ui ui,Connector connector,LongSupplier clock,ThreadPoolExecutor executor,Runnable unavailable,MdoBrowserCdpPopupWorker.Factory popupFactory){
         if(ui==null||connector==null||clock==null||executor==null||unavailable==null||!ui.onThread())throw new IllegalArgumentException("Network owners require their UI worker");
         this.ui=ui;this.connector=connector;this.clock=clock;this.executor=executor;this.unavailable=unavailable;
+        popups=new MdoBrowserCdpPopupWorker(ui,executor,this::popupSource,popupFactory,clock,this::schedule,unavailable);
     }
+    private MdoBrowserCdpBinding.Network popupSource(MdoBrowserCdpMarker.Lease lease)throws IOException {
+        synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease&&slot.stage==READY&&!slot.cancelled.get()&&!slot.retiring.get()&&lease.current()&&slot.connection!=null)return slot.connection;}
+        throw new IOException("cdp_popup_opener_unavailable");
+    }
+    MdoBrowserCdpPopupWorker.Request startPopups(MdoBrowserCdpMarker.Lease lease,int timeout,MdoBrowserCdpPopupWorker.Events events)throws IOException {
+        thread();if(lease==null||!lease.current()||!lease.physicalNetwork())throw new IOException("cdp_popup_prepare_arguments_invalid");
+        // UI observation only: reserve requests for an already-ready slot, so
+        // eight popup jobs cannot bypass the shared executor's source budget.
+        popupSource(lease);return popups.start(lease,timeout,events);
+    }
+    int popupPending(){return popups.pending();}
     private void thread(){if(!ui.onThread())throw new IllegalStateException("Network owner dispatch requires its UI thread");}
     private static String safe(String code){return code!=null&&code.matches("(?:cdp|download_frame)_[a-z_]{1,80}")?code:"cdp_network_worker_failed";}
     void start(MdoBrowserCdpMarker marker,int timeout,Events events,Completion complete)throws IOException {
@@ -134,7 +150,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     int pending(){thread();int count=0;synchronized(gate){for(Slot slot:slots)if(slot!=null)count++;}return count;}
     boolean pending(MdoBrowserCdpMarker.Lease lease){thread();synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease)return true;}return false;}
     private void schedule(){
-        if(closed.get())return;boolean needed=false;
+        if(closed.get())return;boolean needed=popups.needed();
         synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.stage==READY){needed=true;break;}}
         if(!needed||!pumpQueued.compareAndSet(false,true))return;
         try{executor.execute(pump);}catch(RuntimeException|Error rejected){pumpQueued.set(false);closeAll();unavailable.run();}
@@ -144,6 +160,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     void turn(){
         if(closed.get()||servicing)return;servicing=true;
         try{
+            popups.turn();
             Slot selected=null;
             synchronized(gate){for(int i=0;i<LIMIT;i++){
                 int next=cursor++%LIMIT;Slot row=slots[next];
@@ -175,6 +192,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     }
     private void closeAll(){
         if(!closed.compareAndSet(false,true))return;
+        popups.close();
         for(int i=0;i<LIMIT;i++){Slot slot;synchronized(gate){slot=slots[i];}if(slot!=null)slot.drop();}
         executor.remove(pump);pumpQueued.set(false);
     }
@@ -183,7 +201,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     /** The common executor thread has exited: no original I/O can still be
      * running. This is distinct from an earlier UI shutdown request. */
     void ownerTerminated(){
-        closeAll();for(int i=0;i<LIMIT;i++){Slot slot;synchronized(gate){slot=slots[i];}if(slot!=null)slot.finish("cdp_network_cancelled");}
+        closeAll();popups.ownerTerminated();for(int i=0;i<LIMIT;i++){Slot slot;synchronized(gate){slot=slots[i];}if(slot!=null)slot.finish("cdp_network_cancelled");}
     }
     private final class Slot implements Runnable {
         final WeakReference<MdoBrowserCdpMarker> marker;final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;

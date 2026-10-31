@@ -46,16 +46,19 @@ public final class CdpNetworkWorkerProbe {
         final List<MdoBrowserCdpWorker.Result> documentResults=new ArrayList<>();
         final Map<MdoBrowserCdpMarker,CdpBindingProbe.Factory> documents=new ConcurrentHashMap<>();
         final Map<MdoBrowserCdpMarker,String> documentTargets=new ConcurrentHashMap<>();
+        final Map<MdoBrowserCdpMarker,String> networkTargets=new ConcurrentHashMap<>();
         final AtomicInteger controls=new AtomicInteger();final MdoBrowserCdpWorker worker;
         boolean uncertainCleanup;
-        Case(){worker=new MdoBrowserCdpWorker(ui,(marker,budget)->{
+        Case(){this(MdoBrowserCdpPopupBroker::new);}
+        Case(MdoBrowserCdpPopupWorker.Factory popupFactory){worker=new MdoBrowserCdpWorker(ui,(marker,budget)->{
             check(!ui.onThread());threads.add(Thread.currentThread());CdpBindingProbe.Factory peer=documents.get(marker);
             return MdoBrowserCdpBinding.bind(marker,budget,(m,s,p)->{},t->Arrays.asList(documentTargets.getOrDefault(marker,"owned")),
                 (id,timeout,current,events)->peer.open("owned",timeout,current,events));
         },time::get,(marker,budget,events)->{
             check(!ui.onThread());threads.add(Thread.currentThread());CdpNetworkBindingProbe.Context source=sources.get(marker);
-            return MdoBrowserCdpBinding.bindNetwork(marker,budget,events,t->Arrays.asList("owned"),source.peer);
-        });}
+            return MdoBrowserCdpBinding.bindNetwork(marker,budget,events,t->Arrays.asList(networkTargets.getOrDefault(marker,"owned")),
+                (id,timeout,current,forward)->source.peer.open("owned",timeout,current,forward));
+        },popupFactory);}
         CdpNetworkBindingProbe.Context source(){CdpNetworkBindingProbe.Context c=new CdpNetworkBindingProbe.Context(true);owned.add(c);sources.put(c.adapter.marker(),c);return c;}
         CdpNetworkBindingProbe.Context source(WebView original,MdoBrowserCdpMarker.DocumentQuota quota){CdpNetworkBindingProbe.Context c=new CdpNetworkBindingProbe.Context(true,original,quota);owned.add(c);sources.put(c.adapter.marker(),c);return c;}
         MdoBrowserCdpMarker document(){WebView view=new WebView();MdoBrowserCdpMarker marker=new MdoBrowserCdpView(view,v->true).marker();documents.put(marker,new CdpBindingProbe.Factory(view));return marker;}
@@ -71,7 +74,7 @@ public final class CdpNetworkWorkerProbe {
         @Override public void close()throws Exception{
             worker.close();await(worker::terminated);ui.drain();Handler.drain();
             if(worker.pending()!=0||!uncertainCleanup&&worker.networkPending()!=0)throw new AssertionError("Native worker cleanup retained jobs="+worker.pending()+", sources="+worker.networkPending());
-            check(worker.pending()==0&&(uncertainCleanup||worker.networkPending()==0));
+            check(worker.pending()==0&&worker.popupPending()==0&&(uncertainCleanup||worker.networkPending()==0));
             for(CdpNetworkBindingProbe.Context c:owned)c.close();
             for(Map.Entry<MdoBrowserCdpMarker,CdpBindingProbe.Factory> row:documents.entrySet()){row.getKey().close();row.getValue().balanced();}
             check(threads.size()<=1);

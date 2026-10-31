@@ -42,6 +42,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private volatile boolean retired;
         private Candidate(Registration opener,MdoBrowserCdpSession.AttachedTarget original,long born,AtomicBoolean brokerClosed){this.opener=opener;this.original=original;this.born=born;this.brokerClosed=brokerClosed;}
         boolean current(){return !retired&&!brokerClosed.get()&&opener.current();}
+        boolean belongsTo(Registration original){return opener==original;}
         boolean nativeChildProven(){return false;}
     }
     private static final class Release {
@@ -55,6 +56,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private volatile int state=NEW;private volatile boolean enabledMayHaveOccurred,cleanupConfirmed=true;
     private volatile String failure;private boolean attachedSeen;
     MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent){this(hostCurrent,android.os.SystemClock::elapsedRealtime,NATIVE);}
+    MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent,LongSupplier clock){this(hostCurrent,clock,NATIVE);}
     MdoBrowserCdpPopupBroker(BooleanSupplier hostCurrent,LongSupplier clock,Connector connector){
         if(hostCurrent==null||clock==null||connector==null)throw new IllegalArgumentException("Popup broker requires its original worker");
         this.hostCurrent=hostCurrent;this.clock=clock;this.connector=connector;

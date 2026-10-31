@@ -52,7 +52,7 @@
     "product_popup_network_admission": false
   },
   "popup_coordination": {
-    "state": "private_process_broker_and_physical_opener_registry_packaged_not_popup_admission",
+    "state": "private_shared_worker_process_broker_packaged_not_popup_admission",
     "autoAttachRelated_alone_proves_window_open_first_request_pause": false,
     "pinned_window_open_pause_gate": "any_Browser_TargetHandler_ShouldThrottlePopups_returns_auto_attach_not_related_target_registration",
     "required_product_coordinator": "one_process_owned_Browser_setAutoAttach_broker_with_current_physical_opener_registry_and_prompt_unclaimed_target_release",
@@ -69,7 +69,21 @@
       "pending_native_candidates_block_graceful_disable": true,
       "socket_close_proves_global_disable": false,
       "uncertain_cleanup": "small_process_fence_without_retaining_broker_or_native_owners_no_automatic_rearm",
-      "worker_and_product_adoption_integration": false,
+      "worker_integration": true,
+      "product_adoption_integration": false,
+      "installed_provider_verified": false
+    },
+    "shared_worker": {
+      "admission": "explicit_UI_request_for_an_existing_ready_physical_network_lease_only",
+      "executor": "same_existing_single_CDP_executor_no_new_thread_or_caller_runs",
+      "limits": "8_source_requests_including_pending_UI_terminal_delivery_shared_original_executor_queue",
+      "pump": "existing_network_scheduler_and_cooperative_document_RPC_waits",
+      "candidate_delivery": "bounded_once_per_frozen_candidate_to_original_current_UI_request_no_child_execution_authority",
+      "cancel": "data_only_wakeup_then_original_worker_release_and_shared_broker_cleanup",
+      "source_release_equals_global_process_cleanup": false,
+      "queued_or_late_ready_delivery_after_cancel": false,
+      "held_native_candidate_cancel_without_native_rejection_proof": "terminal_uncertainty_not_false_success_no_rearm",
+      "product_route_enabled": false,
       "installed_provider_verified": false
     },
     "fixed_unclaimed_release": {

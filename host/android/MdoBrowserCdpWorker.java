@@ -46,6 +46,9 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         this(ui,connector,clock,MdoBrowserCdpBinding::bindNetwork);
     }
     MdoBrowserCdpWorker(Ui ui,Connector connector,LongSupplier clock,MdoBrowserCdpNetworks.Connector networkConnector){
+        this(ui,connector,clock,networkConnector,MdoBrowserCdpPopupBroker::new);
+    }
+    MdoBrowserCdpWorker(Ui ui,Connector connector,LongSupplier clock,MdoBrowserCdpNetworks.Connector networkConnector,MdoBrowserCdpPopupWorker.Factory popupFactory){
         if(ui==null||connector==null||clock==null||!ui.onThread())throw new IllegalArgumentException("CDP worker requires its UI owner");
         this.ui=ui;this.connector=connector;this.clock=clock;
         executor=new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<Runnable>(LIMIT*2+1),task->{
@@ -54,7 +57,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
                 finally{threadExited();}
             },"mdo-private-cdp");thread.setDaemon(true);return thread;
         },new ThreadPoolExecutor.AbortPolicy());
-        networks=new MdoBrowserCdpNetworks(ui,networkConnector,clock,executor,this::shutdown);
+        networks=new MdoBrowserCdpNetworks(ui,networkConnector,clock,executor,this::shutdown,popupFactory);
     }
     private void cooperate(){networks.turn();}
     private void threadExited(){if(!closed.get())shutdown();networks.ownerTerminated();}
@@ -63,6 +66,10 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     }
     void cancelNetwork(MdoBrowserCdpMarker.Lease lease){thread();networks.cancel(lease);}
     void retireNetwork(MdoBrowserCdpMarker.Lease lease){thread();networks.retire(lease);}
+    MdoBrowserCdpPopupWorker.Request preparePopups(MdoBrowserCdpMarker.Lease lease,int timeout,MdoBrowserCdpPopupWorker.Events events)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.startPopups(lease,timeout,events);
+    }
+    int popupPending(){thread();return networks.popupPending();}
     MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.navigate(lease,url,timeout);
     }

@@ -1779,3 +1779,12 @@ metadata conveys no child/transport/body authority. Confirmed disable handles
 late events without repeated controls and uncertain cleanup fences rearming.
 The product does not activate this broker yet; worker/UI/adoption/body joins and
 provider qualification remain open. Public JS/C API and permissions are unchanged.
+
+E117 provides private popup preparation on the original protocol executor with
+original-UI state/candidate delivery and data-only cancellation. It accepts only
+an already-ready physical network lease, not caller protocol identifiers. One
+opener's sourceReleased does not imply processCleanupConfirmed while other
+openers remain; global cleanup still requires the final original disable ACK.
+Retained candidate cancellation requires the unfinished original native rejection
+join and remains explicitly uncertain. No public JS/C signature, permission or
+Android capability changes; the product does not enable popup preparation yet.
