@@ -120,6 +120,12 @@ def main():
     if not controls.get('passed') or controls.get('real_control_sessions')!=6 or controls.get('real_cooperative_pairs')!=1 or controls.get('provider_qualified') is not False or controls.get('downloads_activated') is not False:
         raise RuntimeError('The fixed native paused-event control gate did not pass')
     result['jvm_native_controls']=controls
+    attached=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpAttachedTargetProbe'],cwd=ROOT,env=environment,text=True,timeout=60))
+    if (not attached.get('passed') or attached.get('real_native_sessions')!=2 or not attached.get('fixed_original_release')
+            or not attached.get('native_resume_then_detach') or attached.get('task_or_popup_ownership_proved') is not False or attached.get('provider_qualified') is not False):
+        raise RuntimeError('The fixed original attached-target release gate did not pass')
+    result['jvm_attached_release']=attached
     navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNavigationProbe'],cwd=ROOT,env=environment,text=True,timeout=40))
     if (not navigation.get('passed') or not navigation.get('original_navigation_receipts') or not navigation.get('same_connection_body_progress')

@@ -133,7 +133,7 @@ static int Handshake(Server* Fixture,int Fd)
     if ( !Key ) return 0;
     Key+=21;char Accept[XWS_ACCEPT_CAPACITY];
     if ( !xrtWsAccept((xstrview){Key,XWS_KEY_SIZE},Accept,sizeof(Accept)) ) return 0;
-    const char* Path=Fixture->Mode==50?"/devtools/browser/00000000-0000-4000-8000-000000000001":Fixture->Mode>=49&&Fixture->Mode<=53?"/devtools/browser":"/devtools/page/test-001";
+    const char* Path=Fixture->Mode==50?"/devtools/browser/00000000-0000-4000-8000-000000000001":Fixture->Mode>=49&&Fixture->Mode<=55?"/devtools/browser":"/devtools/page/test-001";
     char Expected[512];int Length=snprintf(Expected,sizeof(Expected),"GET %s HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %.*s\r\nSec-WebSocket-Version: 13\r\n\r\n",Path,XWS_KEY_SIZE,Key);
     Fixture->Valid=Length==(int)Used&&!memcmp(Expected,Request,Used);
     char Reply[8192];
@@ -155,7 +155,17 @@ static void* Serve(void* Data)
     struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
     if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 || Fixture->Mode==38 ) close(Fixture->Listener);goto Done;}
     if(Fixture->Mode==48)goto Done; /* Read-only HTTP metadata; no WS or command. */
-    if ( Fixture->Mode==49 || Fixture->Mode==50 || Fixture->Mode==52 ) {
+    if ( Fixture->Mode==54 || Fixture->Mode==55 ) {
+        Fixture->Frames+=ClientCommand(Fd,1,"Target.getTargets",NULL);
+        if(!Packet(Fd,"{\"method\":\"Target.attachedToTarget\",\"params\":{\"sessionId\":\"popup-1\",\"targetInfo\":{\"targetId\":\"target-1\",\"type\":\"page\",\"openerId\":\"foreign-opener\",\"url\":\"https://private.invalid/not-requested\"},\"waitingForDebugger\":true}}"))goto Done;
+        Fixture->Frames+=ClientCommand(Fd,2,"Runtime.runIfWaitingForDebugger","popup-1");
+        if(Fixture->Mode==55&&!Packet(Fd,"{\"id\":1,\"result\":{\"targetInfos\":[]}}"))goto Done;
+        if(!Packet(Fd,"{\"id\":2,\"sessionId\":\"popup-1\",\"result\":{}}"))goto Done;
+        Fixture->Frames+=ClientBodyCommand(Fd,3,"Target.detachFromTarget","{\"sessionId\":\"popup-1\"}");
+        if(!Packet(Fd,"{\"method\":\"Target.detachedFromTarget\",\"params\":{\"sessionId\":\"popup-1\",\"targetId\":\"target-1\"}}")||!Packet(Fd,"{\"id\":3,\"result\":{}}")||!Packet(Fd,"{\"method\":\"Runtime.executionContextCreated\",\"sessionId\":\"popup-1\",\"params\":{}}"))goto Done;
+        if(Fixture->Mode==54&&!Packet(Fd,"{\"id\":1,\"result\":{\"targetInfos\":[]}}"))goto Done;
+        char Byte;(void)recv(Fd,&Byte,1,0);
+    } else if ( Fixture->Mode==49 || Fixture->Mode==50 || Fixture->Mode==52 ) {
         Fixture->Frames+=ClientCommand(Fd,1,"Browser.getVersion",NULL);
         if(!Fixture->Frames||!Packet(Fd,"{\"id\":1,\"result\":{\"protocolVersion\":\"1.3\"}}"))goto Done;
         char Byte;(void)recv(Fd,&Byte,1,0);

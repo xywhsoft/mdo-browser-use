@@ -15,6 +15,13 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E115:** correct the pending popup plan against pinned Chromium 138:
+  autoAttachRelated alone does not activate window.open's global debugger gate.
+  Add a fixed, original-event Browser-only resume-then-detach control for the
+  process broker's unclaimed targets, without RPC reentry or caller selectors.
+  It passes 2,595 checks/two real kernel/JNI sessions, full native (110 inputs),
+  JS/C saving 47, 173/175 Python and refreshed actual-DEX/APK checks. The process
+  broker, managed popup identity/interception and provider admission remain open.
 - **Android E114:** add the private browser WebSocket/worker route using the
   checked endpoint, existing kernel-peer/RFC6455/boot-clock protections and the
   same eight page/browser opening/live/draining slots. Browser transport passes
@@ -9398,3 +9405,66 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   first response, original native transport/child proof, exact resume and bounded
   cleanup. Other goal gaps remain; goal active. Phone/WebView changes stay deferred;
   no model call, external browser page, publication or production data change.
+
+## E115 — original-event unclaimed target recovery for the process broker (2026-10-31)
+
+- Re-evaluate the next coordinator step against four exact Chromium 138.0.7204.179
+  sources, recording URLs, lengths and SHA-256 in cdp-protocol.json. The window.open
+  debugger gate consults Browser TargetHandler.ShouldThrottlePopups, which returns
+  auto_attach; AutoAttachRelated registers a separate relation and does not set
+  that switch. BrowserAutoAttacher distinguishes existing targets from newly
+  created main frames. Therefore the earlier opener-scoped autoAttachRelated plan
+  alone cannot prove first-request interception. Do not build a fake pause test
+  around that assumption. Retain the full popup goal and move toward one process
+  broker, a verified physical-opener registry, prompt unrelated-target release,
+  managed interception and original native transport/child proof.
+- Implement a required part of that broker: fixed cleanup of an unclaimed
+  original waiting target during an unrelated ordinary RPC. Freeze bounded
+  target/type/opener metadata plus the private session selector before callbacks
+  can mutate JSON. Metadata grants no task, WebView or popup ownership. Only a
+  Browser-kind session and an original top-level attachedToTarget event with a
+  typed waitingForDebugger=true can invoke the no-argument control.
+- Send only Runtime.runIfWaitingForDebugger to that original session with empty
+  params. After its original empty ACK, send Target.detachFromTarget with the
+  same frozen session from the original Browser connection. Neither ordinary RPC
+  callback reentry nor caller-supplied IDs, scripts, URLs or Fetch/body reads are
+  introduced. Send outside the control gate so cancellation cannot wait on I/O.
+  Publish success only after both original empty ACKs, retire child admission
+  and discard late traffic. Use existing shared control/history/child limits and
+  5-second step deadlines, finite lifetime IDs and no replay/reconnect.
+- Preserve partial effects: an unsupported/rejected detach does not turn an
+  already confirmed resume into effect_may_have_occurred=false. Send failures,
+  malformed/mismatched replies, owner cancellation and deadlines retain terminal
+  uncertainty; no late ACK upgrades them. The first gate's failure was a fixture
+  expecting a specific error through an unrelated native event; the existing
+  boundary deliberately sanitizes it as cdp_event_failed. Preserve
+  E115-native-first.log, fix that expectation and add rejected-detach-after-resume
+  coverage rather than relaxing the product error boundary.
+- New original release gate passes 2,595 assertions: mutable callback data,
+  both outer/control reply orders, exact fixed commands, page-session/invalid/
+  nonwaiting/unrelated events, duplicates, both-step failures and malformed/error
+  replies, cancellation, 64 pending and 256 sequential released sessions plus
+  overflow. Two actual local browser-WebSocket/JVM/JNI sessions verify the inline
+  commands and ACK orders. They simulate renderer metadata and do not establish
+  actual provider popup creation/pausing. Full native ASan/UBSan/API26 gates pass
+  110 current input hashes; original discovery/WebSocket/JVM worker counts stay
+  401/1,307/232. Shared Android original-source to JS/C saving passes 47, still
+  one source claim and no retained resources. Python passes 173/175 in 49.340
+  seconds with two existing Windows symlink privilege skips.
+- Reuse the exact verified ARM64 C host (unchanged native/compiler inputs and
+  SHA-256 022caf0ab9e9b7bcdf32ecf3ecce1dfb6b77485958c5fb709b48f42c8af488d9);
+  rebuild the actual Java/DEX/APK. Require AttachedTarget's actual DEX definition,
+  all eight existing JNI exports, signer/private-provider/ARM64/16 KiB/zip and
+  source/payload checks. APK: 6,481,217 bytes, SHA-256
+  58c4092de866fb312387818decaeedcf19f3655a477c9ca410a9cbd8f83c2dc1.
+  Windows/plugin bytes remain unchanged; recheck E106 product and E105 world/W6
+  source proofs before reusing existing Windows/JS evidence. Evidence:
+  .mdo/E115-native-current.json, E115-save-current.json, E115-android-receipt.json,
+  E115-final-identities.py/log and E115 native/save/Python/package/reuse logs.
+- Restore headless HTTP 200 on 63625, PID 9428, about 3,440.2 MiB. No new app,
+  Home, source checkout, runtime dependency or browser engine. No phone/provider
+  change, model call, external browser page, publication or production data edit.
+  Goal remains active. This is a recovery primitive, not the process broker or
+  completed popup support: global auto-attach is not enabled. Original managed
+  opener/child/transport proof, first-response interception/resume, other remaining
+  platform/qualification/delivery work and deferred device checks still remain.

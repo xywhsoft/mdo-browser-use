@@ -51,6 +51,31 @@
     "installed_provider_verified": false,
     "product_popup_network_admission": false
   },
+  "popup_coordination": {
+    "state": "fixed_unclaimed_target_release_preparation_not_popup_admission",
+    "autoAttachRelated_alone_proves_window_open_first_request_pause": false,
+    "pinned_window_open_pause_gate": "any_Browser_TargetHandler_ShouldThrottlePopups_returns_auto_attach_not_related_target_registration",
+    "required_product_coordinator": "one_process_owned_Browser_setAutoAttach_broker_with_current_physical_opener_registry_and_prompt_unclaimed_target_release",
+    "product_global_auto_attach_enabled": false,
+    "fixed_unclaimed_release": {
+      "source": "immutable_original_top_level_Target_attachedToTarget_with_typed_waitingForDebugger_true_on_private_Browser_connection_only",
+      "commands": ["Runtime.runIfWaitingForDebugger_on_original_child_session", "Target.detachFromTarget_on_original_Browser_after_empty_resume_ACK"],
+      "arguments_supplied_by_caller": false,
+      "metadata_grants_task_or_WebView_ownership": false,
+      "URL_title_script_Fetch_or_body_read": false,
+      "receipt_completion": "empty_original_resume_and_detach_ACKs_both_required",
+      "asynchronous_during_other_RPC": true,
+      "automatic_retry": false,
+      "limits": "existing_64_live_256_lifetime_child_sessions_and_shared_256_controls_4096_history_5s_per_step",
+      "installed_provider_verified": false
+    },
+    "references": [
+      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/protocol/target_handler.cc","bytes":57881,"sha256":"a986770776e0ae219c2d043fbc6a8487ccbe153ddc1b65eb74eea6015a7e2068","facts":"ShouldThrottlePopups_returns_auto_attach_SetAutoAttachInternal_detaches_own_sessions_and_clears_throttles"},
+      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/devtools_instrumentation.cc","bytes":110945,"sha256":"041c1018fee9137516770f4425d4483e3b0dad6ffc1a0310dcf866762066443c","facts":"ShouldWaitForDebuggerInWindowOpen_consults_Browser_handlers_ShouldThrottlePopups"},
+      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/browser_devtools_agent_host.cc","bytes":9243,"sha256":"cd07c9c49505124d61415a88a74589165405e0fa31b752c30a14d44378960408","facts":"BrowserAutoAttacher_handles_new_main_frame_targets_waiting_and_existing_targets_not_waiting"},
+      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/frame_auto_attacher.cc","bytes":12825,"sha256":"765cd3a85e0b7de879e6871d7a8b8bdd85548d97bd3ce53a3edd15aa6b239a0b","facts":"FrameAutoAttacher_tracks_local_root_subframes_workers_and_explicit_page_notifications_not_a_global_window_open_pause_gate"}
+    ]
+  },
   "navigation_receipts": {
     "state": "managed_initial_and_goto_native_receipts_and_commit_join_packaged_provider_unqualified",
     "command": "Page.navigate",

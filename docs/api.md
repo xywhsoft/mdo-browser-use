@@ -1765,3 +1765,10 @@ E114 connects that private browser endpoint to the existing native worker/sessio
 transport, sharing its eight-slot budget, deadlines, cancel and original-owner
 guards. It exposes no raw browser RPC to plugins/Agents and does not attach/pause/
 resume popup targets. Public JS/C API and Android admission remain unchanged.
+
+E115 adds a private original-event Browser-target release for a future process
+broker. Its fixed resume-then-detach commands take no caller target/script/URL;
+metadata conveys no task/WebView ownership and both original ACKs are required.
+Partial resume effects remain explicit if detach fails. This primitive enables
+no global auto-attachment, managed popup body access or public Android capability;
+the shared JS/C API and permissions remain unchanged.

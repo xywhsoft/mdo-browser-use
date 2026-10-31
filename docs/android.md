@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E114)
+## Complete development host APK (E46/E115)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,481,217 bytes, SHA-256
-`93d2ecfa8110b5471b4c3310cb3d08c9fd84b26da38c322f19d5d68d3ea60dbb`.
+`58c4092de866fb312387818decaeedcf19f3655a477c9ca410a9cbd8f83c2dc1`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -62,6 +62,8 @@ the compiled private provider attributes. The DEX gate also requires the new
 `MdoBrowserCdpSession$ControlReceipt`/`ControlResult` and
 `MdoBrowserCdpBinding$Network`, network ledger/slot/result and cooperative
 scheduler definitions and the private `MdoBrowserCdpNative$BrowserEndpoint`.
+The fixed original-event cleanup metadata `MdoBrowserCdpSession$AttachedTarget`
+must also be an actual DEX definition.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
@@ -94,10 +96,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E114-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E114-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E115-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E115-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E114. Native/component evidence is recorded separately below.
+attempted in E106-E115. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -4198,3 +4200,41 @@ Those joins and native transport proof still precede protected-popup admission.
 Controlled protocol/UI peers and ARM64 packaging do not qualify installed
 provider/framework behavior. Public Android automation/provider flags stay false;
 the phone and installed WebView are left unchanged.
+
+## Process-broker prerequisite: release an original unclaimed wait (E115)
+
+The next popup coordinator must account for a pinned Chromium distinction:
+[ShouldWaitForDebuggerInWindowOpen](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/devtools_instrumentation.cc)
+consults Browser handlers' [ShouldThrottlePopups](https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/protocol/target_handler.cc),
+which returns auto_attach rather than the separate autoAttachRelated registry.
+Consequently the earlier opener-related attachment plan alone is not proof of
+first-request suspension. A process-owned broker must cover new targets while
+classifying them against actual native opener owners and promptly releasing
+unclaimed waits. The exact four source identities are in cdp-protocol.json;
+these source facts do not establish installed-provider behavior.
+
+A private Browser-only fixed release is implemented as a prerequisite. It
+freezes the original top-level attachedToTarget's typed metadata before callback
+mutation and accepts no caller selector/script/URL. Metadata is not task or
+WebView ownership. For that original waiting session it sends only an empty
+Runtime.runIfWaitingForDebugger, waits for the original empty ACK, then detaches
+that exact original session through the same Browser connection. Only both ACKs
+complete its opaque receipt; late child traffic is retired. The shared dispatcher
+can progress these fixed controls during another ordinary RPC without reentry.
+Writes run outside the control gate, preserving nonblocking cancellation.
+
+Both stages retain original deadlines, capacity/lifetime limits, terminal failure
+and no-replay behavior. A confirmed resume remains an effect even if detach is
+unsupported or rejected. Body access, Fetch enablement, task admission and global
+auto-attach are absent from this release primitive. Only a future broker can
+classify managed targets and join their original native transport/owner proof.
+
+The gate passes 2,595 assertions plus two real local browser-WebSocket/JVM/JNI
+sessions covering exact commands and both ACK orders. Limits, mutation, invalid
+events, duplicates, cancellation, timeout and both-step failure checks pass;
+full native gates retain 110 source hashes. Shared saving passes 47 and Python
+passes 173/175 (two existing privilege skips). Actual DEX/APK/signature checks pass
+with the unchanged verified ARM64 C host and eight JNI exports. Evidence is in
+.mdo/E115-final-identities.log and E115 native/save/APK receipts. Renderer and
+UI metadata peers are controlled; installed popup behavior, process-broker
+integration and overall Android provider/automation qualification remain false.

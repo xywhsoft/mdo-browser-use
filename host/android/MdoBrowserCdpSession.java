@@ -181,7 +181,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     private static final OfferResult OFFER_UNKNOWN=new OfferResult();
     private static final int CONTROL_LIMIT=256,CONTROL_HISTORY=4096,CONTROL_TIMEOUT=5000;
-    private static final int FLOW=0,CLAIM=1,BODY_READ=2,BODY_CLOSE=3,BODY_ABORT=4;
+    private static final int ATTACH_DETACH=-2,ATTACH_RESUME=-1,FLOW=0,CLAIM=1,BODY_READ=2,BODY_CLOSE=3,BODY_ABORT=4;
     private static final ControlResult CONTROL_CANCELLED=new ControlResult(false,"cdp_control_cancelled",0,true);
     private static final ControlResult CONTROL_TIMEOUT_RESULT=new ControlResult(false,"cdp_control_timeout",0,true);
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
@@ -200,10 +200,29 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             key=valid?(response?"S|":"Q|")+(session==null?"0|":"1|"+session+"|")+id:null;
         }
     }
+    /** Native metadata only, never proof of task/WebView ownership. The wire
+     * session stays private; a fixed release can only use this frozen event. */
+    static final class AttachedTarget {
+        final String target,type,opener;final boolean waiting;
+        private final String session;private final boolean valid;private boolean used;
+        private volatile boolean resumed,detached;
+        boolean resumeConfirmed(){return resumed;}boolean detachConfirmed(){return detached;}
+        private AttachedTarget(MdoBrowserCdpJson.Message message){
+            Object child=message.value.opt("sessionId"),info=message.value.opt("targetInfo"),wait=message.value.opt("waitingForDebugger");
+            JSONObject details=info instanceof JSONObject?(JSONObject)info:null;
+            Object id=details==null?null:details.opt("targetId"),kind=details==null?null:details.opt("type"),parent=details==null?null:details.opt("openerId");
+            boolean good=message.session==null&&child instanceof String&&MdoBrowserCdpJson.token((String)child)&&
+                id instanceof String&&MdoBrowserCdpJson.token((String)id)&&kind instanceof String&&MdoBrowserCdpJson.token((String)kind)&&wait instanceof Boolean&&
+                (parent==null||parent instanceof String&&MdoBrowserCdpJson.token((String)parent));
+            valid=good;session=good?(String)child:null;target=good?(String)id:null;type=good?(String)kind:null;
+            opener=good?(String)parent:null;waiting=good&&(Boolean)wait;
+        }
+    }
     private static final class Control {
-        final int id;final String session;final long born;final ControlReceipt receipt;final Body body;final int kind,timeout;final Offer offer;
+        final int id;final String session;final long born;final ControlReceipt receipt;final Body body;final int kind,timeout;final Offer offer;final AttachedTarget attachment;
         Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout){this(id,session,born,receipt,body,kind,timeout,null);}
-        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout,Offer offer){this.id=id;this.session=session;this.born=born;this.receipt=receipt;this.body=body;this.kind=kind;this.timeout=timeout;this.offer=offer;}
+        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout,Offer offer){this(id,session,born,receipt,body,kind,timeout,offer,null);}
+        Control(int id,String session,long born,ControlReceipt receipt,Body body,int kind,int timeout,Offer offer,AttachedTarget attachment){this.id=id;this.session=session;this.born=born;this.receipt=receipt;this.body=body;this.kind=kind;this.timeout=timeout;this.offer=offer;this.attachment=attachment;}
     }
     /** Only explicit native event diagnoses may cross the event callback.
      * Ordinary exception/provider messages keep the generic sanitized result. */
@@ -212,6 +231,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         static boolean allowed(String code){return Arrays.asList("cdp_chooser_arming_event","cdp_chooser_ambiguous","cdp_chooser_metadata_invalid",
             "cdp_chooser_clock_invalid","cdp_chooser_frame_unproven","cdp_chooser_frame_unavailable",
             "cdp_control_event_invalid","cdp_control_duplicate","cdp_control_limit","cdp_body_not_candidate","cdp_body_limit","cdp_body_source_unsupported",
+            "cdp_attach_browser_required","cdp_attach_event_invalid","cdp_attach_not_waiting","cdp_attach_duplicate","cdp_attach_limit","cdp_attach_session_reused",
             "download_frame_metadata_invalid","download_frame_parent_unproven","download_frame_root_changed","download_frame_limit","download_frame_lifetime_limit","download_frame_session_unproven").contains(code);}
         private static String checked(String code){if(!allowed(code))throw new IllegalArgumentException("unsupported_native_event_code");return code;}
         EventFailure(String code){super(checked(code));this.code=code;}
@@ -221,6 +241,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         Failure(String code,int protocolCode,boolean effect) {super(code);this.protocolCode=protocolCode;effectMayHaveOccurred=effect;}
     }
     private final Thread owner=Thread.currentThread();
+    private final boolean browserTarget;
     private final BooleanSupplier current;
     private final Events events;
     private final Clock clock;
@@ -232,12 +253,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Body[] bodies=new Body[8];private final Set<String> streamIds=new HashSet<>();
     private final Offer[] offers=new Offer[8];
     private final Set<Integer> retiredBodyReads=new HashSet<>();
-    private PausedEvent paused;private long activeStarted;private int activeTimeout;private String controlFault;
+    private PausedEvent paused;private AttachedTarget attached;private long activeStarted;private int activeTimeout;private String controlFault;
     private Navigation navigation;private int navigationCount;
     private volatile Wire wire;
     private int serial,bodyCursor,offerCursor;private boolean busy;
 
-    private MdoBrowserCdpSession(BooleanSupplier current,Events events,Clock clock) {
+    private MdoBrowserCdpSession(BooleanSupplier current,Events events,Clock clock){this(current,events,clock,false);}
+    private MdoBrowserCdpSession(BooleanSupplier current,Events events,Clock clock,boolean browserTarget) {
+        this.browserTarget=browserTarget;
         this.current=Objects.requireNonNull(current);this.events=Objects.requireNonNull(events);this.clock=Objects.requireNonNull(clock);
     }
     static MdoBrowserCdpSession open(String target,int timeoutMs,BooleanSupplier current,Events events) throws IOException {
@@ -249,7 +272,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     /** Private browser connection; carries no page/popup ownership by itself. */
     static MdoBrowserCdpSession openBrowser(MdoBrowserCdpNative.BrowserEndpoint endpoint,int timeoutMs,BooleanSupplier current,Events events)throws IOException {
-        MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,android.os.SystemClock::elapsedRealtime);
+        MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,android.os.SystemClock::elapsedRealtime,true);
         try{
             session.guard(false);session.wire=MdoBrowserCdpNative.openBrowser(endpoint,timeoutMs);
             session.guard(false);return session;
@@ -258,6 +281,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     /* Package-private deterministic seam; real-JVM tests also use open/native. */
     static MdoBrowserCdpSession owned(Wire wire,BooleanSupplier current,Events events,Clock clock) {
         MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,clock);session.wire=Objects.requireNonNull(wire);return session;
+    }
+    static MdoBrowserCdpSession ownedBrowser(Wire wire,BooleanSupplier current,Events events,Clock clock){
+        MdoBrowserCdpSession session=new MdoBrowserCdpSession(current,events,clock,true);session.wire=Objects.requireNonNull(wire);return session;
     }
     private Failure failure(String code,boolean effect){return new Failure(code,0,effect);}
     private void guard(boolean effect) throws Failure {
@@ -310,13 +336,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private void event(MdoBrowserCdpJson.Message message,boolean effect) throws IOException {
         guard(effect);
         PausedEvent previous=paused;
+        AttachedTarget previousAttached=attached;
         try {
             paused="Fetch.requestPaused".equals(message.method)?new PausedEvent(message):null;
+            attached="Target.attachedToTarget".equals(message.method)?new AttachedTarget(message):null;
             events.event(message.method,message.session,message.value);
         }
         catch(EventFailure failure){close();throw failure(failure.code,effect);}
         catch(IOException|RuntimeException|Error failure){close();throw failure(controlFault==null?"cdp_event_failed":controlFault,effect);}
-        finally{paused=previous;}
+        finally{paused=previous;attached=previousAttached;}
         if(controlFault!=null){close();throw failure(controlFault,effect);}
         guard(effect);
     }
@@ -324,6 +352,55 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * header/body replacement, supplied selector or ordinary RPC reentry. */
     ControlReceipt continuePausedRequest()throws IOException{return pausedControl(false);}
     ControlReceipt abortPausedRequest()throws IOException{return pausedControl(true);}
+    AttachedTarget attachedTarget()throws IOException {
+        guard(false);if(!busy||attached==null)throw failure("cdp_control_not_in_event",false);
+        if(!browserTarget)throw new EventFailure("cdp_attach_browser_required");
+        if(!attached.valid)throw new EventFailure("cdp_attach_event_invalid");return attached;
+    }
+    /** Undo only our original native debugger wait. This carries no Agent
+     * script, URL, target selector, page ownership or ordinary RPC reentry. */
+    ControlReceipt resumeAttachedTarget()throws IOException {
+        AttachedTarget original=attachedTarget();
+        if(!original.waiting)throw new EventFailure("cdp_attach_not_waiting");
+        byte[] bytes=null;Control row;int budget;
+        try{
+            synchronized(controlGate){
+                guard(false);String key="A|"+original.session;
+                if(original.used||controlKeys.contains(key))throw new EventFailure("cdp_attach_duplicate");
+                if(controlCount>=CONTROL_LIMIT||controlKeys.size()>=CONTROL_HISTORY||serial==Integer.MAX_VALUE)throw new EventFailure("cdp_attach_limit");
+                if(!children.contains(original.session)){
+                    if(seenChildren.contains(original.session))throw new EventFailure("cdp_attach_session_reused");
+                    if(children.size()>=64||seenChildren.size()>=256)throw new EventFailure("cdp_attach_limit");
+                }
+                row=new Control(++serial,original.session,clock.now(),new ControlReceipt(),null,ATTACH_RESUME,CONTROL_TIMEOUT,null,original);
+                bytes=MdoBrowserCdpJson.encode(row.id,"Runtime.runIfWaitingForDebugger",null,original.session);
+                budget=remaining(activeStarted,activeTimeout,false);
+                if(!children.contains(original.session)){seenChildren.add(original.session);children.add(original.session);}
+                controlKeys.add(key);original.used=true;
+                int slot=0;while(controls[slot]!=null)slot++;controls[slot]=row;controlCount++;row.receipt.issued=true;
+            }
+            try{wire.send(bytes,budget);}
+            catch(IOException|RuntimeException|Error failure){row.receipt.finish(CONTROL_SEND_FAILED);controlFault="cdp_control_send_failed";close();}
+            return row.receipt;
+        }finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);}
+    }
+    private void detachResumedTarget(Control resumed,boolean effect)throws IOException {
+        byte[] bytes=null;Control row;int budget;
+        try{
+            synchronized(controlGate){
+                guard(effect);
+                if(controlCount>=CONTROL_LIMIT||serial==Integer.MAX_VALUE)throw failure("cdp_control_limit",effect);
+                row=new Control(++serial,null,clock.now(),resumed.receipt,null,ATTACH_DETACH,CONTROL_TIMEOUT,null,resumed.attachment);
+                bytes=MdoBrowserCdpJson.encode(row.id,"Target.detachFromTarget",new JSONObject().put("sessionId",resumed.attachment.session),null);
+                budget=remaining(activeStarted,activeTimeout,effect);
+                int slot=0;while(controls[slot]!=null)slot++;controls[slot]=row;controlCount++;
+            }
+            try{wire.send(bytes,budget);}
+            catch(IOException|RuntimeException|Error failure){row.receipt.finish(CONTROL_SEND_FAILED);controlFault="cdp_control_send_failed";close();throw failure(controlFault,effect);}
+        }catch(org.json.JSONException failure){resumed.receipt.finish(CONTROL_CANCELLED);close();throw failure("cdp_control_event_invalid",effect);}
+        catch(IOException|RuntimeException|Error failure){resumed.receipt.finish(CONTROL_CANCELLED);close();throw failure;}
+        finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);}
+    }
     /** The snapshot was frozen before the event callback could modify JSON.
      * It contains no wire selector and cannot itself continue/claim a body. */
     MdoBrowserCdpResponse pausedResponse()throws IOException {
@@ -566,8 +643,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             default:return null;
         }
     }
-    private boolean controlReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
-        ControlResult result=null;
+    private boolean controlReply(MdoBrowserCdpJson.Message message,boolean effect)throws IOException {
+        ControlResult result=null;Control resumed=null;
         synchronized(controlGate){
             guard(effect);
             if(retiredBodyReads.contains(message.id)){
@@ -580,6 +657,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                     result=new ControlResult(false,"cdp_control_reply_mismatch",0,true);
                 }else result=new ControlResult(!message.failed,message.failed?(message.error==-32601?"cdp_control_method_unsupported":"cdp_control_rejected"):null,
                         message.failed?message.error:0,!message.failed||message.error!=-32601);
+                if((row.kind==ATTACH_RESUME||row.kind==ATTACH_DETACH)&&result.ok&&message.value.length()!=0)result=new ControlResult(false,"cdp_control_reply_invalid",0,true);
+                // The first effect was positively acknowledged. A rejected
+                // detach cannot downgrade that fact to "nothing happened".
+                if(row.kind==ATTACH_DETACH)result=new ControlResult(result.ok,result.code,result.protocolCode,true);
+                if(row.kind==ATTACH_RESUME&&result.ok){
+                    controls[i]=null;controlCount--;row.attachment.resumed=true;resumed=row;break;
+                }
+                if(row.kind==ATTACH_DETACH&&result.ok){row.attachment.detached=true;children.remove(row.attachment.session);}
                 if(row.kind>=BODY_READ&&Objects.equals(row.session,message.session)){
                     controls[i]=null;controlCount--;row.receipt.finish(result);
                     bodyReply(row,message,result,effect);return true;
@@ -601,6 +686,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 controls[i]=null;controlCount--;break;
             }
         }
+        if(resumed!=null){detachResumedTarget(resumed,effect);return true;}
         if(result==null)return false;
         if(!result.ok){controlFault=result.code;close();throw new Failure(result.code,result.protocolCode,effect);}
         return true;
