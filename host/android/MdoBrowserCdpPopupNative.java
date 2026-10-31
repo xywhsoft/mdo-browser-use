@@ -12,16 +12,40 @@ import java.util.concurrent.atomic.AtomicInteger;
  * original lease and a data-only native rejection receipt, never a WebView. */
 final class MdoBrowserCdpPopupNative {
     interface Disposal {void destroy(String key,WebView exact);}
+    interface Destruction {boolean ready();void destroy();}
     private static final AtomicBoolean CREATION_UNCERTAIN=new AtomicBoolean();
     private static final UiRetention[] UI_OWNERS=new UiRetention[8];
     static boolean creationConfirmed(){return !CREATION_UNCERTAIN.get();}
     static int retainedUiOwners(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null)count++;return count;}
     static void viewDestroyed(WebView exact){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.destroyed(exact);}
+    private static boolean destructionAllowed(WebView exact){
+        if(exact==null)return false;
+        for(UiRetention owner:UI_OWNERS)if(owner!=null){
+            if(owner.source.view.get()==exact&&owner.core.protocolHasObligations(owner.scope))return false;
+            for(Created child:owner.book.constructions)if(child!=null&&child.view==exact&&child.sent&&(child.adoption==null||!child.adoption.nativeConsumed()))return false;
+        }return true;
+    }
+    /** Register every host close before closing controllers can call back. */
+    static boolean registerDestruction(WebView exact,Destruction destruction){
+        thread();if(exact==null||destruction==null)throw new IllegalArgumentException("Native destruction requires its exact UI owner");boolean owned=false;
+        for(UiRetention owner:UI_OWNERS)if(owner!=null){
+            for(Created child:owner.book.constructions)if(child!=null&&child.view==exact&&!child.done){
+                if(child.hostDestruction==null)child.hostDestruction=destruction;child.live.set(false);owned=true;
+            }
+            if(owner.source.view.get()==exact){if(owner.rootDestruction==null)owner.rootDestruction=destruction;owner.ending=true;owner.core.retireProtocolUi(owner.scope);owned=true;}
+        }return owned;
+    }
+    static void activateDestruction(WebView exact,Destruction destruction)throws IOException {
+        thread();for(UiRetention owner:UI_OWNERS)if(owner!=null){
+            for(Created child:owner.book.constructions)if(child!=null&&child.view==exact&&child.hostDestruction==destruction)child.close();
+            if(owner.source.view.get()==exact&&owner.rootDestruction==destruction){if(owner.source.scope==owner.scope)owner.source.reject();owner.sweep();}
+        }
+    }
     /** Bounded UI ownership survives a host removing its opener's controller.
      * Workers retain only weak links to this record, never its core/book/host. */
     private static final class UiRetention {
         final MdoBrowserCdpPopupNative source;final MdoBrowserPopups<WebView> core;final MdoBrowserPopups.Scope scope;final UiOwned book;
-        boolean ending,released,sweeping;
+        boolean ending,released,sweeping,rootFailed;Destruction rootDestruction;
         UiRetention(MdoBrowserCdpPopupNative source,MdoBrowserPopups<WebView> core,MdoBrowserPopups.Scope scope,UiOwned book){this.source=source;this.core=core;this.scope=scope;this.book=book;}
         void ending(){ending=true;sweep();}
         void destroyed(WebView exact){
@@ -34,7 +58,13 @@ final class MdoBrowserCdpPopupNative {
             if(released||!ending||sweeping)return;sweeping=true;
             try{
                 for(Created child:book.constructions)if(child!=null&&child.construction!=null&&child.construction.destroyed())try{child.close();}catch(IOException error){/* no false physical release */}
-                if(core.protocolHasObligations(scope))return;for(Created child:book.constructions)if(child!=null)return;
+                if(core.protocolHasObligations(scope))return;
+                if(rootDestruction!=null){
+                    if(rootFailed||!rootDestruction.ready()||!destructionAllowed(source.view.get()))return;
+                    try{rootDestruction.destroy();rootDestruction=null;}
+                    catch(RuntimeException|Error error){rootFailed=true;CREATION_UNCERTAIN.set(true);if(source.failure==null)source.failure="cdp_popup_native_owner_cleanup_unconfirmed";return;}
+                }
+                for(Created child:book.constructions)if(child!=null)return;
                 core.releaseProtocolUi(scope);released=true;for(int i=0;i<UI_OWNERS.length;i++)if(UI_OWNERS[i]==this)UI_OWNERS[i]=null;
                 if(book.retention.get()==this)book.retention.clear();if(source.retention.get()==this)source.retention.clear();
             }finally{sweeping=false;}
@@ -49,6 +79,7 @@ final class MdoBrowserCdpPopupNative {
         private final MdoBrowserPopups.Scope action;
         private final WeakReference<UiOwned> book;
         private final AtomicBoolean live=new AtomicBoolean(true);
+        private Destruction hostDestruction;
         private MdoBrowserPopups.Adoption adoption;
         private MdoBrowserLifecycle.Construction<WebView> construction;private boolean sent,done,closing,cleanupFailed,retirementRequested,awaitingConsumption;
         private Created(MdoBrowserCdpPopupNative owner,UiOwned book,MdoBrowserLifecycle<WebView> registry,String key,MdoBrowserCdpPopupWorker.Allocation allocation,Disposal disposal){
@@ -66,8 +97,12 @@ final class MdoBrowserCdpPopupNative {
             thread();if(done||closing)return;
             live.set(false);
             if(sent&&adoption!=null&&!adoption.dispatched())sent=false;
-            if(birth!=null&&birth.humanOwned()){clearConsumptionWait();finished();cancelOwner();return;}
+            if(birth!=null&&birth.humanOwned()&&hostDestruction==null){
+                if(sent&&(adoption==null||!adoption.nativeConsumed())){retirementRequested=true;return;}
+                clearConsumptionWait();finished();cancelOwner();return;
+            }
             if(sent&&(adoption==null||!adoption.nativeConsumed())){awaitConsumption();return;}
+            if(hostDestruction!=null&&(!hostDestruction.ready()||!destructionAllowed(view))){awaitConsumption();return;}
             if(construction!=null&&construction.destroyed()){clearConsumptionWait();acknowledgeDestruction();finished();if(!sent)cancelOwner();return;}
             if(cleanupFailed)throw new IOException(view==null?"cdp_popup_native_constructor_unconfirmed":"cdp_popup_native_child_cleanup_unconfirmed");
             closing=true;MdoBrowserCdpPopupNative source=owner.get();if(source!=null)source.disposing.incrementAndGet();
@@ -77,7 +112,8 @@ final class MdoBrowserCdpPopupNative {
                 if(!construction.started()){construction.cancelBeforeStart();finished();cancelOwner();return;}
                 if(construction.destroyed()){finished();cancelOwner();return;}
                 if(view==null)throw new IOException("cdp_popup_native_constructor_unconfirmed");
-                if(disposal!=null)disposal.destroy(key,view);
+                if(hostDestruction!=null)hostDestruction.destroy();
+                else if(disposal!=null)disposal.destroy(key,view);
                 else{if(registry.owns(key,view))registry.remove(key);view.destroy();registry.viewDestroyed(view);}
                 if(!construction.destroyed()&&!registry.nativeDestroyed(view))throw new IOException("cdp_popup_native_child_cleanup_unconfirmed");acknowledgeDestruction();finished();cancelOwner();
             }catch(IOException|RuntimeException|Error error){

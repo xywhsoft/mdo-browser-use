@@ -5,6 +5,47 @@ public final class AndroidCreateContractTest {
     static int checks;
     static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     static AndroidCreateHost.JSONObject request(boolean automation)throws Exception{return new AndroidCreateHost.JSONObject().put("automation",automation).put("url","https://fixture.invalid/");}
+    static void deferredHostDestruction()throws Exception{
+        AndroidCreateHost host=new AndroidCreateHost();host.create("tab",request(false));AndroidCreateHost.WebView view=host.views.get("tab");
+        AndroidCreateHost.MdoBrowserDocument original=host.documents.get("tab");host.deferredDestruction.add(view);
+        check(!host.closeCommand("tab")&&view.destroys==0&&original.destroyed==0,"Pending SDK consumption was destroyed or acknowledged early");
+        check(!host.retire("tab",view)&&host.retired==0&&host.nativeRetirementNotifications==0,"Repeated pending close destroyed or notified the view");
+        check(Integer.valueOf(1).equals(host.capabilities().data.get("native_view_retiring")),"Pending physical close was not charged");
+        try{host.create("new",request(false));throw new AssertionError("Pending physical close allowed another constructor");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("native_view_retirement_busy"),"Wrong pending close fence");}
+        host.acknowledge(view);host.acknowledge(view);
+        check(view.destroys==1&&original.destroyed==1&&host.retired==1&&host.nativeRetirementNotifications==1,"SDK receipt did not destroy and notify exactly the captured view");
+        check(host.closeCommand("tab")&&Integer.valueOf(0).equals(host.capabilities().data.get("native_view_retiring")),"Completed deferred close kept a phantom reservation");
+        host.create("tab",request(false));AndroidCreateHost.WebView replacement=host.views.get("tab");host.acknowledge(view);
+        check(replacement.destroys==0&&host.views.owns("tab",replacement)&&host.documents.get("tab")!=original,"Late old receipt affected a reused key");host.destroy();
+        for(boolean inline:new boolean[]{false,true}){
+            AndroidCreateHost bulk=new AndroidCreateHost();bulk.create("a",request(false));bulk.create("b",request(false));
+            AndroidCreateHost.WebView a=bulk.views.get("a"),b=bulk.views.get("b");bulk.deferredDestruction.add(a);bulk.deferredDestruction.add(b);
+            AndroidCreateHost.MdoBrowserDocument ad=bulk.documents.get("a"),bd=bulk.documents.get("b");
+            AndroidCreateHost.MdoBrowserPopups<AndroidCreateHost.WebView> popup=new AndroidCreateHost.MdoBrowserPopups<>();bulk.windows.put("a",popup);
+            popup.closing=()->{
+                check(bulk.deferredRows.size()==2,"Whole-host close invoked callbacks before registering every physical owner");
+                check(!bulk.retire("b",b)&&b.destroys==0,"Reentrant sibling close bypassed logical preparation");
+                if(inline)try{bulk.acknowledge(a);bulk.acknowledge(b);}catch(Exception error){throw new AssertionError(error);}
+                check(a.destroys==0&&b.destroys==0,"Inline SDK receipt destroyed before all logical resources were closed");
+            };
+            bulk.root.beforeRemove=()->check(ad.closes==1&&bd.closes==1,"Bulk physical destroy ran before sibling document preparation");
+            bulk.destroy();
+            check(bulk.stopped&&!bulk.channel.open&&bulk.cdpWorker.closed&&ad.closes==1&&bd.closes==1,"Host shutdown did not revoke its controllers");
+            check(a.destroys==(inline?1:0)&&b.destroys==(inline?1:0),"Bulk physical close ignored the actual SDK receipts");
+            if(!inline){
+                check(Integer.valueOf(2).equals(bulk.capabilities().data.get("native_view_retiring"))&&bulk.deferredRows.size()==2,"Bulk pending native ownership was released early");
+                bulk.destroy();check(a.destroys==0&&b.destroys==0,"Repeated Activity close bypassed pending consumption");
+                bulk.acknowledge(a);check(a.destroys==1&&b.destroys==0&&ad.destroyed==1&&bd.destroyed==0,"One native receipt destroyed an unrelated sibling");bulk.acknowledge(b);
+            }
+            bulk.destroy();bulk.acknowledge(a);bulk.acknowledge(b);
+            check(a.destroys==1&&b.destroys==1&&ad.destroyed==1&&bd.destroyed==1&&bulk.views.size()==0&&bulk.retired==2,"Repeated bulk/late callbacks duplicated physical teardown");
+        }
+        AndroidCreateHost failed=new AndroidCreateHost();failed.create("tab",request(false));AndroidCreateHost.WebView exact=failed.views.get("tab");failed.deferredDestruction.add(exact);
+        check(!failed.closeCommand("tab"),"Unconsumed failing view reported clean");failed.cleanupFault="destroy";
+        try{failed.acknowledge(exact);throw new AssertionError("Native destruction failure ignored");}catch(IllegalStateException expected){check(exact.destroys==1,"Wrong failing physical attempt");}
+        failed.cleanupFault="";failed.acknowledge(exact);check(!failed.retire("tab",exact)&&exact.destroys==1&&Boolean.TRUE.equals(failed.capabilities().data.get("native_view_cleanup_failed")),"Uncertain native destructor was replayed");
+    }
     static void protocolConfiguration()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();host.create("opener",request(false));
         AndroidCreateHost.WebView opener=host.views.get("opener");int replies=host.replies,profiles=host.profileRequests.size();
@@ -539,7 +580,7 @@ public final class AndroidCreateContractTest {
             if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
             host.closeCommand("tab");
         }
-        protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
+        deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"framework_verified\":false,\"network_calls\":0}");
     }

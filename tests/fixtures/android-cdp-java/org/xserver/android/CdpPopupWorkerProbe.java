@@ -590,6 +590,67 @@ public final class CdpPopupWorkerProbe {
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
         }
     }
+    private static void hostDestruction(String mode)throws Exception{
+        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+        boolean human=mode.contains("-human"),failure=mode.endsWith("-failure"),nested=mode.contains("-nested");
+        final int kind=mode.endsWith("-unsent")||failure?0:mode.endsWith("-inline")?2:1;
+        try(OwnershipCase c=new OwnershipCase()){
+            final boolean sent=kind!=0;final int[] fallback={0};
+            MdoBrowserCdpPopupNative.Created created=c.source.source.construct(c.allocation,c.source.views,"owned",(key,view)->{fallback[0]++;c.source.dispose(key,view);});
+            WebView child=created.view();MdoBrowserPopups.Adoption adoption=null;
+            if(sent){c.source.adopting=child;adoption=c.source.source.adopt(created);}
+            if(human){c.source.views.manual("owned",child,true);created.close();check(child.destroyed==0);}
+            final Runnable[] nestedAck={null};final int[] nestedSends={0};
+            MdoBrowserCdpPopupNative nestedSource=null;MdoBrowserPopups<WebView> nestedCore=null;
+            if(nested){
+                MdoBrowserCdpView adapter=MdoBrowserCdpView.network(child,v->v==child,new MdoBrowserCdpMarker.DocumentQuota());
+                nestedCore=new MdoBrowserPopups<>(child,new MdoBrowserPopups.Scheduler(){public long now(){return c.host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}},new MdoBrowserPopups.Budget(8),()->true,()->1L,blocked->{});
+                nestedSource=new MdoBrowserCdpPopupNative(adapter,child,nestedCore);nestedSource.claim(adapter.marker().lease());nestedSource.retainUiOwner();check(nestedSource.ready());
+                check(nestedCore.open(new MdoBrowserPopups.Transport<WebView>(){
+                    public Object token(){return this;}public void send(WebView exact,Runnable ack){check(exact==null);nestedSends[0]++;nestedAck[0]=ack;}
+                },false));check(MdoBrowserCdpPopupNative.retainedUiOwners()==2);
+            }
+            class Close implements MdoBrowserCdpPopupNative.Destruction {
+                final String key;final WebView exact;boolean prepared,running,done;int calls;
+                Close(String key,WebView exact){this.key=key;this.exact=exact;}
+                public boolean ready(){return prepared&&!running;}
+                public void destroy(){
+                    if(done||running)return;running=true;try{
+                        calls++;if(failure)throw new IllegalStateException("Controlled host destruction failure");
+                        check(prepared);if(exact==child&&sent)check(c.source.sends==1);c.source.dispose(key,exact);MdoBrowserCdpPopupNative.viewDestroyed(exact);
+                        if(exact==c.source.view)c.source.core.viewDestroyed(exact);done=true;
+                    }finally{running=false;if(done)try{MdoBrowserCdpPopupNative.activateDestruction(exact,this);}catch(IOException error){throw new AssertionError(error);}}
+                }
+            }
+            Close root=new Close("root",c.source.view),row=new Close("owned",child);
+            check(MdoBrowserCdpPopupNative.registerDestruction(child,row)&&MdoBrowserCdpPopupNative.registerDestruction(c.source.view,root));
+            check(!c.source.source.current()&&child.destroyed==0&&c.source.view.destroyed==0&&fallback[0]==0);
+            MdoBrowserCdpPopupNative.activateDestruction(child,row);MdoBrowserCdpPopupNative.activateDestruction(c.source.view,root);
+            check(child.destroyed==0&&c.source.view.destroyed==0&&c.source.sends==1);
+            if(kind==2){c.source.ack();check(child.destroyed==0&&c.source.view.destroyed==0);}
+            row.prepared=true;root.prepared=true;
+            if(failure){
+                failure("cdp_popup_native_child_cleanup_unconfirmed",()->MdoBrowserCdpPopupNative.activateDestruction(child,row));
+                check(row.calls==1&&child.destroyed==0&&!MdoBrowserCdpPopupNative.creationConfirmed());
+                failure("cdp_popup_native_child_cleanup_unconfirmed",()->MdoBrowserCdpPopupNative.activateDestruction(child,row));check(row.calls==1);
+                c.source.ack();c.source.source.lease().invalidate();c.request.close();terminal(c.host,c.request,c.observer);
+                check(!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed&&fallback[0]==0&&child.destroyed==0);return;
+            }
+            MdoBrowserCdpPopupNative.activateDestruction(child,row);MdoBrowserCdpPopupNative.activateDestruction(c.source.view,root);
+            if(nested){
+                check(nestedSends[0]==1&&nestedAck[0]!=null&&child.destroyed==0&&c.source.view.destroyed==0);
+                if(mode.endsWith("-parent")){c.source.ack();check(child.destroyed==0&&c.source.view.destroyed==1);nestedAck[0].run();}
+                else{nestedAck[0].run();check(child.destroyed==0&&c.source.view.destroyed==0);c.source.ack();}
+                nestedAck[0].run();nestedSource.finish(false);nestedCore.close();nestedCore.viewDestroyed(child);
+            }else if(kind!=2){check(c.source.view.destroyed==0&&child.destroyed==(sent?0:1));c.source.ack();}
+            check(child.destroyed==1&&c.source.view.destroyed==1&&row.calls==1&&root.calls==1&&fallback[0]==0);
+            if(adoption!=null)check(adoption.nativeConsumed()&&!adoption.ok());
+            created.close();c.source.ack();MdoBrowserCdpPopupNative.activateDestruction(child,row);MdoBrowserCdpPopupNative.activateDestruction(c.source.view,root);
+            check(child.destroyed==1&&c.source.view.destroyed==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&c.source.budget.used()==0);
+            c.source.source.lease().invalidate();c.request.close();terminal(c.host,c.request,c.observer);check(!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+            check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
+        }
+    }
     private static void ownerLifetime(boolean sent)throws Exception{
         check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
         try(OwnershipCase c=new OwnershipCase()){
@@ -790,7 +851,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("owner-lifetime"))ownerLifetime(mode.equals("owner-lifetime-sent"));
+        if(mode.startsWith("host-destruction"))hostDestruction(mode);
+        else if(mode.startsWith("owner-lifetime"))ownerLifetime(mode.equals("owner-lifetime-sent"));
         else if(mode.equals("admission-fence"))admissionFence();
         else if(mode.startsWith("retirement"))retirement(mode);
         else if(mode.startsWith("ownership"))ownership(mode);

@@ -194,6 +194,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         thread();if(closed||destroyed||protocol==null||protocol.scope!=exact||!exact.current()||protocol.uiAttachment==null||protocol.retained)throw new IllegalStateException("popup_native_scope_unavailable");protocol.retained=true;
     }
     boolean protocolHasObligations(Scope exact){thread();return entry!=null&&entry.pending!=null&&entry.pending.scope==exact;}
+    void retireProtocolUi(Scope exact){thread();if(protocol!=null&&protocol.scope==exact)exact.live.set(false);}
     void releaseProtocolUi(Scope exact){
         thread();if(protocol!=null&&protocol.scope==exact){protocol.retained=false;if(closed&&entry==null){exact.live.set(false);protocol=null;}}
     }

@@ -4564,8 +4564,42 @@ or installed-provider validation. Protected Android popup admission and all
 provider/framework/automation qualification remain false. Phone and WebView
 changes remain deferred.
 
-The full activity teardown still needs a deferred-destruction join for a sent
-child whose native Message has not yet been consumed. Preserving its UI record
-and destruction receipt does not qualify destroying that child before the SDK
-consumes it. That host teardown/coordinator join remains a prerequisite for
-enabling the protected product route.
+E128 did not yet join full Activity teardown to the native Message consumption
+barrier. The E129 host-destructor integration below addresses that gap; it does
+not qualify an installed provider or enable the protected product route.
+
+## Deferred physical host destruction (E129)
+
+Single-view close and Activity shutdown now share an exact UI-owned destruction
+record. Registration revokes control without invoking SDK cleanup. Whole-host
+shutdown captures and registers all physical views before cancelling controllers,
+then prepares all records before activating any physical destructor. Reentrant
+callbacks reuse the captured record, including when closing a sibling. Resources
+are captured by physical identity, not looked up later through a reused tab key.
+
+The native UI owner permits physical destruction only after both the original
+parent's child-adoption Message is consumed and this view's own outstanding
+popup Messages are consumed. A synchronous acknowledgement before preparation
+does not bypass logical teardown. A missing acknowledgement keeps the record and
+native_view_retiring reservation charged, with cleanup unconfirmed. The exact
+post-destroy registry/document/dialog/capture/upload/network notifications run
+once, after the physical SDK call. A failed destructor remains fenced without
+automatic replay. Explicitly closing a human-owned tab can retire it after native
+consumption; task cancellation alone still preserves human ownership.
+
+The product-fragment gate now executes the actual whole-host destroy method as
+well as single-view close. Actual native controller/shared-worker gates cover
+late and inline acknowledgements, duplicate close, human ownership, destructor
+failure and a child that also owns a pending native popup, in both callback
+orders. The APK contains verified method definitions for the new host/native
+destruction interfaces. These are controlled SDK seams and native/JNI tests,
+not an installed renderer/provider pass. Current counts and artifacts are in
+progress.md.
+
+The full product preparation/action/adoption coordinator, independent child
+promotion, global multi-source failure quiescence, guarded bootstrap/resume and
+response/body routing remain unfinished. Pending close still reports unconfirmed
+cleanup; a complete asynchronous product close waiter remains part of that
+coordinator. Public protected Android popup admission and provider/framework/
+automation qualification remain false. Phone and WebView changes stay deferred;
+unavailable isolated-world support does not permit main-world Agent execution.

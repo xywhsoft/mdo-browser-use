@@ -168,7 +168,7 @@ public final class CdpPopupNativeProbe {
         }
     }
     public static void main(String[] args)throws Exception{
-        retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
     private static void preparedRetirement()throws Exception{
@@ -200,6 +200,23 @@ public final class CdpPopupNativeProbe {
         second.ack();check(rejected.confirmed()&&!foreignReceipt.nativeConsumed()&&!foreignReceipt.ok()&&!foreignReceipt.mayHaveOccurred()&&rejected.release());
         denied(()->b.sendProtocolAdoption(foreign,foreignReceipt));check(second.sends==1&&budget.used()==0);
         a.close();b.close();a.viewDestroyed(root);b.viewDestroyed(other);
+    }
+    private static void deferredRoots()throws Exception{
+        for(int mode=0;mode<3;mode++)try(Case c=new Case()){
+            c.source.retainUiOwner();check(c.source.ready());Transport original=new Transport();original.inline=mode==2;check(c.core.open(original,false));
+            final boolean[] prepared={false};final int[] destroys={0};
+            MdoBrowserCdpPopupNative.Destruction close=new MdoBrowserCdpPopupNative.Destruction(){
+                public boolean ready(){return prepared[0];}
+                public void destroy(){check(prepared[0]&&c.budget.used()==0);if(destroys[0]++!=0)throw new AssertionError("Repeated root SDK destroy");c.views.remove("root");c.view.destroy();c.views.viewDestroyed(c.view);MdoBrowserCdpPopupNative.viewDestroyed(c.view);c.core.viewDestroyed(c.view);}
+            };
+            check(MdoBrowserCdpPopupNative.registerDestruction(c.view,close)&&!c.source.current()&&original.sends==0);
+            MdoBrowserCdpPopupNative.activateDestruction(c.view,close);check(original.sends==1&&original.child==null&&c.view.destroyed==0);
+            if(mode==1){original.ack();check(destroys[0]==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==1);}
+            prepared[0]=true;MdoBrowserCdpPopupNative.activateDestruction(c.view,close);
+            if(mode==0){check(c.view.destroyed==0&&c.budget.used()==1);original.ack();}
+            check(c.view.destroyed==1&&destroys[0]==1&&c.budget.used()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+            original.ack();MdoBrowserCdpPopupNative.activateDestruction(c.view,close);check(c.view.destroyed==1&&original.sends==1);
+        }
     }
     private static void retainedOwners()throws Exception{
         check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);

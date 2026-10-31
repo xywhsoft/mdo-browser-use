@@ -23,6 +23,7 @@ def main():
     document=(dev.ROOT/'host/android/browser-document.inc.java').read_text(encoding='utf-8')
     capability=(dev.ROOT/'host/android/browser-capabilities.inc.java').read_text(encoding='utf-8')
     upload=(dev.ROOT/'host/android/browser-native-upload.inc.java').read_text(encoding='utf-8')
+    destroy=(dev.ROOT/'host/android/browser-destroy.inc.java').read_text(encoding='utf-8')
     post_destroy=upload[upload.index('        views.viewDestroyed(view);'):upload.index('        retireUploadTargets(view);')]
     overlay=dev.ROOT/'host/overlays.json'
     closes=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('path')=='tools/android/MdoBrowser.java' and row.get('before')=='if(web!=null){views.remove(key);root.removeView(web);web.destroy();}']
@@ -54,6 +55,7 @@ def main():
         '@@BIND@@':document[document.index('    private void bindDocument'):document.index('    private boolean closeDocument')],
         '@@CLOSE_DOCUMENT@@':document[document.index('    private boolean closeDocument'):document.index('    private boolean closeAndDestroyDocument')],
         '@@CLOSE@@':document[document.index('    private boolean closeAndDestroyDocument'):document.index('    private void documentNavigation')],
+        '@@DESTROY@@':destroy[destroy.index('    void destroy(){'):],
         '@@CREATE@@':(dev.ROOT/'host/android/browser-create.inc.java').read_text(encoding='utf-8'),
         '@@VIEW@@':(dev.ROOT/'host/android/browser-view.inc.java').read_text(encoding='utf-8'),
         '@@VIEW_DESTROYED@@':post_destroy,
@@ -89,7 +91,7 @@ def main():
     if not result.get('passed') or not result.get('native_control_ui_join') or result.get('framework_verified') is not False:
         raise RuntimeError('Original native history/reload UI admission contract did not pass')
     result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
-        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-view.inc.java',dev.ROOT/'host/android/browser-native-upload.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
+        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-destroy.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-view.inc.java',dev.ROOT/'host/android/browser-native-upload.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
 

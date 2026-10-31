@@ -20,7 +20,7 @@ final class AndroidCreateHost {
     }
     static final class Bitmap {}
     static final class View {static final int INVISIBLE=4;}
-    static final class WebMessagePort {}
+    static final class WebMessagePort {void close(){}}
     static class WebResourceRequest {boolean isForMainFrame(){return true;}Object getUrl(){return "https://fixture.invalid/";}}
     static class WebResourceError {CharSequence getDescription(){return "fixture navigation error";}int getErrorCode(){return -1;}}
     static class WebResourceResponse {int getStatusCode(){return 200;}}
@@ -81,9 +81,9 @@ final class AndroidCreateHost {
         void viewDestroyed(Object original){if(original!=view)throw new AssertionError("Wrong document view");destroyed++;}
         static final int BACKGROUND=1,CHANNEL=2,MANUAL=3,NAVIGATION=4;
     }
-    static final class MdoBrowserChannel<T> {final class Lease {}Lease lease=new Lease();boolean open=true;Lease current(){return lease;}boolean active(Lease original,String url){return open&&lease==original;}}
+    static final class MdoBrowserChannel<T> {final class Lease {}Lease lease=new Lease();boolean open=true;Lease current(){return lease;}boolean active(Lease original,String url){return open&&lease==original;}void close(){open=false;}}
     static final class HostPage {String getUrl(){return "http://fixture";}}
-    static final class ManualChooser {void cancel(WebView view){if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}}
+    static final class ManualChooser {void close(){}void cancel(WebView view){if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}}
     static final class MdoBrowserCdpMarker {
         static final class DocumentQuota {boolean closed;void close(){closed=true;}}
         static final class Lease {boolean live=true;}final Lease lease=new Lease();final BooleanSupplier current;DocumentQuota quota;
@@ -166,19 +166,21 @@ final class AndroidCreateHost {
         void retireNetwork(MdoBrowserCdpMarker.Lease lease){for(NetworkCall call:calls)if(call.marker.lease==lease)call.retired++;}
         boolean networkPending(MdoBrowserCdpMarker marker){for(NetworkCall call:calls)if(call.marker==marker)return call.pending;return false;}
         boolean terminated(){return closed;}
+        void close(){closed=true;}
     }
     static final class MdoBrowserPopups<T> {
         static final class Snapshot {String id="popup";}interface Done {void done(boolean ok,String code,boolean mayHaveOccurred);}
-        int adopts,closes,destroyed;boolean deferred;Done pending;
+        int adopts,closes,destroyed;boolean deferred;Done pending;Runnable closing;
         Snapshot snapshot(){return new Snapshot();}void adopt(String id,T view,Done done){adopts++;pending=done;if(!deferred)done.done(true,null,true);}
-        void close(){closes++;}void viewDestroyed(T view){destroyed++;}
+        void close(){closes++;Runnable action=closing;closing=null;if(action!=null)action.run();}void viewDestroyed(T view){destroyed++;}
     }
     static final class PopupLink {final WebView view;final String opener,id;boolean ready;PopupLink(WebView view,String opener,String id){this.view=view;this.opener=opener;this.id=id;}}
     static final class DialogCore {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final DialogCore dialogs=new DialogCore();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
-    static final class CdpViews {int invalidated;String reason;void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
+    static final class CdpViews {int invalidated;String reason;void close(){}void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
+    WebMessagePort port;
     final Object activity=this;final Root root=new Root();final CdpViews cdpViews=new CdpViews();
     final HostPage host=new HostPage();final CdpWorker cdpWorker=new CdpWorker();
     final ManualChooser manualChooser=new ManualChooser();Runnable beforeControlCancel,beforeNativeCommit;
@@ -196,6 +198,14 @@ final class AndroidCreateHost {
     static final class MdoBrowserCdpPopupNative {
         static boolean safe=true;static boolean creationConfirmed(){return safe;}
         static int retainedUiOwners(){return 0;}
+        interface Destruction {boolean ready();void destroy();}
+        static boolean registerDestruction(WebView view,Destruction destruction){
+            if(!view.host.deferredDestruction.contains(view))return false;
+            view.host.deferredRows.put(view,destruction);return true;
+        }
+        static void activateDestruction(WebView view,Destruction destruction)throws java.io.IOException{
+            if(view.host.deferredRows.get(view)==destruction&&view.host.acknowledgedDestruction.contains(view)&&destruction.ready())destruction.destroy();
+        }
         static void viewDestroyed(WebView view){if(view.destroys!=1||view.host.views.values().contains(view))throw new AssertionError("Native owner notified before exact destruction/registry ACK");view.host.nativeRetirementNotifications++;}
         interface Disposal {void destroy(String key,WebView exact);}
         final WebView opener;Disposal disposal;int calls;Created latest;
@@ -219,6 +229,9 @@ final class AndroidCreateHost {
         }
     }
     boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired,nativeRetirementNotifications;JSONObject lastReply;
+    final Set<WebView> deferredDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>()),acknowledgedDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
+    final Map<WebView,MdoBrowserCdpPopupNative.Destruction> deferredRows=new IdentityHashMap<>();
+    void acknowledge(WebView view)throws java.io.IOException {acknowledgedDestruction.add(view);MdoBrowserCdpPopupNative.Destruction row=deferredRows.get(view);if(row!=null)MdoBrowserCdpPopupNative.activateDestruction(view,row);}
     final MdoBrowserLifecycle<WebView> views=new MdoBrowserLifecycle<>((view,epoch,admitted)->{
         if(fault.equals("input"))throw new IllegalStateException("fixture input allocation failure");
         return new MdoBrowserInput(new MdoBrowserInput.Target(){
@@ -237,6 +250,7 @@ final class AndroidCreateHost {
     void notifyPopup(String key){}
     void retireUploadData(WebView view){@@VIEW_DESTROYED@@ retired++;}
     void cancelUpload(String key,WebView view){}
+    void cancelUploads(){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
     Runnable beforeScopedReply;
     void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject result,String error){if(beforeScopedReply!=null){Runnable original=beforeScopedReply;beforeScopedReply=null;original.run();}if(channel.current()==lease&&channel.active(lease,host.getUrl())&&!stopped){replies++;lastReply=result;}}
@@ -290,6 +304,7 @@ final class AndroidCreateHost {
     @@BIND@@
     @@CLOSE_DOCUMENT@@
     @@CLOSE@@
+    @@DESTROY@@
     @@VIEW@@
     MdoBrowserCdpPopupNative.Created protocolPopup(MdoBrowserCdpPopupNative source,String key)throws java.io.IOException{
         return constructProtocolPopup(source,new MdoBrowserCdpPopupWorker.Allocation(),key);

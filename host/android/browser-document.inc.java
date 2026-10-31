@@ -1,5 +1,7 @@
     private boolean nativeViewCleanupFailed;
     private final Set<WebView> nativeRetiringViews=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
+    private final Map<WebView,NativeDestruction> nativeDestructions=new IdentityHashMap<>();
+    private boolean bulkNativeDestruction;
     private void nativeCreationAdmission(){
         if(stopped)throw new IllegalStateException("native_browser_closed");
         if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
@@ -61,28 +63,60 @@
         if(document!=null)document.close();
         return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&networkClean()&&(document==null||document.cleanupConfirmed())&&(dialog==null||dialog.dialogs.clean())&&chooserClean(dialog);
     }
+    /** Both single-view and whole-host close use this physical teardown once.
+     * Captured resources cannot later be replaced through a reused tab key. */
+    private final class NativeDestruction implements MdoBrowserCdpPopupNative.Destruction {
+        final WebView view;final MdoBrowserPopups<WebView> popup;final MdoBrowserDialogTarget dialog;final CaptureEntry capture;final MdoBrowserDocument document;
+        boolean prepared,running,destroyed,complete,failed,clean,controlled;
+        NativeDestruction(WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){this.view=view;this.popup=popup;this.dialog=dialog;this.capture=capture;this.document=document;}
+        public boolean ready(){return prepared&&!running&&!failed;}
+        public void destroy(){
+            if(complete||running)return;if(!ready())throw new IllegalStateException("native_view_retirement_busy");running=true;
+            try{
+                if(!destroyed){root.removeView(view);view.destroy();destroyed=true;}
+                retireUploadData(view);
+                if(popup!=null)popup.viewDestroyed(view);
+                if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
+                if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
+                if(document!=null)document.viewDestroyed(view);
+                networkDestroyed(view);
+                boolean documentClean=document==null||document.cleanupConfirmed();if(!documentClean)nativeViewCleanupFailed=true;
+                clean=documentClean&&networkClean();complete=true;
+            }catch(RuntimeException|Error failure){failed=true;nativeViewCleanupFailed=true;throw failure;}
+            finally{
+                running=false;nativeRetiringViews.remove(view);
+                if(complete){
+                    try{if(controlled)MdoBrowserCdpPopupNative.activateDestruction(view,this);}catch(java.io.IOException error){nativeViewCleanupFailed=true;}
+                    if(!bulkNativeDestruction)nativeDestructions.remove(view,this);
+                }
+            }
+        }
+    }
+    private NativeDestruction prepareNativeDestruction(WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){
+        NativeDestruction old=nativeDestructions.get(view);if(old!=null)return old;
+        NativeDestruction row=new NativeDestruction(view,popup,dialog,capture,document);nativeDestructions.put(view,row);nativeRetiringViews.add(view);
+        row.controlled=MdoBrowserCdpPopupNative.registerDestruction(view,row);return row;
+    }
+    private boolean executeNativeDestruction(NativeDestruction row){
+        if(row.complete)return row.clean;if(row.failed)return false;
+        try{if(row.controlled)MdoBrowserCdpPopupNative.activateDestruction(row.view,row);else row.destroy();}
+        catch(java.io.IOException error){row.failed=true;nativeViewCleanupFailed=true;nativeRetiringViews.remove(row.view);throw new IllegalStateException("native_view_cleanup_failed",error);}
+        return row.complete&&row.clean;
+    }
     private boolean closeAndDestroyDocument(String key,WebView view){
-        boolean reserved=false;
+        NativeDestruction old=nativeDestructions.get(view);if(old!=null)return old.complete&&old.clean;
+        WebView current=views.get(key);if(current!=null&&current!=view)throw new IllegalStateException("native_view_binding_mismatch");
+        if(views.nativeDestroyed(view))return !nativeViewCleanupFailed&&networkClean();
+        NativeDestruction row=null;
         try{
-            if(!nativeRetiringViews.add(view))return false;reserved=true;
+            row=prepareNativeDestruction(view,windows.get(key),dialogs.get(key),captures.get(key),documents.get(key));
             long epoch=views.epoch(key,view);networkRetire(key,view,"network_view_closed");cancelUpload(key,view);
-            if(views.owns(key,view))views.remove(key);
-            cdpViews.invalidate(key,view,epoch,"input_closed");
-            MdoBrowserPopups<WebView> popup=windows.remove(key);if(popup!=null)popup.close();
-            popupLinks.remove(key);pageClosed.remove(key);
-            navigationRequests.remove(key);
-            MdoBrowserDialogTarget dialog=dialogs.remove(key);if(dialog!=null)dialog.close();
-            CaptureEntry capture=captures.remove(key);if(capture!=null)capture.capture.close();
-            MdoBrowserDocument document=documents.remove(key);documentFailures.remove(key);
-            if(document!=null)document.close();root.removeView(view);view.destroy();retireUploadData(view);
-            if(popup!=null)popup.viewDestroyed(view);
-            if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
-            if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
-            if(document!=null)document.viewDestroyed(view);
-            networkDestroyed(key,view);
-            boolean clean=document==null||document.cleanupConfirmed();if(!clean)nativeViewCleanupFailed=true;return clean&&networkClean();
-        }catch(RuntimeException|Error failure){nativeViewCleanupFailed=true;throw failure;}
-        finally{if(reserved)nativeRetiringViews.remove(view);}
+            if(views.owns(key,view))views.remove(key);cdpViews.invalidate(key,view,epoch,"input_closed");
+            windows.remove(key);if(row.popup!=null)row.popup.close();popupLinks.remove(key);pageClosed.remove(key);navigationRequests.remove(key);
+            dialogs.remove(key);if(row.dialog!=null)row.dialog.close();captures.remove(key);if(row.capture!=null)row.capture.capture.close();
+            documents.remove(key);documentFailures.remove(key);if(row.document!=null)row.document.close();
+            row.prepared=true;return executeNativeDestruction(row);
+        }catch(RuntimeException|Error failure){nativeViewCleanupFailed=true;if(row!=null){row.failed=true;nativeRetiringViews.remove(view);}throw failure;}
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;

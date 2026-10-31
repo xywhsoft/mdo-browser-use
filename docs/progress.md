@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E129:** join single-view and whole-Activity physical teardown to the
+  original native Message-consumption barriers. Register all exact UI destructors
+  before logical callbacks, prepare every row before activation and preserve
+  pending native capacity. Prevent duplicate destruction, same-key resource
+  confusion and automatic replay after failed cleanup; preserve human ownership
+  during task cancellation. Fresh native 120-input/52-worker-mode/2,136-check,
+  controller 278, product 712/16-input, popup 110/25/7, save 47, actual Windows
+  WebView2 301/six-input-cycle and Python 173/175 gates pass. Rebuild/inspect ten
+  actual APK class-method definitions. Product coordination, global quiescence,
+  promotion/body routing and installed-provider qualification remain open.
 - **Android E128:** retain original popup controllers/books in eight bounded UI
   records before worker admission, preserving native callbacks and capacity after
   opener destruction until actual acknowledgement. Release records after terminal/
@@ -10419,3 +10429,74 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Public protected Android popup admission and provider/framework/automation
   qualification stay false; UI lifecycle contracts do not qualify an installed
   provider or justify main-world Agent fallback.
+
+## E129 — consumption-gated physical host destruction (2026-11-01)
+
+- Previous goal turn made progress through E128. Add a typed UI destruction
+  registration/activation boundary. Registration revokes the original scope and
+  child permission without invoking SDK callbacks. Permit physical destruction
+  only after the parent's original adopted-child Message and this view's own
+  outstanding native popup Messages have actually been consumed. Native callback
+  completion, physical destruction, target detachment and worker/source cleanup
+  remain separate receipts; none substitutes for another.
+- Single-view close and whole-Activity shutdown share an identity-keyed
+  NativeDestruction record capturing the original document, popup, dialog,
+  capture and view. Bulk shutdown registers every record before closing any
+  controller and prepares all records before activating the first destructor.
+  Reentrant/duplicate/sibling close reuses the record. Pending records remain
+  charged in native_view_retiring and report cleanup unconfirmed; no automatic
+  destruction retry follows a failed SDK call. Post-destroy upload/registry/UI
+  owner/document/dialog/capture/network notifications run for the exact view.
+- Keep sent human-owned children in their original UI book until consumption so
+  a later explicit host close can register its barrier. Ordinary task cancellation
+  still preserves human ownership. Explicit host close may retire that tab after
+  consumption. A synchronous receipt arriving before logical preparation cannot
+  trigger early native destruction. A child that is itself an opener must satisfy
+  both callback barriers, independently of their arrival order.
+- Product-fragment coverage now compiles and executes the actual whole-host
+  destroy method, in addition to single close. It passes 712 checks with 16 current
+  source hashes; 27 new assertions cover pending close, admission/capacity,
+  callbacks before/after preparation, bulk shutdown, repeated shutdown, exact
+  captured resources, key reuse and failed destruction without replay. The first
+  product run caught an incorrect fixture expectation about ordinary logical view
+  count: pending physical ownership is recorded in native_view_retiring, while
+  ordinary logical entries have already been removed. Correct that assertion
+  without changing production registry semantics.
+- Actual controller passes 278 checks, including 26 new delayed/inline/early
+  acknowledgement and exact root-destruction assertions. Eight new shared-worker
+  modes pass 253 checks: unsent/sent, inline, human takeover, failure, and nested
+  parent-first/child-first consumption. Fixture corrections supply the real host's
+  marker invalidation and run independently failed process-claim scenarios in
+  separate JVM processes using the same QA directory. No extra app/Home/source
+  instance or provider qualification is implied.
+- E129-native.log passes with 120 current hashes, ASan/UBSan/API26/JVM/JNI,
+  balanced native resources and exit invariants, 52 worker modes/2,136 assertions,
+  controller 278 and broker 261/two native flows. Fresh popup passes 110 native
+  lifecycle, 25 native callback and seven product block-scope checks/13 hashes;
+  fresh JS/C saving passes 47 and binds the current native receipt. Fresh actual
+  Windows WebView2 passes 301 checks and six nested-fill/interrupted-drag cycles,
+  with six current input hashes and unchanged native host identity; no new crash
+  diagnostics or private upload reservations. Python passes 173/175 in 55.477
+  seconds, with the two existing Windows symlink-privilege skips. Unchanged
+  E105/E106/E125 evidence is reused only within its original verified scope.
+- Compose/validate 123 reviewed host overlay files, apply while stopped and
+  rebuild actual Android Java/DEX/APK. Remove obsolete text patches now owned by
+  the shared bulk destructor. Require the new host/native destruction classes;
+  inspect actual method definitions in ten classes, including both host close
+  routes, preparation/activation, consumption and retirement. Private provider,
+  signing, JNI/ARM64/16-KiB/zip alignment checks pass. APK: 6,518,081 bytes,
+  SHA-256 bea483551da9430f90995898b545f08ba67e39a5f9c492dbcf7930b91809aa2c.
+  Verified ARM64 host, packed Windows program and plugin bytes remain unchanged.
+  The E129 final-identity script joins current sources, native/product/save/popup/
+  Windows/DEX evidence and artifact/signing identities.
+- Development service restored: HTTP 200 on 63625, PID 35556; deployment about
+  3,444.9 MiB, D: about 37.61 GiB free. Preserve phone/WebView deferral and formal
+  data. No ADB, runtime dependency, model call, external browser site, production
+  account/config change or publication.
+- Goal remains active. Complete product preparation/action/adoption coordination,
+  asynchronous product close waiting, independent child promotion, global
+  multi-source failure quiescence, guarded bootstrap/resume, response/body routing
+  and platform/delivery audit. Public protected Android popup admission and all
+  provider/framework/automation qualification remain false; controlled lifecycle
+  and native tests do not qualify an installed WebView or permit main-world Agent
+  fallback when isolated-world support is unavailable.
