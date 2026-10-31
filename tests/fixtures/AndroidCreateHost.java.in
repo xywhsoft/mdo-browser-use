@@ -48,7 +48,9 @@ final class AndroidCreateHost {
         static final int INVISIBLE=4;final AndroidCreateHost host;int destroys,touches,loads;WebViewClient client;
         WebView(Object activity){host=(AndroidCreateHost)activity;host.created.add(this);}
         static ClassLoader getWebViewClassLoader(){return AndroidCreateHost.class.getClassLoader();}
-        WebSettings getSettings(){return new WebSettings(this);}void setWebViewClient(WebViewClient client){this.client=client;}
+        WebSettings getSettings(){return new WebSettings(this);}void setWebViewClient(WebViewClient client){this.client=client;
+            Runnable action=host.beforeConfigured;host.beforeConfigured=null;if(action!=null)action.run();
+            if(host.fault.equals("client"))throw new IllegalStateException("fixture client binding failure");}
         final List<String> targets=new ArrayList<>();Runnable beforeLoad;String url;
         String getUrl(){return url;}
         void loadUrl(String target){loads++;targets.add(target);url=target;Runnable hook=beforeLoad;beforeLoad=null;if(hook!=null)hook.run();if(host.fault.equals("load")||host.fault.equals("target_load")&&!target.equals("about:blank"))throw new IllegalStateException("fixture navigation dispatch failure");}
@@ -188,7 +190,32 @@ final class AndroidCreateHost {
     final Map<String,Boolean> loading=new HashMap<>();
     final Map<String,String> errors=new HashMap<>(),locations=new HashMap<>();final Map<String,Integer> errorCodes=new HashMap<>();
     final Set<String> pageClosed=new HashSet<>(),crashed=new HashSet<>(),manual=new HashSet<>();
-    static final class MdoBrowserCdpPopupNative {static boolean safe=true;static boolean creationConfirmed(){return safe;}}
+    // Typed native-source peer: actual constructor/ownership behavior has the
+    // separate production Native/JNI gate, not this product-fragment fixture.
+    static final class MdoBrowserCdpPopupWorker {static final class Allocation {}}
+    static final class MdoBrowserCdpPopupNative {
+        static boolean safe=true;static boolean creationConfirmed(){return safe;}
+        interface Disposal {void destroy(String key,WebView exact);}
+        final WebView opener;Disposal disposal;int calls;Created latest;
+        MdoBrowserCdpPopupNative(WebView opener){this.opener=opener;}
+        static final class Created {
+            final WebView view,opener;final String key;final Disposal disposal;final MdoBrowserLifecycle<WebView> registry;
+            final MdoBrowserLifecycle.Fresh<WebView> birth;final long openerEpoch;boolean closed;
+            Created(String key,WebView view,WebView opener,MdoBrowserLifecycle<WebView> registry,MdoBrowserLifecycle.Fresh<WebView> birth,Disposal disposal){this.key=key;this.view=view;this.opener=opener;this.registry=registry;this.birth=birth;this.disposal=disposal;openerEpoch=registry.epoch("opener",opener);}
+            WebView view(){if(closed||!birth.current()||!registry.owns(key,view)||registry.epoch("opener",opener)!=openerEpoch)throw new IllegalStateException("fixture stale creation");return view;}
+            void close()throws java.io.IOException{
+                if(closed)return;
+                try{disposal.destroy(key,view);if(!registry.nativeDestroyed(view))throw new IllegalStateException("fixture missing ACK");closed=true;}
+                catch(RuntimeException|Error error){throw new java.io.IOException("cdp_popup_native_child_cleanup_unconfirmed");}
+            }
+        }
+        Created construct(MdoBrowserCdpPopupWorker.Allocation allocation,MdoBrowserLifecycle<WebView> registry,String key,Disposal disposal)throws java.io.IOException{
+            calls++;if(!safe||allocation==null||disposal==null)throw new java.io.IOException("cdp_popup_native_allocation_unavailable");this.disposal=disposal;
+            MdoBrowserLifecycle.Construction<WebView> pending=registry.reservePopup(key,opener);pending.start();
+            WebView view=new WebView(opener.host);MdoBrowserLifecycle.Fresh<WebView> birth=registry.putPopup(pending,view);
+            return latest=new Created(key,view,opener,registry,birth,disposal);
+        }
+    }
     boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired;JSONObject lastReply;
     final MdoBrowserLifecycle<WebView> views=new MdoBrowserLifecycle<>((view,epoch,admitted)->{
         if(fault.equals("input"))throw new IllegalStateException("fixture input allocation failure");
@@ -200,7 +227,8 @@ final class AndroidCreateHost {
         },new MdoBrowserInput.Scheduler(){public long now(){return 100;}public void post(Runnable task,long delay){}public void remove(Runnable task){}});
     });
     void bounds(WebView view,JSONObject request){if(fault.equals("bounds"))throw new IllegalStateException("fixture bounds failure");}
-    String url(String value){return value;}void bindDialogs(String key,WebView view){dialogs.put(key,new MdoBrowserDialogTarget(view));}
+    String url(String value){return value;}void bindDialogs(String key,WebView view){dialogs.put(key,new MdoBrowserDialogTarget(view));if(fault.equals("dialog"))throw new IllegalStateException("fixture dialog binding failure");}
+    Runnable beforeConfigured;
     void cancelCapture(String key){}void cancelPopup(String key){}void cancelDialog(String key){}boolean dialogReady(String key,WebView view){return true;}
     @@DOCUMENT_NAVIGATION@@
     @@DOCUMENT_LOADED@@
@@ -260,6 +288,10 @@ final class AndroidCreateHost {
     @@BIND@@
     @@CLOSE_DOCUMENT@@
     @@CLOSE@@
+    @@VIEW@@
+    MdoBrowserCdpPopupNative.Created protocolPopup(MdoBrowserCdpPopupNative source,String key)throws java.io.IOException{
+        return constructProtocolPopup(source,new MdoBrowserCdpPopupWorker.Allocation(),key);
+    }
     void create(String key,JSONObject request)throws Exception{
         String command="create",id="fixture-reply";WebView web=views.get(key);
         @@CREATE@@

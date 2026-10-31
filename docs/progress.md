@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E126:** join the private native popup constructor to the product's
+  exact disposer and shared ordinary-view settings/listeners, without publishing,
+  navigating, binding a document world/profile or handing off the child. Roll back
+  configuration faults through the ordinary close maps and preserve replacement
+  bindings. Fresh product 685/14-input, native 120-input, save 47, Python 173/175
+  and actual Windows WebView2 frame/input 301 gates pass. Rebuild the APK and
+  verify its three actual product method definitions. Preparation/action routing,
+  adopted-child promotion/body routing and Android qualification remain open.
 - **Android E125:** give native popup constructors UI-owned key/capacity
   reservations before `new WebView`, retain known unpublished instances until
   exact destruction acknowledgement, and fence further creation when constructor
@@ -10200,3 +10208,60 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   delivery verification remain. Keep protected Android popup admission and
   provider/framework/automation qualification false; never replace unavailable
   isolated-world Agent execution with main-world execution.
+
+## E126 — product popup configuration/disposal join (2026-10-31)
+
+- Extract ordinary WebView settings and listeners into one reviewed product
+  method. Both the existing create route and the new private protocol-popup
+  construction seam use it. Keep original ordering, file/content access disabled,
+  mixed content refused, native dialog/window callbacks and original navigation,
+  failure and renderer-loss listeners.
+- The product seam uses the original native source's constructor with its exact
+  host disposer already attached. Configuration cannot insert the child into the
+  root UI, load a URL, bind a document world/profile, send the native transport or
+  publish a successful create reply. Recheck the Created handle after callbacks;
+  retain the unqualified world state until the unfinished coordinator proves the
+  native transfer. It is not yet dispatched by the public popup request route.
+- Unsent configuration failure uses the ordinary close/destroy maps and exact
+  native acknowledgement. Keep configuration and cleanup failures as distinct
+  causes; uncertain destruction retains capacity and prevents another constructor.
+  A stale disposer refuses a different current view before touching that key's
+  resources. The worker still holds no strong host/disposer/UI attachment.
+- E126-product-final.log passes 685 checks with 14 source hashes. New cases cover
+  shared settings/listeners, no premature root/navigation/profile/reply side
+  effects, exactly-once disposal, settings/dialog/client failures, parent navigation
+  during configuration, failed destruction, preconstructor admission and replacement
+  preservation. The initial fixture incorrectly used post-adoption Fresh.attached
+  for pre-adoption Created.view; correct the typed peer and retain the original
+  native constructor/ownership suite as the production implementation check.
+- E126-native.log passes with 120 current input hashes, ASan/UBSan/API26/JVM/JNI,
+  balanced native resources, 36 worker modes/1,505 assertions, broker 261 with two
+  native transport flows and native-source/controller 169. Reuse unchanged E125
+  input/lifecycle/channel/guard/wheel/hover 177/163/22/63/66/82 and popup 110/25
+  evidence after verifying its current source hashes; reuse is not a new run.
+- Rebuild the actual Android Java/DEX/APK and additionally inspect SDK-reported
+  MdoBrowser method definitions for constructProtocolPopup, configureBrowserView
+  and closeAndDestroyDocument. Existing signing, private-provider, JNI, ARM64,
+  16-KiB and zip alignment gates pass. APK remains 6,513,985 bytes; SHA-256
+  a6179e74c45d5902e6972204352fa8a39a40b7c75ef6bd3dedf30ef5168c2592.
+  The three-method receipt is bound to this exact APK hash, not reference strings.
+- Fresh JS/C saving passes 47 and binds the new native receipt. Python passes
+  173/175 in 52.109 seconds, with the two existing Windows symlink-privilege skips.
+  The shared overlay manifest changed, so the final identity check correctly
+  refused E118's old full input hash. Rerun actual WebView2 frame/input checks:
+  301 pass, six original Unicode-fill/interrupted-drag cycles, zero new native
+  diagnostics and no remaining upload reservations. Bind six current input hashes
+  and the unchanged actual development host hash; preserve the previous receipt.
+- The final E126 identity script joins native 120/product 14/save six hashes,
+  current APK/DEX definitions, fresh Windows frame/input evidence and the unchanged
+  ARM64 host/Windows program/plugin bytes. Recheck applicable E105 world/document
+  and E106 JS/packed-Windows evidence without relabelling those as fresh runs.
+- Restore the single headless service: HTTP 200 on 63625, PID 13344; deployment
+  about 3,443.7 MiB, D: about 37.7 GiB free. Preserve phone/WebView deferral and
+  formal data. No ADB activity, extra app/Home/source copy, runtime dependency,
+  model call, external browser site, publication or production config change.
+- Goal remains active. Wire the complete preparation/action coordinator to this
+  product seam, then finish sent handoff consumption/promotion/teardown, global
+  failure quiescence, guarded bootstrap/resume and response/body routing. Public
+  protected Android popup admission and provider/framework/automation qualification
+  remain false; actual device and full delivery verification remain outstanding.

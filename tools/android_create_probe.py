@@ -53,6 +53,7 @@ def main():
         '@@CLOSE_DOCUMENT@@':document[document.index('    private boolean closeDocument'):document.index('    private boolean closeAndDestroyDocument')],
         '@@CLOSE@@':document[document.index('    private boolean closeAndDestroyDocument'):document.index('    private void documentNavigation')],
         '@@CREATE@@':(dev.ROOT/'host/android/browser-create.inc.java').read_text(encoding='utf-8'),
+        '@@VIEW@@':(dev.ROOT/'host/android/browser-view.inc.java').read_text(encoding='utf-8'),
     }
     for key,value in fragments.items():
         if source.count(key)!=1:raise RuntimeError('Creation fixture injection marker changed')
@@ -85,7 +86,7 @@ def main():
     if not result.get('passed') or not result.get('native_control_ui_join') or result.get('framework_verified') is not False:
         raise RuntimeError('Original native history/reload UI admission contract did not pass')
     result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
-        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
+        [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-view.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
 

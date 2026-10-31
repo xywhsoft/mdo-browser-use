@@ -26,31 +26,7 @@
                     if(fresh==null)views.put(key,web);
                     if(popupSource==null)bindDocument(key,web,networkRequired);
                     else documentFailures.put(key,"popup_world_unqualified");
-                    web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);
-                    web.getSettings().setAllowFileAccess(false);web.getSettings().setAllowContentAccess(false);
-                    web.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-                    web.getSettings().setSupportMultipleWindows(true);
-                    web.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
-                    bindDialogs(key,web);
-                    web.setWebViewClient(new WebViewClient(){
-                        @Override public void onScaleChanged(WebView view,float oldScale,float newScale){if(views.owns(key,view))cancelCapture(key);views.scaleChanged(key,view,newScale);}
-                        @Override public void onPageStarted(WebView view,String address,Bitmap icon){if(!views.owns(key,view))return;documentNavigation(key,view);if(!views.navigation(key,view))return;loading.put(key,true);errors.remove(key);errorCodes.remove(key);locations.put(key,address);networkNavigation(key,view,address);}
-                        @Override public void onPageFinished(WebView view,String address){if(views.owns(key,view)){documentLoaded(key,view);if(!networkLoaded(key,view,address))loading.put(key,false);}}
-                        @Override public void onReceivedError(WebView view,WebResourceRequest navigation,WebResourceError error){
-                            if(views.owns(key,view)&&navigation.isForMainFrame()){cancelNavigationRequest(key,view);loading.put(key,false);errors.put(key,error.getDescription().toString());errorCodes.put(key,error.getErrorCode());}
-                        }
-                        @Override public void onReceivedSslError(WebView view,SslErrorHandler handler,android.net.http.SslError error){handler.cancel();if(!views.owns(key,view))return;cancelNavigationRequest(key,view);loading.put(key,false);errors.put(key,"TLS certificate validation failed");errorCodes.put(key,error.getPrimaryError());}
-                        @Override public void onReceivedHttpError(WebView view,WebResourceRequest navigation,WebResourceResponse response){
-                            if(views.owns(key,view)&&navigation.isForMainFrame())errorCodes.put(key,response.getStatusCode());
-                        }
-                        @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest navigation){
-                            String address=navigation.getUrl().toString();if("about:blank".equals(address))return false;
-                            try{url(address);return false;}catch(IllegalArgumentException rejected){return true;}
-                        }
-                        @Override public boolean onRenderProcessGone(WebView view,RenderProcessGoneDetail detail){
-                            if(!views.owns(key,view))return true;manual.remove(key);loading.put(key,false);errors.put(key,"Browser process stopped; reload to restore the page");crashed.add(key);closeAndDestroyDocument(key,view);return true;
-                        }
-                    });
+                    configureBrowserView(key,web);
                     crashed.remove(key);pageClosed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);loading.put(key,true);
                     if(popupSource!=null){
                         final WebView freshChild=fresh.claim(exactOpener);

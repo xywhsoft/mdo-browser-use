@@ -5,6 +5,43 @@ public final class AndroidCreateContractTest {
     static int checks;
     static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     static AndroidCreateHost.JSONObject request(boolean automation)throws Exception{return new AndroidCreateHost.JSONObject().put("automation",automation).put("url","https://fixture.invalid/");}
+    static void protocolConfiguration()throws Exception{
+        AndroidCreateHost host=new AndroidCreateHost();host.create("opener",request(false));
+        AndroidCreateHost.WebView opener=host.views.get("opener");int replies=host.replies,profiles=host.profileRequests.size();
+        AndroidCreateHost.MdoBrowserCdpPopupNative source=new AndroidCreateHost.MdoBrowserCdpPopupNative(opener);
+        AndroidCreateHost.MdoBrowserCdpPopupNative.Created created=host.protocolPopup(source,"child");
+        AndroidCreateHost.WebView child=created.view();
+        check(source.calls==1&&source.disposal!=null&&child!=opener&&host.views.owns("child",child),"Product popup configuration bypassed exact native construction/disposal");
+        check(child.touches==7&&child.client!=null&&host.dialogs.get("child").view==child,"Protocol child missed ordinary settings/listeners/dialog binding");
+        check(!host.root.children.contains(child)&&child.loads==0&&child.url==null&&host.replies==replies,"Configuration published, navigated or replied for an unadopted child");
+        check(!host.documents.containsKey("child")&&"popup_world_unqualified".equals(host.documentFailures.get("child"))&&host.profileRequests.size()==profiles,"Configuration granted an unqualified world or rebound the pre-adoption profile");
+        created.close();created.close();
+        check(child.destroys==1&&host.views.nativeDestroyed(child)&&host.views.size()==1&&host.root.children.contains(opener),"Product disposer did not release exactly the unsent native instance");
+        check(!host.dialogs.containsKey("child")&&!host.documentFailures.containsKey("child")&&!host.documents.containsKey("child"),"Product disposer retained configured child resources");
+        for(String fault:new String[]{"settings","dialog","client","stale"}){
+            AndroidCreateHost failed=new AndroidCreateHost();failed.create("opener",request(false));
+            AndroidCreateHost.WebView parent=failed.views.get("opener");AndroidCreateHost.MdoBrowserCdpPopupNative nativeSource=new AndroidCreateHost.MdoBrowserCdpPopupNative(parent);
+            failed.fault=fault;if(fault.equals("stale"))failed.beforeConfigured=()->failed.views.navigation("opener",parent);
+            try{failed.protocolPopup(nativeSource,"child");throw new AssertionError("Product popup configuration fault ignored: "+fault);}
+            catch(IllegalStateException expected){check(true,"Original configuration failure");}
+            AndroidCreateHost.WebView exact=nativeSource.latest.view;
+            check(exact.destroys==1&&parent.destroys==0&&failed.views.nativeDestroyed(exact)&&failed.views.size()==1,"Configuration rollback destroyed the parent or retained the child: "+fault);
+            check(!failed.root.children.contains(exact)&&exact.loads==0&&!failed.dialogs.containsKey("child")&&!failed.documentFailures.containsKey("child"),"Failed configuration was published/navigated or retained UI state: "+fault);
+        }
+        AndroidCreateHost failed=new AndroidCreateHost();failed.create("opener",request(false));
+        AndroidCreateHost.MdoBrowserCdpPopupNative nativeSource=new AndroidCreateHost.MdoBrowserCdpPopupNative(failed.views.get("opener"));
+        failed.fault="settings";failed.cleanupFault="destroy";
+        try{failed.protocolPopup(nativeSource,"child");throw new AssertionError("Unconfirmed product disposal ignored");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("native_view_cleanup_failed")&&expected.getCause()!=null&&expected.getSuppressed().length==1,"Configuration/cleanup failures lost their original separate causes");}
+        check(nativeSource.latest.view.destroys==1&&failed.views.size()==2&&Boolean.TRUE.equals(failed.capabilities().data.get("native_view_cleanup_failed")),"Failed destroy was replayed or released native capacity");
+        int calls=nativeSource.calls;
+        try{failed.protocolPopup(nativeSource,"other");throw new AssertionError("Uncertain product cleanup admitted new construction");}
+        catch(IllegalStateException expected){check(nativeSource.calls==calls,"Creation guard ran after the native constructor");}
+        host.create("child",request(false));AndroidCreateHost.WebView replacement=host.views.get("child");
+        try{source.disposal.destroy("child",child);throw new AssertionError("Stale disposer accepted a replacement binding");}
+        catch(IllegalStateException expected){check(replacement.destroys==0&&host.views.owns("child",replacement)&&host.dialogs.get("child").view==replacement,"Stale disposal removed replacement metadata or native view");}
+        host.closeCommand("child");host.closeCommand("opener");
+    }
     static void profileFailure()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();
         try{host.create("tab",request(true));throw new AssertionError("Unconfirmed profile opened");}
@@ -502,7 +539,7 @@ public final class AndroidCreateContractTest {
             if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
             host.closeCommand("tab");
         }
-        profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
+        protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"framework_verified\":false,\"network_calls\":0}");
     }

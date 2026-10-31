@@ -1468,6 +1468,12 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "performNavigation(key,web,\"reload\",null);",
       "after": "if(networkTraverse(key,web,id,\"reload\",request.optBoolean(\"agent\"),request.optLong(\"timeout_ms\",30000)))return;performNavigation(key,web,\"reload\",null);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private JSONObject browserUseSupport;",
+      "after_file": "host/android/browser-view.inc.java",
+      "suffix": "\n    private JSONObject browserUseSupport;"
     }
   ],
   "files": [
