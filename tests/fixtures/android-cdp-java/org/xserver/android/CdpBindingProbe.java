@@ -132,7 +132,7 @@ public final class CdpBindingProbe {
             else try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IOException("cdp_binding_cancelled");}return value;
         }
         public void close(){if(closed.compareAndSet(false,true)){
-            try{if(factory.extra!=null)factory.extra.closed(this);}finally{while(!replies.isEmpty())Arrays.fill(replies.removeFirst(),(byte)0);}}}
+            try{if(factory.extra!=null)factory.extra.closed(this);}finally{byte[] pending;while((pending=replies.pollFirst())!=null)Arrays.fill(pending,(byte)0);}}}
         void cleared(){for(byte[] bytes:sent)zero(bytes);for(byte[] bytes:packets)zero(bytes);}
         private void zero(byte[] bytes){boolean clear=true;for(byte b:bytes)if(b!=0)clear=false;check(clear);}
     }

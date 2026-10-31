@@ -273,7 +273,7 @@ public final class AndroidCreateContractTest {
             if(mode==4)ticket.outcome=new AndroidCreateHost.MdoBrowserCdpSession.NavigationResult(false,false,false,false,true,false,"cdp_navigation_connection_closed");
             android.os.SystemClock.now+=20;android.os.Handler.tick();
             check(host.navigationState("tab").data.get("id").equals(id)&&view.loads==loads,"Native completion changed its ID or reissued its target");
-            if(mode==0||mode==1||mode==3)check(!host.documents.get("tab").navigationBlocked&&!Boolean.TRUE.equals(host.loading.get("tab")),"Proven unchanged original document remained fenced");
+            if(mode==0||mode==3)check(!host.documents.get("tab").navigationBlocked&&!Boolean.TRUE.equals(host.loading.get("tab")),"Proven unchanged original document remained fenced");
             else check(host.documents.get("tab").navigationBlocked&&Boolean.TRUE.equals(host.loading.get("tab")),"Native ACK or uncertain effects were mistaken for page completion");
             if(mode==2){host.startPage("tab","https://navigation.invalid/target");host.finishPage("tab",view.url);check(!host.documents.get("tab").navigationBlocked&&!Boolean.TRUE.equals(host.loading.get("tab")),"Actual page callbacks failed to release committed navigation");}
             if(mode==3)check(host.errors.get("tab").equals("cdp_navigation_failed"),"Original native failure was masked");
@@ -301,6 +301,29 @@ public final class AndroidCreateContractTest {
     private static void readProofFails(AndroidCreateHost host,String key,String reference,String code)throws Exception{
         try{host.readProof(key,reference);throw new AssertionError("Unrelated navigation read gained authority");}
         catch(java.io.IOException expected){check(expected.getMessage().equals(code),"Navigation read failure lost its fixed reason");}
+    }
+    private static void sameDocumentProof()throws Exception{
+        for(int mode=0;mode<4;mode++){
+            AndroidCreateHost host=navigationHost();int loads=host.views.get("tab").loads;
+            host.gotoPage("tab","https://navigation.invalid/#target",100);
+            AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);ticket.issued=true;ticket.ack(true,false,false,null);
+            String reference=(String)host.navigationState("tab").data.get("id");
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            check(host.documents.get("tab").navigationBlocked&&Boolean.TRUE.equals(host.loading.get("tab")),"Same-document ACK alone released the original reservation");
+            check(Boolean.TRUE.equals(host.navigationState("tab").data.get("same_document_supported"))&&Boolean.TRUE.equals(host.navigationState("tab").data.get("same_document")),"Same-document native support or original ACK identity missing");
+            if(mode==2)android.os.SystemClock.now+=100;
+            else{ticket.committed=true;ticket.current=mode!=1;}
+            if(mode==3)host.startPage("tab","https://unrelated.invalid/");
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            if(mode==0){
+                check(!host.documents.get("tab").navigationBlocked&&!Boolean.TRUE.equals(host.loading.get("tab")),"Proven same-document destination did not restore the original page readiness");
+                check(host.readProof("tab",reference)==ticket,"Proven same-document read lost its original ticket");
+                host.startPage("tab","https://unrelated.invalid/");readProofFails(host,"tab",reference,"cdp_navigation_document_changed");
+            }else{
+                check(host.navigationState("tab").data.get("page_error").equals(mode==2?"cdp_navigation_commit_timeout":"cdp_navigation_commit_revoked"),"Same-document failure adopted another page or lost its deadline");
+            }
+            check(host.views.get("tab").loads==loads,"Same-document proof replayed its target");host.stopNavigation("tab");host.closeCommand("tab");
+        }
     }
     private static void originalNavigationReadProof()throws Exception{
         for(int mode=0;mode<5;mode++){
@@ -408,7 +431,7 @@ public final class AndroidCreateContractTest {
             host.closeCommand("tab");
         }
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

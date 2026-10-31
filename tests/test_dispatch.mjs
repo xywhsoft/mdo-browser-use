@@ -38,7 +38,7 @@ function nativeNavigationFixture(mode){
       if(command==='dialog')return{ok:true,dialogs:[{id:'dialog'}]};
       if(command==='state'){
         if(sent&&mode==='transport')throw Error('Fixture lost transport');
-        const native={id:reference,phase:'acknowledged',acknowledged:true,ok:true,dispatched:true,download_known:true,download:false,loader_present:mode==='new-document',page_commit_supported:true,page_committed:true,page_current:true,page_document:'nd-original'};
+        const native={id:reference,phase:'acknowledged',acknowledged:true,ok:true,dispatched:true,download_known:true,download:false,loader_present:mode==='new-document',page_commit_supported:true,page_committed:true,page_current:true,page_document:'nd-original',same_document_supported:true,same_document:mode==='same-document'};
         if(sent){states++;if(mode==='cancel')native.phase='sent';if(mode==='unknown')native.download_known=false;
           if(mode==='download')native.download=true;
           if(mode==='unsupported')Object.assign(native,{phase:'failed',acknowledged:true,ok:false,dispatched:false,code:'cdp_navigation_unsupported'});
@@ -51,7 +51,7 @@ function nativeNavigationFixture(mode){
     }}};
   options.pageDriver={async read(method,params,control){
     assert.equal(method,'observe');await control.checkpoint();
-    assert.equal(control.navigation_ref,mode==='new-document'?reference:undefined);
+    assert.equal(control.navigation_ref,['new-document','same-document'].includes(mode)?reference:undefined);
     return(await options.view.execute('automation',{script:'fixture-observe'})).value;
   }};
   if(mode==='cancel')options.alive=()=>states===0;
@@ -669,5 +669,37 @@ test('invalid creation navigation references execute no browser calls',async()=>
   for(const initialNavigation of ['',5,{},'raw-loader','nv-invalid']){
     const f=initialObservationFixture();f.options.initialNavigation=initialNavigation;
     const out=await executeBrowserAutomation(f.options);assert.equal(out.result.error.code,'navigation_uncertain');assert.equal(f.state.polls,0);assert.equal(f.state.reads,0);
+  }
+});
+
+
+test('same-document completion waits for its original destination proof and guards the returned observation',async()=>{
+  for(const mode of ['delayed','old-host','not-same','revoked','after-read']){
+    const f=nativeNavigationFixture('same-document'),execute=f.options.view.execute;let polls=0,read=false;
+    f.options.view.execute=async(command,params)=>{
+      const result=await execute(command,params);if(command==='automation')read=true;
+      if(command==='state'&&result.native_navigation){const native=result.native_navigation;polls++;
+        if(mode==='delayed')native.page_committed=polls>=3;
+        if(mode==='old-host')delete native.same_document_supported;
+        if(mode==='not-same')native.same_document=false;
+        if(mode==='revoked'||mode==='after-read'&&read)native.page_current=false;
+      }return result;
+    };
+    const out=await executeBrowserAutomation(f.options);assert.equal(out.result.ok,mode==='delayed');
+    if(mode==='delayed'){assert(out.result.same_document);assert(polls>=3&&read);}
+    else{assert.equal(out.result.error.code,mode==='revoked'||mode==='after-read'?'stale_document':'navigation_uncertain');assert.equal(out.result.observation,undefined);}
+    assert.equal(f.calls.filter(([command])=>command==='navigate').length,1);
+    if(['old-host','not-same','revoked'].includes(mode))assert.equal(read,false);
+  }
+});
+test('goto canonicalizes the destination before admission without accepting credentials or oversized encoded URLs',async()=>{
+  const f=nativeNavigationFixture('same-document');f.options.params.url='HTTP://Example.COM:80/a/../c#你好';
+  const out=await executeBrowserAutomation(f.options);assert(out.result.ok);
+  assert.equal(f.calls.find(([command])=>command==='navigate')[1].url,'http://example.com/c#%E4%BD%A0%E5%A5%BD');
+  assert.equal(out.result.url,'http://example.com/c#%E4%BD%A0%E5%A5%BD');
+  for(const url of ['not-a-url','javascript:alert(1)','https://user:private@fixture.invalid/','https://fixture.invalid/#'+'你'.repeat(1000)]){
+    const bad=nativeNavigationFixture('same-document');bad.options.params.url=url;const failure=await executeBrowserAutomation(bad.options);
+    assert.equal(failure.result.error.code,'url_invalid');assert.equal(failure.result.error.effect_may_have_occurred,false);assert(!bad.calls.some(([command])=>command==='navigate'));
+    assert(!JSON.stringify(failure).includes('user:private'));
   }
 });

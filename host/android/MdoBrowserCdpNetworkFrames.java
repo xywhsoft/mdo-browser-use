@@ -15,8 +15,9 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     private static final int LIMIT=32,DEPTH=32,LIFETIME=4096;
     /** Private bounded root commit history, not a public wire-ID lookup. */
     private static final class Commit {
-        final String loader;final long revision;final Origin origin;
-        Commit(String loader,long revision,Origin origin){this.loader=loader;this.revision=revision;this.origin=origin;}
+        final String loader;final long revision;final Origin origin;final byte[] destination;
+        Commit(String loader,long revision,Origin origin){this(loader,revision,origin,null);}
+        Commit(String loader,long revision,Origin origin,byte[] destination){this.loader=loader;this.revision=revision;this.origin=origin;this.destination=destination;}
     }
     private final Commit[] commits=new Commit[LIMIT];private int commitCursor;
     private static final class Scope {volatile boolean active=true;}
@@ -26,10 +27,11 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
         boolean current(){for(Scope scope:ancestry)if(!scope.active)return false;return true;}
     }
     private static final class Frame {
-        final String raw,parent,alias="nf-"+UUID.randomUUID();String loader,document="nd-"+UUID.randomUUID();Scope scope=new Scope();boolean swapped;
+        final String raw,parent,alias="nf-"+UUID.randomUUID();String loader,document="nd-"+UUID.randomUUID();Scope scope=new Scope(),position=new Scope();boolean swapped;
         Frame(String raw,String parent,String loader){this.raw=raw;this.parent=parent;this.loader=loader;}
-        void revoke(){scope.active=false;}
-        void navigate(String loader){revoke();scope=new Scope();document="nd-"+UUID.randomUUID();this.loader=loader;swapped=false;}
+        void revoke(){scope.active=false;position.active=false;}
+        void move(){position.active=false;position=new Scope();}
+        void navigate(String loader){revoke();scope=new Scope();position=new Scope();document="nd-"+UUID.randomUUID();this.loader=loader;swapped=false;}
     }
     private final Thread worker=Thread.currentThread();private final String root,initialLoader;
     private final Map<String,Frame> frames=new LinkedHashMap<>();private final Scope authority=new Scope();private boolean ready;private volatile boolean closed;private long revision;private int issued;
@@ -48,6 +50,11 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     private static String id(JSONObject value,String key)throws IOException {Object raw=value.opt(key);if(!identity(raw))throw fail("download_frame_metadata_invalid");return(String)raw;}
     private void current()throws IOException {if(Thread.currentThread()!=worker)throw fail("cdp_wrong_worker");if(closed)throw fail("download_frame_owner_closed");}
     long revision()throws IOException {current();return revision;}
+    String rootLoader()throws IOException {origin(root);return frames.get(root).loader;}
+    private void retain(Commit commit){
+        Commit old=commits[commitCursor];if(old!=null&&old.destination!=null)java.util.Arrays.fill(old.destination,(byte)0);
+        commits[commitCursor]=commit;commitCursor=(commitCursor+1)%LIMIT;
+    }
     private void collect(JSONObject tree,String parent,int depth,Map<String,Frame> found)throws IOException,JSONException {
         if(depth>=DEPTH||found.size()>=LIMIT)throw fail("download_frame_limit");
         JSONObject value=tree.getJSONObject("frame");String raw=id(value,"id");Object load=value.opt("loaderId");
@@ -83,9 +90,20 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     }
     @Override public void event(String method,String child,JSONObject params)throws IOException {
         current();if(!method.equals("Page.frameAttached")&&!method.equals("Page.frameNavigated")&&!method.equals("Page.documentOpened")&&
-            !method.equals("Page.frameDetached")&&!method.equals("Page.frameSubtreeWillBeDetached"))return;
+            !method.equals("Page.navigatedWithinDocument")&&!method.equals("Page.frameDetached")&&!method.equals("Page.frameSubtreeWillBeDetached"))return;
         try{
             if(child!=null)throw fail("download_frame_session_unproven");
+            if(method.equals("Page.navigatedWithinDocument")){
+                String raw=id(params,"frameId");if(!raw.equals(root))return;
+                Object url=params.opt("url"),type=params.opt("navigationType");
+                if(!(url instanceof String)||((String)url).length()>8192||params.has("navigationType")&&
+                   !("fragment".equals(type)||"historyApi".equals(type)||"other".equals(type)))throw fail("download_frame_metadata_invalid");
+                Frame node=frames.get(root);node.move();revision++;
+                if(ready&&MdoBrowserCdpSession.navigationUrl((String)url)){
+                    Origin document=origin(root);Scope[] scopes=java.util.Arrays.copyOf(document.ancestry,document.ancestry.length+1);scopes[scopes.length-1]=node.position;
+                    retain(new Commit(node.loader,revision,new Origin(node,scopes,true),MdoBrowserCdpSession.navigationDigest((String)url)));
+                }return;
+            }
             if(method.equals("Page.frameAttached")){String raw=id(params,"frameId"),parent=id(params,"parentFrameId");attach(raw,parent,"");revision++;return;}
             if(method.equals("Page.frameNavigated")||method.equals("Page.documentOpened")){
                 JSONObject value=params.getJSONObject("frame");String raw=id(value,"id");Object load=value.opt("loaderId");
@@ -95,7 +113,7 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
                     if(parent==null)throw fail("download_frame_parent_unproven");node=attach(raw,parent,(String)load);}
                 descendants(raw,false);node.navigate((String)load);revision++;
                 if(ready&&raw.equals(root)&&method.equals("Page.frameNavigated")){
-                    commits[commitCursor]=new Commit((String)load,revision,origin(root));commitCursor=(commitCursor+1)%LIMIT;
+                    retain(new Commit((String)load,revision,origin(root)));
                 }return;
             }
             String raw=id(params,"frameId");if(raw.equals(root))throw fail("download_frame_root_changed");Frame node=frames.get(raw);if(node==null)return;
@@ -119,7 +137,15 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
         current();if(navigation==null||!ready)return null;
         for(int i=0;i<LIMIT;i++){
             Commit commit=commits[(commitCursor+LIMIT-1-i)%LIMIT];
-            if(commit!=null&&commit.revision>after&&navigation.matchesCommittedLoader(root,commit.loader))return commit.origin;
+            if(commit!=null&&commit.destination==null&&commit.revision>after&&navigation.matchesCommittedLoader(root,commit.loader))return commit.origin;
+        }return null;
+    }
+    Origin sameDocumentOrigin(MdoBrowserCdpSession.Navigation navigation,long after,String loader,byte[] destination,Origin original)throws IOException {
+        current();if(navigation==null||!ready||original==null||!original.current()||!navigation.matchesSameDocument(root))return null;
+        for(int i=0;i<LIMIT;i++){
+            Commit commit=commits[(commitCursor+LIMIT-1-i)%LIMIT];
+            if(commit!=null&&commit.destination!=null&&commit.revision>after&&commit.loader.equals(loader)&&
+               java.security.MessageDigest.isEqual(commit.destination,destination))return commit.origin;
         }return null;
     }
     /** Called after the physical native worker is drained, or on that worker.

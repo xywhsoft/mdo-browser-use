@@ -70,6 +70,7 @@ public final class CdpNetworkWorkerProbe {
         void cancelled()throws Exception{await(()->{ui.drain();return worker.networkPending()==0;});}
         @Override public void close()throws Exception{
             worker.close();await(worker::terminated);ui.drain();Handler.drain();
+            if(worker.pending()!=0||!uncertainCleanup&&worker.networkPending()!=0)throw new AssertionError("Native worker cleanup retained jobs="+worker.pending()+", sources="+worker.networkPending());
             check(worker.pending()==0&&(uncertainCleanup||worker.networkPending()==0));
             for(CdpNetworkBindingProbe.Context c:owned)c.close();
             for(Map.Entry<MdoBrowserCdpMarker,CdpBindingProbe.Factory> row:documents.entrySet()){row.getKey().close();row.getValue().balanced();}

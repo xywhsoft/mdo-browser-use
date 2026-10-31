@@ -8503,3 +8503,79 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   other documented full-goal work. Installed Android/provider/main-UI/public JS-C
   qualification remains deferred; device/framework/automation flags remain false.
   No phone app/provider update, formal-data change or online publication occurred.
+
+## E102 — prove same-document destination before observing (2026-10-31)
+
+- Replace ACK-only same-document completion with the original typed non-download
+  ACK plus a destination-matching root `Page.navigatedWithinDocument` event after
+  the worker admission revision. Retain the original document/loader and private
+  physical target; never adopt a different document with a reused loader. ACK
+  arrival before or after the event is supported. Missing download classification
+  cannot be inferred from a missing loader or an event.
+- Keep a distinct position scope alongside the document scope. A later root
+  position event revokes the original same-document proof without revoking the
+  unchanged document's download provenance. Full navigation/document.open still
+  revokes the document and all its position proofs. Re-entering an old destination
+  does not resurrect a proof that the broker already retained and then revoked.
+- Share the existing bounded 32-entry commit history. Retain only a SHA-256
+  destination equality digest, not URL text; clear temporary UTF-8 arrays and
+  evicted digest arrays. Child events and pre-admission processed history cannot
+  grant root completion. No caller wire ID, URL lookup, new worker or dependency
+  is introduced. Same-location no-event/no-op behavior remains unqualified; no
+  success is invented when required native evidence is absent.
+- Extend the reading-connection guard: before and after observation, match the
+  original target, frame, loader and current native destination. Accept separate
+  `url`/`urlFragment` metadata or an unambiguous full URL without that separate
+  field; conflicting/malformed/missing destination metadata is unproven. Native
+  guards discard changed-destination payloads and retain evaluation uncertainty
+  when the operation already ran. UI delivery also rejects a changed original
+  same-document epoch. A same-document ACK alone no longer releases its UI
+  reservation; an original current proof must first restore page readiness.
+- Canonicalize HTTP(S) goto destinations with the shared JS URL implementation
+  before admission, including host/default-port/path/Unicode handling. Reject
+  embedded credentials and encoded destinations beyond the existing 8,192-character
+  limit before marking input dispatched. Read observation URLs, or the proven
+  same-document target, instead of publishing a stale toolbar URL. Old hosts
+  without the private same-document proof cannot fall back to page scripts.
+- Re-read the pinned primary Page definition for unchanged loaders, within-document
+  events and fragment metadata. Also inspect Chromium PageHandler's current
+  DispatchNavigateCallback on 2026-10-31: it supplies request->IsDownload() to the
+  navigate callback. This supports testing explicit false as well as true; it is
+  not a qualification claim about the installed older provider. Primary sources:
+  https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl
+  and https://raw.githubusercontent.com/chromium/chromium/main/content/browser/devtools/protocol/page_handler.cc.
+- Native navigation passes 370 assertions, ancestry/position passes 66, command
+  grammar passes 63 and shared worker passes 191. New cases include opposite
+  ACK/event order, wrong/child/pre-admission evidence, 32-entry eviction, unknown
+  or positive download classification, document.open reusing a loader, wrong
+  fragment, missing/conflicting metadata, post-read loader/destination change,
+  cancellation, payload clearing and non-resurrection. The full gate now requires
+  explicit new coverage markers, not just a generic passed flag.
+- Preserve the first focused failure log at .mdo/E102-native-focused.log and its
+  fixed QA evidence root network-navigation-files-E102-failure. It failed the
+  zero-pending cleanup assertion after a controlled document.open case. Inspection
+  found a check-then-remove race in the test Wire's concurrent receive/close drain;
+  use atomic poll and add the exact outstanding counts to fixture failure messages.
+  Keep the original zero-pending assertions; no product shutdown rule is weakened
+  or production close defect claimed. The corrected focused 370-assertion run and
+  the full native ASan/UBSan/API26 run pass.
+- All 364 JS tests pass sequentially in 21.631 seconds. Python passes 173/175 in
+  52.857 seconds, with the two existing Windows symlink-privilege skips. Exact
+  product lifecycle passes 450; all 103 native and 13 product input hashes match.
+  Seven final Android APK contracts and all 12 actual packed Windows runtime
+  checks pass. Final Windows artifact: 6,937,299 bytes, SHA-256
+  1265e71f1fad8503887dd8c37b5e6144da7e9834a0ce0647efe13ea75b59f99c.
+  Full Android QA APK: 6,468,929 bytes, SHA-256
+  9d1e8e9570ea44523d8ddac81eb5509abe0e24d4038929df6e39bbcbd7cdd757.
+  DEX definitions, private provider, six JNI exports, original ARM64/16 KiB engine,
+  source/archive identities and retained v2/v3 signer pass. Native engine and
+  paired 247,351-byte/22-file plugin remain unchanged. Evidence is retained in
+  .mdo/E102-native-current.json, .mdo/E102-product-current.json,
+  .mdo/E102-final-identities.log, .mdo/E102-android-receipt.json and E102 test/build logs.
+- Restore the sole headless service: PID 28904, HTTP 200 on 63625, about 3,441.2 MiB.
+  Goal active. Same-location no-op qualification, original history/reload receipts,
+  exact request/download association, remaining transfers, Android public
+  save/text/blob and the documented full-goal work remain open. Installed
+  Android/provider/main-UI/public JS-C verification stays deferred, and all three
+  qualification flags remain false. No phone/provider update, formal-data change
+  or online publication occurred.

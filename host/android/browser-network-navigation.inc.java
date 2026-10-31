@@ -64,6 +64,8 @@
         NetworkEntry owner=networkViews.get(key);NativeNavigation operation=owner==null?null:owner.navigation;
         if(owner==null||owner.view!=view||operation==null||!operation.id.equals(reference)||!nativeNavigationScope(operation)||operation.revoked||operation.pageError!=null)
             throw new java.io.IOException("cdp_navigation_cancelled");
+        if(operation.ticket!=null&&operation.ticket.sameDocument()&&views.epoch(key,view)!=operation.reservation.epoch)
+            throw new java.io.IOException("cdp_navigation_document_changed");
         if(operation.ticket==null||!operation.ticket.pageCurrent()||navigationRequests.containsKey(key))throw new java.io.IOException("cdp_navigation_document_unproven");
         return operation.ticket;
     }
@@ -83,7 +85,9 @@
         // Unknown dispatched effects never release its input admission fence.
         // A target opened from the native warmup is cross-document. Even a
         // non-download ACK without loader metadata cannot prove that transition.
-        if(!result.effectMayHaveOccurred||result.acknowledged&&(!result.ok||result.downloadKnown&&(result.download||!result.loaderPresent&&!operation.initial))){
+        boolean sameDocument=!operation.initial&&result.acknowledged&&result.ok&&result.downloadKnown&&!result.download&&!result.loaderPresent;
+        if(!result.effectMayHaveOccurred||result.acknowledged&&(!result.ok||result.downloadKnown&&result.download)||
+           sameDocument&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent()){
             cancelNavigationRequest(owner.key,owner.view);
             if(!operation.revoked&&result.acknowledged&&!result.ok)errors.put(owner.key,result.nativeError==null?result.code:result.nativeError);
         }
@@ -95,9 +99,11 @@
         long now=android.os.SystemClock.elapsedRealtime(),age=now-operation.born;
         if(result!=null){
             nativeNavigationRestore(operation,result);
-            boolean needsCommit=result.acknowledged&&result.ok&&!(result.downloadKnown&&result.download)&&(result.loaderPresent||operation.initial);
+            boolean sameDocument=!operation.initial&&result.downloadKnown&&!result.download&&!result.loaderPresent;
+            boolean needsCommit=result.acknowledged&&result.ok&&!(result.downloadKnown&&result.download)&&(result.loaderPresent||operation.initial||sameDocument);
             if(needsCommit&&!operation.revoked){
-                if(!result.loaderPresent)operation.pageError="cdp_navigation_commit_unproven";
+                if(sameDocument&&views.epoch(operation.owner.key,operation.owner.view)!=operation.reservation.epoch)operation.pageError="cdp_navigation_commit_revoked";
+                else if(!result.loaderPresent&&!sameDocument)operation.pageError="cdp_navigation_commit_unproven";
                 else if(!operation.pageJoined&&operation.ticket.pageCommitted()&&!operation.ticket.pageCurrent())operation.pageError="cdp_navigation_commit_revoked";
                 else if(!operation.pageJoined&&(!operation.ticket.pageCommitted()||navigationRequests.get(operation.owner.key)==operation.reservation)){
                     if(age<0||age>=operation.timeout){operation.pageError="cdp_navigation_commit_timeout";networkRetire(operation.owner,operation.pageError);}
@@ -116,7 +122,7 @@
         MdoBrowserCdpSession.NavigationResult result=operation.ticket.result();
         JSONObject value=new JSONObject().put("id",operation.id).put("phase",result==null?(operation.ticket.dispatched()?"sent":"queued"):result.ok?"acknowledged":"failed")
             .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched()).put("initial",operation.initial)
-            .put("page_commit_supported",true).put("page_committed",operation.ticket.pageCommitted()).put("page_current",operation.ticket.pageCurrent())
+            .put("page_commit_supported",true).put("same_document_supported",true).put("same_document",operation.ticket.sameDocument()).put("page_committed",operation.ticket.pageCommitted()).put("page_current",operation.ticket.pageCurrent())
             .put("page_document",operation.ticket.pageDocument()==null?JSONObject.NULL:operation.ticket.pageDocument()).put("page_error",operation.pageError==null?JSONObject.NULL:operation.pageError);
         if(result!=null)value.put("acknowledged",result.acknowledged).put("ok",result.ok).put("download_known",result.downloadKnown).put("download",result.download)
             .put("loader_present",result.loaderPresent).put("code",result.code==null?JSONObject.NULL:result.code).put("native_error",result.nativeError==null?JSONObject.NULL:result.nativeError);

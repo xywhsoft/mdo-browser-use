@@ -391,10 +391,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const oldNavigation = checked.state.navigation;
       if (params.action === "back" && !checked.state.can_go_back || params.action === "forward" && !checked.state.can_go_forward) return fail("history_unavailable", "There is no matching browser history entry");
       const oldDownloadIds=new Set(((await view.execute('downloads',{action:'list',agent:true})).downloads||[]).map(row=>row.id));
+      let targetUrl=params.url;
+      if(params.action==='goto'){
+        try{const target=new URL(params.url);if(!['http:','https:'].includes(target.protocol)||target.username||target.password||target.href.length>8192)return fail('url_invalid','Use a bounded HTTP(S) navigation destination without embedded credentials');targetUrl=target.href;}
+        catch{return fail('url_invalid','Use a complete HTTP(S) navigation destination');}
+      }
       const navigationBudget=Math.floor(deadline-performance.now());
       if(navigationBudget<100)return fail('timed_out','The original navigation deadline expired before admission');
       dispatched = true;
-      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, url: params.url,
+      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, url: targetUrl,
         timeout_ms:navigationBudget });
       if (!accepted.accepted) return fail("navigation_uncertain", "Navigation was not confirmed; inspect the current tab before repeating it");
       const nativeReference=accepted.navigation_ref;
@@ -430,7 +435,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           }
           sameDocument=native.download_known===true&&native.download===false&&native.loader_present===false;
           if(!native.loader_present&&!sameDocument)return fail('navigation_uncertain','This provider did not prove page or download completion; inspect the original navigation before retrying');
-          if(native.loader_present){
+          if(sameDocument&&(native.same_document_supported!==true||native.same_document!==true))return fail('navigation_uncertain','This host cannot prove original same-document navigation; inspect the tab before retrying');
+          if(native.loader_present||sameDocument){
             if(native.page_commit_supported!==true)return fail('navigation_uncertain','This host cannot prove original native page commitment; inspect the original tab');
             if(native.page_committed!==true){await pause(20);continue;}
             if(native.page_current!==true)return fail('stale_document','Native proof for the original page is no longer current; inspect its retained outcome before another input');
@@ -443,11 +449,11 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           const observation = await read("observe", { limit: 100, max_bytes: 4096 },nativeDocument?nativeReference:null);
           if(!observation.ok&&!framePending(observation.error?.code))return{handled:true,result:{...observation,action:action.id,error:{...observation.error,effect_may_have_occurred:dispatched}}};
           if (observation.ok && observation.ready === "complete"){
-            if(nativeReference&&!sameDocument){
+            if(nativeReference){
               const final=await guard(true);if(final.handled)return final;
               if(final.state.native_navigation?.id!==nativeReference||final.state.native_navigation?.page_current!==true||final.state.native_navigation?.page_document!==nativeDocument)return fail('stale_document','Native proof for the original page became stale during observation; request a fresh observation');
             }
-            retainNativeNavigation=true;return { handled: true, result: { ok: true, action: action.id, url: current.state.url, observation,...(sameDocument?{same_document:true}:{}) } };
+            retainNativeNavigation=true;return { handled: true, result: { ok: true, action: action.id, url: observation.url || (sameDocument&&targetUrl?targetUrl:current.state.url), observation,...(sameDocument?{same_document:true}:{}) } };
           }
         }
         await pause(50);

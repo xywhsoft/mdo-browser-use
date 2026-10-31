@@ -75,8 +75,8 @@ final class MdoBrowserCdpFrameRequest {
     static JSONObject failure(String nativeCode,boolean effect)throws JSONException {
         if(nativeCode==null||!nativeCode.matches("cdp_[a-z_]{1,80}"))nativeCode="cdp_frame_failed";
         String code="frame_unavailable",message="The native frame operation was not confirmed";
-        if(nativeCode.equals("cdp_navigation_document_unproven")){code="navigation_unproven";message="The original navigation has no current native document proof";}
-        else if(nativeCode.equals("cdp_navigation_document_changed")){code="stale_document";message="The reading connection no longer belongs to the original navigation document";}
+        if(nativeCode.equals("cdp_navigation_document_unproven")||nativeCode.equals("cdp_navigation_destination_invalid")||nativeCode.equals("cdp_navigation_digest_unavailable")){code="navigation_unproven";message="The original navigation has no current native document and destination proof";}
+        else if(nativeCode.equals("cdp_navigation_document_changed")||nativeCode.equals("cdp_navigation_destination_changed")){code="stale_document";message="The reading connection no longer belongs to the original navigation document and destination";}
         else if(nativeCode.equals("cdp_file_clear_requires_upload_route")){code="unsupported_action";message="Native file clearing requires the dedicated upload.clear mutation and original receipt route";}
         else if(nativeCode.contains("unsupported")){code="unsupported_capability";message="The installed provider does not support this frame operation";}
         else if(nativeCode.contains("timeout")){code="timed_out";message="The native frame operation reached its deadline";}

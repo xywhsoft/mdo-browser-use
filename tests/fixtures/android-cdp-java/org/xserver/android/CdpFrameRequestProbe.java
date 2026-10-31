@@ -86,7 +86,7 @@ public final class CdpFrameRequestProbe {
         }
     }
     private static void receipts()throws Exception {
-        String[][] codes={{"cdp_worker_timeout","timed_out"},{"cdp_frame_stale","stale_frame"},{"cdp_owner_unique_context_unsupported","unsupported_capability"},
+        String[][] codes={{"cdp_navigation_destination_changed","stale_document"},{"cdp_navigation_destination_invalid","navigation_unproven"},{"cdp_worker_timeout","timed_out"},{"cdp_frame_stale","stale_frame"},{"cdp_owner_unique_context_unsupported","unsupported_capability"},
             {"cdp_worker_cancelled","operation_cancelled"},{"cdp_world_document_limit","resource_limit"},{"cdp_frame_request_invalid","frame_request_invalid"}};
         for(String[] row:codes){JSONObject error=MdoBrowserCdpFrameRequest.failure(row[0],true).getJSONObject("error");check(error.getString("code").equals(row[1])&&error.getString("native_code").equals(row[0])&&error.getBoolean("evaluation_may_have_occurred"));}
         JSONObject safe=MdoBrowserCdpFrameRequest.failure("private/provider/detail",false);check(!safe.toString().contains("private/provider/detail"));

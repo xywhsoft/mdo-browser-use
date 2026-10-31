@@ -92,8 +92,27 @@ public final class CdpNetworkFramesProbe {
             check(!root.current());
         }
     }
+    private static void withinDocumentLedger()throws Exception{
+        try(MdoBrowserCdpNetworkFrames frames=open()){
+            MdoBrowserCdpNetworkFrames.Origin original=frames.origin("root");String document=original.document;long before=frames.revision();
+            for(String type:new String[]{"fragment","historyApi","other"}){
+                frames.event("Page.navigatedWithinDocument",null,new JSONObject().put("frameId","root").put("url","https://private.invalid/#"+type).put("navigationType",type));
+                check(original.current()&&frames.origin("root").document.equals(document)&&frames.rootLoader().equals("load-root"));
+            }
+            check(frames.revision()==before+3);frames.event("Page.navigatedWithinDocument",null,new JSONObject().put("frameId","child").put("url",true));check(original.current()&&frames.revision()==before+3);
+            frames.event("Page.navigatedWithinDocument",null,new JSONObject().put("frameId","root").put("url","data:text/plain,private"));check(original.current());
+        }
+        for(int mode=0;mode<4;mode++)try(MdoBrowserCdpNetworkFrames frames=open()){
+            MdoBrowserCdpNetworkFrames.Origin original=frames.origin("root");JSONObject params=new JSONObject().put("frameId","root").put("url","https://private.invalid/#valid");
+            if(mode==0)params.put("url",true);if(mode==1)params.put("navigationType","foreign");if(mode==2)params.put("url",new String(new char[8193]).replace('\0','x'));
+            final int scenario=mode;refused(mode==3?"download_frame_session_unproven":"download_frame_metadata_invalid",()->frames.event("Page.navigatedWithinDocument",scenario==3?"foreign-session":null,params));check(!original.current());
+        }
+        byte[] one=MdoBrowserCdpSession.navigationDigest("https://private.invalid/#%E4%BD%A0"),two=MdoBrowserCdpSession.navigationDigest("https://private.invalid/#%E4%BD%A0"),other=MdoBrowserCdpSession.navigationDigest("https://private.invalid/#other");
+        check(one.length==32&&java.security.MessageDigest.isEqual(one,two)&&!java.security.MessageDigest.isEqual(one,other));
+        refused("cdp_navigation_destination_invalid",()->MdoBrowserCdpSession.navigationDigest("https://user:private@private.invalid/"));
+    }
     public static void main(String[] args)throws Exception{
-        ancestry();removalAndSwap();bootstrap();limitsAndFaults();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"actual_network_ancestry\":true,\"native_navigation_epochs\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        ancestry();removalAndSwap();bootstrap();limitsAndFaults();withinDocumentLedger();
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"actual_network_ancestry\":true,\"native_navigation_epochs\":true,\"same_document_epoch_separate\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

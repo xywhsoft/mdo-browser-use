@@ -3893,3 +3893,44 @@ docs/progress.md and .mdo/E101-final-identities.log. Same-document event correla
 history/reload, exact downloads and remaining full-goal work remain open. Installed
 Android/provider/main-UI/public JS-C qualification remains deferred; all three
 qualification flags stay false. The phone and installed WebView were not changed.
+
+## Same-document event and destination proof (E102)
+
+A successful same-document goto now needs its original typed non-download ACK,
+a matching root within-document destination event after the worker admission
+revision, and the unchanged original native document/loader. The private history
+remains bounded to 32 entries and holds destination equality digests rather than
+URL text. A separate position scope prevents later fragment/history API movement
+from reusing the original same-document proof. The ordinary download document
+origin remains valid until the actual document changes. Document.open with a
+reused loader does not count as the original document.
+
+Before and after reading, the separate document connection must also match the
+actual root destination. Native `url` and optional `urlFragment` are combined only
+when unambiguous; malformed/missing/conflicting metadata is not completion proof.
+The UI epoch must still belong to the original same-document reservation. The
+client waits for proof, guards its observation and cannot use a legacy page-script
+fallback. Input URLs are canonical HTTP(S) before admission, with credentials and
+encoded over-limit destinations rejected without input effects. A later event
+cannot resurrect an already retained revoked proof.
+
+The pinned Page definition states the same-document loader/event/fragment shape:
+https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/a45ae55ca46eeb4c6768011da4470ec0f103d01c/pdl/domains/Page.pdl.
+Chromium's PageHandler::DispatchNavigateCallback, inspected on 2026-10-31, supplies
+IsDownload() as the native flag:
+https://raw.githubusercontent.com/chromium/chromium/main/content/browser/devtools/protocol/page_handler.cc.
+That current implementation is reference evidence, not an installed-provider pass.
+
+Full native ASan/UBSan/API26 checks pass, including 370 navigation, 66 ancestry/
+position, 63 grammar and 191 worker assertions. Product lifecycle passes 450;
+all 364 JS cases pass and Python passes 173/175 with two existing privilege skips.
+Final native/product input hashes, seven APK contracts and 12 actual packed Windows
+runtime checks pass. A controlled Wire cleanup race found during testing is fixed
+with atomic queue removal; zero-pending cleanup assertions remain unchanged and
+the failed log/root are preserved. Both development programs are refreshed; see
+docs/progress.md and .mdo/E102-final-identities.log for identities and evidence.
+
+Missing-event same-location/no-op behavior, native history/reload, precise download
+association and remaining full-goal work still need completion. Installed Android/
+provider/main-UI/public JS-C verification remains deferred. Device/framework/
+automation qualification stays false; the phone and installed WebView are unchanged.

@@ -83,6 +83,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean effectMayHaveOccurred(){NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
         boolean matchesCommittedLoader(String frame,String loader){NavigationResult result=result();return result!=null&&result.acknowledged&&result.ok&&result.loaderPresent&&
             !(result.downloadKnown&&result.download)&&this.frame.equals(frame)&&this.loader!=null&&this.loader.equals(loader);}
+        boolean matchesSameDocument(String frame){NavigationResult result=result();return result!=null&&result.acknowledged&&result.ok&&
+            result.downloadKnown&&!result.download&&!result.loaderPresent&&this.frame.equals(frame);}
         private void finish(NavigationResult result){outcome.compareAndSet(null,result);}
     }
     private static final NavigationResult NAVIGATION_NOT_SENT=new NavigationResult(false,false,false,false,"cdp_navigation_not_sent",false);
@@ -472,6 +474,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         try{java.net.URI parsed=new java.net.URI(url);String scheme=parsed.getScheme();
             return ("https".equalsIgnoreCase(scheme)||"http".equalsIgnoreCase(scheme))&&parsed.getHost()!=null&&parsed.getRawUserInfo()==null&&parsed.getPort()>=-1&&parsed.getPort()<=65535;
         }catch(java.net.URISyntaxException failure){return false;}
+    }
+    /** Private bounded destination equality; never retain or return URL text. */
+    static byte[] navigationDigest(String url)throws IOException {
+        if(!navigationUrl(url))throw new IOException("cdp_navigation_destination_invalid");
+        byte[] bytes=url.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        try{return java.security.MessageDigest.getInstance("SHA-256").digest(bytes);}
+        catch(java.security.NoSuchAlgorithmException failure){throw new IOException("cdp_navigation_digest_unavailable");}
+        finally{Arrays.fill(bytes,(byte)0);}
     }
     private boolean navigationReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
         synchronized(controlGate){
