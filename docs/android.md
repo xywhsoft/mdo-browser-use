@@ -4920,3 +4920,55 @@ fallback refusal. Rebind with nested iframes uses fresh native session IDs. Actu
 APK checks include the three-field document receipt, marker attachment fence and
 native-view identity override. Installed Android/provider qualification remains
 false, with the phone/WebView deferral preserved.
+
+### E138: original first-response decisions and bounded body transfer
+
+The private attached-document binding can select the next original retained
+response only after native document identity and isolated-world readiness of both
+the root and the response's exact frame have been proved. Keep validated frame
+identity for ordinary HTML/subresource/status responses as well as download
+candidates; previously only candidates retained that identity. No target, request,
+stream, URL, header or replacement body is selected by a caller. A response with
+an unproven frame remains paused, rather than becoming a generic pass-through.
+
+AttachedResponse is a private receipt for that exact paused event. It permits
+one fixed continueRequest for a passable response, one fixed failRequest abort,
+or conversion of a candidate into the existing Offer table. Invalid arguments do
+not consume the decision. Pass/Offer conversion recheck the originating document
+and worlds; abort can still clean up the original event after document loss when
+the physical owner remains current. Never rediscover/reconnect or use default-
+world Agent code. Successful frame admission ends the short capture-only expiry;
+physical ownership, cancellation, process lifetime and existing resource/time
+limits still apply. An unadmitted attachment retains its 15-second expiry.
+
+Accepted original-body transfers reuse the existing eight Offer/eight Body slots,
+64-MiB ceiling, bounded reads, buffer erasure, EOF validation and close/abort
+acknowledgements. The frozen source is tied to its physical native owner, not a
+replacement DOM. The receipt rejects another response's Body even on the same
+Browser connection. Stream handle reuse history includes the original child
+session; identical provider handle strings in different sessions are independent.
+Retired outstanding read IDs retain their exact session, so a late cancelled read
+can be discarded without accepting another session's bytes. A mismatched late
+reply fails the original channel closed. The existing broker pump services bodies
+cooperatively on its original executor.
+
+Nine product/native/shared-worker modes pass 409 assertions: pass/replay refusal,
+invalid arguments, abort, cancelled Offer, unproved frame, document loss followed
+by abort, actual queue/file/hash/readback completion, pending-read cancellation
+and correct/foreign late responses. The original-attachment fixture adds 53
+checks for denied admission, two child sessions with the same request/stream
+names, cross-response Body rejection and confirmed independent cleanup. It still
+declares that protocol fixtures do not prove native/task/provider ownership.
+Full native evidence passes 123 current input hashes, 134 worker modes/5,012
+checks, original attachment 2,686/two real native sessions, controller 360 and JNI
+264. Fresh product, popup, save and Python checks pass. The actual rebuilt APK
+contains 41 inspected class/method definition groups, a seven-field response
+receipt, twelve-field handoff, scoped retired-read map and Body/Offer source
+ownership callbacks; signing, ZIP/alignment, ARM64/JNI gates also pass.
+
+This remains an internal component join. Full preparation/action/adoption/task-
+policy coordination, source-epoch/download UI admission, nested OOPIF response
+routing and process/navigation recovery are still outstanding. Public protected
+admission and installed-provider/framework/automation qualification stay false.
+The phone/WebView deferral remains in force; there was no device or external-
+website test, model call, new runtime dependency or production change.

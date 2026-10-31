@@ -244,6 +244,9 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         refresh(deadline);for(Node node:new ArrayList<>(nodes.values()))if(attached(node,true))worlds.prepare(select(node.alias,node.document),deadline);
         return refresh(deadline);
     }
+    boolean responseReady(String raw)throws IOException {
+        current();Node node=nodes.get(raw);return node!=null&&attached(node,true)&&worlds.ready(node.alias,node.document);
+    }
     JSONObject evaluate(String frame,String document,String expression,boolean effect,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         Route route=select(frame,document);refresh(deadline);validate(route);return worlds.evaluate(route,expression,effect,deadline);
     }

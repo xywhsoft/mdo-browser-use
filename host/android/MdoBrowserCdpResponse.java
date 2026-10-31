@@ -126,6 +126,11 @@ final class MdoBrowserCdpResponse {
         return basename(extended==null?regular:extended);
     }
     static MdoBrowserCdpResponse inspect(JSONObject event){
+        MdoBrowserCdpResponse value=inspectMetadata(event);
+        String frame=event!=null&&MdoBrowserCdpNetworkFrames.identity(event.opt("frameId"))?(String)event.opt("frameId"):null;
+        return frame==null||value.frame!=null?value:new MdoBrowserCdpResponse(value.kind,value.reason,value.status,value.declaredLength,value.exactTextLength,value.name,value.mime,frame);
+    }
+    private static MdoBrowserCdpResponse inspectMetadata(JSONObject event){
         if(event==null)return invalid();
         boolean hasStatus=event.has("responseStatusCode"),hasError=event.has("responseErrorReason");
         if(!hasStatus&&!hasError)return pass("request_stage",0);

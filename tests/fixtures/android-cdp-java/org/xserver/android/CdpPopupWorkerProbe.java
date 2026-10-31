@@ -43,6 +43,7 @@ public final class CdpPopupWorkerProbe {
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
         volatile String managedResumeMode,managedFlowMode="normal";volatile Runnable managedResumeHook,managedFlowHook;
         final AtomicInteger continues=new AtomicInteger();final ConcurrentLinkedQueue<String> continuedIds=new ConcurrentLinkedQueue<>();
+        volatile String responseMode;volatile boolean holdRead;final AtomicInteger responsePasses=new AtomicInteger(),responseAborts=new AtomicInteger(),bodyClaims=new AtomicInteger(),bodyReads=new AtomicInteger(),bodyCloses=new AtomicInteger(),lateRead=new AtomicInteger();
         DocumentRenderer documentRenderer;
         static final class DocumentRenderer {
             final CdpFramesProbe.Plan frames=new CdpFramesProbe.Plan();final CdpWorldsProbe.Engine worlds;
@@ -70,7 +71,18 @@ public final class CdpPopupWorkerProbe {
             void add(JSONObject packet){incoming.add(packet.toString().getBytes(StandardCharsets.UTF_8));}
             public void send(byte[] bytes,int timeout)throws IOException{
                 threads.add(Thread.currentThread());try{JSONObject command=new JSONObject(new String(bytes,StandardCharsets.UTF_8));String method=command.getString("method");int id=command.getInt("id");
-                    if(documentRenderer!=null&&command.has("sessionId")&&!method.startsWith("Fetch.")&&!method.equals("Runtime.runIfWaitingForDebugger")){documentRenderer.command(command,this);return;}
+                    if(documentRenderer!=null&&command.has("sessionId")&&!method.startsWith("Fetch.")&&!method.startsWith("IO.")&&!method.equals("Runtime.runIfWaitingForDebugger")){documentRenderer.command(command,this);return;}
+                    if(responseMode!=null&&(method.equals("Fetch.takeResponseBodyAsStream")||method.equals("Fetch.failRequest")||method.startsWith("IO.")||method.equals("Fetch.continueRequest")&&continues.get()>0)){
+                        JSONObject params=command.getJSONObject("params");String child=command.getString("sessionId");check(command.length()==4&&child.equals("proof-real"));JSONObject value=new JSONObject();
+                        if(method.startsWith("IO.")){check(params.getString("handle").equals("original-child-stream"));
+                            if(method.equals("IO.read")){check(params.length()==2&&params.getInt("size")==65536);bodyReads.incrementAndGet();if(holdRead){lateRead.set(id);return;}value.put("data","AAH/").put("base64Encoded",true).put("eof",true);}
+                            else{check(method.equals("IO.close")&&params.length()==1);bodyCloses.incrementAndGet();}
+                        }else{check(params.getString("requestId").equals("initial-0")||params.getString("requestId").equals("response-extra"));
+                            if(method.equals("Fetch.takeResponseBodyAsStream")){check(params.length()==1);bodyClaims.incrementAndGet();value.put("stream","original-child-stream");}
+                            else if(method.equals("Fetch.failRequest")){check(params.length()==2&&params.getString("errorReason").equals("Aborted"));responseAborts.incrementAndGet();}
+                            else{check(params.length()==1);responsePasses.incrementAndGet();}
+                        }add(new JSONObject().put("id",id).put("sessionId",child).put("result",value));return;
+                    }
                     if(method.equals("Target.setAutoAttach")){
                         if(command.getJSONObject("params").getBoolean("autoAttach")){enables.incrementAndGet();if(armEntered!=null){armEntered.countDown();if(!armRelease.await(3,TimeUnit.SECONDS))throw new IOException("fixture_arm_wait_expired");}}
                         else disables.incrementAndGet();add(ack(id,null));
@@ -109,7 +121,7 @@ public final class CdpPopupWorkerProbe {
                         if(managedFlowMode.equals("timeout"))return;
                         if(managedFlowMode.equals("rejected")){add(new JSONObject().put("id",id).put("sessionId",child).put("error",new JSONObject().put("code",-32000).put("message","synthetic-unread")));return;}
                         if(managedFlowMode.equals("limit"))for(int i=0;i<33;i++)add(handoffPaused("response-overflow-"+i,true));
-                        else add(handoffPaused(request,true).put("sessionId",managedFlowMode.equals("foreign")?"foreign":child));
+                        else add((responseMode==null?handoffPaused(request,true):responsePaused(request,responseMode)).put("sessionId",managedFlowMode.equals("foreign")?"foreign":child));
                         JSONObject result=ack(id,child);if(managedFlowMode.equals("nonempty"))result.getJSONObject("result").put("unexpected",true);add(result);
                     }
                     else if(method.equals("Target.getTargetInfo")){
@@ -882,6 +894,88 @@ public final class CdpPopupWorkerProbe {
             }
         }
     }
+    private interface IoWork {void run()throws IOException;}
+    private static void refused(String code,IoWork work)throws IOException{try{work.run();throw new AssertionError("Expected "+code);}catch(IOException error){check(code.equals(error.getMessage())&&error.getCause()==null);}}
+    private static JSONObject responsePaused(String id,String mode)throws Exception{
+        JSONObject params=CdpBodyProbe.paused(id).put("frameId",mode.equals("response-frame")?"foreign-frame":"frame-owned");
+        if(mode.equals("response-pass")||mode.equals("response-arguments"))params.put("responseHeaders",new org.json.JSONArray().put(new JSONObject().put("name","Content-Type").put("value","text/html")));
+        return new JSONObject().put("method","Fetch.requestPaused").put("sessionId","proof-real").put("params",params);
+    }
+    private static void managedResponse(String mode,String directory)throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            PopupProductHost product=new PopupProductHost(c.source.views);product.cdpViews.worker=c.host.worker;
+            MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView view=created.view();c.source.adopting=view;
+            MdoBrowserPopups.Adoption adoption=c.source.source.adopt(created);c.source.ack();
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());MdoBrowserCdpPopupNative.Child child=c.source.source.child(adoption,created,adapter)){
+                c.backend.nativeTargets.put("target-proof-real",proofPeer(view,"success",null,null));check(c.request.proveNative(child));waitFor(()->!c.observer.provenChildren.isEmpty(),c.host,true);
+                MdoBrowserCdpPopupBroker.Handoff handoff=child.handoff();MdoBrowserCdpPopupBroker.Candidate candidate=c.observer.candidates.get(0);
+                MdoBrowserCdpPopupNative.Promotion promoted=product.handoff("owned",c.source.source,created,child);c.request.close();terminal(c.host,c.request,c.observer);
+                c.backend.responseMode=mode;c.backend.managedResumeMode="normal";product.activate(promoted,handoff);waitFor(()->candidate.retainedResponseCount()==1,c.host,true);
+                MdoBrowserCdpMarker marker=product.documentMarker("owned",promoted,handoff);MdoBrowserCdpPopupNative.Document proof=promoted.document(marker);
+                Backend.DocumentRenderer renderer=new Backend.DocumentRenderer(view);renderer.frames.omitChild=true;c.backend.documentRenderer=renderer;
+                int opens=c.backend.opens.get(),nativeOpens=c.backend.nativeOpens.get();
+                java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> result=new java.util.concurrent.atomic.AtomicReference<>();
+                java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpSession.AttachedResponse> response=new java.util.concurrent.atomic.AtomicReference<>();
+                java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpSession.Offer> offer=new java.util.concurrent.atomic.AtomicReference<>();
+                MdoBrowserCdpWorker.Completion complete=value->{check(c.host.ui.onThread());result.set(value);};
+                c.host.worker.submitDocument(marker,handoff,proof,3000,true,(binding,deadline)->{
+                    refused("cdp_popup_response_admission_required",()->binding.nextAttachedResponse());
+                    binding.frames().inventory(deadline);
+                    if(mode.equals("response-frame")){refused("cdp_popup_response_frame_unproven",()->binding.nextAttachedResponse());return new byte[]{1};}
+                    MdoBrowserCdpSession.AttachedResponse row=binding.nextAttachedResponse();response.set(row);check(row!=null&&binding.nextAttachedResponse()==null&&row.result()==null);
+                    check(row.metadata().frame.equals("frame-owned")&&candidate.retainedResponseCount()==1&&c.backend.bodyClaims.get()==0&&c.backend.responsePasses.get()==0);
+                    if(mode.equals("response-pass")||mode.equals("response-arguments")){
+                        check(row.metadata().kind.equals("pass"));refused("cdp_body_not_candidate",()->row.offer());
+                        if(mode.equals("response-arguments"))refused("cdp_arguments_invalid",()->row.pass(1));row.pass(1000);
+                        check(row.result().ok&&candidate.retainedResponseCount()==0&&binding.nextAttachedResponse()==null);
+                        refused("cdp_attach_response_unavailable",()->row.pass(1000));refused("cdp_attach_response_unavailable",()->row.abort(1000));
+                    }else if(mode.equals("response-abort")){row.abort(1000);check(row.result().ok&&candidate.retainedResponseCount()==0);}
+                    else if(mode.equals("response-document-loss")){
+                        marker.lease().invalidate();refused("cdp_attach_response_admission_required",()->row.offer());refused("cdp_attach_response_admission_required",()->row.pass(1000));row.abort(1000);check(row.result().ok);
+                    }else{
+                        check(row.metadata().kind.equals("candidate"));refused("cdp_attach_response_not_passable",()->row.pass(1000));
+                        MdoBrowserCdpSession.Offer next=row.offer();offer.set(next);check(candidate.retainedResponseCount()==0&&next.result()==null);
+                        refused("cdp_attach_response_unavailable",()->row.offer());refused("cdp_offer_arguments_invalid",()->next.accept(0,3000));
+                    }return new byte[]{1};
+                },complete);
+                waitFor(()->result.get()!=null,c.host,true);
+                if(mode.equals("response-document-loss"))check(result.get().code.equals("cdp_worker_cancelled")&&handoff.current());
+                else if(result.get().code!=null)throw new AssertionError("Response result "+result.get().code);
+                if(offer.get()!=null&&mode.equals("response-offer-cancel")){
+                    offer.get().cancel();waitFor(()->offer.get().result()!=null,c.host,true);check(!offer.get().result().accepted&&offer.get().result().requestAbortConfirmed&&offer.get().result().body==null&&c.backend.bodyClaims.get()==0&&c.backend.responseAborts.get()==1);
+                }else if(offer.get()!=null){
+                    MdoBrowserCdpSession.Offer next=offer.get();next.accept(65536,3000);waitFor(()->next.result()!=null,c.host,true);check(next.result().accepted&&next.result().body!=null);
+                    MdoBrowserCdpSession.Body body=next.result().body;check(body.ready()&&c.backend.bodyClaims.get()==1);MdoBrowserCdpSession.AttachedResponse row=response.get();
+                    if(mode.equals("response-body-cancel")||mode.equals("response-late-foreign"))c.backend.holdRead=true;
+                    result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{refused("cdp_body_owner_mismatch",()->row.requestRead(null));row.requestRead(body);return new byte[]{1};},complete);
+                    waitFor(()->result.get()!=null&&c.backend.bodyReads.get()==1,c.host,true);check(result.get().code==null);
+                    if(c.backend.holdRead){
+                        result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{row.cancel(body);return new byte[]{1};},complete);
+                        waitFor(()->result.get()!=null&&body.result()!=null,c.host,true);check(result.get().code==null&&!body.result().ok&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed&&body.result().bytes==0);
+                        JSONObject late=ack(c.backend.lateRead.get(),mode.equals("response-late-foreign")?"foreign":"proof-real");late.put("result",new JSONObject().put("data","unread-late-bytes").put("eof",true));c.backend.wire.add(late);
+                        if(mode.equals("response-late-foreign")){waitFor(promoted::ended,c.host,true);check(!handoff.current()&&c.backend.closes.get()==1);}
+                        else{int before=c.backend.receives.get();waitFor(()->c.backend.receives.get()>before+2,c.host,true);check(handoff.current()&&c.backend.closes.get()==0);}
+                    }else{
+                        java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
+                        try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),c.host.time::get)){
+                            MdoBrowserDownloadQueue.Ticket ticket=queue.begin(body);waitFor(()->{try{return queue.writable(ticket);}catch(IOException error){throw new AssertionError(error);}},c.host,true);
+                            result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{
+                                MdoBrowserCdpSession.BodyChunk chunk=row.takeChunk(body);check(chunk!=null&&chunk.eof&&java.util.Arrays.equals(chunk.data,new byte[]{0,1,(byte)255}));check(queue.offer(ticket,chunk));return new byte[]{1};},complete);
+                            waitFor(()->result.get()!=null&&ticket.snapshot().completed(),c.host,true);check(result.get().code==null&&ticket.snapshot().bytes==3&&ticket.snapshot().source==body.result());
+                            check(body.result().eof&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed&&body.result().bytes==3&&ticket.snapshot().sha256.equals("26a66b061e8f48f39927c312f25293959729eee95978e2892d49d3512a5cc092"));
+                            MdoBrowserDownloadQueue.Read read=queue.read(ticket,0,10);waitFor(read::finished,c.host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);
+                            queue.release(ticket);waitFor(()->queue.retainedTickets()==0,c.host,true);queue.close();check(queue.awaitStopped(3000)&&!queue.cleanupFailed()&&queue.reservations()==0&&queue.retainedReads()==0);
+                        }finally{java.nio.file.Files.deleteIfExists(root.resolve(".mdo-browser-download-owner-v1"));java.nio.file.Files.delete(root);}
+                    }
+                    check(c.backend.bodyCloses.get()==1&&c.backend.responseAborts.get()==1);
+                }else if(mode.equals("response-pass")||mode.equals("response-arguments")){check(c.backend.responsePasses.get()==1&&c.backend.responseAborts.get()==0);c.host.time.addAndGet(16000);Thread.sleep(50);check(handoff.current());}
+                else if(mode.equals("response-frame"))check(candidate.retainedResponseCount()==1&&c.backend.responsePasses.get()==0&&c.backend.responseAborts.get()==0);
+                else check(c.backend.responseAborts.get()==1&&c.backend.responsePasses.get()==0);
+                check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.continues.get()==1);
+                if(handoff.current()){handoff.close();waitFor(promoted::ended,c.host,true);}check(view.destroyed==1&&c.backend.closes.get()==1&&c.backend.detaches.get()==0);renderer.wire.close();
+            }
+        }
+    }
     private static void transportQuiescence(String mode)throws Exception{
         Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.networkTargets.put(two.adapter.marker(),"other-root");c.ready(one);c.ready(two);
@@ -1292,7 +1386,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("document"))managedDocument(mode);
+        if(mode.startsWith("response"))managedResponse(mode,args[1]);
+        else if(mode.startsWith("document"))managedDocument(mode);
         else if(mode.startsWith("activation"))managedActivation(mode);
         else if(mode.startsWith("handoff"))protectedHandoff(mode);
         else if(mode.startsWith("promotion"))nativePromotion(mode);
@@ -1313,6 +1408,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

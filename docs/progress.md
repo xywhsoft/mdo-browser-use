@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E138:** private first-response decisions and original-session body
+  transfer now require the exact native document and isolated root/response frame.
+  Preserve frame identity for ordinary passable responses; reuse bounded Offers,
+  Bodies and the actual file queue. Scope stream handles and retired read replies
+  to their original child session. Nine new worker modes pass 409 assertions;
+  original attachment adds 53 scope checks, totaling 2,686. Full native passes
+  123 inputs, 134 worker modes/5,012 checks; fresh product/popup/save and Python
+  173/175 pass. Rebuilt APK passes signing and 41 actual definition groups.
+  Public admission, the complete product/policy coordinator and installed-provider
+  qualification remain outstanding; phone/WebView deferral is unchanged.
 - **Android E137:** bind an exact native document to the original Browser
   attachment, reusing document witnesses and frame/isolated-world managers without
   discovery or another connection. Admit only related native iframe sessions;
@@ -11091,3 +11101,52 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   public Agent admission. Installed provider/framework/automation qualification
   stays false; unsupported isolation never uses default-world Agent execution.
   The user's phone/WebView deferral remains in force.
+
+
+### E138 — original first-response/body decisions and scoped download streams
+
+- Add the private AttachedResponse receipt after exact native document and
+  isolated root/response-frame admission. Preserve sanitized frame identity on
+  passable responses too. Select the original paused event once; pass, abort or
+  convert to the existing Offer without caller-supplied wire IDs or overrides.
+  Document loss refuses new pass/Offer decisions while permitting exact physical-
+  owner cleanup. Successful response admission lifts the capture-only deadline;
+  unadmitted attachments retain the old 15-second bound.
+- Reuse existing bounded Offer/Body transfer and the actual guarded file queue.
+  Tie body buffers to their frozen response and physical owner. Include child
+  session in stream reuse history and in cancelled-read tombstones. Service bodies
+  cooperatively on the original worker; discard matching late data and fail on a
+  foreign-session reply. Keep EOF, buffer erasure, close and request-abort receipts
+  necessary for completed file state, with no default-world/rediscovery fallback.
+- E138-targeted.log passes nine new worker modes/409 assertions, including actual
+  file/hash/range readback and pending-read cancellation. Original attachment adds
+  53 scope checks: false admission, two sessions reusing the same provider stream
+  name, cross-response Body refusal and independent close/abort cleanup. Its total
+  is 2,686 checks/two actual native sessions; protocol fixtures still declare that
+  they do not prove native/task ownership or installed providers.
+- E138-native.log passes 123 current hashes, ASan/UBSan/API26/JVM/JNI, 134 worker
+  modes/5,012 assertions, controller 360 and JNI 264. The existing ten handoff modes
+  now total 478 because their reflection gate checks twelve data-only fields.
+  Fresh popup passes 110 +25 native callback +7 owner scope; fresh product passes
+  789/18 inputs including 77 asynchronous close checks. Fresh save passes 47/six
+  inputs tied to current native evidence. Python passes 173/175 in 46.231 seconds;
+  two existing Windows symlink-privilege cases remain skipped. Reuse E130 Windows
+  301/six input cycles and E105 world evidence only after all scoped source/native-
+  host hashes match. Those checks are unchanged reuse, not new provider tests.
+- Apply reviewed overlays while stopped, restore the same local service, and
+  rebuild the development APK. Signing/private-provider/JNI/ARM64/16-KiB/ZIP gates
+  pass. E138-dex.py/log verifies 41 actual class/method definition groups, exact
+  response receipt, source-owner callbacks and session-scoped read map. APK:
+  6,538,561 bytes, SHA-256
+  03c58ed89b712f1d86134c1bb738037ff8d3be50fc3765a4c08323b0f1ea36ed.
+  Windows program, ARM64 native host and plugin bytes remain unchanged.
+  E138-final-identities.py/log binds final sources, artifacts and scoped evidence.
+- Local service restored: HTTP 200 on 63625, PID 7156; one deployment about
+  3,448.6 MiB, D: about 37.02 GiB free. No additional app/Home/source copy,
+  ADB/phone/WebView change, new runtime dependency, external-browser/model call,
+  production/account/config change or publication.
+- Goal remains active. Continue complete preparation/action/adoption/task-policy
+  coordination, source-epoch/download UI admission, nested OOPIF response routing,
+  multi-child/process/navigation recovery and platform/delivery audit. This private
+  component join does not enable public protected admission. Installed provider,
+  framework and automation qualification stay false. Preserve the phone deferral.

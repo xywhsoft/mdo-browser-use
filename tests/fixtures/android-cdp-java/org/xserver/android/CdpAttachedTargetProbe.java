@@ -206,9 +206,32 @@ public final class CdpAttachedTargetProbe {
             check(!test.client.continueProtectedRequest(original,()->true,100)&&test.wire.sent.size()==sent+2);
         }
     }
+    private static void responseStreamScopes()throws Exception{
+        try(Case test=new Case()){
+            java.util.Map<String,MdoBrowserCdpSession.AttachedTarget> targets=new java.util.HashMap<>();
+            test.action=(method,child,params)->{if(method.equals("Target.attachedToTarget"))targets.put(params.optString("sessionId"),test.client.retainAttachedTarget());else if(method.equals("Fetch.requestPaused"))test.client.retainAttachedRequest(targets.get(child));else throw new IOException("cdp_fixture_event_invalid");};
+            test.wire.after=command->{String method=command.getString("method"),child=command.getString("sessionId");JSONObject reply=ack(command.getInt("id"),child);
+                if(method.equals("Fetch.takeResponseBodyAsStream"))reply.getJSONObject("result").put("stream","same-provider-handle");
+                else check(method.equals("Fetch.enable")||method.equals("Runtime.runIfWaitingForDebugger")||method.equals("IO.close")||method.equals("Fetch.failRequest"));test.wire.add(reply);
+            };
+            List<MdoBrowserCdpSession.AttachedResponse> rows=new ArrayList<>();List<MdoBrowserCdpSession.Body> bodies=new ArrayList<>();
+            for(String child:new String[]{"scope-one","scope-two"}){
+                test.wire.add(attached(child));check(test.client.poll(10,100));MdoBrowserCdpSession.AttachedTarget target=targets.get(child);test.client.protectAttachedTarget(target,100);test.client.resumeProtectedAttachment(target,()->true,100);
+                test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId",child).put("params",CdpBodyProbe.paused("same-request")));check(test.client.poll(10,100));
+                failure("cdp_attach_owner_changed",()->test.client.nextAttachedResponse(target,()->true,()->false));
+                MdoBrowserCdpSession.AttachedResponse row=test.client.nextAttachedResponse(target,()->true,()->true);rows.add(row);MdoBrowserCdpSession.Offer offer=row.offer();offer.accept(65536,3000);
+                check(test.client.serviceBodies(100)&&test.client.poll(10,100));check(offer.result()!=null&&offer.result().accepted&&offer.result().body.ready());bodies.add(offer.result().body);
+            }
+            failure("cdp_body_owner_mismatch",()->rows.get(0).requestRead(bodies.get(1)));failure("cdp_body_owner_mismatch",()->rows.get(1).cancel(bodies.get(0)));
+            for(int i=0;i<2;i++)rows.get(i).cancel(bodies.get(i));
+            for(int n=0;n<20&&test.client.pendingBodies()>0;n++){test.client.serviceBodies(100);test.client.poll(10,100);}
+            check(test.client.pendingBodies()==0);for(MdoBrowserCdpSession.Body body:bodies)check(!body.result().ok&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed&&body.result().bytes==0);
+            check(test.wire.sent.stream().filter(row->row.optString("method").equals("IO.close")).count()==2&&test.wire.closes==0);
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();java.util.concurrent.ExecutorService worker=Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{responseStreamScopes();protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
     }

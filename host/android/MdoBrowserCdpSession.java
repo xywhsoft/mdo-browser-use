@@ -106,6 +106,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     /** Native-only original-body permit. No caller-provided stream/request ID.
      * cancel() only revokes admission; the owning worker must drain it. */
     static final class Body {
+        private final Object responseIdentity;private final BooleanSupplier sourceOwner;
         private final MdoBrowserCdpSession owner;private PausedEvent original;
         private final long born,limit;private final int timeout;
         private final ControlReceipt claim=new ControlReceipt();
@@ -119,6 +120,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         private BodyChunk chunk;
         private Body(MdoBrowserCdpSession owner,PausedEvent original,long born,long limit,int timeout){
             this.owner=owner;this.original=original;this.born=born;this.limit=limit;this.timeout=timeout;
+            responseIdentity=original.identity;sourceOwner=original.sourceOwner;
         }
         BodyResult result(){return outcome.get();}
         boolean ready(){synchronized(owner.controlGate){return outcome.get()==null&&stream!=null;}}
@@ -146,13 +148,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * Decisions are atomic and perform no I/O. The owning protocol worker
      * applies the first acceptance to this frozen event, never a supplied ID. */
     static final class Offer {
+        private final BooleanSupplier sourceOwner;
         private final MdoBrowserCdpSession owner;private PausedEvent original;private final MdoBrowserCdpResponse metadata;
         private final String networkId;private MdoBrowserCdpNetworkRequests.Link requestLink;private boolean associated;
         private MdoBrowserCdpNetworkFrames.Origin sourceEpoch;private String epochKind;
         private final long born;private final AtomicReference<OfferDecision> decision=new AtomicReference<>();
         private final AtomicBoolean cancelled=new AtomicBoolean();private final AtomicReference<OfferResult> outcome=new AtomicReference<>();
         private volatile Body claimed;private boolean issued;private String abortCode;
-        private Offer(MdoBrowserCdpSession owner,PausedEvent original,long born){this.owner=owner;this.original=original;metadata=original.response;networkId=original.networkId;this.born=born;}
+        private Offer(MdoBrowserCdpSession owner,PausedEvent original,long born){this.owner=owner;this.original=original;metadata=original.response;networkId=original.networkId;this.born=born;sourceOwner=original.sourceOwner;}
         String networkIdentity(){return networkId;}
         void associateRequest(MdoBrowserCdpNetworkRequests.Link link){if(associated)throw new IllegalStateException("Original response already associated");associated=true;requestLink=link;}
         String sourceRequestReference(){return requestLink==null?null:requestLink.reference();}
@@ -170,6 +173,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(maximum<1||maximum>64L*1024*1024||timeoutMs<1000||timeoutMs>600000)throw new IOException("cdp_offer_arguments_invalid");
             if(metadata.declaredLength>maximum)throw new IOException("cdp_offer_byte_limit");
             if(owner.closed.get()||outcome.get()!=null||cancelled.get())throw new IOException("cdp_offer_unavailable");
+            if(!owned(sourceOwner))throw new IOException("cdp_offer_owner_changed");
             long elapsed=owner.clock.now()-born;
             if(elapsed<0||elapsed>=120000){cancelled.set(true);throw new IOException(elapsed<0?"cdp_offer_clock_invalid":"cdp_offer_expired");}
             if(!decision.compareAndSet(null,new OfferDecision(maximum,timeoutMs)))throw new IOException("cdp_offer_already_decided");
@@ -189,12 +193,32 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         private OfferResult(){accepted=false;claimMayHaveOccurred=true;requestAbortConfirmed=false;code="cdp_offer_outcome_unavailable";body=null;}
     }
     private static final OfferResult OFFER_UNKNOWN=new OfferResult();
+    /** Exact retained response, never a caller-selected interception/stream ID.
+     * Metadata is available only after the original document/world admission.
+     * Later body flow follows its frozen physical owner rather than a new DOM. */
+    static final class AttachedResponse {
+        private final MdoBrowserCdpSession owner;private final AttachedTarget attachment;private final PausedEvent original;
+        private final BooleanSupplier sourceOwner,admission;private boolean decided;
+        private final AtomicReference<ControlResult> outcome=new AtomicReference<>();
+        private AttachedResponse(MdoBrowserCdpSession owner,AttachedTarget attachment,PausedEvent original,BooleanSupplier scope,BooleanSupplier admission){this.owner=owner;this.attachment=attachment;this.original=original;sourceOwner=scope;this.admission=admission;}
+        MdoBrowserCdpResponse metadata(){return original.response;}
+        ControlResult result(){return outcome.get();}
+        void pass(int timeout)throws IOException{owner.responseFlow(this,false,timeout);}
+        void abort(int timeout)throws IOException{owner.responseFlow(this,true,timeout);}
+        Offer offer()throws IOException{return owner.responseOffer(this);}
+        private void body(Body body)throws IOException{owner.guard(false);if(body==null||body.owner!=owner||body.responseIdentity!=original.identity)throw owner.failure("cdp_body_owner_mismatch",false);}
+        void requestRead(Body body)throws IOException{body(body);owner.requestBodyRead(body);}
+        BodyChunk takeChunk(Body body)throws IOException{body(body);return owner.takeBodyChunk(body);}
+        void cancel(Body body)throws IOException{body(body);body.cancel();}
+    }
+    private static boolean owned(BooleanSupplier scope){try{return scope==null||scope.getAsBoolean();}catch(RuntimeException|Error error){return false;}}
     private static final int CONTROL_LIMIT=256,CONTROL_HISTORY=4096,CONTROL_TIMEOUT=5000;
     private static final int ATTACH_DETACH=-2,ATTACH_RESUME=-1,FLOW=0,CLAIM=1,BODY_READ=2,BODY_CLOSE=3,BODY_ABORT=4;
     private static final ControlResult CONTROL_CANCELLED=new ControlResult(false,"cdp_control_cancelled",0,true);
     private static final ControlResult CONTROL_TIMEOUT_RESULT=new ControlResult(false,"cdp_control_timeout",0,true);
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
     private static final class PausedEvent {
+        final Object identity=new Object();BooleanSupplier sourceOwner;boolean responseSelected;
         final String request,session,key,networkId;final MdoBrowserCdpResponse response;boolean used,continuationAttempted;
         PausedEvent(MdoBrowserCdpJson.Message message){
             response=MdoBrowserCdpResponse.inspect(message.value);
@@ -272,7 +296,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Set<String> controlKeys=new HashSet<>();private int controlCount;
     private final Body[] bodies=new Body[8];private final Set<String> streamIds=new HashSet<>();
     private final Offer[] offers=new Offer[8];
-    private final Set<Integer> retiredBodyReads=new HashSet<>();
+    private final Map<Integer,String> retiredBodyReads=new HashMap<>();
     private PausedEvent paused;private AttachedTarget attached;private long activeStarted;private int activeTimeout;private String controlFault;
     private BooleanSupplier attachmentCommandOwner;
     private Navigation navigation;private int navigationCount;
@@ -480,6 +504,37 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         catch(org.json.JSONException error){throw failure("cdp_attach_request_invalid",false);}
         synchronized(controlGate){original.initialRequests.remove(request);original.retainedRequests=original.initialRequests.size();}return true;
     }
+    MdoBrowserCdpResponse peekAttachedResponse(AttachedTarget original)throws IOException{
+        protectedAttachment(original,true);for(PausedEvent response:original.protectedResponses)if(!response.responseSelected)return response.response;return null;
+    }
+    AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission)throws IOException{
+        protectedAttachment(original,true);if(!original.resumed||scope==null||admission==null||!owned(scope)||!owned(admission))throw failure("cdp_attach_owner_changed",false);
+        synchronized(controlGate){for(PausedEvent response:original.protectedResponses)if(!response.responseSelected){
+            AttachedResponse receipt=new AttachedResponse(this,original,response,scope,admission);response.sourceOwner=scope;response.responseSelected=true;
+            if(!owned(scope)||!owned(admission)){response.responseSelected=false;response.sourceOwner=null;throw failure("cdp_attach_owner_changed",false);}return receipt;
+        }}return null;
+    }
+    private void responseGuard(AttachedResponse response)throws IOException{
+        guard(false);if(busy)throw failure("cdp_reentry_forbidden",false);
+        if(response==null||response.owner!=this||response.decided||!owned(response.sourceOwner))throw failure("cdp_attach_response_unavailable",false);
+        protectedAttachment(response.attachment,true);if(!response.attachment.protectedResponses.contains(response.original))throw failure("cdp_attach_response_unavailable",false);
+    }
+    private void releaseResponse(AttachedResponse response){response.attachment.protectedResponses.remove(response.original);response.attachment.retainedResponses=response.attachment.protectedResponses.size();}
+    private void responseFlow(AttachedResponse response,boolean abort,int timeout)throws IOException{
+        responseGuard(response);if(timeout<10||timeout>5000)throw failure("cdp_arguments_invalid",false);
+        if(!abort&&!owned(response.admission))throw failure("cdp_attach_response_admission_required",false);
+        if(!abort&&!"pass".equals(response.original.response.kind))throw failure("cdp_attach_response_not_passable",false);
+        JSONObject params;try{params=new JSONObject().put("requestId",response.original.request);if(abort)params.put("errorReason","Aborted");}catch(org.json.JSONException error){throw failure("cdp_attach_response_invalid",false);}
+        response.decided=true;
+        try{protectedCall(response.attachment,response.sourceOwner,abort?"Fetch.failRequest":"Fetch.continueRequest",params,timeout);releaseResponse(response);response.outcome.set(new ControlResult(true,null,0,true));}
+        catch(IOException|RuntimeException|Error error){int protocol=error instanceof Failure?((Failure)error).protocolCode:0;boolean effect=!(error instanceof Failure)||((Failure)error).effectMayHaveOccurred;
+            response.outcome.set(new ControlResult(false,error instanceof Failure?error.getMessage():"cdp_attach_response_failed",protocol,effect));throw error;}
+    }
+    private Offer responseOffer(AttachedResponse response)throws IOException{
+        responseGuard(response);if(!owned(response.admission))throw failure("cdp_attach_response_admission_required",false);if(!"candidate".equals(response.original.response.kind))throw failure("cdp_body_not_candidate",false);
+        synchronized(controlGate){int slot=0;while(slot<offers.length&&offers[slot]!=null)slot++;if(slot==offers.length)throw failure("cdp_body_limit",false);
+            Offer offer=new Offer(this,response.original,clock.now());response.decided=true;offers[slot]=offer;releaseResponse(response);return offer;}
+    }
     /** Preserve original request IDs before adoption. After explicit protected
      * resume, also retain opaque response IDs without exposing metadata/body.
      * No caller selector or replacement URL/headers/body/JSON is retained. */
@@ -595,6 +650,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         synchronized(controlGate){
             long now=clock.now();for(int count=0;count<offers.length;count++){
                 int index=offerCursor;offerCursor=(offerCursor+1)%offers.length;Offer offer=offers[index];if(offer==null||offer.issued)continue;
+                if(!owned(offer.sourceOwner))offer.cancelled.set(true);
                 long elapsed=now-offer.born;OfferDecision next=offer.decision.get();
                 if(offer.cancelled.get()||elapsed<0||elapsed>=120000||next!=null){
                     selected=offer;
@@ -616,7 +672,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             long now=clock.now(),elapsed=now-offer.born;
             if(decision!=null&&(elapsed<0||elapsed>=120000)){offer.abortCode=elapsed<0?"cdp_offer_clock_invalid":"cdp_offer_expired";decision=null;}
             int bodySlot=0;while(bodySlot<bodies.length&&bodies[bodySlot]!=null)bodySlot++;
-            if(decision!=null&&offer.cancelled.get()){offer.abortCode="cdp_offer_cancelled";decision=null;}
+            if(decision!=null&&(offer.cancelled.get()||!owned(offer.sourceOwner))){offer.abortCode="cdp_offer_cancelled";decision=null;}
             if(decision!=null&&bodySlot==bodies.length){offer.abortCode="cdp_body_limit";decision=null;}
             PausedEvent original=offer.original;
             Body body=decision==null?null:new Body(this,original,now,decision.maximum,decision.timeout);
@@ -796,8 +852,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         ControlResult result=null;Control resumed=null;
         synchronized(controlGate){
             guard(effect);
-            if(retiredBodyReads.contains(message.id)){
-                if(message.session!=null){controlFault="cdp_body_retired_reply_mismatch";close();throw failure(controlFault,effect);}
+            if(retiredBodyReads.containsKey(message.id)){
+                if(!Objects.equals(retiredBodyReads.get(message.id),message.session)){controlFault="cdp_body_retired_reply_mismatch";close();throw failure(controlFault,effect);}
                 retiredBodyReads.remove(message.id);return true;
             }
             for(int i=0;i<controls.length;i++){
@@ -823,7 +879,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                     if(result.ok){Object stream=message.value.opt("stream");
                         if(message.value.length()!=1||!(stream instanceof String)||!streamHandle((String)stream))
                             result=new ControlResult(false,"cdp_body_claim_reply_invalid",0,true);
-                        else if(!streamIds.add((String)stream))result=new ControlResult(false,"cdp_body_stream_reused",0,true);
+                        else if(!streamIds.add((row.session==null?"0|":"1|"+row.session.length()+"|"+row.session+"|")+(String)stream))result=new ControlResult(false,"cdp_body_stream_reused",0,true);
                         else body.stream=(String)stream;
                     }
                     if(!result.ok){if(result.protocolCode==-32601)body.claimMayHaveOccurred=false;finishBody(body,false,result.code);}
@@ -907,6 +963,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(body.outcome.get()!=null){controlFault="cdp_body_reply_after_terminal";close();throw failure(controlFault,effect);}
         if(row.kind==BODY_READ){
             body.readPending=false;
+            if(!owned(body.sourceOwner))beginBodyCleanup(body,"cdp_body_owner_changed",clock.now());
             if(!body.cleaning&&!body.cancelled.get()){
                 if(!result.ok)beginBodyCleanup(body,result.protocolCode==-32601?"cdp_body_read_unsupported":"cdp_body_read_rejected",clock.now());
                 else try{acceptBodyData(body,message.value);}
@@ -931,15 +988,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private void retireBodyRead(Body body)throws Failure {
         for(int i=0;i<controls.length;i++){
             Control row=controls[i];if(row==null||row.body!=body||row.kind!=BODY_READ)continue;
-            if(row.session!=null||retiredBodyReads.size()>=CONTROL_HISTORY){controlFault="cdp_body_retired_read_limit";close();throw failure(controlFault,true);}
-            retiredBodyReads.add(row.id);row.receipt.finish(CONTROL_CANCELLED);controls[i]=null;controlCount--;body.readPending=false;return;
+            if(retiredBodyReads.size()>=CONTROL_HISTORY){controlFault="cdp_body_retired_read_limit";close();throw failure(controlFault,true);}
+            retiredBodyReads.put(row.id,row.session);row.receipt.finish(CONTROL_CANCELLED);controls[i]=null;controlCount--;body.readPending=false;return;
         }
         controlFault="cdp_body_read_row_missing";close();throw failure(controlFault,true);
     }
     /** Request/consume at most one chunk. Neither call performs socket I/O.
      * Native consumers must wait for BodyResult as well as final chunk EOF. */
     void requestBodyRead(Body body)throws IOException {
-        bodyGuard(body);synchronized(controlGate){
+        bodyGuard(body);if(!owned(body.sourceOwner)){body.cancel();throw failure("cdp_body_owner_changed",false);}synchronized(controlGate){
             if(body.cancelled.get())throw failure("cdp_body_cancelled",false);
             if(body.cleaning||body.eof)throw failure("cdp_body_finishing",false);
             if(body.readRequested||body.readPending||body.chunk!=null)throw failure("cdp_body_read_pending",false);
@@ -953,6 +1010,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             guard(false);BodyResult result=body.outcome.get();
             if(result!=null){if(!result.ok)throw failure(result.code,result.claimMayHaveOccurred);return null;}
             if(body.cancelled.get()||body.cleaning&&body.cleanupCode!=null)return null;
+            if(!owned(body.sourceOwner)){beginBodyCleanup(body,"cdp_body_owner_changed",clock.now());throw failure("cdp_body_owner_changed",false);}
             BodyChunk chunk=body.chunk;body.chunk=null;return chunk;
         }
     }
@@ -966,7 +1024,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             for(Body body:bodies)if(body!=null){
                 long used=now-body.born;
                 if(used<0){finishBody(body,false,"cdp_body_clock_invalid");close();throw failure("cdp_body_clock_invalid",true);}
-                if(body.cancelled.get())beginBodyCleanup(body,"cdp_body_cancelled",now);
+                if(!owned(body.sourceOwner))beginBodyCleanup(body,"cdp_body_owner_changed",now);
+                else if(body.cancelled.get())beginBodyCleanup(body,"cdp_body_cancelled",now);
                 else if(used>body.timeout-10)beginBodyCleanup(body,"cdp_body_timeout",now);
                 else if(body.eof&&body.chunk==null&&!body.readPending)beginBodyCleanup(body,null,now);
                 if(body.cleaning&&(now<body.cleanupBorn||now-body.cleanupBorn>=5000)){

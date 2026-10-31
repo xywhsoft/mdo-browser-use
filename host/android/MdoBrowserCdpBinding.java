@@ -260,8 +260,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     static MdoBrowserCdpBinding bindAttached(MdoBrowserCdpPopupBroker.DocumentPeer peer,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpMarker marker,int timeout)throws IOException {
         if(peer==null||document==null||marker==null||marker.lease()!=document.lease||!peer.matches(document)||!document.current())throw problem("cdp_popup_document_owner_invalid");
         final String target=peer.target();
-        return bind(marker,timeout,(method,child,params)->{},ignored->java.util.Collections.singletonList(target),
+        MdoBrowserCdpBinding bound=bind(marker,timeout,(method,child,params)->{},ignored->java.util.Collections.singletonList(target),
             (id,budget,current,events)->{if(!target.equals(id))throw problem("cdp_popup_document_owner_invalid");peer.observe(events);return peer;},false,document::current,true);
+        try{peer.controller(bound);return bound;}catch(IOException|RuntimeException|Error error){bound.close();throw error;}
     }
     /** A separate physical-view proof, never a promotion of an ordinary
      * document binding. This private facade exposes no page/frame RPC. */
@@ -576,6 +577,10 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         contexts.forward=(method,session,params)->{if(original!=null)original.event(method,session,params);controller.event(method,session,params);};
     }
     MdoBrowserCdpFrames frames()throws IOException {current();if(frames==null)frames=new MdoBrowserCdpFrames(this);return frames;}
+    boolean responseReady(String raw)throws IOException{current();return frames!=null&&frames.responseReady(rootFrame)&&frames.responseReady(raw);}
+    MdoBrowserCdpSession.AttachedResponse nextAttachedResponse()throws IOException {
+        current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");return ((MdoBrowserCdpPopupBroker.DocumentPeer)peer).nextResponse();
+    }
     @Override public void close(){if(closed.compareAndSet(false,true)){
         contexts.forward=null;contexts.dirty=true;lease.untrack(this);lease.untrack(peer);
         try{peer.close();}catch(RuntimeException|Error failure){cleanupFailed.set(true);throw failure;}

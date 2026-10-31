@@ -168,9 +168,10 @@ def main():
                  'activation-success','activation-parent-close','activation-expiry','activation-owner-loss',
                  'activation-resume-unsupported','activation-resume-rejected','activation-resume-nonempty','activation-resume-mismatch','activation-resume-timeout','activation-resume-send-failure',
                  'activation-flow-rejected','activation-flow-nonempty','activation-flow-foreign','activation-flow-timeout','activation-flow-send-failure','activation-flow-limit','activation-flow-owner-loss',
-                 'document-inventory','document-evaluate','document-rebind','document-navigation','document-owner-loss','document-unique','document-metadata','document-no-fallback','document-reuse','document-scope','document-rebind-frames'):
+                 'document-inventory','document-evaluate','document-rebind','document-navigation','document-owner-loss','document-unique','document-metadata','document-no-fallback','document-reuse','document-scope','document-rebind-frames',
+                 'response-pass','response-offer-cancel','response-arguments','response-abort','response-frame','response-document-loss','response-body','response-body-cancel','response-late-foreign'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
-                        '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
+                        '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/'popup-body-files')],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
                 or not popup_worker.get('ui_delivery') or not popup_worker.get('cooperative_popup_pump')
                 or popup_worker.get('protective_interception_scope_tested') is not mode.startswith('protection')
@@ -179,6 +180,7 @@ def main():
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
+                or popup_worker.get('protected_response_routing_tested') is not mode.startswith('response')
                 or popup_worker.get('protected_attachment_activation_tested') is not mode.startswith('activation')
                 or popup_worker.get('protected_attachment_handoff_tested') is not mode.startswith('handoff')
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
