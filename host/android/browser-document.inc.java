@@ -70,6 +70,7 @@
         boolean prepared,running,destroyed,complete,failed,clean,controlled;
         NativeDestruction(String key,WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){this.key=key;this.view=view;this.popup=popup;this.dialog=dialog;this.capture=capture;this.document=document;}
         public boolean ready(){return prepared&&!running&&!failed;}
+        public boolean failed(){return failed;}
         public void destroy(){
             if(complete||running)return;if(!ready())throw new IllegalStateException("native_view_retirement_busy");running=true;
             try{

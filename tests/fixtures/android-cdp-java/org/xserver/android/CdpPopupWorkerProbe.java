@@ -590,6 +590,54 @@ public final class CdpPopupWorkerProbe {
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
         }
     }
+    private static void productDisposal(String mode)throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            PopupProductHost product=new PopupProductHost(c.source.views);
+            if(mode.equals("product-disposal-configuration")){
+                product.failConfiguration=true;
+                try{product.construct(c.source.source,c.allocation,"owned");throw new AssertionError("Product configuration fault was lost");}
+                catch(IllegalStateException expected){check(expected.getMessage().equals("controlled_product_configuration_failure"));}
+                check(WebView.lastConstructed.destroyed==1&&product.retired==1&&product.retiring()==0&&!product.failed()&&MdoBrowserCdpPopupNative.creationConfirmed());
+                c.cancel(false);check(c.request.result().sourceReleased&&c.request.result().processCleanupConfirmed);return;
+            }
+            MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView child=created.view();
+            check(product.configured==1&&!product.failed()&&child.destroyed==0);
+            boolean sent=mode.equals("product-disposal-sent")||mode.equals("product-disposal-consumed");
+            if(sent){c.source.adopting=child;c.source.source.adopt(created);if(mode.endsWith("-consumed"))c.source.ack();}
+            if(mode.equals("product-disposal-network"))product.networkReady=false;
+            if(mode.equals("product-disposal-failure")||mode.equals("product-disposal-logical-failure")){
+                boolean logical=mode.equals("product-disposal-logical-failure");int attempts=logical?0:1;
+                product.failClose=logical;child.destroyFailure=!logical;failure("cdp_popup_native_child_cleanup_unconfirmed",created::close);
+                check(child.destroyed==attempts&&product.failed()&&product.retired==0&&!c.source.views.nativeDestroyed(child)&&!MdoBrowserCdpPopupNative.creationConfirmed());
+                product.failClose=false;child.destroyFailure=false;failure("cdp_popup_native_child_cleanup_unconfirmed",created::close);check(child.destroyed==attempts);
+                c.request.close();c.source.ack();terminal(c.host,c.request,c.observer);
+                check(!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed&&child.destroyed==attempts&&c.backend.resumes.get()==0&&c.backend.detaches.get()==0);return;
+            }
+            if(mode.equals("product-disposal-nested")){
+                MdoBrowserCdpView adapter=MdoBrowserCdpView.network(child,v->v==child,new MdoBrowserCdpMarker.DocumentQuota());
+                MdoBrowserPopups<WebView> core=new MdoBrowserPopups<>(child,new MdoBrowserPopups.Scheduler(){public long now(){return c.host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}},new MdoBrowserPopups.Budget(8),()->true,()->1L,blocked->{});
+                MdoBrowserCdpPopupNative nested=new MdoBrowserCdpPopupNative(adapter,child,core);nested.claim(adapter.marker().lease());nested.retainUiOwner();check(nested.ready());
+                final Runnable[] callback={null};check(core.open(new MdoBrowserPopups.Transport<WebView>(){public Object token(){return this;}public void send(WebView exact,Runnable ack){check(exact==null&&callback[0]==null);callback[0]=ack;}},false));
+                product.windows.put("owned",core);created.close();
+                check(callback[0]!=null&&child.destroyed==0&&product.retiring()==1&&!product.failed()&&MdoBrowserCdpPopupNative.creationConfirmed());
+                created.close();check(child.destroyed==0&&product.root.removes==0);callback[0].run();callback[0].run();nested.finish(false);core.close();core.viewDestroyed(child);
+                check(child.destroyed==1&&product.retired==1&&product.retiring()==0&&!product.failed()&&MdoBrowserCdpPopupNative.creationConfirmed());
+                c.cancel(false);check(c.request.result().sourceReleased&&c.request.result().processCleanupConfirmed&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);return;
+            }
+            boolean reentrant=mode.equals("product-disposal-reentrant");
+            if(reentrant)product.root.callback=()->{
+                try{created.close();}catch(IOException error){throw new AssertionError(error);}check(!product.retire("owned",child));
+                c.source.source.reject();c.source.ack();check(!c.source.source.confirmed());
+            };
+            created.close();
+            if(mode.equals("product-disposal-sent")){check(child.destroyed==0&&product.root.removes==0);c.source.ack();}
+            check(child.destroyed==1&&product.retired==1&&product.retiring()==0&&!product.failed()&&MdoBrowserCdpPopupNative.creationConfirmed());
+            created.close();check(child.destroyed==1&&product.root.removes==1&&product.cdpViews.invalidations==1);
+            if(sent){c.request.close();c.backend.wire.add(detached("proof-real"));terminal(c.host,c.request,c.observer);}
+            else c.cancel(reentrant);
+            check(c.request.result().sourceReleased&&c.request.result().processCleanupConfirmed&&c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
+        }
+    }
     private static void hostDestruction(String mode)throws Exception{
         check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
         boolean human=mode.contains("-human"),failure=mode.endsWith("-failure"),nested=mode.contains("-nested");
@@ -851,7 +899,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("host-destruction"))hostDestruction(mode);
+        if(mode.startsWith("product-disposal"))productDisposal(mode);
+        else if(mode.startsWith("host-destruction"))hostDestruction(mode);
         else if(mode.startsWith("owner-lifetime"))ownerLifetime(mode.equals("owner-lifetime-sent"));
         else if(mode.equals("admission-fence"))admissionFence();
         else if(mode.startsWith("retirement"))retirement(mode);
@@ -865,6 +914,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

@@ -7,7 +7,8 @@
         MdoBrowserCdpPopupNative.Created created=source.construct(allocation,views,key,(exactKey,exactView)->{
             WebView current=views.get(exactKey);
             if(current!=null&&current!=exactView)throw new IllegalStateException("popup_binding_mismatch");
-            if(!closeAndDestroyDocument(exactKey,exactView))throw new IllegalStateException("native_view_cleanup_failed");
+            NativeDestruction row=retireNativeDocument(exactKey,exactView);
+            if(nativeViewCleanupFailed||row!=null&&row.failed)throw new IllegalStateException("native_view_cleanup_failed");
         });
         try{
             WebView view=created.view();

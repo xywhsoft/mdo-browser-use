@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E131:** reproduce and fix Created.close -> exact product disposer ->
+  native destruction reentry. Execute the original ready callback while Created
+  is closing, distinguish pending native barriers from failed host teardown and
+  preserve exact post-destroy acknowledgement. Add nine joined product/Native
+  modes/212 checks; fresh native passes 122 inputs, 61 modes/2,348 checks and
+  controller 278. Product 789/18-input, save 47, Python 173/175 and eleven actual
+  APK class/constructor/method checks pass. Reuse unchanged E130 actual Windows
+  301/six-cycle evidence after input/host checks. Full protected coordination,
+  global quiescence, promotion/body routing and provider qualification remain open.
 - **Android E130:** make the actual product close command wait for final exact
   native/network/private-file cleanup and reply once on its original channel.
   Bound observation to five seconds and 32 requests on the existing UI Handler;
@@ -10582,3 +10591,67 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and platform/delivery audit. Public protected Android popup admission and all
   provider/framework/automation qualification remain false; no main-world Agent
   fallback for unavailable isolated-world support.
+
+## E131 — joined product/native disposer reentry (2026-11-01)
+
+- Previous goal turn made progress through E130. Add a joint gate compiling the
+  actual product constructProtocolPopup disposer, NativeDestruction and retirement
+  methods against the actual native source, popup controller, lifecycle registry
+  and shared worker. Reuse the existing QA classes/output; controlled document,
+  network and Android SDK peers remain. This is not a renderer/provider pass.
+- The first joint run fails before the fix with
+  cdp_popup_native_child_cleanup_unconfirmed. Created.close calls the product
+  disposer, which registers a host destructor and invokes native activation.
+  Activation reenters Created.close; its closing guard returns, so the physical
+  callback never executes and the missing acknowledgement is misclassified as
+  cleanup failure. E131-product-before.log and E131-before.json preserve the
+  failure and original production hashes, matched to the verified E130 snapshot.
+- Native activation now executes that same exact registered host callback from
+  inside the existing close when it is ready and both native-consumption barriers
+  permit destruction. The host running/complete guards prevent replay. Do not
+  reenter Created.close. Add a typed failed state to distinguish actual failed
+  teardown from an unprepared callback; failed cleanup retains the sticky process
+  fence and is not retried automatically.
+- The exact product disposer requests retirement rather than requiring immediate
+  aggregate world/network cleanup. After the disposer returns, Created joins the
+  exact physical acknowledgement or waits for a known original native obligation.
+  Missing acknowledgement without that typed pending state is still failure.
+  A child that owns another pending popup can wait without a false error. An
+  unrelated network retirement is not failed native destruction; protocol/target/
+  global cleanup still requires its separate receipts.
+- Nine new shared-worker modes pass 212 checks: unsent, sent, already consumed,
+  configuration rollback, unrelated network retirement, physical failure, logical
+  failure, nested original callback and reentrant close. Require the explicit
+  product_disposer_join_tested result. The physical-failure fixture initially
+  waited for terminal state before acknowledging the original null handoff;
+  complete that real callback before expecting terminal failure. Preserve failed
+  outcomes, do not manufacture acknowledgement or relax existing no-ACK tests.
+- E131-native.log passes with 122 current hashes, ASan/UBSan/API26/JVM/JNI,
+  balanced transport/exit invariants, 61 worker modes/2,348 assertions, controller
+  278 and broker 261/two native flows. Bind both the new joint-host template and
+  the orchestrating gate's own source hash. Fresh product passes 789/18-input
+  checks, including the existing 77 async-close assertions; fresh JS/C saving
+  passes 47 and binds the new native receipt. Python passes 173/175 in 52.013
+  seconds, with two existing Windows symlink-privilege skips. Reuse unchanged
+  E130 actual Windows WebView2 301/six-input-cycle evidence after verifying all
+  six inputs and the native host, and unchanged popup 110/25/7/13-input and
+  applicable E105/E106/E125 evidence. Do not describe reuse as fresh runs.
+- Apply reviewed host files only while stopped and rebuild actual Android Java/
+  DEX/APK. Inspect eleven actual class/constructor/method definitions, including
+  failed() in both the native destruction interface and the host implementation;
+  confirm the test PopupProductHost is absent. Signing/private-provider/JNI/ARM64/
+  16-KiB/zip checks pass. APK: 6,518,081 bytes,
+  SHA-256 b2ab8a3f86c097f36ce5be614b0728e3acf551d400691d409f8dec1958e2ab56.
+  ARM64 host, packed Windows program and plugin bytes remain unchanged. The E131
+  final-identity script joins current sources/artifacts, before/fixed-after source
+  evidence, new native/product/save/DEX receipts and scoped unchanged evidence.
+- Development service restored: HTTP 200 on 63625, PID 15180; deployment about
+  3,445.5 MiB, D: about 37.56 GiB free. Phone/WebView deferral preserved. No ADB,
+  application/Home/source copy, new runtime dependency, model call, external
+  browser page, production account/config change or publication.
+- Goal remains active. The joined disposer gap is fixed within its tested scope;
+  continue full product preparation/action/adoption coordination, independent
+  child promotion, global multi-source failure quiescence, guarded bootstrap/
+  resume, response/body routing and platform/delivery audit. Public protected
+  Android popup admission and all provider/framework/automation qualification
+  remain false. No main-world Agent fallback for unavailable isolated worlds.

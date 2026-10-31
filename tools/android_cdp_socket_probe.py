@@ -13,6 +13,23 @@ import sys
 ROOT=Path(__file__).resolve().parents[1]
 
 
+def prepare_popup_product(output):
+    source=(ROOT/'tests/fixtures/android-cdp-java/PopupProductHost.java.in').read_text(encoding='utf-8')
+    document=(ROOT/'host/android/browser-document.inc.java').read_text(encoding='utf-8')
+    view=(ROOT/'host/android/browser-view.inc.java').read_text(encoding='utf-8')
+    upload=(ROOT/'host/android/browser-native-upload.inc.java').read_text(encoding='utf-8')
+    fragments={
+        '@@CREATION_GUARD@@':document[document.index('    private void nativeCreationAdmission'):document.index('    private final Map<String,MdoBrowserDocument>')],
+        '@@DESTRUCTION@@':document[document.index('    private final class NativeDestruction'):document.index('    private void documentNavigation')],
+        '@@CONSTRUCT@@':view[view.index('    private MdoBrowserCdpPopupNative.Created constructProtocolPopup'):view.index('    /** Common native policy')],
+        '@@POST_DESTROY@@':upload[upload.index('        views.viewDestroyed(view);'):upload.index('        retireUploadTargets(view);')],
+    }
+    for marker,value in fragments.items():
+        if source.count(marker)!=1:raise RuntimeError('Popup product fixture marker changed')
+        source=source.replace(marker,value)
+    generated=output/'PopupProductHost.java';generated.write_text(source,encoding='utf-8');return generated
+
+
 def main():
     if os.name=='nt':
         script=Path(__file__).resolve().as_posix();script='/mnt/'+script[0].lower()+script[2:]
@@ -92,6 +109,7 @@ def main():
     if download_source.count('@@POPUP_STATE@@')!=1:raise RuntimeError('Download product popup-state fixture marker changed')
     download_source=download_source.replace('@@POPUP_STATE@@',popup_state)
     download_generated=output/'DownloadCommandHost.java';download_generated.write_text(download_source,encoding='utf-8')
+    popup_product=prepare_popup_product(output)
     import setup_android_json_test
     import update_android_owner_scripts
     update_android_owner_scripts.verify()
@@ -104,7 +122,7 @@ def main():
                                                                'MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpPopupBroker.java','MdoBrowserCdpPopupWorker.java','MdoBrowserCdpPopupNative.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java',
                                                                'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserUploadStore.java','MdoBrowserUploadFiles.java','MdoBrowserDownloadFiles.java','MdoBrowserDownloadQueue.java','MdoBrowserCdpDownloads.java','MdoBrowserUploadQueue.java','MdoBrowserChoosers.java','MdoBrowserPrivatePicker.java','MdoBrowserChannel.java','MdoBrowserCapture.java',
                                                                'MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java','MdoBrowserPopups.java')],
-                    str(generated),str(upload_generated),str(download_generated),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
+                    str(generated),str(upload_generated),str(download_generated),str(popup_product),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not vm.get('passed') or not vm.get('read_only_browser_discovery') or not vm.get('browser_transport') or not vm.get('real_jvm_jni'):
@@ -139,13 +157,15 @@ def main():
     popup_worker_results=[]
     for mode in ('suite','native-cancel','host-close','native-ack-timeout','native-detach-timeout','native-send-failure','protection','protection-limit','protection-response','protection-duplicate','protection-timeout','protection-send-failure','protection-reply','protection-nonempty',
                  'native-proof','native-proof-missing','native-proof-unique','native-proof-owner','native-proof-cancel','native-proof-barrier','native-proof-detach','native-proof-no-guard','native-proof-marker','native-proof-late-ui','native-proof-between','native-proof-cooperative','native-proof-no-opener','native-proof-foreign-opener','native-proof-multiple','native-proof-post-birth','allocation','allocation-cleanup-failure','ownership','ownership-constructor-failure','ownership-disposal-failure','ownership-disposal-no-ack','retirement','retirement-disposal-failure','retirement-disposal-no-ack','retirement-no-consumption','retirement-opener-loss','admission-fence','owner-lifetime-unsent','owner-lifetime-sent',
-                 'host-destruction','host-destruction-unsent','host-destruction-inline','host-destruction-human','host-destruction-human-inline','host-destruction-failure','host-destruction-nested-parent','host-destruction-nested-child'):
+                 'host-destruction','host-destruction-unsent','host-destruction-inline','host-destruction-human','host-destruction-human-inline','host-destruction-failure','host-destruction-nested-parent','host-destruction-nested-child',
+                 'product-disposal','product-disposal-sent','product-disposal-consumed','product-disposal-configuration','product-disposal-network','product-disposal-failure','product-disposal-logical-failure','product-disposal-nested','product-disposal-reentrant'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
                 or not popup_worker.get('ui_delivery') or not popup_worker.get('cooperative_popup_pump')
                 or popup_worker.get('protective_interception_scope_tested') is not mode.startswith('protection')
                 or popup_worker.get('retained_target_marker_scope_tested') is not mode.startswith('native-proof')
+                or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
         popup_worker_results.append(popup_worker)
@@ -351,7 +371,7 @@ def main():
             'host/android/browser-network-navigation.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserPopups.java','host/android/browser-native-popup.inc.java','host/android/popup-protocol.json',
-            'host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
+            'tools/android_cdp_socket_probe.py','tests/fixtures/android-cdp-java/PopupProductHost.java.in','host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
             'tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c',
             *[p.relative_to(ROOT).as_posix() for p in javas])
     result.update(source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},

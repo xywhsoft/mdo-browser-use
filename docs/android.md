@@ -4629,7 +4629,39 @@ Metadata cleanup checks physical ownership again after reentrant UI callbacks.
 The exact product route, watcher and whole-host shutdown are exercised together
 with controlled SDK/provider peers. The APK has verified close-route/watcher and
 BrowserClose constructor definitions. These tests do not qualify an installed
-provider or enable protected popup admission. Separate Native and product gates
-also do not yet prove the recursive path from Created.close into the product
-disposer and back through native destruction activation; that combined callback
-must be covered before enabling the protected product coordinator.
+provider or enable protected popup admission. E131 below joins the recursive
+Created.close/product-disposer/native-activation path. The full protected product
+coordinator and installed-provider qualification remain separate requirements.
+
+## Product disposer and native reentry (E131)
+
+A joint regression reproduced a cleanup defect that the earlier separate gates
+did not execute: Created.close entered the product disposer, which registered a
+host destructor and called native activation. Activation tried Created.close
+again, but its closing guard returned without executing the host destructor. The
+missing physical acknowledgement was then classified as cleanup failure.
+
+Native activation can now complete that same exact registered host callback while
+Created is already closing, once the callback is ready and both native-consumption
+barriers permit it. It does not reenter Created.close or replay a running native
+destructor. Missing physical acknowledgement without a known pending native
+obligation remains a failure. Host destruction has an explicit failed state, so
+failed cleanup cannot be treated as a still-unprepared callback.
+
+The exact product disposer requests retirement and lets the native controller
+join its physical acknowledgement. A child that is also an opener can therefore
+wait for its original native callback rather than fail because retirement is
+pending. Unrelated network retirement is not physical-view destruction failure;
+original network/process cleanup still needs its own receipts. Configuration or
+actual native teardown failure keeps the existing sticky process fence.
+
+The new joint gate compiles the real product constructor/disposer and physical
+teardown fragments against the actual native source, lifecycle registry, popup
+controller and shared worker. Controlled document/network/SDK peers remain; no
+installed renderer is qualified. Nine scenarios cover unsent/sent/consumed
+cleanup, configuration rollback, unrelated network retirement, physical/logical
+failure, a child with its own pending native popup and reentrant close. Before/
+after evidence is bound to the original and current production source identities.
+Public protected popup admission and provider/framework/automation qualification
+stay false. Continue full preparation/action/adoption coordination, promotion,
+global failure quiescence, guarded bootstrap/resume and response/body routing.

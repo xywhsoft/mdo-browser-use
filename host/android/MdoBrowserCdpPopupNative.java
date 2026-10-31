@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * original lease and a data-only native rejection receipt, never a WebView. */
 final class MdoBrowserCdpPopupNative {
     interface Disposal {void destroy(String key,WebView exact);}
-    interface Destruction {boolean ready();void destroy();}
+    interface Destruction {boolean ready();default boolean failed(){return false;}void destroy();}
     private static final AtomicBoolean CREATION_UNCERTAIN=new AtomicBoolean();
     private static final UiRetention[] UI_OWNERS=new UiRetention[8];
     static boolean creationConfirmed(){return !CREATION_UNCERTAIN.get();}
@@ -37,7 +37,14 @@ final class MdoBrowserCdpPopupNative {
     }
     static void activateDestruction(WebView exact,Destruction destruction)throws IOException {
         thread();for(UiRetention owner:UI_OWNERS)if(owner!=null){
-            for(Created child:owner.book.constructions)if(child!=null&&child.view==exact&&child.hostDestruction==destruction)child.close();
+            for(Created child:owner.book.constructions)if(child!=null&&child.view==exact&&child.hostDestruction==destruction){
+                // The exact product disposer can register its host callback
+                // from inside Created.close. Complete that callback directly
+                // once its own native barriers permit it, without reentering
+                // Created.close or replaying a currently running destructor.
+                if(child.closing){if(!destruction.failed()&&destruction.ready()&&destructionAllowed(exact))destruction.destroy();}
+                else child.close();
+            }
             if(owner.source.view.get()==exact&&owner.rootDestruction==destruction){if(owner.source.scope==owner.scope)owner.source.reject();owner.sweep();}
         }
     }
@@ -60,6 +67,7 @@ final class MdoBrowserCdpPopupNative {
                 for(Created child:book.constructions)if(child!=null&&child.construction!=null&&child.construction.destroyed())try{child.close();}catch(IOException error){/* no false physical release */}
                 if(core.protocolHasObligations(scope))return;
                 if(rootDestruction!=null){
+                    if(rootDestruction.failed()){rootFailed=true;CREATION_UNCERTAIN.set(true);if(source.failure==null)source.failure="cdp_popup_native_owner_cleanup_unconfirmed";return;}
                     if(rootFailed||!rootDestruction.ready()||!destructionAllowed(source.view.get()))return;
                     try{rootDestruction.destroy();rootDestruction=null;}
                     catch(RuntimeException|Error error){rootFailed=true;CREATION_UNCERTAIN.set(true);if(source.failure==null)source.failure="cdp_popup_native_owner_cleanup_unconfirmed";return;}
@@ -102,7 +110,7 @@ final class MdoBrowserCdpPopupNative {
                 clearConsumptionWait();finished();cancelOwner();return;
             }
             if(sent&&(adoption==null||!adoption.nativeConsumed())){awaitConsumption();return;}
-            if(hostDestruction!=null&&(!hostDestruction.ready()||!destructionAllowed(view))){awaitConsumption();return;}
+            if(hostDestruction!=null&&!hostDestruction.failed()&&(!hostDestruction.ready()||!destructionAllowed(view))){awaitConsumption();return;}
             if(construction!=null&&construction.destroyed()){clearConsumptionWait();acknowledgeDestruction();finished();if(!sent)cancelOwner();return;}
             if(cleanupFailed)throw new IOException(view==null?"cdp_popup_native_constructor_unconfirmed":"cdp_popup_native_child_cleanup_unconfirmed");
             closing=true;MdoBrowserCdpPopupNative source=owner.get();if(source!=null)source.disposing.incrementAndGet();
@@ -112,10 +120,13 @@ final class MdoBrowserCdpPopupNative {
                 if(!construction.started()){construction.cancelBeforeStart();finished();cancelOwner();return;}
                 if(construction.destroyed()){finished();cancelOwner();return;}
                 if(view==null)throw new IOException("cdp_popup_native_constructor_unconfirmed");
-                if(hostDestruction!=null)hostDestruction.destroy();
+                if(hostDestruction!=null){if(hostDestruction.failed())throw new IOException("cdp_popup_native_child_cleanup_unconfirmed");hostDestruction.destroy();}
                 else if(disposal!=null)disposal.destroy(key,view);
                 else{if(registry.owns(key,view))registry.remove(key);view.destroy();registry.viewDestroyed(view);}
-                if(!construction.destroyed()&&!registry.nativeDestroyed(view))throw new IOException("cdp_popup_native_child_cleanup_unconfirmed");acknowledgeDestruction();finished();cancelOwner();
+                if(!construction.destroyed()&&!registry.nativeDestroyed(view)){
+                    if(hostDestruction!=null&&!hostDestruction.failed()&&(!hostDestruction.ready()||!destructionAllowed(view))){awaitConsumption();return;}
+                    throw new IOException("cdp_popup_native_child_cleanup_unconfirmed");
+                }acknowledgeDestruction();finished();cancelOwner();
             }catch(IOException|RuntimeException|Error error){
                 String code=view==null?"cdp_popup_native_constructor_unconfirmed":"cdp_popup_native_child_cleanup_unconfirmed";
                 cleanupFailed=true;CREATION_UNCERTAIN.set(true);MdoBrowserCdpPopupNative original=owner.get();if(original!=null){if(original.failure==null)original.failure=code;MdoBrowserPopups<WebView> core=original.owner.get();if(core!=null&&adoption!=null)core.failChildRetirement(adoption);}cancelOwner();throw new IOException(code);
