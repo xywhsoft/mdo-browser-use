@@ -15,6 +15,7 @@
             public void remove(Runnable task){handler.removeCallbacks(task);}
         },popupBudget,()->!stopped&&!browserPaused&&!pageClosed.contains(key)&&views.owns(key,view)&&view.isShown()&&
             channel.current()!=null&&channel.active(channel.current(),host.getUrl()),()->views.epoch(key,view),blocked->{
+                if(!views.owns(key,view))return;
                 MdoBrowserPopups<WebView> binding=windows.get(key);
                 MdoBrowserDocument document=documents.get(key);if(document!=null)document.block(MdoBrowserDocument.POPUP,blocked||binding!=null&&!binding.clean());
                 if(blocked){cancelCapture(key);if(views.owns(key,view))views.input(key,view).invalidate("popup_pending");}

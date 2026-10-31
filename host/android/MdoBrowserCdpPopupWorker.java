@@ -100,7 +100,7 @@ final class MdoBrowserCdpPopupWorker {
         Job job=new Job(lease,timeout,events,nativeSource);
         synchronized(gate){int index=-1;for(int i=0;i<jobs.length;i++){
             if(jobs[i]!=null&&jobs[i].lease==lease)throw new IOException("cdp_popup_prepare_busy");if(jobs[i]==null)index=i;
-        }if(index<0)throw new IOException("cdp_popup_prepare_limit");if(nativeSource!=null)nativeSource.claim(lease);jobs[index]=job;active.incrementAndGet();}
+        }if(index<0)throw new IOException("cdp_popup_prepare_limit");if(nativeSource!=null){nativeSource.claim(lease);try{nativeSource.retainUiOwner();}catch(IOException|RuntimeException|Error error){nativeSource.abandon();throw error;}}jobs[index]=job;active.incrementAndGet();}
         try{executor.execute(job);}catch(RejectedExecutionException error){remove(job);active.decrementAndGet();if(nativeSource!=null)nativeSource.abandon();throw new IOException("cdp_worker_unavailable");}
         catch(RuntimeException|Error error){remove(job);active.decrementAndGet();if(nativeSource!=null)nativeSource.abandon();throw error;}
         return job.request;

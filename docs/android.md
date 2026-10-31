@@ -4533,3 +4533,39 @@ quiescence and the complete product preparation/adoption/promotion/body-routing
 coordinator remain unfinished. Public protected Android popup admission and
 provider/framework/automation qualification remain false; these tests do not
 qualify an installed WebView. Current counts and exact artifacts are in progress.md.
+
+## Retained UI owners and parent destruction (E128)
+
+Native preparation now reserves one of eight UI retention records before worker
+admission. That record strongly owns the original controller, scope and UI book;
+the source's links to the record/book remain weak and the worker receives no
+new strong UI object. This deliberate, bounded UI ownership survives the host
+removing a closed opener from its normal window map.
+
+Destroying an opener does not certify consumption of an outstanding original
+native callback. A retained controller keeps that callback, budget and timers
+until the real acknowledgement. Terminal or parent-destroyed records are released
+only when the original callback and all known owned children have settled.
+Unknown constructor/callback state stays charged instead of being erased; no
+polling thread, fake acknowledgement or automatic replay is introduced. The
+native capabilities diagnostic native_popup_owners reports the current count.
+
+Host teardown notifies this owner pool after exact native destruction and the
+registry acknowledgement. Created handles remove themselves from their captured
+original book, rather than a later claim of the same source. Product block
+callbacks likewise verify the physical view before changing document block or
+capture state: an old callback cannot unblock a replacement using the same tab
+key. The failed-before/fixed-after callback regression and controller/worker
+lifetime cases are retained with the E128 evidence.
+
+This closes the tested UI ownership/late-callback gap, not the complete product
+popup coordinator, global failure quiescence, promotion/bootstrap/body routing
+or installed-provider validation. Protected Android popup admission and all
+provider/framework/automation qualification remain false. Phone and WebView
+changes remain deferred.
+
+The full activity teardown still needs a deferred-destruction join for a sent
+child whose native Message has not yet been consumed. Preserving its UI record
+and destruction receipt does not qualify destroying that child before the SDK
+consumes it. That host teardown/coordinator join remains a prerequisite for
+enabling the protected product route.

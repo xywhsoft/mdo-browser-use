@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E128:** retain original popup controllers/books in eight bounded UI
+  records before worker admission, preserving native callbacks and capacity after
+  opener destruction until actual acknowledgement. Release records after terminal/
+  parent teardown and settled callbacks/children; keep worker references weak.
+  Join post-destroy host notification and freeze each Created's original book.
+  Reproduce/fix old block callbacks changing a same-key replacement document.
+  Fresh native 120-input/44-worker-mode/1,883-check, controller 252, popup 110/25/7,
+  product 685/15-input, save 47 and Python 173/175 gates pass; rebuilt APK definitions
+  are verified. Product/global coordination and provider qualification remain open.
 - **Android E127:** split original native adoption intent from dispatch and retain
   sent children until the original consumption acknowledgement. UI-owned deferred
   disposal requires exact native destruction, immediate data-only proof retirement
@@ -10345,3 +10354,68 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   platform/delivery audit. Public protected Android popup admission and all
   provider/framework/automation qualification remain false; do not replace
   unavailable isolated-world execution with main-world Agent execution.
+
+## E128 — bounded UI ownership through parent teardown (2026-11-01)
+
+- Previous goal turn made progress through E127. Native preparation now reserves
+  a UI retention record before admission to the existing worker; admission failure
+  rolls back the new claim. Eight fixed slots bound retained original controllers,
+  scopes and UI books. Source-to-record/book references remain weak and worker
+  Child carries no new UI reference. Repeated retention does not consume a slot;
+  full capacity refuses another record before protocol work.
+- Keep the original native callback, budget and timers when a retained opener is
+  destroyed. Destruction alone cannot manufacture native consumption or clear the
+  pending obligation. Synchronous/late acknowledgement still reaches its original
+  controller. Terminal/parent-destroyed records release only after their callback
+  and owned children settle; unresolved state remains bounded and charged.
+- Add a typed drained notification to the original UI attachment. Created stores
+  a weak link to its captured original book, not whichever book its source later
+  claims. Book cleanup and retention release are identity-scoped. Reentrant sweeps
+  do not recurse or clear another record. Startup abandonment and ordinary terminal
+  cleanup release empty records; explicit post-destroy events settle known views.
+- The actual host's retireUploadData path now notifies the pool only after exact
+  native destruction and registry acknowledgement. Expose native_popup_owners in
+  native diagnostics. The product creation contract executes this exact reviewed
+  notification prefix and rejects notification before native/registry teardown.
+- Extending callback lifetime revealed a product state-isolation defect:
+  browser-native-popup's old blocked callback addressed documents/captures by tab
+  key without first checking the physical view. E128-block-before.log reproduces
+  a late old callback unblocking a replacement document. Guard exact ownership
+  before any block/capture changes. Seven failed-before/fixed-after compiled
+  product callback checks cover replacement, valid-current and retired callbacks.
+  This is controlled callback evidence, not an installed framework qualification.
+- Controller evidence passes 252 assertions, including 56 new lifecycle/record
+  checks: null/adopted/reentrant acknowledgement after parent teardown, exactly-once
+  record release, eight-record pressure, ninth refusal and startup abandonment.
+  Two actual shared-worker modes pass 27/28 for unsent/sent child parent destruction
+  and late acknowledgement. Preserve the failed terminal outcome; the late native
+  receipt does not make global/source cleanup successful or resume/detach targets.
+- E128-native-final.log passes with 120 current hashes, ASan/UBSan/API26/JVM/JNI,
+  balanced native transport/exit invariants, 44 worker modes/1,883 assertions,
+  controller 252 and unchanged broker 261/two native flows. Fresh popup gate passes
+  110 native-lifecycle, 25 native-callback and seven product-block-scope checks with
+  13 hashes. Fresh exact product create/close passes 685 with 15 hashes, including
+  the actual upload-teardown prefix. Reuse unchanged E125 lifecycle/input/channel/
+  guard/wheel/hover and E126 actual Windows frame/input 301/six-input evidence only
+  after current hash/host checks; do not label reuse as new runs.
+- Apply reviewed overlays only while stopped, rebuild actual Android Java/DEX/APK
+  and require UiRetention in emitted definitions. Inspect eight actual product/
+  native classes for retention, consumption, teardown and existing configure/
+  constructor methods. Signing/private-provider/JNI/ARM64/16-KiB/zip checks pass.
+  APK: 6,513,985 bytes, SHA-256
+  c367ff1b8b04d4edb295dc2e8ff4602c6bd8df29a97d7cdecc8bc1ab7223fafe.
+  Reuse the unchanged verified ARM64 host, Windows program and plugin bytes.
+- JS/C saving passes 47 and binds the fresh native receipt. Python passes 173/175
+  in 48.999 seconds, with the two existing Windows symlink-privilege skips. The
+  E128 identity script joins current native/save/product/popup/APK/DEX inputs and
+  applicable unchanged E105/E106/E125/E126 evidence. Service restored: HTTP 200 on
+  63625, PID 18040; deployment about 3,444.3 MiB, D: about 37.7 GiB free. No ADB,
+  additional app/Home/source copy, runtime dependency, model call, external browser
+  site, production-data/config change or publication. Phone/WebView deferral stays.
+- Goal remains active. Full product preparation/action/adoption coordination,
+  deferred host destruction for sent-but-unconsumed children, independent child
+  promotion, global multi-source failure quiescence, guarded
+  bootstrap/resume, response/body routing and platform/delivery audit remain.
+  Public protected Android popup admission and provider/framework/automation
+  qualification stay false; UI lifecycle contracts do not qualify an installed
+  provider or justify main-world Agent fallback.

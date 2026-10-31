@@ -26,6 +26,6 @@ final class PopupLifecycleFixture {
         });});
     }
     static void destroyAll(MdoBrowserLifecycle<WebView> views){
-        java.util.List<WebView> exact=views.values();views.close();for(WebView view:exact)views.viewDestroyed(view);
+        java.util.List<WebView> exact=views.values();views.close();for(WebView view:exact){views.viewDestroyed(view);MdoBrowserCdpPopupNative.viewDestroyed(view);}
     }
 }

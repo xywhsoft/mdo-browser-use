@@ -195,6 +195,8 @@ final class AndroidCreateHost {
     static final class MdoBrowserCdpPopupWorker {static final class Allocation {}}
     static final class MdoBrowserCdpPopupNative {
         static boolean safe=true;static boolean creationConfirmed(){return safe;}
+        static int retainedUiOwners(){return 0;}
+        static void viewDestroyed(WebView view){if(view.destroys!=1||view.host.views.values().contains(view))throw new AssertionError("Native owner notified before exact destruction/registry ACK");view.host.nativeRetirementNotifications++;}
         interface Disposal {void destroy(String key,WebView exact);}
         final WebView opener;Disposal disposal;int calls;Created latest;
         MdoBrowserCdpPopupNative(WebView opener){this.opener=opener;}
@@ -216,7 +218,7 @@ final class AndroidCreateHost {
             return latest=new Created(key,view,opener,registry,birth,disposal);
         }
     }
-    boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired;JSONObject lastReply;
+    boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired,nativeRetirementNotifications;JSONObject lastReply;
     final MdoBrowserLifecycle<WebView> views=new MdoBrowserLifecycle<>((view,epoch,admitted)->{
         if(fault.equals("input"))throw new IllegalStateException("fixture input allocation failure");
         return new MdoBrowserInput(new MdoBrowserInput.Target(){
@@ -233,7 +235,7 @@ final class AndroidCreateHost {
     @@DOCUMENT_NAVIGATION@@
     @@DOCUMENT_LOADED@@
     void notifyPopup(String key){}
-    void retireUploadData(WebView view){views.viewDestroyed(view);retired++;}
+    void retireUploadData(WebView view){@@VIEW_DESTROYED@@ retired++;}
     void cancelUpload(String key,WebView view){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
     Runnable beforeScopedReply;

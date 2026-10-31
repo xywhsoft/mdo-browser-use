@@ -18,6 +18,7 @@
             .put("network_cleanup_failed",networkCleanupFailed).put("network_retiring",networkRetiring())
             .put("download_retiring",downloadRetiring())
             .put("native_view_cleanup_failed",nativeViewCleanupFailed||!MdoBrowserCdpPopupNative.creationConfirmed()).put("native_view_retiring",nativeRetiringViews.size())
+            .put("native_popup_owners",MdoBrowserCdpPopupNative.retainedUiOwners())
             .put("input",true).put("profile_isolation",false).put("browser_use",browserUseSupport());
     }
     void automationAdmission(JSONObject request) throws JSONException {

@@ -54,9 +54,9 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         boolean mayHaveOccurred(){return dispatched;}
         private void finish(boolean ok,String reason){if(state.get()!=0)return;code=reason;state.compareAndSet(0,ok?1:2);}
     }
-    interface ProtocolUi {void consumed(Adoption original);}
+    interface ProtocolUi {void consumed(Adoption original);default void drained(){}}
     private final class Protocol {
-        final Scope scope;final BooleanSupplier owned;ProtocolUi uiAttachment;
+        final Scope scope;final BooleanSupplier owned;ProtocolUi uiAttachment;boolean retained;
         Protocol(Scope scope,BooleanSupplier owned){this.scope=scope;this.owned=owned;}
     }
     /** Data-only rejection evidence for the protocol worker. Only this native
@@ -169,6 +169,8 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         finish(value,valid,valid?null:"popup_source_changed",true);
         if(value.adoption!=null&&value.adoption.nativeConsumed()&&original!=null&&original.scope==value.adoption.original.scope&&original.uiAttachment!=null)
             try{original.uiAttachment.consumed(value.adoption);}catch(RuntimeException|OutOfMemoryError error){faulted=true;if(value.stop!=null)value.stop.fail("popup_native_rejection_unconfirmed");}
+        if(original!=null&&original.uiAttachment!=null)try{original.uiAttachment.drained();}
+            catch(RuntimeException|OutOfMemoryError error){faulted=true;if(value.stop!=null)value.stop.fail("popup_native_rejection_unconfirmed");}
     }
     private void expire(String id){
         thread();Entry value=entry;if(value==null||!value.snapshot.id.equals(id))return;
@@ -187,6 +189,13 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     }
     void attachProtocolUi(Scope exact,ProtocolUi attachment){
         thread();if(attachment==null||!protocolCurrent(exact)||protocol.uiAttachment!=null)throw new IllegalStateException("popup_native_scope_unavailable");protocol.uiAttachment=attachment;
+    }
+    void retainProtocolUi(Scope exact){
+        thread();if(closed||destroyed||protocol==null||protocol.scope!=exact||!exact.current()||protocol.uiAttachment==null||protocol.retained)throw new IllegalStateException("popup_native_scope_unavailable");protocol.retained=true;
+    }
+    boolean protocolHasObligations(Scope exact){thread();return entry!=null&&entry.pending!=null&&entry.pending.scope==exact;}
+    void releaseProtocolUi(Scope exact){
+        thread();if(protocol!=null&&protocol.scope==exact){protocol.retained=false;if(closed&&entry==null){exact.live.set(false);protocol=null;}}
     }
     boolean protocolCurrent(Scope scope){
         thread();if(scope==null||scope.owner.get()!=this||protocol==null||protocol.scope!=scope||!scope.current())return false;
@@ -282,6 +291,11 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     @Override public void close(){thread();if(closed)return;closed=true;if(protocol!=null)protocol.scope.live.set(false);cancel();}
     void viewDestroyed(T exact){
         thread();if(exact!=opener||destroyed)return;destroyed=true;closed=true;
+        if(protocol!=null&&protocol.retained&&protocolHasObligations(protocol.scope)){
+            protocol.scope.live.set(false);entry.invalidated=true;entry.pending.live.set(false);
+            if(protocolStop!=null)protocolStop.fail("popup_source_destroyed");
+            finish(entry,false,"popup_source_destroyed",entry.sent);blocked(false);return;
+        }
         Entry value=entry;entry=null;if(protocol!=null){protocol.scope.live.set(false);protocol=null;}
         if(protocolStop!=null)protocolStop.fail("popup_source_destroyed");
         if(value!=null){if(value.pending!=null)value.pending.live.set(false);budget.release();try{scheduler.remove(value.timer);}catch(RuntimeException|OutOfMemoryError ignored){}

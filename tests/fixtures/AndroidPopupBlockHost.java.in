@@ -1,0 +1,42 @@
+package org.xserver.android;
+
+import java.util.*;
+import java.util.function.Consumer;
+
+/** Exact product block callback; UI identities/documents are controlled peers. */
+public final class AndroidPopupBlockHost {
+    static int checks;
+    static void check(boolean value,String reason){checks++;if(!value)throw new AssertionError(reason);}
+    static final class WebView {}
+    static final class MdoBrowserDocument {static final int POPUP=1;boolean blocked;int changes;void block(int reason,boolean value){blocked=value;changes++;}}
+    final Map<String,MdoBrowserPopups<WebView>> windows=new HashMap<>();
+    final Map<String,MdoBrowserDocument> documents=new HashMap<>();int captures;
+    final MdoBrowserLifecycle<WebView> views=new MdoBrowserLifecycle<>((view,epoch,current)->new MdoBrowserInput(new MdoBrowserInput.Target(){
+        public long document(){return epoch.getAsLong();}public int width(){return 100;}public int height(){return 100;}
+        public boolean interactive(){return current.getAsBoolean();}public boolean focused(){return true;}
+        public boolean touch(int action,long down,long now,float x,float y){return true;}
+        public boolean key(boolean down,long started,long now,String key,int modifiers){return true;}public boolean text(String value){return true;}
+    },new MdoBrowserInput.Scheduler(){public long now(){return 1;}public void post(Runnable task,long delay){}public void remove(Runnable task){}}));
+    void cancelCapture(String key){captures++;}
+    Consumer<Boolean> callback(String key,WebView view){return blocked->{@@BLOCK_SCOPE@@};}
+    void bind(String key,WebView view,MdoBrowserDocument document){
+        views.put(key,view);documents.put(key,document);
+        windows.put(key,new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){public long now(){return 1;}public void at(Runnable task,long at){}public void remove(Runnable task){}},new MdoBrowserPopups.Budget(8),()->true,()->1,ignored->{}));
+    }
+    public static void main(String[] args){
+        AndroidPopupBlockHost host=new AndroidPopupBlockHost();WebView original=new WebView(),replacement=new WebView();
+        MdoBrowserDocument first=new MdoBrowserDocument(),next=new MdoBrowserDocument();host.bind("same-tab",original,first);
+        Consumer<Boolean> stale=host.callback("same-tab",original);stale.accept(true);
+        check(first.blocked&&first.changes==1&&host.captures==1,"Original callback did not block its own document");
+        host.views.remove("same-tab");host.windows.remove("same-tab");host.bind("same-tab",replacement,next);
+        Consumer<Boolean> current=host.callback("same-tab",replacement);current.accept(true);
+        check(next.blocked&&next.changes==1&&host.captures==2,"Current callback did not block the new native owner");
+        stale.accept(false);check(next.blocked&&next.changes==1&&host.captures==2,"Late old callback unblocked a replacement document");
+        stale.accept(true);check(next.changes==1&&host.captures==2,"Old callback cancelled replacement capture or changed its block state");
+        current.accept(false);check(!next.blocked&&next.changes==2&&host.captures==2,"Current callback could not release its own block");
+        host.views.remove("same-tab");current.accept(true);current.accept(false);
+        check(next.changes==2&&host.captures==2,"Retired owner still changed document/capture state");
+        check(first.changes==1&&host.views.size()==0,"Late callbacks mutated the original document or revived ownership");
+        host.views.close();System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_callback\":true,\"framework_verified\":false}");
+    }
+}

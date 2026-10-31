@@ -590,6 +590,26 @@ public final class CdpPopupWorkerProbe {
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
         }
     }
+    private static void ownerLifetime(boolean sent)throws Exception{
+        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+        try(OwnershipCase c=new OwnershipCase()){
+            check(MdoBrowserCdpPopupNative.retainedUiOwners()==1);
+            MdoBrowserCdpPopupNative.Created created=c.source.source.construct(c.allocation,c.source.views,"owned",c.source::dispose);
+            WebView child=created.view();MdoBrowserPopups.Adoption adoption=null;
+            if(sent){c.source.adopting=child;adoption=c.source.source.adopt(created);}
+            c.source.core.close();c.source.views.remove("root");c.source.view.destroy();c.source.views.viewDestroyed(c.source.view);
+            MdoBrowserCdpPopupNative.viewDestroyed(c.source.view);c.source.core.viewDestroyed(c.source.view);c.source.core.viewDestroyed(c.source.view);
+            check(c.source.sends==1&&c.source.budget.used()==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==1);
+            check(c.source.view.destroyed==1&&child.destroyed==(sent?0:1));
+            c.source.source.lease().invalidate();c.request.close();terminal(c.host,c.request,c.observer);
+            check(!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed&&MdoBrowserCdpPopupNative.retainedUiOwners()==1);
+            c.source.ack();check(c.source.budget.used()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&child.destroyed==1);
+            if(adoption!=null)check(adoption.nativeConsumed()&&!adoption.ok());
+            c.source.ack();created.close();check(child.destroyed==1&&c.source.view.destroyed==1&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+            check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
+        }
+        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+    }
     private static void nativeAllocation(String mode)throws Exception{
         for(int kind=0;kind<(mode.equals("allocation-cleanup-failure")?1:5);kind++){
             final int variant=mode.equals("allocation-cleanup-failure")?4:kind==4?5:kind;Backend backend=new Backend();
@@ -770,7 +790,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.equals("admission-fence"))admissionFence();
+        if(mode.startsWith("owner-lifetime"))ownerLifetime(mode.equals("owner-lifetime-sent"));
+        else if(mode.equals("admission-fence"))admissionFence();
         else if(mode.startsWith("retirement"))retirement(mode);
         else if(mode.startsWith("ownership"))ownership(mode);
         else if(mode.startsWith("allocation"))nativeAllocation(mode);

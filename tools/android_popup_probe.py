@@ -47,14 +47,21 @@ def main():
     sources=[dev.ROOT/name for name in ('host/android/MdoBrowserPopups.java','host/android/MdoBrowserWindowTarget.java',
         'host/android/MdoBrowserDialogs.java','host/android/MdoBrowserDialogTarget.java',
         'tests/fixtures/AndroidPopupContractTest.java','tests/fixtures/AndroidPopupTargetContractTest.java')]
-    inputs=[*sources,dev.ROOT/'tools/android_popup_probe.py',dev.ROOT/'tools/android_dialog_probe.py']
+    sources.extend(dev.ROOT/name for name in ('host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java'))
+    template=dev.ROOT/'tests/fixtures/AndroidPopupBlockHost.java.in';producer=dev.ROOT/'host/android/browser-native-popup.inc.java'
+    popup=producer.read_text(encoding='utf-8');start=popup.index('blocked->{')+len('blocked->{');block=popup[start:popup.index('            });',start)]
+    source=template.read_text(encoding='utf-8')
+    if source.count('@@BLOCK_SCOPE@@')!=1:raise RuntimeError('Popup block fixture marker changed')
+    generated=classes.parent/'AndroidPopupBlockHost.java';generated.write_text(source.replace('@@BLOCK_SCOPE@@',block),encoding='utf-8',newline='\n')
+    inputs=[*sources,template,producer,dev.ROOT/'tools/android_popup_probe.py',dev.ROOT/'tools/android_dialog_probe.py']
+    sources.append(generated)
     hashes={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     for name,source in MOCKS.items():
         path=classes.parent/'src'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(source,encoding='utf-8',newline='\n');sources.append(path)
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     report={'passed':True,'scope':'native-popup-ownership-and-transport-contract','production_java_target':8,'framework_verified':False}
-    for target,key in [('AndroidPopupContractTest','checks'),('AndroidPopupTargetContractTest','native_callback_checks')]:
+    for target,key in [('AndroidPopupContractTest','checks'),('AndroidPopupTargetContractTest','native_callback_checks'),('AndroidPopupBlockHost','owner_scope_checks')]:
         run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.'+target],
             cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
         report[key]=json.loads(run.stdout.strip())['checks']

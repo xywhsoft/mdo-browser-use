@@ -50,7 +50,7 @@ public final class AndroidCreateContractTest {
         check(original.destroys==1,"Profile failure destroyed the original native view more than once");
         check(original.loads==0&&original.touches==0&&host.replies==0,"Failed profile touched settings, loaded a page or replied success");
         check(host.views.size()==0&&host.documents.isEmpty()&&host.documentFailures.isEmpty()&&host.root.children.isEmpty(),"Failed create kept UI bindings");
-        check(host.profileRequests.size()==1&&"mdo.browser-use".equals(host.profileRequests.get(0))&&host.retired==1,"Failure changed profile or retired the wrong data owner");
+        check(host.profileRequests.size()==1&&"mdo.browser-use".equals(host.profileRequests.get(0))&&host.retired==1&&host.nativeRetirementNotifications==1,"Failure changed profile or omitted/misrouted the native owner retirement notification");
     }
     static void ordinaryFailures()throws Exception{
         for(String fault:new String[]{"input","settings","attach","bounds","load","reply"}){

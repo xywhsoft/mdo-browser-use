@@ -168,7 +168,7 @@ public final class CdpPopupNativeProbe {
         }
     }
     public static void main(String[] args)throws Exception{
-        preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
     private static void preparedRetirement()throws Exception{
@@ -200,5 +200,32 @@ public final class CdpPopupNativeProbe {
         second.ack();check(rejected.confirmed()&&!foreignReceipt.nativeConsumed()&&!foreignReceipt.ok()&&!foreignReceipt.mayHaveOccurred()&&rejected.release());
         denied(()->b.sendProtocolAdoption(foreign,foreignReceipt));check(second.sends==1&&budget.used()==0);
         a.close();b.close();a.viewDestroyed(root);b.viewDestroyed(other);
+    }
+    private static void retainedOwners()throws Exception{
+        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+        for(int mode=0;mode<4;mode++)try(Case c=new Case()){
+            c.source.retainUiOwner();c.source.retainUiOwner();check(MdoBrowserCdpPopupNative.retainedUiOwners()==1&&c.source.ready());
+            Transport original=new Transport();original.inline=mode==3;check(c.core.open(original,false));
+            MdoBrowserPopups.Adoption adoption=null;
+            if(mode==1)adoption=c.source.adopt(c.source.pending(),c.fresh(new WebView()));
+            if(mode==0||mode==1)c.source.reject();else c.core.close();
+            check(original.sends==1);c.core.close();c.views.remove("root");c.view.destroy();c.views.viewDestroyed(c.view);
+            MdoBrowserCdpPopupNative.viewDestroyed(c.view);c.core.viewDestroyed(c.view);c.core.viewDestroyed(c.view);c.source.finish(false);
+            check(c.view.destroyed==1);
+            if(mode!=3){
+                check(MdoBrowserCdpPopupNative.retainedUiOwners()==1&&c.budget.used()==1&&!c.source.confirmed());
+                if(adoption!=null)check(!adoption.nativeConsumed());original.ack();
+                if(adoption!=null)check(adoption.nativeConsumed()&&!adoption.ok());
+            }
+            check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&c.budget.used()==0&&c.timers.isEmpty());
+            original.ack();check(original.sends==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+        }
+        Case[] held=new Case[8];
+        try{
+            for(int i=0;i<held.length;i++){held[i]=new Case();held[i].source.retainUiOwner();check(MdoBrowserCdpPopupNative.retainedUiOwners()==i+1);}
+            try(Case ninth=new Case()){unavailable("cdp_popup_native_owner_limit",ninth.source::retainUiOwner);check(MdoBrowserCdpPopupNative.retainedUiOwners()==8);ninth.source.abandon();}
+        }finally{for(Case c:held)if(c!=null){c.source.reject();c.source.finish(true);c.close();}}
+        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+        try(Case c=new Case()){c.source.retainUiOwner();c.source.abandon();check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);}
     }
 }

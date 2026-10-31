@@ -13,7 +13,33 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class MdoBrowserCdpPopupNative {
     interface Disposal {void destroy(String key,WebView exact);}
     private static final AtomicBoolean CREATION_UNCERTAIN=new AtomicBoolean();
+    private static final UiRetention[] UI_OWNERS=new UiRetention[8];
     static boolean creationConfirmed(){return !CREATION_UNCERTAIN.get();}
+    static int retainedUiOwners(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null)count++;return count;}
+    static void viewDestroyed(WebView exact){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.destroyed(exact);}
+    /** Bounded UI ownership survives a host removing its opener's controller.
+     * Workers retain only weak links to this record, never its core/book/host. */
+    private static final class UiRetention {
+        final MdoBrowserCdpPopupNative source;final MdoBrowserPopups<WebView> core;final MdoBrowserPopups.Scope scope;final UiOwned book;
+        boolean ending,released,sweeping;
+        UiRetention(MdoBrowserCdpPopupNative source,MdoBrowserPopups<WebView> core,MdoBrowserPopups.Scope scope,UiOwned book){this.source=source;this.core=core;this.scope=scope;this.book=book;}
+        void ending(){ending=true;sweep();}
+        void destroyed(WebView exact){
+            if(released)return;
+            if(source.view.get()==exact){ending=true;if(source.scope==scope)source.reject();else for(Created child:book.constructions)if(child!=null)try{child.close();}catch(IOException error){/* retained uncertainty */}}
+            for(Created child:book.constructions)if(child!=null&&child.view==exact&&child.construction!=null&&child.construction.destroyed())try{child.close();}catch(IOException error){/* retained uncertainty */}
+            sweep();
+        }
+        void sweep(){
+            if(released||!ending||sweeping)return;sweeping=true;
+            try{
+                for(Created child:book.constructions)if(child!=null&&child.construction!=null&&child.construction.destroyed())try{child.close();}catch(IOException error){/* no false physical release */}
+                if(core.protocolHasObligations(scope))return;for(Created child:book.constructions)if(child!=null)return;
+                core.releaseProtocolUi(scope);released=true;for(int i=0;i<UI_OWNERS.length;i++)if(UI_OWNERS[i]==this)UI_OWNERS[i]=null;
+                if(book.retention.get()==this)book.retention.clear();if(source.retention.get()==this)source.retention.clear();
+            }finally{sweeping=false;}
+        }
+    }
     /** UI-owned construction result. Only this class invokes the native new;
      * callers cannot certify a supplied/preexisting WebView as post-capture. */
     static final class Created implements AutoCloseable {
@@ -21,15 +47,16 @@ final class MdoBrowserCdpPopupNative {
         private MdoBrowserLifecycle.Fresh<WebView> birth;private final MdoBrowserCdpPopupWorker.Allocation allocation;
         private final MdoBrowserLifecycle<WebView> registry;private final String key;private Disposal disposal;
         private final MdoBrowserPopups.Scope action;
+        private final WeakReference<UiOwned> book;
         private final AtomicBoolean live=new AtomicBoolean(true);
         private MdoBrowserPopups.Adoption adoption;
         private MdoBrowserLifecycle.Construction<WebView> construction;private boolean sent,done,closing,cleanupFailed,retirementRequested,awaitingConsumption;
-        private Created(MdoBrowserCdpPopupNative owner,MdoBrowserLifecycle<WebView> registry,String key,MdoBrowserCdpPopupWorker.Allocation allocation,Disposal disposal){
-            this.owner=new WeakReference<>(owner);this.registry=registry;this.key=key;this.allocation=allocation;this.disposal=disposal;action=owner.scope;
+        private Created(MdoBrowserCdpPopupNative owner,UiOwned book,MdoBrowserLifecycle<WebView> registry,String key,MdoBrowserCdpPopupWorker.Allocation allocation,Disposal disposal){
+            this.owner=new WeakReference<>(owner);this.book=new WeakReference<>(book);this.registry=registry;this.key=key;this.allocation=allocation;this.disposal=disposal;action=owner.scope;
         }
         void attachDisposal(Disposal cleanup){thread();MdoBrowserCdpPopupNative original=owner.get();if(cleanup==null||disposal!=null||sent||done||original==null||!original.current()||!allocation.current())throw new IllegalStateException("cdp_popup_native_child_invalid");disposal=cleanup;}
         WebView view(){thread();if(disposal==null)throw new IllegalStateException("cdp_popup_native_disposal_required");MdoBrowserCdpPopupNative original=owner.get();if(done||!live.get()||view==null||birth==null||!birth.current()||!allocation.current()||original==null||!original.current())throw new IllegalStateException("cdp_popup_native_child_invalid");return view;}
-        private void finished(){done=true;MdoBrowserCdpPopupNative original=owner.get();if(original!=null)original.forget(this);}
+        private void finished(){done=true;UiOwned original=book.get();if(original!=null){for(int i=0;i<original.constructions.length;i++)if(original.constructions[i]==this){original.constructions[i]=null;break;}original.drained();}}
         private void cancelOwner(){MdoBrowserCdpPopupNative original=owner.get();if(original!=null&&original.scope==action&&original.rejecting.get()==0&&original.pending()==allocation.pending)original.reject();}
         private void awaitConsumption(){retirementRequested=true;if(!awaitingConsumption){awaitingConsumption=true;MdoBrowserCdpPopupNative source=owner.get();if(source!=null)source.retiring.incrementAndGet();}}
         private void consumed(MdoBrowserPopups.Adoption exact)throws IOException {if(exact==adoption&&retirementRequested)close();}
@@ -91,13 +118,15 @@ final class MdoBrowserCdpPopupNative {
     private final AtomicBoolean rejectStarted=new AtomicBoolean();
     private static final class UiOwned implements MdoBrowserPopups.ProtocolUi {
         final Created[] constructions=new Created[7];
+        WeakReference<UiRetention> retention=new WeakReference<>(null);
         public void consumed(MdoBrowserPopups.Adoption exact){for(Created child:constructions)if(child!=null)try{child.consumed(exact);}catch(IOException error){/* sticky failure; never replay the native send */}}
+        public void drained(){UiRetention owner=retention.get();if(owner!=null)owner.sweep();}
     }
     private WeakReference<UiOwned> uiOwned=new WeakReference<>(null);
+    private WeakReference<UiRetention> retention=new WeakReference<>(null);
     private final AtomicInteger disposing=new AtomicInteger();
     private final AtomicInteger rejecting=new AtomicInteger();
     private final AtomicInteger retiring=new AtomicInteger();
-    private void forget(Created exact){UiOwned ui=uiOwned.get();if(ui!=null)for(int i=0;i<ui.constructions.length;i++)if(ui.constructions[i]==exact){ui.constructions[i]=null;return;}}
     MdoBrowserCdpPopupNative(MdoBrowserCdpView adapter,WebView exact,MdoBrowserPopups<WebView> core)throws IOException {
         thread();if(adapter==null||core==null||!core.protocolSource(exact))throw new IOException("cdp_popup_native_source_invalid");
         if(!adapter.popupCurrent(exact))throw new IOException("cdp_popup_native_source_invalid");
@@ -105,6 +134,13 @@ final class MdoBrowserCdpPopupNative {
     }
     private static void thread(){if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("Native popup source requires its UI owner");}
     MdoBrowserCdpMarker.Lease lease(){return lease;}
+    void retainUiOwner()throws IOException {
+        thread();UiRetention existing=retention.get();if(existing!=null&&!existing.released&&existing.scope==scope)return;
+        MdoBrowserPopups<WebView> core=owner.get();UiOwned book=uiOwned.get();if(!current()||core==null||book==null)throw new IOException("cdp_popup_native_source_invalid");
+        int slot=-1;for(int i=0;i<UI_OWNERS.length;i++)if(UI_OWNERS[i]==null){slot=i;break;}if(slot<0)throw new IOException("cdp_popup_native_owner_limit");
+        UiRetention next=new UiRetention(this,core,scope,book);WeakReference<UiRetention> weak=new WeakReference<>(next);
+        core.retainProtocolUi(scope);UI_OWNERS[slot]=next;retention=weak;book.retention=weak;
+    }
     void claim(MdoBrowserCdpMarker.Lease original)throws IOException {
         thread();if(!creationConfirmed())throw new IOException("cdp_popup_native_creation_unconfirmed");if(original!=lease||!lease.current())throw new IOException("cdp_popup_native_source_invalid");
         if(claimed&&released)finish(true);
@@ -118,7 +154,7 @@ final class MdoBrowserCdpPopupNative {
     }
     void abandon(){
         thread();MdoBrowserPopups<WebView> core=owner.get();
-        if(stop==null&&failure==null&&scope!=null&&core!=null&&core.abandonProtocol(scope)){claimed=false;scope=null;}
+        if(stop==null&&failure==null&&scope!=null&&core!=null&&core.abandonProtocol(scope)){UiRetention retained=retention.get();claimed=false;scope=null;if(retained!=null)retained.ending();}
     }
     /** Called only on the original UI before exposing preparation/candidates. */
     boolean current(){thread();MdoBrowserPopups<WebView> core=owner.get();return failure==null&&creationConfirmed()&&claimed&&core!=null&&core.protocolCurrent(scope);}
@@ -134,7 +170,7 @@ final class MdoBrowserCdpPopupNative {
         UiOwned ui=uiOwned.get();if(ui==null)throw new IOException("cdp_popup_native_allocation_unavailable");Created[] constructions=ui.constructions;
         int slot=-1;for(int i=0;i<constructions.length;i++){Created old=constructions[i];if(old!=null&&old.construction!=null&&old.construction.destroyed())constructions[i]=null;if(constructions[i]==null)slot=i;}
         if(slot<0)throw new IOException("cdp_popup_native_child_limit");
-        final android.content.Context context=opener.getContext();Created created=new Created(this,registry,key,allocation,disposal);
+        final android.content.Context context=opener.getContext();Created created=new Created(this,ui,registry,key,allocation,disposal);
         try{created.construction=registry.reservePopup(key,opener);}catch(RuntimeException error){throw new IOException("cdp_popup_native_child_unavailable");}
         if(!allocation.claim(this)){created.construction.cancelBeforeStart();throw new IOException("cdp_popup_native_allocation_unavailable");}
         constructions[slot]=created;
@@ -193,7 +229,7 @@ final class MdoBrowserCdpPopupNative {
         return "popup_native_already_adopted".equals(value.failure())?"cdp_popup_native_already_adopted":"cdp_popup_native_rejection_unconfirmed";
     }
     void finish(boolean sourceReleased){
-        thread();if(!sourceReleased)return;released=true;
+        thread();UiRetention retained=retention.get();if(retained!=null&&retained.scope==scope)retained.ending();if(!sourceReleased)return;released=true;
         MdoBrowserPopups.Stop value=stop;
         if(value==null){abandon();return;}
         if(confirmed()&&value.release()){claimed=false;stop=null;scope=null;}
