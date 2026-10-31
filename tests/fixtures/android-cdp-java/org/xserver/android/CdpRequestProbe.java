@@ -7,6 +7,7 @@ import org.json.JSONObject;
 /** Actual native JSON dispatcher and bounded ledger; no provider qualification. */
 public final class CdpRequestProbe {
     private static int checks;
+    private static MdoBrowserCdpNetworkFrames.Origin epoch;
     private static void check(boolean value){if(!value)throw new AssertionError("Request identity check "+(checks+1));checks++;}
     private static JSONObject request(String id,String loader)throws Exception{return new JSONObject().put("requestId",id).put("loaderId",loader).put("frameId","root").put("type","Document").put("request",new JSONObject().put("url","https://private.invalid/?never-retain").put("headers",new JSONObject().put("Authorization","fixture-value")));}
     private static void ack(CdpBodyProbe.Wire wire,MdoBrowserCdpSession session,int id,String loader,boolean download)throws Exception{
@@ -16,26 +17,26 @@ public final class CdpRequestProbe {
         for(int mode=0;mode<5;mode++)try(MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root")){
             CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
             try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,(m,s,p)->{},wire)){
-                MdoBrowserCdpSession.Navigation older=session.navigateRoot("https://private.invalid/older","root",1000);requests.admit(0,older,"nr-older");
+                MdoBrowserCdpSession.Navigation older=session.navigateRoot("https://private.invalid/older","root",1000);requests.admit(0,older,"nr-older",epoch);
                 ack(wire,session,1,"older-loader",true);
                 if(mode==0)requests.event("Network.requestWillBeSent",null,request("older","older-loader"));
-                long before=requests.revision();MdoBrowserCdpSession.Navigation newer=session.navigateRoot("https://private.invalid/newer","root",1000);requests.admit(before,newer,"nr-newer");
+                long before=requests.revision();MdoBrowserCdpSession.Navigation newer=session.navigateRoot("https://private.invalid/newer","root",1000);requests.admit(before,newer,"nr-newer",epoch);
                 if(mode!=0&&mode!=2)requests.event("Network.requestWillBeSent",null,request("older","older-loader"));
                 MdoBrowserCdpNetworkRequests.Link link=requests.link("older","root");check(link!=null&&(mode==0?"nr-older".equals(link.reference()):link.reference()==null));
                 if(mode==2)requests.event("Network.requestWillBeSent",null,request("older","older-loader"));
                 check(mode==0?"nr-older".equals(link.reference()):link.reference()==null);
                 ack(wire,session,2,mode==3?"older-loader":"newer-loader",mode!=4);
                 check(mode==3?link.reference()==null:"nr-older".equals(link.reference()));
-                try{requests.admit(before,newer,"nr-replayed");throw new AssertionError("Repeated native command admitted");}catch(java.io.IOException failure){check(failure.getMessage().equals("cdp_request_command_replayed"));}
+                try{requests.admit(before,newer,"nr-replayed",epoch);throw new AssertionError("Repeated native command admitted");}catch(java.io.IOException failure){check(failure.getMessage().equals("cdp_request_command_replayed"));}
             }wire.cleared();
         }
         try(MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root")){
             CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
             try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,(m,s,p)->{},wire)){
-                MdoBrowserCdpSession.Navigation older=session.navigateRoot("https://private.invalid/older","root",1000);requests.admit(0,older,"nr-frozen");
+                MdoBrowserCdpSession.Navigation older=session.navigateRoot("https://private.invalid/older","root",1000);requests.admit(0,older,"nr-frozen",epoch);
                 MdoBrowserCdpNetworkRequests.Link frozen=requests.link("older","root");
                 ack(wire,session,1,"loader",true);
-                MdoBrowserCdpSession.Navigation future=session.navigateRoot("https://private.invalid/future","root",1000);requests.admit(0,future,"nr-future");
+                MdoBrowserCdpSession.Navigation future=session.navigateRoot("https://private.invalid/future","root",1000);requests.admit(0,future,"nr-future",epoch);
                 requests.event("Network.requestWillBeSent",null,request("older","loader"));ack(wire,session,2,"loader",true);
                 check(frozen.reference().equals("nr-frozen"));check(requests.link("older","root").reference()==null);
             }wire.cleared();
@@ -45,7 +46,7 @@ public final class CdpRequestProbe {
             try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,(m,s,p)->{},wire)){
                 MdoBrowserCdpNetworkRequests.Link retained=null;
                 for(int i=0;i<33;i++){
-                    long before=requests.revision();MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(before,navigation,"nr-"+i);ack(wire,session,i+1,"loader-"+i,true);
+                    long before=requests.revision();MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(before,navigation,"nr-"+i,epoch);ack(wire,session,i+1,"loader-"+i,true);
                     if(i==0){requests.event("Network.requestWillBeSent",null,request("oldest","loader-0"));if(retain==1)retained=requests.link("oldest","root");}
                     if(i==31)check(requests.link("oldest","root").reference().equals("nr-0"));
                 }
@@ -58,7 +59,7 @@ public final class CdpRequestProbe {
             CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
             try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,(m,s,p)->{},wire)){
                 if(mode==5)requests.event("Network.requestWillBeSent",null,request("network","loader"));long before=requests.revision();
-                MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(before,navigation,"nr-original");JSONObject metadata=request("network","loader");
+                MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(before,navigation,"nr-original",epoch);JSONObject metadata=request("network","loader");
                 if(mode==1)metadata.put("type","XHR");if(mode==2)metadata.put("frameId","child");if(mode==3)metadata.put("requestId",17);
                 if(mode!=0&&mode!=5)requests.event("Network.requestWillBeSent",mode==4?"child":null,metadata);
                 if(mode==6)requests.event("Network.requestWillBeSent",null,request("network","loader"));
@@ -80,7 +81,7 @@ public final class CdpRequestProbe {
         try(MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root")){
             CdpBodyProbe.Wire wire=new CdpBodyProbe.Wire();wire.extra=command->true;
             try(MdoBrowserCdpSession session=MdoBrowserCdpSession.owned(wire,()->true,(m,s,p)->{},wire)){
-                MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(0,navigation,"nr-late");
+                MdoBrowserCdpSession.Navigation navigation=session.navigateRoot("https://private.invalid/","root",1000);requests.admit(0,navigation,"nr-late",epoch);
                 MdoBrowserCdpNetworkRequests.Link late=requests.link("network","root");check(late!=null&&late.reference()==null);
                 wire.add(new JSONObject().put("id",1).put("result",new JSONObject().put("frameId","root").put("loaderId","loader").put("isDownload",true)));session.poll(100);check(late.reference()==null);
                 requests.event("Network.requestWillBeSent",null,request("network","loader"));check(late.reference().equals("nr-late"));
@@ -96,7 +97,9 @@ public final class CdpRequestProbe {
     }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{cases();}catch(Exception failure){throw new RuntimeException(failure);}}).get(20,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try(MdoBrowserCdpNetworkFrames frames=new MdoBrowserCdpNetworkFrames("root","source-loader")){
+            frames.initialize(new JSONObject().put("frame",new JSONObject().put("id","root").put("loaderId","source-loader")),0);epoch=frames.origin("root");cases();
+        }catch(Exception failure){throw new RuntimeException(failure);}}).get(20,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"native_request_identity_chain\":true,\"bounded_metadata_only\":true,\"late_request_metadata\":true,\"bounded_command_history\":true,\"provider_qualified\":false}");
     }

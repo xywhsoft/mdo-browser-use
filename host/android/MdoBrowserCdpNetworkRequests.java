@@ -16,8 +16,8 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
         Receipt(Object owner,String loader,long born){this.owner=owner;this.loader=loader;this.born=born;}
     }
     private static final class Command {
-        final long after;final MdoBrowserCdpSession.Navigation navigation;final String reference;
-        Command(long after,MdoBrowserCdpSession.Navigation navigation,String reference){this.after=after;this.navigation=navigation;this.reference=reference;}
+        final long after;final MdoBrowserCdpSession.Navigation navigation;final String reference;final MdoBrowserCdpNetworkFrames.Origin epoch;
+        Command(long after,MdoBrowserCdpSession.Navigation navigation,String reference,MdoBrowserCdpNetworkFrames.Origin epoch){this.after=after;this.navigation=navigation;this.reference=reference;this.epoch=epoch;}
         boolean eligible(){MdoBrowserCdpSession.NavigationResult result=navigation.result();return result==null||result.acknowledged&&result.ok&&result.downloadKnown&&result.download&&result.loaderPresent;}
     }
     /** Only immutable native evidence and the original typed ACK survive.
@@ -38,6 +38,20 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
             }
             if(matched!=null&&source.valid)proved.compareAndSet(null,matched);
             return proved.get();
+        }
+        /** Freeze only a common original document among still possible commands.
+         * Pending ACKs cannot be resolved by borrowing the current page. */
+        MdoBrowserCdpNetworkFrames.Origin epoch()throws IOException {
+            Receipt source=request;MdoBrowserCdpNetworkFrames.Origin epoch=null;
+            for(Command command:candidates){
+                if(!command.eligible())continue;
+                if(source!=null&&source.valid){
+                    if(source.born<=command.after)continue;
+                    if(command.navigation.result()!=null&&!command.navigation.matchesDownloadLoader(frame,source.loader))continue;
+                }
+                if(epoch!=null&&(!epoch.frame.equals(command.epoch.frame)||!epoch.document.equals(command.epoch.document)))throw new IOException("download_frame_unproven");
+                epoch=command.epoch;
+            }return epoch;
         }
     }
     private final Thread worker=Thread.currentThread();private final Object owner=new Object();private final String root;
@@ -68,11 +82,11 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
         Receipt receipt=new Receipt(owner,(String)loader,++serial);requests.put((String)id,receipt);loaders.put((String)loader,receipt);
         for(int i=0;i<pending.length;i++)if(pending[i]!=null&&pending[i].network.equals(id)){pending[i].resolve(receipt);pending[i]=null;}
     }
-    void admit(long after,MdoBrowserCdpSession.Navigation navigation,String reference)throws IOException{
+    void admit(long after,MdoBrowserCdpSession.Navigation navigation,String reference,MdoBrowserCdpNetworkFrames.Origin epoch)throws IOException{
         current();if(fault!=null)return;
-        if(after<0||after>serial||navigation==null||navigation.receiptOnly||!MdoBrowserCdpNetworkFrames.identity(reference))throw new IOException("cdp_request_command_invalid");
+        if(after<0||after>serial||navigation==null||navigation.receiptOnly||!MdoBrowserCdpNetworkFrames.identity(reference)||epoch==null||!epoch.root||epoch.document.isEmpty())throw new IOException("cdp_request_command_invalid");
         for(int i=0;i<commandCount;i++)if(commands[i].navigation==navigation)throw new IOException("cdp_request_command_replayed");
-        Command admitted=new Command(after,navigation,reference);
+        Command admitted=new Command(after,navigation,reference,epoch);
         int kept=0;for(int i=0;i<commandCount;i++){
             Command command=commands[i];
             if(command.eligible())commands[kept++]=command;

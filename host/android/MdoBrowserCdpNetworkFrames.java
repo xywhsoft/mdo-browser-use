@@ -36,9 +36,12 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
         final String frame,document;final boolean root;private final Scope[] ancestry;
         private Origin(Frame node,Scope[] ancestry,boolean root){frame=node.alias;document=node.document;this.ancestry=ancestry;this.root=root;}
         private Origin(Origin original,Scope[] ancestry){frame=original.frame;document=original.document;root=original.root;this.ancestry=ancestry;}
+        private Origin(Origin original,Scope blocked){frame=original.frame;document="";root=original.root;ancestry=new Scope[]{blocked};}
         private Origin with(Scope scope){Scope[] extended=java.util.Arrays.copyOf(ancestry,ancestry.length+1);extended[extended.length-1]=scope;return new Origin(this,extended);}
         boolean current(){for(Scope scope:ancestry)if(!scope.active)return false;return true;}
     }
+    /** Known physical frame, unproven document. Never an executable/new epoch. */
+    static Origin unproven(Origin frame){Scope blocked=new Scope();blocked.active=false;return new Origin(frame,blocked);}
     private static final class Frame {
         final String raw,parent,alias="nf-"+UUID.randomUUID();String loader,document="nd-"+UUID.randomUUID();Scope scope=new Scope(),position=new Scope();boolean swapped;byte[] location;
         Frame(String raw,String parent,String loader){this.raw=raw;this.parent=parent;this.loader=loader;}

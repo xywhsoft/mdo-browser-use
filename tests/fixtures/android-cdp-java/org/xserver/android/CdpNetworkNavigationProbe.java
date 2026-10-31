@@ -446,9 +446,75 @@ public final class CdpNetworkNavigationProbe {
             check((receipt.get().code==null)==allowed&&reads.get()==(allowed?1:0));check(navigation.result().ok&&sends.get()==expectedSends);
         }
     }
+    private static void lateResponseEpoch()throws Exception{
+        for(int mode=0;mode<6;mode++)try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("late-response-epoch-"+mode)){
+            final int scenario=mode;CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;AtomicInteger originalId=new AtomicInteger();
+            source.context.peer.extra=(command,wire)->{
+                if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                originalId.set(command.getInt("id"));if(scenario!=1&&scenario!=3)wire.queue(requestEvent("old-network","old-download-loader"));
+                if(scenario!=2)wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","old-download-loader").put("isDownload",true)));return true;
+            };
+            MdoBrowserCdpNetworks.Navigation older=navigate(test,source,15000);await(()->originalId.get()>0);if(mode!=2){await(()->older.result()!=null);check(older.result().ok);}
+            String initial=source.offer("original-epoch-marker"),oldDocument=source.snapshot(initial).sourceDocument;source.controller.cancel(initial);await(()->source.state(initial,"cancelled"));source.release(initial);
+            if(mode<4)source.context.wire().queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",nativeFrame("new-root-loader","https://changed.invalid/"))));
+            if(mode==4)source.context.wire().queue(within("frame-owned","https://position.invalid/#moved"));
+            String marker=source.offer("new-epoch-marker"),newDocument=source.snapshot(marker).sourceDocument;check((!newDocument.equals(oldDocument))==(mode<4));source.controller.cancel(marker);await(()->source.state(marker,"cancelled"));source.release(marker);
+            if(mode==1)source.context.wire().queue(requestEvent("old-network","old-download-loader"));
+            source.context.wire().queue(responseEvent("late-old-response","old-network"));
+            await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});
+            String id=source.controller.list()[0].id;MdoBrowserCdpDownloads.Snapshot row=source.snapshot(id);
+            check(row.sourceDocument.equals(oldDocument)&&row.frameCurrent==(mode>=4));
+            if(mode==2||mode==3)check(row.sourceRequest==null&&row.sourceEpochKind.equals("navigation_candidates"));
+            if(mode<4){
+                await(()->source.state(id,"failed"));check(source.snapshot(id).error.equals("download_frame_changed")&&source.snapshot(id).sourceCleanupConfirmed);
+                if(mode==2)source.context.wire().queue(new JSONObject().put("id",originalId.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","old-download-loader").put("isDownload",true)));
+                if(mode==3)source.context.wire().queue(requestEvent("old-network","old-download-loader"));
+                await(()->older.requestReference()!=null&&older.requestReference().equals(source.snapshot(id).sourceRequest));
+                check(source.snapshot(id).sourceDocument.equals(oldDocument)&&source.snapshot(id).sourceEpochKind.equals("original_navigation"));
+                source.controller.accept(id,64,3000);check(source.claims.get()==0&&source.reads.get()==0);
+            }else{
+                check(row.sourceEpochKind.equals("original_navigation")&&older.requestReference().equals(row.sourceRequest));
+                source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(id,64,3000);source.complete(id);
+                if(mode==5){source.context.wire().queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",nativeFrame("after-completion","https://completed.invalid/"))));await(()->!source.snapshot(id).frameCurrent);}
+                MdoBrowserDownloadQueue.Read range=source.controller.read(id,0,4);await(range::finished);byte[] bytes=range.take();check(java.util.Arrays.equals(bytes,new byte[]{116,101,115,116}));java.util.Arrays.fill(bytes,(byte)0);range.close();
+                check(source.snapshot(id).sourceDocument.equals(oldDocument)&&source.snapshot(id).verified&&source.claims.get()==1);
+            }
+            source.release(id);
+        }
+    }
+    private static void ambiguousResponseEpoch()throws Exception{
+        try(CdpDownloadsProbe.Case test=new CdpDownloadsProbe.Case("ambiguous-response-epoch")){
+            CdpDownloadsProbe.Source source=test.source();CdpBindingProbe.Factory.Extra previous=source.context.peer.extra;AtomicInteger sends=new AtomicInteger(),held=new AtomicInteger(),abort=new AtomicInteger();
+            source.context.peer.extra=(command,wire)->{
+                if(command.getString("method").equals("Fetch.failRequest")&&command.getJSONObject("params").getString("requestId").equals("ambiguous-response")){source.aborts.incrementAndGet();abort.set(command.getInt("id"));return true;}
+                if(!command.getString("method").equals("Page.navigate"))return previous.send(command,wire);
+                int ordinal=sends.incrementAndGet();if(ordinal==2){held.set(command.getInt("id"));return true;}
+                if(ordinal==3)wire.queue(requestEvent("fresh-network","fresh-loader"));
+                wire.queue(new JSONObject().put("id",command.getInt("id")).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId",ordinal==1?"older-loader":"fresh-loader").put("isDownload",true)));return true;
+            };
+            MdoBrowserCdpNetworks.Navigation older=navigate(test,source,15000);await(()->older.result()!=null);
+            source.context.wire().queue(new JSONObject().put("method","Page.frameNavigated").put("params",new JSONObject().put("frame",nativeFrame("current-loader","https://current.invalid/"))));
+            String marker=source.offer("current-epoch-marker"),currentDocument=source.snapshot(marker).sourceDocument;check(source.snapshot(marker).sourceEpochKind.equals("response_frame"));source.controller.cancel(marker);await(()->source.state(marker,"cancelled"));source.release(marker);
+            MdoBrowserCdpNetworks.Navigation newer=navigate(test,source,15000);await(()->held.get()>0);check(newer.result()==null);
+            source.context.wire().queue(responseEvent("ambiguous-response","unknown-network"));
+            await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});String id=source.controller.list()[0].id;
+            await(()->abort.get()>0);MdoBrowserCdpDownloads.Snapshot cancelling=source.snapshot(id);check(cancelling.state.equals("cancelling")&&cancelling.error.equals("download_frame_unproven")&&!cancelling.sourceCleanupConfirmed);
+            refused("download_frame_unproven",()->source.controller.accept(id,64,3000));check(source.claims.get()==0&&source.reads.get()==0);
+            source.context.wire().queue(new JSONObject().put("id",abort.get()).put("result",new JSONObject()));
+            await(()->source.state(id,"failed"));MdoBrowserCdpDownloads.Snapshot rejected=source.snapshot(id);
+            check(rejected.error.equals("download_frame_unproven")&&rejected.failureSource.equals("native_frame")&&rejected.sourceEpochKind.equals("unproven"));
+            check(!rejected.frameCurrent&&rejected.sourceDocument.isEmpty()&&rejected.sourceRequest==null&&rejected.sourceCleanupConfirmed);
+            check(rejected.json().getJSONObject("native").opt("source_document")==JSONObject.NULL);source.controller.accept(id,64,3000);check(source.claims.get()==0&&source.reads.get()==0&&source.controller.failure()==null);source.release(id);
+            source.context.wire().queue(new JSONObject().put("id",held.get()).put("result",new JSONObject().put("frameId","frame-owned").put("loaderId","newer-loader").put("isDownload",true)));await(()->newer.result()!=null);
+            MdoBrowserCdpNetworks.Navigation fresh=navigate(test,source,15000);await(()->fresh.result()!=null);check(fresh.result().ok&&sends.get()==3);
+            source.context.wire().queue(responseEvent("fresh-response","fresh-network"));await(()->{try{return source.controller.list().length==1;}catch(IOException error){throw new AssertionError(error);}});String next=source.controller.list()[0].id;
+            check(source.snapshot(next).sourceDocument.equals(currentDocument)&&source.snapshot(next).frameCurrent&&fresh.requestReference().equals(source.snapshot(next).sourceRequest));
+            source.chunks.add(new JSONObject().put("data","dGVzdA==").put("base64Encoded",true).put("eof",true));source.controller.accept(next,64,3000);source.complete(next);check(source.snapshot(next).verified&&source.claims.get()==1&&source.controller.failure()==null);source.release(next);
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();Path root=Paths.get(args[0]);if(Files.exists(root))throw new AssertionError("Interrupted navigation evidence preserved");
-        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();sameLocationNoop();Files.delete(root);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"same_location_noop_proof\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
+        Files.createDirectory(root);CdpDownloadsProbe.ownBase(root);originalDownloadProgress();queuedDecisions();inFlightCancelAndReplacement();commitOrdering();documentGuards();sameDocumentDestinations();historyProofs();originalRequestAssociation();overlappingRequestAssociation();sameLocationNoop();lateResponseEpoch();ambiguousResponseEpoch();Files.delete(root);
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_ui_admission\":true,\"shared_worker_body_progress\":true,\"exact_queued_cancellation\":true,\"original_native_commit_matching\":true,\"bounded_commit_history\":true,\"history_completion_guard\":true,\"original_request_download_join\":true,\"late_metadata_after_body_completion\":true,\"overlapping_navigation_downloads\":true,\"bfcache_and_same_document_history\":true,\"same_document_destination_guard\":true,\"same_location_noop_proof\":true,\"original_download_epoch\":true,\"real_guarded_files\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }
 }

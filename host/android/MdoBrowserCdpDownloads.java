@@ -33,12 +33,13 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     }
     static final class Snapshot {
         final String id,name,mime,state,error,sha256,failureSource;final long received,expected,maximum,sequence;
-        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed,frameCurrent,root;final String sourceFrame,sourceDocument,sourceRequest;
+        final boolean verified,cacheCleanupConfirmed,sourceCleanupConfirmed,frameCurrent,root;final String sourceFrame,sourceDocument,sourceRequest,sourceEpochKind;
         private Snapshot(Row row,String state,String error,long bytes,String hash,boolean verified,boolean cacheClean,boolean sourceClean,String source){
             id=row.id;name=row.offer.metadata().name;mime=row.offer.metadata().mime;sequence=row.sequence;expected=row.expected;maximum=row.maximum;this.state=state;this.error=error;received=bytes;sha256=hash;
             this.verified=verified;cacheCleanupConfirmed=cacheClean;sourceCleanupConfirmed=sourceClean;failureSource=source;
             frameCurrent=row.origin.current();root=row.origin.root;sourceFrame=row.origin.frame;sourceDocument=row.origin.document;
             sourceRequest=row.offer.sourceRequestReference();
+            sourceEpochKind="navigation_candidates".equals(row.offer.sourceEpochKind())&&sourceRequest!=null?"original_navigation":row.offer.sourceEpochKind();
         }
         boolean terminal(){return state.equals("completed")||state.equals("failed")||state.equals("cancelled");}
         JSONObject json()throws JSONException {
@@ -46,7 +47,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
                 .put("received",received).put("expected_size",expected<0?JSONObject.NULL:expected).put("max_bytes",maximum)
                 .put("interrupt_reason",0).put("failure_source",failureSource==null?"":failureSource).put("error",error==null?"":error)
                 .put("native",new JSONObject().put("cache_cleanup_confirmed",cacheCleanupConfirmed).put("source_cleanup_confirmed",sourceCleanupConfirmed)
-                    .put("source_frame",sourceFrame).put("source_document",sourceDocument).put("source_is_root",root).put("source_current",frameCurrent)
+                    .put("source_frame",sourceFrame).put("source_document",sourceDocument.isEmpty()?JSONObject.NULL:sourceDocument).put("source_is_root",root).put("source_current",frameCurrent).put("source_epoch_kind",sourceEpochKind)
                     .put("source_request_ref",sourceRequest==null?JSONObject.NULL:sourceRequest));
             if(verified&&state.equals("completed"))out.put("size",received).put("sha256",sha256);return out;
         }
@@ -107,8 +108,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
             if(!response.kind.equals("candidate")){network.continuePausedRequest();return;}
             // Child download identity requires its separate frame association.
             if(child!=null){failure="download_frame_unproven";network.abortPausedRequest();return;}
-            MdoBrowserCdpNetworkFrames.Origin origin;
-            try{origin=network.pausedOrigin();}
+            try{network.pausedOrigin();}
             catch(IOException error){if(!"download_frame_unproven".equals(error.getMessage()))throw error;failure="download_frame_unproven";network.abortPausedRequest();return;}
             boolean declined=false;
             int slot=0;while(slot<rows.length&&rows[slot]!=null)slot++;
@@ -117,7 +117,11 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
                 MdoBrowserCdpSession.Offer offer=null;boolean published=false;
                 try{
                     if(network.pendingOffers()>=8){failure="download_pending_limit";declined=true;}
-                    else{offer=network.retainPausedResponse();Row row=new Row(++serial,offer,origin,connection);publish(row,"pending",null,0,null,false,true,false,null);rows[slot]=row;published=true;}
+                    else{offer=network.retainPausedResponse();Row row=new Row(++serial,offer,offer.sourceEpoch(),connection);
+                        if("unproven".equals(offer.sourceEpochKind())){row.error="download_frame_unproven";row.failureSource="native_frame";}
+                        if(!row.origin.current()){revokeFrame(row);publish(row,"cancelling",row.error,0,null,false,true,false,row.failureSource);}
+                        else publish(row,"pending",null,0,null,false,true,false,null);
+                        rows[slot]=row;published=true;}
                 }finally{if(!published){budget.release();if(offer!=null)offer.cancel();}}
             }
             if(declined)network.abortPausedRequest();
@@ -142,7 +146,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
         synchronized(gate){Row row=find(id);summarize(row);if(row.snapshot.terminal()||row.accepted||row.cancelled||row.releasing)return row.snapshot;
             if(row.connection!=current)throw new IOException("download_generation_retired");
             if(disconnected)throw new IOException("download_connection_closed");
-            if(!row.origin.current()){revokeFrame(row);summarize(row);throw new IOException("download_frame_changed");}
+            if(!row.origin.current()){revokeFrame(row);summarize(row);throw new IOException(row.error==null?"download_frame_changed":row.error);}
             try{row.offer.accept(maximum,timeoutMs);}catch(IOException failure){
                 if(!"cdp_offer_byte_limit".equals(failure.getMessage()))throw failure;
                 row.maximum=maximum;row.accepted=true;row.error="download_limit";row.failureSource="policy";row.offer.cancel();

@@ -120,27 +120,32 @@ public final class CdpNavigationProbe {
         }
     }
     private static void realWire(int mode)throws Exception{
+        int before=entropyDescriptors();MdoBrowserCdpNetworkFrames frames=new MdoBrowserCdpNetworkFrames("frame-owned","source-loader");int after=entropyDescriptors();
+        if(mode==42){entropyBefore=before;entropyAfter=after;}check(after>=before&&after-before<=2);
         CdpNativeProbe.fixtureStart(mode);final MdoBrowserCdpSession[] session={null};List<MdoBrowserCdpSession.Body> bodies=new ArrayList<>();
         MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("frame-owned");List<MdoBrowserCdpNetworkRequests.Link> links=new ArrayList<>();
         try{
+            frames.initialize(new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","source-loader")),0);MdoBrowserCdpNetworkFrames.Origin epoch=frames.origin("frame-owned");
             session[0]=MdoBrowserCdpSession.open("test-001",500,()->true,(m,s,p)->{
                 requests.event(m,s,p);if(m.equals("Fetch.requestPaused")){links.add(requests.link(p.optString("networkId"),p.optString("frameId")));bodies.add(session[0].takePausedBody(64,15000));}
             });
-            MdoBrowserCdpSession.Navigation navigation=session[0].navigateRoot("about:blank","frame-owned",15000);requests.admit(0,navigation,"nr-native-original");check(navigation.pending()&&session[0].idle());
+            MdoBrowserCdpSession.Navigation navigation=session[0].navigateRoot("about:blank","frame-owned",15000);requests.admit(0,navigation,"nr-native-original",epoch);check(navigation.pending()&&session[0].idle());
             if(mode==42){
                 for(int i=0;i<20&&bodies.isEmpty();i++)session[0].poll(20,100);check(bodies.size()==1);MdoBrowserCdpSession.Body body=bodies.get(0);
                 for(int i=0;i<20&&!body.ready();i++)session[0].poll(20,100);check(body.ready()&&navigation.pending()&&links.size()==1&&links.get(0)!=null&&links.get(0).reference()==null);
+                check(links.get(0).epoch().document.equals(epoch.document)&&links.get(0).epoch().current());
                 try(MdoBrowserCdpSession.BodyChunk bytes=session[0].readBody(body,1000)){check(bytes.eof&&bytes.data.length==1&&bytes.data[0]==9);}
                 check(body.result().ok&&body.result().streamCloseConfirmed&&body.result().requestAbortConfirmed);
                 for(int i=0;i<20&&navigation.pending();i++)session[0].poll(20,100);
                 check(navigation.result().acknowledged&&navigation.result().ok&&navigation.result().downloadKnown&&navigation.result().download);
                 check("nr-native-original".equals(links.get(0).reference()));realRequestJoins++;
+                check(links.get(0).epoch().document.equals(epoch.document)&&links.get(0).epoch().current());
                 session[0].call("Runtime.evaluate",null,null,1000,false);
             }else{
                 session[0].call("Runtime.evaluate",null,null,1000,false);check(!navigation.pending()&&navigation.result().acknowledged&&!navigation.result().ok&&!navigation.result().downloadKnown&&!navigation.result().download&&navigation.result().nativeError.equals("net::ERR_NAME_NOT_RESOLVED"));
             }
             check(session[0].pendingBodies()==0&&session[0].pendingControls()==0);realSessions++;
-        }finally{requests.close();if(session[0]!=null)session[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==42?6:2)<<8)));}
+        }finally{frames.close();requests.close();if(session[0]!=null)session[0].close();check(CdpNativeProbe.fixtureFinish()==(1+((mode==42?6:2)<<8)));}
     }
     private static MdoBrowserCdpSession.Navigation control(Case c,boolean reload,int timeout)throws Exception{
         c.wire.extra=command->{
@@ -185,7 +190,7 @@ public final class CdpNavigationProbe {
         // UUID's process-wide entropy descriptors are initialized before the
         // strict per-session native allocation/descriptor baseline is sampled.
         int before=entropyDescriptors();MdoBrowserCdpNetworkFrames frames=new MdoBrowserCdpNetworkFrames("frame-owned","initial-loader");
-        int after=entropyDescriptors();if(mode==44){entropyBefore=before;entropyAfter=after;}check(after>=before&&after-before<=2);
+        int after=entropyDescriptors();check(after>=before&&after-before<=2);
         CdpNativeProbe.fixtureStart(mode);MdoBrowserCdpSession session=null;
         try(MdoBrowserCdpNetworkFrames originalFrames=frames){
             frames.initialize(new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","initial-loader")),frames.revision());

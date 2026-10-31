@@ -376,8 +376,14 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpResponse pausedResponse()throws IOException {control();return bound.peer.pausedResponse();}
         MdoBrowserCdpNetworkFrames.Origin pausedOrigin()throws IOException {control();return frames.origin(bound.peer.pausedResponse().frame);}
         MdoBrowserCdpSession.Offer retainPausedResponse()throws IOException {
-            control();if(retiring)throw problem("cdp_network_retiring");pausedOrigin();MdoBrowserCdpSession.Offer offer=bound.peer.retainPausedResponse();
-            try{offer.associateRequest(requests.link(offer.networkIdentity(),offer.metadata().frame));return offer;}
+            control();if(retiring)throw problem("cdp_network_retiring");MdoBrowserCdpNetworkFrames.Origin source=pausedOrigin();MdoBrowserCdpSession.Offer offer=bound.peer.retainPausedResponse();
+            try{
+                MdoBrowserCdpNetworkRequests.Link link=requests.link(offer.networkIdentity(),offer.metadata().frame);offer.associateRequest(link);String kind="response_frame";
+                if(link!=null)try{MdoBrowserCdpNetworkFrames.Origin original=link.epoch();if(original!=null){source=original;kind="navigation_candidates";}}
+                    catch(IOException ambiguous){if(!"download_frame_unproven".equals(ambiguous.getMessage()))throw ambiguous;source=MdoBrowserCdpNetworkFrames.unproven(source);kind="unproven";}
+                else if(requests.failure()!=null&&bound.rootFrame.equals(offer.metadata().frame)){source=MdoBrowserCdpNetworkFrames.unproven(source);kind="unproven";}
+                offer.bindSourceEpoch(source,kind);return offer;
+            }
             catch(IOException|RuntimeException|Error failure){offer.cancel();throw failure;}
         }
         int pendingOffers()throws IOException {bound.current();return bound.peer.pendingOffers();}
@@ -392,7 +398,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         Navigation navigateRoot(String url,int timeoutMs)throws IOException {
             active();if(retiring)throw problem("cdp_network_retiring");frames.origin(bound.rootFrame);
             Navigation ticket=new Navigation(this,frames.revision(),frames.rootLoader(),frames.origin(bound.rootFrame),MdoBrowserCdpSession.navigationDigest(url),timeoutMs);
-            ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);requests.admit(ticket.requestRevision,ticket.original,ticket.requestReference);return ticket;
+            ticket.original=bound.peer.navigateRoot(url,bound.rootFrame,timeoutMs);requests.admit(ticket.requestRevision,ticket.original,ticket.requestReference,ticket.previous);return ticket;
         }
         Navigation traverseRoot(String action,int timeoutMs)throws IOException {
             active();if(retiring)throw problem("cdp_network_retiring");

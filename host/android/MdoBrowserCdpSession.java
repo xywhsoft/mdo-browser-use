@@ -139,6 +139,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     static final class Offer {
         private final MdoBrowserCdpSession owner;private PausedEvent original;private final MdoBrowserCdpResponse metadata;
         private final String networkId;private MdoBrowserCdpNetworkRequests.Link requestLink;private boolean associated;
+        private MdoBrowserCdpNetworkFrames.Origin sourceEpoch;private String epochKind;
         private final long born;private final AtomicReference<OfferDecision> decision=new AtomicReference<>();
         private final AtomicBoolean cancelled=new AtomicBoolean();private final AtomicReference<OfferResult> outcome=new AtomicReference<>();
         private volatile Body claimed;private boolean issued;private String abortCode;
@@ -146,6 +147,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         String networkIdentity(){return networkId;}
         void associateRequest(MdoBrowserCdpNetworkRequests.Link link){if(associated)throw new IllegalStateException("Original response already associated");associated=true;requestLink=link;}
         String sourceRequestReference(){return requestLink==null?null:requestLink.reference();}
+        void bindSourceEpoch(MdoBrowserCdpNetworkFrames.Origin epoch,String kind){
+            if(sourceEpoch!=null||epoch==null||!("response_frame".equals(kind)||"navigation_candidates".equals(kind)||"unproven".equals(kind)))throw new IllegalStateException("Invalid original source epoch");
+            sourceEpoch=epoch;epochKind=kind;
+        }
+        MdoBrowserCdpNetworkFrames.Origin sourceEpoch(){return sourceEpoch;}
+        String sourceEpochKind(){return epochKind;}
         MdoBrowserCdpResponse metadata(){return metadata;}
         OfferResult result(){return outcome.get();}
         void accept(long maximum,int timeoutMs)throws IOException {

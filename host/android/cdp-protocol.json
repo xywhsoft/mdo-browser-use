@@ -128,6 +128,20 @@
     "before_ack_permission": "explicit_browser_scope_pending_boundary_not_exact_attribution",
     "after_ack": "exact_single_retained_response_only_no_concurrent_response_substitution",
     "control_without_native_loader": "no_exact_download_attribution_inferred",
+    "source_epoch": {
+      "native_goto": "original_root_document_scope_captured_before_command_dispatch",
+      "before_ACK": "common_original_document_of_still_possible_frozen_candidates_only",
+      "known_request": "original_native_request_loader_filters_settled_candidates",
+      "later_document_adopted": false,
+      "mixed_document_candidates": "retained_failed_record_without_body_claim_not_a_global_navigation_failure",
+      "correlation_fault_new_root_offer": "unproven_document_failed_record_existing_transfer_cleanup_preserved",
+      "metadata_basis": ["response_frame", "navigation_candidates", "original_navigation", "unproven"],
+      "response_frame_basis_is_original_request_proof": false,
+      "unproven_document": null,
+      "completed_bytes": "existing_original_EOF_and_file_verification_rules_remain",
+      "grants_execution_or_permission": false,
+      "installed_provider_verified": false
+    },
     "installed_provider_verified": false
   },
   "sources": [

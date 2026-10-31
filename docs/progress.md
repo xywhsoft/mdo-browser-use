@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E109:** pin a native goto download to its original captured document,
+  rather than a replacement document present when the response arrives. Retain
+  ambiguous-source failures without claiming a body or poisoning later actions.
+  Seven scope/order/recovery cases bring the broker gate to 915 assertions; the
+  real socket/JSON/JNI pipeline also checks its epoch before and after ACK.
+  Full native gates, 173/175 Python cases (two existing privilege skips) and the
+  rebuilt actual APK pass. Other response-frame snapshots are explicitly weaker
+  provenance. Installed-provider/main-UI and remaining goal work stay open.
 - **Android E108:** prove an unchanged-location goto without inventing a missing
   navigation event. Require the original known native URL digest/position, a
   typed non-download/no-loader ACK and one fresh matching native frame snapshot.
@@ -8979,3 +8987,71 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   verification remain. Phone/provider changes stay deferred, public Android
   admission and all qualification flags stay false. No model call, online
   publication or production-data modification occurred.
+
+## E109 — retain original navigation epochs for late download responses (2026-10-31)
+
+- Confirm a product-component defect against E108 production classes: retain an
+  original download request/ACK, replace the root document, then deliver that old
+  response for the first time. It has the correct original nr reference but
+  incorrectly reports the new document as its current source. The regression
+  fails at check 825 (.mdo/E109-late-epoch-before-fix.log). No installed provider
+  or production incident is inferred from this controlled reproduction.
+- Capture the original root document Origin with each private native goto
+  admission. Freeze the response's still-possible original candidates, filtering
+  by native request/loader evidence when available. Before ACK/metadata, use only
+  a document common to those candidates; never borrow a replacement document.
+  Pin that epoch once on the retained Offer and use it for controller acceptance,
+  worker advancement, source-current metadata and cancellation. Original Origin
+  tokens contain no WebView, binding/UI callback, URL, body or execution handle.
+- Old revoked sources fail with native_frame/download_frame_changed and no body
+  claim/read. Mixed original documents and correlation faults create an explicitly
+  unproven document (source_document:null) and a retained failed download record.
+  Cancel its exact source and keep its cause/cleanup receipt. This rejection is
+  per record; it does not set the controller's permanent failure fence. A later
+  explicit, well-proven action can proceed without repeating the failed request.
+- Report native.source_epoch_kind as response_frame, navigation_candidates,
+  original_navigation or unproven. A later exact nr proof can refine the label,
+  never the frozen epoch. response_frame remains only a response-time frame
+  snapshot, not proof of the initiating document; broader non-goto attribution
+  remains open. Existing EOF/file-verification rules retain completed original
+  bytes across later navigation. Same-document movement does not revoke a valid
+  download's document epoch.
+- Seven broker cases cover metadata before/after commit/retention, ACK after
+  stale-source cancellation, same-document movement, completed bytes after a
+  replacement, mixed-document rejection and a fresh successful action. All 915
+  assertions pass; require original_download_epoch in the gate. Raw socket/JNI/
+  strict-JSON download progression also proves the common original epoch before
+  its delayed ACK and the same epoch afterward (243 navigation assertions).
+- The first full run hits the native descriptor baseline assertion after this
+  new metadata fixture creates its first UUID. Preserve
+  .mdo/E109-native-metadata-fd-before-fix.log. Existing entropy instrumentation
+  confirms the JDK opens two process-wide /dev/random and /dev/urandom descriptors
+  (0 to 2). Initialize that metadata before sampling the per-session baseline,
+  as the existing commit fixture does. Do not weaken native Fds()==VmBaseline,
+  allocation balance or socket-slot assertions. The focused and full rerun pass;
+  RLIMIT_CORE remains zero and no extra core/diagnostic file was created.
+- Full ASan/UBSan/API26/JVM/JNI/socket gates pass with 105 current source hashes.
+  Python passes 173/175 in 53.121 seconds; two existing Windows symlink skips
+  remain. Reuse E106 JS 372/packed Windows 12 checks only after unchanged source/
+  artifact verification; E106 product 647 and E105 world/document checks retain
+  their exact 13/seven current input hashes. Seven APK contracts run in the full
+  Python suite. These results do not qualify installed Android/provider behavior.
+- Actual Android QA APK: 6,477,121 bytes, SHA-256
+  751b83a640f469c259873f222619cfe4f026af9f4b2afbcb15ce3e1f8ac73837.
+  Current Java/source archive, actual DEX classes, private provider, retained
+  signer, six JNI exports and ARM64/16 KiB native payload verify. Windows and
+  paired plugin keep their E106 identities. Evidence: .mdo/E109-native-current.json,
+  E109-android-receipt.json, E109-final-identities.log and E109 test/build logs.
+  No runtime dependency or extra app/Home/source deployment was added.
+- Final cancellation audit withholds the exact native abort ACK. The previous
+  draft incorrectly exposes pending/null cause while cleanup is in progress
+  (check 902, .mdo/E109-cancelling-cause-before-fix.log). Publish cancelling with
+  the actual download_frame_unproven cause immediately and preserve that same
+  cause for an early accept decision. The focused regression and final full gates
+  pass; no body is claimed or read while that cancellation is pending.
+- Restore the sole headless service: PID 26100, HTTP 200 on 63625, about 3,437.9
+  MiB. Goal active. Next inspect released deferred-request-link lifetime and
+  remaining transfer/platform and non-goto provenance work. Phone/provider
+  testing stays deferred, all qualification flags/public Android admission stay
+  false, desktop visual availability and historical Windows attribution remain
+  unresolved. No model calls, online release or production-data changes occurred.

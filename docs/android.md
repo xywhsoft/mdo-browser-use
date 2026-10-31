@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E108)
+## Complete development host APK (E46/E109)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,477,121 bytes, SHA-256
-`d7a1d3fd29d0f84f77558a3221f0510a77f9a8f14ac11c6b5ce61b6c0b9fdd43`.
+`751b83a640f469c259873f222619cfe4f026af9f4b2afbcb15ce3e1f8ac73837`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -92,10 +92,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E108-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E108-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E109-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E109-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E108. Native/component evidence is recorded separately below.
+attempted in E106-E109. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -3478,7 +3478,10 @@ Parent commit/removal revokes descendant tokens; swap evidence alone cannot
 requalify a process route. A separate child CDP session is still unqualified for
 download interception and does not silently become a root-frame response.
 
-Candidate acceptance and common-worker turns require a current original scope.
+Candidate acceptance and common-worker turns require the record's retained scope.
+E109 pins native goto candidates to their original admission document. Other
+response_frame records describe the frame at retention, not proof of the request's
+initiating document; keep that weaker basis explicit.
 Pending or partial stale downloads cancel only their original request/body and
 retain native_frame causes and cleanup receipts. A successful original EOF plus
 stream-close and request-abort receipts may already exist while independent file
@@ -4008,3 +4011,38 @@ Only one completion-snapshot attempt is allowed for that original action. A
 contradictory/malformed/missing snapshot cannot be retried after an unrelated
 child event to manufacture an eventual match. The regression fails the prior
 draft and passes the final implementation.
+
+## Original navigation epochs for late download responses (E109)
+
+An nr association identifies a request; it must not cause a response arriving
+after replacement to adopt the current page's document. Native goto admission
+now captures its original root Origin. At retention, the response uses only a
+common original document among its frozen eligible candidates, with native
+request/loader evidence filtering settled candidates. This works before a delayed
+ACK when all possible sources share the same original document. The epoch is
+bound once, independently of later nr evidence and frame inventory.
+
+A revoked original epoch cancels its own source without claiming/reading a body.
+Ambiguous documents or correlation faults retain a failed record with
+download_frame_unproven and native.source_document:null. That record has a blocked
+scope and cannot gain permission from a fresh current page. Its cancellation is
+not a global controller failure; after cleanup, a new well-proven operation can
+proceed. Known causes survive cleanup and later user decisions. Existing completed
+EOF/file-verified bytes remain readable after navigation, while same-document
+position movement does not invalidate their document origin.
+
+native.source_epoch_kind exposes the basis: response_frame is a response-time
+frame snapshot, navigation_candidates is the common original command epoch before
+exact attribution, original_navigation additionally has the exact nr proof, and
+unproven grants no document authority. A stronger label never replaces the pinned
+epoch. Initiating-document proof for other response_frame paths remains open.
+
+The broker passes 915 assertions across seven new scope/order/recovery cases;
+the real socket/JSON/JNI pipeline also checks its original epoch before/after a
+body-dependent ACK. Full native gates and the actual refreshed APK pass. Device,
+provider and main-UI qualification remain deferred, with public admission off.
+
+Holding the native abort ACK also proves that a rejected source immediately
+reports cancelling with download_frame_unproven. An early accept retains that
+same known cause instead of reporting a generic frame change. Cleanup confirmation
+remains required before releasing the exact original source.

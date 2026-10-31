@@ -1725,3 +1725,18 @@ infer success from URL equality alone or repeat navigation. The shared C/JS wait
 still requires DOM readiness and original-record/read guards. An unresolved start
 or missing/mismatched metadata keeps that outcome unproven. This private adapter
 change neither enables unqualified Android providers nor changes SDK signatures.
+
+E109 download metadata adds native.source_epoch_kind. original_navigation ties the
+retained response to the original captured goto document and exact nr evidence;
+navigation_candidates enforces a document common to the still-possible original
+commands before exact attribution. response_frame describes only the native frame
+at response retention and does not prove the request's initiating document.
+unproven has source_document:null and cannot authorize a body. These diagnostic
+fields grant neither task ownership nor download approval.
+
+The original epoch never changes to a replacement document when its ACK or
+metadata arrives late. A revoked epoch fails/cancels the exact unfinished source.
+Ambiguous provenance retains a failed record and cleanup receipt; a subsequent
+explicit well-proven action can proceed. Completed verified bytes retain their
+existing task-owned read/save rules. Android qualification and public SDK
+signatures are unchanged; broader non-goto initiating-document proof is pending.
