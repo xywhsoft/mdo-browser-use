@@ -4,7 +4,7 @@ import {createFrameReader} from '/js/features/workbench/frame-reader.js';
 import {createFrameDriver} from '/js/features/workbench/frame-driver.js';
 import {executeBrowserAutomation} from '/js/features/workbench/automation-dispatch.js';
 const origin=FRAME_FIXTURE_ORIGIN,runtime=FRAME_RUNTIME_SOURCE,uploadWorkspace=FRAME_UPLOAD_WORKSPACE;
-const uploadBroker=FRAME_UPLOAD_BROKER_SOURCE,brokerOnly=FRAME_BROKER_ONLY;
+const uploadBroker=FRAME_UPLOAD_BROKER_SOURCE,brokerOnly=FRAME_BROKER_ONLY,inputCycles=FRAME_INPUT_CYCLES;
 const bridge=createNativeBrowserBridge(),api=createLocalApplicationClient(()=>({extension:'browser-frame-qa'})),browser='browser-frame-native-qa',foreign='browser-frame-foreign-qa';
 const filesApi=createLocalApplicationClient(()=>({extension:'browser-frame-qa',workspace:uploadWorkspace}));
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));let checks=0,stage='startup',report,lastInventory,geometryEvidence,realmEvidence;
@@ -233,7 +233,7 @@ try{
   await rejectInput(chain);
   await rejectSnapshot(snapshot);
   assert((await evaluate(replacementLeaf,'Number(document.body.dataset.geometryClicks)')).value===0,'Old frame input reached the replacement child document');
-  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,dragRequests=0,fileRequests=0,captureRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null;
+  stage='frame-dispatch';let dispatchCounter=0,cancelDispatch=false,inputRequests=0,dragRequests=0,fileRequests=0,captureRequests=0,cancelHeldFrame=null,navigateHeldFrame=null,dragReplacement=null,afterCapture=null,navigationCycle=0;
   const routedView={execute:async(command,params)=>{
     if(command==='input')inputRequests++;
     if(command==='drag')dragRequests++;
@@ -249,7 +249,7 @@ try{
       if(method==='ui.result'){
         if(cancelHeldFrame&&(await evaluate(cancelHeldFrame,'document.body.dataset.dragHeld')).value==='true'){cancelHeldFrame=null;cancelDispatch='cancelled';}
         if(navigateHeldFrame&&(await evaluate(navigateHeldFrame,'document.body.dataset.dragHeld')).value==='true'){
-          navigateHeldFrame=null;dragReplacement=await advanceLeaf('during-native-drag');
+          navigateHeldFrame=null;dragReplacement=await advanceLeaf('during-native-drag-'+(++navigationCycle));
         }
         return{state:cancelDispatch==='cancelled'?'cancelled':'pending'};
       }
@@ -269,10 +269,16 @@ try{
     'The native scroll route substituted a root document or another leaf hit');
   assert((await evaluate(replacementLeaf,'document.activeElement.id')).value===originalFocus,'Read-only scroll routing changed DOM focus');
   stage='frame-dispatch';
-  const filled=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text:'Frame 🦉 input'});
-  geometryEvidence.filled=filled;
-  assert(filled.result.ok&&filled.result.verification==='field_state','Routed nested fill did not complete');
-  assert((await evaluate(replacementLeaf,`document.querySelector('#field').value`)).value==='Frame 🦉 input','Routed native Unicode text did not reach its exact nested input');
+  geometryEvidence.fillCycles=[];
+  for(let cycle=0;cycle<inputCycles;cycle++){
+    stage='frame-dispatch-fill-'+(cycle+1);
+    if(cycle){await call('evaluate',{script:`(()=>{document.querySelector('#root-focus').focus();return true})()`});await pause((cycle%3)*8);}
+    const text=cycle===inputCycles-1?'Frame 🦉 input':'Frame 🦉 input '+cycle,beforeInput=inputRequests;
+    const filled=await dispatch('act',{op:'fill',document:page.result.document,target:{name:'Nested field'},text});geometryEvidence.filled=filled;
+    assert(filled.result.ok&&filled.result.verification==='field_state','Routed nested fill did not complete');
+    assert((await evaluate(replacementLeaf,`document.querySelector('#field').value`)).value===text,'Routed native Unicode text did not reach its exact nested input');
+    geometryEvidence.fillCycles.push({cycle:cycle+1,verification:filled.result.verification,native_inputs:inputRequests-beforeInput});
+  }
   await call('evaluate',{script:`(()=>{document.querySelector('#root-focus').focus();return true})()`});
   const blurred=await driver.read('verify',{document:page.result.document,target:{name:'Nested field'},op:'fill',text:'Frame 🦉 input'});
   assert(blurred.ok&&blurred.verified&&!blurred.focused,'An unfocused ancestor still authorized keyboard input');
@@ -509,13 +515,19 @@ try{
   const invalidDrag=await call('drag',{agent:true,drag_key:'stale-frame-drag',navigation:state.navigation,x:100,y:100,to_x:200,to_y:200,
     source_frame_chain:[{frame:newLeaf.id,document:'fd-foreign'}],destination_frame_chain:[{frame:'f0',document:geometryRoot.document}]});
   assert(!invalidDrag.accepted&&invalidDrag.dispatched===false,'A stale native drag frame chain was not rejected before input');
-  await installDrag();navigateHeldFrame=newLeaf;
-  const navigatedDrag=await dispatch('act',dragParams);geometryEvidence.navigatedDrag=navigatedDrag;
-  assert(dragReplacement&&!navigatedDrag.result.ok&&navigatedDrag.result.error.effect_may_have_occurred,'Child navigation during an admitted drag lost effect uncertainty');
-  await until(async()=>!(await call('state')).input_busy,'Child navigation left the native drag input slot occupied');
-  assert((await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===0,'Drag cleanup issued a new click into the replacement document');
-  const afterDrag=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'},timeout_ms:5000});
-  assert(afterDrag.result.ok&&(await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===1,'Native input did not recover after the child-navigation drag interruption');
+  geometryEvidence.interruptedDragCycles=[];
+  for(let cycle=0;cycle<inputCycles;cycle++){
+    stage='framed-drag-navigation-'+(cycle+1);if(cycle)newLeaf=dragReplacement;
+    await installDrag();navigateHeldFrame=newLeaf;const beforeDrag=dragRequests;
+    const navigatedDrag=await dispatch('act',dragParams);geometryEvidence.navigatedDrag=navigatedDrag;
+    assert(dragReplacement&&!navigatedDrag.result.ok&&navigatedDrag.result.error.effect_may_have_occurred,'Child navigation during an admitted drag lost effect uncertainty');
+    await until(async()=>!(await call('state')).input_busy,'Child navigation left the native drag input slot occupied');
+    assert((await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===0,'Drag cleanup issued a new click into the replacement document');
+    const beforeRecovery=inputRequests,afterDrag=await dispatch('act',{op:'click',document:page.result.document,target:{name:'Nested geometry action'},timeout_ms:5000});
+    assert(afterDrag.result.ok&&(await evaluate(dragReplacement,'Number(document.body.dataset.geometryClicks)')).value===1,'Native input did not recover after the child-navigation drag interruption');
+    assert(dragRequests===beforeDrag+1&&inputRequests===beforeRecovery+1,'Interrupted drag or explicit recovery input was replayed');
+    geometryEvidence.interruptedDragCycles.push({cycle:cycle+1,code:navigatedDrag.result.error.code,effect_may_have_occurred:true,drag_requests:dragRequests-beforeDrag,recovery_inputs:inputRequests-beforeRecovery});
+  }
   stage='capture-owner-bindings';
   const rootArea=await evaluate(geometryRoot,`(${runtime})({local_frame:true}).captureArea({mode:'viewport'})`),outerArea=await evaluate(outer,`(${runtime})({local_frame:true}).captureArea({mode:'viewport'})`);
   assert(rootArea.ok&&rootArea.value.ok&&outerArea.ok&&outerArea.value.ok,'Local frame privacy masks could not be prepared');
@@ -576,7 +588,7 @@ try{
   assert(captureRequests-beforeResizeCapture===2,'Viewport settling did not use exactly two native captures in its original operation');
   assert(settledImage.result.document===capturePage.result.document&&!(await call('state')).capture_busy,'Viewport settling changed document or retained a native capture slot');
   await privateUploadBroker(dispatch);
-  report={passed:true,checks,backend:'actual-webview2-frame-sessions',retired_drag_source_recovery:dragRecoveryEvidence,frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
+  report={passed:true,checks,backend:'actual-webview2-frame-sessions',nested_fill_cycles:geometryEvidence.fillCycles.length,interrupted_drag_cycles:geometryEvidence.interruptedDragCycles.length,input_cycle_evidence:{fills:geometryEvidence.fillCycles,interrupted_drags:geometryEvidence.interruptedDragCycles},retired_drag_source_recovery:dragRecoveryEvidence,frames:4,oopif_confirmed:true,nested_frame:true,isolated_runtime:true,
     private_native_picker:true,private_picker_activation:'webview2-trusted-host-evaluation',closed_shadow_nonce_hidden:true,page_world_overrides_ignored:true,native_filelist_handoff:true,handoff_original_filename_and_sha256:true,handoff_exact_synthetic_event_pair:true,handoff_receipt_without_replay:true,private_picker_cleanup:true,page_reset_stops_change_and_is_not_verified:true,
     foreign_view_denied:true,navigation_invalidates_old_document:true,evaluation_uncertainty_retained:true,manual_control:true,close_cancels_pending:true,recreated_view_rejects_old_identity:true,bounded_frames_recover_after_navigation:true,bounded_oopif_sessions:true,
     combined_observation:true,global_ambiguity:true,qualified_references:true,native_owner_geometry:true,nested_trusted_input:true,native_frame_input_guard:true,

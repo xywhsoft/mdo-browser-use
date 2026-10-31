@@ -10,7 +10,9 @@ from frame_fixture import FrameFixture
 from upload_cache_probe import inspect_cache
 
 
-def main(upload_broker_only=False):
+def main(upload_broker_only=False,input_cycles=1):
+    if not isinstance(input_cycles,int) or not 1<=input_cycles<=8 or upload_broker_only and input_cycles!=1:
+        raise ValueError('Input cycles must be 1..8 and cannot be combined with the picker-only gate')
     output=dev.ENV/'native-frames-result.json';output.write_text('{"passed":false,"state":"running"}\n',encoding='utf-8')
     scope={'extension':'browser-frame-qa'};fixture=FrameFixture().start();page=dev.SOURCE/'app/web/__browser_use_native_frames__.html'
     before={p.name:(p.stat().st_size,p.stat().st_mtime_ns) for p in (dev.ENV/'host').glob('crash_*')}
@@ -24,13 +26,13 @@ def main(upload_broker_only=False):
         script=(dev.ROOT/'tools/native_frames_probe.js').read_text(encoding='utf-8')
         update_android_upload_broker.verify()
         broker=update_android_upload_broker.installer(update_android_upload_broker.SOURCE.read_text(encoding='utf-8'))
-        for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime,'FRAME_UPLOAD_WORKSPACE':str(dev.ROOT),'FRAME_UPLOAD_BROKER_SOURCE':broker,'FRAME_BROKER_ONLY':upload_broker_only}.items():
+        for marker,value in {'FRAME_FIXTURE_ORIGIN':fixture.origin,'FRAME_RUNTIME_SOURCE':runtime,'FRAME_UPLOAD_WORKSPACE':str(dev.ROOT),'FRAME_UPLOAD_BROKER_SOURCE':broker,'FRAME_BROKER_ONLY':upload_broker_only,'FRAME_INPUT_CYCLES':input_cycles}.items():
             if script.count(marker)!=1:raise RuntimeError('Frame probe placeholder changed')
             script=script.replace(marker,json.dumps(value).replace('<','\\u003c'))
         subprocess.run(['node','--input-type=module','--check'],input=script,text=True,encoding='utf-8',capture_output=True,check=True,cwd=dev.ROOT)
         page.write_text('<!doctype html><meta charset="utf-8"><h1 id="status">Native frame checks</h1><script type="module">'+script+'</script>',encoding='utf-8')
         dev.call('storage.write',{'path':'qa/native-frames.json','text':'null'},scope);dev.stop()
-        dev.start(window=True,page='/__browser_use_native_frames__.html');end=time.monotonic()+120;report=None
+        dev.start(window=True,page='/__browser_use_native_frames__.html');end=time.monotonic()+120+20*(input_cycles-1);report=None
         while time.monotonic()<end:
             saved=dev.call('storage.read',{'path':'qa/native-frames.json','limit':262144},scope)
             if saved.get('bytes')!=saved.get('size'):raise RuntimeError('Native frame report exceeds its explicit 256 KiB collection budget')
@@ -38,6 +40,8 @@ def main(upload_broker_only=False):
             if report is not None:break
             time.sleep(.2)
         if not report:report={'passed':False,'error':'Native frame checks did not return a terminal report'}
+        if report.get('passed') and not upload_broker_only and (report.get('nested_fill_cycles')!=input_cycles or report.get('interrupted_drag_cycles')!=input_cycles):
+            report.update(passed=False,error='The requested native input cycles did not complete')
         report['new_native_diagnostics']=[p.name for p in (dev.ENV/'host').glob('crash_*') if before.get(p.name)!=(p.stat().st_size,p.stat().st_mtime_ns)]
         if report['new_native_diagnostics']:report.update(passed=False,error='Native exception diagnostics were generated')
         report['download_or_model_calls']=False;report['fixture_requests']=dict(fixture.counts)
@@ -53,6 +57,6 @@ def main(upload_broker_only=False):
         dev.stop();dev.start();fixture.close()
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--upload-broker-only',action='store_true');args=parser.parse_args()
-    try:main(args.upload_broker_only)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--upload-broker-only',action='store_true');parser.add_argument('--input-cycles',type=int,choices=range(1,9),default=1);args=parser.parse_args()
+    try:main(args.upload_broker_only,args.input_cycles)
     except (RuntimeError,OSError,ValueError,subprocess.SubprocessError) as error:print(error,file=sys.stderr);raise SystemExit(1)

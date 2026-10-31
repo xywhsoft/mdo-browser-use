@@ -58,6 +58,16 @@ explicit click; the packaged program passes its twelve runtime checks.
 Earlier intermittent nested-fill/child-navigation-drag failures and the Windows
 realm audit remain open; this scoped recovery is not proof of their full cause.
 
+W6 adds an optional bounded repetition gate using the same deployment:
+`python tools/native_frames_probe.py --input-cycles 6`. Six actual OOPIF Unicode
+fills and six navigation-interrupted drags/recovery clicks pass 301 assertions.
+Each interrupted gesture retains uncertainty and is followed by exactly one
+explicit recovery click; final input/cleanup fences and native staging reservations
+are clear. The probe accepts 1..8 cycles and rejects mismatched terminal counts.
+It preserves the existing selection-focus, stale-frame, source-retirement and
+capture-privacy checks. This strengthens current-runtime evidence; it does not
+identify the historical intermittent failure's cause or qualify desktop pixels.
+
 W2 binds classic root-page script execution to its original native unique
 context, with private randomized world names, native metadata correlation and
 negative/positive provider capability probes. Numeric renderer-local context IDs

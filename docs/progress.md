@@ -15,6 +15,13 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Windows W6:** add bounded repeated cross-process Unicode fill and
+  navigation-interrupted drag/recovery cycles to the actual WebView2 regression.
+  Six cycles of each pass with 301 total assertions, exactly one drag and one
+  later explicit recovery click per interrupted cycle, clear final native input
+  fences and zero upload reservations/new native diagnostics. No product code or
+  artifact changed. This strengthens current-runtime evidence without attributing
+  or claiming permanent resolution of the historical intermittent failures.
 - **Android E110:** reclaim deferred request associations when their download
   records are released. Reproduce the old false limit on the 33rd sequential
   cancelled/released record; cancel/release and complete/release now each pass
@@ -9112,3 +9119,45 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Windows attribution and whole-goal qualification remain open. Phone/provider
   changes stay deferred and public Android admission/all qualification flags stay
   false. No model call, publication or production-data modification occurred.
+
+## W6 — repeat actual cross-process input and interrupted-drag recovery (2026-10-31)
+
+- Extend the existing native frame regression in the sole project deployment
+  with --input-cycles 1..8 (default one). The picker-only gate remains separate;
+  combining it with repetition is rejected before any fixture/service change.
+  Scale the finite whole-probe observation budget with the requested work and
+  require the terminal browser report to confirm both exact completed counts.
+  There is no operation retry or assertion bypass on a failing cycle.
+- Repeat native Unicode nested fills in the existing cross-site/OOPIF hierarchy,
+  deliberately moving focus back to the root between cycles. Verify each exact
+  final field value and field_state receipt; retain its native input count.
+  Preserve the original downstream selection-time focus-change regression and
+  its no-replacement-text assertion.
+- Repeat the actual admitted pointer drag interrupted by an original child
+  document replacement. Give each replacement a distinct fixture URL, retain
+  uncertainty, wait for input cleanup, prove zero clicks in the replacement, then
+  issue one explicit recovery click. Require exactly one native drag and one
+  recovery input per cycle. The final source stays stale for the existing
+  capture-owner/old-document checks. Preserve original-observer failure,
+  quarantine, positive-source-retirement recovery and capture-privacy checks.
+- Run python tools/native_frames_probe.py --input-cycles 6 against real WebView2
+  with loopback-only fixtures. All 301 assertions pass: six fills each issue their
+  three expected native input phases and verify the exact Unicode field value;
+  all six interrupted drags retain action_uncertain/effect_may_have_occurred and
+  then complete their single later recovery click. Final input_busy,
+  drag_cleanup_failed, upload_cleanup_failed and process_failed are false, with
+  no world error, new native diagnostic or private-upload reservation.
+- Preserve .mdo/W6-frames-stress.log and W6-frames-stress.json, including individual
+  cycle receipts and six current fixture/runtime/host-input hashes. The zero-cycle
+  CLI is rejected with exit 2 before service or native input; evidence is in
+  W6-invalid-cycles.log. The actual probe performs its JavaScript syntax gate.
+  Product C/JS/Java and native binaries are unchanged, so full product suites are
+  not needlessly repeated. Verify the current reviewed app archive, Android
+  source hash and all Windows/APK/plugin artifact hashes against E110 receipts.
+- Restore headless HTTP 200 on 63625, PID 26784, about 3,439.3 MiB. No second
+  application/Home/browser, model call, external page or release is introduced.
+  This did not reproduce the historical E68 interruptions or identify their
+  original cause. Desktop-pixel and Android-provider qualification remain
+  separate; do not retry the unchanged unavailable Computer Use helper. Goal
+  active; continue remaining integration and qualification work. Phone/WebView
+  testing stays deferred without another request to reconnect.
