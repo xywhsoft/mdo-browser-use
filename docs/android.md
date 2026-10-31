@@ -4499,3 +4499,37 @@ the native view. Exact UI child teardown and original target detachment remain
 separate cleanup obligations. The public protected Android popup route and all
 provider/framework/automation qualification flags remain false. Phone and WebView
 changes stay deferred; Windows/plugin artifacts remain unchanged.
+
+## Native consumption and child retirement (E127)
+
+The private native source now records a typed original-Pending adoption intent
+before entering the native transport. Dispatch is once-only; a prepared intent
+that was never sent cannot become a consumed-child receipt through a later null
+rejection. Foreign, duplicate and stale receipts do not acquire another callback.
+
+Created.close is UI-owned. Before native handoff it disposes an unsent instance
+through the exact product callback. After dispatch it immediately revokes the
+child's data-only proof permission, but waits for the original native consumption
+receipt before destruction. Returning from close can therefore mean retirement
+was requested, not that physical cleanup is complete. The UI protocol book
+retains that obligation and handles a synchronous or late consumption callback.
+Only exact post-destroy acknowledgement completes the native retirement; the
+worker additionally requires the original retained targets to detach before
+releasing the action. Human takeover remains preserved.
+
+Native consumption still proves neither a physical target association nor child
+world/profile/readiness/body authority. The original protected capture and marker
+proof remain separate. A cleanup failure fences future native sends, including a
+previously allocated permit: current source state is checked again before handoff
+and child proof. Closing a child proof handle alone still does not destroy its
+native view.
+
+Controlled regressions cover delayed/reentrant consumption, destruction before
+acknowledgement, target-detach ordering, duplicate close/acknowledgement, failed
+destruction, missing consumption and original-opener loss. A late acknowledgement
+may clean the exact child after a global failure, but cannot rewrite an already
+failed terminal result as confirmed cleanup. Multi-source/global failure
+quiescence and the complete product preparation/adoption/promotion/body-routing
+coordinator remain unfinished. Public protected Android popup admission and
+provider/framework/automation qualification remain false; these tests do not
+qualify an installed WebView. Current counts and exact artifacts are in progress.md.

@@ -168,7 +168,37 @@ public final class CdpPopupNativeProbe {
         }
     }
     public static void main(String[] args)throws Exception{
-        ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+    }
+    private static void preparedRetirement()throws Exception{
+        WebView root=new WebView(),other=new WebView(),child=new WebView(),foreignChild=new WebView();
+        MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);
+        MdoBrowserPopups.Scheduler scheduler=new MdoBrowserPopups.Scheduler(){public long now(){return 100;}public void at(Runnable task,long at){}public void remove(Runnable task){}};
+        MdoBrowserPopups<WebView> a=new MdoBrowserPopups<>(root,scheduler,budget,()->true,()->1,blocked->{});
+        MdoBrowserPopups<WebView> b=new MdoBrowserPopups<>(other,scheduler,budget,()->true,()->1,blocked->{});
+        MdoBrowserPopups.Scope scope=a.claimProtocol(root,()->true),foreign=b.claimProtocol(other,()->true);
+        final int[] callbacks={0};a.attachProtocolUi(scope,receipt->{check(receipt.nativeConsumed());callbacks[0]++;});
+        check(a.readyProtocol(scope)&&b.readyProtocol(foreign));Transport first=new Transport(),second=new Transport();check(a.open(first,false)&&b.open(second,false));
+        MdoBrowserPopups.Pending pending=a.pendingProtocol(scope),wrong=b.pendingProtocol(foreign);
+        MdoBrowserPopups.Adoption prepared=a.prepareProtocolAdoption(scope,pending,child),foreignReceipt=b.prepareProtocolAdoption(foreign,wrong,foreignChild);
+        check(!prepared.dispatched()&&!prepared.mayHaveOccurred()&&!prepared.nativeConsumed()&&first.sends==0&&pending.current());
+        denied(()->a.prepareProtocolAdoption(scope,pending,new WebView()));
+        denied(()->a.nativeChildDestroyed(prepared,child));
+        denied(()->a.stopForProtocol(scope,prepared));check(scope.current()&&first.sends==0);
+        denied(()->a.sendProtocolAdoption(foreign,prepared));denied(()->a.sendProtocolAdoption(scope,foreignReceipt));
+        check(pending.current()&&first.sends==0&&second.sends==0);
+        a.sendProtocolAdoption(scope,prepared);check(first.sends==1&&first.child==child&&prepared.dispatched()&&prepared.mayHaveOccurred());
+        denied(()->a.sendProtocolAdoption(scope,prepared));check(first.sends==1&&!prepared.nativeConsumed());
+        denied(()->a.nativeChildDestroyed(prepared,null));denied(()->a.nativeChildDestroyed(prepared,new WebView()));denied(()->a.nativeChildDestroyed(foreignReceipt,foreignChild));
+        denied(()->a.stopForProtocol(scope,foreignReceipt));check(scope.current());
+        MdoBrowserPopups.Stop stop=a.stopForProtocol(scope,prepared);check(stop.pending()&&!stop.confirmed());
+        child.destroy();a.nativeChildDestroyed(prepared,child);check(stop.pending()&&!prepared.nativeConsumed());
+        first.ack();check(stop.confirmed()&&prepared.nativeConsumed()&&!prepared.ok()&&callbacks[0]==1&&child.destroyed==1);
+        first.ack();check(callbacks[0]==1&&first.sends==1&&stop.release());
+        MdoBrowserPopups.Stop rejected=b.stopForProtocol(foreign);check(second.sends==1&&second.child==null&&!foreignReceipt.dispatched());
+        second.ack();check(rejected.confirmed()&&!foreignReceipt.nativeConsumed()&&!foreignReceipt.ok()&&!foreignReceipt.mayHaveOccurred()&&rejected.release());
+        denied(()->b.sendProtocolAdoption(foreign,foreignReceipt));check(second.sends==1&&budget.used()==0);
+        a.close();b.close();a.viewDestroyed(root);b.viewDestroyed(other);
     }
 }

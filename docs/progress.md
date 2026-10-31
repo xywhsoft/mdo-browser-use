@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E127:** split original native adoption intent from dispatch and retain
+  sent children until the original consumption acknowledgement. UI-owned deferred
+  disposal requires exact native destruction, immediate data-only proof retirement
+  and original-target detachment before ordinary action release. Preserve human
+  ownership and failed global outcomes. Reproduce and fix a stale-permit send
+  after cleanup fencing. Fresh native 120-input/42-worker-mode/1,828-check,
+  controller 196, popup 110/25, save 47 and Python 173/175 gates pass. Rebuild and
+  verify actual APK definitions; product/global coordination and provider
+  qualification remain incomplete.
 - **Android E126:** join the private native popup constructor to the product's
   exact disposer and shared ordinary-view settings/listeners, without publishing,
   navigating, binding a document world/profile or handing off the child. Roll back
@@ -10265,3 +10274,74 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   failure quiescence, guarded bootstrap/resume and response/body routing. Public
   protected Android popup admission and provider/framework/automation qualification
   remain false; actual device and full delivery verification remain outstanding.
+
+## E127 — acknowledged native handoff retirement (2026-11-01)
+
+- Previous goal turn made progress through E125/E126 commits; this stage continues
+  the full objective. Split original-Pending adoption preparation from dispatch,
+  store the receipt before entering framework code and mark dispatch before the
+  irreversible call. Reject duplicate/foreign intents. A prepared child that was
+  never sent cannot receive native-consumed evidence from a null rejection.
+- Give the UI protocol attachment a typed consumption callback. Created.close
+  immediately invalidates shared data-only child proof permission; a sent child
+  is retained with capacity/key until its original native consumption receipt.
+  Synchronous or late acknowledgement then invokes only its registered host
+  disposer. Exact physical destruction acknowledgement is required; original
+  retained-target detachment remains an additional worker release barrier. No
+  strong UI owner/callback/view is added to the worker's Child data.
+- Add typed adopted-child Stop evidence, joining native consumption with exact
+  child destruction. Keep disposal and consumption counters through reentrant
+  callbacks so cleanup cannot become confirmed midway through the host disposer.
+  Repeated close/acknowledgement does not resend or destroy twice. Preserve sticky
+  human takeover; explicit cleanup retry still cannot erase process uncertainty.
+- A missing consumption receipt leaves the child/capacity retained; a late receipt
+  can settle that exact view without changing the failed terminal result. A
+  throwing disposer or missing destruction acknowledgement reports the original
+  cleanup failure after native consumption and stays fenced. Original-opener loss
+  still triggers the unfinished global failure path: do not claim its source or
+  process cleanup was confirmed, even if late native cleanup subsequently succeeds.
+- E127-fence-before-verified.log deterministically reproduces a separate private
+  source defect: an older constructor's cleanup failure fences the process but a
+  newer Pending's previously allocated permit can still send a native child.
+  Hold the existing original executor with its established latch seam, preserving
+  the live newer Pending/permit; the old send is observed before the fix. Recheck
+  current source/process fencing before native handoff and child proof, and include
+  the fence in the data-only Child.current predicate. The 32-check after-fix
+  regression passes without another native handoff or wrong-Pending rejection.
+- Preserve failure evidence. Initial retirement tests tried to start another
+  source after intentionally poisoning the process; run opener-loss and other
+  fatal modes separately through the existing fixed QA command, with no app/Home
+  copies. The ordinary manual-popup regression caught two null receipts being
+  mistaken for typed retirement; require a non-null exact adoption receipt and
+  retain the original manual protection path. The first fence fixture waited for
+  a worker operation without delivering its UI marker; use the established UI
+  drain/latch, then retain the deterministic failing before/fixed after evidence.
+- Final native gate E127-native-final.log binds 120 source hashes and passes
+  ASan/UBSan/API26/JVM/JNI, balanced native resource and exit checks. Forty-two
+  worker modes pass 1,828 assertions; new retirement modes pass 191/26/26/26/21
+  and the admission fence passes 32. Native-source/controller passes 196, including
+  27 new typed-intent/destruction/foreign/null-rejection checks; broker remains 261
+  with two native transport flows. Fresh popup contracts pass 110/25 with eight
+  current hashes. Product/frame/input code is unchanged: recheck E126 product
+  685/14-input and actual Windows 301/six-input evidence, plus unchanged E125
+  lifecycle/input/channel/guard/wheel/hover evidence, without claiming fresh runs.
+- Apply only while stopped and rebuild actual Android Java/DEX/APK. Require the
+  ProtocolUi definition and inspect actual definitions for six product/native
+  classes, including prepare/send adoption, native destruction, consumption,
+  Created.close and Child.current/close. Signing/private-provider/JNI/ARM64/16-KiB/
+  zip alignment gates pass. Final APK: 6,513,985 bytes, SHA-256
+  a44d052ec755b68d61312d464006fa66cfe203dafeb8c6500ed6fb00fffeb884.
+  The earlier E127 APK is superseded by the post-fence-fix build.
+- Fresh JS/C saving passes 47 and binds the final native receipt; Python passes
+  173/175 in 48.385 seconds, with two existing Windows symlink-privilege skips.
+  The E127 identity script joins current native/save/APK/DEX and reused evidence,
+  including the unchanged ARM64 host, Windows program and plugin bytes. Service
+  restored: HTTP 200 on 63625, PID 33528; deployment about 3,444.0 MiB. Preserve
+  phone/WebView deferral and formal data. No ADB operation, extra app/Home/source
+  copy, runtime dependency, model call, external browser site or publication.
+- Goal remains active. Complete UI-owned preparation/action/native-consumption
+  coordination, parent/child owner retention and promotion, global multi-source
+  failure quiescence, guarded bootstrap/resume, response/body routing and full
+  platform/delivery audit. Public protected Android popup admission and all
+  provider/framework/automation qualification remain false; do not replace
+  unavailable isolated-world execution with main-world Agent execution.

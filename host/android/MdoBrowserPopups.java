@@ -44,25 +44,28 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
      * child ownership, document readiness or isolated-world authorization. */
     static final class Adoption {
         private final Pending original;private final WeakReference<Object> child;
-        private final AtomicInteger state=new AtomicInteger();private volatile String code;private volatile boolean consumed;private boolean childClaimed;
+        private final AtomicInteger state=new AtomicInteger();private volatile String code;private volatile boolean consumed,dispatched,childDestroyed;private boolean childClaimed;
         private Adoption(Pending original,Object child){this.original=original;this.child=new WeakReference<>(child);}
         boolean pending(){return state.get()==0;}
         boolean ok(){return state.get()==1;}
         boolean nativeConsumed(){return consumed;}
+        boolean dispatched(){return dispatched;}
         String failure(){return code;}
-        boolean mayHaveOccurred(){return true;}
+        boolean mayHaveOccurred(){return dispatched;}
         private void finish(boolean ok,String reason){if(state.get()!=0)return;code=reason;state.compareAndSet(0,ok?1:2);}
     }
+    interface ProtocolUi {void consumed(Adoption original);}
     private final class Protocol {
-        final Scope scope;final BooleanSupplier owned;Object uiAttachment;
+        final Scope scope;final BooleanSupplier owned;ProtocolUi uiAttachment;
         Protocol(Scope scope,BooleanSupplier owned){this.scope=scope;this.owned=owned;}
     }
     /** Data-only rejection evidence for the protocol worker. Only this native
      * controller can complete it; a queue barrier is not debugger detachment. */
     static final class Stop {
         private final WeakReference<MdoBrowserPopups<?>> owner;private final AtomicInteger state=new AtomicInteger();
-        private volatile String code;private final Scope scope;
-        private Stop(MdoBrowserPopups<?> owner,Scope scope){this.owner=new WeakReference<>(owner);this.scope=scope;}
+        private volatile String code;private final Scope scope;private final Adoption retirement;
+        private Stop(MdoBrowserPopups<?> owner,Scope scope){this(owner,scope,null);}
+        private Stop(MdoBrowserPopups<?> owner,Scope scope,Adoption retirement){this.owner=new WeakReference<>(owner);this.scope=scope;this.retirement=retirement;}
         boolean pending(){return state.get()==0;}
         boolean confirmed(){return state.get()==1;}
         String failure(){return code==null?"popup_native_rejection_unconfirmed":code;}
@@ -152,13 +155,20 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     }
     private void consumed(String id){
         thread();Entry value=entry;if(value==null||!value.snapshot.id.equals(id)||!value.sent)return;
-        if(value.adoption!=null)value.adoption.consumed=true;
+        Protocol original=protocol;
+        if(value.adopted&&value.adoption!=null&&value.adoption.dispatched)value.adoption.consumed=true;
         boolean valid=!value.invalidated&&!value.timedOut&&current(value)&&!faulted;
         entry=null;budget.release();
         try{scheduler.remove(value.timer);}catch(RuntimeException|OutOfMemoryError error){faulted=true;valid=false;}
         blocked(false);valid=valid&&!faulted;
-        if(value.stop!=null){if(!value.adopted&&!value.timedOut&&!faulted)value.stop.confirm();else value.stop.fail("popup_native_rejection_unconfirmed");}
+        if(value.stop!=null){
+            if(value.timedOut||faulted)value.stop.fail("popup_native_rejection_unconfirmed");
+            else if(value.stop.retirement!=null&&value.stop.retirement==value.adoption&&value.adopted)confirmRetirement(value.stop);
+            else if(!value.adopted)value.stop.confirm();else value.stop.fail("popup_native_rejection_unconfirmed");
+        }
         finish(value,valid,valid?null:"popup_source_changed",true);
+        if(value.adoption!=null&&value.adoption.nativeConsumed()&&original!=null&&original.scope==value.adoption.original.scope&&original.uiAttachment!=null)
+            try{original.uiAttachment.consumed(value.adoption);}catch(RuntimeException|OutOfMemoryError error){faulted=true;if(value.stop!=null)value.stop.fail("popup_native_rejection_unconfirmed");}
     }
     private void expire(String id){
         thread();Entry value=entry;if(value==null||!value.snapshot.id.equals(id))return;
@@ -175,7 +185,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         long epoch=navigation.getAsLong();if(epoch<=0||!owned.getAsBoolean()||!actionOwner.getAsBoolean())throw new IllegalStateException("popup_source_changed");
         Scope next=new Scope(this,epoch);protocol=new Protocol(next,actionOwner);return next;
     }
-    void attachProtocolUi(Scope exact,Object attachment){
+    void attachProtocolUi(Scope exact,ProtocolUi attachment){
         thread();if(attachment==null||!protocolCurrent(exact)||protocol.uiAttachment!=null)throw new IllegalStateException("popup_native_scope_unavailable");protocol.uiAttachment=attachment;
     }
     boolean protocolCurrent(Scope scope){
@@ -197,9 +207,34 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         Snapshot snapshot=snapshot();return snapshot!=null&&entry.pending!=null&&entry.pending.scope==scope?entry.pending:null;
     }
     Adoption adoptProtocol(Scope scope,Pending pending,T child){
+        Adoption receipt=prepareProtocolAdoption(scope,pending,child);sendProtocolAdoption(scope,receipt);return receipt;
+    }
+    Adoption prepareProtocolAdoption(Scope scope,Pending pending,T child){
         thread();Pending original=pendingProtocol(scope);
-        if(pending==null||pending!=original||!pending.current()||child==null||child==opener)throw new IllegalStateException("popup_request_unavailable");
-        Entry value=entry;Adoption receipt=new Adoption(pending,child);value.adoption=receipt;send(value,child);return receipt;
+        if(pending==null||pending!=original||!pending.current()||child==null||child==opener||entry.adoption!=null)throw new IllegalStateException("popup_request_unavailable");
+        Adoption receipt=new Adoption(pending,child);entry.adoption=receipt;return receipt;
+    }
+    @SuppressWarnings("unchecked") // The exact original Pending/Entry joins the generic child before dispatch.
+    void sendProtocolAdoption(Scope scope,Adoption original){
+        thread();Pending pending=pendingProtocol(scope);T child=original==null?null:(T)original.child.get();
+        if(original==null||pending!=original.original||!pending.current()||entry.adoption!=original||original.dispatched||child==null||child==opener)
+            throw new IllegalStateException("popup_request_unavailable");
+        original.dispatched=true;send(entry,child);
+    }
+    boolean sentProtocolAdoption(Scope scope,Adoption original){
+        thread();return scope!=null&&protocol!=null&&protocol.scope==scope&&original!=null&&original.original.scope==scope&&
+            entry!=null&&entry.adoption==original&&entry.sent&&entry.adopted&&original.dispatched;
+    }
+    void nativeChildDestroyed(Adoption original,T exact){
+        thread();if(exact==null||!adoptedTo(original,exact)||!original.dispatched)throw new IllegalStateException("popup_child_owner_lost");original.childDestroyed=true;
+        if(protocolStop!=null&&protocolStop.retirement==original)confirmRetirement(protocolStop);
+    }
+    void failChildRetirement(Adoption original){
+        thread();if(protocolStop!=null&&protocolStop.retirement==original)protocolStop.fail("popup_native_child_cleanup_unconfirmed");
+    }
+    private void confirmRetirement(Stop stop){
+        if(faulted||destroyed){stop.fail("popup_native_rejection_unconfirmed");return;}
+        if(stop.retirement!=null&&stop.retirement.nativeConsumed()&&stop.retirement.childDestroyed)stop.confirm();
     }
     boolean adoptedTo(Adoption original,T exact){
         thread();return original!=null&&original.original.scope.owner.get()==this&&original.child.get()==exact;
@@ -210,11 +245,15 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         original.childClaimed=true;return true;
     }
     Stop stopForProtocol(Scope scope){
+        return stopForProtocol(scope,null);
+    }
+    Stop stopForProtocol(Scope scope,Adoption retirement){
         thread();if(scope==null||protocol==null||protocol.scope!=scope||protocolStop!=null)throw new IllegalStateException("popup_native_scope_unavailable");
+        if(retirement!=null&&!sentProtocolAdoption(scope,retirement))throw new IllegalStateException("popup_native_scope_unavailable");
         boolean stillOwned=protocolOwner(scope);scope.live.set(false);
         Entry value=entry;boolean original=value!=null&&value.pending!=null&&value.pending.scope==scope;
         // A retired task must never send a later human callback's Message.
-        protocolStopping=stillOwned||original;Stop stop=new Stop(this,scope);protocolStop=stop;
+        protocolStopping=stillOwned||original;Stop stop=new Stop(this,scope,retirement);protocolStop=stop;
         if(faulted||destroyed){stop.fail("popup_native_rejection_unconfirmed");return stop;}
         if(!original){stop.confirm();return stop;}
         stopEntry(value,stop);return stop;
@@ -229,7 +268,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     }
     private void stopEntry(Entry value,Stop stop){
         value.stop=stop;
-        if(value.sent&&value.adopted){stop.fail("popup_native_already_adopted");return;}
+        if(value.sent&&value.adopted){if(stop.retirement==null||stop.retirement!=value.adoption)stop.fail("popup_native_already_adopted");else confirmRetirement(stop);return;}
         value.invalidated=true;if(!value.sent)reject(value);
     }
     private boolean releaseStop(Stop stop){

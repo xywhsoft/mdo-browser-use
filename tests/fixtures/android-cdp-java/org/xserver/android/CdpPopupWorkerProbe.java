@@ -197,7 +197,7 @@ public final class CdpPopupWorkerProbe {
     private static final class NativeSource implements AutoCloseable {
         final CdpNetworkWorkerProbe.Case host;final MdoBrowserPopups<WebView> core;final MdoBrowserCdpPopupNative source;
         boolean allocationFail;Runnable allocationHook;final MdoBrowserLifecycle<WebView> views=PopupLifecycleFixture.registry(()->allocationFail,()->{if(allocationHook!=null)allocationHook.run();});int births;
-        final MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);final WebView view;int sends;Runnable consumed;boolean fail;WebView adopting;
+        final MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);final WebView view;int sends;Runnable consumed,sendHook;boolean fail;WebView adopting;
         NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network)throws Exception{
             this.host=host;view=network.view;views.put("root",view);
             core=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
@@ -207,7 +207,7 @@ public final class CdpPopupWorkerProbe {
         }
         void open(){check(core.open(new MdoBrowserPopups.Transport<WebView>(){
             private final Object token=new Object();public Object token(){return token;}
-            public void send(WebView child,Runnable callback){check(host.ui.onThread()&&child==adopting);sends++;consumed=callback;if(fail)throw new IllegalStateException("controlled-native-send-failure");}
+            public void send(WebView child,Runnable callback){check(host.ui.onThread()&&child==adopting);sends++;consumed=callback;Runnable hook=sendHook;sendHook=null;if(hook!=null)hook.run();if(fail)throw new IllegalStateException("controlled-native-send-failure");}
         },false));}
         void dispose(String key,WebView exact){if(views.owns(key,exact))views.remove(key);exact.destroy();views.viewDestroyed(exact);}
         MdoBrowserCdpPopupNative.Created create(MdoBrowserCdpPopupWorker.Request request)throws Exception{return source.construct(request.allocateNative(source),views,"child"+(++births),this::dispose);}
@@ -468,10 +468,10 @@ public final class CdpPopupWorkerProbe {
             if(variant==2){c.source.views.manual("owned",view,true);c.source.views.manual("owned",view,false);}
             if(variant==3){
                 c.source.adopting=view;MdoBrowserPopups.Adoption adoption=c.source.source.adopt(created);
-                failure("cdp_popup_native_handoff_retained",created::close);check(view.destroyed==0&&c.source.views.owns("owned",view));c.source.ack();check(adoption.nativeConsumed());
-                failure("cdp_popup_native_handoff_retained",created::close);c.request.close();
-                waitFor(c.source.source::confirmed,c.host,true);check(view.destroyed==0&&callbacks[0]==0&&!c.request.result().terminal);
-                c.source.views.remove("owned");view.destroy();c.source.views.viewDestroyed(view);created.close();check(view.destroyed==1);
+                created.close();created.close();check(view.destroyed==0&&c.source.views.owns("owned",view)&&c.source.source.rejectionPending());c.request.close();
+                int before=c.backend.receives.get();waitFor(()->c.backend.receives.get()>=before+2,c.host,true);check(!c.request.result().terminal&&view.destroyed==0);
+                c.source.ack();check(adoption.nativeConsumed());waitFor(c.source.source::confirmed,c.host,true);
+                check(view.destroyed==1&&callbacks[0]==1&&!c.request.result().terminal);created.close();check(view.destroyed==1);
                 c.backend.wire.add(detached("proof-real"));terminal(c.host,c.request,c.observer);
             }else if(variant==7){
                 check(c.source.core.dismiss(c.source.source.pending().id));c.source.ack();c.source.open();MdoBrowserPopups.Pending next=c.source.source.pending();
@@ -488,6 +488,105 @@ public final class CdpPopupWorkerProbe {
                 else check(view.destroyed==1&&callbacks[0]==(variant==0||variant==6?0:1)&&c.source.views.get("owned")==null);
             }
             check(c.request.result().processCleanupConfirmed&&c.request.result().sourceReleased&&MdoBrowserCdpPopupNative.creationConfirmed());
+            check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
+        }
+    }
+    private static void retirement(String mode)throws Exception{
+        if(!mode.equals("retirement"))try(OwnershipCase c=new OwnershipCase()){
+            final int[] attempts={0};final boolean[] fail={true};
+            MdoBrowserCdpPopupNative.Created created=c.source.source.construct(c.allocation,c.source.views,"owned",(key,view)->{
+                attempts[0]++;if(fail[0]&&!mode.equals("retirement-no-consumption")&&!mode.equals("retirement-opener-loss")){
+                    if(mode.equals("retirement-disposal-no-ack"))return;throw new IllegalStateException("controlled adopted disposal failure");
+                }c.source.dispose(key,view);
+            });WebView view=created.view();c.source.adopting=view;MdoBrowserPopups.Adoption adopted=c.source.source.adopt(created);
+            if(mode.equals("retirement-opener-loss"))c.source.source.lease().invalidate();
+            c.request.close();
+            if(mode.equals("retirement-opener-loss")){
+                terminal(c.host,c.request,c.observer);check(c.request.result().code.equals("cdp_popup_broker_opener_lost")&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+                check(view.destroyed==0&&attempts[0]==0&&c.source.source.rejectionPending());c.source.ack();
+                check(view.destroyed==1&&attempts[0]==1&&adopted.nativeConsumed()&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+                check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);return;
+            }
+            waitFor(c.source.source::rejectionPending,c.host,true);
+            int before=c.backend.receives.get();waitFor(()->c.backend.receives.get()>=before+2,c.host,true);
+            check(!c.request.result().terminal&&view.destroyed==0&&attempts[0]==0&&c.source.sends==1);
+            if(mode.equals("retirement-no-consumption")){
+                c.host.time.addAndGet(5001);terminal(c.host,c.request,c.observer);
+                check(c.request.result().code.equals("cdp_popup_native_cancel_timeout")&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+                check(view.destroyed==0&&attempts[0]==0&&!adopted.nativeConsumed()&&c.source.views.size()==2);
+                c.source.ack();check(view.destroyed==1&&attempts[0]==1&&adopted.nativeConsumed());
+                created.close();c.source.ack();check(view.destroyed==1&&attempts[0]==1);
+            }else{
+                c.source.ack();terminal(c.host,c.request,c.observer);
+                check(c.request.result().code.equals("cdp_popup_native_child_cleanup_unconfirmed")&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+                check(attempts[0]==1&&view.destroyed==0&&c.source.views.size()==2&&!MdoBrowserCdpPopupNative.creationConfirmed());
+                failure("cdp_popup_native_child_cleanup_unconfirmed",created::close);check(attempts[0]==1);
+                fail[0]=false;created.retryCleanup();check(view.destroyed==1&&attempts[0]==2&&c.source.views.size()==1&&!MdoBrowserCdpPopupNative.creationConfirmed());
+            }
+            check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);return;
+        }
+        for(int kind=0;kind<7;kind++)try(OwnershipCase c=new OwnershipCase()){
+            final int variant=kind==6?7:kind;final int[] calls={0};final MdoBrowserCdpPopupNative.Child[] proof={null};
+            MdoBrowserCdpPopupNative.Created created=c.source.source.construct(c.allocation,c.source.views,"owned",(key,view)->{
+                calls[0]++;check(!c.source.source.confirmed());check(c.source.source.rejectionPending());
+                if(proof[0]!=null)check(!proof[0].current());
+                c.source.dispose(key,view);
+            });WebView view=created.view();c.source.adopting=view;
+            if(variant==5)c.source.sendHook=()->{c.request.close();c.source.source.reject();check(view.destroyed==0&&c.source.source.rejectionPending());c.source.ack();check(view.destroyed==1);};
+            MdoBrowserPopups.Adoption adopted=c.source.source.adopt(created);
+            check(adopted.dispatched()&&c.source.sends==1);
+            if(variant==7){
+                c.source.views.manual("owned",view,true);c.source.views.manual("owned",view,false);c.request.close();terminal(c.host,c.request,c.observer);
+                check(view.destroyed==0&&calls[0]==0&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+                c.source.ack();check(view.destroyed==0&&adopted.nativeConsumed());continue;
+            }
+            if(variant==3){
+                c.source.ack();try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota())){
+                    proof[0]=c.source.source.child(adopted,created,adapter);check(proof[0].current());created.close();check(!proof[0].current()&&view.destroyed==1);proof[0].close();
+                }
+            }
+            if(variant==4){c.source.views.remove("owned");view.destroy();c.source.views.viewDestroyed(view);}
+            if(variant==0||variant==4){created.close();created.close();
+                try{created.view();throw new AssertionError("Retiring creation remained exportable");}catch(IllegalStateException expected){check(true);}}
+            c.request.close();
+            if(variant!=5){int before=c.backend.receives.get();try{waitFor(()->c.backend.receives.get()>=before+2,c.host,true);}
+                catch(AssertionError error){throw new AssertionError("Retirement variant "+variant+" result="+c.request.result().code+" terminal="+c.request.result().terminal+" native="+c.source.source.failure()+" pending="+c.source.source.rejectionPending(),error);}}
+            if(variant!=3&&variant!=5){
+                check(!c.request.result().terminal&&c.source.source.rejectionPending()&&calls[0]==0&&view.destroyed==(variant==4?1:0));
+                if(variant==2){c.backend.wire.add(detached("proof-real"));waitFor(()->!c.observer.candidates.get(0).current(),c.host,true);check(!c.request.result().terminal);}
+                c.source.ack();
+            }
+            waitFor(c.source.source::confirmed,c.host,true);check(adopted.nativeConsumed()&&view.destroyed==1&&calls[0]==(variant==4?0:1));
+            if(variant!=2){check(!c.request.result().terminal);c.backend.wire.add(detached("proof-real"));}
+            terminal(c.host,c.request,c.observer);created.close();c.source.ack();
+            check(view.destroyed==1&&c.source.sends==1&&c.request.result().sourceReleased&&c.request.result().processCleanupConfirmed&&MdoBrowserCdpPopupNative.creationConfirmed());
+            check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0&&c.source.views.size()==1);
+        }
+    }
+    private static void admissionFence()throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            final boolean[] fail={true};
+            MdoBrowserCdpPopupNative.Created old=c.source.source.construct(c.allocation,c.source.views,"older",(key,view)->{
+                if(fail[0])throw new IllegalStateException("controlled previous creation cleanup failure");c.source.dispose(key,view);
+            });WebView first=old.view();check(c.source.core.dismiss(c.source.source.pending().id));c.source.ack();c.source.open();
+            MdoBrowserCdpPopupWorker.Allocation allocation=c.request.allocateNative(c.source.source);
+            MdoBrowserCdpPopupNative.Created next=c.source.source.construct(allocation,c.source.views,"newer",c.source::dispose);WebView child=next.view();
+            MdoBrowserPopups.Pending pending=c.source.source.pending();CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+            c.host.worker.submit(c.host.document(),10000,false,(binding,deadline)->{
+                entered.countDown();try{if(!release.await(3,TimeUnit.SECONDS))throw new IOException("fixture_fence_wait_expired");}
+                catch(InterruptedException error){Thread.currentThread().interrupt();throw new IOException("fixture_interrupted");}return new byte[]{1};
+            },c.host.documentResults::add);
+            waitFor(()->entered.getCount()==0,c.host,true);
+            try{
+                failure("cdp_popup_native_child_cleanup_unconfirmed",old::close);check(!c.source.source.current()&&allocation.current()&&pending.current()&&c.source.source.pending()==pending);
+                c.source.adopting=child;
+                try{c.source.source.adopt(next);throw new AssertionError("Fenced native source dispatched a previously allocated child");}
+                catch(IllegalStateException expected){check(expected.getMessage().equals("popup_request_unavailable"));}
+                check(c.source.sends==1&&pending.current()&&child.destroyed==0&&first.destroyed==0);
+            }finally{c.source.adopting=null;c.request.close();release.countDown();}
+            waitFor(()->c.source.sends==2,c.host,true);c.source.ack();terminal(c.host,c.request,c.observer);
+            check(child.destroyed==1&&first.destroyed==0&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
+            fail[0]=false;old.retryCleanup();check(first.destroyed==1&&!MdoBrowserCdpPopupNative.creationConfirmed()&&c.source.views.size()==1);
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
         }
     }
@@ -671,7 +770,9 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("ownership"))ownership(mode);
+        if(mode.equals("admission-fence"))admissionFence();
+        else if(mode.startsWith("retirement"))retirement(mode);
+        else if(mode.startsWith("ownership"))ownership(mode);
         else if(mode.startsWith("allocation"))nativeAllocation(mode);
         else if(mode.equals("native-proof-post-birth"))nativeLateTarget();
         else if(mode.equals("native-proof-multiple"))nativeMultiple();
