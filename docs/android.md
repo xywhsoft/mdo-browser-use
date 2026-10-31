@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E115)
+## Complete development host APK (E46/E116)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,481,217 bytes, SHA-256
-`58c4092de866fb312387818decaeedcf19f3655a477c9ca410a9cbd8f83c2dc1`.
+Current APK: 6,485,313 bytes, SHA-256
+`3d738d5dd987948ebae0ebefcd1e6810f0b7dd5c0fcaef3b9ae79139523d9f09`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -64,6 +64,8 @@ the compiled private provider attributes. The DEX gate also requires the new
 scheduler definitions and the private `MdoBrowserCdpNative$BrowserEndpoint`.
 The fixed original-event cleanup metadata `MdoBrowserCdpSession$AttachedTarget`
 must also be an actual DEX definition.
+E116 also requires the private process broker, its registry/candidate/connector/
+release classes and the original physical Network.PopupSource definition.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
@@ -96,10 +98,10 @@ are **not yet qualified**. The last ADB inventory has no device and the user has
 deferred connecting it. Preserve their current WebView. The overall automation gate remains false
 even on providers advertising isolated worlds. Existing framework/automatic
 assignment/frame/transfer and broader goal gaps are still open. Evidence:
-`.mdo/E115-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
-receipt and `.mdo/E115-python-full.log` (173/175 pass, two existing symlink skips).
+`.mdo/E116-android-package.log`, `.mdo/E46-device-inventory.json`, the artifact
+receipt and `.mdo/E116-python-full.log` (173/175 pass, two existing symlink skips).
 The old inventory is historical; no phone reconnection or provider update was
-attempted in E106-E115. Native/component evidence is recorded separately below.
+attempted in E106-E116. Native/component evidence is recorded separately below.
 
 ## Private local DevTools transport foundation (E47)
 
@@ -4238,3 +4240,40 @@ with the unchanged verified ARM64 C host and eight JNI exports. Evidence is in
 .mdo/E115-final-identities.log and E115 native/save/APK receipts. Renderer and
 UI metadata peers are controlled; installed popup behavior, process-broker
 integration and overall Android provider/automation qualification remain false.
+
+## Private process broker and physical opener registration (E116)
+
+The process controller is implemented as MdoBrowserCdpPopupBroker. It acquires
+one process claim before native browser discovery/opening and fixed page-only,
+flattened, waiting auto-attachment. Registration takes only the private source of
+an enabled original physical Network proof, retains its original lifetime and
+exposes no caller-selected target. Related metadata is held as a candidate for
+future native popup transport/child proof; it enables no body/Fetch/Agent action.
+The component uses its original protocol worker and adds no executor or engine.
+
+Unclaimed existing targets detach without a synthetic resume; waiting unclaimed
+targets use the original resume-then-detach chain. Disable first drains old
+controls. Late targets during disable are recorded as retired, without repeated
+commands, and only the original empty disable ACK releases the process claim.
+Native candidates block graceful disable pending their original native handling.
+Unconfirmed closure/cancellation/expiry/opener loss leaves an explicit small
+process fence; socket shutdown is not presented as remote cleanup. The component
+has no automatic replay/rearm after such uncertainty. Native integration and
+recovery still need to complete before public adoption is enabled.
+
+Bounds include eight registered openers, seven held candidates, 64 release
+waiters, 256 lifetime targets and 15-second candidate expiry. Seven broker modes
+pass 167 assertions using actual marker/binding/dispatcher code with controlled
+UI/renderer metadata. One mode includes actual native discovery plus browser
+WebSocket/JNI, verifies all five exact enable/release/disable commands and a late
+disable event. Full native gates cover 112 current inputs, shared JS/C saving
+passes 47, and Python passes 173/175 with two existing privilege skips. Actual
+DEX/APK/signature checks pass. The changed overlay hash also triggers fresh
+product-fragment 647 and actual Windows frame/input 301 runs; old receipts are
+preserved rather than relabeled. See .mdo/E116-final-identities-complete.log.
+
+This component is packaged but not activated by the product route. Worker/UI
+scheduling, original native callback/child association, managed response routing
+and qualified resume/adoption remain incomplete. Framework/provider/public
+Android automation qualification is false. Current phone/WebView deferral stays
+in force; local kernel/fixture evidence does not establish installed behavior.

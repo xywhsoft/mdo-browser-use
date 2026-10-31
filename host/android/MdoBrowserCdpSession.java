@@ -204,10 +204,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * session stays private; a fixed release can only use this frozen event. */
     static final class AttachedTarget {
         final String target,type,opener;final boolean waiting;
+        private final MdoBrowserCdpSession owner;
         private final String session;private final boolean valid;private boolean used;
         private volatile boolean resumed,detached;
         boolean resumeConfirmed(){return resumed;}boolean detachConfirmed(){return detached;}
-        private AttachedTarget(MdoBrowserCdpJson.Message message){
+        private AttachedTarget(MdoBrowserCdpSession owner,MdoBrowserCdpJson.Message message){
+            this.owner=owner;
             Object child=message.value.opt("sessionId"),info=message.value.opt("targetInfo"),wait=message.value.opt("waitingForDebugger");
             JSONObject details=info instanceof JSONObject?(JSONObject)info:null;
             Object id=details==null?null:details.opt("targetId"),kind=details==null?null:details.opt("type"),parent=details==null?null:details.opt("openerId");
@@ -217,6 +219,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             valid=good;session=good?(String)child:null;target=good?(String)id:null;type=good?(String)kind:null;
             opener=good?(String)parent:null;waiting=good&&(Boolean)wait;
         }
+        boolean matchesNativeSession(Object value){return valid&&session.equals(value);}
     }
     private static final class Control {
         final int id;final String session;final long born;final ControlReceipt receipt;final Body body;final int kind,timeout;final Offer offer;final AttachedTarget attachment;
@@ -339,7 +342,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         AttachedTarget previousAttached=attached;
         try {
             paused="Fetch.requestPaused".equals(message.method)?new PausedEvent(message):null;
-            attached="Target.attachedToTarget".equals(message.method)?new AttachedTarget(message):null;
+            attached="Target.attachedToTarget".equals(message.method)?new AttachedTarget(this,message):null;
             events.event(message.method,message.session,message.value);
         }
         catch(EventFailure failure){close();throw failure(failure.code,effect);}
@@ -362,6 +365,31 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     ControlReceipt resumeAttachedTarget()throws IOException {
         AttachedTarget original=attachedTarget();
         if(!original.waiting)throw new EventFailure("cdp_attach_not_waiting");
+        return releaseAttachedTarget(original);
+    }
+    /** Existing targets need detachment only; never manufacture a debugger
+     * resume when the original native event said it was not waiting. */
+    ControlReceipt releaseUnclaimedAttachedTarget()throws IOException{return releaseAttachedTarget(attachedTarget());}
+    AttachedTarget retainAttachedTarget()throws IOException {
+        AttachedTarget original=attachedTarget();if(!original.waiting)throw new EventFailure("cdp_attach_not_waiting");
+        synchronized(controlGate){
+            guard(false);if(original.used||seenChildren.contains(original.session))throw new EventFailure("cdp_attach_duplicate");
+            if(children.size()>=64||seenChildren.size()>=256||controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_attach_limit");
+            seenChildren.add(original.session);children.add(original.session);controlKeys.add("H|"+original.session);original.used=true;return original;
+        }
+    }
+    /** Only while the process broker waits for its own disable ACK. Record
+     * late sessions as retired without resuming or detaching them again. */
+    void ignoreAttachedTargetDuringDisable()throws IOException {
+        AttachedTarget original=attachedTarget();guard(false);
+        if(original.used||seenChildren.contains(original.session))throw new EventFailure("cdp_attach_duplicate");
+        if(seenChildren.size()>=256)throw new EventFailure("cdp_attach_limit");
+        seenChildren.add(original.session);original.used=true;
+    }
+    void retireAttachedTarget(AttachedTarget original)throws IOException {
+        guard(false);if(original==null||original.owner!=this||!original.used)throw failure("cdp_attach_event_invalid",false);retireChild(original.session);
+    }
+    private ControlReceipt releaseAttachedTarget(AttachedTarget original)throws IOException {
         byte[] bytes=null;Control row;int budget;
         try{
             synchronized(controlGate){
@@ -372,8 +400,10 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                     if(seenChildren.contains(original.session))throw new EventFailure("cdp_attach_session_reused");
                     if(children.size()>=64||seenChildren.size()>=256)throw new EventFailure("cdp_attach_limit");
                 }
-                row=new Control(++serial,original.session,clock.now(),new ControlReceipt(),null,ATTACH_RESUME,CONTROL_TIMEOUT,null,original);
-                bytes=MdoBrowserCdpJson.encode(row.id,"Runtime.runIfWaitingForDebugger",null,original.session);
+                row=new Control(++serial,original.waiting?original.session:null,clock.now(),new ControlReceipt(),null,original.waiting?ATTACH_RESUME:ATTACH_DETACH,CONTROL_TIMEOUT,null,original);
+                try{bytes=MdoBrowserCdpJson.encode(row.id,original.waiting?"Runtime.runIfWaitingForDebugger":"Target.detachFromTarget",
+                    original.waiting?null:new JSONObject().put("sessionId",original.session),original.waiting?original.session:null);}
+                catch(org.json.JSONException invalid){throw new EventFailure("cdp_attach_event_invalid");}
                 budget=remaining(activeStarted,activeTimeout,false);
                 if(!children.contains(original.session)){seenChildren.add(original.session);children.add(original.session);}
                 controlKeys.add(key);original.used=true;
@@ -660,7 +690,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 if((row.kind==ATTACH_RESUME||row.kind==ATTACH_DETACH)&&result.ok&&message.value.length()!=0)result=new ControlResult(false,"cdp_control_reply_invalid",0,true);
                 // The first effect was positively acknowledged. A rejected
                 // detach cannot downgrade that fact to "nothing happened".
-                if(row.kind==ATTACH_DETACH)result=new ControlResult(result.ok,result.code,result.protocolCode,true);
+                if(row.kind==ATTACH_DETACH&&row.attachment.resumed)result=new ControlResult(result.ok,result.code,result.protocolCode,true);
                 if(row.kind==ATTACH_RESUME&&result.ok){
                     controls[i]=null;controlCount--;row.attachment.resumed=true;resumed=row;break;
                 }

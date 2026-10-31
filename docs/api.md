@@ -1772,3 +1772,10 @@ metadata conveys no task/WebView ownership and both original ACKs are required.
 Partial resume effects remain explicit if detach fails. This primitive enables
 no global auto-attachment, managed popup body access or public Android capability;
 the shared JS/C API and permissions remain unchanged.
+
+E116 packages a private process popup broker and original physical-opener registry.
+Unclaimed nonwaiting sessions detach without synthetic resume; held related
+metadata conveys no child/transport/body authority. Confirmed disable handles
+late events without repeated controls and uncertain cleanup fences rearming.
+The product does not activate this broker yet; worker/UI/adoption/body joins and
+provider qualification remain open. Public JS/C API and permissions are unchanged.

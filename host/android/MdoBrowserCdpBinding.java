@@ -258,6 +258,16 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         }catch(IOException|RuntimeException|Error failure){bound.close();throw failure;}
     }
     static final class Network implements AutoCloseable {
+        /** Constructed only after the original physical WebView proof. It is
+         * an opener registry key, never a proof of any new child WebView. */
+        static final class PopupSource {
+            private final Network original;
+            private PopupSource(Network original){this.original=original;}
+            String target()throws IOException{original.active();if(original.retiring)throw problem("cdp_network_retiring");return original.bound.target;}
+            boolean current(){return original.enabled&&!original.retiring&&!original.bound.closed.get()&&original.bound.lease.current()&&!original.bound.contexts.dirty;}
+        }
+        private PopupSource popupSource;
+        PopupSource popupSource()throws IOException{active();if(retiring)throw problem("cdp_network_retiring");if(popupSource==null)popupSource=new PopupSource(this);return popupSource;}
         /** Ephemeral native selection, not a public entry-ID or URL lookup. */
         private static final class Selection {
             final int current,entry;final byte[] currentDestination,destination;final String action;

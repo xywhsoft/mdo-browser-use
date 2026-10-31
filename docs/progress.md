@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E116:** add the private process popup broker and typed original
+  physical-opener registry. A single process claim guards page-only flattened
+  auto-attachment, unclaimed waits are released, existing targets detach without
+  synthetic resume, and related metadata stays unproven pending native adoption.
+  Confirmed disable handles late targets without duplicate I/O; uncertain cleanup
+  fences rearming. All seven broker modes pass 167 assertions plus a real
+  discovery/browser-socket/JNI flow. Full native 112-input, save 47, Python
+  173/175 and actual APK gates pass; refresh product UI 647 and real Windows
+  frame/input 301 evidence after the overlay hash changes. Worker/UI adoption
+  integration and Android provider qualification remain open, not activated.
 - **Android E115:** correct the pending popup plan against pinned Chromium 138:
   autoAttachRelated alone does not activate window.open's global debugger gate.
   Add a fixed, original-event Browser-only resume-then-detach control for the
@@ -9468,3 +9478,74 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   completed popup support: global auto-attach is not enabled. Original managed
   opener/child/transport proof, first-response interception/resume, other remaining
   platform/qualification/delivery work and deferred device checks still remain.
+
+## E116 — private process popup controller and physical opener registry (2026-10-31)
+
+- Implement the process-broker direction identified in E115. One atomic process
+  claim precedes native discovery/opening and fixed page-only flattened
+  Target.setAutoAttach with waitForDebuggerOnStart. There is no product call site
+  enabling it yet. Use the existing protocol worker: the component creates no
+  thread, app/Home/source copy, browser engine or runtime dependency.
+- Register only an enabled original physical Network binding through its private
+  PopupSource. Callers cannot supply debugger/target IDs; current view lifetime,
+  retirement and owner checks remain attached to the original proof. Duplicate,
+  inactive and excess registrations fail before browser I/O. Related candidate
+  metadata alone grants no child/WebView/transport/body/Agent authority. Hold
+  at most seven candidates for the later native adoption join; bounds include
+  eight openers, 64 release waiters, 256 targets and 15-second candidate age.
+- Extend fixed release for existing nonwaiting targets: detach their original
+  session only, never manufacture a debugger resume. Waiting unclaimed targets
+  keep E115's original resume-ACK/detach-ACK chain. Managed candidates are retained
+  without Fetch/body reads or debugger resume. Native detach retires their exact
+  scope. Outstanding native candidates block graceful global disable.
+- Drain prior fixed controls before disabling. During the disable RPC, retire
+  late attached sessions locally without sending another resume/detach against
+  sessions Chromium is already removing. Require the original empty disable ACK
+  before reporting process cleanup and releasing the claim. Socket closure alone
+  is not that ACK; host cancellation, expiry, opener loss, partial arming and
+  rejected disable preserve uncertainty and prevent automatic rearm in that
+  process. Keep a small sentinel instead of retaining the broker/owners globally.
+  Integrating native rejection/recovery and the worker/UI pipeline is still open.
+- Seven controlled broker modes pass 167 assertions: original physical binding,
+  duplicate/eight-opener limits, unenabled-owner/clock refusal, process contention,
+  existing/nonmatching/matching target paths, withheld candidate authority,
+  seven-candidate limits, timeout/opener loss, failed disable, UI cancellation,
+  partial send and a fenced replacement. Each terminal uncertain-process case
+  runs in a fresh ordinary JVM to exercise real process lifetime without a fake
+  fence reset. This reuses one compiled fixture/output tree, not isolated apps.
+- Add an actual two-connection kernel/JVM/JNI flow: fixed /json/version discovery,
+  browser WebSocket, global enable, existing-target detach, foreign-target fixed
+  recovery, and disable with a late waiting target/child event before ACK. Verify
+  five exact commands, no duplicate late-target control, balanced descriptors and
+  buffers. Renderer/UI peers remain controlled, not an installed WebView.
+  Full native ASan/UBSan/API26 gates pass 112 source inputs; E115 fixed release
+  remains 2,595 assertions. JS/C saving passes 47 with one source claim/no retained
+  resources. Python passes 173/175 in 50.603 seconds, with two existing Windows
+  symlink privilege skips. Evidence: E116-native-first.log and native/save receipts.
+- The first final-identity audit correctly refuses reused E106/W6 receipts because
+  host/overlays.json changed. Preserve E116-final-identities.log; do not relabel
+  those old results. Re-execute exact product UI 647/13-input and actual Windows
+  WebView2 six-cycle fill/interrupted-drag/recovery 301 checks, with zero new native
+  diagnostics or upload reservations. New E116 product/frame receipts bind current
+  inputs; the five unchanged frame inputs and the pre-run native-gate overlay
+  hash are rechecked after execution. E105 world/document seven-input evidence
+  remains current. E106 full JS 372/packed Windows 12 runtime evidence is reused
+  only with unchanged product/runtime/archive hashes. No permanent historical
+  intermittent-input root-cause claim is made by another passing run.
+- Reuse the unchanged verified ARM64 C host with exact source/compiler hash
+  022caf0ab9e9b7bcdf32ecf3ecce1dfb6b77485958c5fb709b48f42c8af488d9.
+  Update reviewed Android copy/input lists and require actual DEX definitions for
+  the broker, Connector/Registration/Candidate/Release and physical PopupSource.
+  Refreshed actual APK: 6,485,313 bytes, SHA-256
+  3d738d5dd987948ebae0ebefcd1e6810f0b7dd5c0fcaef3b9ae79139523d9f09.
+  Actual classes, eight JNI exports, source/native/app hashes, provider privacy,
+  alignment and retained v2/v3 signer verify. Windows/plugin artifacts are unchanged.
+  See E116-final-identities-complete.log, E116-product-current.json,
+  E116-frames-current.json and E116 native/save/APK receipts and gate logs.
+- Restore headless HTTP 200 on 63625, PID 18184, about 3,440.5 MiB. Goal active:
+  worker/UI integration, native callback/child identity, managed first-response
+  interception/body routing and qualified resume/adoption remain necessary, along
+  with the earlier broader platform/delivery gaps. The product still rejects
+  protected unqualified Android popup creation; provider/framework/automation
+  qualification stays false. Phone/WebView changes remain deferred. No model
+  call, external browser page, publication or production data/config change.

@@ -52,11 +52,26 @@
     "product_popup_network_admission": false
   },
   "popup_coordination": {
-    "state": "fixed_unclaimed_target_release_preparation_not_popup_admission",
+    "state": "private_process_broker_and_physical_opener_registry_packaged_not_popup_admission",
     "autoAttachRelated_alone_proves_window_open_first_request_pause": false,
     "pinned_window_open_pause_gate": "any_Browser_TargetHandler_ShouldThrottlePopups_returns_auto_attach_not_related_target_registration",
     "required_product_coordinator": "one_process_owned_Browser_setAutoAttach_broker_with_current_physical_opener_registry_and_prompt_unclaimed_target_release",
     "product_global_auto_attach_enabled": false,
+    "process_broker": {
+      "arming": "one_process_claim_before_fixed_page_only_flattened_waiting_Target_setAutoAttach",
+      "opener_registration": "enabled_original_physical_Network_binding_only_no_caller_target_ID",
+      "related_metadata_is_native_child_or_transport_proof": false,
+      "unclaimed_waiting_target": "original_resume_ACK_then_original_detach_ACK",
+      "existing_nonwaiting_target": "original_detach_only_no_synthetic_resume",
+      "managed_candidate": "bounded_frozen_metadata_held_for_future_native_child_proof_no_Fetch_body_or_Agent_access",
+      "limits": "8_registered_openers_7_held_candidates_64_release_waiters_256_target_lifetime_15s_candidate_deadline",
+      "shutdown": "drain_old_controls_then_fixed_disable_with_original_empty_ACK_late_disable_targets_retired_without_extra_resume",
+      "pending_native_candidates_block_graceful_disable": true,
+      "socket_close_proves_global_disable": false,
+      "uncertain_cleanup": "small_process_fence_without_retaining_broker_or_native_owners_no_automatic_rearm",
+      "worker_and_product_adoption_integration": false,
+      "installed_provider_verified": false
+    },
     "fixed_unclaimed_release": {
       "source": "immutable_original_top_level_Target_attachedToTarget_with_typed_waitingForDebugger_true_on_private_Browser_connection_only",
       "commands": ["Runtime.runIfWaitingForDebugger_on_original_child_session", "Target.detachFromTarget_on_original_Browser_after_empty_resume_ACK"],
