@@ -34,7 +34,8 @@ final class MdoBrowserCdpPopupWorker {
             this.owner=new WeakReference<>(owner);this.lease=lease;this.pending=pending;this.registration=registration;
             this.targets=targets.toArray(new MdoBrowserCdpPopupBroker.Candidate[0]);this.scope=scope;
         }
-        boolean current(){if(!scope.getAsBoolean()||!registration.current())return false;
+        boolean scopeCurrent(){return scope.getAsBoolean()&&registration.current();}
+        boolean current(){if(!scopeCurrent())return false;
             for(MdoBrowserCdpPopupBroker.Candidate candidate:targets)if(candidate.current()&&candidate.mayBelongTo(registration))return true;return false;}
         boolean claim(MdoBrowserCdpPopupNative exact){return owner.get()==exact&&exact.lease()==lease&&pending.current()&&current()&&claimed.compareAndSet(false,true);}
         boolean includes(MdoBrowserCdpPopupBroker.Candidate original){for(MdoBrowserCdpPopupBroker.Candidate candidate:targets)if(candidate==original)return true;return false;}

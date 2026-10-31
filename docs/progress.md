@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E135:** retain the same original protected paused Browser attachment
+  across the natural end of its opener preparation. Bind a single-use data-only
+  handoff reservation to the proved native child before UI commit; retain the
+  original Fetch guard/request IDs, then release legacy opener/proof/network
+  references. Parent close after preparation and parent-source reuse preserve the
+  child. Ten new modes pass 428 assertions; native passes 123 inputs, 97 worker
+  modes/3,501 checks and controller 360. Fresh popup 110/25/7, product 789/18
+  inputs, save 47, Python 173/175 and 26 actual APK definitions/receipt-field
+  checks pass. Debugger resume, first-response controls, independent document/world
+  bootstrap and body routing remain incomplete; public/provider qualification
+  stays false, with phone/WebView testing deferred.
 - **Android E134:** implement the private product native ownership handoff for
   consumed/proved children. Prepare/commit exact registry ownership, retire old
   proof/parent references, retain independent UI owners and keep the original
@@ -10882,3 +10893,58 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   failure joins and platform/delivery audit. Native UI ownership is not Agent
   authorization or protocol promotion. Provider/framework/automation qualification
   stays false and unavailable isolated worlds do not permit a main-world fallback.
+
+
+### E135 — protected paused attachment retention independent of preparation
+
+- Add a data-only, single-use Handoff reservation only after original native-marker
+  proof and the original protected Browser attachment barrier. Bind opaque proof
+  identity to the exact Child and native Promotion before registry commit. Receipt
+  eligibility keeps the capture clock, process-stop flag and original deadline;
+  cancellation/replay cannot allocate or select a replacement target.
+- Add private product handoffProtocolPopup/transferProtocolPopup seams. The original
+  E134 native-only promotion remains distinct. After commit, candidate membership
+  follows the independent native owner, excluding the old registration. Release
+  original possible/proven openers, Child and proof-network references. Reuse the
+  same paused attachment and Fetch guard; do not resume, continue, read, inject,
+  reattach or publish UI. Keep the original capture expiry and 32-request limit.
+- Let the original preparation terminate through the real worker/native cancel
+  join while an independent candidate keeps the process broker pumping. The parent
+  reports its own release and accurately leaves process cleanup unconfirmed.
+  Its later physical UI close and a new preparation on that source preserve the
+  independent child. The old historical result is not retroactively upgraded.
+- Add ten joint product/native/shared-worker modes: denied reservation, request
+  close, parent close after request terminal, parent reuse, expiry, unqualified
+  response, request overflow, global close, UI-post loss and disposal failure.
+  They pass 428 assertions, including no new connection/marker/script/continuation,
+  actual original request retention and cleared parent links. Seven-field runtime
+  and APK checks exclude direct broker/session/Child/SDK retention in the receipt.
+  These modes use natural parent preparation termination; the E134 native-only
+  fixture continues to report its separate controlled scope honestly.
+- Final E135-native.log passes 123 current input hashes, ASan/UBSan/API26/JVM/JNI,
+  97 worker modes/3,501 assertions, controller 360 and actual JNI 264. Fresh popup
+  passes 110 +25 native callback +7 owner-scope checks; fresh product passes
+  789/18 inputs, including 77 asynchronous close checks. Save initially encountered
+  ECONNREFUSED because the development service was stopped for overlay application
+  (E135-save.log). Restore it and rerun: E135-save-retry.log passes 47/six inputs,
+  bound to current native evidence. This was a test ordering issue, not a product
+  failure. Python passes 173/175 in 47.134 seconds; two existing Windows symlink
+  privilege tests remain skipped. Preserve unchanged E130 actual Windows 301/six
+  cycles and E105 world evidence only after checking every input/native-host hash.
+- Apply reviewed overlays only while stopped; build the actual complete Android
+  development APK and verify 26 class/method definitions plus receipt field shapes.
+  Signing/private-provider/JNI/ARM64/16-KiB/ZIP checks pass. APK: 6,526,273 bytes,
+  SHA-256 ae68aa437ac6c77b3e96f3cda5979efb341e08a869b0da25c1d12a7d0bd53fcf.
+  Packed Windows program, ARM64 native host and plugin bytes remain unchanged.
+  E135-final-identities.py/log joins final sources, artifacts and scoped evidence.
+- Local development service is restored: HTTP 200 on 63625, PID 27476; one
+  deployment about 3,447.1 MiB and D: about 37.22 GiB free. No ADB/phone/WebView
+  changes, additional application/Home/source copies, new runtime dependencies,
+  model calls, external browser pages, production/config/data edits or publication.
+- Goal remains active. Continue the complete preparation/action/adoption
+  coordinator, debugger resume and original first-response controls, independent
+  child protocol/document/world bootstrap, body routing, remaining process failure
+  joins and platform/delivery audit. Paused attachment retention alone is not
+  protocol execution or Agent authorization. All provider/framework/automation
+  qualification stays false; unavailable isolated worlds never use a main-world
+  fallback. The user's phone/WebView deferral remains in force.

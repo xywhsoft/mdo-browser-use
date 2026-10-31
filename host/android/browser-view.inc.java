@@ -29,11 +29,21 @@
      * transfer the protected original protocol session and bootstrap a world. */
     private MdoBrowserCdpPopupNative.Promotion promoteProtocolPopup(String key,MdoBrowserCdpPopupNative source,
             MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException {
+        return transferProtocolPopup(key,source,original,proof,false);
+    }
+    /** Retain the same protected paused Browser attachment independently of
+     * the opener. No debugger resume, request continuation or world bootstrap. */
+    private MdoBrowserCdpPopupNative.Promotion handoffProtocolPopup(String key,MdoBrowserCdpPopupNative source,
+            MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException {
+        return transferProtocolPopup(key,source,original,proof,true);
+    }
+    private MdoBrowserCdpPopupNative.Promotion transferProtocolPopup(String key,MdoBrowserCdpPopupNative source,
+            MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof,boolean protectedAttachment)throws java.io.IOException {
         nativeCreationAdmission();
         if(source==null||original==null)throw new java.io.IOException("cdp_popup_native_promotion_unavailable");
         WebView exact;try{exact=original.view();}catch(IllegalStateException stale){throw new java.io.IOException("cdp_popup_native_promotion_unavailable");}
         if(!views.owns(key,exact)||popupLinks.containsKey(key))throw new java.io.IOException("cdp_popup_native_promotion_unavailable");
-        MdoBrowserCdpPopupNative.Promotion promoted=source.promote(original,proof);
+        MdoBrowserCdpPopupNative.Promotion promoted=protectedAttachment?source.handoff(original,proof):source.promote(original,proof);
         try{if(promoted.view()!=exact||!views.owns(key,exact))throw new IllegalStateException("popup_binding_mismatch");return promoted;}
         catch(RuntimeException|Error failure){promoted.close();throw failure;}
     }

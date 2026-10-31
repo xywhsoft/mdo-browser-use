@@ -163,7 +163,8 @@ def main():
                  'product-disposal','product-disposal-sent','product-disposal-consumed','product-disposal-configuration','product-disposal-network','product-disposal-failure','product-disposal-logical-failure','product-disposal-nested','product-disposal-reentrant',
                  'delivery-loss','delivery-loss-retry','delivery-loss-create','delivery-loss-queued','delivery-loss-multiple','delivery-loss-sent','delivery-loss-unsent','delivery-loss-scope',
                  'quiescence-failure','quiescence-shutdown','quiescence-ui-loss','quiescence-timeout','quiescence-sent','quiescence-physical-failure','quiescence-reentrant','quiescence-close-failure',
-                 'promotion-parent-close','promotion-request-close','promotion-parent-reuse','promotion-global','promotion-ui-loss','promotion-failure','promotion-human','promotion-denied','promotion-multiple','promotion-nested'):
+                 'promotion-parent-close','promotion-request-close','promotion-parent-reuse','promotion-global','promotion-ui-loss','promotion-failure','promotion-human','promotion-denied','promotion-multiple','promotion-nested',
+                 'handoff-denied','handoff-request-close','handoff-parent-close','handoff-parent-reuse','handoff-expiry','handoff-response','handoff-limit','handoff-global','handoff-ui-loss','handoff-disposal-failure'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
@@ -173,6 +174,7 @@ def main():
                 or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
+                or popup_worker.get('protected_attachment_handoff_tested') is not mode.startswith('handoff')
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')

@@ -4791,3 +4791,42 @@ request/response controls and independent document/world bootstrap still need
 coordinator routing. Native view ownership alone is insufficient for any of those
 permissions. The public protected-popup route and provider/framework/automation
 qualification remain disabled; the user's phone/WebView deferral is preserved.
+
+
+### E135: independent retention of the original protected attachment
+
+After the worker proves the exact native child against its original protected
+Browser attachment, it creates a single-use Handoff reservation. Its seven fields
+carry opaque proof identity, clock/stop data and the native ownership receipt;
+there is no broker, session, old Child/allocation, registration or SDK field.
+The production clock is the static elapsedRealtime source. The private product
+handoffProtocolPopup seam reserves that receipt before committing native registry
+ownership. A missing, cancelled, stale or replayed reservation cannot promote a
+child. The separate E134 native-only seam does not claim a protocol handoff.
+
+Once committed, the original attachment's lifetime follows the independent native
+receipt rather than its opener registration. The worker releases legacy parent,
+Child and proof-network references. The same Browser connection, original target,
+debugger wait, protective Fetch interception and retained request IDs remain;
+there is no reattach, debugger resume, continuation, Fetch disable, page script,
+response/body exposure or UI publication. The original 15-second capture deadline
+and 32-request limit still apply while document/bootstrap admission is unfinished.
+An unqualified first response still fails closed.
+
+The original preparation may naturally return sourceReleased=true while reporting
+processCleanupConfirmed=false: an independent protected attachment still uses the
+process service. Its historical result is not upgraded later. Parent native close
+after that terminal and a new preparation on the original source preserve the
+child. An original detach ACK retires the exact attachment and native owner;
+expiration, response-before-admission, resource overflow, shutdown, lost UI posting
+and failed native cleanup retain the existing fail-closed/quiescence requirements.
+
+Ten actual product/native/shared-worker modes pass 428 assertions. They exercise
+reservation cancellation, natural request terminal, subsequent parent native
+close, parent-source reuse, expiry, response rejection, request limit, global
+close, UI recovery and disposal failure. No controlled executor/native terminal
+substitutes for parent completion in these modes. The actual APK contains the
+handoff/product/worker methods and checked seven-field receipt structure. This is
+paused attachment ownership only; complete child-session execution, first-response
+controls, independent document/world bootstrap, body routing and installed-provider
+qualification remain outstanding. Protected public admission remains disabled.

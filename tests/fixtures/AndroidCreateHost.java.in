@@ -216,6 +216,7 @@ final class AndroidCreateHost {
         static final class Child {}
         static final class Promotion {WebView view(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}void close(){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}}
         Promotion promote(Created original,Child proof){throw new UnsupportedOperationException("promotion_requires_joint_fixture");}
+        Promotion handoff(Created original,Child proof){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}
         final WebView opener;Disposal disposal;int calls;Created latest;
         MdoBrowserCdpPopupNative(WebView opener){this.opener=opener;}
         static final class Created {

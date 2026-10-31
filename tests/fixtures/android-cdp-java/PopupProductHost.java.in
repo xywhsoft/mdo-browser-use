@@ -33,6 +33,7 @@ final class PopupProductHost {
     void configureBrowserView(String key,WebView view){configured++;dialogs.put(key,new MdoBrowserDialogTarget(view));if(failConfiguration)throw new IllegalStateException("controlled_product_configuration_failure");}
     MdoBrowserCdpPopupNative.Created construct(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupWorker.Allocation allocation,String key)throws java.io.IOException{return constructProtocolPopup(source,allocation,key);}
     MdoBrowserCdpPopupNative.Promotion promote(String key,MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException{return promoteProtocolPopup(key,source,original,proof);}
+    MdoBrowserCdpPopupNative.Promotion handoff(String key,MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException{return handoffProtocolPopup(key,source,original,proof);}
     boolean retire(String key,WebView exact){return closeAndDestroyDocument(key,exact);}
     int retiring(){return nativeRetiringViews.size();}boolean failed(){return nativeViewCleanupFailed;}
     void checkCreation(){nativeCreationAdmission();}

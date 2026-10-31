@@ -667,6 +667,66 @@ public final class CdpPopupWorkerProbe {
             }
         }
     }
+    /** Natural parent terminal while the same Browser attachment and its
+     * requests stay paused. No controlled executor/native terminal here. */
+    private static JSONObject handoffPaused(String id,boolean response)throws Exception{JSONObject params=new JSONObject().put("requestId",id);if(response)params.put("responseStatusCode",200);return new JSONObject().put("method","Fetch.requestPaused").put("sessionId","proof-real").put("params",params);}
+    private static void protectedHandoff(String mode)throws Exception{
+        try(OwnershipCase c=new OwnershipCase()){
+            PopupProductHost product=new PopupProductHost(c.source.views);MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView view=created.view();
+            c.source.adopting=view;MdoBrowserPopups.Adoption adoption=c.source.source.adopt(created);c.source.ack();
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
+                MdoBrowserCdpPopupNative.Child child=c.source.source.child(adoption,created,adapter)){
+                failure("cdp_popup_handoff_unavailable",()->product.handoff("owned",c.source.source,created,child));
+                c.backend.nativeTargets.put("target-proof-real",proofPeer(view,"success",null,null));check(c.request.proveNative(child));waitFor(()->!c.observer.provenChildren.isEmpty(),c.host,true);
+                MdoBrowserCdpPopupBroker.Candidate candidate=c.observer.candidates.get(0);MdoBrowserCdpPopupBroker.Handoff handoff=child.handoff();
+                check(child.proof().ok&&handoff!=null&&!handoff.current()&&!handoff.transferred()&&candidate.nativeChildProven());
+                // The cross-thread receipt must not retain a broker/session,
+                // original Child/allocation, registration or SDK object.
+                for(java.lang.reflect.Field field:MdoBrowserCdpPopupBroker.Handoff.class.getDeclaredFields()){
+                    Class<?> kind=field.getType();check(kind==Object.class||kind==java.util.concurrent.atomic.AtomicBoolean.class||kind==java.util.concurrent.atomic.AtomicReference.class||kind==long.class||kind==LongSupplier.class);
+                }
+                if(mode.equals("handoff-denied")){
+                    handoff.close();failure("cdp_popup_handoff_unavailable",()->product.handoff("owned",c.source.source,created,child));check(!handoff.current()&&!handoff.transferred()&&child.current()&&view.destroyed==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);return;
+                }
+                int evaluations=view.evaluations,opens=c.backend.opens.get(),nativeOpens=c.backend.nativeOpens.get();
+                MdoBrowserCdpPopupNative.Promotion promoted=product.handoff("owned",c.source.source,created,child);
+                check(handoff.current()&&handoff.transferred()&&promoted.current()&&candidate.nativeChildProven()&&!child.current()&&view.evaluations==evaluations);
+                failure("cdp_popup_handoff_unavailable",()->c.source.source.handoff(created,child));
+                c.request.close();terminal(c.host,c.request,c.observer);
+                check(c.request.result().code.equals("cdp_popup_prepare_cancelled")&&c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed&&handoff.current()&&candidate.nativeChildProven());
+                check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==1&&view.destroyed==0&&c.backend.closes.get()==0&&c.backend.disables.get()==0);
+                for(String name:new String[]{"nativeBound","nativeChild","provenOpener","possibleOpeners"}){java.lang.reflect.Field field=MdoBrowserCdpPopupBroker.Candidate.class.getDeclaredField(name);field.setAccessible(true);Object retained=field.get(candidate);check(retained==null||retained instanceof Object[]&&((Object[])retained).length==0);}
+                c.backend.wire.add(handoffPaused("handoff-first",false));waitFor(()->candidate.retainedRequestCount()==2,c.host,true);
+                check(handoff.current()&&candidate.nativeChildProven()&&c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.guards.get()==1);
+                if(mode.equals("handoff-parent-close")){
+                    product.windows.put("root",c.source.core);product.retire("root",c.source.view);c.source.source.lease().invalidate();
+                    check(c.source.view.destroyed==1&&handoff.current()&&candidate.nativeChildProven()&&view.destroyed==0);
+                }
+                if(mode.equals("handoff-parent-reuse")){
+                    Observer next=new Observer(c.host);MdoBrowserCdpPopupWorker.Request request=c.host.worker.prepareNativePopups(c.source.source,1500,next);ready(c.host,request,next);request.close();terminal(c.host,request,next);
+                    check(request.result().sourceReleased&&!request.result().processCleanupConfirmed&&handoff.current()&&c.backend.opens.get()==opens&&c.backend.enables.get()==1);
+                }
+                boolean failing=mode.equals("handoff-expiry")||mode.equals("handoff-response")||mode.equals("handoff-limit");
+                if(failing){
+                    if(mode.equals("handoff-expiry"))c.host.time.addAndGet(15000);
+                    else if(mode.equals("handoff-response"))c.backend.wire.add(handoffPaused("handoff-first",true));
+                    else for(int i=1;i<=32;i++)c.backend.wire.add(handoffPaused("handoff-limit-"+i,false));
+                    waitFor(()->!handoff.current()&&promoted.ended(),c.host,true);check(view.destroyed==1&&c.backend.closes.get()==1&&c.backend.disables.get()==0);
+                }else if(mode.equals("handoff-global")||mode.equals("handoff-ui-loss")||mode.equals("handoff-disposal-failure")){
+                    Handler.rejectPost=mode.equals("handoff-ui-loss");product.failClose=mode.equals("handoff-disposal-failure");c.host.worker.close();check(!handoff.current()&&view.destroyed==0&&c.backend.closes.get()==0);
+                    if(Handler.rejectPost){Handler.drain();check(view.destroyed==0);Handler.rejectPost=false;product.resume();}else Handler.drain();
+                    if(product.failClose){check(promoted.failed()&&!promoted.ended()&&view.destroyed==0&&c.backend.closes.get()==0);c.source.dispose("owned",view);MdoBrowserCdpPopupNative.viewDestroyed(view);check(promoted.failed()&&!MdoBrowserCdpPopupNative.creationConfirmed());}
+                    check(promoted.ended()&&view.destroyed==1&&c.backend.closes.get()==1);
+                }else{
+                    // Acknowledge the actual original Browser detach. No
+                    // manufactured debugger resume/Fetch disable or reattach.
+                    c.backend.wire.add(detached("proof-real"));waitFor(()->promoted.ended()&&c.backend.closes.get()==1,c.host,true);
+                    check(view.destroyed==1&&!handoff.current()&&!candidate.current()&&c.backend.disables.get()==1);
+                }
+                check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0&&view.evaluations==evaluations&&MdoBrowserCdpPopupNative.promotedUiOwners()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+            }finally{Handler.rejectPost=false;}
+        }
+    }
     private static void transportQuiescence(String mode)throws Exception{
         Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.networkTargets.put(two.adapter.marker(),"other-root");c.ready(one);c.ready(two);
@@ -1077,7 +1137,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("promotion"))nativePromotion(mode);
+        if(mode.startsWith("handoff"))protectedHandoff(mode);
+        else if(mode.startsWith("promotion"))nativePromotion(mode);
         else if(mode.startsWith("quiescence"))transportQuiescence(mode);
         else if(mode.startsWith("delivery-loss"))deliveryLoss(mode);
         else if(mode.startsWith("product-disposal"))productDisposal(mode);
@@ -1095,6 +1156,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }
