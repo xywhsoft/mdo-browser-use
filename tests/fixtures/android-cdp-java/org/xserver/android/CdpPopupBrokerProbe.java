@@ -49,7 +49,7 @@ public final class CdpPopupBrokerProbe {
     private static JSONObject ack(int id,String session)throws Exception{JSONObject result=new JSONObject().put("id",id).put("result",new JSONObject());if(session!=null)result.put("sessionId",session);return result;}
     private static final class Wire implements MdoBrowserCdpSession.Wire,MdoBrowserCdpSession.Clock {
         final ArrayDeque<byte[]> incoming=new ArrayDeque<>();final List<byte[]> buffers=new ArrayList<>();final List<JSONObject> sent=new ArrayList<>();
-        long time=100;int opens,closes;boolean unsupported,rejectDisable,lateDisable=true,existing=true,throwArm;
+        long time=100;int opens,closes;boolean unsupported,rejectDisable,lateDisable=true,existing=true,throwArm,racingDisable;
         void add(JSONObject value){incoming.add(value.toString().getBytes(StandardCharsets.UTF_8));}
         public long now(){return time;}
         MdoBrowserCdpSession open(int timeout,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events){opens++;return MdoBrowserCdpSession.ownedBrowser(this,current,events,this);}
@@ -64,7 +64,7 @@ public final class CdpPopupBrokerProbe {
                         if(unsupported){add(new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","private-provider-detail")));return;}
                         if(existing)add(attached("existing-1","existing-ui",null,false));
                     }else{check(params.length()==3);if(rejectDisable){add(new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32602).put("message","private-provider-detail")));return;}
-                        if(lateDisable){add(attached("late-1","late-popup","registered-root",true));add(new JSONObject().put("method","Runtime.executionContextCreated").put("sessionId","late-1").put("params",new JSONObject()));}
+                        if(lateDisable){add(attached("late-1","late-popup","registered-root",racingDisable));add(new JSONObject().put("method","Runtime.executionContextCreated").put("sessionId","late-1").put("params",new JSONObject()));}
                     }add(ack(id,null));
                 }else if(method.equals("Runtime.runIfWaitingForDebugger")){check(params.length()==0);add(ack(id,command.getString("sessionId")));}
                 else if(method.equals("Target.detachFromTarget")){check(!command.has("sessionId")&&params.length()==1);add(ack(id,null));}
@@ -84,11 +84,12 @@ public final class CdpPopupBrokerProbe {
         check(wire.sent.size()==2&&wire.sent.get(1).getString("method").equals("Target.detachFromTarget"));
         Wire other=new Wire();MdoBrowserCdpPopupBroker second=broker(other);second.register(source.network);
         failure("cdp_popup_broker_process_busy",()->second.arm(1000));check(other.opens==0);second.close();
-        wire.add(attached("free-1","foreign-popup","foreign-root",true));turns(first,3);check(first.pending().isEmpty());check(wire.sent.size()==4);
+        wire.add(attached("free-1","foreign-popup","foreign-root",true));turns(first,1);check(first.pending().size()==1&&wire.sent.size()==2);
         wire.add(attached("managed-1","new-managed","registered-root",true));turns(first,1);
-        List<MdoBrowserCdpPopupBroker.Candidate> pending=first.pending();check(pending.size()==1&&pending.get(0).current()&&!pending.get(0).nativeChildProven());
+        List<MdoBrowserCdpPopupBroker.Candidate> pending=first.pending();check(pending.size()==2&&pending.get(0).current()&&!pending.get(0).nativeChildProven());
         int before=wire.sent.size();failure("cdp_popup_broker_candidates_pending",()->first.disarm(1000));check(wire.sent.size()==before&&first.armed());
         wire.add(new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId","managed-1")));turns(first,1);
+        wire.add(new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId","free-1")));turns(first,1);
         check(first.pending().isEmpty()&&!pending.get(0).current());first.disarm(1000);check(first.cleanupConfirmed()&&!first.armed()&&wire.sent.size()==before+1);first.close();wire.cleared();
         // A confirmed disable releases the actual process claim; no test reset.
         Wire later=new Wire();MdoBrowserCdpPopupBroker clean=broker(later);clean.register(source.network);clean.arm(1000);clean.disarm(1000);later.cleared();
@@ -97,9 +98,10 @@ public final class CdpPopupBrokerProbe {
     }
     private static void nativeBroker(Source source)throws Exception{
         CdpNativeProbe.fixtureStart(56);MdoBrowserCdpPopupBroker original=new MdoBrowserCdpPopupBroker(()->true);
-        try{original.register(source.network);original.arm(2000);check(original.armed());turns(original,3);original.disarm(2000);check(original.cleanupConfirmed());}
+        try{original.register(source.network);original.arm(2000);check(original.armed());turns(original,1);check(original.pending().size()==1);
+            turns(original,2);check(original.pending().isEmpty());original.disarm(2000);check(original.cleanupConfirmed());}
         finally{original.close();}
-        check(CdpNativeProbe.fixtureFinish()==(1+(5<<8)));realSessions++;
+        check(CdpNativeProbe.fixtureFinish()==(1+(3<<8)));realSessions++;
     }
     private static void nativeProtection(Source source)throws Exception{
         CdpNativeProbe.fixtureStart(57);MdoBrowserCdpPopupBroker original=new MdoBrowserCdpPopupBroker(()->true);
@@ -114,6 +116,31 @@ public final class CdpPopupBrokerProbe {
             failure("cdp_popup_candidate_retired",candidate::requestProtection);original.disarm(2000);check(original.cleanupConfirmed());
         }finally{original.close();}
         check(CdpNativeProbe.fixtureFinish()==(1+(3<<8)));realSessions++;
+    }
+    private static void captureSuite(Source original)throws Exception{
+        try(Source second=new Source("other-root",true);Source late=new Source("late-root",true)){
+            on(()->{
+                Wire wire=new Wire();MdoBrowserCdpPopupBroker broker=broker(wire);
+                MdoBrowserCdpPopupBroker.Registration a=broker.register(original.network),b=broker.register(second.network);
+                broker.arm(1000);int sent=wire.sent.size();
+                int next=0;for(String parent:new String[]{null,"foreign-root","registered-root"}){
+                    int i=next++;wire.add(attached("capture-"+i,"new-"+i,parent,true));turns(broker,1);
+                    check(broker.pending().size()==next&&wire.sent.size()==sent);
+                }
+                List<MdoBrowserCdpPopupBroker.Candidate> captured=broker.pending();
+                check(captured.size()==3&&wire.sent.size()==sent);
+                for(MdoBrowserCdpPopupBroker.Candidate child:captured)check(child.current()&&child.mayBelongTo(a)&&child.mayBelongTo(b)&&!child.nativeChildProven());
+                MdoBrowserCdpPopupBroker.Registration later=broker.register(late.network);
+                for(MdoBrowserCdpPopupBroker.Candidate child:captured)check(!child.mayBelongTo(later));
+                wire.add(attached("capture-3","new-3",null,true));turns(broker,1);
+                check(broker.pending().size()==4&&broker.pending().get(3).mayBelongTo(later)&&wire.sent.size()==sent);
+                failure("cdp_popup_broker_candidates_pending",()->broker.disarm(1000));check(wire.sent.size()==sent);
+                for(int i=0;i<4;i++){wire.add(new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId","capture-"+i)));turns(broker,1);}
+                check(broker.pending().isEmpty());for(MdoBrowserCdpPopupBroker.Candidate child:captured)check(!child.current());
+                later.close();broker.disarm(1000);check(broker.cleanupConfirmed());
+                for(JSONObject command:wire.sent)check(!command.getString("method").equals("Runtime.runIfWaitingForDebugger"));wire.cleared();return null;
+            });
+        }
     }
     private static void registrationLimits(Source original)throws Exception{
         List<Source> added=new ArrayList<>();
@@ -136,27 +163,33 @@ public final class CdpPopupBrokerProbe {
         else{
             original.arm(1000);
             if(mode.equals("disable-failure")){wire.rejectDisable=true;failure("cdp_command_rejected",()->original.disarm(1000));}
+            else if(mode.equals("disable-race")){wire.racingDisable=true;failure("cdp_popup_broker_disable_race",()->original.disarm(1000));}
+            else if(mode.equals("waiting-type")){
+                JSONObject unexpected=attached("unknown-type","held-unknown",null,true);unexpected.getJSONObject("params").getJSONObject("targetInfo").put("type","worker");wire.add(unexpected);
+                failure("cdp_popup_broker_target_type_invalid",()->original.turn(10,250));
+            }
             else if(mode.equals("host-cancel")){Thread ui=new Thread(original::close);ui.start();ui.join(1000);check(!ui.isAlive());}
             else if(mode.equals("candidate-limit")){
-                for(int i=0;i<7;i++){wire.add(attached("managed-"+i,"held-"+i,"registered-root",true));turns(original,1);}
-                check(original.pending().size()==7);wire.add(attached("excess","held-excess","registered-root",true));
+                for(int i=0;i<7;i++){wire.add(attached("managed-"+i,"held-"+i,i%2==0?null:"foreign-root",true));turns(original,1);}
+                check(original.pending().size()==7);wire.add(attached("excess","held-excess",null,true));
                 failure("cdp_popup_broker_candidate_limit",()->original.turn(10,250));
             }else{
-                wire.add(attached("managed-1","held-popup","registered-root",true));turns(original,1);MdoBrowserCdpPopupBroker.Candidate held=original.pending().get(0);
+                wire.add(attached("managed-1","held-popup",null,true));turns(original,1);MdoBrowserCdpPopupBroker.Candidate held=original.pending().get(0);
                 if(mode.equals("expiry")){wire.time+=15000;failure("cdp_popup_broker_candidate_expired",()->original.turn(10,250));}
                 else{registration.close();failure("cdp_popup_broker_opener_lost",()->original.turn(10,250));}
                 check(!held.current()&&!held.nativeChildProven());
             }
         }
-        check(!original.armed()&&!original.cleanupConfirmed());original.close();wire.cleared();
+        check(!original.armed()&&!original.cleanupConfirmed());for(JSONObject command:wire.sent)check(!command.getString("method").equals("Runtime.runIfWaitingForDebugger"));original.close();wire.cleared();
         Wire replacement=new Wire();MdoBrowserCdpPopupBroker blocked=broker(replacement);blocked.register(source.network);
         failure("cdp_popup_cleanup_unconfirmed",()->blocked.arm(1000));check(replacement.opens==0);blocked.close();
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();worker=Executors.newSingleThreadExecutor();String mode=args.length==0?"suite":args[0];
         try(Source source=new Source("registered-root",true)){
-            if(mode.equals("suite"))registrationLimits(source);
-            on(()->{if(mode.equals("suite")){suite(source);nativeBroker(source);nativeProtection(source);}else poison(source,mode);return null;});
+            if(mode.equals("capture"))captureSuite(source);
+            else{if(mode.equals("suite"))registrationLimits(source);
+                on(()->{if(mode.equals("suite")){suite(source);nativeBroker(source);nativeProtection(source);}else poison(source,mode);return null;});}
         }finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"real_native_sessions\":"+realSessions+",\"physical_opener_binding\":true,\"single_process_claim\":true,\"qualified_popup_adoption\":false,\"provider_qualified\":false}");
     }

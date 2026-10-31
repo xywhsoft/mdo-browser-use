@@ -9998,3 +9998,65 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   delivery remain. Public protected Android popup admission and all installed-
   provider/framework/automation qualification flags remain false. No fallback to
   main-world automation is introduced for the user's preserved WebView version.
+
+## E123 — capture waiting pages before metadata classification (2026-10-31)
+
+- Previous goal turn made progress: E122 is committed as 240ef3a. Continue on
+  master, sequentially, in the one project deployment. Phone/provider verification
+  remains deferred by the user; no ADB inventory or installation request.
+- Preserve E123-capture-before.log: with two physically registered openers, the
+  first waiting page lacking opener metadata was released instead of captured.
+  The corrected test fails its first capture assertion against E122. It passes
+  48 checks after the change; no target-ID/URL guess substitutes for physical proof.
+- Capture every original waiting page event, including missing, foreign or
+  misleading opener metadata. Freeze all then-current registrations as possible
+  sources; a later registration cannot claim an older capture. This is explicitly
+  mayBelongTo, not ownership. Seven held targets/eight original registrations,
+  target lifetime/deadline bounds and original request guards remain enforced.
+- After exact fresh native child/marker matching and the original Browser barrier,
+  narrow the capture to its one proven registration. Multi-root regression proves
+  a child of B while metadata names A; ending A after proof does not retire B's
+  bound child or publish a child-proof callback to A. No page/body authority is
+  granted by metadata, by capture or by the fixed Fetch guard.
+- Nonwaiting existing targets retain detach-only handling. Unknown waiting types
+  fail without resume. A waiting attachment arriving during disable records an
+  uncertain cleanup race, never successful global cleanup/rearm. Unproven held
+  pages still block graceful disable; cancellation requires original native
+  rejection and actual target detachment. Unrelated-target release after native
+  classification/quiescence remains work for the product coordinator.
+- The actual JNI/kernel-socket broker fixture now sends foreign-opener waiting
+  metadata, then its independent original detach. Only three commands are allowed:
+  arm, detach the preexisting nonwaiting target, disable. Any old automatic resume
+  or detach of the waiting page fails the real transport command sequence.
+- E123-native.log passes 118 current input hashes, ASan/UBSan/API26/JVM/JNI and
+  balanced resource/worker-exit gates. Ten broker modes pass 261 checks, including
+  capture 48, disable-race 19, unknown waiting type 14, absent-opener expiry and
+  mixed/absent-opener capacity limits. Two native transport broker flows remain
+  passing. Twenty-nine shared-worker modes pass 1,034; new missing/foreign-opener
+  marker modes pass 45 each and multi-root proof passes 40. Native-source checks
+  remain 169. Installed-provider/native-contents-swap qualification stays false.
+- Cooperative parent RPC coverage now waits for the controlled original native
+  detach/UI callback instead of an unsafe unidentified-target resume. It still
+  requires progress on the same executor while the original document RPC is
+  pending, without extending its deadline or adding another executor/sleep gate.
+- Apply reviewed Java sources while stopped, rebuild the actual Java/DEX/APK and
+  verify class definitions, eight JNI exports, retained v2/v3 signer, private
+  provider and ARM64/16 KiB/zip alignment. APK: 6,505,793 bytes, SHA-256
+  e7d2650d435004a17084dab06ee7a24b68c74b1b6734531f146144525e7ff6cf.
+  The ARM64 host, packed Windows program and portable plugin bytes are unchanged.
+- Fresh JS/C saving passes 47 and binds the current native receipt. Python passes
+  173/175 in 52.609 seconds, two Windows symlink-privilege skips. Final identity
+  checks explicitly reuse unchanged E122 product UI 660/13 hashes, popup 110/25
+  and lifecycle/input coverage, E118 Windows frame/input 301 and its native-host
+  identity, E105 world/document proofs and applicable E106 JS/packed Windows proof.
+  Reuse is not a new platform run. E123-final-identities.log and current snapshots
+  record the exact native/save/artifact identities.
+- Service restored: HTTP 200 on 63625, PID 36640; deployment about 3,442.9 MiB,
+  D: about 37.8 GiB free. No new app/Home/source copy, runtime dependency, model
+  call, external browser page, production account/config change or publication.
+- Goal remains active. This establishes the controlled waiting-page capture and
+  physical-marker association contract; it does not qualify an installed WebView's
+  complete target coverage, original native contents swap, guarded bootstrap/
+  resume, scoped response/body routing or final delivery. Keep protected Android
+  popup product admission and provider/framework/automation flags false while
+  implementing the actual native product coordinator and quiescent teardown.

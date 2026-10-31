@@ -178,11 +178,11 @@ static void* Serve(void* Data)
         if(!Packet(Fd,"{\"method\":\"Target.attachedToTarget\",\"params\":{\"sessionId\":\"existing-1\",\"targetInfo\":{\"targetId\":\"existing-ui\",\"type\":\"page\"},\"waitingForDebugger\":false}}"))goto Done;
         Fixture->Frames+=ClientBodyCommand(Fd,2,"Target.detachFromTarget","{\"sessionId\":\"existing-1\"}");
         if(!Packet(Fd,"{\"id\":2,\"result\":{}}")||!Packet(Fd,"{\"id\":1,\"result\":{}}")||!Packet(Fd,"{\"method\":\"Target.attachedToTarget\",\"params\":{\"sessionId\":\"free-1\",\"targetInfo\":{\"targetId\":\"foreign-popup\",\"type\":\"page\",\"openerId\":\"foreign-root\"},\"waitingForDebugger\":true}}"))goto Done;
-        Fixture->Frames+=ClientCommand(Fd,3,"Runtime.runIfWaitingForDebugger","free-1");
-        if(!Packet(Fd,"{\"id\":3,\"sessionId\":\"free-1\",\"result\":{}}"))goto Done;
-        Fixture->Frames+=ClientBodyCommand(Fd,4,"Target.detachFromTarget","{\"sessionId\":\"free-1\"}");if(!Packet(Fd,"{\"id\":4,\"result\":{}}"))goto Done;
-        Fixture->Frames+=ClientBodyCommand(Fd,5,"Target.setAutoAttach","{\"autoAttach\":false,\"waitForDebuggerOnStart\":false,\"flatten\":true}");
-        if(!Packet(Fd,"{\"method\":\"Target.attachedToTarget\",\"params\":{\"sessionId\":\"late-1\",\"targetInfo\":{\"targetId\":\"late-popup\",\"type\":\"page\"},\"waitingForDebugger\":true}}")||!Packet(Fd,"{\"method\":\"Runtime.executionContextCreated\",\"sessionId\":\"late-1\",\"params\":{}}")||!Packet(Fd,"{\"id\":5,\"result\":{}}"))goto Done;
+        /* A waiting target with foreign metadata is retained, never resumed.
+         * Its original detach arrives independently before graceful disable. */
+        if(!Packet(Fd,"{\"method\":\"Target.detachedFromTarget\",\"params\":{\"sessionId\":\"free-1\"}}"))goto Done;
+        Fixture->Frames+=ClientBodyCommand(Fd,3,"Target.setAutoAttach","{\"autoAttach\":false,\"waitForDebuggerOnStart\":false,\"flatten\":true}");
+        if(!Packet(Fd,"{\"method\":\"Target.attachedToTarget\",\"params\":{\"sessionId\":\"late-1\",\"targetInfo\":{\"targetId\":\"late-popup\",\"type\":\"page\"},\"waitingForDebugger\":false}}")||!Packet(Fd,"{\"method\":\"Runtime.executionContextCreated\",\"sessionId\":\"late-1\",\"params\":{}}")||!Packet(Fd,"{\"id\":3,\"result\":{}}"))goto Done;
         char Byte;(void)recv(Fd,&Byte,1,0);goto Done;
     }
     if(Fixture->Mode==48)goto Done; /* Read-only HTTP metadata; no WS or command. */

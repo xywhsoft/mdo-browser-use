@@ -92,14 +92,14 @@ final class MdoBrowserCdpPopupWorker {
             if(current==null){for(Job job:snapshot())if(job.stage==READY||job.stage==CANCELLING||job.stage==NATIVE_CANCELLING)job.finish("cdp_popup_worker_failed",false,true);return;}
             for(Job job:snapshot())if(job.stage==READY&&(job.request.cancelled.get()||!job.lease.current()||job.nativeSource!=null&&!job.nativeSource.live())){
                 if(job.nativeSource!=null){job.beginNativeCancel();continue;}
-                for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration))throw new IOException("cdp_popup_native_cancel_required");
+                for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.mayBelongTo(job.registration))throw new IOException("cdp_popup_native_cancel_required");
                 job.releaseRegistration();
             }
             for(Job job:snapshot())if(job.stage==NATIVE_CANCELLING){
                 String error=job.nativeSource.failure();if(error!=null)throw new IOException(error);
                 long elapsed=clock.getAsLong()-job.cancelBorn;if(elapsed<0||elapsed>=5000)throw new IOException("cdp_popup_native_cancel_timeout");
                 if(!job.nativeSource.confirmed())continue;
-                boolean held=false;for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration)){held=true;break;}
+                boolean held=false;for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.mayBelongTo(job.registration)){held=true;break;}
                 if(!held)job.releaseRegistration();
             }
             if(current.armed())current.turn(10,250);
@@ -108,7 +108,7 @@ final class MdoBrowserCdpPopupWorker {
                 if(job.stage==CANCELLING){job.finish(job.cancelCode,true,current.cleanupConfirmed());continue;}
                 if(job.stage!=READY)continue;
                 if(!current.armed())throw new IOException("cdp_popup_broker_closed");
-                for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration)){
+                for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.mayBelongTo(job.registration)){
                     if(job.notified.add(candidate.id))job.offer(candidate);
                     if(candidate.protectionRequested()&&candidate.protection()==null&&!job.request.cancelled.get()){
                         if(job.nativeSource==null)current.refuseProtection(candidate,"cdp_popup_native_source_required");

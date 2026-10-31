@@ -36,7 +36,7 @@ public final class CdpPopupWorkerProbe {
     private static JSONObject ack(int id,String child)throws Exception{JSONObject reply=new JSONObject().put("id",id).put("result",new JSONObject());if(child!=null)reply.put("sessionId",child);return reply;}
     private static final class Backend implements MdoBrowserCdpPopupWorker.Factory {
         final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger(),guards=new AtomicInteger();
-        final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile Runnable resumed;volatile CountDownLatch armEntered,armRelease;
+        final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile CountDownLatch armEntered,armRelease;
         final Map<String,CdpBindingProbe.Factory> nativeTargets=new ConcurrentHashMap<>();final AtomicInteger nativeOpens=new AtomicInteger(),barriers=new AtomicInteger();
         volatile String barrierMode="normal";volatile Runnable proofConfirmed;
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
@@ -68,7 +68,7 @@ public final class CdpPopupWorkerProbe {
                             if(guardMode.equals("response"))paused.getJSONObject("params").put("responseStatusCode",200);add(paused);
                         }
                         JSONObject reply=ack(id,guardMode.equals("reply")?null:child);if(guardMode.equals("nonempty"))reply.getJSONObject("result").put("unexpected",true);add(reply);
-                    }else if(method.equals("Runtime.runIfWaitingForDebugger")){resumes.incrementAndGet();add(ack(id,command.getString("sessionId")));Runnable callback=resumed;if(callback!=null)callback.run();}
+                    }else if(method.equals("Runtime.runIfWaitingForDebugger")){resumes.incrementAndGet();add(ack(id,command.getString("sessionId")));}
                     else if(method.equals("Target.getTargetInfo")){
                         JSONObject p=command.getJSONObject("params");if(command.length()!=3||p.length()!=1||!p.getString("targetId").equals("target-proof-real"))throw new AssertionError("Caller-selected target barrier");barriers.incrementAndGet();
                         if(barrierMode.equals("detach"))add(detached("proof-real"));
@@ -107,7 +107,9 @@ public final class CdpPopupWorkerProbe {
             Observer a=new Observer(c),b=new Observer(c);MdoBrowserCdpPopupWorker.Request first=prepare(c,one,a);ready(c,first,a);
             failure("cdp_popup_prepare_busy",()->prepare(c,one,new Observer(c)));
             MdoBrowserCdpPopupWorker.Request second=prepare(c,two,b);ready(c,second,b);check(backend.creates.get()==1&&backend.opens.get()==1&&backend.enables.get()==1);
-            backend.wire.add(attached("free-1","foreign-root"));waitFor(()->backend.detaches.get()==1,c,true);check(a.candidates.isEmpty()&&b.candidates.isEmpty());
+            backend.wire.add(attached("free-1","foreign-root"));waitFor(()->a.candidates.size()==1&&b.candidates.size()==1,c,true);
+            check(backend.detaches.get()==0&&backend.resumes.get()==0&&a.candidates.get(0)==b.candidates.get(0));
+            backend.wire.add(detached("free-1"));waitFor(()->!a.candidates.get(0).current(),c,true);
             first.close();terminal(c,first);check(first.result().sourceReleased&&!first.result().processCleanupConfirmed&&first.result().processMayHaveBeenEnabled);
             second.close();terminal(c,second);check(second.result().sourceReleased&&second.result().processCleanupConfirmed&&backend.disables.get()==1&&backend.closes.get()==1);
             waitFor(()->c.worker.popupPending()==0,c,true);check(c.worker.networkPending()==2&&!c.worker.terminated());
@@ -121,17 +123,24 @@ public final class CdpPopupWorkerProbe {
     }
     private static void cooperative()throws Exception{
         Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
-            CdpNetworkBindingProbe.Context source=c.source();c.ready(source);Observer observer=new Observer(c);MdoBrowserCdpPopupWorker.Request request=prepare(c,source,observer);ready(c,request,observer);
+            CdpNetworkBindingProbe.Context source=c.source();c.ready(source);
             MdoBrowserCdpMarker document=c.document();final CdpBindingProbe.Wire[] blocked={null};final int[] id={0};
-            backend.resumed=()->{try{blocked[0].queue(ack(id[0],null));}catch(Exception error){throw new AssertionError(error);}};
+            Observer observer=new Observer(c){@Override public void candidate(MdoBrowserCdpPopupBroker.Candidate candidate){
+                super.candidate(candidate);check(c.documentResults.isEmpty()&&backend.resumes.get()==0&&backend.detaches.get()==0);
+                // The controlled native source closes its original child; the
+                // Browser broker must not resume an unidentified target to make
+                // a parent RPC return. This callback requires cooperative turns.
+                try{backend.wire.add(detached("cooperative-held"));blocked[0].queue(ack(id[0],null));}catch(Exception error){throw new AssertionError(error);}
+            }};
+            MdoBrowserCdpPopupWorker.Request request=prepare(c,source,observer);ready(c,request,observer);
             c.documents.get(document).extra=(command,wire)->{
                 if(command.getString("method").equals("Runtime.evaluate")&&command.getJSONObject("params").optString("expression").equals("popup-fixture-wait")){
-                    blocked[0]=wire;id[0]=command.getInt("id");backend.wire.add(attached("cooperative-free","foreign-root"));return true;
+                    blocked[0]=wire;id[0]=command.getInt("id");backend.wire.add(attached("cooperative-held","foreign-root"));return true;
                 }return false;
             };
             c.worker.submit(document,1500,true,(binding,deadline)->{try{binding.call("Runtime.evaluate",new JSONObject().put("expression","popup-fixture-wait"),null,1000,true);}catch(org.json.JSONException error){throw new IOException("fixture_arguments_failed");}return new byte[]{1};},c.documentResults::add);
-            waitFor(()->!c.documentResults.isEmpty()&&backend.detaches.get()==1,c,true);
-            check(c.documentResults.get(0).code==null&&backend.resumes.get()==1&&backend.threads.size()==1&&c.threads.containsAll(backend.threads));
+            waitFor(()->!c.documentResults.isEmpty()&&observer.candidates.size()==1&&!observer.candidates.get(0).current(),c,true);
+            check(c.documentResults.get(0).code==null&&backend.resumes.get()==0&&backend.detaches.get()==0&&backend.threads.size()==1&&c.threads.containsAll(backend.threads));
             request.close();terminal(c,request);check(request.result().processCleanupConfirmed);
         }
     }
@@ -297,12 +306,15 @@ public final class CdpPopupWorkerProbe {
     }
     private static void nativeProof(String mode)throws Exception{
         String variant=mode.equals("native-proof")?"success":mode.substring("native-proof-".length());Backend backend=new Backend();
+        boolean ordinarySuccess=variant.equals("success")||variant.equals("no-opener")||variant.equals("foreign-opener");
         if(variant.equals("barrier"))backend.barrierMode="wrong";if(variant.equals("detach"))backend.barrierMode="detach";
         try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context network=c.source();c.ready(network);
             try(NativeSource source=new NativeSource(c,network)){
                 Observer observer=new Observer(c);MdoBrowserCdpPopupWorker.Request request=c.worker.prepareNativePopups(source.source,1500,observer);ready(c,request,observer);
-                source.open();backend.wire.add(attached("proof-decoy","owned"));backend.wire.add(attached("proof-real","owned"));waitFor(()->observer.candidates.size()==2,c,true);
+                source.open();backend.wire.add(attached("proof-decoy","owned"));JSONObject realTarget=attached("proof-real",variant.equals("foreign-opener")?"unregistered-root":"owned");
+                if(variant.equals("no-opener"))realTarget.getJSONObject("params").getJSONObject("targetInfo").remove("openerId");
+                backend.wire.add(realTarget);waitFor(()->observer.candidates.size()==2,c,true);
                 if(!variant.equals("no-guard")){for(MdoBrowserCdpPopupBroker.Candidate candidate:observer.candidates)check(candidate.requestProtection());waitFor(()->observer.protectedTargets.size()==2,c,true);}
                 WebView childView=new WebView();source.adopting=childView;MdoBrowserLifecycle.Fresh<WebView> fresh=source.fresh(childView);MdoBrowserPopups.Adoption adoption=source.source.adopt(source.source.pending(),fresh);source.ack();
                 check(adoption.ok()&&adoption.nativeConsumed()&&source.sends==1);
@@ -316,7 +328,7 @@ public final class CdpPopupWorkerProbe {
                     };
                     childView.badReply=variant.equals("marker");
                     backend.nativeTargets.put("target-proof-decoy",decoy);backend.nativeTargets.put("target-proof-real",real);
-                    if(variant.equals("success"))rejectForeignNative(c,backend,request);
+                    if(ordinarySuccess)rejectForeignNative(c,backend,request);
                     Runnable releaseDocument=()->{};
                     if(variant.equals("cooperative")){
                         MdoBrowserCdpMarker document=c.document();final CdpBindingProbe.Wire[] waiting={null};final int[] id={0};CountDownLatch started=new CountDownLatch(1);
@@ -339,11 +351,11 @@ public final class CdpPopupWorkerProbe {
                         }else waitFor(()->child.proof()!=null,c,true);
                         if(entered==null&&!variant.equals("late-ui")&&!variant.equals("between"))waitFor(()->observer.provenChildren.size()==1,c,true);
                         MdoBrowserCdpSession.ControlResult proof=child.proof();
-                        if(variant.equals("success")||variant.equals("late-ui")||variant.equals("cooperative")){
+                        if(ordinarySuccess||variant.equals("late-ui")||variant.equals("cooperative")){
                             check(proof.ok&&proof.effectMayHaveOccurred&&proof.code==null&&backend.barriers.get()==1);
-                            if(variant.equals("success"))check(!observer.candidates.get(0).nativeChildProven()&&observer.candidates.get(1).nativeChildProven());
+                            if(ordinarySuccess)check(!observer.candidates.get(0).nativeChildProven()&&observer.candidates.get(1).nativeChildProven());
                             check(real.wires.get(0).proofRead&&real.wires.get(0).cleanupAttempts==1&&decoy.wires.get(0).closed.get()&&!decoy.wires.get(0).otherSawName);
-                            if(variant.equals("success"))check(!request.proveNative(child)&&backend.nativeOpens.get()==2);
+                            if(ordinarySuccess)check(!request.proveNative(child)&&backend.nativeOpens.get()==2);
                             if(variant.equals("cooperative")){waitFor(()->!c.documentResults.isEmpty(),c,true);check(c.documentResults.get(0).code==null&&backend.threads.size()==1&&c.threads.containsAll(backend.threads));}
                         }else{
                             check(!proof.ok&&proof.code!=null&&proof.code.matches("cdp_[a-z_]+"));
@@ -364,6 +376,34 @@ public final class CdpPopupWorkerProbe {
                     check(backend.nativeOpens.get()==(variant.equals("no-guard")||variant.equals("marker")?0:variant.equals("between")?1:2)&&backend.guards.get()==(variant.equals("no-guard")?0:2)&&backend.threads.size()==1);
                     for(CdpBindingProbe.Factory peer:new CdpBindingProbe.Factory[]{real,decoy})for(CdpBindingProbe.Wire wire:peer.wires)check(wire.closed.get());
                     check(!observer.candidates.get(1).nativeChildProven()&&!child.current());
+                }
+            }
+        }
+    }
+    private static void nativeMultiple()throws Exception{
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.networkTargets.put(two.adapter.marker(),"other-root");c.ready(one);c.ready(two);
+            try(NativeSource a=new NativeSource(c,one);NativeSource b=new NativeSource(c,two)){
+                Observer oa=new Observer(c),ob=new Observer(c);
+                MdoBrowserCdpPopupWorker.Request ra=c.worker.prepareNativePopups(a.source,1500,oa);ready(c,ra,oa);
+                MdoBrowserCdpPopupWorker.Request rb=c.worker.prepareNativePopups(b.source,1500,ob);ready(c,rb,ob);
+                b.open();backend.wire.add(attached("proof-decoy","owned"));backend.wire.add(attached("proof-real","owned"));
+                waitFor(()->oa.candidates.size()==2&&ob.candidates.size()==2,c,true);
+                for(MdoBrowserCdpPopupBroker.Candidate candidate:oa.candidates)check(candidate.requestProtection());
+                waitFor(()->oa.protectedTargets.size()==2&&ob.protectedTargets.size()==2,c,true);
+                WebView view=new WebView();b.adopting=view;MdoBrowserLifecycle.Fresh<WebView> fresh=b.fresh(view);
+                MdoBrowserPopups.Adoption adoption=b.source.adopt(b.source.pending(),fresh);b.ack();check(adoption.ok());
+                CdpBindingProbe.Factory decoy=proofPeer(new WebView(),"success",null,null),real=proofPeer(view,"success",null,null);
+                backend.nativeTargets.put("target-proof-decoy",decoy);backend.nativeTargets.put("target-proof-real",real);
+                try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
+                    MdoBrowserCdpPopupNative.Child child=b.source.child(adoption,fresh,adapter)){
+                    check(rb.proveNative(child));waitFor(()->ob.provenChildren.size()==1,c,true);
+                    check(child.proof().ok&&oa.provenChildren.isEmpty()&&oa.candidates.get(1)==ob.candidates.get(1)&&ob.candidates.get(1).nativeChildProven());
+                    backend.wire.add(detached("proof-decoy"));waitFor(()->!oa.candidates.get(0).current(),c,true);
+                    ra.close();terminal(c,ra,oa);
+                    check(ra.result().sourceReleased&&!ra.result().processCleanupConfirmed&&ob.candidates.get(1).current()&&child.current());
+                    child.close();backend.wire.add(detached("proof-real"));rb.close();terminal(c,rb,ob);
+                    check(rb.result().sourceReleased&&rb.result().processCleanupConfirmed&&backend.resumes.get()==0&&backend.detaches.get()==0&&backend.guards.get()==2&&backend.nativeOpens.get()==2);
                 }
             }
         }
@@ -453,7 +493,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("native-proof"))nativeProof(mode);
+        if(mode.equals("native-proof-multiple"))nativeMultiple();
+        else if(mode.startsWith("native-proof"))nativeProof(mode);
         else if(mode.equals("protection"))protectionSuite();
         else if(mode.startsWith("protection-"))protectionFailure(mode);
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
