@@ -7,7 +7,7 @@ import java.util.*;
  * native source. Document/network/UI peers are controlled, not qualified. */
 final class PopupProductHost {
     final MdoBrowserLifecycle<WebView> views;
-    boolean stopped,nativeViewCleanupFailed,networkCleanupFailed,networkReady=true,bulkNativeDestruction,failConfiguration,failClose;
+    boolean stopped,browserPaused,nativeViewCleanupFailed,networkCleanupFailed,networkReady=true,bulkNativeDestruction,failConfiguration,failClose;
     final Set<WebView> nativeRetiringViews=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
     final Map<WebView,NativeDestruction> nativeDestructions=new IdentityHashMap<>();
     final Map<String,MdoBrowserPopups<WebView>> windows=new HashMap<>();
@@ -19,7 +19,7 @@ final class PopupProductHost {
     final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed;
     static final class Root {int removes;Runnable callback;void removeView(WebView exact){removes++;Runnable work=callback;callback=null;if(work!=null)work.run();}}
     static final class CdpViews {int invalidations;void invalidate(String key,WebView exact,long epoch,String reason){invalidations++;}}
-    static final class MdoBrowserDocument {int closes,destroyed;boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
+    static final class MdoBrowserDocument {static final int BACKGROUND=1;int closes,destroyed;boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
     static final class Dialogs {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {void close(){}void viewDestroyed(){}}
@@ -34,6 +34,9 @@ final class PopupProductHost {
     MdoBrowserCdpPopupNative.Created construct(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupWorker.Allocation allocation,String key)throws java.io.IOException{return constructProtocolPopup(source,allocation,key);}
     boolean retire(String key,WebView exact){return closeAndDestroyDocument(key,exact);}
     int retiring(){return nativeRetiringViews.size();}boolean failed(){return nativeViewCleanupFailed;}
+    void checkCreation(){nativeCreationAdmission();}
+    void blockDocuments(int reason,boolean value){}
+    @@RESUME@@
     @@CREATION_GUARD@@
     @@DESTRUCTION@@
     @@CONSTRUCT@@

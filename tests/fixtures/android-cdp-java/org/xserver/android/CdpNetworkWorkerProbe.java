@@ -33,9 +33,9 @@ public final class CdpNetworkWorkerProbe {
     private static JSONObject response(int id)throws Exception{return new JSONObject().put("id",id).put("result",new JSONObject());}
     private static JSONObject paused(String id)throws Exception{return new JSONObject().put("method","Fetch.requestPaused").put("params",new JSONObject().put("requestId",id).put("responseStatusCode",200));}
     static final class Ui implements MdoBrowserCdpWorker.Ui {
-        final Thread owner=Thread.currentThread();final ConcurrentLinkedQueue<Runnable> tasks=new ConcurrentLinkedQueue<>();boolean reject;
+        final Thread owner=Thread.currentThread();final ConcurrentLinkedQueue<Runnable> tasks=new ConcurrentLinkedQueue<>();boolean reject;final AtomicInteger rejectNext=new AtomicInteger();
         public boolean onThread(){return Thread.currentThread()==owner;}
-        public boolean post(Runnable task){if(reject)return false;tasks.add(task);return true;}
+        public boolean post(Runnable task){if(reject||rejectNext.getAndUpdate(count->count>0?count-1:0)>0)return false;tasks.add(task);return true;}
         public void remove(Runnable task){tasks.remove(task);}
         void drain(){Runnable task;while((task=tasks.poll())!=null)task.run();}
     }

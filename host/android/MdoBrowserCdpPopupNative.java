@@ -17,6 +17,8 @@ final class MdoBrowserCdpPopupNative {
     private static final UiRetention[] UI_OWNERS=new UiRetention[8];
     static boolean creationConfirmed(){return !CREATION_UNCERTAIN.get();}
     static int retainedUiOwners(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null)count++;return count;}
+    static int pendingRetirements(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null&&owner.retirement.requested.get()&&!owner.retirement.delivered.get())count++;return count;}
+    static void reconcileRetirements(){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.retirement.deliver();}
     static void viewDestroyed(WebView exact){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.destroyed(exact);}
     private static boolean destructionAllowed(WebView exact){
         if(exact==null)return false;
@@ -48,12 +50,46 @@ final class MdoBrowserCdpPopupNative {
             if(owner.source.view.get()==exact&&owner.rootDestruction==destruction){if(owner.source.scope==owner.scope)owner.source.reject();owner.sweep();}
         }
     }
+    /** Worker-visible cancellation intent. It carries only a weak link to its
+     * original UI record, never a core, host, view or replacement claim. */
+    static final class Retirement {
+        private final WeakReference<UiRetention> owner;
+        private final MdoBrowserPopups.Scope scope;
+        private final AtomicBoolean requested=new AtomicBoolean(),delivered=new AtomicBoolean();
+        private WeakReference<Runnable> notification=new WeakReference<>(null);
+        private boolean releaseAllowed;
+        private Retirement(UiRetention owner){this.owner=new WeakReference<>(owner);scope=owner.scope;}
+        synchronized void request(boolean released){if(!requested.get()){releaseAllowed=released;requested.set(true);}}
+        boolean pending(){return requested.get()&&!delivered.get();}
+        boolean current(){return creationConfirmed()&&!requested.get()&&scope.current();}
+        boolean belongsTo(MdoBrowserCdpPopupNative source){return source!=null&&source.scope==scope;}
+        void onDelivered(Runnable callback){thread();if(callback==null||requested.get()||delivered.get()||notification.get()!=null)throw new IllegalStateException("Native retirement notification is already bound");notification=new WeakReference<>(callback);}
+        private void notifyDelivered(){Runnable callback=notification.get();notification.clear();if(callback!=null)try{callback.run();}catch(RuntimeException|Error ignored){/* native retirement is independent of observer bookkeeping */}}
+        void rejectOriginal()throws IOException {
+            thread();UiRetention original=owner.get();if(original==null||original.released)return;
+            original.core.retireProtocolUi(original.scope);
+            if(original.source.scope==original.scope)original.source.reject();
+            else{
+                boolean failed=false;for(Created child:original.book.constructions)if(child!=null)try{child.close();}catch(IOException error){failed=true;}
+                if(failed||original.core.protocolHasObligations(original.scope))throw new IOException("cdp_popup_native_scope_changed");
+            }
+        }
+        void deliver(){
+            thread();if(!requested.get()||!delivered.compareAndSet(false,true))return;
+            UiRetention original=owner.get();if(original==null||original.released){notifyDelivered();return;}
+            try{
+                rejectOriginal();if(original.source.scope==original.scope)original.source.finish(releaseAllowed);
+            }catch(IOException|RuntimeException|Error failure){
+                CREATION_UNCERTAIN.set(true);if(original.source.scope==original.scope&&original.source.failure==null)original.source.failure="cdp_popup_native_retirement_unconfirmed";
+            }finally{try{original.ending();}finally{notifyDelivered();}}
+        }
+    }
     /** Bounded UI ownership survives a host removing its opener's controller.
      * Workers retain only weak links to this record, never its core/book/host. */
     private static final class UiRetention {
         final MdoBrowserCdpPopupNative source;final MdoBrowserPopups<WebView> core;final MdoBrowserPopups.Scope scope;final UiOwned book;
-        boolean ending,released,sweeping,rootFailed;Destruction rootDestruction;
-        UiRetention(MdoBrowserCdpPopupNative source,MdoBrowserPopups<WebView> core,MdoBrowserPopups.Scope scope,UiOwned book){this.source=source;this.core=core;this.scope=scope;this.book=book;}
+        boolean ending,released,sweeping,rootFailed;Destruction rootDestruction;final Retirement retirement;
+        UiRetention(MdoBrowserCdpPopupNative source,MdoBrowserPopups<WebView> core,MdoBrowserPopups.Scope scope,UiOwned book){this.source=source;this.core=core;this.scope=scope;this.book=book;retirement=new Retirement(this);}
         void ending(){ending=true;sweep();}
         void destroyed(WebView exact){
             if(released)return;
@@ -150,6 +186,7 @@ final class MdoBrowserCdpPopupNative {
         boolean includes(MdoBrowserCdpPopupBroker.Candidate original){return allocation!=null&&allocation.includes(original);}
         boolean nativeDestroyed(){return birth.destroyed();}
         boolean belongsTo(MdoBrowserCdpMarker.Lease exact){return opener==exact;}
+        boolean belongsTo(Retirement original){return original!=null&&source==original.scope;}
         boolean ownedBy(MdoBrowserCdpBinding.Network.PopupSource source){return source!=null&&source.owns(opener);}
         MdoBrowserCdpMarker marker(){return marker.get();}
         boolean enqueue(){return current()&&queued.compareAndSet(false,true);}
@@ -181,6 +218,7 @@ final class MdoBrowserCdpPopupNative {
     }
     private static void thread(){if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("Native popup source requires its UI owner");}
     MdoBrowserCdpMarker.Lease lease(){return lease;}
+    Retirement retirement()throws IOException {thread();UiRetention original=retention.get();if(original==null||original.released||original.scope!=scope)throw new IOException("cdp_popup_native_source_invalid");return original.retirement;}
     void retainUiOwner()throws IOException {
         thread();UiRetention existing=retention.get();if(existing!=null&&!existing.released&&existing.scope==scope)return;
         MdoBrowserPopups<WebView> core=owner.get();UiOwned book=uiOwned.get();if(!current()||core==null||book==null)throw new IOException("cdp_popup_native_source_invalid");

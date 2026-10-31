@@ -4665,3 +4665,37 @@ after evidence is bound to the original and current production source identities
 Public protected popup admission and provider/framework/automation qualification
 stay false. Continue full preparation/action/adoption coordination, promotion,
 global failure quiescence, guarded bootstrap/resume and response/body routing.
+
+## Retirement when UI result delivery is lost (E132)
+
+A rejected UI result post could previously leave an original native UI record
+retained after its worker terminated. Returning to the foreground did not retry
+that cleanup. Internal native retirement now has its own bounded, original-scope
+token and does not depend on a result listener. Terminal publication records the
+retirement intent first. The existing UI delivery path, foreground resume and
+native creation admission can deliver it; no extra worker, timer, UI I/O or
+caller-runs fallback is introduced. The host diagnostic native_popup_retirements
+counts intents still waiting for UI delivery, not unconsumed native callbacks.
+
+The token has only an immutable data scope and weak links to its original UI
+record and bookkeeping notification. An old request cannot allocate/prove a new
+claim's child or reject that replacement claim. Request cancellation and process
+creation failure also revoke previously issued allocation/proof permits. A
+listenerless terminal job can release its bookkeeping once UI delivery succeeds.
+
+Delivery is not a native consumption or cleanup acknowledgement. Original Messages
+and sent children retain capacity until their real callbacks/destructors complete.
+The first terminal result and release permission are immutable; late cleanup
+cannot upgrade a failed result. Actual teardown failure keeps the process fence
+and does not replay the failed destructor automatically.
+
+Eight worker scenarios cover lost delivery, a rejected-once post, recovery through
+creation admission, queued cancellation, multiple independent owners, sent/unsent
+children and a stale request after a new claim. The joint test executes the actual
+host resume/creation fragments with the native source and shared worker. Further
+controller checks exercise weak notification failure, duplicate binding and the
+separation of delivery from consumption. These are controlled SDK/provider tests,
+not installed-provider qualification. All-source native quiescence before global
+broker teardown remains outstanding; recording all affected cancellation intents
+before close is only one part of that work. Protected Android popup admission
+remains disabled, and the user's phone/WebView deferral is unchanged.

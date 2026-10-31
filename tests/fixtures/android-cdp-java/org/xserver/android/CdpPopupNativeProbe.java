@@ -168,8 +168,8 @@ public final class CdpPopupNativeProbe {
         }
     }
     public static void main(String[] args)throws Exception{
-        deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        retirementDelivery();deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
     private static void preparedRetirement()throws Exception{
         WebView root=new WebView(),other=new WebView(),child=new WebView(),foreignChild=new WebView();
@@ -216,6 +216,24 @@ public final class CdpPopupNativeProbe {
             if(mode==0){check(c.view.destroyed==0&&c.budget.used()==1);original.ack();}
             check(c.view.destroyed==1&&destroys[0]==1&&c.budget.used()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0);
             original.ack();MdoBrowserCdpPopupNative.activateDestruction(c.view,close);check(c.view.destroyed==1&&original.sends==1);
+        }
+    }
+    private static void retirementDelivery()throws Exception{
+        try(Case c=new Case()){
+            c.source.retainUiOwner();MdoBrowserCdpPopupNative.Retirement old=c.source.retirement();c.source.abandon();check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
+            c.source.claim(c.adapter.marker().lease());c.source.retainUiOwner();check(c.source.ready());Transport fresh=new Transport();check(c.core.open(fresh,false));
+            old.request(true);old.deliver();old.deliver();check(fresh.sends==0&&c.source.current()&&c.budget.used()==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==1);
+            MdoBrowserCdpPopupNative.Retirement original=c.source.retirement();original.request(false);original.request(true);
+            check(MdoBrowserCdpPopupNative.pendingRetirements()==1&&original.pending());MdoBrowserCdpPopupNative.reconcileRetirements();
+            check(!original.pending()&&fresh.sends==1&&fresh.child==null&&c.budget.used()==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==1);
+            fresh.ack();fresh.ack();check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&c.budget.used()==0);
+            unavailable("cdp_popup_native_source_busy",()->c.source.claim(c.adapter.marker().lease()));c.source.finish(true);
+        }
+        try(Case c=new Case()){
+            c.source.retainUiOwner();MdoBrowserCdpPopupNative.Retirement original=c.source.retirement();final int[] delivered={0};
+            Runnable notification=()->{delivered[0]++;throw new IllegalStateException("controlled_observer_failure");};c.timers.add(notification);original.onDelivered(notification);
+            denied(()->original.onDelivered(notification));original.request(true);MdoBrowserCdpPopupNative.reconcileRetirements();original.deliver();
+            check(delivered[0]==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.creationConfirmed());c.timers.remove(notification);
         }
     }
     private static void retainedOwners()throws Exception{

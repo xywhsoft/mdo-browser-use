@@ -198,6 +198,8 @@ final class AndroidCreateHost {
     static final class MdoBrowserCdpPopupNative {
         static boolean safe=true;static boolean creationConfirmed(){return safe;}
         static int retainedUiOwners(){return 0;}
+        static int pendingRetirements(){return 0;}
+        static void reconcileRetirements(){}
         interface Destruction {boolean ready();void destroy();}
         static boolean registerDestruction(WebView view,Destruction destruction){
             if(!view.host.deferredDestruction.contains(view))return false;

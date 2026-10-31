@@ -4,6 +4,7 @@
     private boolean bulkNativeDestruction;
     private void nativeCreationAdmission(){
         if(stopped)throw new IllegalStateException("native_browser_closed");
+        MdoBrowserCdpPopupNative.reconcileRetirements();
         if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
         if(!nativeRetiringViews.isEmpty())throw new IllegalStateException("native_view_retirement_busy");
         if(networkCleanupFailed)throw new IllegalStateException("network_cleanup_failed");

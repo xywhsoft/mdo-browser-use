@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E132:** reproduce retained native UI ownership after rejected result
+  delivery and worker termination. Publish immutable original-scope retirement
+  intent independently of listeners; reconcile on existing UI delivery, resume
+  and creation admission, retaining real callback capacity until consumption.
+  Reject stale allocation/proof permits without touching replacement claims.
+  Eight new worker modes pass 115 checks; fresh native passes 123 inputs,
+  69 modes/2,463 checks and controller 290. Product 789/18-input, save 47,
+  Python 173/175 and thirteen actual APK class/method definitions pass. Reuse
+  unchanged Windows evidence after hash checks. Global quiescence, full protected
+  product coordination, promotion/body routing and provider qualification remain
+  open; phone/WebView deferral remains in effect.
 - **Android E131:** reproduce and fix Created.close -> exact product disposer ->
   native destruction reentry. Execute the original ready callback while Created
   is closing, distinguish pending native barriers from failed host teardown and
@@ -10655,3 +10666,65 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   resume, response/body routing and platform/delivery audit. Public protected
   Android popup admission and all provider/framework/automation qualification
   remain false. No main-world Agent fallback for unavailable isolated worlds.
+
+### E132 — retirement independent of UI result delivery
+
+- Reproduce a lost native owner with the real shared worker/native controller and
+  actual host resume fragment: reject the UI result post, terminate the worker,
+  restore delivery and resume. E131 leaves one native UI record retained
+  (E132-delivery-before.log, check 3). Bind E132-before.json production hashes to
+  the saved E131 native/product receipts; no inference from a later success.
+- Give each bounded original UI record a retirement token with an immutable data
+  scope and weak owner/notification links. Record its first release permission
+  before publishing the terminal result. Internal cleanup no longer depends on
+  a listener surviving. Existing UI posts, resume and creation admission reconcile
+  the intent; no new executor, timer, caller-runs fallback or UI I/O. A weak
+  data-only notification releases a listenerless terminal job without rooting a
+  host/view through the worker. Notification failure cannot poison native cleanup.
+- Freeze action identity in allocation/proof and cancellation as well as terminal
+  retirement. Old requests cannot use a freshly reclaimed source's pending native
+  Message or reject its fresh claim. Revoke permits on cancellation/process
+  creation failure. Update the existing admission-fence assertion to require the
+  stronger immediate revocation; preserve its pending Message and real callback
+  checks. All affected cancellation flags are set before global broker close,
+  but all-source native-consumption-before-close is still unfinished.
+- UI delivery is not native consumption. Preserve each source's outstanding
+  native Messages and sent children until actual acknowledgements/destruction.
+  Neither late cleanup nor a second request can upgrade the first failed result
+  or release permission. True native teardown failure stays fenced without
+  automatic destructor replay. Add native_popup_retirements for intents awaiting
+  UI delivery, separately from retained owners/physical cleanup.
+- Eight new worker scenarios cover rejected/once-rejected delivery, resume and
+  creation recovery, queued cancellation, multiple sources, sent/unsent children
+  and an old action after source reclaim: 115 checks. Controller tests add 12
+  checks for original identity, immutable permission, weak notification failure
+  and distinct delivery/consumption. The final full native gate passes 123 source
+  hashes, ASan/UBSan/API26/JVM/JNI and balanced exit/resource checks, 69 worker
+  modes/2,463 assertions, controller 290 and broker 261/two native flows.
+- Fresh exact product gate passes 789 checks/18 inputs, including 77 asynchronous
+  close checks; fresh saving passes 47/six inputs and binds the current native
+  receipt. Python passes 173/175 in 54.270 seconds, with the same two Windows
+  symlink-privilege skips. Verify unchanged E130 actual Windows WebView2 301/six
+  input cycles and native-host identity, unchanged popup 110/25/7/13 inputs and
+  applicable unchanged E105/E106/E125 evidence. These are reused, not fresh runs.
+- Initial packaging caught a later overlay's exact resume-prefix dependency.
+  Keep that reviewed prefix and reconcile before foreground view/document
+  activation. Validate composition, apply only while stopped, rebuild the actual
+  Android development APK and inspect thirteen actual class/method definitions,
+  including Retirement and the worker bookkeeping callback. The test product
+  host is absent; signing/provider manifest/JNI/ARM64/16-KiB/ZIP checks pass.
+  APK: 6,518,081 bytes, SHA-256
+  57a0b310cd973fe7be10568ca4bd266cf735e3d869bda687f92dadd37775982b.
+  Packed Windows program, ARM64 host and plugin bytes are unchanged.
+- E132-final-identities.py/log joins final sources/artifacts, failed-before source
+  proof, new native/product/save/DEX receipts and scoped reused evidence.
+  Development service restored: HTTP 200 on 63625, PID 24308; single deployment
+  about 3,445.8 MiB and D: about 37.53 GiB free. No ADB, extra application/Home/
+  source copy, new runtime dependency, model call, external browser page,
+  production account/config change or publication. Preserve phone/WebView deferral.
+- Goal remains active. Continue full product preparation/action/adoption
+  coordination, independent child promotion, global multi-source failure
+  quiescence, guarded bootstrap/resume, response/body routing and platform/
+  delivery audit. Public protected Android popup admission and provider/framework/
+  automation qualification stay false; unavailable isolated worlds do not permit
+  a main-world Agent fallback.

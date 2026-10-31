@@ -578,7 +578,7 @@ public final class CdpPopupWorkerProbe {
             },c.host.documentResults::add);
             waitFor(()->entered.getCount()==0,c.host,true);
             try{
-                failure("cdp_popup_native_child_cleanup_unconfirmed",old::close);check(!c.source.source.current()&&allocation.current()&&pending.current()&&c.source.source.pending()==pending);
+                failure("cdp_popup_native_child_cleanup_unconfirmed",old::close);check(!c.source.source.current()&&!allocation.current()&&pending.current()&&c.source.source.pending()==pending);
                 c.source.adopting=child;
                 try{c.source.source.adopt(next);throw new AssertionError("Fenced native source dispatched a previously allocated child");}
                 catch(IllegalStateException expected){check(expected.getMessage().equals("popup_request_unavailable"));}
@@ -588,6 +588,73 @@ public final class CdpPopupWorkerProbe {
             check(child.destroyed==1&&first.destroyed==0&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed);
             fail[0]=false;old.retryCleanup();check(first.destroyed==1&&!MdoBrowserCdpPopupNative.creationConfirmed()&&c.source.views.size()==1);
             check(c.backend.resumes.get()==0&&c.backend.detaches.get()==0);
+        }
+    }
+    private static void deliveryLoss(String mode)throws Exception{
+        if(mode.equals("delivery-loss-scope")){
+            Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+                CdpNetworkBindingProbe.Context network=c.source();c.ready(network);try(NativeSource source=new NativeSource(c,network)){
+                    Observer observer=new Observer(c);MdoBrowserCdpPopupWorker.Request request=c.worker.prepareNativePopups(source.source,1500,observer);ready(c,request,observer);
+                    backend.wire.add(attached("old-action-candidate","owned"));waitFor(()->observer.candidates.size()==1,c,true);
+                    check(observer.candidates.get(0).requestProtection());waitFor(()->observer.protectedTargets.size()==1,c,true);
+                    CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+                    c.worker.submit(c.document(),10000,false,(binding,deadline)->{entered.countDown();try{if(!release.await(3,TimeUnit.SECONDS))throw new IOException("fixture_wait_expired");}catch(InterruptedException error){Thread.currentThread().interrupt();throw new IOException("fixture_interrupted");}return new byte[]{1};},c.documentResults::add);
+                    try{
+                        waitFor(()->entered.getCount()==0,c,true);source.source.abandon();source.source.claim(network.adapter.marker().lease());source.source.retainUiOwner();check(source.source.ready());source.open();
+                        MdoBrowserPopups.Pending fresh=source.source.pending();check(fresh!=null&&fresh.current());
+                        failure("cdp_popup_native_allocation_unavailable",()->request.allocateNative(source.source));
+                        release.countDown();terminal(c,request,observer);new PopupProductHost(source.views).resume();
+                        check(source.source.current()&&source.source.pending()==fresh&&fresh.current()&&source.sends==0&&source.budget.used()==1);
+                        check(!request.result().sourceReleased&&!request.result().processCleanupConfirmed&&request.result().code.equals("cdp_popup_native_scope_changed"));
+                        source.source.reject();check(source.sends==1&&source.budget.used()==1);source.ack();source.source.finish(true);
+                        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&source.budget.used()==0&&MdoBrowserCdpPopupNative.creationConfirmed());
+                    }finally{release.countDown();}
+                }
+            }return;
+        }
+        if(mode.equals("delivery-loss-sent")||mode.equals("delivery-loss-unsent"))try(OwnershipCase c=new OwnershipCase()){
+            boolean sent=mode.equals("delivery-loss-sent");PopupProductHost product=new PopupProductHost(c.source.views);
+            MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView child=created.view();
+            if(sent){c.source.adopting=child;c.source.source.adopt(created);}
+            c.host.ui.reject=true;c.host.worker.close();waitFor(c.host.worker::terminated,c.host,false);
+            check(c.request.result().terminal&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed&&MdoBrowserCdpPopupNative.pendingRetirements()==1);
+            c.host.ui.reject=false;c.host.ui.drain();product.resume();
+            check(c.host.worker.popupPending()==0&&MdoBrowserCdpPopupNative.pendingRetirements()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==1&&c.source.budget.used()==1);
+            check(child.destroyed==(sent?0:1)&&c.source.sends==1);
+            c.source.ack();check(child.destroyed==1&&product.retired==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&c.source.budget.used()==0);
+            c.source.ack();product.resume();check(child.destroyed==1&&c.source.sends==1&&!c.request.result().sourceReleased&&!c.request.result().processCleanupConfirmed&&c.backend.resumes.get()==0&&c.backend.detaches.get()==0);return;
+        }
+        if(mode.equals("delivery-loss-multiple")){
+            Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+                CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.networkTargets.put(two.adapter.marker(),"other-root");c.ready(one);c.ready(two);
+                try(NativeSource a=new NativeSource(c,one);NativeSource b=new NativeSource(c,two)){
+                    Observer oa=new Observer(c),ob=new Observer(c);MdoBrowserCdpPopupWorker.Request ra=c.worker.prepareNativePopups(a.source,1500,oa);ready(c,ra,oa);
+                    MdoBrowserCdpPopupWorker.Request rb=c.worker.prepareNativePopups(b.source,1500,ob);ready(c,rb,ob);a.open();b.open();
+                    c.ui.reject=true;c.worker.close();waitFor(c.worker::terminated,c,false);check(MdoBrowserCdpPopupNative.pendingRetirements()==2&&MdoBrowserCdpPopupNative.retainedUiOwners()==2);
+                    c.ui.reject=false;c.ui.drain();new PopupProductHost(a.views).resume();
+                    check(a.sends==1&&b.sends==1&&a.budget.used()==1&&b.budget.used()==1&&c.worker.popupPending()==0&&MdoBrowserCdpPopupNative.pendingRetirements()==0);
+                    a.ack();check(MdoBrowserCdpPopupNative.retainedUiOwners()==1&&b.budget.used()==1);b.ack();
+                    check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&a.budget.used()==0&&b.budget.used()==0&&oa.states.size()==1&&ob.states.size()==1);
+                    check(!ra.result().sourceReleased&&!rb.result().sourceReleased&&!ra.result().processCleanupConfirmed&&!rb.result().processCleanupConfirmed);
+                }
+            }return;
+        }
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=c.source();c.ready(network);try(NativeSource source=new NativeSource(c,network)){
+                PopupProductHost product=new PopupProductHost(source.views);Observer observer=new Observer(c);
+                boolean retry=mode.equals("delivery-loss-retry"),queued=mode.equals("delivery-loss-queued");
+                CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+                if(queued){c.worker.submit(c.document(),10000,false,(binding,deadline)->{entered.countDown();try{release.await(3,TimeUnit.SECONDS);}catch(InterruptedException error){Thread.currentThread().interrupt();}return new byte[]{1};},result->{});waitFor(()->entered.getCount()==0,c,true);}
+                if(retry)c.ui.rejectNext.set(1);else c.ui.reject=true;
+                MdoBrowserCdpPopupWorker.Request request;
+                try{request=c.worker.prepareNativePopups(source.source,1500,observer);if(queued)c.worker.close();release.countDown();waitFor(c.worker::terminated,c,retry);}
+                finally{release.countDown();}
+                check(request.result()!=null&&request.result().terminal&&observer.states.isEmpty());
+                if(!retry)check(MdoBrowserCdpPopupNative.pendingRetirements()==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==1);
+                c.ui.reject=false;c.ui.drain();if(mode.equals("delivery-loss-create"))product.checkCreation();else product.resume();
+                check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&source.sends==0&&source.budget.used()==0&&c.worker.popupPending()==0);
+                check(request.result().sourceReleased==queued&&request.result().processCleanupConfirmed==queued);
+            }
         }
     }
     private static void productDisposal(String mode)throws Exception{
@@ -899,7 +966,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("product-disposal"))productDisposal(mode);
+        if(mode.startsWith("delivery-loss"))deliveryLoss(mode);
+        else if(mode.startsWith("product-disposal"))productDisposal(mode);
         else if(mode.startsWith("host-destruction"))hostDestruction(mode);
         else if(mode.startsWith("owner-lifetime"))ownerLifetime(mode.equals("owner-lifetime-sent"));
         else if(mode.equals("admission-fence"))admissionFence();
@@ -914,6 +982,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }
