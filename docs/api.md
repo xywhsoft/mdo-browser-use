@@ -1797,3 +1797,13 @@ last opener still requires the global disable ACK. Unknown/late results never
 authorize replay, resume of an unproven child or automatic admission recovery.
 This completes a private cancellation join, not managed child adoption/body
 routing or public Android qualification. Shared JS/C signatures remain unchanged.
+
+E119 adds private requestProtection on an original retained candidate and an
+original-UI protection callback. The existing worker requires its original native
+source, sends only fixed Fetch.enable Request/Response patterns, and requires
+the original empty ACK. Guard success is neither native child ownership nor
+permission to resume, continue a request or read a body. Pending original request
+IDs stay bounded and private until the still-pending native adoption/proof join.
+Specific native capacity, duplicate, stage, timeout and reply errors survive
+cleanup reporting; provider messages/URL/headers are not forwarded. Public JS/C
+signatures, permissions and Android capability flags remain unchanged.

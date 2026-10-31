@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E118)
+## Complete development host APK (E46/E119)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,493,505 bytes, SHA-256
-`0401fef0b0f961ec5574d57c98168141e3351adc5a24458d104aac46b7fd7430`.
+Current APK: 6,497,601 bytes, SHA-256
+`fc0cc24091e5719750c9e4d35836412d0559de7985dd71ec291c09da51e52b55`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -4365,3 +4365,42 @@ This joins private original cancellation, not child adoption or managed popup
 network/body routing. The public product still refuses protected unqualified
 Android popups; provider/framework/automation qualification remains false. Phone
 and installed WebView verification stay deferred as requested.
+
+
+## Original-target protective interception before adoption (E119)
+
+An original retained waiting attachment can now request fixed protective Fetch
+setup. The shared worker requires its exact native source and performs at most
+one setup RPC per cooperative turn. Request and Response patterns are fixed,
+authentication interception is off and the exact original empty ACK is required.
+The original current UI receives a once-only protection result. This does not
+resume the child or prove its native WebView/transport/task ownership.
+
+The protocol stage distinction follows the pinned
+[Fetch definition](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/1c3e94f6cfa36eb231c03b1553faee7f649aa29a/pdl/domains/Fetch.pdl).
+Request-stage events retain only private original IDs, including events before
+the setup ACK. They do not continue, evaluate a page or claim response bytes.
+The per-target limit is 32 plus the existing session history/candidate/deadline
+bounds. Duplicate, wrong-scope and premature response events fail closed; detach
+and close clear the queue. A successful setup grants no body/download authority.
+
+Matched unsupported setup can end through the existing original native rejection,
+all-candidate detach and final-disable acknowledgement path. Lost/partial sends,
+invalid replies and other unknown effects retain uncertainty and original native
+rejection rather than replay. Known precise native error codes survive; arbitrary
+provider messages are omitted. Cancellation suppresses late successful callbacks.
+
+Broker checks pass 177 across seven modes and two actual native discovery/socket/
+JVM/JNI flows, including the exact child-scoped setup command and requests before/
+after ACK. Fourteen shared-worker modes pass 444 checks; eight new protection
+modes contribute 232. Controls never resume an unproven child, continue a request
+or read a body. Full native gates cover 116 source inputs; JS/C saving passes 47
+and Python passes 173/175 with two Windows privilege skips. Unchanged E118 product
+UI/native popup/actual Windows and E105 world inputs are rechecked before reuse.
+Actual rebuilt DEX/APK/signature/payload checks pass. See
+.mdo/E119-final-identities.log and the E119 native/save/Python/package receipts/logs.
+
+The public Android popup route remains disabled. Exact native child transport,
+fresh ownership/takeover lineage, bootstrap/resume and scoped body routing still
+need their original-proof joins and qualification. No installed provider behavior
+is inferred from controlled metadata, and phone/WebView checks stay deferred.

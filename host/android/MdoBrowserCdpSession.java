@@ -3,12 +3,16 @@ package org.xserver.android;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 /** One protocol dispatcher on its owning native worker, never on Android UI.
  * One ordinary RPC and one fixed asynchronous native root navigation; only
@@ -201,13 +205,17 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         }
     }
     /** Native metadata only, never proof of task/WebView ownership. The wire
-     * session stays private; a fixed release can only use this frozen event. */
+     * session stays private; fixed native controls use only this frozen event. */
     static final class AttachedTarget {
         final String target,type,opener;final boolean waiting;
         private final MdoBrowserCdpSession owner;
         private final String session;private final boolean valid;private boolean used;
         private volatile boolean resumed,detached;
+        private boolean protectionAttempted;private volatile boolean protectionConfirmed;
+        private final java.util.List<PausedEvent> initialRequests=new ArrayList<>();private volatile int retainedRequests;
         boolean resumeConfirmed(){return resumed;}boolean detachConfirmed(){return detached;}
+        boolean protectionConfirmed(){return protectionConfirmed;}int retainedRequestCount(){return retainedRequests;}
+        private void clearRequests(){initialRequests.clear();retainedRequests=0;}
         private AttachedTarget(MdoBrowserCdpSession owner,MdoBrowserCdpJson.Message message){
             this.owner=owner;
             Object child=message.value.opt("sessionId"),info=message.value.opt("targetInfo"),wait=message.value.opt("waitingForDebugger");
@@ -235,6 +243,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             "cdp_chooser_clock_invalid","cdp_chooser_frame_unproven","cdp_chooser_frame_unavailable",
             "cdp_control_event_invalid","cdp_control_duplicate","cdp_control_limit","cdp_body_not_candidate","cdp_body_limit","cdp_body_source_unsupported",
             "cdp_attach_browser_required","cdp_attach_event_invalid","cdp_attach_not_waiting","cdp_attach_duplicate","cdp_attach_limit","cdp_attach_session_reused",
+            "cdp_attach_request_scope_invalid","cdp_attach_response_unproven","cdp_attach_request_duplicate","cdp_attach_request_limit",
             "download_frame_metadata_invalid","download_frame_parent_unproven","download_frame_root_changed","download_frame_limit","download_frame_lifetime_limit","download_frame_session_unproven").contains(code);}
         private static String checked(String code){if(!allowed(code))throw new IllegalArgumentException("unsupported_native_event_code");return code;}
         EventFailure(String code){super(checked(code));this.code=code;}
@@ -251,6 +260,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final AtomicBoolean closed=new AtomicBoolean();
     private final Set<String> children=new HashSet<>();
     private final Set<String> seenChildren=new HashSet<>();
+    private Map<String,AttachedTarget> heldAttachments;
     private final Object controlGate=new Object();private final Control[] controls=new Control[CONTROL_LIMIT];
     private final Set<String> controlKeys=new HashSet<>();private int controlCount;
     private final Body[] bodies=new Body[8];private final Set<String> streamIds=new HashSet<>();
@@ -318,7 +328,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     void retireChild(String child) throws Failure {
         guard(false);children.remove(child);
-        synchronized(controlGate){for(int i=0;i<controls.length;i++)if(controls[i]!=null&&Objects.equals(child,controls[i].session)){
+        synchronized(controlGate){if(heldAttachments!=null){AttachedTarget original=heldAttachments.remove(child);if(original!=null)original.clearRequests();}
+        for(int i=0;i<controls.length;i++)if(controls[i]!=null&&Objects.equals(child,controls[i].session)){
             controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;controlCount--;
         }}
     }
@@ -375,7 +386,41 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         synchronized(controlGate){
             guard(false);if(original.used||seenChildren.contains(original.session))throw new EventFailure("cdp_attach_duplicate");
             if(children.size()>=64||seenChildren.size()>=256||controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_attach_limit");
+            if(heldAttachments==null)heldAttachments=new HashMap<>();heldAttachments.put(original.session,original);
             seenChildren.add(original.session);children.add(original.session);controlKeys.add("H|"+original.session);original.used=true;return original;
+        }
+    }
+    /** Fixed protective setup for a retained original waiting event. It grants
+     * no native child ownership and never resumes/continues/reads that child. */
+    void protectAttachedTarget(AttachedTarget original,int timeout)throws IOException {
+        guard(false);if(timeout<10||timeout>5000)throw failure("cdp_arguments_invalid",false);
+        synchronized(controlGate){
+            guard(false);
+            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||original.resumed||original.detached||
+                    heldAttachments==null||heldAttachments.get(original.session)!=original||!children.contains(original.session))throw failure("cdp_attach_event_invalid",false);
+            if(original.protectionAttempted)throw failure("cdp_attach_protection_replayed",false);
+            if(busy)throw failure("cdp_reentry_forbidden",false);original.protectionAttempted=true;
+        }
+        try{
+            JSONObject params=new JSONObject().put("handleAuthRequests",false).put("patterns",new JSONArray()
+                .put(new JSONObject().put("urlPattern","*").put("requestStage","Request"))
+                .put(new JSONObject().put("urlPattern","*").put("requestStage","Response")));
+            JSONObject reply=call("Fetch.enable",params,original.session,timeout,true);
+            if(reply.length()!=0){close();throw failure("cdp_attach_protection_reply_invalid",true);}
+            guard(true);original.protectionConfirmed=true;
+        }catch(org.json.JSONException error){close();throw failure("cdp_attach_protection_arguments_invalid",false);}
+    }
+    /** Preserve only original request IDs while native adoption is unproven.
+     * No URL/headers/body/JSON/caller selector or continuation is retained. */
+    void retainAttachedRequest(AttachedTarget original)throws IOException {
+        guard(false);PausedEvent value=paused;
+        if(!busy||value==null||original==null||original.owner!=this||!original.protectionAttempted||!original.matchesNativeSession(value.session))throw new EventFailure("cdp_attach_request_scope_invalid");
+        if(value.request==null||value.key==null||!value.key.startsWith("Q|"))throw new EventFailure("cdp_attach_response_unproven");
+        synchronized(controlGate){
+            guard(false);if(heldAttachments==null||heldAttachments.get(original.session)!=original)throw new EventFailure("cdp_attach_request_scope_invalid");
+            if(value.used||controlKeys.contains(value.key))throw new EventFailure("cdp_attach_request_duplicate");
+            if(original.initialRequests.size()>=32||controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_attach_request_limit");
+            original.initialRequests.add(value);value.used=true;controlKeys.add(value.key);original.retainedRequests=original.initialRequests.size();
         }
     }
     /** Only while the process broker waits for its own disable ACK. Record
@@ -1031,6 +1076,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(navigation!=null){navigation.finish(navigation.issued?NAVIGATION_CLOSED:NAVIGATION_NOT_SENT);navigation=null;}
             for(int i=0;i<controls.length;i++)if(controls[i]!=null){controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;}
             controlCount=0;controlKeys.clear();
+            if(heldAttachments!=null){for(AttachedTarget original:heldAttachments.values())original.clearRequests();heldAttachments.clear();}
             for(Offer offer:offers)if(offer!=null)finishOffer(offer,false,false,"cdp_offer_connection_closed");
             for(Body body:bodies)if(body!=null)finishBody(body,false,"cdp_body_connection_closed");streamIds.clear();retiredBodyReads.clear();
         }

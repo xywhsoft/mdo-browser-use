@@ -132,16 +132,17 @@ def main():
                         '-cp',str(classes),'org.xserver.android.CdpPopupBrokerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=40))
         if (not popup.get('passed') or not popup.get('physical_opener_binding') or not popup.get('single_process_claim')
                 or popup.get('mode')!=mode or popup.get('qualified_popup_adoption') is not False or popup.get('provider_qualified') is not False
-                or popup.get('real_native_sessions')!=(1 if mode=='suite' else 0)):
+                or popup.get('real_native_sessions')!=(2 if mode=='suite' else 0)):
             raise RuntimeError('The original-opener process popup broker gate did not pass')
         popup_results.append(popup)
     result['jvm_popup_broker']=popup_results
     popup_worker_results=[]
-    for mode in ('suite','native-cancel','host-close','native-ack-timeout','native-detach-timeout','native-send-failure'):
+    for mode in ('suite','native-cancel','host-close','native-ack-timeout','native-detach-timeout','native-send-failure','protection','protection-limit','protection-response','protection-duplicate','protection-timeout','protection-send-failure','protection-reply','protection-nonempty'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
                 or not popup_worker.get('ui_delivery') or not popup_worker.get('cooperative_popup_pump')
+                or popup_worker.get('protective_interception_scope_tested') is not mode.startswith('protection')
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
         popup_worker_results.append(popup_worker)

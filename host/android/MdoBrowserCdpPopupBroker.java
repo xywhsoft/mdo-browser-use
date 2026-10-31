@@ -16,8 +16,9 @@ import org.json.JSONObject;
 
 /** One process-wide browser attachment controller on the existing CDP worker.
  * A related candidate is only held metadata, never native child/transport proof.
- * No page data, Fetch setup, debugger resume of a managed child or Agent code
- * is exposed here. The host must service turns and join native popup adoption. */
+ * The fixed Fetch guard blocks requests without granting native-child proof.
+ * No managed debugger resume, body/page data or Agent execution is exposed.
+ * The host must service turns and complete the original native adoption join. */
 final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     interface Connector {MdoBrowserCdpSession open(int timeout,BooleanSupplier current,MdoBrowserCdpSession.Events events)throws IOException;}
     private static final Object UNCERTAIN=new Object();
@@ -40,10 +41,17 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         final String id="popup-candidate-"+UUID.randomUUID();
         private final Registration opener;private final MdoBrowserCdpSession.AttachedTarget original;private final long born;private final AtomicBoolean brokerClosed;
         private volatile boolean retired;
+        private final AtomicBoolean protectionRequested=new AtomicBoolean();private final AtomicReference<MdoBrowserCdpSession.ControlResult> protection=new AtomicReference<>();
+        private volatile boolean protectionStarted;
         private Candidate(Registration opener,MdoBrowserCdpSession.AttachedTarget original,long born,AtomicBoolean brokerClosed){this.opener=opener;this.original=original;this.born=born;this.brokerClosed=brokerClosed;}
         boolean current(){return !retired&&!brokerClosed.get()&&opener.current();}
         boolean belongsTo(Registration original){return opener==original;}
         boolean nativeChildProven(){return false;}
+        boolean requestProtection()throws IOException{if(!current())throw problem("cdp_popup_candidate_retired");return protection.get()==null&&protectionRequested.compareAndSet(false,true);}
+        boolean protectionRequested(){return protectionRequested.get();}
+        MdoBrowserCdpSession.ControlResult protection(){return protection.get();}
+        int retainedRequestCount(){return original.retainedRequestCount();}
+        private void retired(){retired=true;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));}
     }
     private static final class Release {
         final MdoBrowserCdpSession.ControlReceipt receipt;
@@ -121,8 +129,12 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         if("Target.detachedFromTarget".equals(method)&&child==null){
             Object id=params.opt("sessionId");
             for(int i=candidates.size()-1;i>=0;i--){Candidate candidate=candidates.get(i);if(candidate.original.matchesNativeSession(id)){
-                candidate.retired=true;session.retireAttachedTarget(candidate.original);candidates.remove(i);
+                candidate.retired();session.retireAttachedTarget(candidate.original);candidates.remove(i);
             }}return;
+        }
+        if("Fetch.requestPaused".equals(method)&&child!=null){
+            for(Candidate candidate:candidates)if(candidate.original.matchesNativeSession(child)){session.retainAttachedRequest(candidate.original);return;}
+            throw fail("cdp_popup_broker_request_scope_invalid");
         }
         if(child!=null)throw fail("cdp_popup_broker_child_unproven");
         if(method.startsWith("Fetch."))throw fail("cdp_popup_broker_response_unproven");
@@ -149,6 +161,25 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         catch(RuntimeException|Error error){throw fail("cdp_popup_broker_failed");}
     }
     List<Candidate> pending()throws IOException{guard();prune();return new ArrayList<>(candidates);}
+    void refuseProtection(Candidate candidate,String code)throws IOException {
+        guard();if(candidate==null||!candidates.contains(candidate)||!candidate.current())throw problem("cdp_popup_candidate_retired");
+        candidate.protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,safe(code),0,false));
+    }
+    void protect(Candidate candidate,int timeout)throws IOException {
+        guard();prune();if(state!=ARMED||candidate==null||!candidates.contains(candidate)||!candidate.current()||!candidate.protectionRequested())throw problem("cdp_popup_candidate_retired");
+        if(timeout<10||timeout>5000)throw problem("cdp_arguments_invalid");
+        if(candidate.protection.get()!=null)throw problem("cdp_popup_protection_replayed");
+        candidate.protectionStarted=true;
+        try{session.protectAttachedTarget(candidate.original,timeout);prune();
+            candidate.protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(true,null,0,true));
+        }catch(MdoBrowserCdpSession.Failure error){
+            String code=error.protocolCode==-32601?"cdp_popup_interception_unsupported":error.protocolCode!=0?"cdp_popup_interception_rejected":safe(error.getMessage());
+            candidate.protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,code,error.protocolCode,error.effectMayHaveOccurred||candidate.retainedRequestCount()!=0));
+            if(error.protocolCode==0)throw fail(code);
+        }catch(IOException|RuntimeException|Error error){
+            candidate.protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_interception_failed",0,true));throw fail("cdp_popup_interception_failed");
+        }
+    }
     void disarm(int timeout)throws IOException {
         guard();if(state!=ARMED)throw problem("cdp_popup_broker_state_invalid");
         if(timeout<10||timeout>5000)throw problem("cdp_arguments_invalid");prune();
@@ -172,7 +203,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     boolean cleanupConfirmed(){return cleanupConfirmed;}
     boolean enabledMayHaveOccurred(){return enabledMayHaveOccurred;}
     private IOException fail(String code){if(failure==null)failure=safe(code);state=FAILED;try{close();}finally{if(Thread.currentThread()==worker)clear();}return problem(failure);}
-    private void clear(){for(Candidate candidate:candidates)candidate.retired=true;for(Registration registration:registrations)registration.close();candidates.clear();registrations.clear();releases.clear();seenTargets.clear();}
+    private void clear(){for(Candidate candidate:candidates)candidate.retired();for(Registration registration:registrations)registration.close();candidates.clear();registrations.clear();releases.clear();seenTargets.clear();}
     @Override public void close(){
         if(!closed.compareAndSet(false,true))return;
         // A socket close wakes the worker but is not an acknowledgement that

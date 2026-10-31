@@ -63,7 +63,7 @@
       "related_metadata_is_native_child_or_transport_proof": false,
       "unclaimed_waiting_target": "original_resume_ACK_then_original_detach_ACK",
       "existing_nonwaiting_target": "original_detach_only_no_synthetic_resume",
-      "managed_candidate": "bounded_frozen_metadata_held_for_future_native_child_proof_no_Fetch_body_or_Agent_access",
+      "managed_candidate": "bounded_frozen_metadata_with_optional_fixed_Fetch_guard_no_native_child_body_or_Agent_authority",
       "limits": "8_registered_openers_7_held_candidates_64_release_waiters_256_target_lifetime_15s_candidate_deadline",
       "shutdown": "drain_old_controls_then_fixed_disable_with_original_empty_ACK_late_disable_targets_retired_without_extra_resume",
       "pending_native_candidates_block_graceful_disable": true,
@@ -135,7 +135,27 @@
         "sha256": "765cd3a85e0b7de879e6871d7a8b8bdd85548d97bd3ce53a3edd15aa6b239a0b",
         "facts": "FrameAutoAttacher_tracks_local_root_subframes_workers_and_explicit_page_notifications_not_a_global_window_open_pause_gate"
       }
-    ]
+    ],
+    "request_guard": {
+      "state": "private_original_target_Fetch_gate_before_native_adoption_no_resume",
+      "source": "frozen_retained_waiting_page_event_same_Browser_session_no_caller_protocol_ID",
+      "activation": "one_Fetch_enable_with_Request_and_Response_patterns_auth_false_original_empty_ACK_required",
+      "worker": "one_protection_operation_per_existing_cooperative_pump_turn_original_UI_completion",
+      "requires_native_source_in_shared_worker": true,
+      "retained_before_native_proof": "original_request_IDs_only_no_URL_headers_JSON_or_body",
+      "limits": "32_requests_per_original_target_and_existing_4096_history_7_candidates_15s_scope",
+      "failure": "complete_rejection_uses_original_native_rejection_and_detach_cleanup_partial_or_unknown_effect_fences_process",
+      "debugger_resume_or_request_continuation_or_body_access": false,
+      "native_child_proven": false,
+      "product_adoption_enabled": false,
+      "provider_verified": false,
+      "reference": {
+        "url": "https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/1c3e94f6cfa36eb231c03b1553faee7f649aa29a/pdl/domains/Fetch.pdl",
+        "bytes": 11003,
+        "sha256": "bb280686ab4e602a56f3abfc24c47f141b62da387d0ba7d7aa7cf23f7f2111e6",
+        "facts": "Request_stage_precedes_send_Response_stage_precedes_body_requests_remain_paused_until_explicit_original_flow_control"
+      }
+    }
   },
   "navigation_receipts": {
     "state": "managed_initial_and_goto_native_receipts_and_commit_join_packaged_provider_unqualified",

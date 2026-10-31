@@ -101,6 +101,20 @@ public final class CdpPopupBrokerProbe {
         finally{original.close();}
         check(CdpNativeProbe.fixtureFinish()==(1+(5<<8)));realSessions++;
     }
+    private static void nativeProtection(Source source)throws Exception{
+        CdpNativeProbe.fixtureStart(57);MdoBrowserCdpPopupBroker original=new MdoBrowserCdpPopupBroker(()->true);
+        try{
+            original.register(source.network);original.arm(2000);check(original.pending().size()==1);
+            MdoBrowserCdpPopupBroker.Candidate candidate=original.pending().get(0);check(candidate.requestProtection()&&!candidate.requestProtection());
+            failure("cdp_arguments_invalid",()->original.protect(candidate,9));
+            original.protect(candidate,2000);check(candidate.protection().ok&&candidate.protection().effectMayHaveOccurred&&!candidate.nativeChildProven()&&candidate.retainedRequestCount()==1);
+            failure("cdp_popup_protection_replayed",()->original.protect(candidate,500));
+            original.turn(10,1000);check(candidate.retainedRequestCount()==2);original.turn(10,1000);
+            check(!candidate.current()&&candidate.retainedRequestCount()==0&&original.pending().isEmpty());
+            failure("cdp_popup_candidate_retired",candidate::requestProtection);original.disarm(2000);check(original.cleanupConfirmed());
+        }finally{original.close();}
+        check(CdpNativeProbe.fixtureFinish()==(1+(3<<8)));realSessions++;
+    }
     private static void registrationLimits(Source original)throws Exception{
         List<Source> added=new ArrayList<>();
         try{
@@ -142,7 +156,7 @@ public final class CdpPopupBrokerProbe {
         Looper.getMainLooper();worker=Executors.newSingleThreadExecutor();String mode=args.length==0?"suite":args[0];
         try(Source source=new Source("registered-root",true)){
             if(mode.equals("suite"))registrationLimits(source);
-            on(()->{if(mode.equals("suite")){suite(source);nativeBroker(source);}else poison(source,mode);return null;});
+            on(()->{if(mode.equals("suite")){suite(source);nativeBroker(source);nativeProtection(source);}else poison(source,mode);return null;});
         }finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"real_native_sessions\":"+realSessions+",\"physical_opener_binding\":true,\"single_process_claim\":true,\"qualified_popup_adoption\":false,\"provider_qualified\":false}");
     }

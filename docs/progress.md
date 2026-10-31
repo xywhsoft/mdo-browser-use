@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E119:** add fixed original-target Request/Response interception
+  before native popup adoption, bounded retention of original paused request
+  IDs and once-only UI protection results on the existing worker. It performs
+  no managed debugger resume, request continuation or body read. Preserve
+  specific native failure causes; matched unsupported setup uses confirmed
+  original-native cancellation, while unknown effects stay fenced. Fourteen
+  worker modes pass 444 checks; broker modes pass 177 with two actual JNI/socket
+  flows. Native 116-input, saving 47, Python 173/175 and rebuilt APK gates pass.
+  Unchanged E118 UI/Windows evidence is rechecked. Native child ownership,
+  transport/adoption/bootstrap/body joins and provider qualification remain open.
 - **Android E118:** join the original physical opener and native popup controller
   to cancellation. Require both the original null-transport consumption receipt
   and all held candidates' detach events before releasing native admission or
@@ -9713,3 +9723,80 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   adoption/transport proof, managed first-response interception/body routing and
   qualified resume/adoption, broader platform/delivery work and deferred device
   verification still remain. Public Android automation/provider flags stay false.
+
+## E119 — original-target interception before popup adoption (2026-10-31)
+
+- Add a private fixed Fetch.enable gate for an original retained waiting page
+  attachment. It accepts the opaque original event, not a supplied target/session
+  ID. Both Request and Response patterns are fixed, authentication interception
+  stays off and the original empty ACK is required. Duplicate/foreign/retired
+  scopes and replay do not authorize another setup. This performs no managed
+  debugger resume, request continuation, page evaluation or body claim.
+- A physical native source is required by the shared worker. Candidate requests
+  are data-only; at most one protection RPC runs per existing cooperative pump
+  turn, avoiding an unbounded batch inside another document wait. Once-only
+  protection callbacks return on the original current UI. Cancellation suppresses
+  stale successful notifications. A complete unsupported response follows the
+  original native-null-transport/detach/disable cleanup and preserves its cause;
+  an incomplete send, bad ACK or unknown effect preserves the process fence and
+  requests original native rejection without pretending that cleanup completed.
+- Preserve original paused request IDs before/after the setup ACK without
+  retaining caller JSON, URL, headers or body. The private original attachment
+  owns that queue: 32 requests per target plus the existing 4,096-key history,
+  seven-candidate and 15-second scope limits. Duplicates, response-stage events
+  and wrong/unproven scopes fail closed. Detach and connection retirement clear
+  retained requests. No unproven response becomes an existing download offer.
+- Add a second actual two-connection discovery/browser-WebSocket/JVM/JNI flow.
+  Verify exactly three commands: global enable, fixed child-scoped Fetch setup
+  and global disable. Retain a request arriving before its ACK and another
+  afterward; original detach clears both. Replayed setup/invalid timeout send no
+  extra command. No managed resume, continuation, Fetch disable or body command
+  occurs. Native UI/renderer metadata remain controlled, not installed-provider
+  proof. Seven broker modes now pass 177 checks with two actual native flows.
+- Fourteen worker modes pass 444 checks, including 232 checks across eight new
+  protection modes. Cover two scoped candidates with the same raw request ID,
+  once-only UI delivery, native-source refusal before I/O, matched unsupported
+  cleanup, cancellation during a blocked setup, 33-request limit, duplicate,
+  premature response, timeout, send failure and mismatched/nonempty ACKs. Native
+  child proof and provider qualification remain false even after a successful
+  guard. Ordinary document work remains available after the bounded failure.
+- Preserve E119-native-first.log: a test attempted replacement admission after
+  the data-only terminal result but before its original UI callback. Strengthen
+  the test to await that exact callback before reusing the source; do not release
+  product quotas early or add an arbitrary sleep/retry. Also preserve
+  E119-cause-before.log, E119-cause-unregistered.log and E119-cause-after.log.
+  Targeted before/after checks expose generic error wrapping and missing native
+  event allowlist entries. Register only the four new static native diagnoses
+  and preserve known precise causes (capacity, duplicate, unproven response,
+  timeout, transport and reply); never forward arbitrary provider text.
+- Full native ASan/UBSan/API26 gates pass 116 current input hashes. Original
+  discovery, WebSocket safety/cancellation, fixed release 2,595 and full-worker
+  exit eight checks remain passing. WebSocket's diagnostic poll count is 1,306;
+  retain the invariant/cancellation/allocation gates, not a fixed timed-loop count.
+  Shared Android-to-JS/C saving passes 47 with one original source claim and no
+  retained resources. Final Python run passes 173/175 in 57.060 seconds, with two
+  existing Windows symlink privilege skips. See E119-native-complete.log and
+  E119-shared-save-final.log/E119-python-final.log.
+- Product JS/C, frame runtime/probe/native host and reviewed deployment mappings
+  are unchanged. Recheck every original input and actual native host hash before
+  reusing E118 product UI 647, native popup 110/25, actual Windows frame/input 301
+  and E105 world/document evidence; do not relabel those as new runs. E106 JS 372
+  and packed Windows 12 also retain unchanged runtime/archive/artifact identities.
+- Reuse the exact verified ARM64 host
+  022caf0ab9e9b7bcdf32ecf3ecce1dfb6b77485958c5fb709b48f42c8af488d9.
+  Rebuild actual Java/DEX/APK with the new session, broker and callback code;
+  verify actual definitions, eight JNI exports, retained v2/v3 signer, private
+  provider, alignment and exact native/app payloads. Current APK: 6,497,601 bytes,
+  SHA-256 fc0cc24091e5719750c9e4d35836412d0559de7985dd71ec291c09da51e52b55.
+  Windows/plugin artifacts are unchanged. Evidence: E119-final-identities.log,
+  E119-native-current.json, E119-save-current.json, E119-android-receipt.json and
+  E119-arm64-reuse.log/E119-android-package.log. The exact Fetch reference commit,
+  bytes/hash and stage semantics are pinned in host/android/cdp-protocol.json.
+- Restore headless HTTP 200 on 63625, PID 16844, about 3,441.7 MiB; D: has about
+  40.0 GiB free. No new app/Home/source copy, runtime dependency, phone/provider
+  change, model call, external browser page, publication or production account/
+  config edit. Goal remains active. Original native child/transport adoption,
+  fresh ownership/takeover lineage, guarded bootstrap/resume, scoped response/
+  body routing and broader qualification/delivery work still remain. This fixed
+  protective setup does not activate the public Android popup route. Device
+  checks remain deferred; all provider/framework/automation flags stay false.

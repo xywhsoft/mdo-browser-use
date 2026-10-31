@@ -19,7 +19,7 @@ import java.util.function.LongSupplier;
 final class MdoBrowserCdpPopupWorker {
     interface Factory {MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock);}
     interface Source {MdoBrowserCdpBinding.Network resolve(MdoBrowserCdpMarker.Lease lease)throws IOException;}
-    interface Events {void state(Result result);void candidate(MdoBrowserCdpPopupBroker.Candidate candidate);}
+    interface Events {void state(Result result);void candidate(MdoBrowserCdpPopupBroker.Candidate candidate);default void protection(MdoBrowserCdpPopupBroker.Candidate candidate){}}
     static final class Result {
         final boolean ready,terminal,processMayHaveBeenEnabled,sourceReleased,processCleanupConfirmed;final String code;
         private Result(boolean ready,boolean terminal,String code,boolean enabled,boolean released,boolean clean){
@@ -66,7 +66,10 @@ final class MdoBrowserCdpPopupWorker {
     private void failAll(String code){
         MdoBrowserCdpPopupBroker current=broker;if(current!=null)current.close();boolean clean=clean();
         if(!clean)poisoned="cdp_popup_cleanup_unconfirmed";
-        for(Job job:snapshot())if(job.stage!=QUEUED&&job.stage!=TERMINAL)job.finish(safe(code),clean||job.registration==null,clean);
+        for(Job job:snapshot())if(job.stage!=QUEUED&&job.stage!=TERMINAL){
+            if(job.nativeSource!=null&&job.registration!=null)job.nativeCancelRequested=true;
+            job.finish(safe(code),clean||job.registration==null,clean);
+        }
         if(clean)broker=null;
     }
     /** The existing network pump calls this, also from cooperative RPC waits. */
@@ -88,11 +91,23 @@ final class MdoBrowserCdpPopupWorker {
                 if(!held)job.releaseRegistration();
             }
             if(current.armed())current.turn(10,250);
+            boolean protectedOne=false;
             for(Job job:snapshot()){
-                if(job.stage==CANCELLING){job.finish("cdp_popup_prepare_cancelled",true,current.cleanupConfirmed());continue;}
+                if(job.stage==CANCELLING){job.finish(job.cancelCode,true,current.cleanupConfirmed());continue;}
                 if(job.stage!=READY)continue;
                 if(!current.armed())throw new IOException("cdp_popup_broker_closed");
-                for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration)&&job.notified.add(candidate.id))job.offer(candidate);
+                for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration)){
+                    if(job.notified.add(candidate.id))job.offer(candidate);
+                    if(candidate.protectionRequested()&&candidate.protection()==null&&!job.request.cancelled.get()){
+                        if(job.nativeSource==null)current.refuseProtection(candidate,"cdp_popup_native_source_required");
+                        else if(!protectedOne){protectedOne=true;current.protect(candidate,250);}
+                    }
+                    MdoBrowserCdpSession.ControlResult protection=candidate.protection();
+                    if(protection!=null&&job.protectionNotified.add(candidate.id)){
+                        job.offerProtection(candidate);
+                        if(!protection.ok&&job.nativeSource!=null){job.cancelCode=protection.code;job.request.cancelled.set(true);job.beginNativeCancel();break;}
+                    }
+                }
             }
             if(!current.armed()&&current.cleanupConfirmed())broker=null;
         }catch(IOException error){failAll(safe(error.getMessage()));}
@@ -111,7 +126,9 @@ final class MdoBrowserCdpPopupWorker {
     private final class Job implements Runnable {
         final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;final Request request=new Request(()->{wake.run();});
         final MdoBrowserCdpPopupNative nativeSource;volatile boolean nativeCancelRequested;long cancelBorn;private boolean nativeStopDelivered;
+        String cancelCode="cdp_popup_prepare_cancelled";
         final Set<String> notified=new HashSet<>();final ArrayDeque<MdoBrowserCdpPopupBroker.Candidate> candidates=new ArrayDeque<>();
+        final Set<String> protectionNotified=new HashSet<>();final ArrayDeque<MdoBrowserCdpPopupBroker.Candidate> protections=new ArrayDeque<>();
         final Runnable delivery=this::deliver;volatile int stage=QUEUED;volatile MdoBrowserCdpPopupBroker.Registration registration;
         private Events events;private boolean posted,delivering,readyDelivered,terminalDelivered;
         Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource){this.lease=lease;this.timeout=timeout;this.events=events;this.nativeSource=nativeSource;born=clock.getAsLong();}
@@ -142,8 +159,11 @@ final class MdoBrowserCdpPopupWorker {
         void offer(MdoBrowserCdpPopupBroker.Candidate candidate){
             synchronized(this){if(stage!=READY||request.cancelled.get())return;if(candidates.size()>=7){request.cancelled.set(true);return;}candidates.add(candidate);}post();
         }
+        void offerProtection(MdoBrowserCdpPopupBroker.Candidate candidate){
+            synchronized(this){if(stage!=READY||request.cancelled.get())return;if(protections.size()>=7){request.cancelled.set(true);return;}protections.add(candidate);}post();
+        }
         void finish(String code,boolean released,boolean clean){
-            synchronized(this){if(stage==TERMINAL)return;stage=TERMINAL;candidates.clear();request.result.set(new Result(false,true,code,enabled(),released,clean));request.wake=null;active.decrementAndGet();}post();
+            synchronized(this){if(stage==TERMINAL)return;stage=TERMINAL;candidates.clear();protections.clear();request.result.set(new Result(false,true,code,enabled(),released,clean));request.wake=null;active.decrementAndGet();}post();
         }
         private void post(){
             synchronized(this){if(events==null){if(stage==TERMINAL)remove(this);return;}if(posted||delivering||terminalDelivered)return;posted=true;}
@@ -151,12 +171,12 @@ final class MdoBrowserCdpPopupWorker {
             if(!accepted){synchronized(this){posted=false;events=null;}request.cancelled.set(true);if(stage==TERMINAL)remove(this);unavailable.run();}
         }
         private void deliver(){
-            thread();Events action;Result value;List<MdoBrowserCdpPopupBroker.Candidate> pending;
+            thread();Events action;Result value;List<MdoBrowserCdpPopupBroker.Candidate> pending,protectedTargets;
             synchronized(this){
                 posted=false;if(delivering||terminalDelivered||events==null)return;delivering=true;action=events;value=request.result.get();
-                if(value!=null&&value.terminal){terminalDelivered=true;pending=new ArrayList<>();}
-                else if(stage==READY&&!request.cancelled.get()&&lease.current()){pending=new ArrayList<>(candidates);candidates.clear();if(readyDelivered)value=null;else readyDelivered=true;}
-                else{value=null;pending=new ArrayList<>();candidates.clear();}
+                if(value!=null&&value.terminal){terminalDelivered=true;pending=new ArrayList<>();protectedTargets=new ArrayList<>();}
+                else if(stage==READY&&!request.cancelled.get()&&lease.current()){pending=new ArrayList<>(candidates);candidates.clear();protectedTargets=new ArrayList<>(protections);protections.clear();if(readyDelivered)value=null;else readyDelivered=true;}
+                else{value=null;pending=new ArrayList<>();protectedTargets=new ArrayList<>();candidates.clear();protections.clear();}
             }
             try{
                 if(nativeCancelRequested&&!nativeStopDelivered&&nativeSource!=null){nativeStopDelivered=true;nativeSource.reject();wake.run();}
@@ -164,9 +184,10 @@ final class MdoBrowserCdpPopupWorker {
                     if(value.terminal&&nativeSource!=null)nativeSource.finish(value.sourceReleased);action.state(value);
                 }
                 for(MdoBrowserCdpPopupBroker.Candidate candidate:pending)if(!request.cancelled.get()&&lease.current()&&candidate.current())action.candidate(candidate);
+                for(MdoBrowserCdpPopupBroker.Candidate candidate:protectedTargets)if(!request.cancelled.get()&&lease.current()&&candidate.current())action.protection(candidate);
             }
             catch(RuntimeException|Error error){request.cancelled.set(true);wake.run();}
-            finally{boolean again; synchronized(this){delivering=false;if(terminalDelivered)events=null;Result latest=request.result.get();again=latest!=null&&latest.terminal||!candidates.isEmpty()||nativeCancelRequested&&!nativeStopDelivered;}
+            finally{boolean again; synchronized(this){delivering=false;if(terminalDelivered)events=null;Result latest=request.result.get();again=latest!=null&&latest.terminal||!candidates.isEmpty()||!protections.isEmpty()||nativeCancelRequested&&!nativeStopDelivered;}
                 if(terminalDelivered)remove(this);else if(again)post();}
         }
     }

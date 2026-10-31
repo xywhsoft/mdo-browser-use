@@ -116,6 +116,11 @@ static int ClientBodyCommand(int Fd,int Id,const char* Method,const char* Params
     char Data[512];int Size=snprintf(Data,sizeof(Data),"{\"id\":%d,\"method\":\"%s\",\"params\":%s}",Id,Method,Params);
     assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
 }
+static int ClientScopedBodyCommand(int Fd,int Id,const char* Method,const char* Params,const char* Session)
+{
+    char Data[768];int Size=snprintf(Data,sizeof(Data),"{\"id\":%d,\"method\":\"%s\",\"params\":%s,\"sessionId\":\"%s\"}",Id,Method,Params,Session);
+    assert(Size>0&&(size_t)Size<sizeof(Data));return ClientFrame(Fd,XWS_OPCODE_TEXT,Data,(size_t)Size);
+}
 static int Handshake(Server* Fixture,int Fd)
 {
     char Request[1024]={0};size_t Used=0;
@@ -123,9 +128,9 @@ static int Handshake(Server* Fixture,int Fd)
         if ( !Read(Fd,Request+Used,1) ) return 0;
         Used++;if ( strstr(Request,"\r\n\r\n") ) break;
     }
-    if(Fixture->Mode==48||(Fixture->Mode==56&&!strncmp(Request,"GET /json/version ",18))){
+    if(Fixture->Mode==48||((Fixture->Mode==56||Fixture->Mode==57)&&!strncmp(Request,"GET /json/version ",18))){
         Fixture->Valid=!strcmp(Request,"GET /json/version HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\nAccept: application/json\r\n\r\n");
-        const char* Body=Fixture->Mode==56?"{\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser\"}":"{\"Browser\":\"synthetic-only\",\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser/00000000-0000-4000-8000-000000000001\"}";
+        const char* Body=Fixture->Mode==56||Fixture->Mode==57?"{\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser\"}":"{\"Browser\":\"synthetic-only\",\"webSocketDebuggerUrl\":\"ws://localhost/devtools/browser/00000000-0000-4000-8000-000000000001\"}";
         char Reply[512];int Size=snprintf(Reply,sizeof(Reply),"HTTP/1.1 200 OK\r\nContent-Length: %zu\r\nContent-Type: application/json\r\nConnection: close\r\n\r\n%s",strlen(Body),Body);
         assert(Size>0&&(size_t)Size<sizeof(Reply));return Fixture->Valid&&Write(Fd,Reply,(size_t)Size);
     }
@@ -133,7 +138,7 @@ static int Handshake(Server* Fixture,int Fd)
     if ( !Key ) return 0;
     Key+=21;char Accept[XWS_ACCEPT_CAPACITY];
     if ( !xrtWsAccept((xstrview){Key,XWS_KEY_SIZE},Accept,sizeof(Accept)) ) return 0;
-    const char* Path=Fixture->Mode==50?"/devtools/browser/00000000-0000-4000-8000-000000000001":Fixture->Mode>=49&&Fixture->Mode<=56?"/devtools/browser":"/devtools/page/test-001";
+    const char* Path=Fixture->Mode==50?"/devtools/browser/00000000-0000-4000-8000-000000000001":Fixture->Mode>=49&&Fixture->Mode<=57?"/devtools/browser":"/devtools/page/test-001";
     char Expected[512];int Length=snprintf(Expected,sizeof(Expected),"GET %s HTTP/1.1\r\nHost: localhost\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: %.*s\r\nSec-WebSocket-Version: 13\r\n\r\n",Path,XWS_KEY_SIZE,Key);
     Fixture->Valid=Length==(int)Used&&!memcmp(Expected,Request,Used);
     char Reply[8192];
@@ -151,9 +156,21 @@ static int Handshake(Server* Fixture,int Fd)
 static void* Serve(void* Data)
 {
     Server* Fixture=Data;int Fd=accept(Fixture->Listener,NULL,NULL);assert(Fd>=0);Fixture->Accepted=Fd;
-    if ( Fixture->Mode!=34 && Fixture->Mode!=38 && Fixture->Mode!=56 ) close(Fixture->Listener);
+    if ( Fixture->Mode!=34 && Fixture->Mode!=38 && Fixture->Mode!=56 && Fixture->Mode!=57 ) close(Fixture->Listener);
     struct timeval Time={Fixture->Mode==11?12:3,0};assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));
-    if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 || Fixture->Mode==38 || Fixture->Mode==56 ) close(Fixture->Listener);goto Done;}
+    if ( !Handshake(Fixture,Fd) || Fixture->Invalid ) {if ( Fixture->Mode==34 || Fixture->Mode==38 || Fixture->Mode==56 || Fixture->Mode==57 ) close(Fixture->Listener);goto Done;}
+    if(Fixture->Mode==57){
+        close(Fd);Fd=accept(Fixture->Listener,NULL,NULL);assert(Fd>=0);Fixture->Accepted=Fd;close(Fixture->Listener);
+        assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));if(!Handshake(Fixture,Fd))goto Done;
+        Fixture->Frames+=ClientBodyCommand(Fd,1,"Target.setAutoAttach","{\"autoAttach\":true,\"waitForDebuggerOnStart\":true,\"flatten\":true,\"filter\":[{\"type\":\"page\",\"exclude\":false},{\"exclude\":true}]}");
+        if(!Packet(Fd,"{\"method\":\"Target.attachedToTarget\",\"params\":{\"sessionId\":\"guard-1\",\"targetInfo\":{\"targetId\":\"target-guard\",\"type\":\"page\",\"openerId\":\"registered-root\"},\"waitingForDebugger\":true}}")||!Packet(Fd,"{\"id\":1,\"result\":{}}"))goto Done;
+        Fixture->Frames+=ClientScopedBodyCommand(Fd,2,"Fetch.enable","{\"handleAuthRequests\":false,\"patterns\":[{\"urlPattern\":\"*\",\"requestStage\":\"Request\"},{\"urlPattern\":\"*\",\"requestStage\":\"Response\"}]}","guard-1");
+        if(!Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"sessionId\":\"guard-1\",\"params\":{\"requestId\":\"initial-1\",\"frameId\":\"guard-frame\",\"resourceType\":\"Document\",\"request\":{\"method\":\"POST\",\"url\":\"https://private.invalid/unread\"}}}")||!Packet(Fd,"{\"id\":2,\"sessionId\":\"guard-1\",\"result\":{}}"))goto Done;
+        if(!Packet(Fd,"{\"method\":\"Fetch.requestPaused\",\"sessionId\":\"guard-1\",\"params\":{\"requestId\":\"initial-2\"}}")||!Packet(Fd,"{\"method\":\"Target.detachedFromTarget\",\"params\":{\"sessionId\":\"guard-1\"}}"))goto Done;
+        Fixture->Frames+=ClientBodyCommand(Fd,3,"Target.setAutoAttach","{\"autoAttach\":false,\"waitForDebuggerOnStart\":false,\"flatten\":true}");
+        if(!Packet(Fd,"{\"id\":3,\"result\":{}}"))goto Done;
+        char Byte;(void)recv(Fd,&Byte,1,0);goto Done;
+    }
     if(Fixture->Mode==56){
         close(Fd);Fd=accept(Fixture->Listener,NULL,NULL);assert(Fd>=0);Fixture->Accepted=Fd;close(Fixture->Listener);
         assert(!setsockopt(Fd,SOL_SOCKET,SO_RCVTIMEO,&Time,sizeof(Time)));if(!Handshake(Fixture,Fd))goto Done;
