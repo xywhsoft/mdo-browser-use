@@ -4067,3 +4067,37 @@ fresh exact association, with zero file/record reservations between cycles.
 The broker/request gates pass 1,247/176 assertions; full native gates and the
 refreshed actual APK pass. These component/packaging results do not qualify an
 installed Android provider, actual Activity UI or deferred device recovery.
+
+## Shared JS/C save integration with original Android response bytes (E111)
+
+`python tools/android_save_probe.py` now exercises the previously separate
+components together: the exact product download command fragment, real native
+JVM/JNI protocol/controller/file queue, shared download-save.js producer and the
+running development C host's scoped stream/receiver/publication services. The
+Java peer receives only developer pipe commands and synthetic renderer bodies;
+it is not packaged into the app or exposed as a public/raw browser API.
+
+The original 131,075-byte response is claimed once, consumed through five native
+body reads and independently verified by the native file worker. Saving reads
+three exact cached ranges through the product command handler; the C task host
+streams, verifies and atomically publishes the identical full SHA-256/bytes.
+Additional cases preserve an existing destination, reject a deliberately foreign
+range before publication, cancel the real receiving operation before publication,
+and save completed retained bytes after their original network connection exits.
+The latter follows the shared human-save producer path; it does not imply that
+Agent writes are allowed during manual takeover.
+
+All 47 integration assertions pass. Original-source claims stay at one, no
+refetch/repeated admission occurs, and native records/range leases/file quotas,
+pending host read/release waiters and C receiver staging are cleaned up. The
+gate requires current native-input hashes, checks its own six inputs before and
+after execution, and records the exact original native-gate receipt hash. It
+reuses fixed directories and the same application/Home without another deployment.
+
+Scope remains component integration: Java runs on the existing Linux development
+JVM/JNI harness, renderer/UI/framework peers are controlled, and the real C file
+host in this run is the Windows development service. It does not prove Android
+ARM64 filesystem/framework behavior, installed-provider network interception,
+main-UI routing or complete public SDK admission on a phone. Those qualifications
+remain false/deferred; the product gate and current WebView are unchanged. Current
+evidence is in .mdo/E111-android-save-current.json and E111-android-save-final.log.

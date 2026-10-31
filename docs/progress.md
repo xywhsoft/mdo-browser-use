@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android/shared E111:** join the exact Android retained-download commands,
+  native JVM/JNI controller/files, shared JS producer and actual C task-host
+  stream/receiver/publication services. All 47 assertions pass for complete
+  131,075-byte multi-range saving, conflict preservation, range mismatch,
+  cancellation and completed bytes after connection retirement, with one source
+  claim and no retained quotas/waiters/staging. This closes a component-integration
+  gap; controlled framework peers and the Windows task host do not qualify actual
+  Android provider/ARM64/public UI behavior. Product/artifacts are unchanged.
 - **Windows W6:** add bounded repeated cross-process Unicode fill and
   navigation-interrupted drag/recovery cycles to the actual WebView2 regression.
   Six cycles of each pass with 301 total assertions, exactly one drag and one
@@ -9161,3 +9169,52 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   separate; do not retry the unchanged unavailable Computer Use helper. Goal
   active; continue remaining integration and qualification work. Phone/WebView
   testing stays deferred without another request to reconnect.
+
+## E111 — join original Android bytes to shared JS/C save publication (2026-10-31)
+
+- Add a developer-only pipe peer around the exact generated product download
+  command fragment, existing real JVM/JNI native controller and bounded file
+  worker. Its renderer/physical-view/channel/framework peers remain controlled.
+  It seeds one synthetic original response and accepts only fixed fixture
+  seed/execute/stats/retire/quit operations; no fixture ships in the app or creates
+  a public raw-script/wire-ID API. Exact opaque original download IDs still flow
+  through the actual native get/read/release methods.
+- Connect that peer to the unmodified shared JS download-save producer and this
+  deployment's actual C SDK context, streams, file receiver and atomic publisher.
+  Bootstrap credentials remain in process memory. The C workspace is the fixed
+  .mdo/qa/android-save directory; reject unexpected destinations and preserve
+  changed evidence. Native output uses the existing single JVM class/output tree,
+  not an app/Home/source copy. Existing WSL/JDK/Node/Python development tools are
+  reused and no product runtime dependency is introduced.
+- Verify a 131,075-byte original response end to end: one native source claim,
+  five original body reads, native EOF/file-hash validation, three exact cached
+  command ranges, actual C stream reception/hash verification/publication and
+  complete destination-byte equality. The saved result retains its source and
+  exposes neither base64 nor private staging paths. No URL is requested/refetched.
+- Exercise a real destination conflict without overwrite, inject a foreign
+  native range and reject publication, and invoke the actual shared cancellation
+  helper after a native read to cancel the real C receiver before publication.
+  The original download stays completed. Retire its native connection, then save
+  its completed bytes through the human-save producer path. Preserve Agent/manual
+  admission rules; this test does not authorize automated writes during takeover.
+- Final gate passes 47 assertions. Explicit original release and peer termination
+  leave zero records, record/file byte quotas, retained reads, host read/release
+  waiters or C receiver staging. Destination fixtures are byte-checked before
+  deletion, the native peer directory is removed after verified closure, and the
+  fixed C workspace is empty. Bound command waits and clear pending timers on
+  terminal pipe closure; do not replay an operation after an observation timeout.
+- Gate startup checks all 105 existing native source hashes and deployed overlays.
+  Record/check six integration inputs before and after execution plus the exact
+  original native-gate receipt hash. Evidence: .mdo/E111-android-save-current.json,
+  android-save-result.json and E111-android-save-final.log. The earlier initial run
+  is retained in E111-android-save-first.log. Recheck current Android source,
+  app-archive and all program/APK/plugin hashes against E110 receipts; production
+  inputs and artifacts are unchanged, so no rebuild or unrelated full-suite rerun.
+- Scope: actual shared-producer/C-file integration on the Windows development
+  host, with Android native components running in the Linux JVM/JNI harness.
+  Installed Android interception/Activity, ARM64 file behavior and public
+  Browser Use admission are not established. Qualification flags remain false,
+  current WebView/phone deferral stay unchanged. Headless service remains HTTP 200
+  on 63625, PID 26784, about 3,439.3 MiB. No model call, external page, production
+  data change or publication occurred. Goal active: continue remaining platform,
+  popup/transfer integration and broader delivery/qualification work.

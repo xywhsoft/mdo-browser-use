@@ -295,6 +295,15 @@ pressed-state cleanup, cancellation and immutable-parameter checks, together
 with the retained protocol/ownership gates. DOM/provider/events are doubled;
 installed Android input and full automation remain unqualified.
 
+With that native gate current and the single headless development service running,
+`python tools/android_save_probe.py` joins the exact Android download command
+fragment and real JVM/JNI controller/file queue to the shared JavaScript save
+producer and actual C task-host file services. It checks complete multi-range
+bytes, no-overwrite conflicts, foreign-range rejection, cancellation, retained
+completed bytes after network retirement and cleanup. Renderer/framework peers
+are controlled; this does not qualify an installed Android provider or main UI.
+It reuses the existing JDK/WSL/Node development tools, classes and output roots.
+
 `python tools/android_chooser_probe.py` checks the production Android chooser
 controller and Chrome callback adapter: original callback retention, metadata,
 once-only cancellation and failure/lifecycle cleanup. It is a deterministic
