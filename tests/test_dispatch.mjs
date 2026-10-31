@@ -703,3 +703,68 @@ test('goto canonicalizes the destination before admission without accepting cred
     assert(!JSON.stringify(failure).includes('user:private'));
   }
 });
+
+function nativeControlFixture(action,mode='ready'){
+  const calls=[],controls=[];let sent=false,polls=0,reads=0,changed=false;
+  const options={command:'navigate_to',params:{action,timeout_ms:mode==='timeout'?160:700},action:{id:'control-'+action+'-'+mode},
+    api:{async call(){return{state:'pending'};}},
+    view:{async execute(command,params){calls.push([command,params]);
+      if(command===action){sent=true;assert(!Object.hasOwn(params,'url'));assert(params.timeout_ms>=100);return{accepted:true,...(mode==='missing-ref'?{}:{navigation_ref:'nv-original'})};}
+      if(command==='navigation_cancel')return{cancelled:true};
+      if(command==='state'){
+        if(sent)polls++;
+        const native={id:'nv-original',action,receipt_kind:'control',control_supported:true,phase:'acknowledged',acknowledged:true,ok:true,dispatched:true,
+          download_known:false,download:false,loader_present:false,same_document_supported:true,same_document:mode==='same-document',page_commit_supported:true,
+          page_committed:mode!=='timeout'&&polls>=3,page_current:mode!=='timeout'&&polls>=3&&!changed,page_document:'nd-original'};
+        if(mode==='wrong-action')native.action=action==='back'?'forward':'back';
+        if(mode==='wrong-kind')native.receipt_kind='navigate';
+        if(mode==='old-record')delete native.control_supported;
+        if(mode==='wrong-loader')native.loader_present=true;
+        if(mode==='wrong-download')native.download_known=true;
+        if(mode==='replaced-record')native.id='nv-replacement';
+        if(mode==='reload-same-document')native.same_document=true;
+        if(mode==='native-rejected')Object.assign(native,{phase:'failed',ok:false,dispatched:false,code:'cdp_navigation_unsupported'});
+        return{automation:true,platform:'android-webview',native_navigation_controls_supported:mode!=='old-host',loading:mode==='loading'&&polls<4,navigation:'original-ui-epoch',
+          url:'https://stale-toolbar.invalid/',can_go_back:false,can_go_forward:false,...(sent?{native_navigation:native}:{}),manual:sent&&mode==='manual'};
+      }
+      throw Error('Unexpected native control command '+command);
+    }},
+    pageDriver:{async read(method,params,control){assert.equal(method,'observe');await control.checkpoint();reads++;controls.push(control.navigation_ref);
+      assert(polls>=3);assert.equal(control.navigation_ref,'nv-original');if(mode==='during-read')changed=true;
+      return{ok:true,ready:mode==='pending-dom'&&reads===1?'loading':'complete',document:'original-control-document',url:'https://observed-target.invalid/'};
+    }}};
+  return{options,calls,controls,get reads(){return reads;}};
+}
+test('native back forward reload wait for original commitment and DOM readiness with empty control ACKs',async()=>{
+  for(const action of ['back','forward','reload'])for(const mode of ['ready','loading','pending-dom',...(action==='reload'?[]:['same-document'])]){
+    const f=nativeControlFixture(action,mode),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.ok,true);assert.equal(out.result.url,'https://observed-target.invalid/');assert.equal(Boolean(out.result.same_document),mode==='same-document');
+    assert.equal(f.calls.filter(([command])=>command===action).length,1);assert(!f.calls.some(([command])=>command==='navigation_cancel'));
+    assert.equal(f.reads,mode==='pending-dom'?2:1);assert(f.controls.every(ref=>ref==='nv-original'));
+  }
+});
+test('native controls reject wrong action kind metadata and missing original records without observation or replay',async()=>{
+  for(const action of ['back','forward','reload'])for(const mode of ['wrong-action','wrong-kind','old-record','wrong-loader','wrong-download','replaced-record','missing-ref',...(action==='reload'?['reload-same-document']:[])]){
+    const f=nativeControlFixture(action,mode),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.ok,false);assert.equal(out.result.error.code,'navigation_uncertain');assert.equal(out.result.error.effect_may_have_occurred,true);assert.equal(f.reads,0);
+    assert.equal(f.calls.filter(([command])=>command===action).length,1);assert(!f.calls.some(([command])=>['navigate','stop','close'].includes(command)));
+  }
+});
+test('older Android control hosts fail before navigation and native no-effect rejections retain the original receipt',async()=>{
+  for(const action of ['back','forward','reload']){
+    const old=nativeControlFixture(action,'old-host'),unsupported=await executeBrowserAutomation(old.options);
+    assert.equal(unsupported.result.error.code,'unsupported_capability');assert.equal(unsupported.result.error.effect_may_have_occurred,false);assert.equal(old.reads,0);assert(!old.calls.some(([command])=>command===action));
+    const rejected=nativeControlFixture(action,'native-rejected'),out=await executeBrowserAutomation(rejected.options);
+    assert.equal(out.result.error.code,'navigation_failed');assert.equal(out.result.error.native_code,'cdp_navigation_unsupported');assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(rejected.reads,0);
+    assert(!rejected.calls.some(([command])=>command==='navigation_cancel'));
+  }
+});
+test('native control post-read staleness takeover and timeout cancel only the original record',async()=>{
+  for(const action of ['back','forward','reload'])for(const mode of ['during-read','manual','timeout']){
+    const f=nativeControlFixture(action,mode),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.ok,false);assert.equal(out.result.error.code,mode==='during-read'?'stale_document':mode==='manual'?'manual_control':'timed_out');
+    assert.equal(out.result.error.effect_may_have_occurred,true);assert.equal(out.result.observation,undefined);assert.equal(f.reads,mode==='during-read'?1:0);
+    const cleanup=f.calls.filter(([command])=>command==='navigation_cancel');assert.equal(cleanup.length,1);assert.equal(cleanup[0][1].navigation_ref,'nv-original');
+    assert(!f.calls.some(([command])=>['navigate','stop','close'].includes(command)));
+  }
+});

@@ -8712,3 +8712,62 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Phone/installed-provider/main-UI checks stay deferred at the user's request;
   device/framework/automation flags remain false. No online publication, provider
   update or formal-data modification occurred.
+
+## E105 — join history/reload UI records and shared navigation waiting (2026-10-31)
+
+- Route back/forward/reload through the original armed physical owner's private
+  worker admission. Retain the original action, control-vs-goto kind, opaque
+  navigation reference and budget. No caller URL/entry/loader is forwarded for a
+  control, and native dispatch failure cannot fall back to WebView mutation.
+  Human navigation under manual control retains its ordinary WebView path.
+- Keep empty control ACKs fenced until the E104 native proof is current. Join
+  real WebView callbacks when present. If native cross-document commitment comes
+  first, retire the old document/input references and advance the UI epoch before
+  releasing realm admission. The named document committed method releases realm
+  admission only; shared observation still proves DOM readiness independently.
+  Recheck owner, profile, channel, epoch and native proof around the join. A
+  same-document control cannot adopt a changed UI epoch. UI adoption exceptions
+  and impossible control metadata remain fixed retained errors without replay.
+- Carry the exact control kind/action through the shared workbench dispatcher
+  used by JS and C navigation. Reject old Android control hosts before navigation;
+  require an original receipt after dispatch. Do not treat absent goto loader or
+  download fields as control completion. Wait for original commitment and DOM
+  readiness, and keep its reference on every observation subread and final guard.
+  A reload cannot claim same-document completion. Wrong kind/action, changed
+  record/entry/document, cancellation and takeover cannot publish another page's
+  observation. Native controls return the observed URL rather than a stale
+  toolbar value; preserve the existing legacy Windows fallback behavior.
+- Project all three exact final native route replacements into the product JVM
+  fixture, plus actual documentNavigation/documentLoaded fragments. Test normal
+  callback order, no-callback commitment, same-document history, original timeout,
+  cancellation, takeover, reentrant channel change, UI adoption failure, invalid
+  ACK metadata, native dispatch failure and retained manual navigation. Require
+  the new native_control_ui_join coverage marker in the gate. All 647 assertions
+  pass. Actual Java world/document/profile/lifetime checks also pass (35 world,
+  85 document checks); their seven source hashes match current bytes.
+- All 368 JS tests pass sequentially in 23.271 seconds, including four new shared
+  navigation tests across back/forward/reload. Cover delayed proof/DOM, unchanged
+  UI epoch with native proof, wrong or missing receipt kind/action/reference,
+  impossible download/loader metadata, old hosts, no-effect native rejection,
+  post-read revocation, takeover and timeout. Python passes 173/175 in 48.972
+  seconds, with the two existing Windows symlink-privilege skips.
+- Full ASan/UBSan/API26 and JVM/JNI/JSON/socket gates pass; all 103 native input
+  hashes and 13 product input hashes match. Twelve actual packed Windows runtime
+  checks and seven final APK contracts pass. Windows artifact: 6,937,556 bytes,
+  SHA-256 40dbcfd48f0ad13734d1fa879747a94499832c38f4a8325f173ea10baa893923.
+  Full Android QA APK: 6,473,025 bytes, SHA-256
+  e1debd961d92fc650245ca7e6d728741929747a6305df18edbed2507c4684987.
+  Actual DEX definitions, private provider, six JNI exports, retained v2/v3
+  signer, source/archive identity and ARM64/16 KiB engine checks pass. Native
+  engine and paired 247,351-byte/22-file plugin remain unchanged. Evidence:
+  .mdo/E105-native-current.json, E105-product-current.json,
+  E105-world-current.json, E105-android-receipt.json, E105-final-identities.log
+  and E105 test/build logs. No new runtime dependency, worker or deployment copy.
+- Restore the sole headless service: PID 20704, HTTP 200 on 63625, about 3,441.8
+  MiB. Goal active. This is a code/component/packaging milestone, not installed
+  Android end-to-end qualification. Public Android admission and all three
+  qualification flags remain false. Next pursue exact original request/download
+  association and remaining transfer integration; same-location no-op behavior,
+  installed provider/main-UI qualification and documented full-goal work remain.
+  Phone/provider update checks stay deferred. No online publication or formal
+  data modification occurred.

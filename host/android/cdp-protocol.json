@@ -24,7 +24,7 @@
     "installed_provider_verified": false,
     "product_navigation_activated": false,
     "history_controls": {
-      "state": "private_native_history_reload_event_and_entry_proofs_packaged_ui_join_pending",
+      "state": "private_native_history_reload_proofs_ui_records_and_shared_wait_packaged_admission_disabled",
       "actions": ["back", "forward", "reload"],
       "commands": ["Page.getNavigationHistory", "Page.navigateToHistoryEntry", "Page.reload"],
       "history_entry_limit": 512,
@@ -49,6 +49,12 @@
       "worker_route": "private_traverseNetwork_on_existing_shared_executor",
       "goto_completion_reused": false,
       "automatic_retry": false,
+      "ui_original_action_and_kind_retained": true,
+      "ui_control_ack_is_page_ready": false,
+      "ui_native_commit_reconciles_missing_callbacks": "retire_old_document_and_input_epoch_before_realm_admission",
+      "shared_js_c_path": "same_workbench_dispatch_original_reference_guarded_observe_and_DOM_ready",
+      "older_android_control_host": "unsupported_before_navigation_no_legacy_fallback",
+      "public_android_admission_enabled": false,
       "ui_route_activated": false,
       "installed_provider_verified": false
     },

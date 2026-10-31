@@ -67,7 +67,9 @@ final class MdoBrowserDocument implements AutoCloseable {
         // admitted peer specifically, never an unrelated replacement peer.
         world.invalidate(previous);world.cancelPending("frame_changed");
     }
-    void loaded(){thread();if(!closed){loading=false;adopt();}}
+    /** Native commitment releases realm admission, not DOM-ready evidence. */
+    void committed(){thread();if(!closed){loading=false;adopt();}}
+    void loaded(){committed();}
     void block(int mask,boolean value){
         thread();if(closed)return;
         if(mask!=CHANNEL&&mask!=BACKGROUND&&mask!=MANUAL&&mask!=DIALOG&&mask!=NAVIGATION&&mask!=POPUP&&mask!=CHOOSER)throw new IllegalArgumentException("Invalid document blocker");

@@ -298,6 +298,52 @@ public final class AndroidCreateContractTest {
             host.closeCommand("tab");
         }
     }
+    static void nativeControlRecords()throws Exception{
+        for(String action:new String[]{"back","forward","reload"})for(int mode=0;mode<9;mode++){
+            AndroidCreateHost host=navigationHost();AndroidCreateHost.WebView view=host.views.get("tab");long epoch=host.views.epoch("tab",view);int loads=view.loads;
+            host.historyPage("tab",action,100,true);AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=host.cdpWorker.navigations.get(0);
+            AndroidCreateHost.JSONObject queued=host.navigationState("tab");String reference=(String)queued.data.get("id");
+            check(reference.equals(host.lastReply.data.get("navigation_ref"))&&action.equals(queued.data.get("action"))&&"control".equals(queued.data.get("receipt_kind"))&&Boolean.TRUE.equals(queued.data.get("control_supported")),"Native control lost its original action/kind/receipt");
+            check(host.cdpWorker.navigationActions.equals(java.util.Arrays.asList(action))&&host.cdpWorker.navigationUrls.get(0)==null&&host.cdpWorker.navigationBudgets.get(0)==100,"Native control forwarded a caller URL or changed its budget");
+            ticket.issued=true;ticket.ack(false,false,false,null);android.os.SystemClock.now+=20;android.os.Handler.tick();
+            check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.documents.get("tab").navigationBlocked,"An empty control ACK released page admission");
+            readProofFails(host,"tab",reference,"cdp_navigation_document_unproven");
+            if(mode==4)android.os.SystemClock.now+=100;
+            else{ticket.committed=true;ticket.current=mode!=3;ticket.within=mode==1&&!action.equals("reload");}
+            if(mode==2){host.startPage("tab","https://native-control.invalid/");host.finishPage("tab","https://native-control.invalid/");}
+            if(mode==5)host.cancelNativeNavigation("tab",reference);
+            if(mode==6)host.takeover("tab");
+            if(mode==7)host.beforeNativeCommit=()->{host.channel.lease=host.channel.new Lease();host.errors.put("tab","new-owner-error");};
+            if(mode==8)host.beforeNativeCommit=()->{throw new IllegalStateException("fixture adoption failure");};
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            AndroidCreateHost.JSONObject state=host.navigationState("tab");
+            check(view.historyCalls==0&&view.loads==loads&&host.cdpWorker.navigations.size()==1,"Native control replayed through a WebView method");
+            if(mode<3){
+                check(!Boolean.TRUE.equals(host.loading.get("tab"))&&!host.documents.get("tab").navigationBlocked&&host.readProof("tab",reference)==ticket,"Original control proof was not joined for guarded reading");
+                check(host.views.epoch("tab",view)==epoch+(mode==1&&!action.equals("reload")?0:1),"Native control failed to invalidate old document/input references");
+                check(host.documents.get("tab").nativeCommits==(mode==0||mode==1&&action.equals("reload")?1:0),"Native commitment was invented or applied twice after WebView callbacks");
+                if(mode==1&&!action.equals("reload")){host.startPage("tab","https://unexpected.invalid/");readProofFails(host,"tab",reference,"cdp_navigation_document_changed");}
+            }else if(mode==3||mode==4)check((mode==3?"cdp_navigation_commit_revoked":"cdp_navigation_commit_timeout").equals(state.data.get("page_error")),"Control proof failure lost its original fixed reason");
+            else check(Boolean.TRUE.equals(state.data.get("scope_revoked")),"A cancelled or changed control owner was adopted");
+            if(mode==7)check("new-owner-error".equals(host.errors.get("tab")),"Old native proof cleared a new owner's error");
+            if(mode==8)check("cdp_navigation_ui_join_failed".equals(state.data.get("page_error")),"Native UI adoption failure escaped its retained receipt");
+            host.beforeNativeCommit=null;host.stopNavigation("tab");host.closeCommand("tab");
+        }
+        for(int mode=0;mode<3;mode++){
+            AndroidCreateHost invalid=navigationHost();invalid.historyPage("tab","reload",1000,true);AndroidCreateHost.MdoBrowserCdpNetworks.Navigation ticket=invalid.cdpWorker.navigations.get(0);
+            ticket.issued=true;ticket.committed=true;ticket.current=true;ticket.within=mode==2;ticket.ack(mode==0,false,mode==1,null);
+            android.os.SystemClock.now+=20;android.os.Handler.tick();
+            check("cdp_navigation_control_reply_invalid".equals(invalid.navigationState("tab").data.get("page_error"))&&ticket.cancelled&&invalid.documents.get("tab").nativeCommits==0,"Malformed control metadata released the original realm or escaped its receipt");
+            invalid.stopNavigation("tab");invalid.closeCommand("tab");
+        }
+        for(String action:new String[]{"back","forward","reload"}){
+            AndroidCreateHost failed=navigationHost();failed.cdpWorker.failNavigation=true;
+            try{failed.historyPage("tab",action,1000,true);throw new AssertionError("Rejected native control fell back to WebView");}catch(java.io.IOException expected){}
+            check(failed.views.get("tab").historyCalls==0&&!Boolean.TRUE.equals(failed.loading.get("tab")),"Unsent native control left a fence or a fallback mutation");failed.closeCommand("tab");
+            AndroidCreateHost manual=navigationHost();manual.takeover("tab");manual.historyPage("tab",action,1000,false);
+            check(manual.views.get("tab").historyCalls==1&&manual.cdpWorker.navigations.isEmpty()&&manual.manual.contains("tab"),"Human manual navigation gained native automation admission");manual.closeCommand("tab");
+        }
+    }
     private static void readProofFails(AndroidCreateHost host,String key,String reference,String code)throws Exception{
         try{host.readProof(key,reference);throw new AssertionError("Unrelated navigation read gained authority");}
         catch(java.io.IOException expected){check(expected.getMessage().equals(code),"Navigation read failure lost its fixed reason");}
@@ -431,7 +477,7 @@ public final class AndroidCreateContractTest {
             host.closeCommand("tab");
         }
         profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
-        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"framework_verified\":false,\"network_calls\":0}");
+        networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

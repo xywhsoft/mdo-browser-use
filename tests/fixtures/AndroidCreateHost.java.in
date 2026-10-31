@@ -53,7 +53,7 @@ final class AndroidCreateHost {
         String getUrl(){return url;}
         void loadUrl(String target){loads++;targets.add(target);url=target;Runnable hook=beforeLoad;beforeLoad=null;if(hook!=null)hook.run();if(host.fault.equals("load")||host.fault.equals("target_load")&&!target.equals("about:blank"))throw new IllegalStateException("fixture navigation dispatch failure");}
         void setVisibility(int value){}
-        boolean canGoBack(){return true;}boolean canGoForward(){return true;}void goBack(){}void goForward(){}void reload(){}
+        boolean canGoBack(){return true;}boolean canGoForward(){return true;}int historyCalls;void goBack(){historyCalls++;}void goForward(){historyCalls++;}void reload(){historyCalls++;}
         void destroy(){destroys++;if(host.cleanupFault.equals("oom"))throw new OutOfMemoryError("fixture destroy allocation failure");if(host.fault.equals("destroy")||host.cleanupFault.equals("destroy"))throw new IllegalStateException("fixture destroy acknowledgement lost");}
     }
     static final class Root {
@@ -75,6 +75,7 @@ final class AndroidCreateHost {
         }
         boolean profileAssigned(){return view.host.allowProfile;}
         void block(int reason,boolean value){if(reason==MANUAL)manualBlocked=value;if(reason==NAVIGATION)navigationBlocked=value;if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}void close(){closes++;}boolean cleanupConfirmed(){return !view.host.cleanupFault.equals("document");}
+        int nativeCommits,navigations,loadedCalls;void navigation(){navigations++;navigationBlocked=false;}void committed(){nativeCommits++;if(view.host.beforeNativeCommit!=null)view.host.beforeNativeCommit.run();navigationBlocked=false;}void loaded(){loadedCalls++;navigationBlocked=false;}
         void viewDestroyed(Object original){if(original!=view)throw new AssertionError("Wrong document view");destroyed++;}
         static final int BACKGROUND=1,CHANNEL=2,MANUAL=3,NAVIGATION=4;
     }
@@ -99,8 +100,8 @@ final class AndroidCreateHost {
         interface Completion {void done(Result result);}
         static final class Result {final boolean ready,cleanupConfirmed;boolean responsesDisabled;String code;Result(boolean ready,boolean clean){this.ready=ready;cleanupConfirmed=clean;}}
         static final class Navigation {
-            MdoBrowserCdpSession.NavigationResult outcome;boolean issued,cancelled,committed,current;
-            boolean sameDocument(){return outcome!=null&&outcome.acknowledged&&outcome.ok&&outcome.downloadKnown&&!outcome.download&&!outcome.loaderPresent;}
+            MdoBrowserCdpSession.NavigationResult outcome;boolean issued,cancelled,committed,current,control,within;
+            boolean sameDocument(){if(control)return committed&&within;return outcome!=null&&outcome.acknowledged&&outcome.ok&&outcome.downloadKnown&&!outcome.download&&!outcome.loaderPresent;}
             boolean pageCommitted(){return committed;}boolean pageCurrent(){return committed&&current;}String pageDocument(){return committed?"nd-fixture-original":null;}
             MdoBrowserCdpSession.NavigationResult result(){return outcome;}boolean dispatched(){return outcome==null?issued:outcome.effectMayHaveOccurred;}
             void cancel(){cancelled=true;if(!issued&&outcome==null)outcome=new MdoBrowserCdpSession.NavigationResult(false,false,false,false,false,false,"cdp_navigation_cancelled");}
@@ -146,10 +147,13 @@ final class AndroidCreateHost {
     static final class CdpWorker {
         final List<NetworkCall> calls=new ArrayList<>();boolean closed,failStart;
         final List<MdoBrowserCdpNetworks.Navigation> navigations=new ArrayList<>();boolean failNavigation;
-        final List<String> navigationUrls=new ArrayList<>();final List<Integer> navigationBudgets=new ArrayList<>();
+        final List<String> navigationActions=new ArrayList<>();final List<String> navigationUrls=new ArrayList<>();final List<Integer> navigationBudgets=new ArrayList<>();
         MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws java.io.IOException{
             if(failNavigation)throw new java.io.IOException("cdp_navigation_fixture_rejected");
             MdoBrowserCdpNetworks.Navigation value=new MdoBrowserCdpNetworks.Navigation();navigations.add(value);navigationUrls.add(url);navigationBudgets.add(timeout);return value;
+        }
+        MdoBrowserCdpNetworks.Navigation traverseNetwork(MdoBrowserCdpMarker.Lease lease,String action,int timeout)throws java.io.IOException{
+            MdoBrowserCdpNetworks.Navigation value=navigateNetwork(lease,null,timeout);value.control=true;navigationActions.add(action);return value;
         }
         void startNetwork(MdoBrowserCdpMarker marker,int timeout,MdoBrowserCdpNetworks.Events events,MdoBrowserCdpNetworks.Completion complete)throws java.io.IOException{
             if(failStart)throw new java.io.IOException("fixture start failure");if(!marker.current.getAsBoolean())throw new java.io.IOException("fixture owner lost");calls.add(new NetworkCall(marker,events,complete));
@@ -173,7 +177,7 @@ final class AndroidCreateHost {
     static final class CdpViews {int invalidated;String reason;void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
     final Object activity=this;final Root root=new Root();final CdpViews cdpViews=new CdpViews();
     final HostPage host=new HostPage();final CdpWorker cdpWorker=new CdpWorker();
-    final ManualChooser manualChooser=new ManualChooser();Runnable beforeControlCancel;
+    final ManualChooser manualChooser=new ManualChooser();Runnable beforeControlCancel,beforeNativeCommit;
     final MdoBrowserWorld.Budget worldBudget=new MdoBrowserWorld.Budget(32);final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
     final List<WebView> created=new ArrayList<>();final List<String> profileRequests=new ArrayList<>();
     final Map<String,MdoBrowserDocument> documents=new HashMap<>();final Map<String,String> documentFailures=new HashMap<>();
@@ -195,7 +199,9 @@ final class AndroidCreateHost {
     void bounds(WebView view,JSONObject request){if(fault.equals("bounds"))throw new IllegalStateException("fixture bounds failure");}
     String url(String value){return value;}void bindDialogs(String key,WebView view){dialogs.put(key,new MdoBrowserDialogTarget(view));}
     void cancelCapture(String key){}void cancelPopup(String key){}void cancelDialog(String key){}boolean dialogReady(String key,WebView view){return true;}
-    void documentNavigation(String key,WebView view){nativeNavigationPageStarted(key,view);navigationRequests.remove(key);MdoBrowserDocument document=documents.get(key);if(document!=null)document.navigationBlocked=false;}void documentLoaded(String key,WebView view){}void notifyPopup(String key){}
+    @@DOCUMENT_NAVIGATION@@
+    @@DOCUMENT_LOADED@@
+    void notifyPopup(String key){}
     void retireUploadData(WebView view){retired++;}
     void cancelUpload(String key,WebView view){}
     void reply(String id,JSONObject result,String error)throws JSONException{replies++;lastReply=result;if(fault.equals("reply"))throw new JSONException();}
@@ -221,6 +227,14 @@ final class AndroidCreateHost {
     void gotoPage(String key,String target,long timeout,boolean agent)throws Exception{
         String id="navigation-reply";WebView web=views.get(key);networkCommand(key,web,"navigate",agent);JSONObject request=new JSONObject().put("agent",agent).put("timeout_ms",timeout);
         @@NATIVE_NAVIGATE_ROUTE@@
+        reply(id,new JSONObject().put("accepted",true),null);
+    }
+    void historyPage(String key,String action,long timeout,boolean agent)throws Exception{
+        String id="control-reply";WebView web=views.get(key);networkCommand(key,web,action,agent);JSONObject request=new JSONObject().put("agent",agent).put("timeout_ms",timeout);
+        if(action.equals("back")){@@NATIVE_BACK_ROUTE@@}
+        else if(action.equals("forward")){@@NATIVE_FORWARD_ROUTE@@}
+        else if(action.equals("reload")){@@NATIVE_RELOAD_ROUTE@@}
+        else throw new IllegalArgumentException("navigation_action_invalid");
         reply(id,new JSONObject().put("accepted",true),null);
     }
     JSONObject navigationState(String key)throws Exception{return networkNavigationState(key);}

@@ -1432,7 +1432,7 @@
     {
       "path": "tools/android/MdoBrowser.java",
       "before": ".put(\"download_error\",downloadFailure(key))",
-      "after": ".put(\"download_error\",downloadFailure(key)).put(\"native_navigation\",networkNavigationState(key)).put(\"initial_navigation_pending\",networkInitialNavigationPending(key))"
+      "after": ".put(\"download_error\",downloadFailure(key)).put(\"native_navigation\",networkNavigationState(key)).put(\"native_navigation_controls_supported\",true).put(\"initial_navigation_pending\",networkInitialNavigationPending(key))"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -1453,6 +1453,21 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });",
       "after": "      const automation = await executeBrowserAutomation({ command,params,view,action,api:api.bind(action.context || {}),browser:id,pageDriver,initialNavigation:createdNavigationRef,alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\") });"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "performNavigation(key,web,\"back\",null);",
+      "after": "if(networkTraverse(key,web,id,\"back\",request.optBoolean(\"agent\"),request.optLong(\"timeout_ms\",30000)))return;performNavigation(key,web,\"back\",null);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "performNavigation(key,web,\"forward\",null);",
+      "after": "if(networkTraverse(key,web,id,\"forward\",request.optBoolean(\"agent\"),request.optLong(\"timeout_ms\",30000)))return;performNavigation(key,web,\"forward\",null);"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "performNavigation(key,web,\"reload\",null);",
+      "after": "if(networkTraverse(key,web,id,\"reload\",request.optBoolean(\"agent\"),request.optLong(\"timeout_ms\",30000)))return;performNavigation(key,web,\"reload\",null);"
     }
   ],
   "files": [

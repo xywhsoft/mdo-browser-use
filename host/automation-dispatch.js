@@ -389,7 +389,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const boundary=await armDownloads();if(boundary)return boundary;
       const checked = await guard(true); if (checked.handled) return checked;
       const oldNavigation = checked.state.navigation;
-      if (params.action === "back" && !checked.state.can_go_back || params.action === "forward" && !checked.state.can_go_forward) return fail("history_unavailable", "There is no matching browser history entry");
+      const nativeControl=params.action!=='goto',nativeControls=checked.state.platform==='android-webview'&&checked.state.native_navigation_controls_supported===true;
+      if(nativeControl&&checked.state.platform==='android-webview'&&!nativeControls)return fail('unsupported_capability','This Android host cannot prove original history or reload completion');
+      if (!nativeControls&&(params.action === "back" && !checked.state.can_go_back || params.action === "forward" && !checked.state.can_go_forward)) return fail("history_unavailable", "There is no matching browser history entry");
       const oldDownloadIds=new Set(((await view.execute('downloads',{action:'list',agent:true})).downloads||[]).map(row=>row.id));
       let targetUrl=params.url;
       if(params.action==='goto'){
@@ -399,12 +401,13 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       const navigationBudget=Math.floor(deadline-performance.now());
       if(navigationBudget<100)return fail('timed_out','The original navigation deadline expired before admission');
       dispatched = true;
-      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, url: targetUrl,
+      const accepted = await view.execute(params.action === "goto" ? "navigate" : params.action, { agent: true, ...(nativeControl?{}:{url:targetUrl}),
         timeout_ms:navigationBudget });
       if (!accepted.accepted) return fail("navigation_uncertain", "Navigation was not confirmed; inspect the current tab before repeating it");
       const nativeReference=accepted.navigation_ref;
       if(nativeReference!==undefined&&(typeof nativeReference!=='string'||!nativeReference||nativeReference.length>100))return fail('navigation_uncertain','The original native navigation reference is invalid; inspect the tab before retrying');
       nativeNavigationReference=nativeReference||null;
+      if(nativeControl&&nativeControls&&!nativeNavigationReference)return fail('navigation_uncertain','The original native control receipt is unavailable; inspect the tab before retrying');
       let nativeDownload=false;
       while (performance.now() < deadline) {
         const current = await guard(); if (current.handled){if(current.result?.ok&&current.result.completed===false)retainNativeNavigation=true;return current;}
@@ -412,6 +415,9 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         if(nativeReference!==undefined){
           const native=current.state.native_navigation;
           if(!native||native.id!==nativeReference)return fail('navigation_uncertain','The original native navigation record is unavailable; do not repeat the target');
+          if(nativeControl){
+            if(native.control_supported!==true||native.receipt_kind!=='control'||native.action!==params.action)return fail('navigation_uncertain','The original native control kind or action does not match; inspect its retained receipt');
+          }else if(native.receipt_kind==='control'||native.action!==undefined&&native.action!=='goto')return fail('navigation_uncertain','The original native goto kind does not match; inspect its retained receipt');
           if(native.page_error){const result=fail(native.page_error==='cdp_navigation_commit_revoked'?'stale_document':'navigation_uncertain','The original navigation could not prove its committed current page; inspect the original receipt before retrying');
             if(typeof native.page_error==='string'&&/^cdp_[a-z_]{1,80}$/.test(native.page_error))result.result.error.native_code=native.page_error;return result;}
           if(native.scope_revoked)return fail('context_changed','The original native navigation owner was revoked; inspect its retained outcome');
@@ -426,6 +432,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           }
           if(native.phase!=='acknowledged'){await pause(20);continue;}
           if(native.acknowledged!==true||native.ok!==true)return fail('navigation_uncertain','The native navigation record is inconsistent; do not repeat the target');
+          if(nativeControl&&(native.download_known!==false||native.download!==false||native.loader_present!==false))return fail('navigation_uncertain','The control ACK contains inconsistent page or download metadata; inspect its original receipt');
+          if(nativeControl&&params.action==='reload'&&native.same_document===true)return fail('navigation_uncertain','The original reload did not prove a new document; inspect its retained receipt');
           if(native.download_known===true&&native.download===true){
             nativeDownload=true;
             const downloads=((await view.execute('downloads',{action:'list',agent:true})).downloads||[]).filter(row=>!oldDownloadIds.has(row.id));
@@ -433,10 +441,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
             if(current.state.download_error)return fail('download_identity_unavailable','The original download could not retain its native source; do not repeat navigation');
             await pause(20);continue;
           }
-          sameDocument=native.download_known===true&&native.download===false&&native.loader_present===false;
-          if(!native.loader_present&&!sameDocument)return fail('navigation_uncertain','This provider did not prove page or download completion; inspect the original navigation before retrying');
+          sameDocument=nativeControl?native.same_document===true:native.download_known===true&&native.download===false&&native.loader_present===false;
+          if(!nativeControl&&!native.loader_present&&!sameDocument)return fail('navigation_uncertain','This provider did not prove page or download completion; inspect the original navigation before retrying');
           if(sameDocument&&(native.same_document_supported!==true||native.same_document!==true))return fail('navigation_uncertain','This host cannot prove original same-document navigation; inspect the tab before retrying');
-          if(native.loader_present||sameDocument){
+          if(nativeControl||native.loader_present||sameDocument){
             if(native.page_commit_supported!==true)return fail('navigation_uncertain','This host cannot prove original native page commitment; inspect the original tab');
             if(native.page_committed!==true){await pause(20);continue;}
             if(native.page_current!==true)return fail('stale_document','Native proof for the original page is no longer current; inspect its retained outcome before another input');
@@ -444,7 +452,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
             nativeDocument=native.page_document;
           }
         }
-        if (!current.state.loading && (current.state.navigation !== oldNavigation||sameDocument)) {
+        if (!current.state.loading && (current.state.navigation !== oldNavigation||sameDocument||nativeControl&&nativeDocument)) {
           if (current.state.error) return fail("navigation_failed", current.state.error);
           const observation = await read("observe", { limit: 100, max_bytes: 4096 },nativeDocument?nativeReference:null);
           if(!observation.ok&&!framePending(observation.error?.code))return{handled:true,result:{...observation,action:action.id,error:{...observation.error,effect_may_have_occurred:dispatched}}};
@@ -453,7 +461,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
               const final=await guard(true);if(final.handled)return final;
               if(final.state.native_navigation?.id!==nativeReference||final.state.native_navigation?.page_current!==true||final.state.native_navigation?.page_document!==nativeDocument)return fail('stale_document','Native proof for the original page became stale during observation; request a fresh observation');
             }
-            retainNativeNavigation=true;return { handled: true, result: { ok: true, action: action.id, url: observation.url || (sameDocument&&targetUrl?targetUrl:current.state.url), observation,...(sameDocument?{same_document:true}:{}) } };
+            retainNativeNavigation=true;return { handled: true, result: { ok: true, action: action.id, url: observation.url || (nativeControl&&nativeReference?undefined:sameDocument&&targetUrl?targetUrl:current.state.url), observation,...(sameDocument?{same_document:true}:{}) } };
           }
         }
         await pause(50);

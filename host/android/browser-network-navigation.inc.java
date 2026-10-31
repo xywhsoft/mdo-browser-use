@@ -2,10 +2,10 @@
     // decisions/reads immutable results; the existing worker performs all I/O.
     private final class NativeNavigation {
         final String id="nv-"+java.util.UUID.randomUUID();final NetworkEntry owner;
-        final NavigationRequest reservation;final int timeout;final boolean initial;final long born=android.os.SystemClock.elapsedRealtime();
+        final NavigationRequest reservation;final int timeout;final boolean initial,control;final String action;final long born=android.os.SystemClock.elapsedRealtime();
         final Runnable watch=()->nativeNavigationPoll(this);
         MdoBrowserCdpNetworks.Navigation ticket;boolean revoked,settled,pageJoined;long revokedAt;String pageError;
-        NativeNavigation(NetworkEntry owner,NavigationRequest reservation,int timeout,boolean initial){this.owner=owner;this.reservation=reservation;this.timeout=timeout;this.initial=initial;}
+        NativeNavigation(NetworkEntry owner,NavigationRequest reservation,int timeout,boolean initial,String action){this.owner=owner;this.reservation=reservation;this.timeout=timeout;this.initial=initial;this.action=action;control=!action.equals("goto");}
     }
     private boolean networkNavigate(String key,WebView view,String replyId,String target,boolean agent,long timeout)throws Exception {
         NetworkEntry owner=networkViews.get(key);if(owner==null||owner.view!=view||manual.contains(key)&&!agent)return false;
@@ -14,7 +14,17 @@
         catch(Exception|Error failure){nativeNavigationRevoke(operation);throw failure;}
     }
     private NativeNavigation beginNativeNavigation(NetworkEntry owner,String target,long timeout,boolean initial)throws Exception {
+        return beginNativeNavigation(owner,target,timeout,initial,"goto");
+    }
+    private boolean networkTraverse(String key,WebView view,String replyId,String action,boolean agent,long timeout)throws Exception {
+        NetworkEntry owner=networkViews.get(key);if(owner==null||owner.view!=view||manual.contains(key)&&!agent)return false;
+        NativeNavigation operation=beginNativeNavigation(owner,null,timeout,false,action);
+        try{reply(owner.channelLease,replyId,new JSONObject().put("accepted",true).put("navigation_ref",operation.id),null);return true;}
+        catch(Exception|Error failure){nativeNavigationRevoke(operation);throw failure;}
+    }
+    private NativeNavigation beginNativeNavigation(NetworkEntry owner,String target,long timeout,boolean initial,String action)throws Exception {
         String key=owner.key;WebView view=owner.view;long epoch=views.epoch(key,view);
+        if(!Arrays.asList("goto","back","forward","reload").contains(action)||initial&&!action.equals("goto"))throw new IllegalArgumentException("navigation_action_invalid");
         if(!owner.ready||owner.retired||!networkCurrent(owner)||owner.marker==null)throw new IllegalStateException("network_owner_unavailable");
         if(timeout<100||timeout>600000)throw new IllegalArgumentException("cdp_navigation_arguments_invalid");
         if(navigationRequests.containsKey(key)||owner.navigation!=null&&owner.navigation.ticket!=null&&owner.navigation.ticket.result()==null)throw new IllegalStateException("navigation_pending");
@@ -22,12 +32,12 @@
         if(!networkCurrent(owner)||owner.retired||manual.contains(key)||views.epoch(key,view)!=epoch)throw new IllegalStateException("network_owner_changed");
         if(!dialogReady(key,view))throw new IllegalStateException("dialog_pending_or_unclean");
         NavigationRequest reservation=new NavigationRequest(view,views.epoch(key,view),Boolean.TRUE.equals(loading.get(key)));
-        NativeNavigation operation=new NativeNavigation(owner,reservation,(int)timeout,initial);
+        NativeNavigation operation=new NativeNavigation(owner,reservation,(int)timeout,initial,action);
         navigationRequests.put(key,reservation);owner.navigation=operation;
         try{
             loading.put(key,true);owner.profile.block(MdoBrowserDocument.NAVIGATION,true);
             if(!networkCurrent(owner)||owner.retired||manual.contains(key)||views.epoch(key,view)!=epoch)throw new IllegalStateException("network_owner_changed");
-            operation.ticket=cdpWorker.navigateNetwork(owner.marker.lease(),target,(int)timeout);
+            operation.ticket=operation.control?cdpWorker.traverseNetwork(owner.marker.lease(),action,(int)timeout):cdpWorker.navigateNetwork(owner.marker.lease(),target,(int)timeout);
             if(!networkHandler.postDelayed(operation.watch,20)){
                 operation.ticket.cancel();networkRetire(owner,"cdp_navigation_scheduler_failed");throw new IllegalStateException("cdp_navigation_scheduler_failed");
             }
@@ -85,7 +95,24 @@
         // Unknown dispatched effects never release its input admission fence.
         // A target opened from the native warmup is cross-document. Even a
         // non-download ACK without loader metadata cannot prove that transition.
-        boolean sameDocument=!operation.initial&&result.acknowledged&&result.ok&&result.downloadKnown&&!result.download&&!result.loaderPresent;
+        boolean committedControl=operation.control&&!operation.revoked&&result.acknowledged&&result.ok&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent();
+        if(committedControl){
+            // A native commit can precede WebView callbacks, including BFCache.
+            // Rotate document/input references before releasing realm admission;
+            // shared observation still proves DOM readiness separately.
+            if(!operation.ticket.sameDocument()){
+                cdpViews.invalidate(owner.key,owner.view,original.epoch,"input_cancelled");
+                documentNavigation(owner.key,owner.view);
+                if(!nativeNavigationScope(operation)||operation.revoked||!operation.ticket.pageCurrent()||views.epoch(owner.key,owner.view)!=original.epoch||documents.get(owner.key)!=owner.profile){nativeNavigationRevoke(operation);return;}
+                if(!views.navigation(owner.key,owner.view)){nativeNavigationRevoke(operation);return;}
+                if(!nativeNavigationScope(operation)||!operation.ticket.pageCurrent()||documents.get(owner.key)!=owner.profile){nativeNavigationRevoke(operation);return;}
+                long committedEpoch=views.epoch(owner.key,owner.view);owner.profile.committed();
+                if(!nativeNavigationScope(operation)||!operation.ticket.pageCurrent()||views.epoch(owner.key,owner.view)!=committedEpoch||documents.get(owner.key)!=owner.profile){nativeNavigationRevoke(operation);return;}
+                loading.put(owner.key,false);errors.remove(owner.key);errorCodes.remove(owner.key);return;
+            }
+            cancelNavigationRequest(owner.key,owner.view);errors.remove(owner.key);errorCodes.remove(owner.key);return;
+        }
+        boolean sameDocument=!operation.initial&&!operation.control&&result.acknowledged&&result.ok&&result.downloadKnown&&!result.download&&!result.loaderPresent;
         if(!result.effectMayHaveOccurred||result.acknowledged&&(!result.ok||result.downloadKnown&&result.download)||
            sameDocument&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent()){
             cancelNavigationRequest(owner.key,owner.view);
@@ -98,12 +125,16 @@
         MdoBrowserCdpSession.NavigationResult result=operation.ticket==null?null:operation.ticket.result();
         long now=android.os.SystemClock.elapsedRealtime(),age=now-operation.born;
         if(result!=null){
-            nativeNavigationRestore(operation,result);
-            boolean sameDocument=!operation.initial&&result.downloadKnown&&!result.download&&!result.loaderPresent;
-            boolean needsCommit=result.acknowledged&&result.ok&&!(result.downloadKnown&&result.download)&&(result.loaderPresent||operation.initial||sameDocument);
+            if(operation.control&&result.acknowledged&&result.ok&&(result.downloadKnown||result.download||result.loaderPresent||operation.action.equals("reload")&&operation.ticket.sameDocument())){
+                operation.pageError="cdp_navigation_control_reply_invalid";nativeNavigationRevoke(operation);operation.settled=true;return;
+            }
+            try{nativeNavigationRestore(operation,result);}
+            catch(RuntimeException|Error failure){operation.pageError="cdp_navigation_ui_join_failed";nativeNavigationRevoke(operation);networkRetire(operation.owner,operation.pageError);operation.settled=true;return;}
+            boolean sameDocument=operation.control?operation.ticket.sameDocument():!operation.initial&&result.downloadKnown&&!result.download&&!result.loaderPresent;
+            boolean needsCommit=result.acknowledged&&result.ok&&!(result.downloadKnown&&result.download)&&(operation.control||result.loaderPresent||operation.initial||sameDocument);
             if(needsCommit&&!operation.revoked){
                 if(sameDocument&&views.epoch(operation.owner.key,operation.owner.view)!=operation.reservation.epoch)operation.pageError="cdp_navigation_commit_revoked";
-                else if(!result.loaderPresent&&!sameDocument)operation.pageError="cdp_navigation_commit_unproven";
+                else if(!operation.control&&!result.loaderPresent&&!sameDocument)operation.pageError="cdp_navigation_commit_unproven";
                 else if(!operation.pageJoined&&operation.ticket.pageCommitted()&&!operation.ticket.pageCurrent())operation.pageError="cdp_navigation_commit_revoked";
                 else if(!operation.pageJoined&&(!operation.ticket.pageCommitted()||navigationRequests.get(operation.owner.key)==operation.reservation)){
                     if(age<0||age>=operation.timeout){operation.pageError="cdp_navigation_commit_timeout";networkRetire(operation.owner,operation.pageError);}
@@ -121,6 +152,7 @@
         if(operation==null||operation.ticket==null)return null;
         MdoBrowserCdpSession.NavigationResult result=operation.ticket.result();
         JSONObject value=new JSONObject().put("id",operation.id).put("phase",result==null?(operation.ticket.dispatched()?"sent":"queued"):result.ok?"acknowledged":"failed")
+            .put("action",operation.action).put("receipt_kind",operation.control?"control":"navigate").put("control_supported",true)
             .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched()).put("initial",operation.initial)
             .put("page_commit_supported",true).put("same_document_supported",true).put("same_document",operation.ticket.sameDocument()).put("page_committed",operation.ticket.pageCommitted()).put("page_current",operation.ticket.pageCurrent())
             .put("page_document",operation.ticket.pageDocument()==null?JSONObject.NULL:operation.ticket.pageDocument()).put("page_error",operation.pageError==null?JSONObject.NULL:operation.pageError);

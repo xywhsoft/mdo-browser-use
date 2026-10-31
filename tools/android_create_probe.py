@@ -32,8 +32,16 @@ def main():
     takeover=takeovers[0].replace(updates[0]['before'],updates[0]['after'])
     navigates=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('before')=='performNavigation(key,web,"navigate",target);']
     if len(navigates)!=1:raise RuntimeError('Expected one original native goto route')
+    control_routes={}
+    for action in ('back','forward','reload'):
+        routes=[row['after'] for row in json.loads(overlay.read_text(encoding='utf-8'))['changes'] if row.get('before')==f'performNavigation(key,web,"{action}",null);']
+        if len(routes)!=1:raise RuntimeError('Expected one exact original native control route: '+action)
+        control_routes['@@NATIVE_'+action.upper()+'_ROUTE@@']=routes[0]
     fragments={
         '@@NATIVE_NAVIGATE_ROUTE@@':navigates[0],
+        **control_routes,
+        '@@DOCUMENT_NAVIGATION@@':document[document.index('    private void documentNavigation'):document.index('    private void documentLoaded')],
+        '@@DOCUMENT_LOADED@@':document[document.index('    private void documentLoaded'):document.index('    private void blockDocuments')],
         '@@NAVIGATION@@':(dev.ROOT/'host/android/browser-navigation.inc.java').read_text(encoding='utf-8'),
         '@@NATIVE_NAVIGATION@@':(dev.ROOT/'host/android/browser-network-navigation.inc.java').read_text(encoding='utf-8'),
         '@@NETWORK_TAKEOVER_PREFIX@@':takeover,
@@ -73,7 +81,10 @@ def main():
         path=path.resolve().as_posix();return '/mnt/'+path[0].lower()+path[2:]
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*map(linux,paths)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidCreateContractTest'],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
-    result=json.loads(run.stdout);result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
+    result=json.loads(run.stdout)
+    if not result.get('passed') or not result.get('native_control_ui_join') or result.get('framework_verified') is not False:
+        raise RuntimeError('Original native history/reload UI admission contract did not pass')
+    result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
         [*production,template,fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}
     (dev.ENV/'android-create-result.json').write_text(json.dumps(result,indent=2)+'\n',encoding='utf-8');print(json.dumps(result,indent=2))
 
