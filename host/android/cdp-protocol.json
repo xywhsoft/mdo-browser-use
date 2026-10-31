@@ -84,11 +84,23 @@
       "queued_or_late_ready_delivery_after_cancel": false,
       "held_native_candidate_cancel_without_native_rejection_proof": "terminal_uncertainty_not_false_success_no_rearm",
       "product_route_enabled": false,
-      "installed_provider_verified": false
+      "installed_provider_verified": false,
+      "native_cancellation": {
+        "binding": "exact_UI_physical_view_marker_lease_and_original_native_popup_controller",
+        "stop": "original_null_transport_once_and_same_queue_consumption_receipt_with_new_native_admission_held",
+        "completion": "native_rejection_confirmed_and_every_original_opener_candidate_detached_then_final_disable_ACK_if_last",
+        "timeout_ms": 5000,
+        "resume_unproven_child": false,
+        "failure_or_late_ACK": "uncertainty_fence_no_replay_no_native_admission_reopen",
+        "provider_verified": false
+      }
     },
     "fixed_unclaimed_release": {
       "source": "immutable_original_top_level_Target_attachedToTarget_with_typed_waitingForDebugger_true_on_private_Browser_connection_only",
-      "commands": ["Runtime.runIfWaitingForDebugger_on_original_child_session", "Target.detachFromTarget_on_original_Browser_after_empty_resume_ACK"],
+      "commands": [
+        "Runtime.runIfWaitingForDebugger_on_original_child_session",
+        "Target.detachFromTarget_on_original_Browser_after_empty_resume_ACK"
+      ],
       "arguments_supplied_by_caller": false,
       "metadata_grants_task_or_WebView_ownership": false,
       "URL_title_script_Fetch_or_body_read": false,
@@ -99,10 +111,30 @@
       "installed_provider_verified": false
     },
     "references": [
-      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/protocol/target_handler.cc","bytes":57881,"sha256":"a986770776e0ae219c2d043fbc6a8487ccbe153ddc1b65eb74eea6015a7e2068","facts":"ShouldThrottlePopups_returns_auto_attach_SetAutoAttachInternal_detaches_own_sessions_and_clears_throttles"},
-      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/devtools_instrumentation.cc","bytes":110945,"sha256":"041c1018fee9137516770f4425d4483e3b0dad6ffc1a0310dcf866762066443c","facts":"ShouldWaitForDebuggerInWindowOpen_consults_Browser_handlers_ShouldThrottlePopups"},
-      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/browser_devtools_agent_host.cc","bytes":9243,"sha256":"cd07c9c49505124d61415a88a74589165405e0fa31b752c30a14d44378960408","facts":"BrowserAutoAttacher_handles_new_main_frame_targets_waiting_and_existing_targets_not_waiting"},
-      {"url":"https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/frame_auto_attacher.cc","bytes":12825,"sha256":"765cd3a85e0b7de879e6871d7a8b8bdd85548d97bd3ce53a3edd15aa6b239a0b","facts":"FrameAutoAttacher_tracks_local_root_subframes_workers_and_explicit_page_notifications_not_a_global_window_open_pause_gate"}
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/protocol/target_handler.cc",
+        "bytes": 57881,
+        "sha256": "a986770776e0ae219c2d043fbc6a8487ccbe153ddc1b65eb74eea6015a7e2068",
+        "facts": "ShouldThrottlePopups_returns_auto_attach_SetAutoAttachInternal_detaches_own_sessions_and_clears_throttles"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/devtools_instrumentation.cc",
+        "bytes": 110945,
+        "sha256": "041c1018fee9137516770f4425d4483e3b0dad6ffc1a0310dcf866762066443c",
+        "facts": "ShouldWaitForDebuggerInWindowOpen_consults_Browser_handlers_ShouldThrottlePopups"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/browser_devtools_agent_host.cc",
+        "bytes": 9243,
+        "sha256": "cd07c9c49505124d61415a88a74589165405e0fa31b752c30a14d44378960408",
+        "facts": "BrowserAutoAttacher_handles_new_main_frame_targets_waiting_and_existing_targets_not_waiting"
+      },
+      {
+        "url": "https://raw.githubusercontent.com/chromium/chromium/138.0.7204.179/content/browser/devtools/frame_auto_attacher.cc",
+        "bytes": 12825,
+        "sha256": "765cd3a85e0b7de879e6871d7a8b8bdd85548d97bd3ce53a3edd15aa6b239a0b",
+        "facts": "FrameAutoAttacher_tracks_local_root_subframes_workers_and_explicit_page_notifications_not_a_global_window_open_pause_gate"
+      }
     ]
   },
   "navigation_receipts": {
@@ -146,8 +178,16 @@
     },
     "history_controls": {
       "state": "private_native_history_reload_proofs_ui_records_and_shared_wait_packaged_admission_disabled",
-      "actions": ["back", "forward", "reload"],
-      "commands": ["Page.getNavigationHistory", "Page.navigateToHistoryEntry", "Page.reload"],
+      "actions": [
+        "back",
+        "forward",
+        "reload"
+      ],
+      "commands": [
+        "Page.getNavigationHistory",
+        "Page.navigateToHistoryEntry",
+        "Page.reload"
+      ],
       "history_entry_limit": 512,
       "selection": "native_original_target_currentIndex_and_neighbor_entry_only",
       "preflight": "original_current_document_loader_and_native_destination_equality",
@@ -215,7 +255,11 @@
   },
   "download_request_association": {
     "state": "private_original_goto_loader_network_id_fetch_id_chain_packaged_provider_unqualified",
-    "network_enable_buffers": {"maxTotalBufferSize": 0, "maxResourceBufferSize": 0, "maxPostDataSize": 0},
+    "network_enable_buffers": {
+      "maxTotalBufferSize": 0,
+      "maxResourceBufferSize": 0,
+      "maxPostDataSize": 0
+    },
     "source": "original_typed_download_ACK_loader_plus_root_Document_Network_request_and_frozen_Fetch_networkId",
     "native_identity_limit": 4096,
     "redirect_limit": 32,
@@ -241,7 +285,12 @@
       "later_document_adopted": false,
       "mixed_document_candidates": "retained_failed_record_without_body_claim_not_a_global_navigation_failure",
       "correlation_fault_new_root_offer": "unproven_document_failed_record_existing_transfer_cleanup_preserved",
-      "metadata_basis": ["response_frame", "navigation_candidates", "original_navigation", "unproven"],
+      "metadata_basis": [
+        "response_frame",
+        "navigation_candidates",
+        "original_navigation",
+        "unproven"
+      ],
       "response_frame_basis_is_original_request_proof": false,
       "unproven_document": null,
       "completed_bytes": "existing_original_EOF_and_file_verification_rules_remain",

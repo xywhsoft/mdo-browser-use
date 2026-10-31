@@ -99,10 +99,13 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         throw new IOException("cdp_popup_opener_unavailable");
     }
     MdoBrowserCdpPopupWorker.Request startPopups(MdoBrowserCdpMarker.Lease lease,int timeout,MdoBrowserCdpPopupWorker.Events events)throws IOException {
+        return startPopups(lease,timeout,events,null);
+    }
+    MdoBrowserCdpPopupWorker.Request startPopups(MdoBrowserCdpMarker.Lease lease,int timeout,MdoBrowserCdpPopupWorker.Events events,MdoBrowserCdpPopupNative nativeSource)throws IOException {
         thread();if(lease==null||!lease.current()||!lease.physicalNetwork())throw new IOException("cdp_popup_prepare_arguments_invalid");
         // UI observation only: reserve requests for an already-ready slot, so
         // eight popup jobs cannot bypass the shared executor's source budget.
-        popupSource(lease);return popups.start(lease,timeout,events);
+        popupSource(lease);return popups.start(lease,timeout,events,nativeSource);
     }
     int popupPending(){return popups.pending();}
     private void thread(){if(!ui.onThread())throw new IllegalStateException("Network owner dispatch requires its UI thread");}

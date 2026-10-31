@@ -1788,3 +1788,12 @@ openers remain; global cleanup still requires the final original disable ACK.
 Retained candidate cancellation requires the unfinished original native rejection
 join and remains explicitly uncertain. No public JS/C signature, permission or
 Android capability changes; the product does not enable popup preparation yet.
+
+E118 adds private prepareNativePopups with an original UI physical-view/marker
+lease/native-controller join. Cancellation sends the original null transport
+once and holds fresh native window admission. Its consumption receipt and the
+detach of every original held candidate are separate required evidence; the
+last opener still requires the global disable ACK. Unknown/late results never
+authorize replay, resume of an unproven child or automatic admission recovery.
+This completes a private cancellation join, not managed child adoption/body
+routing or public Android qualification. Shared JS/C signatures remain unchanged.

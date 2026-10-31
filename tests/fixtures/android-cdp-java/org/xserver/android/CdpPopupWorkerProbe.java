@@ -2,6 +2,7 @@ package org.xserver.android;
 
 import android.os.Handler;
 import android.os.Looper;
+import android.webkit.WebView;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ public final class CdpPopupWorkerProbe {
         .put("targetInfo",new JSONObject().put("targetId","target-"+child).put("type","page").put("openerId",opener)).put("waitingForDebugger",true));}
     private static JSONObject ack(int id,String child)throws Exception{JSONObject reply=new JSONObject().put("id",id).put("result",new JSONObject());if(child!=null)reply.put("sessionId",child);return reply;}
     private static final class Backend implements MdoBrowserCdpPopupWorker.Factory {
-        final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger();
+        final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger();
         final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile Runnable resumed;volatile CountDownLatch armEntered,armRelease;
         public MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock){creates.incrementAndGet();threads.add(Thread.currentThread());Wire next=new Wire();wire=next;
             return new MdoBrowserCdpPopupBroker(current,clock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,events,clock::getAsLong);});}
@@ -51,7 +52,7 @@ public final class CdpPopupWorkerProbe {
                     else throw new AssertionError("Unapproved popup worker command");
                 }catch(IOException error){throw error;}catch(RuntimeException|Error error){throw error;}catch(Exception error){throw new IOException("fixture_command_failed");}
             }
-            public byte[] receive(int timeout){threads.add(Thread.currentThread());byte[] value=incoming.poll();if(value==null)try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();}return value;}
+            public byte[] receive(int timeout){threads.add(Thread.currentThread());receives.incrementAndGet();byte[] value=incoming.poll();if(value==null)try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();}return value;}
             public void close(){closes.incrementAndGet();}
         }
     }
@@ -150,9 +151,84 @@ public final class CdpPopupWorkerProbe {
             MdoBrowserCdpPopupWorker.Request request=prepare(c,source,observer);terminal(c,request);check(request.result().processCleanupConfirmed&&!c.worker.terminated());
         }
     }
+    private static final class NativeSource implements AutoCloseable {
+        final CdpNetworkWorkerProbe.Case host;final MdoBrowserPopups<WebView> core;final MdoBrowserCdpPopupNative source;
+        final MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);final WebView view;int sends;Runnable consumed;boolean fail;
+        NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network)throws Exception{
+            this.host=host;view=network.view;
+            core=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
+                public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}
+            },budget,()->true,()->1L,blocked->check(host.ui.onThread()));
+            source=new MdoBrowserCdpPopupNative(network.adapter,view,core);
+        }
+        void open(){check(core.open(new MdoBrowserPopups.Transport<WebView>(){
+            private final Object token=new Object();public Object token(){return token;}
+            public void send(WebView child,Runnable callback){check(host.ui.onThread()&&child==null);sends++;consumed=callback;if(fail)throw new IllegalStateException("controlled-native-send-failure");}
+        },false));}
+        void ack(){check(host.ui.onThread());consumed.run();}
+        boolean blocked(){return !core.open(new MdoBrowserPopups.Transport<WebView>(){
+            public Object token(){return this;}public void send(WebView child,Runnable callback){throw new AssertionError("Blocked callback dispatched");}
+        },false);}
+        public void close(){core.close();core.viewDestroyed(view);}
+    }
+    private static JSONObject detached(String id)throws Exception{return new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId",id));}
+    private static void nativeJoin(boolean detachFirst)throws Exception{
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=c.source();c.ready(network);
+            try(NativeSource nativeSource=new NativeSource(c,network)){
+                failure("cdp_popup_native_source_invalid",()->new MdoBrowserCdpPopupNative(network.adapter,new WebView(),nativeSource.core));
+                Observer observer=new Observer(c);MdoBrowserCdpPopupWorker.Request request=c.worker.prepareNativePopups(nativeSource.source,1500,observer);ready(c,request);
+                nativeSource.open();backend.wire.add(attached("native-original","owned"));waitFor(()->observer.candidates.size()==1,c,true);
+                request.close();waitFor(()->nativeSource.sends==1,c,true);check(nativeSource.blocked()&&!request.result().terminal);
+                if(detachFirst){backend.wire.add(detached("native-original"));waitFor(()->!observer.candidates.get(0).current(),c,true);}
+                else nativeSource.ack();
+                int before=backend.receives.get();waitFor(()->backend.receives.get()>=before+3,c,true);
+                check(!request.result().terminal&&backend.disables.get()==0&&nativeSource.blocked());
+                if(detachFirst)nativeSource.ack();else backend.wire.add(detached("native-original"));
+                terminal(c,request);check(request.result().sourceReleased&&request.result().processCleanupConfirmed&&nativeSource.budget.used()==0&&backend.resumes.get()==0&&backend.detaches.get()==0);
+                // A completed original source can be explicitly prepared again.
+                Observer nextObserver=new Observer(c);MdoBrowserCdpPopupWorker.Request next=c.worker.prepareNativePopups(nativeSource.source,1500,nextObserver);ready(c,next);next.close();terminal(c,next);
+                check(next.result().sourceReleased&&next.result().processCleanupConfirmed&&nativeSource.sends==1&&backend.disables.get()==2&&backend.threads.size()==1);
+                check(nativeSource.core.protocolSource(network.view));
+            }
+        }
+    }
+    private static void nativeFailure(String mode)throws Exception{
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=c.source();c.ready(network);
+            try(NativeSource source=new NativeSource(c,network)){
+                Observer observer=new Observer(c);MdoBrowserCdpPopupWorker.Request request=c.worker.prepareNativePopups(source.source,1500,observer);ready(c,request);
+                source.open();backend.wire.add(attached("native-held","owned"));waitFor(()->observer.candidates.size()==1,c,true);
+                source.fail=mode.equals("native-send-failure");request.close();waitFor(()->source.sends==1,c,true);
+                if(!source.fail){if(mode.equals("native-ack-timeout"))backend.wire.add(detached("native-held"));else source.ack();
+                    int before=backend.receives.get();waitFor(()->backend.receives.get()>=before+3,c,true);check(!request.result().terminal);c.time.addAndGet(5001);}
+                terminal(c,request);check(!request.result().sourceReleased&&!request.result().processCleanupConfirmed&&backend.disables.get()==0&&backend.resumes.get()==0&&backend.detaches.get()==0&&source.blocked());
+                check(request.result().code.equals(source.fail?"cdp_popup_native_rejection_unconfirmed":"cdp_popup_native_cancel_timeout"));
+                if(mode.equals("native-ack-timeout"))source.ack();check(source.blocked());
+                MdoBrowserCdpPopupWorker.Request refused=prepare(c,network,new Observer(c));terminal(c,refused);check(refused.result().code.equals("cdp_popup_cleanup_unconfirmed")&&backend.creates.get()==1&&!c.worker.terminated());
+            }
+        }
+    }
+    private static void nativeTerminalBeforeUiClose()throws Exception{
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case c=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=c.source();c.ready(network);
+            try(NativeSource source=new NativeSource(c,network)){
+                CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
+                c.worker.submit(c.document(),10000,false,(binding,deadline)->{entered.countDown();try{if(!release.await(3,TimeUnit.SECONDS))throw new IOException("fixture_wait_expired");}catch(InterruptedException e){Thread.currentThread().interrupt();throw new IOException("fixture_interrupted");}return new byte[]{1};},result->{});
+                try{
+                    waitFor(()->entered.getCount()==0,c,true);Observer observer=new Observer(c);
+                    MdoBrowserCdpPopupWorker.Request request=c.worker.prepareNativePopups(source.source,1500,observer);
+                    c.time.addAndGet(2000);release.countDown();waitFor(()->request.result()!=null&&request.result().terminal,c,false);
+                    source.open();c.worker.close();c.ui.drain();waitFor(c.worker::terminated,c,true);
+                    check(request.result().sourceReleased&&source.sends==0&&backend.creates.get()==0&&observer.states.size()==1);
+                }finally{release.countDown();}
+            }
+        }
+    }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();}
+        if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();}
+        else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }

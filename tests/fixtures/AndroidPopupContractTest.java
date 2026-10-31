@@ -92,6 +92,42 @@ public final class AndroidPopupContractTest {
         one.core.viewDestroyed(one.view);check(budget.used()==2);two.core.viewDestroyed(two.view);three.core.viewDestroyed(three.view);check(budget.used()==0);
         check(n2.sends==0&&n3.sends==0);check(!one.core.open(new Native(),false));
         final boolean[] foreign={false};Thread other=new Thread(()->{try{a.core.snapshot();}catch(IllegalStateException expected){foreign[0]=true;}});other.start();other.join();check(foreign[0]);
+        protocolStops();
         System.out.println("{\"passed\":true,\"checks\":"+checks+"}");
+    }
+    private static void protocolStops(){
+        Harness empty=new Harness();check(empty.core.protocolSource(empty.view)&&!empty.core.protocolSource(new Object()));
+        MdoBrowserPopups.Stop none=empty.core.stopForProtocol();check(none.confirmed()&&!none.pending());
+        Native blocked=new Native();check(!empty.core.open(blocked,false)&&blocked.sends==0);denied(empty.core::stopForProtocol);
+        check(none.release()&&!none.release());check(empty.core.open(blocked,false));empty.core.cancel();blocked.ack();
+
+        Harness pending=new Harness();Native original=new Native();check(pending.core.open(original,false));
+        MdoBrowserPopups.Stop stop=pending.core.stopForProtocol();check(original.sends==1&&original.child==null&&stop.pending()&&!stop.confirmed());
+        check(!stop.release()&&!pending.core.open(new Native(),false)&&pending.budget.used()==1);
+        pending.core.cancel();pending.core.close();check(original.sends==1);original.ack();
+        check(stop.confirmed()&&!stop.pending()&&pending.budget.used()==0&&pending.core.clean()&&stop.release());
+        original.ack();check(pending.budget.used()==0);
+
+        Harness dismissed=new Harness();Native alreadySent=new Native();check(dismissed.core.open(alreadySent,false));
+        check(dismissed.core.dismiss(dismissed.id()));MdoBrowserPopups.Stop joined=dismissed.core.stopForProtocol();
+        check(alreadySent.sends==1&&joined.pending());alreadySent.ack();check(joined.confirmed()&&joined.release());
+        Native fresh=new Native();check(dismissed.core.open(fresh,false));alreadySent.ack();check(fresh.sends==0&&dismissed.core.busy());
+        dismissed.core.cancel();fresh.ack();
+
+        Harness adopted=new Harness();Native assigned=new Native();check(adopted.core.open(assigned,false));adopted.adopt(adopted.id(),new Object());
+        MdoBrowserPopups.Stop refused=adopted.core.stopForProtocol();check(!refused.pending()&&!refused.confirmed()&&refused.failure().equals("popup_native_already_adopted"));
+        assigned.ack();check(!refused.confirmed()&&!refused.release()&&assigned.sends==1&&!adopted.core.open(new Native(),false));
+        adopted.core.viewDestroyed(adopted.view);
+
+        Harness timeout=new Harness();Native late=new Native();check(timeout.core.open(late,false));MdoBrowserPopups.Stop unknown=timeout.core.stopForProtocol();
+        timeout.clock.advance(5000);check(!unknown.pending()&&!unknown.confirmed());late.ack();
+        check(!unknown.confirmed()&&!unknown.release()&&late.sends==1&&!timeout.core.open(new Native(),false));timeout.core.viewDestroyed(timeout.view);
+        for(boolean oom:new boolean[]{false,true}){
+            Harness failed=new Harness();Native transport=new Native();check(failed.core.open(transport,false));transport.fail=!oom;transport.oom=oom;
+            MdoBrowserPopups.Stop receipt=failed.core.stopForProtocol();check(!receipt.pending()&&!receipt.confirmed()&&transport.sends==1);
+            transport.ack();check(!receipt.confirmed()&&!receipt.release());failed.core.viewDestroyed(failed.view);
+        }
+        Harness destroyed=new Harness();Native transport=new Native();check(destroyed.core.open(transport,false));MdoBrowserPopups.Stop unconsumed=destroyed.core.stopForProtocol();
+        destroyed.core.viewDestroyed(destroyed.view);transport.ack();check(!unconsumed.pending()&&!unconsumed.confirmed()&&!unconsumed.release());
     }
 }

@@ -32,7 +32,7 @@ final class MdoBrowserCdpPopupWorker {
         Result result(){return result.get();}
         @Override public void close(){Result value=result.get();if(value!=null&&value.terminal)return;cancelled.set(true);Runnable notify=wake;if(notify!=null)notify.run();}
     }
-    private static final int QUEUED=0,STARTING=1,READY=2,CANCELLING=3,TERMINAL=4;
+    private static final int QUEUED=0,STARTING=1,READY=2,CANCELLING=3,NATIVE_CANCELLING=4,TERMINAL=5;
     private final MdoBrowserCdpWorker.Ui ui;private final ThreadPoolExecutor executor;private final Source source;private final Factory factory;private final LongSupplier clock;
     private final Runnable wake,unavailable;private final Object gate=new Object();private final Job[] jobs=new Job[8];
     private final AtomicBoolean closed=new AtomicBoolean();private final AtomicInteger active=new AtomicInteger();
@@ -44,14 +44,17 @@ final class MdoBrowserCdpPopupWorker {
     private void thread(){if(!ui.onThread())throw new IllegalStateException("Popup admission requires its UI thread");}
     private static String safe(String code){return code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:"cdp_popup_worker_failed";}
     Request start(MdoBrowserCdpMarker.Lease lease,int timeout,Events events)throws IOException {
+        return start(lease,timeout,events,null);
+    }
+    Request start(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(lease==null||!lease.current()||!lease.physicalNetwork()||events==null||timeout<100||timeout>15000)throw new IOException("cdp_popup_prepare_arguments_invalid");
-        Job job=new Job(lease,timeout,events);
+        Job job=new Job(lease,timeout,events,nativeSource);
         synchronized(gate){int index=-1;for(int i=0;i<jobs.length;i++){
             if(jobs[i]!=null&&jobs[i].lease==lease)throw new IOException("cdp_popup_prepare_busy");if(jobs[i]==null)index=i;
-        }if(index<0)throw new IOException("cdp_popup_prepare_limit");jobs[index]=job;active.incrementAndGet();}
-        try{executor.execute(job);}catch(RejectedExecutionException error){remove(job);active.decrementAndGet();throw new IOException("cdp_worker_unavailable");}
-        catch(RuntimeException|Error error){remove(job);active.decrementAndGet();throw error;}
+        }if(index<0)throw new IOException("cdp_popup_prepare_limit");if(nativeSource!=null)nativeSource.claim(lease);jobs[index]=job;active.incrementAndGet();}
+        try{executor.execute(job);}catch(RejectedExecutionException error){remove(job);active.decrementAndGet();if(nativeSource!=null)nativeSource.abandon();throw new IOException("cdp_worker_unavailable");}
+        catch(RuntimeException|Error error){remove(job);active.decrementAndGet();if(nativeSource!=null)nativeSource.abandon();throw error;}
         return job.request;
     }
     private void remove(Job job){synchronized(gate){for(int i=0;i<jobs.length;i++)if(jobs[i]==job){jobs[i]=null;return;}}}
@@ -71,10 +74,18 @@ final class MdoBrowserCdpPopupWorker {
         if(closed.get()||operating||!needed())return;operating=true;
         try{
             MdoBrowserCdpPopupBroker current=broker;
-            if(current==null){for(Job job:snapshot())if(job.stage==READY||job.stage==CANCELLING)job.finish("cdp_popup_worker_failed",false,true);return;}
+            if(current==null){for(Job job:snapshot())if(job.stage==READY||job.stage==CANCELLING||job.stage==NATIVE_CANCELLING)job.finish("cdp_popup_worker_failed",false,true);return;}
             for(Job job:snapshot())if(job.stage==READY&&(job.request.cancelled.get()||!job.lease.current())){
+                if(job.nativeSource!=null){job.beginNativeCancel();continue;}
                 for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration))throw new IOException("cdp_popup_native_cancel_required");
-                job.registration.close();job.registration=null;job.stage=CANCELLING;
+                job.releaseRegistration();
+            }
+            for(Job job:snapshot())if(job.stage==NATIVE_CANCELLING){
+                String error=job.nativeSource.failure();if(error!=null)throw new IOException(error);
+                long elapsed=clock.getAsLong()-job.cancelBorn;if(elapsed<0||elapsed>=5000)throw new IOException("cdp_popup_native_cancel_timeout");
+                if(!job.nativeSource.confirmed())continue;
+                boolean held=false;for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.belongsTo(job.registration)){held=true;break;}
+                if(!held)job.releaseRegistration();
             }
             if(current.armed())current.turn(10,250);
             for(Job job:snapshot()){
@@ -92,16 +103,20 @@ final class MdoBrowserCdpPopupWorker {
         if(!closed.compareAndSet(false,true))return;MdoBrowserCdpPopupBroker current=broker;if(current!=null)current.close();
         for(Job job:snapshot()){
             job.request.cancelled.set(true);executor.remove(job);MdoBrowserCdpPopupBroker.Registration registration=job.registration;if(registration!=null)registration.close();
+            if(job.nativeSource!=null&&job.stage!=QUEUED&&job.stage!=TERMINAL)job.nativeCancelRequested=true;
             job.finish("cdp_worker_closed",registration==null&&job.stage!=STARTING,clean());
         }
     }
     void ownerTerminated(){close();for(Job job:snapshot())job.finish("cdp_worker_closed",false,clean());}
     private final class Job implements Runnable {
         final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;final Request request=new Request(()->{wake.run();});
+        final MdoBrowserCdpPopupNative nativeSource;volatile boolean nativeCancelRequested;long cancelBorn;private boolean nativeStopDelivered;
         final Set<String> notified=new HashSet<>();final ArrayDeque<MdoBrowserCdpPopupBroker.Candidate> candidates=new ArrayDeque<>();
         final Runnable delivery=this::deliver;volatile int stage=QUEUED;volatile MdoBrowserCdpPopupBroker.Registration registration;
         private Events events;private boolean posted,delivering,readyDelivered,terminalDelivered;
-        Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events){this.lease=lease;this.timeout=timeout;this.events=events;born=clock.getAsLong();}
+        Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource){this.lease=lease;this.timeout=timeout;this.events=events;this.nativeSource=nativeSource;born=clock.getAsLong();}
+        void beginNativeCancel(){synchronized(this){if(stage==TERMINAL)return;cancelBorn=clock.getAsLong();stage=NATIVE_CANCELLING;nativeCancelRequested=true;}post();}
+        void releaseRegistration(){synchronized(this){if(stage==TERMINAL)return;registration.close();registration=null;stage=CANCELLING;}}
         private int remaining()throws IOException {
             if(closed.get()||request.cancelled.get()||!lease.current())throw new IOException("cdp_popup_prepare_cancelled");
             long used=clock.getAsLong()-born;if(used<0||used>timeout-10)throw new IOException("cdp_popup_prepare_timeout");return (int)Math.min(5000,timeout-used);
@@ -118,7 +133,7 @@ final class MdoBrowserCdpPopupWorker {
                 remaining();synchronized(this){if(stage==TERMINAL)return;stage=READY;request.result.set(new Result(true,false,null,enabled(),false,false));}post();
             }catch(IOException error){
                 if(registration!=null&&broker!=null&&broker.armed()&&(!lease.current()||request.cancelled.get())){
-                    registration.close();registration=null;if(stage!=TERMINAL)stage=CANCELLING;
+                    if(nativeSource!=null)beginNativeCancel();else releaseRegistration();
                 }else if(registration==null)finish(safe(error.getMessage()),true,clean());
                 else failAll(safe(error.getMessage()));
             }catch(RuntimeException|Error error){failAll("cdp_popup_worker_failed");}
@@ -143,9 +158,15 @@ final class MdoBrowserCdpPopupWorker {
                 else if(stage==READY&&!request.cancelled.get()&&lease.current()){pending=new ArrayList<>(candidates);candidates.clear();if(readyDelivered)value=null;else readyDelivered=true;}
                 else{value=null;pending=new ArrayList<>();candidates.clear();}
             }
-            try{if(value!=null&&(value.terminal||!request.cancelled.get()&&lease.current()&&stage==READY))action.state(value);for(MdoBrowserCdpPopupBroker.Candidate candidate:pending)if(!request.cancelled.get()&&lease.current()&&candidate.current())action.candidate(candidate);}
+            try{
+                if(nativeCancelRequested&&!nativeStopDelivered&&nativeSource!=null){nativeStopDelivered=true;nativeSource.reject();wake.run();}
+                if(value!=null&&(value.terminal||!request.cancelled.get()&&lease.current()&&stage==READY)){
+                    if(value.terminal&&nativeSource!=null)nativeSource.finish(value.sourceReleased);action.state(value);
+                }
+                for(MdoBrowserCdpPopupBroker.Candidate candidate:pending)if(!request.cancelled.get()&&lease.current()&&candidate.current())action.candidate(candidate);
+            }
             catch(RuntimeException|Error error){request.cancelled.set(true);wake.run();}
-            finally{boolean again; synchronized(this){delivering=false;if(terminalDelivered)events=null;Result latest=request.result.get();again=latest!=null&&latest.terminal||!candidates.isEmpty();}
+            finally{boolean again; synchronized(this){delivering=false;if(terminalDelivered)events=null;Result latest=request.result.get();again=latest!=null&&latest.terminal||!candidates.isEmpty()||nativeCancelRequested&&!nativeStopDelivered;}
                 if(terminalDelivered)remove(this);else if(again)post();}
         }
     }

@@ -2,6 +2,7 @@ package org.xserver.android;
 
 import java.lang.ref.WeakReference;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.LongSupplier;
 
@@ -24,9 +25,22 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         final String id;final long epoch;final boolean userInitiated;
         Snapshot(String id,long epoch,boolean userInitiated){this.id=id;this.epoch=epoch;this.userInitiated=userInitiated;}
     }
+    /** Data-only rejection evidence for the protocol worker. Only this native
+     * controller can complete it; a queue barrier is not debugger detachment. */
+    static final class Stop {
+        private final WeakReference<MdoBrowserPopups<?>> owner;private final AtomicInteger state=new AtomicInteger();
+        private volatile String code;
+        private Stop(MdoBrowserPopups<?> owner){this.owner=new WeakReference<>(owner);}
+        boolean pending(){return state.get()==0;}
+        boolean confirmed(){return state.get()==1;}
+        String failure(){return code==null?"popup_native_rejection_unconfirmed":code;}
+        private void confirm(){state.compareAndSet(0,1);}
+        private void fail(String value){code=value;state.compareAndSet(0,2);}
+        boolean release(){MdoBrowserPopups<?> core=owner.get();return core==null||core.releaseStop(this);}
+    }
     private final class Entry {
         final Transport<T> transport;final Snapshot snapshot;long expires;final Runnable timer,consumed;
-        Completion completion;boolean sent,invalidated,timedOut;
+        Completion completion;Stop stop;boolean sent,adopted,invalidated,timedOut;
         Entry(Transport<T> transport,long epoch,boolean userInitiated){
             this.transport=transport;snapshot=new Snapshot(UUID.randomUUID().toString(),epoch,userInitiated);
             expires=scheduler.now()+15000;
@@ -38,7 +52,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     }
     private final T opener;private final Scheduler scheduler;private final Budget budget;
     private final BooleanSupplier owned;private final LongSupplier navigation;private final Listener listener;
-    private final Thread owner=Thread.currentThread();private Entry entry;private boolean closed,faulted,destroyed;
+    private final Thread owner=Thread.currentThread();private Entry entry;private Stop protocolStop;private boolean protocolStopping,closed,faulted,destroyed;
     MdoBrowserPopups(T opener,Scheduler scheduler,Budget budget,BooleanSupplier owned,LongSupplier navigation,Listener listener){
         if(opener==null||scheduler==null||budget==null||owned==null||navigation==null||listener==null)throw new IllegalArgumentException("Missing popup binding");
         this.opener=opener;this.scheduler=scheduler;this.budget=budget;this.owned=owned;this.navigation=navigation;this.listener=listener;
@@ -56,7 +70,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     boolean open(Transport<T> transport,boolean userInitiated){
         thread();if(transport==null)return false;
         if(entry!=null&&entry.transport.token()==transport.token())return true;
-        if(closed||destroyed||faulted||entry!=null||!owned.getAsBoolean())return false;
+        if(closed||destroyed||faulted||protocolStopping||entry!=null||!owned.getAsBoolean())return false;
         long epoch=navigation.getAsLong();if(epoch<=0)return false;
         Entry next;
         try{next=new Entry(transport,epoch,userInitiated);}catch(RuntimeException|OutOfMemoryError error){return false;}
@@ -84,12 +98,12 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     private void send(Entry value,T child){
         // Claim before entering framework code or application callbacks. Neither
         // exceptions nor reentrancy authorize sending this Message a second time.
-        value.sent=true;
+        value.sent=true;value.adopted=child!=null;
         value.expires=scheduler.now()+5000;
         try{scheduler.remove(value.timer);scheduler.at(value.timer,value.expires);}
         catch(RuntimeException|OutOfMemoryError error){faulted=true;}
         try{value.transport.send(child,value.consumed);}
-        catch(RuntimeException|OutOfMemoryError error){faulted=true;finish(value,false,"popup_transport_unconfirmed",child!=null);}
+        catch(RuntimeException|OutOfMemoryError error){faulted=true;if(value.stop!=null)value.stop.fail("popup_transport_unconfirmed");finish(value,false,"popup_transport_unconfirmed",child!=null);}
     }
     private void finish(Entry value,boolean ok,String code,boolean mayHaveOccurred){
         Completion callback=value.completion;value.completion=null;
@@ -100,7 +114,9 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         boolean valid=!value.invalidated&&!value.timedOut&&current(value)&&!faulted;
         entry=null;budget.release();
         try{scheduler.remove(value.timer);}catch(RuntimeException|OutOfMemoryError error){faulted=true;valid=false;}
-        blocked(false);valid=valid&&!faulted;finish(value,valid,valid?null:"popup_source_changed",true);
+        blocked(false);valid=valid&&!faulted;
+        if(value.stop!=null){if(!value.adopted&&!value.timedOut&&!faulted)value.stop.confirm();else value.stop.fail("popup_native_rejection_unconfirmed");}
+        finish(value,valid,valid?null:"popup_source_changed",true);
     }
     private void expire(String id){
         thread();Entry value=entry;if(value==null||!value.snapshot.id.equals(id))return;
@@ -108,7 +124,22 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         if(!value.sent){reject(value);return;}
         // A missing barrier is uncertainty, not permission to return its native
         // resource reservation or replay a popup. Exact teardown can release it.
-        value.timedOut=true;faulted=true;finish(value,false,"popup_transport_unconfirmed",true);
+        value.timedOut=true;faulted=true;if(value.stop!=null)value.stop.fail("popup_transport_unconfirmed");finish(value,false,"popup_transport_unconfirmed",true);
+    }
+    boolean protocolSource(T exact){thread();return exact==opener&&!closed&&!destroyed&&!faulted&&!protocolStopping;}
+    boolean original(T exact){thread();return exact==opener;}
+    Stop stopForProtocol(){
+        thread();if(protocolStopping)throw new IllegalStateException("popup_native_stop_busy");
+        // Keep admission held even if allocating the receipt itself fails.
+        protocolStopping=true;Stop stop=new Stop(this);protocolStop=stop;Entry value=entry;
+        if(faulted||destroyed){stop.fail("popup_native_rejection_unconfirmed");return stop;}
+        if(value==null){stop.confirm();return stop;}
+        value.stop=stop;
+        if(value.sent&&value.adopted){stop.fail("popup_native_already_adopted");return stop;}
+        value.invalidated=true;if(!value.sent)reject(value);return stop;
+    }
+    private boolean releaseStop(Stop stop){
+        thread();if(protocolStop!=stop||!stop.confirmed()||entry!=null)return false;protocolStop=null;protocolStopping=false;return true;
     }
     void cancel(){thread();if(entry!=null){entry.invalidated=true;if(!entry.sent)reject(entry);}}
     boolean clean(){thread();return !faulted;}
@@ -117,6 +148,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     void viewDestroyed(T exact){
         thread();if(exact!=opener||destroyed)return;destroyed=true;closed=true;
         Entry value=entry;entry=null;
+        if(protocolStop!=null)protocolStop.fail("popup_source_destroyed");
         if(value!=null){budget.release();try{scheduler.remove(value.timer);}catch(RuntimeException|OutOfMemoryError ignored){}
             finish(value,false,"popup_source_destroyed",value.sent);}
         faulted=false;blocked(false);

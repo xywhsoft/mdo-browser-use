@@ -1,6 +1,8 @@
 """Read actual cross-site/OOPIF frame contexts in the one native deployment."""
 import json
+import hashlib
 import argparse
+from pathlib import Path
 import subprocess
 import sys
 import time
@@ -17,6 +19,9 @@ def main(upload_broker_only=False,input_cycles=1):
     scope={'extension':'browser-frame-qa'};fixture=FrameFixture().start();page=dev.SOURCE/'app/web/__browser_use_native_frames__.html'
     before={p.name:(p.stat().st_size,p.stat().st_mtime_ns) for p in (dev.ENV/'host').glob('crash_*')}
     try:
+        native_host=Path(dev.state()['host']).resolve()
+        if native_host!=(dev.ENV/'host/xs.exe').resolve():raise RuntimeError('Frame probe requires the original project native host')
+        native_host_hash=hashlib.sha256(native_host.read_bytes()).hexdigest()
         directory=dev.ENV/'qa';directory.mkdir(exist_ok=True);source=directory/'frame-upload-qa.bin';data=bytes(index%251 for index in range(131075))
         if source.exists() and source.read_bytes()!=data:raise RuntimeError('Unknown frame upload fixture contents preserved')
         source.write_bytes(data)
@@ -45,6 +50,9 @@ def main(upload_broker_only=False,input_cycles=1):
         report['new_native_diagnostics']=[p.name for p in (dev.ENV/'host').glob('crash_*') if before.get(p.name)!=(p.stat().st_size,p.stat().st_mtime_ns)]
         if report['new_native_diagnostics']:report.update(passed=False,error='Native exception diagnostics were generated')
         report['download_or_model_calls']=False;report['fixture_requests']=dict(fixture.counts)
+        report['native_host_sha256']=native_host_hash
+        if hashlib.sha256(native_host.read_bytes()).hexdigest()!=native_host_hash:
+            report.update(passed=False,error='The actual native frame host changed during execution')
         end=time.monotonic()+6
         while True:
             report['upload_cache']=inspect_cache(dev.HOME/'data/cache/webview2-content/mdo-browser-use-transfers')

@@ -39,6 +39,8 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     private final ThreadPoolExecutor executor;
     private final MdoBrowserCdpNetworks networks;
     private final AtomicBoolean closed=new AtomicBoolean();
+    private final java.util.Set<Thread> nativeThreads=ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean exitFailed=new AtomicBoolean();
     private final Map<MdoBrowserCdpMarker.Lease,Job> jobs=new ConcurrentHashMap<>();
     private final Map<MdoBrowserCdpMarker.Lease,MdoBrowserCdpBinding> bindings=new ConcurrentHashMap<>();
     MdoBrowserCdpWorker(){this(framework(),(marker,timeout)->MdoBrowserCdpBinding.bind(marker,timeout,(method,session,params)->{}),android.os.SystemClock::elapsedRealtime);}
@@ -52,10 +54,17 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         if(ui==null||connector==null||clock==null||!ui.onThread())throw new IllegalArgumentException("CDP worker requires its UI owner");
         this.ui=ui;this.connector=connector;this.clock=clock;
         executor=new ThreadPoolExecutor(1,1,0,TimeUnit.MILLISECONDS,new ArrayBlockingQueue<Runnable>(LIMIT*2+1),task->{
+            // One executor worker slot is reserved before invoking its factory.
+            // Any older NEW record therefore belongs to an unsuccessful start,
+            // not another concurrently starting owner. Do not accumulate it.
+            for(Thread prior:nativeThreads)if(prior.getState()==Thread.State.NEW)nativeThreads.remove(prior);
             Thread thread=new Thread(()->{
                 try(MdoBrowserCdpSession.Cooperation ignored=MdoBrowserCdpSession.cooperate(this::cooperate)){task.run();}
-                finally{threadExited();}
-            },"mdo-private-cdp");thread.setDaemon(true);return thread;
+                finally{
+                    try{threadExited();}catch(RuntimeException|Error failure){exitFailed.set(true);throw failure;}
+                    finally{nativeThreads.remove(Thread.currentThread());}
+                }
+            },"mdo-private-cdp");thread.setDaemon(true);nativeThreads.add(thread);return thread;
         },new ThreadPoolExecutor.AbortPolicy());
         networks=new MdoBrowserCdpNetworks(ui,networkConnector,clock,executor,this::shutdown,popupFactory);
     }
@@ -68,6 +77,10 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     void retireNetwork(MdoBrowserCdpMarker.Lease lease){thread();networks.retire(lease);}
     MdoBrowserCdpPopupWorker.Request preparePopups(MdoBrowserCdpMarker.Lease lease,int timeout,MdoBrowserCdpPopupWorker.Events events)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.startPopups(lease,timeout,events);
+    }
+    MdoBrowserCdpPopupWorker.Request prepareNativePopups(MdoBrowserCdpPopupNative source,int timeout,MdoBrowserCdpPopupWorker.Events events)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");if(source==null)throw new IOException("cdp_popup_native_source_invalid");
+        return networks.startPopups(source.lease(),timeout,events,source);
     }
     int popupPending(){thread();return networks.popupPending();}
     MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws IOException {
@@ -122,7 +135,15 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     }
     int pending(){thread();return jobs.size();}
     boolean pending(MdoBrowserCdpMarker marker){thread();return marker!=null&&jobs.containsKey(marker.lease());}
-    boolean terminated(){return executor.isTerminated();}
+    boolean terminated(){
+        if(!executor.isTerminated()||exitFailed.get())return false;
+        // ThreadPoolExecutor terminates its task loop before the outer native
+        // retirement finally runs. That finally, not the pool state alone,
+        // proves no original worker I/O can still be running. A never-started
+        // factory thread cannot own native work.
+        for(Thread thread:nativeThreads)if(thread.getState()!=Thread.State.NEW)return false;
+        return true;
+    }
     private void prune(){
         for(Map.Entry<MdoBrowserCdpMarker.Lease,MdoBrowserCdpBinding> row:bindings.entrySet())if(!row.getKey().current()&&bindings.remove(row.getKey(),row.getValue()))row.getValue().close();
     }

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E117)
+## Complete development host APK (E46/E118)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,493,505 bytes, SHA-256
-`4b02852d6b3c469ae358790ced3c78f3f4cc530121f30ca2f25da19dc653299d`.
+`0401fef0b0f961ec5574d57c98168141e3351adc5a24458d104aac46b7fd7430`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -68,6 +68,8 @@ E116 also requires the private process broker, its registry/candidate/connector/
 release classes and the original physical Network.PopupSource definition.
 E117 requires seven actual PopupWorker/interface/request/result/job definitions
 for private preparation and original-UI result delivery on the existing worker.
+E118 additionally requires the original native-source join and data-only
+MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
 key is included. The app archive is extracted from the verified W4 Windows
@@ -4318,3 +4320,48 @@ APK verifies required DEX definitions, eight JNI exports and signer/source/
 payload identities. See .mdo/E117-final-identities.log and E117 receipts/logs.
 These checks do not qualify an installed Android provider or the public mdo UI;
 framework/provider/automation flags remain false and device checks stay deferred.
+
+
+## Original native cancellation and full worker exit (E118)
+
+Private prepareNativePopups takes an original physical WebView/marker lease
+joined on UI to its exact native popup controller. It does not accept caller
+protocol IDs and does not prove the held child's native WebView/transport. The
+new Stop receipt holds fresh native window admission while sending that original
+pending null transport once, or joining its already-sent rejection. An adopted
+child cannot be converted into a successful rejection. Consumption, timeout,
+send failure and late callbacks remain distinct; uncertain results do not replay
+or reopen native admission.
+
+The original native consumption barrier is only one half of cancellation. The
+worker also requires detach events for all of that opener's original candidates.
+A five-second combined bound ends unconfirmed cleanup explicitly. Only both
+proofs release the source, and the last source still requires the original
+process-wide disable ACK. The UI releases its native admission hold only after
+that source proof. There is no unproven child resume, body access or extra thread.
+The old preparation overload without native proof keeps its conservative failure.
+A request already terminal cannot gain a fresh cancellation effect merely because
+its UI result is delayed until host close.
+
+Full regression also exposes premature exit reporting: the pool task loop can
+be terminated before the enclosing native-retirement finally. A regression locks
+the actual retirement gate, fails the old implementation deterministically and
+passes after tracking completion of the outer native workers. Two further
+checks cover reclamation of never-started factory records, for eight in total. This
+preserves the meaning of no remaining worker I/O rather than changing the test
+into a delayed retry. The first failure and interrupted fixture evidence remain.
+
+Native popup ownership/transport passes 110 plus 25 callback checks. Six shared-
+worker modes pass 206 assertions, including both notification orders, missing
+barrier/detach, send failure and late outcomes. Full ASan/UBSan/API26 gates cover
+116 source inputs. JS/C saving passes 47; Python passes 173/175 with two existing
+Windows privilege skips. Fresh product UI 647 and actual Windows frame/input 301
+checks pass; the latter now records its actual development host binary hash and
+verifies it unchanged during execution. The actual rebuilt APK verifies Stop/
+native-source DEX definitions, eight JNI exports, signatures and exact payloads.
+See .mdo/E118-final-identities.log, E118-exit-before.log/after.log and E118 receipts.
+
+This joins private original cancellation, not child adoption or managed popup
+network/body routing. The public product still refuses protected unqualified
+Android popups; provider/framework/automation qualification remains false. Phone
+and installed WebView verification stay deferred as requested.

@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E118:** join the original physical opener and native popup controller
+  to cancellation. Require both the original null-transport consumption receipt
+  and all held candidates' detach events before releasing native admission or
+  reporting source cleanup. Failure/timeout stays fenced without replay or
+  unproven debugger resume. Six shared-worker modes pass 206 assertions and the
+  native popup contract passes 110 plus 25 callback checks. Also reproduce and
+  fix premature worker termination reporting with a deterministic eight-check
+  regression. Full native 116-input, save 47, Python 173/175, product UI 647,
+  actual Windows frame/input 301 and actual APK gates pass. Native child
+  adoption/body routing and installed Android qualification remain incomplete.
 - **Android E117:** service explicit popup preparation on the original protocol
   executor and cooperative network pump, with original UI callbacks, eight-job
   admission, data-only cancellation and stale-ready suppression. Distinguish
@@ -9622,3 +9632,84 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   native popup callback/child/transport association, first-response interception,
   scoped child body routing and qualified resume/adoption still remain, along
   with broader platform/delivery work. Device checks stay deferred.
+
+## E118 — original native popup rejection and complete worker exit (2026-10-31)
+
+- Add the private prepareNativePopups path. Bind only an original UI physical
+  WebView/marker lease and its exact native popup controller; a different view,
+  document-only marker or duplicate source cannot supply this authority. Keep
+  weak native references and data-only receipts on the existing worker. This
+  proves an opener/native callback owner, not the held child's native identity.
+- A native Stop prevents fresh callbacks while cancelling. Send the original
+  pending Message once with a null child, or join its already-sent rejection;
+  never replay an adoption/rejection. Only the original same-queue consumption
+  barrier confirms this native receipt. Already-adopted, missing, failed and
+  timed-out effects remain explicit failures. Late barriers cannot upgrade a
+  failed receipt. New native admission stays held after unconfirmed cleanup.
+- The protocol worker separately waits for every original opener candidate's
+  detach event. Neither the native barrier alone nor detach alone completes
+  cancellation. Only both permit registration release; the final opener also
+  requires the original global disable ACK. No unproven child resume, target
+  selector, page script, Fetch/body operation or new executor is added. Release
+  the native admission hold on the original UI after proven source cleanup.
+  The old non-native preparation path still refuses unproven native cancellation.
+- Suppress cancellation effects for a request already terminal before delayed UI
+  delivery/host close. Serialize terminal versus cancellation transitions and
+  re-post native cleanup notifications that race UI delivery, without reopening
+  a terminal job. The suite covers the delayed-terminal close and explicit
+  reuse of a successfully cleaned original native source.
+- Full regression exposes an independent exit race: ThreadPoolExecutor reports
+  termination inside its task loop, before the surrounding native-retirement
+  finally has run. A regression holds the actual retirement gate;
+  it deterministically fails the old implementation at check 3 and passes the
+  fix. Two further checks prove stale never-started records are reclaimed on
+  the next factory call instead of accumulating; the combined gate passes eight.
+  Preserve E118-exit-start-record-before.log/after.log as well. Track actual outer workers until their final cleanup finishes, including
+  replacement workers; pool termination alone no longer proves no native I/O.
+  Preserve E118-native-first.log and E118-exit-before.log/after.log. The failed
+  navigation fixture's empty same-document-16 directory is retained under the
+  verified fixed QA parent as network-navigation-failure-E118-exit-race; do not
+  erase or silently reuse the interrupted test root. E118-native-fixed.log records
+  the refusal to overwrite that prior evidence before relocation.
+- Six shared-worker modes pass 206 assertions (125/12/7/22/22/18), including both
+  native-barrier/detach orders, missing barrier, missing detach, send failure,
+  delayed results, process uncertainty fencing and zero unproven resume/detach
+  commands. Native popup ownership/transport passes 110 plus 25 callback checks.
+  Original native ASan/UBSan/API26 gates pass 116 current input hashes, retaining
+  broker 167, fixed release 2,595 and prior discovery/WebSocket/worker checks.
+  Shared Android-to-JS/C saving passes 47 with one source claim and no retained
+  resources. Python passes 173/175 in 57.164 seconds; two existing Windows
+  symlink privilege skips remain. Product-fragment UI passes 647 current checks.
+- Re-execute actual Windows WebView2 frame/input 301 checks with six repeated fill
+  and interrupted-drag/recovery cycles. There are no new native diagnostics or
+  upload reservations. Record the actual development host hash before/after
+  execution; its binary is distinct from the separately packed program's host.
+  The result now records that identity directly, avoiding an unjustified artifact
+  equivalence assumption. Six pre/post frame input hashes bind this fresh run.
+  E105 world/document inputs stay current, and E106 JS 372/packed Windows 12 are
+  reused only with unchanged product/runtime and actual archive/artifact hashes.
+- Reuse unchanged, verified ARM64 C host
+  022caf0ab9e9b7bcdf32ecf3ecce1dfb6b77485958c5fb709b48f42c8af488d9.
+  Verify the actual DEX definitions for Stop and the native-source join, eight JNI
+  exports, retained v2/v3 signer, private provider, alignment and exact payloads.
+  Current APK: 6,493,505 bytes, SHA-256
+  0401fef0b0f961ec5574d57c98168141e3351adc5a24458d104aac46b7fd7430.
+  Windows/plugin artifacts remain unchanged. Evidence: E118-final-identities.log,
+  E118-native-current.json, E118-save-current.json, E118-popup-current.json,
+  E118-product-current.json, E118-frames-inputs.json, E118-frames-current.json,
+  E118-android-receipt.json and E118 native/save/popup/package final logs.
+  The native admission hold is set before receipt allocation, so allocation
+  failure cannot accidentally reopen native popup admission. The final native
+  WebSocket run reports 1,306 assertions: its ten-second assembly deadline loop
+  asserts each short poll, so the diagnostic count varies with scheduling. The
+  final audit checks actual pass/invariant flags, 64/2 cancellation cycles and
+  balanced 234 allocations/releases rather than requiring the earlier 1,307.
+  Preserve E118-final-identities-counter.log; no native test was weakened or
+  rerun merely to obtain a preferred diagnostic count.
+- Headless development service returns HTTP 200 on 63625, PID 11384, about
+  3,441.4 MiB, with about 41.5 GiB free on D:. No extra app/Home/source checkout,
+  phone/provider change, model call, external browser page, publication or
+  production account/config edit. The goal remains active: exact native child
+  adoption/transport proof, managed first-response interception/body routing and
+  qualified resume/adoption, broader platform/delivery work and deferred device
+  verification still remain. Public Android automation/provider flags stay false.

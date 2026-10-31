@@ -4,6 +4,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.webkit.WebView;
 import java.lang.ref.WeakReference;
+import java.io.IOException;
 
 /** Public-framework adapter. The UI controller keeps one instance for an exact
  * managed view/document generation, with an ownership predicate capturing that
@@ -13,6 +14,7 @@ final class MdoBrowserCdpView implements AutoCloseable {
     interface Owner {boolean current(WebView view);}
     private static final MdoBrowserCdpMarker.Budget CALLBACKS=new MdoBrowserCdpMarker.Budget(16);
     private final MdoBrowserCdpMarker marker;
+    private final WeakReference<WebView> original;private final boolean physical;
     MdoBrowserCdpView(WebView view,Owner owner) {
         this(view,owner,new MdoBrowserCdpMarker.DocumentQuota());
     }
@@ -21,7 +23,7 @@ final class MdoBrowserCdpView implements AutoCloseable {
     }
     private MdoBrowserCdpView(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota document,boolean network) {
         if(view==null||owner==null||Looper.myLooper()!=Looper.getMainLooper())throw new IllegalArgumentException("View marker requires its UI owner");
-        WeakReference<WebView> weak=new WeakReference<>(view);Handler handler=new Handler(Looper.getMainLooper());
+        WeakReference<WebView> weak=new WeakReference<>(view);original=weak;physical=network;Handler handler=new Handler(Looper.getMainLooper());
         MdoBrowserCdpMarker.Ui ui=new MdoBrowserCdpMarker.Ui(){
             public boolean onThread(){return Looper.myLooper()==Looper.getMainLooper();}
             public boolean post(Runnable task){return handler.post(task);}
@@ -37,5 +39,10 @@ final class MdoBrowserCdpView implements AutoCloseable {
     }
     static MdoBrowserCdpView network(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota document){return new MdoBrowserCdpView(view,owner,document,true);}
     MdoBrowserCdpMarker marker(){return marker;}
+    MdoBrowserCdpMarker.Lease physicalLease(WebView exact)throws IOException {
+        if(Looper.myLooper()!=Looper.getMainLooper())throw new IOException("cdp_requires_ui_thread");
+        if(exact==null||original.get()!=exact||!physical||!marker.lease().current())throw new IOException("cdp_popup_native_source_invalid");
+        return marker.lease();
+    }
     @Override public void close(){marker.close();}
 }
