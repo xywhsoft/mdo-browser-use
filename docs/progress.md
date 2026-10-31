@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E137:** bind an exact native document to the original Browser
+  attachment, reusing document witnesses and frame/isolated-world managers without
+  discovery or another connection. Admit only related native iframe sessions;
+  preserve document quotas, prohibit generic fallback and retire/rebind documents
+  without closing a valid physical owner. Eleven new modes pass 481 assertions,
+  including nested frames, reuse, iframe rebinding, navigation cancellation and
+  unsupported isolation. Native passes 123 inputs, 125 worker modes/4,593 checks,
+  controller 360 and attachment 2,633. Fresh product/popup/save, Python 173/175 and
+  36 actual APK definitions plus document-receipt/native-owner checks pass.
+  Installed-provider qualification, first-response release/body routing and the
+  full product coordinator remain outstanding; public admission stays disabled.
 - **Android E136:** add explicit activation of the exact handed-off native child.
   On the existing worker, acknowledge fixed debugger resume without detaching,
   then continue only original retained request IDs. Keep Fetch interception and
@@ -11021,3 +11032,62 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Public protected admission and provider/framework/automation qualification remain
   false; unavailable isolated worlds never use a main-world fallback. Preserve
   the user's phone/WebView deferral.
+
+
+### E137 — original-session document binding and isolated frame execution
+
+- Add UI-native exact document ownership using the existing registry/epoch/quota.
+  Promotion.document checks the actual marker adapter's view identity and rejects
+  foreign, physical-network-only or replayed markers. The three-field data-only
+  receipt carries Promotion, Lease and opaque identity, with no marker/SDK/host
+  retention. An atomic attachment fence prohibits generic rediscovery fallback.
+- Add private product protocolDocumentMarker, worker submitDocument and the
+  original Browser DocumentPeer. Reuse the existing document witness and all
+  default unique-context checks/cleanup/final frame-loader checks on that original
+  connection. Do not weaken document proof to physical-window ownership. Existing
+  frame/isolated-world controllers then bootstrap/evaluate through the same peer;
+  no new transport/executor, discovery or alternate binding implementation is used.
+- Normalize only that original root session. Admit related iframe sessions only
+  from an armed native event and track their exact membership/parent scopes.
+  Reject raw/foreign sessions before dispatch. Preserve ordered acknowledgements
+  while retiring a changed document locally; never accept stale output or silently
+  close/reconnect a still-valid physical window on normal document cancellation.
+  Protocol/frame/world callback faults cannot grant default-world fallback.
+- Before explicit rebind, disable related-frame auto-attachment and Runtime on the
+  original page session, acknowledge both, and retire old nested IDs. Keep the
+  Browser process auto-attach and Fetch guard. Rebind through the UI registry's
+  existing document quota and native witness; do not reuse old privileged worlds.
+  First responses remain opaque/paused and body routing is still absent.
+- E137-targeted.log passes eleven new product/native/shared-worker modes/481
+  assertions: inventory, isolated evaluation, reuse, rebind, navigation, ownership
+  loss, unsupported/malformed worlds, generic fallback/raw-session refusal and
+  iframe rebind. These include exact-view proof rejection and data-receipt fields.
+  The controlled renderer supplies protocol/DOM results; this is not installed
+  Android/provider or real DOM qualification.
+- E137-native.log passes 123 current hashes, ASan/UBSan/API26/JVM/JNI, 125 worker
+  modes/4,593 assertions, controller 360, actual JNI 264 and original attachment
+  2,633/two real native sessions. Fresh popup passes 110 +25 native callback +7
+  owner scope; fresh product passes 789/18 inputs including 77 asynchronous close
+  checks. Fresh save passes 47/six inputs tied to current native evidence. Python
+  passes 173/175 in 51.795 seconds; the two existing Windows symlink-privilege
+  cases remain skipped. Reuse E130 actual Windows 301/six cycles and E105 world
+  evidence only after checking every unchanged scoped input/native-host hash.
+- Apply reviewed files only while stopped, then restore the same service before
+  HTTP-backed checks. Rebuild the actual Android development APK and inspect
+  36 class/method definitions, native-view identity override, document/lease/handoff
+  data shapes and actual product/worker methods. Signing/private-provider/JNI/
+  ARM64/16-KiB/ZIP gates pass. APK: 6,534,465 bytes, SHA-256
+  23b51c8ba31131194026df77f7f2479125f3221e273eacb581f33860ca5e6c46.
+  Packed Windows program, ARM64 native host and plugin bytes remain unchanged.
+  E137-final-identities.py/log binds final code, artifacts and scoped evidence.
+- Development service restored: HTTP 200 on 63625, PID 26840; single deployment
+  about 3,447.9 MiB and D: about 37.03 GiB free. No ADB/phone/WebView change,
+  additional app/Home/source copy, new runtime dependency, model/external-browser
+  call, production/account/config change or publication.
+- Goal remains active. Continue controlled first-response release and body/
+  download routing, complete preparation/action/adoption/product/task-policy
+  coordination, multi-child operation/process recovery, navigation lifecycle and
+  platform/delivery audit. This private document/frame/world route does not enable
+  public Agent admission. Installed provider/framework/automation qualification
+  stays false; unsupported isolation never uses default-world Agent execution.
+  The user's phone/WebView deferral remains in force.

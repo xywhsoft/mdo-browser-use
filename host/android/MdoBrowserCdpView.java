@@ -32,6 +32,7 @@ final class MdoBrowserCdpView implements AutoCloseable {
             public boolean post(Runnable task){return handler.post(task);}
             public void remove(Runnable task){handler.removeCallbacks(task);}
         };MdoBrowserCdpMarker.View target=new MdoBrowserCdpMarker.View(){
+            public boolean owns(Object exact){return exact!=null&&weak.get()==exact&&current();}
             public boolean current(){WebView current=weak.get();return current!=null&&owner.current(current)&&current.getSettings().getJavaScriptEnabled();}
             public void evaluate(String source,MdoBrowserCdpMarker.Reply reply){
                 WebView current=weak.get();if(current==null||!owner.current(current))throw new IllegalStateException("Native marker owner changed");

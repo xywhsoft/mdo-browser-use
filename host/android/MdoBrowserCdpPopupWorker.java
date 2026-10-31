@@ -110,6 +110,9 @@ final class MdoBrowserCdpPopupWorker {
     private void remove(Job job){synchronized(gate){for(int i=0;i<jobs.length;i++)if(jobs[i]==job){jobs[i]=null;return;}}}
     private List<Job> snapshot(){synchronized(gate){List<Job> found=new ArrayList<>();for(Job job:jobs)if(job!=null)found.add(job);return found;}}
     boolean needed(){MdoBrowserCdpPopupBroker current=broker;return !closed.get()&&(active.get()!=0||current!=null&&current.armed());}
+    MdoBrowserCdpBinding bindDocument(MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpMarker marker,int timeout)throws IOException{
+        MdoBrowserCdpPopupBroker current=broker;if(closed.get()||current==null||!current.armed())throw new IOException("cdp_popup_broker_closed");return current.bindDocument(handoff,document,marker,timeout);
+    }
     int pending(){thread();synchronized(gate){int count=0;for(Job job:jobs)if(job!=null)count++;return count;}}
     private boolean clean(){MdoBrowserCdpPopupBroker current=broker;return current==null||current.cleanupConfirmed();}
     private boolean enabled(){MdoBrowserCdpPopupBroker current=broker;return current!=null&&current.enabledMayHaveOccurred();}

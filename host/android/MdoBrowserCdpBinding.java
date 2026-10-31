@@ -174,8 +174,12 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         return bind(marker,timeoutMs,events,targets,factory,network,null);
     }
     private static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory,boolean network,java.util.function.BooleanSupplier operation) throws IOException {
+        return bind(marker,timeoutMs,events,targets,factory,network,operation,false);
+    }
+    private static MdoBrowserCdpBinding bind(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events,Targets targets,Factory factory,boolean network,java.util.function.BooleanSupplier operation,boolean attached) throws IOException {
         if(marker==null||events==null||targets==null||factory==null||timeoutMs<100||timeoutMs>15000)throw problem("cdp_binding_arguments_invalid");
         long started=android.os.SystemClock.elapsedRealtime();MdoBrowserCdpMarker.Lease lease=marker.lease();
+        if(lease.attached()&&!attached)throw problem("cdp_attached_binding_required");
         if(lease.physicalNetwork()!=network)throw problem("cdp_network_scope_invalid");
         if(lease.busy())throw problem("cdp_binding_busy");
         MdoBrowserCdpMarker.Ticket ticket=null;Peer peer=null;boolean success=false,cleanupAttempted=false;
@@ -249,6 +253,15 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
     }
     private static void operation(java.util.function.BooleanSupplier scope)throws IOException {
         if(scope!=null&&!scope.getAsBoolean())throw problem("cdp_binding_owner_changed");
+    }
+    /** Use the existing document witness on the original proved channel.
+     * No discovery or new connection; native document/unique-context checks
+     * still precede frame/world operations. */
+    static MdoBrowserCdpBinding bindAttached(MdoBrowserCdpPopupBroker.DocumentPeer peer,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpMarker marker,int timeout)throws IOException {
+        if(peer==null||document==null||marker==null||marker.lease()!=document.lease||!peer.matches(document)||!document.current())throw problem("cdp_popup_document_owner_invalid");
+        final String target=peer.target();
+        return bind(marker,timeout,(method,child,params)->{},ignored->java.util.Collections.singletonList(target),
+            (id,budget,current,events)->{if(!target.equals(id))throw problem("cdp_popup_document_owner_invalid");peer.observe(events);return peer;},false,document::current,true);
     }
     /** A separate physical-view proof, never a promotion of an ordinary
      * document binding. This private facade exposes no page/frame RPC. */

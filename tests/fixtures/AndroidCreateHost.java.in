@@ -179,7 +179,7 @@ final class AndroidCreateHost {
     static final class MdoBrowserDialogTarget {final WebView view;final DialogCore dialogs=new DialogCore();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
-    static final class CdpViews {int invalidated;String reason;void close(){}void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
+    static final class CdpViews {int invalidated;String reason;void close(){}MdoBrowserCdpMarker marker(String key,WebView view,long epoch,Object channel,BooleanSupplier current){throw new UnsupportedOperationException("document_requires_joint_fixture");}void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
     WebMessagePort port;
     final Object activity=this;final Root root=new Root();final CdpViews cdpViews=new CdpViews();
     final HostPage host=new HostPage();final CdpWorker cdpWorker=new CdpWorker();
@@ -238,7 +238,7 @@ final class AndroidCreateHost {
         }
     }
     static final class MdoBrowserCdpPopupBroker {
-        static final class Handoff {boolean owns(MdoBrowserCdpPopupNative.Promotion owner){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}void activate(){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}}
+        static final class Handoff {boolean current(){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}boolean owns(MdoBrowserCdpPopupNative.Promotion owner){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}void activate(){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}}
     }
     boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired,nativeRetirementNotifications;JSONObject lastReply;
     final Set<WebView> deferredDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>()),acknowledgedDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());

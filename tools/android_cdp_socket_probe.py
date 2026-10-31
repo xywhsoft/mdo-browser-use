@@ -167,7 +167,8 @@ def main():
                  'handoff-denied','handoff-request-close','handoff-parent-close','handoff-parent-reuse','handoff-expiry','handoff-response','handoff-limit','handoff-global','handoff-ui-loss','handoff-disposal-failure',
                  'activation-success','activation-parent-close','activation-expiry','activation-owner-loss',
                  'activation-resume-unsupported','activation-resume-rejected','activation-resume-nonempty','activation-resume-mismatch','activation-resume-timeout','activation-resume-send-failure',
-                 'activation-flow-rejected','activation-flow-nonempty','activation-flow-foreign','activation-flow-timeout','activation-flow-send-failure','activation-flow-limit','activation-flow-owner-loss'):
+                 'activation-flow-rejected','activation-flow-nonempty','activation-flow-foreign','activation-flow-timeout','activation-flow-send-failure','activation-flow-limit','activation-flow-owner-loss',
+                 'document-inventory','document-evaluate','document-rebind','document-navigation','document-owner-loss','document-unique','document-metadata','document-no-fallback','document-reuse','document-scope','document-rebind-frames'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
@@ -177,6 +178,7 @@ def main():
                 or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
+                or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
                 or popup_worker.get('protected_attachment_activation_tested') is not mode.startswith('activation')
                 or popup_worker.get('protected_attachment_handoff_tested') is not mode.startswith('handoff')
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False

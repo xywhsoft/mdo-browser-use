@@ -42,6 +42,11 @@
     private void activateProtocolPopup(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException {
         nativeCreationAdmission();if(handoff==null||!handoff.owns(owner)||!owner.current())throw new java.io.IOException("cdp_popup_activation_unavailable");handoff.activate();
     }
+    private MdoBrowserCdpMarker protocolDocumentMarker(String key,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff){
+        nativeCreationAdmission();if(owner==null||handoff==null||!handoff.owns(owner)||!handoff.current())throw new IllegalStateException("cdp_popup_document_owner_invalid");
+        final WebView exact=owner.view();final long epoch=views.epoch(key,exact);if(!views.owns(key,exact)||epoch<=0)throw new IllegalStateException("cdp_popup_document_owner_invalid");
+        return cdpViews.marker(key,exact,epoch,handoff,()->!stopped&&!browserPaused&&!pageClosed.contains(key)&&views.owns(key,exact)&&views.epoch(key,exact)==epoch&&handoff.current());
+    }
     private MdoBrowserCdpPopupNative.Promotion transferProtocolPopup(String key,MdoBrowserCdpPopupNative source,
             MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof,boolean protectedAttachment)throws java.io.IOException {
         nativeCreationAdmission();

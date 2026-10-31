@@ -154,10 +154,22 @@ final class MdoBrowserCdpPopupNative {
         private Promotion(MdoBrowserLifecycle.Independent<WebView> owner,Retirement parent,Object proof,Runnable closer){nativeOwner=owner;this.parent=parent;proofIdentity=proof;this.closer=new WeakReference<>(closer);}
         boolean current(){CloseGate gate=parent.closeGate.get();return creationConfirmed()&&live.get()&&!ended.get()&&!failed.get()&&!nativeOwner.humanOwned()&&nativeOwner.current()&&gate!=null&&gate.accepting();}
         boolean matches(Child original){return original!=null&&original.identity==proofIdentity;}
+        Document document(MdoBrowserCdpMarker marker)throws IOException {
+            thread();if(!current()||marker==null||marker.lease().physicalNetwork()||!marker.ownsNative(view()))throw new IOException("cdp_popup_document_owner_invalid");
+            Document proof=new Document(this,marker.lease());if(!proof.lease.attach(proof.identity))throw new IOException("cdp_popup_document_owner_invalid");return proof;
+        }
         boolean ended(){return ended.get();}boolean failed(){return failed.get();}boolean nativeDestroyed(){return nativeOwner.destroyed();}
         WebView view(){thread();if(!current())throw new IllegalStateException("cdp_popup_native_promotion_unavailable");return nativeOwner.view();}
         private void notifyClose(){Runnable action=closer.get();if(action!=null)try{action.run();}catch(RuntimeException|Error ignored){/* retained UI owner is reconciled on recovery */}}
         @Override public void close(){live.set(false);notifyClose();}
+    }
+    /** UI-certified exact document marker. Its marker/quota stay UI-owned;
+     * only data receipts cross to the existing worker. */
+    static final class Document {
+        private final Promotion owner;final MdoBrowserCdpMarker.Lease lease;private final Object identity=new Object();
+        private Document(Promotion owner,MdoBrowserCdpMarker.Lease lease){this.owner=owner;this.lease=lease;}
+        boolean current(){return owner.current()&&lease.current()&&lease.belongsToAttachment(identity);}
+        boolean matches(Promotion exact){return owner==exact;}
     }
     /** Bounded UI ownership survives a host removing its opener's controller.
      * Workers retain only weak links to this record, never its core/book/host. */

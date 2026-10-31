@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -66,6 +68,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         boolean transferred(){MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();return committed.get()||original!=null&&original.current();}
         boolean current(){MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();return eligible()&&original!=null&&original.current();}
         boolean owns(MdoBrowserCdpPopupNative.Promotion original){return original!=null&&nativeOwner.get()==original;}
+        boolean owns(MdoBrowserCdpPopupNative.Document original){return original!=null&&original.matches(nativeOwner.get());}
         void activate()throws IOException{if(!committed.get()||!current())throw problem("cdp_popup_activation_unavailable");if(!activationRequested.compareAndSet(false,true))throw problem("cdp_popup_activation_replayed");}
         MdoBrowserCdpSession.ControlResult activationResult(){return activationResult.get();}
         MdoBrowserCdpSession.ControlResult flowFailure(){return flowFailure.get();}
@@ -82,6 +85,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private volatile boolean protectionStarted;
         private volatile MdoBrowserCdpBinding.Network nativeBound;private volatile MdoBrowserCdpPopupNative.Child nativeChild;
         private volatile Handoff handoff;
+        private volatile DocumentPeer documentPeer;
         private Candidate(Registration[] possibleOpeners,MdoBrowserCdpSession.AttachedTarget original,long born,AtomicBoolean brokerClosed){this.possibleOpeners=possibleOpeners;this.original=original;this.born=born;this.brokerClosed=brokerClosed;}
         boolean current(){
             if(retired||brokerClosed.get())return false;Handoff transfer=handoff;if(transfer!=null&&transfer.transferred())return transfer.current();
@@ -101,8 +105,56 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         int retainedRequestCount(){return original.retainedRequestCount();}
         int retainedResponseCount(){return original.retainedResponseCount();}
         private void reconcileHandoff(){Handoff transfer=handoff;if(transfer!=null&&transfer.transferred()){possibleOpeners=NO_OPENERS;provenOpener=null;MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;nativeChild=null;if(bound!=null)bound.close();}}
-        private void retired(){retired=true;Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
+        private void retired(){retired=true;DocumentPeer document=documentPeer;documentPeer=null;if(document!=null)document.retire();Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
             MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;if(bound!=null)bound.close();nativeChild=null;}
+    }
+    /** Worker-owned document facade on the exact original Browser session.
+     * Root events normalize to null; only native related-iframe events can
+     * admit nested sessions. Closing a document never closes the shared wire. */
+    static final class DocumentPeer implements MdoBrowserCdpBinding.Peer {
+        private final MdoBrowserCdpPopupBroker host;private final Candidate candidate;private final Handoff handoff;private final MdoBrowserCdpPopupNative.Document document;
+        private final AtomicBoolean closed=new AtomicBoolean();private volatile MdoBrowserCdpSession.Events receiver;
+        private final Map<String,String> children=new HashMap<>();private String admitting,parent;private volatile String fault;
+        private DocumentPeer(MdoBrowserCdpPopupBroker host,Candidate candidate,MdoBrowserCdpPopupNative.Document document){this.host=host;this.candidate=candidate;handoff=candidate.handoff;this.document=document;}
+        private void guard()throws IOException{host.guard();if(fault!=null)throw problem(fault);if(closed.get()||!handoff.current()||!document.current())throw problem("cdp_popup_document_retired");}
+        boolean matches(MdoBrowserCdpPopupNative.Document original){return document==original;}
+        String target()throws IOException{guard();return candidate.original.target;}
+        void observe(MdoBrowserCdpSession.Events next)throws IOException{guard();if(next==null||receiver!=null)throw problem("cdp_controller_busy");receiver=next;}
+        public JSONObject call(String method,JSONObject params,int timeout)throws IOException{return call(method,params,null,timeout,false);}
+        public JSONObject call(String method,JSONObject params,String child,int timeout,boolean effect)throws IOException{
+            guard();if(child!=null&&!children.containsKey(child))throw problem("cdp_popup_document_session_invalid");
+            JSONObject reply=host.session.callAttached(candidate.original,handoff::current,method,params,child,timeout,effect);
+            if(fault!=null)throw new MdoBrowserCdpSession.Failure(fault,0,effect);if(closed.get()||!document.current())throw new MdoBrowserCdpSession.Failure("cdp_popup_document_retired",0,effect);guard();return reply;
+        }
+        public boolean poll(int timeout)throws IOException{return poll(timeout,timeout);}
+        public boolean poll(int receive,int timeout)throws IOException{guard();boolean progress=host.session.poll(receive,timeout);guard();return progress;}
+        public boolean idle()throws IOException{guard();return host.session.idle();}
+        public void admitChild(String child)throws IOException{
+            guard();if(child==null||!child.equals(admitting)||children.containsKey(child)||host.nestedDocuments.containsKey(child))throw problem("cdp_popup_document_session_invalid");
+            host.session.admitChild(child);children.put(child,parent);host.nestedDocuments.put(child,this);
+        }
+        private void retireChildNative(String child)throws IOException{if(host.nestedDocuments.get(child)!=this)throw problem("cdp_popup_document_session_invalid");host.session.retireChild(child);children.remove(child);host.nestedDocuments.remove(child);}
+        public void retireChild(String child)throws IOException{guard();retireChildNative(child);}
+        private void event(String method,String source,JSONObject params)throws IOException{
+            if("Target.attachedToTarget".equals(method)){
+                Object id=params.opt("sessionId"),info=params.opt("targetInfo");JSONObject metadata=info instanceof JSONObject?(JSONObject)info:null;
+                if(!(id instanceof String)||!MdoBrowserCdpJson.token((String)id)||metadata==null||!"iframe".equals(metadata.opt("type"))||!Boolean.FALSE.equals(params.opt("waitingForDebugger")))throw problem("cdp_popup_document_attachment_invalid");
+                if(closed.get()||!document.current()){host.session.admitChild((String)id);host.session.retireChild((String)id);return;}
+                admitting=(String)id;parent=source;
+            }
+            try{
+                if(closed.get()||!document.current()){
+                    if("Target.detachedFromTarget".equals(method)&&children.containsKey(params.opt("sessionId")))retireChildNative((String)params.opt("sessionId"));return;
+                }
+                MdoBrowserCdpSession.Events action=receiver;if(action==null)throw problem("cdp_popup_document_listener_missing");
+                try{action.event(method,source,params);}catch(IOException error){if(!closed.get()&&document.current()){fault=safe(error.getMessage());close();}}
+            }finally{
+                if(admitting!=null&&!children.containsKey(admitting)){host.session.admitChild(admitting);host.session.retireChild(admitting);}
+                admitting=null;parent=null;
+            }
+        }
+        private void retire(){close();for(String child:new ArrayList<>(children.keySet())){try{host.session.retireChild(child);}catch(IOException ignored){}host.nestedDocuments.remove(child,this);}children.clear();}
+        @Override public void close(){closed.set(true);receiver=null;}
     }
     private static final class Release {
         final MdoBrowserCdpSession.ControlReceipt receipt;
@@ -112,6 +164,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private final MdoBrowserCdpBinding.Factory nativeFactory;
     private final List<Registration> registrations=new ArrayList<>();private final List<Candidate> candidates=new ArrayList<>();
     private final List<Release> releases=new ArrayList<>();private final Set<String> seenTargets=new HashSet<>();
+    private final Map<String,DocumentPeer> nestedDocuments=new HashMap<>();
     private final AtomicBoolean closed=new AtomicBoolean();private volatile MdoBrowserCdpSession session;
     private MdoBrowserCdpPopupNative.CloseGate nativeClose;
     private volatile int state=NEW;private volatile boolean enabledMayHaveOccurred,cleanupConfirmed=true;
@@ -171,6 +224,15 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private static String safe(String code){return code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:"cdp_popup_broker_failed";}
     private void event(String method,String child,JSONObject params)throws IOException {
         guard();if(session==null)throw fail("cdp_popup_broker_connection_invalid");
+        if(child!=null){
+            for(Candidate candidate:candidates)if(candidate.original.matchesNativeSession(child)){
+                if(!candidate.current())throw fail("cdp_popup_candidate_retired");
+                if("Fetch.requestPaused".equals(method)){session.retainAttachedRequest(candidate.original);return;}
+                DocumentPeer document=candidate.documentPeer;if(document==null)throw fail("cdp_popup_broker_child_unproven");document.event(method,null,params);return;
+            }
+            DocumentPeer document=nestedDocuments.get(child);if(document!=null){if("Fetch.requestPaused".equals(method))throw fail("cdp_popup_document_response_unqualified");document.event(method,child,params);return;}
+            throw fail("cdp_popup_broker_child_unproven");
+        }
         if("Target.attachedToTarget".equals(method)){
             attachedSeen=true;MdoBrowserCdpSession.AttachedTarget original=session.attachedTarget();
             if(state==STOPPING){
@@ -191,6 +253,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         }
         if("Target.detachedFromTarget".equals(method)&&child==null){
             Object id=params.opt("sessionId");
+            DocumentPeer nested=nestedDocuments.get(id);if(nested!=null){nested.event(method,nested.children.get(id),params);return;}
             for(int i=candidates.size()-1;i>=0;i--){Candidate candidate=candidates.get(i);if(candidate.original.matchesNativeSession(id)){
                 candidate.retired();session.retireAttachedTarget(candidate.original);candidates.remove(i);
             }}return;
@@ -201,6 +264,24 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         }
         if(child!=null)throw fail("cdp_popup_broker_child_unproven");
         if(method.startsWith("Fetch."))throw fail("cdp_popup_broker_response_unproven");
+    }
+    MdoBrowserCdpBinding bindDocument(Handoff handoff,MdoBrowserCdpPopupNative.Document proof,MdoBrowserCdpMarker marker,int timeout)throws IOException{
+        guard();prune();if(handoff==null||proof==null||marker==null||marker.lease()!=proof.lease||!handoff.current()||!handoff.owns(proof)||!proof.current()||timeout<100||timeout>15000)throw problem("cdp_popup_document_owner_invalid");long born=now();
+        MdoBrowserCdpSession.ControlResult active=handoff.activationResult();if(active==null||!active.ok)throw problem("cdp_popup_activation_required");
+        Candidate original=null;for(Candidate candidate:candidates)if(candidate.handoff==handoff)original=candidate;if(original==null)throw problem("cdp_popup_candidate_retired");
+        DocumentPeer old=original.documentPeer;
+        if(old!=null){
+            if(!old.closed.get()&&old.document.current())throw problem("cdp_popup_document_busy");old.close();
+            try{
+                JSONObject disable=new JSONObject().put("autoAttach",false).put("waitForDebuggerOnStart",false).put("flatten",true);
+                JSONObject reply=session.callAttached(original.original,handoff::current,"Target.setAutoAttach",disable,null,Math.min(5000,remaining(born,timeout)),true);if(reply.length()!=0)throw fail("cdp_popup_document_reset_invalid");
+                reply=session.callAttached(original.original,handoff::current,"Runtime.disable",new JSONObject(),null,Math.min(5000,remaining(born,timeout)),false);if(reply.length()!=0)throw fail("cdp_popup_document_reset_invalid");
+                old.retire();original.documentPeer=null;
+            }catch(JSONException error){throw fail("cdp_popup_document_reset_invalid");}
+        }
+        DocumentPeer peer=new DocumentPeer(this,original,proof);original.documentPeer=peer;
+        int left=remaining(born,timeout);if(left<100){peer.close();throw problem("cdp_popup_document_timeout");}
+        return MdoBrowserCdpBinding.bindAttached(peer,proof,marker,left);
     }
     private void prune()throws IOException{
         long time=now();for(Candidate candidate:candidates){long age=time-candidate.born;
@@ -314,7 +395,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     boolean cleanupConfirmed(){return cleanupConfirmed&&(nativeClose==null||!nativeClose.failed());}
     boolean enabledMayHaveOccurred(){return enabledMayHaveOccurred;}
     private IOException fail(String code){if(failure==null)failure=safe(code);state=FAILED;try{close();}finally{if(Thread.currentThread()==worker)clear();}return problem(failure);}
-    private void clear(){for(Candidate candidate:candidates)candidate.retired();for(Registration registration:registrations)registration.close();candidates.clear();registrations.clear();releases.clear();seenTargets.clear();}
+    private void clear(){for(Candidate candidate:candidates)candidate.retired();for(Registration registration:registrations)registration.close();candidates.clear();nestedDocuments.clear();registrations.clear();releases.clear();seenTargets.clear();}
     @Override public void close(){
         if(!closed.compareAndSet(false,true))return;
         // A socket close wakes the worker but is not an acknowledgement that

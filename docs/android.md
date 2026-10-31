@@ -4874,3 +4874,49 @@ checks the new methods and eleven-field receipt. Installed-provider/framework an
 public automation qualification remain false. Continue independent child protocol,
 document/world bootstrap, response release/body routing and full product
 coordination before enabling the protected route.
+
+
+### E137: document, frame and isolated-world access on the original channel
+
+Physical ownership does not identify a current DOM. The private product
+protocolDocumentMarker obtains a marker from the existing exact-view/epoch/quota
+registry. Native Promotion.document additionally checks the marker's actual
+native-view identity on UI, rejecting foreign views, network-only markers and
+replayed claims. Its three-field Document receipt carries only the native owner,
+thread-safe lease and opaque attachment identity. An attached lease cannot fall
+back to ordinary discovery/binding.
+
+submitDocument dispatches through the existing worker and process broker. The
+original Browser DocumentPeer selects its already captured root internally and
+normalizes that root to the existing frame controller's null source. It opens no
+connection and runs no target discovery. The ordinary document binding still
+performs its native document witness, default-context negative/positive unique-ID
+checks, cleanup and final frame/loader validation, all on the original channel.
+Its native housekeeping witness is not Agent execution in the default world.
+Existing frame inventories and isolated-world creation/unique-context proofs then
+run unchanged, including related out-of-process iframe trees. Unsupported or
+malformed isolation cannot fall back to default-world Agent code.
+
+Only an armed related native iframe event can admit a nested session; a supplied
+root/raw/foreign session is not an addressable peer. The broker keeps bounded
+nested membership and maps original detach events to their captured parent. Epoch
+loss retires local document work and clears stale output without closing a valid
+physical owner or silently reconnecting. Document callback faults stay local when
+the transport remains ordered. Physical ownership/transport failures still use the
+original process/native quiescence guard.
+
+Explicit document rebind first disables the original page session's related-frame
+auto-attachment and Runtime reporting, consumes their ordered acknowledgements,
+and retires old nested IDs. It then repeats document proof on the same connection
+with the UI registry's document quota. This does not disable the Browser process
+broker or Fetch interception. First responses remain privately paused; there is no
+response/body transfer or complete public product admission in this phase.
+
+Eleven joint product/native/shared-worker modes pass 481 assertions. They cover
+five-frame isolated inventory, isolated evaluation, repeated work on the same
+binding, two forms of rebind, navigation during evaluation, physical-owner loss,
+unsupported/malformed isolation, foreign markers, raw-session refusal and generic
+fallback refusal. Rebind with nested iframes uses fresh native session IDs. Actual
+APK checks include the three-field document receipt, marker attachment fence and
+native-view identity override. Installed Android/provider qualification remains
+false, with the phone/WebView deferral preserved.

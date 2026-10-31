@@ -19,7 +19,7 @@ import java.util.function.BooleanSupplier;
  * neither the native view nor its UI owner. */
 final class MdoBrowserCdpMarker implements AutoCloseable {
     interface Ui {boolean onThread();boolean post(Runnable task);void remove(Runnable task);}
-    interface View {boolean current();void evaluate(String source,Reply reply);}
+    interface View {boolean current();void evaluate(String source,Reply reply);default boolean owns(Object exact){return false;}}
     interface Reply {void done(String json);}
     private static final class RandomHolder {static final SecureRandom VALUE=new SecureRandom();}
     /** UI-owned document quota, shared across all short-lived admission leases.
@@ -45,6 +45,10 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
         private final WeakReference<MdoBrowserCdpMarker> owner;
         private final AtomicBoolean live=new AtomicBoolean(true);
         private final AtomicReference<AutoCloseable> channel=new AtomicReference<>();
+        private final AtomicReference<Object> attachment=new AtomicReference<>();
+        boolean attached(){return attachment.get()!=null;}
+        boolean belongsToAttachment(Object exact){return exact!=null&&attachment.get()==exact;}
+        boolean attach(Object exact){return exact!=null&&current()&&!busy()&&attachment.compareAndSet(null,exact);}
         Lease(MdoBrowserCdpMarker marker){owner=new WeakReference<>(marker);}
         boolean physicalNetwork(){MdoBrowserCdpMarker marker=owner.get();return marker!=null&&marker.network;}
         boolean current(){return live.get()&&owner.get()!=null;}
@@ -169,6 +173,7 @@ final class MdoBrowserCdpMarker implements AutoCloseable {
      * One proof attempt; never upgrade/reuse a document marker for networking. */
     static MdoBrowserCdpMarker network(Ui ui,View view,Budget budget,DocumentQuota document){return new MdoBrowserCdpMarker(ui,view,budget,document,true);}
     Lease lease(){return lease;}
+    boolean ownsNative(Object exact){return ui.onThread()&&exact!=null&&lease.current()&&view!=null&&view.current()&&view.owns(exact);}
     Ticket request() throws IOException {return request(null);}
     Ticket request(BooleanSupplier operation) throws IOException {
         if(!lease.current())throw new IOException("cdp_binding_owner_changed");

@@ -18,7 +18,12 @@ final class PopupProductHost {
     final Map<String,String> documentFailures=new HashMap<>();final Set<String> pageClosed=new HashSet<>();
     final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed;
     static final class Root {int removes;Runnable callback;void removeView(WebView exact){removes++;Runnable work=callback;callback=null;if(work!=null)work.run();}}
-    static final class CdpViews {int invalidations;void invalidate(String key,WebView exact,long epoch,String reason){invalidations++;}}
+    static final class CdpViews {
+        int invalidations;MdoBrowserCdpWorker worker;
+        final MdoBrowserCdpRegistry<WebView> registry=new MdoBrowserCdpRegistry<>((view,quota,current)->new MdoBrowserCdpView(view,v->v==view&&current.getAsBoolean(),quota).marker(),lease->{if(worker!=null)worker.cancel(lease);});
+        MdoBrowserCdpMarker marker(String key,WebView view,long epoch,Object channel,java.util.function.BooleanSupplier current){return registry.marker(key,view,epoch,channel,current);}
+        void invalidate(String key,WebView exact,long epoch,String reason){invalidations++;registry.invalidate(key,exact,epoch,reason);}
+    }
     static final class MdoBrowserDocument {static final int BACKGROUND=1;int closes,destroyed;boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
     static final class Dialogs {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
@@ -35,6 +40,7 @@ final class PopupProductHost {
     MdoBrowserCdpPopupNative.Promotion promote(String key,MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException{return promoteProtocolPopup(key,source,original,proof);}
     MdoBrowserCdpPopupNative.Promotion handoff(String key,MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException{return handoffProtocolPopup(key,source,original,proof);}
     void activate(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException{activateProtocolPopup(owner,handoff);}
+    MdoBrowserCdpMarker documentMarker(String key,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff){return protocolDocumentMarker(key,owner,handoff);}
     boolean retire(String key,WebView exact){return closeAndDestroyDocument(key,exact);}
     int retiring(){return nativeRetiringViews.size();}boolean failed(){return nativeViewCleanupFailed;}
     void checkCreation(){nativeCreationAdmission();}

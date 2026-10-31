@@ -465,6 +465,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         original.managedResumeAttempted=true;
         protectedCall(original,owner,"Runtime.runIfWaitingForDebugger",new JSONObject(),timeout);original.resumed=true;
     }
+    /** Controller RPC on one original attachment. Document checks are the
+     * peer's responsibility; physical ownership guards every wire operation. */
+    JSONObject callAttached(AttachedTarget original,BooleanSupplier owner,String method,JSONObject params,String child,int timeout,boolean effect)throws IOException {
+        admitProtectedCommand(original,owner,timeout);if(child!=null&&!children.contains(child))throw failure("cdp_session_invalid",false);
+        attachmentCommandOwner=owner;try{return call(method,params,child==null?original.session:child,timeout,effect);}finally{attachmentCommandOwner=null;}
+    }
     boolean continueProtectedRequest(AttachedTarget original,BooleanSupplier owner,int timeout)throws IOException {
         protectedAttachment(original,true);if(!original.resumed)throw failure("cdp_attach_resume_unconfirmed",false);
         admitProtectedCommand(original,owner,timeout);
