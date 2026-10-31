@@ -55,6 +55,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
          * registrations never acquire an already captured waiting target. */
         boolean mayBelongTo(Registration original){Registration proven=provenOpener;if(proven!=null)return proven==original;
             for(Registration possible:possibleOpeners)if(possible==original)return true;return false;}
+        boolean unbound(){return nativeBound==null;}
         boolean nativeChildProven(){MdoBrowserCdpBinding.Network bound=nativeBound;MdoBrowserCdpPopupNative.Child child=nativeChild;
             return current()&&bound!=null&&child!=null&&child.current()&&bound.physicalCurrent();}
         boolean requestProtection()throws IOException{if(!current())throw problem("cdp_popup_candidate_retired");return protection.get()==null&&protectionRequested.compareAndSet(false,true);}
@@ -208,7 +209,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         MdoBrowserCdpBinding.Network bound=null;long born=now();
         try{
             List<Candidate> frozen=new ArrayList<>();List<MdoBrowserCdpSession.AttachedTarget> targets=new ArrayList<>();
-            for(Candidate candidate:candidates)if(candidate.mayBelongTo(opener)&&candidate.current()&&candidate.nativeBound==null){
+            for(Candidate candidate:candidates)if(child.includes(candidate)&&candidate.mayBelongTo(opener)&&candidate.current()&&candidate.nativeBound==null){
                 if(!candidate.original.protectionConfirmed())throw problem("cdp_popup_interception_required");frozen.add(candidate);targets.add(candidate.original);
             }
             bound=MdoBrowserCdpBinding.bindPopupNative(child,targets,remaining(born,timeout),()->current()&&opener.current()&&requestCurrent.getAsBoolean(),nativeFactory);

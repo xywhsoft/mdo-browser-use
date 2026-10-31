@@ -138,7 +138,7 @@ def main():
     result['jvm_popup_broker']=popup_results
     popup_worker_results=[]
     for mode in ('suite','native-cancel','host-close','native-ack-timeout','native-detach-timeout','native-send-failure','protection','protection-limit','protection-response','protection-duplicate','protection-timeout','protection-send-failure','protection-reply','protection-nonempty',
-                 'native-proof','native-proof-missing','native-proof-unique','native-proof-owner','native-proof-cancel','native-proof-barrier','native-proof-detach','native-proof-no-guard','native-proof-marker','native-proof-late-ui','native-proof-between','native-proof-cooperative','native-proof-no-opener','native-proof-foreign-opener','native-proof-multiple'):
+                 'native-proof','native-proof-missing','native-proof-unique','native-proof-owner','native-proof-cancel','native-proof-barrier','native-proof-detach','native-proof-no-guard','native-proof-marker','native-proof-late-ui','native-proof-between','native-proof-cooperative','native-proof-no-opener','native-proof-foreign-opener','native-proof-multiple','native-proof-post-birth','allocation','allocation-cleanup-failure'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')

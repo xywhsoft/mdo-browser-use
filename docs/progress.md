@@ -10060,3 +10060,73 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   resume, scoped response/body routing or final delivery. Keep protected Android
   popup product admission and provider/framework/automation flags false while
   implementing the actual native product coordinator and quiescent teardown.
+
+## E124 — preconstruction target permits and native child creation (2026-10-31)
+
+- Previous goal turn made progress: E123 is committed as e546a59. Keep the full
+  goal active, work sequentially on master in this deployment, and preserve the
+  user's deferred phone/provider choice. No ADB inventory/install/update request.
+- E124-post-birth-before.log reproduces another proof gap against the existing
+  E123 compiled classes: a matching target first reported after constructing the
+  child was accepted. That target could represent its initial WebView contents,
+  not transferred popup contents. The same ordered negative case now passes
+  28 checks and never opens that late target's proof connection.
+- Issue one opaque Allocation for the exact ready Request/native source/original
+  Pending callback. Freeze only previously captured, guarded, unbound targets.
+  Empty/unguarded snapshots, a consumed permit, cancellation or another pending
+  generation cannot construct a native child. A previously bound target alone
+  cannot supply a new allocation. Permits contain weak/data evidence, not UI
+  callbacks, native views or an owning Job; terminal requests release captures.
+- The native UI adapter itself invokes new WebView with its original opener's
+  Context, after registry/permit admission. No caller-provided view or constructor
+  can certify preconstruction provenance. The resulting Created handle is UI-owned;
+  its Child passes only weak/data lifetime and the original frozen capture set to
+  the existing executor. Proof never widens to a subsequently attached target,
+  even if its physical marker matches. Legacy consumption/fresh-birth receipts
+  cannot queue target proof without this original construction permit.
+- Reserve fresh physical ownership before input-factory setup. Registration
+  failure keeps the exact instance/key/capacity until post-destroy acknowledgement;
+  failure to destroy that instance reports unconfirmed cleanup. Reentrant host
+  shutdown cannot republish an entry, and weak identity history preserves exact
+  destruction evidence so rollback does not destroy an acknowledged view twice.
+  Parent or replacement views are never selected for constructor rollback.
+- E124-allocation-verified.log covers allocation/replay, cancelled-before-create,
+  failed registration, refused legacy upgrade, reentrant shutdown and uncertain
+  destroy paths: allocation 148, separate cleanup-failure mode 29. The initial
+  E124-allocation.log failure was a fixture's stale expected child in the second
+  null-rejection callback; reset that expectation, retain original callback/ACK
+  synchronization, and keep later passing logs authoritative. No sleeps or extra
+  product executor replace the original synchronization.
+- Fresh input 177/lifecycle 150/channel 22/guard 63/wheel 66/hover 82 checks pass;
+  fresh product UI creation remains 660/13 hashes. E124-native.log covers 119
+  current input hashes, ASan/UBSan/API26/JVM/JNI, balanced transport resources and
+  worker exit. Thirty-two shared-worker modes pass 1,231 checks; broker modes
+  remain 261 with two native transport flows; native-source/controller remains
+  169. Missing request protection now fails before any constructor (19 checks),
+  instead of permitting handoff and refusing the later proof.
+- Apply reviewed source while stopped and rebuild actual Android Java/DEX/APK.
+  Require Allocation, Created and identity History definitions, retain eight JNI
+  exports/v2-v3 signer/private provider, and verify ARM64/16 KiB/zip alignment.
+  APK: 6,509,889 bytes, SHA-256
+  ca27c4c8e6f68bd9c008db8013f8ad6bae7d160671d64bcd3b1da4903c6e34ba.
+  Reuse the unchanged verified ARM64 host and Windows/plugin bytes.
+- Fresh JS/C saving passes 47 and binds the new native receipt; Python passes
+  173/175 in 56.164 seconds, two Windows symlink-privilege skips. The final identity
+  script checks current native 119/product 13/save six hashes, APK/source/archive/
+  plugin identities and current lifecycle source. It explicitly reuses unchanged
+  popup 110/25, E118 actual Windows frame/input 301 and its native-host identity,
+  E105 world/document and applicable E106 JS/packed Windows evidence; reuse is not
+  a fresh platform run. Evidence and snapshots use the E124 prefix in .mdo/.
+- Service restored: HTTP 200 on 63625, PID 33628; deployment about 3,443.1 MiB,
+  D: about 37.8 GiB free. No app/Home/source copy, runtime dependency, model call,
+  external browser page, publication or production account/config change.
+- Goal remains active. This provides the native construction/temporal-proof
+  interface and its controlled adversarial tests, not an installed provider's
+  AwContents-swap or paused-marker qualification. Actual product routing must still
+  own in-flight/failed constructors, classify constructor-no-return uncertainty,
+  dispose unsent Created views and retain irreversible handoffs through native
+  consumption/teardown. Wire that owner into the ordinary configure/close maps,
+  then complete guarded bootstrap/resume, response/body routing and full platform/
+  delivery verification. Keep public protected Android popup admission and all
+  provider/framework/automation qualification false; do not bypass the preserved
+  provider's isolated-world limitation with main-world Agent execution.

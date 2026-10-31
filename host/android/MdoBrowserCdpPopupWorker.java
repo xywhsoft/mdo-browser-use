@@ -1,6 +1,7 @@
 package org.xserver.android;
 
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -21,6 +22,23 @@ final class MdoBrowserCdpPopupWorker {
     interface Source {MdoBrowserCdpBinding.Network resolve(MdoBrowserCdpMarker.Lease lease)throws IOException;}
     interface Events {void state(Result result);void candidate(MdoBrowserCdpPopupBroker.Candidate candidate);default void protection(MdoBrowserCdpPopupBroker.Candidate candidate){}
         default void nativeProof(MdoBrowserCdpPopupNative.Child child){}}
+    /** Original guarded captures that already existed before native construction.
+     * Data-only, bounded and single-use; it cannot name a later target or view. */
+    static final class Allocation {
+        private final WeakReference<MdoBrowserCdpPopupNative> owner;private final MdoBrowserCdpMarker.Lease lease;
+        final MdoBrowserPopups.Pending pending;private final MdoBrowserCdpPopupBroker.Registration registration;
+        private final MdoBrowserCdpPopupBroker.Candidate[] targets;private final BooleanSupplier scope;
+        private final AtomicBoolean claimed=new AtomicBoolean();
+        private Allocation(MdoBrowserCdpPopupNative owner,MdoBrowserCdpMarker.Lease lease,MdoBrowserPopups.Pending pending,
+                           MdoBrowserCdpPopupBroker.Registration registration,List<MdoBrowserCdpPopupBroker.Candidate> targets,BooleanSupplier scope){
+            this.owner=new WeakReference<>(owner);this.lease=lease;this.pending=pending;this.registration=registration;
+            this.targets=targets.toArray(new MdoBrowserCdpPopupBroker.Candidate[0]);this.scope=scope;
+        }
+        boolean current(){if(!scope.getAsBoolean()||!registration.current())return false;
+            for(MdoBrowserCdpPopupBroker.Candidate candidate:targets)if(candidate.current()&&candidate.mayBelongTo(registration))return true;return false;}
+        boolean claim(MdoBrowserCdpPopupNative exact){return owner.get()==exact&&exact.lease()==lease&&pending.current()&&current()&&claimed.compareAndSet(false,true);}
+        boolean includes(MdoBrowserCdpPopupBroker.Candidate original){for(MdoBrowserCdpPopupBroker.Candidate candidate:targets)if(candidate==original)return true;return false;}
+    }
     static final class Result {
         final boolean ready,terminal,processMayHaveBeenEnabled,sourceReleased,processCleanupConfirmed;final String code;
         private Result(boolean ready,boolean terminal,String code,boolean enabled,boolean released,boolean clean){
@@ -30,15 +48,33 @@ final class MdoBrowserCdpPopupWorker {
     static final class Request implements AutoCloseable {
         private final AtomicBoolean cancelled=new AtomicBoolean();private final AtomicReference<Result> result=new AtomicReference<>();private volatile Runnable wake;
         private final MdoBrowserCdpMarker.Lease lease;private final ArrayDeque<MdoBrowserCdpPopupNative.Child> nativeQueue=new ArrayDeque<>();
-        private Request(Runnable wake,MdoBrowserCdpMarker.Lease lease){this.wake=wake;this.lease=lease;}
+        private final Thread uiOwner=Thread.currentThread();private final WeakReference<MdoBrowserCdpPopupNative> nativeSource;
+        private final List<MdoBrowserCdpPopupBroker.Candidate> captured=new ArrayList<>();private MdoBrowserCdpPopupBroker.Registration captureOwner;private Allocation allocation;
+        private Request(Runnable wake,MdoBrowserCdpMarker.Lease lease,MdoBrowserCdpPopupNative source){this.wake=wake;this.lease=lease;nativeSource=new WeakReference<>(source);}
+        synchronized Allocation allocateNative(MdoBrowserCdpPopupNative original)throws IOException {
+            if(Thread.currentThread()!=uiOwner)throw new IOException("cdp_requires_ui_thread");
+            Result value=result.get();if(original==null||nativeSource.get()!=original||original.lease()!=lease||cancelled.get()||value==null||!value.ready||value.terminal||!original.current())throw new IOException("cdp_popup_native_allocation_unavailable");
+            MdoBrowserPopups.Pending pending=original.pending();if(pending==null||!pending.current())throw new IOException("cdp_popup_native_allocation_unavailable");
+            if(allocation!=null&&allocation.pending==pending){if(allocation.claimed.get())throw new IOException("cdp_popup_native_allocation_replayed");if(!allocation.current())throw new IOException("cdp_popup_native_allocation_unavailable");return allocation;}
+            List<MdoBrowserCdpPopupBroker.Candidate> frozen=new ArrayList<>();
+            for(MdoBrowserCdpPopupBroker.Candidate candidate:captured)if(candidate.current()&&candidate.mayBelongTo(captureOwner)&&candidate.unbound()){
+                MdoBrowserCdpSession.ControlResult guard=candidate.protection();if(guard==null||!guard.ok)throw new IOException("cdp_popup_interception_required");frozen.add(candidate);
+            }
+            if(frozen.isEmpty()||captureOwner==null)throw new IOException("cdp_popup_native_capture_pending");
+            allocation=new Allocation(original,lease,pending,captureOwner,frozen,proofScope());return allocation;
+        }
+        private synchronized void capture(MdoBrowserCdpPopupBroker.Registration owner,MdoBrowserCdpPopupBroker.Candidate original)throws IOException {
+            captured.removeIf(candidate->!candidate.current()||!candidate.mayBelongTo(owner));if(captured.size()>=7)throw new IOException("cdp_popup_candidate_limit");
+            captureOwner=owner;captured.add(original);
+        }
         Result result(){return result.get();}
         synchronized boolean proveNative(MdoBrowserCdpPopupNative.Child child)throws IOException {
-            Result value=result.get();if(cancelled.get()||value==null||!value.ready||value.terminal||child==null||!child.current()||!child.belongsTo(lease))throw new IOException("cdp_popup_native_proof_unavailable");
+            Result value=result.get();if(cancelled.get()||value==null||!value.ready||value.terminal||child==null||!child.current()||!child.belongsTo(lease)||!child.allocated())throw new IOException("cdp_popup_native_proof_unavailable");
             if(nativeQueue.size()>=7)throw new IOException("cdp_popup_native_proof_limit");if(!child.enqueue())return false;
             nativeQueue.add(child);Runnable notify=wake;if(notify!=null)notify.run();return true;
         }
         private synchronized MdoBrowserCdpPopupNative.Child takeNative(){return nativeQueue.poll();}
-        private synchronized void terminal(Result value){result.set(value);wake=null;MdoBrowserCdpPopupNative.Child child;
+        private synchronized void terminal(Result value){result.set(value);wake=null;captured.clear();captureOwner=null;allocation=null;MdoBrowserCdpPopupNative.Child child;
             while((child=nativeQueue.poll())!=null)child.finish(false,"cdp_popup_prepare_cancelled",0,false);}
         private BooleanSupplier proofScope(){AtomicBoolean stop=cancelled;AtomicReference<Result> latest=result;MdoBrowserCdpMarker.Lease original=lease;
             return ()->{Result value=latest.get();return !stop.get()&&original.current()&&value!=null&&value.ready&&!value.terminal;};}
@@ -109,7 +145,7 @@ final class MdoBrowserCdpPopupWorker {
                 if(job.stage!=READY)continue;
                 if(!current.armed())throw new IOException("cdp_popup_broker_closed");
                 for(MdoBrowserCdpPopupBroker.Candidate candidate:current.pending())if(candidate.mayBelongTo(job.registration)){
-                    if(job.notified.add(candidate.id))job.offer(candidate);
+                    if(job.notified.add(candidate.id)){job.request.capture(job.registration,candidate);job.offer(candidate);}
                     if(candidate.protectionRequested()&&candidate.protection()==null&&!job.request.cancelled.get()){
                         if(job.nativeSource==null)current.refuseProtection(candidate,"cdp_popup_native_source_required");
                         else if(!protectedOne){protectedOne=true;current.protect(candidate,250);}
@@ -153,7 +189,7 @@ final class MdoBrowserCdpPopupWorker {
         final ArrayDeque<MdoBrowserCdpPopupNative.Child> nativeProofs=new ArrayDeque<>();
         final Runnable delivery=this::deliver;volatile int stage=QUEUED;volatile MdoBrowserCdpPopupBroker.Registration registration;
         private Events events;private boolean posted,delivering,readyDelivered,terminalDelivered;
-        Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource){this.lease=lease;this.timeout=timeout;this.events=events;this.nativeSource=nativeSource;born=clock.getAsLong();request=new Request(()->{wake.run();},lease);}
+        Job(MdoBrowserCdpMarker.Lease lease,int timeout,Events events,MdoBrowserCdpPopupNative nativeSource){this.lease=lease;this.timeout=timeout;this.events=events;this.nativeSource=nativeSource;born=clock.getAsLong();request=new Request(()->{wake.run();},lease,nativeSource);}
         void beginNativeCancel(){synchronized(this){if(stage==TERMINAL)return;cancelBorn=clock.getAsLong();stage=NATIVE_CANCELLING;nativeCancelRequested=true;}post();}
         void releaseRegistration(){synchronized(this){if(stage==TERMINAL)return;registration.close();registration=null;stage=CANCELLING;}}
         private int remaining()throws IOException {

@@ -11,6 +11,12 @@ import java.util.regex.Pattern;
 /** A narrow framework seam. It recognizes only the fixed native housekeeping
  * forms. No DOM/browser/provider behavior is simulated as a qualification. */
 public final class WebView {
+    public static int constructions;public static WebView lastConstructed;public static boolean failNewDestroy;private final android.content.Context context;
+    public WebView(){this(new android.content.Context());}
+    public WebView(android.content.Context context){this.context=context;constructions++;lastConstructed=this;destroyFailure=failNewDestroy;}
+    public android.content.Context getContext(){return context;}
+    public boolean destroyFailure;public int destroyed;
+    public void destroy(){if(Looper.myLooper()!=Looper.getMainLooper())throw new AssertionError("Destroy ran on worker");destroyed++;if(destroyFailure)throw new IllegalStateException("Controlled native destroy failure");}
     public static final String UNDEFINED="__mdo_test_undefined";
     public final Map<String,String> lexical=new ConcurrentHashMap<>();
     public final List<ValueCallback<String>> pending=new ArrayList<>();

@@ -34,8 +34,12 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         final T view;MdoBrowserInput input;Fresh<T> fresh;long epoch=1;double scale=Double.NaN;boolean hidden,manual,failed;
         Entry(T view){this.view=view;}
     }
+    private final class History {
+        final WeakReference<T> view;final Fresh<T> fresh;
+        History(T view,Fresh<T> fresh){this.view=new WeakReference<>(view);this.fresh=fresh;}
+    }
     private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;private final Invalidated<T> invalidated;
-    private final Map<T,Fresh<T>> retiring=new IdentityHashMap<>();private final List<WeakReference<T>> history=new ArrayList<>();
+    private final Map<T,Fresh<T>> retiring=new IdentityHashMap<>();private final List<History> history=new ArrayList<>();
     private final Thread owner=Thread.currentThread();private boolean closed,cleanupFailed,background;
     MdoBrowserLifecycle(Factory<T> factory){this(factory,(key,view,epoch,reason)->{});}
     MdoBrowserLifecycle(Factory<T> factory,Invalidated<T> invalidated){
@@ -57,10 +61,10 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         for(Fresh<T> child:retiring.values())if(child.key.equals(key))throw new IllegalStateException("Native browser identity is retiring");
         if(size()>=8)throw new IllegalStateException("Native browser view limit reached (8)");
     }
-    private void remember(T view){
+    private void remember(T view,Fresh<T> fresh){
         if(view==null)throw new IllegalArgumentException("Invalid native view binding");
-        for(Iterator<WeakReference<T>> at=history.iterator();at.hasNext();){T original=at.next().get();if(original==null)at.remove();else if(original==view)throw new IllegalStateException("Native view was already registered");}
-        if(history.size()>=256)throw new IllegalStateException("Native view history limit reached");history.add(new WeakReference<>(view));
+        for(Iterator<History> at=history.iterator();at.hasNext();){T original=at.next().view.get();if(original==null)at.remove();else if(original==view)throw new IllegalStateException("Native view was already registered");}
+        if(history.size()>=256)throw new IllegalStateException("Native view history limit reached");history.add(new History(view,fresh));
     }
     void put(String key,T view){
         put(key,view,null);
@@ -73,12 +77,26 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         if(parent==null||opener==view)throw new IllegalStateException("popup_child_opener_invalid");
         Fresh<T> child=new Fresh<>(this,key,view,parentKey,opener,parent.epoch);put(key,view,child);return child;
     }
+    void popupAdmission(String key,T opener){
+        checkNew(key);for(Entry parent:entries.values())if(parent.view==opener){
+            if(!background&&!parent.failed&&!parent.hidden&&!parent.manual)return;break;
+        }throw new IllegalStateException("popup_child_opener_invalid");
+    }
     private void put(String key,T view,Fresh<T> fresh){
-        checkNew(key);remember(view);Entry entry=new Entry(view);entry.fresh=fresh;
-        entry.input=factory.create(view,()->entry.epoch,()->current(key,view)==entry&&!background&&!entry.hidden&&!entry.manual&&!entry.failed);
-        if(entry.input==null)throw new IllegalStateException("Missing native input binding");
-        try{entry.input.observeInvalidation(reason->invalidated.changed(key,view,entry.epoch,reason));entries.put(key,entry);}
-        catch(RuntimeException|Error failure){entry.input.close();throw failure;}
+        checkNew(key);remember(view,fresh);Entry entry=new Entry(view);entry.fresh=fresh;
+        // Reserve physical ownership before an input factory can fail/reenter.
+        // Failed fresh registration must remain recoverable until native destroy.
+        if(fresh!=null)retiring.put(view,fresh);
+        try{
+            entry.input=factory.create(view,()->entry.epoch,()->current(key,view)==entry&&!background&&!entry.hidden&&!entry.manual&&!entry.failed);
+            if(entry.input==null)throw new IllegalStateException("Missing native input binding");
+            if(closed||entries.containsKey(key)||fresh!=null&&(!fresh.current()||retiring.get(view)!=fresh))throw new IllegalStateException("Native view binding changed during creation");
+            entry.input.observeInvalidation(reason->invalidated.changed(key,view,entry.epoch,reason));entries.put(key,entry);if(fresh!=null)retiring.remove(view);
+        }catch(RuntimeException|Error failure){
+            if(fresh!=null)fresh.live.set(false);
+            if(entry.input!=null)try{entry.input.close();}catch(RuntimeException|Error cleanup){cleanupFailed=true;}
+            throw failure;
+        }
     }
     private T popupView(Fresh<T> child,T opener,boolean claim){
         thread();T view=child.view.get(),parent=child.parent.get();Entry value=current(child.key,view),source=current(child.parentKey,parent);
@@ -92,6 +110,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         thread();for(Entry entry:entries.values())if(entry.view==exact)throw new IllegalStateException("Native view is still registered");
         Fresh<T> child=retiring.remove(exact);if(child!=null){child.live.set(false);child.destroyed.set(true);}
     }
+    boolean nativeDestroyed(T exact){thread();for(History original:history)if(original.view.get()==exact)return original.fresh!=null&&original.fresh.destroyed();return false;}
     private void retire(Entry entry){if(entry.fresh!=null){entry.fresh.live.set(false);retiring.put(entry.view,entry.fresh);}}
     private void settle(Entry entry,Runnable operation){
         try{operation.run();}catch(RuntimeException error){entry.failed=true;cleanupFailed=true;}
@@ -137,6 +156,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     }
     @Override public void close(){
         thread();if(closed)return;closed=true;List<Entry> owned=new ArrayList<>(entries.values());entries.clear();
+        for(Fresh<T> child:retiring.values())child.live.set(false);
         for(Entry entry:owned){retire(entry);settle(entry,entry.input::close);}
     }
 }
