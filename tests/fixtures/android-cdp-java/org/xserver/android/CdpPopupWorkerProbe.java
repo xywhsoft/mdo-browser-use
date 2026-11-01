@@ -43,7 +43,7 @@ public final class CdpPopupWorkerProbe {
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
         volatile String managedResumeMode,managedFlowMode="normal";volatile Runnable managedResumeHook,managedFlowHook;
         final AtomicInteger continues=new AtomicInteger();final ConcurrentLinkedQueue<String> continuedIds=new ConcurrentLinkedQueue<>();
-        volatile String responseMode;volatile boolean holdRead;final AtomicInteger responsePasses=new AtomicInteger(),responseAborts=new AtomicInteger(),bodyClaims=new AtomicInteger(),bodyReads=new AtomicInteger(),bodyCloses=new AtomicInteger(),lateRead=new AtomicInteger();
+        volatile String responseMode,responseStream="original-child-stream";volatile boolean holdRead;final AtomicInteger responsePasses=new AtomicInteger(),responseAborts=new AtomicInteger(),bodyClaims=new AtomicInteger(),bodyReads=new AtomicInteger(),bodyCloses=new AtomicInteger(),lateRead=new AtomicInteger();
         volatile Runnable responseIo;
         DocumentRenderer documentRenderer;
         SourceRenderer sourceRenderer;
@@ -70,6 +70,11 @@ public final class CdpPopupWorkerProbe {
             final CdpFramesProbe.Plan frames=new CdpFramesProbe.Plan();final CdpWorldsProbe.Engine worlds;
             final CdpBindingProbe.Wire wire;int resets,runtime;boolean binding=true;
             DocumentRenderer(WebView view)throws Exception{worlds=new CdpWorldsProbe.Engine();worlds.evaluation=(context,expression)->{check(expression.equals("({ok:true,text:'managed'})"));return new JSONObject().put("ok",true).put("text","managed");};frames.extra=worlds;CdpBindingProbe.Factory factory=new CdpBindingProbe.Factory(view);wire=new CdpBindingProbe.Wire(factory,"owned");}
+            void loseWorld(String raw,Wire output)throws Exception {
+                CdpWorldsProbe.Context found=null;for(CdpWorldsProbe.Context context:worlds.contexts.values())if(context.source==null&&context.frame.equals(raw)){check(found==null);found=context;}
+                check(found!=null);final CdpWorldsProbe.Context original=found;worlds.contexts.values().removeIf(context->context==original);
+                output.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId","proof-real").put("params",new JSONObject().put("executionContextId",original.id)));
+            }
             void command(JSONObject command,Wire output)throws Exception{
                 JSONObject request=new JSONObject(command.toString());String original=request.getString("sessionId");if(original.equals("proof-real"))request.remove("sessionId");else if(resets>0){String prefix="generation-"+resets+"-";check(original.startsWith(prefix));request.put("sessionId",original.substring(prefix.length()));}
                 String method=request.getString("method");JSONObject params=request.getJSONObject("params");
@@ -97,11 +102,11 @@ public final class CdpPopupWorkerProbe {
                     if(responseMode!=null&&(method.equals("Fetch.takeResponseBodyAsStream")||method.equals("Fetch.failRequest")||method.startsWith("IO.")||method.equals("Fetch.continueRequest")&&continues.get()>0)){
                         Runnable audit=responseIo;if(audit!=null)audit.run();
                         JSONObject params=command.getJSONObject("params");String child=command.getString("sessionId");check(command.length()==4&&child.equals("proof-real"));JSONObject value=new JSONObject();
-                        if(method.startsWith("IO.")){check(params.getString("handle").equals("original-child-stream"));
+                        if(method.startsWith("IO.")){check(params.getString("handle").equals(responseStream));
                             if(method.equals("IO.read")){check(params.length()==2&&params.getInt("size")==65536);bodyReads.incrementAndGet();if(holdRead){lateRead.set(id);return;}value.put("data","AAH/").put("base64Encoded",true).put("eof",true);}
                             else{check(method.equals("IO.close")&&params.length()==1);bodyCloses.incrementAndGet();}
                         }else{check(params.getString("requestId").equals("initial-0")||params.getString("requestId").startsWith("response-extra"));
-                            if(method.equals("Fetch.takeResponseBodyAsStream")){check(params.length()==1);bodyClaims.incrementAndGet();value.put("stream","original-child-stream");}
+                            if(method.equals("Fetch.takeResponseBodyAsStream")){check(params.length()==1);bodyClaims.incrementAndGet();value.put("stream",responseStream);}
                             else if(method.equals("Fetch.failRequest")){check(params.length()==2&&params.getString("errorReason").equals("Aborted"));responseAborts.incrementAndGet();}
                             else{check(params.length()==1);responsePasses.incrementAndGet();}
                         }add(new JSONObject().put("id",id).put("sessionId",child).put("result",value));return;
@@ -922,7 +927,7 @@ public final class CdpPopupWorkerProbe {
     private static void refused(String code,IoWork work)throws IOException{try{work.run();throw new AssertionError("Expected "+code);}catch(IOException error){check(code.equals(error.getMessage())&&error.getCause()==null);}}
     private static JSONObject responsePaused(String id,String mode)throws Exception{
         JSONObject params=CdpBodyProbe.paused(id).put("frameId",mode.equals("response-frame")?"foreign-frame":"frame-owned");
-        if(mode.equals("transfer-frame-epoch")||mode.equals("transfer-ancestor"))params.put("frameId","root-local");
+        if(mode.equals("transfer-frame-epoch")||mode.equals("transfer-ancestor")||mode.equals("transfer-world-local")||mode.equals("transfer-world-ancestor"))params.put("frameId","root-local");
         if(mode.equals("response-pass")||mode.equals("response-arguments")||mode.equals("transfer-pass")||mode.equals("source-pass"))params.put("responseHeaders",new org.json.JSONArray().put(new JSONObject().put("name","Content-Type").put("value","text/html")));
         else if(mode.startsWith("transfer"))params.getJSONArray("responseHeaders").put(new JSONObject().put("name","Content-Length").put("value","3"));
         return new JSONObject().put("method","Fetch.requestPaused").put("sessionId","proof-real").put("params",params);
@@ -1017,6 +1022,7 @@ public final class CdpPopupWorkerProbe {
                 int opens=c.backend.opens.get(),nativeOpens=c.backend.nativeOpens.get();java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
                 MdoBrowserCdpDownloads.Budget budget=new MdoBrowserCdpDownloads.Budget();
                 if(mode.equals("transfer-budget"))for(int i=0;i<32;i++)check(budget.acquire());
+                Throwable primary=null;
                 try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),c.host.time::get);MdoBrowserCdpDownloads downloads=new MdoBrowserCdpDownloads(queue,budget)){
                     MdoBrowserCdpDownloads.Connection connection=downloads.connection();java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> result=new java.util.concurrent.atomic.AtomicReference<>();
                     java.lang.reflect.Field gateField=MdoBrowserCdpDownloads.class.getDeclaredField("gate");gateField.setAccessible(true);Object controllerGate=gateField.get(downloads);c.backend.responseIo=()->check(!Thread.holdsLock(controllerGate));
@@ -1041,7 +1047,7 @@ public final class CdpPopupWorkerProbe {
                         java.lang.reflect.Field rowsField=MdoBrowserCdpDownloads.class.getDeclaredField("rows");rowsField.setAccessible(true);Object retained=((Object[])rowsField.get(downloads))[0];
                         java.lang.reflect.Field responseField=retained.getClass().getDeclaredField("response");responseField.setAccessible(true);Object frozen=responseField.get(retained);java.lang.reflect.Field admission=frozen.getClass().getDeclaredField("admission");admission.setAccessible(true);check(admission.get(frozen)==null);
                         java.lang.reflect.Field originField=retained.getClass().getDeclaredField("origin");originField.setAccessible(true);Object origin=originField.get(retained);java.lang.reflect.Field ownerField=origin.getClass().getDeclaredField("documentOwner");ownerField.setAccessible(true);check(ownerField.get(origin) instanceof java.lang.ref.WeakReference&&((java.lang.ref.WeakReference<?>)ownerField.get(origin)).get()==marker.lease());
-                        check(pending.state.equals("pending")&&pending.expected==3&&pending.frameCurrent&&pending.root!=java.util.Arrays.asList("transfer-frame-epoch","transfer-ancestor").contains(mode)&&(pending.root?pending.sourceFrame.equals("f0"):pending.sourceFrame.startsWith("f-"))&&pending.sourceDocument.startsWith("fd-")&&pending.sourceRequest==null&&pending.sourceEpochKind.equals("response_frame")&&budget.used()==1);
+                        check(pending.state.equals("pending")&&pending.expected==3&&pending.frameCurrent&&pending.root!=java.util.Arrays.asList("transfer-frame-epoch","transfer-ancestor","transfer-world-local","transfer-world-ancestor").contains(mode)&&(pending.root?pending.sourceFrame.equals("f0"):pending.sourceFrame.startsWith("f-"))&&pending.sourceDocument.startsWith("fd-")&&pending.sourceRequest==null&&pending.sourceEpochKind.equals("response_frame")&&budget.used()==1);
                         String metadata=pending.json().toString();check(!metadata.contains("private.invalid")&&!metadata.contains("proof-real")&&!metadata.contains("frame-owned")&&!metadata.contains("initial-0"));
                         check(c.backend.bodyClaims.get()==0&&c.backend.bodyReads.get()==0&&queue.retainedTickets()==0);
                         if(mode.equals("transfer-other-controller")){
@@ -1052,25 +1058,29 @@ public final class CdpPopupWorkerProbe {
                         }
                         boolean cancel=mode.equals("transfer-cancel")||mode.equals("transfer-other-controller"),limit=mode.equals("transfer-limit");
                         boolean pendingEpoch=mode.equals("transfer-pending-epoch"),frameEpoch=mode.equals("transfer-frame-epoch")||mode.equals("transfer-ancestor");
+                        boolean world=mode.startsWith("transfer-world-"),pendingWorld=mode.equals("transfer-world-pending"),unrelated=mode.equals("transfer-world-unrelated");
                         if(mode.equals("transfer-retired-binding")){
                             result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{marker.lease().invalidate();check(!connection.attachedTurn(handoff,binding,100));return new byte[]{1};},complete);
                             waitFor(()->result.get()!=null,c.host,true);check(result.get().code.equals("cdp_worker_cancelled")&&handoff.current());pendingEpoch=true;
                         }
-                        if(pendingEpoch){marker.lease().invalidate();failure("download_frame_changed",()->downloads.accept(id,65536,3000));}
+                        if(pendingWorld)renderer.loseWorld("frame-owned",c.backend.wire);
+                        else if(pendingEpoch){marker.lease().invalidate();failure("download_frame_changed",()->downloads.accept(id,65536,3000));}
                         else if(cancel)downloads.cancel(id);else if(limit)downloads.accept(id,2,3000);
                         else{
-                            c.backend.holdRead=mode.equals("transfer-epoch")||mode.equals("transfer-detach")||frameEpoch;downloads.accept(id,65536,3000);
+                            c.backend.holdRead=mode.equals("transfer-epoch")||mode.equals("transfer-detach")||frameEpoch||world;downloads.accept(id,65536,3000);
                             if(c.backend.holdRead){waitFor(()->c.backend.lateRead.get()>0,c.host,true);
-                                if(mode.equals("transfer-epoch"))marker.lease().invalidate();else if(frameEpoch)c.backend.wire.add(new JSONObject().put("method","Page.frameStartedLoading").put("sessionId","proof-real").put("params",new JSONObject().put("frameId",mode.equals("transfer-ancestor")?"frame-owned":"root-local")));else c.backend.wire.add(detached("proof-real"));
+                                if(world){if(unrelated){c.backend.wire.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId","proof-real").put("params",new JSONObject().put("executionContextId",10000)));c.backend.wire.add(ack(c.backend.lateRead.get(),"proof-real").put("result",new JSONObject().put("data","AAH/").put("base64Encoded",true).put("eof",true)));}
+                                    else{int received=c.backend.receives.get();renderer.loseWorld(mode.equals("transfer-world-local")?"root-local":"frame-owned",c.backend.wire);waitFor(()->c.backend.receives.get()>received+2,c.host,true);if(downloads.get(id).frameCurrent)throw new AssertionError("Destroyed isolated world left original download epoch current");}}
+                                else if(mode.equals("transfer-epoch"))marker.lease().invalidate();else if(frameEpoch)c.backend.wire.add(new JSONObject().put("method","Page.frameStartedLoading").put("sessionId","proof-real").put("params",new JSONObject().put("frameId",mode.equals("transfer-ancestor")?"frame-owned":"root-local")));else c.backend.wire.add(detached("proof-real"));
                             }
                         }
                         waitFor(()->{try{return downloads.get(id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);MdoBrowserCdpDownloads.Snapshot done=downloads.get(id);
                         check(responseField.get(retained)==null);
-                        if(cancel||limit||mode.equals("transfer-epoch")||pendingEpoch||frameEpoch){
+                        if(cancel||limit||mode.equals("transfer-epoch")||pendingEpoch||frameEpoch||world&&!unrelated){
                             check(!done.verified&&done.sourceCleanupConfirmed&&done.cacheCleanupConfirmed&&c.backend.responseAborts.get()==1);
-                            if(mode.equals("transfer-epoch")||frameEpoch){check(!done.frameCurrent&&done.error.equals("download_frame_changed")&&c.backend.bodyCloses.get()==1&&handoff.current());
+                            if(mode.equals("transfer-epoch")||frameEpoch||world&&!pendingWorld){check(!done.frameCurrent&&done.error.equals("download_frame_changed")&&c.backend.bodyCloses.get()==1&&handoff.current());
                                 c.backend.wire.add(ack(c.backend.lateRead.get(),"proof-real").put("result",new JSONObject().put("data","unread-late-bytes").put("eof",true)));int before=c.backend.receives.get();waitFor(()->c.backend.receives.get()>before+2,c.host,true);check(handoff.current());
-                            }else check(c.backend.bodyClaims.get()==0&&queue.retainedTickets()==0&&done.error.equals(pendingEpoch?"download_frame_changed":limit?"download_limit":"cancelled"));
+                            }else check(c.backend.bodyClaims.get()==0&&queue.retainedTickets()==0&&done.error.equals(pendingEpoch||pendingWorld?"download_frame_changed":limit?"download_limit":"cancelled"));
                         }else if(mode.equals("transfer-detach")){waitFor(promoted::ended,c.host,true);check(!done.verified&&!done.sourceCleanupConfirmed&&!handoff.current()&&c.backend.closes.get()==1);}
                         else{
                             check(done.state.equals("completed")&&done.verified&&done.sourceCleanupConfirmed&&done.received==3&&done.sha256.equals("26a66b061e8f48f39927c312f25293959729eee95978e2892d49d3512a5cc092"));
@@ -1086,12 +1096,22 @@ public final class CdpPopupWorkerProbe {
                                 MdoBrowserCdpDownloads.Release released=downloads.release(second.id);waitFor(released::finished,c.host,true);check(released.released()&&budget.used()==1&&downloads.get(id).verified);
                             }
                         }
+                        if(mode.equals("transfer-world-recover")){
+                            c.backend.holdRead=false;result.set(null);c.host.worker.submitDocument(marker,handoff,proof,3000,false,(binding,deadline)->{binding.frames().inventory(deadline);binding.attachDownloads(connection);return new byte[]{1};},complete);
+                            waitFor(()->result.get()!=null,c.host,true);check(result.get().code==null&&!downloads.get(id).frameCurrent&&handoff.current());
+                            c.backend.responseStream="original-child-stream-recovered";c.backend.wire.add(responsePaused("response-extra-recovered",mode));waitFor(()->{try{return downloads.list().length==2;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
+                            MdoBrowserCdpDownloads.Snapshot next=downloads.list()[1];check(next.frameCurrent&&!next.sourceDocument.equals(done.sourceDocument)&&!downloads.get(id).frameCurrent);downloads.accept(next.id,65536,3000);
+                            waitFor(()->{try{return downloads.get(next.id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);check(downloads.get(next.id).verified&&downloads.get(next.id).sourceCleanupConfirmed&&!downloads.get(id).verified&&!downloads.get(id).frameCurrent);
+                            MdoBrowserCdpDownloads.Release release=downloads.release(next.id);waitFor(release::finished,c.host,true);check(release.released()&&budget.used()==1);
+                        }
                         if(!mode.equals("transfer-detach")){MdoBrowserCdpDownloads.Release release=downloads.release(id);waitFor(release::finished,c.host,true);check(release.released()&&budget.used()==0&&downloads.list().length==0);}
                     }
                     check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.continues.get()==1);
                     if(handoff.current()){handoff.close();waitFor(promoted::ended,c.host,true);}check(view.destroyed==1&&c.backend.closes.get()==1&&c.backend.detaches.get()==0);
                     downloads.close();queue.close();check(queue.awaitStopped(3000)&&!queue.cleanupFailed()&&queue.reservations()==0&&queue.retainedReads()==0&&budget.used()==0);
-                }finally{java.nio.file.Files.deleteIfExists(root.resolve(".mdo-browser-download-owner-v1"));java.nio.file.Files.delete(root);renderer.wire.close();}
+                }catch(Exception|Error error){primary=error;throw error;}
+                finally{try{java.nio.file.Files.deleteIfExists(root.resolve(".mdo-browser-download-owner-v1"));java.nio.file.Files.delete(root);}
+                    catch(Exception cleanup){if(primary!=null)primary.addSuppressed(cleanup);else throw cleanup;}finally{renderer.wire.close();}}
             }
         }
     }
@@ -1555,13 +1575,24 @@ public final class CdpPopupWorkerProbe {
                                 else if(mode.equals("source-epoch")){
                                     c.backend.wire.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId","proof-real").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","load-replaced"))));
                                     waitFor(()->{try{return downloads.get(id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);check(downloads.accept(id,65536,3000).error.equals("download_frame_changed"));
-                                }else if(mode.equals("source-cancel")||mode.equals("source-controller"))downloads.cancel(id);else downloads.accept(id,65536,3000);
+                                }else if(mode.equals("source-cancel")||mode.equals("source-controller"))downloads.cancel(id);
+                                else if(mode.startsWith("source-stream-")){
+                                    c.backend.holdRead=true;downloads.accept(id,65536,3000);waitFor(()->c.backend.lateRead.get()>0,c.host,true);
+                                    if(mode.equals("source-stream-epoch"))c.backend.wire.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId","proof-real").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId","load-replaced"))));
+                                    else if(mode.equals("source-stream-cancel"))downloads.cancel(id);else marker.lease().invalidate();
+                                }else downloads.accept(id,65536,3000);
                                 waitFor(()->{try{return downloads.get(id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);MdoBrowserCdpDownloads.Snapshot done=downloads.get(id);
-                                if(captured||mode.equals("source-epoch")||mode.equals("source-cancel")||mode.equals("source-controller"))check(!done.verified&&done.sourceCleanupConfirmed&&done.cacheCleanupConfirmed&&c.backend.bodyClaims.get()==0&&c.backend.responseAborts.get()==1);
+                                if(mode.startsWith("source-stream-")){
+                                    boolean ownerLost=mode.equals("source-stream-owner");check(!done.verified&&done.cacheCleanupConfirmed&&c.backend.bodyClaims.get()==1&&c.backend.bodyReads.get()==1);
+                                    if(ownerLost){waitFor(promoted::ended,c.host,true);check(!done.sourceCleanupConfirmed&&!handoff.current());failure("download_source_cleanup_unconfirmed",()->downloads.release(id));}
+                                    else{check(done.sourceCleanupConfirmed&&c.backend.bodyCloses.get()==1&&c.backend.responseAborts.get()==1&&handoff.current());
+                                        if(mode.equals("source-stream-epoch"))check(!done.frameCurrent&&java.util.Arrays.asList("download_frame_changed","cdp_body_owner_changed").contains(done.error));else check(done.frameCurrent&&done.error.equals("cancelled"));
+                                        c.backend.wire.add(ack(c.backend.lateRead.get(),"proof-real").put("result",new JSONObject().put("data","unread-late-bytes").put("eof",true)));int received=c.backend.receives.get();waitFor(()->c.backend.receives.get()>received+2,c.host,true);check(handoff.current());}
+                                }else if(captured||mode.equals("source-epoch")||mode.equals("source-cancel")||mode.equals("source-controller"))check(!done.verified&&done.sourceCleanupConfirmed&&done.cacheCleanupConfirmed&&c.backend.bodyClaims.get()==0&&c.backend.responseAborts.get()==1);
                                 else{check(done.verified&&done.sourceCleanupConfirmed&&done.received==3);MdoBrowserDownloadQueue.Read read=downloads.read(id,0,10);waitFor(read::finished,c.host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);}
-                                MdoBrowserCdpDownloads.Release released=downloads.release(id);waitFor(released::finished,c.host,true);check(released.released()&&budget.used()==0);
+                                if(!mode.equals("source-stream-owner")){MdoBrowserCdpDownloads.Release released=downloads.release(id);waitFor(released::finished,c.host,true);check(released.released()&&budget.used()==0);}
                             }
-                            check(c.backend.documentRenderer==null&&candidate.retainedResponseCount()==0&&handoff.current());
+                            check(c.backend.documentRenderer==null&&candidate.retainedResponseCount()==0&&handoff.current()!=mode.equals("source-stream-owner"));
                         }
                         check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.detaches.get()==0);
                         if(handoff.current()){handoff.close();waitFor(promoted::ended,c.host,true);}check(view.destroyed==1&&c.backend.closes.get()==1);

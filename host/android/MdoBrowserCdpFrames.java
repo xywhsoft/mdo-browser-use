@@ -240,7 +240,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
         current();Node root=nodes.get(raw);if(root==null||!Objects.equals(root.session,session)||!root.loader.equals(loader)||!root.document.equals(document))return;
         List<String> changed=new ArrayList<>();changed.add(raw);
         for(int i=0;i<changed.size();i++)for(Node node:nodes.values())if(Objects.equals(node.parent,changed.get(i))&&!changed.contains(node.raw))changed.add(node.raw);
-        for(String key:changed)nodes.get(key).document="fd-"+UUID.randomUUID();revision++;
+        for(String key:changed){Node node=nodes.get(key);node.epoch.set(false);node.epoch=new java.util.concurrent.atomic.AtomicBoolean(true);node.document="fd-"+UUID.randomUUID();}revision++;
     }
     JSONObject inventory(MdoBrowserCdpWorker.Deadline deadline)throws IOException {
         refresh(deadline);for(Node node:new ArrayList<>(nodes.values()))if(attached(node,true))worlds.prepare(select(node.alias,node.document),deadline);

@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (E46/E121)
+## Complete development host APK (current: E141)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,505,793 bytes, SHA-256
-`984b875098a083f429ba3ab7fca42d7f39232cae4b91517e879beed7c445d3c1`.
+Current APK: 6,542,657 bytes, SHA-256
+`52d4a9a1aaa9a3e57fe3abe0834ec69dabab7256f361cfe49fba3822b28033ea`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5081,3 +5081,32 @@ framework/automation qualification. Public protected popup admission stays off;
 phone/WebView tests remain deferred. Next recovery checks include isolated-world
 loss versus graph-issued download epoch fences, in-flight source revocation,
 native product UI/policy coordination, OOPIF and multi-child/process recovery.
+
+### E141: isolated-world destruction revokes document-issued download epochs
+
+Controlled execution reproduced a stale epoch: Runtime.executionContextDestroyed
+removed the exact admitted isolated world and rotated document references, but
+an existing download's atomic fence remained current. worldLost now revokes
+the original node and descendant fences before creating fresh ones. Pending or
+receiving document-issued sources therefore cancel and retain their own cleanup
+receipts. Explicit isolation reconstruction permits new references; it never
+revives an old download. Unknown context IDs do not retire unrelated sources.
+This document-bound fence is separate from the physical network Source lifetime.
+
+Six joined controller/file cases pass 383 checks for root/local/ancestor loss,
+unaccepted download cancellation, reconstruction/new download and unknown context
+events. Three physical-source cases pass 194 checks for replacement during a
+read, explicit cancellation and physical-owner loss. Late retired reads cannot
+publish bytes. An unconfirmed physical close remains unverified and cannot be
+normally released. Fixture recovery uses new native stream handles rather than
+weakening handle-reuse validation. E141-red.log/json preserves the original
+failure, and E141-final-identities.py/log verifies its source against E140.
+
+Final native passes 124 current inputs and 170 worker modes/7,077 checks. Fresh
+saving and Python 174/176 pass; two existing Windows symlink-privilege cases
+remain skipped. Current hashes permit explicit reuse of E140 product/popup/
+Windows and E105 world evidence. The rebuilt APK passes signing/ARM64/JNI/
+16-KiB/ZIP and 50 actual definition groups, including the corrected worldLost.
+These results do not qualify installed Android or enable public automation.
+The next integration remains product preparation/action/task policy and UI
+lifetime, followed by original-navigation, OOPIF and multi-child recovery.

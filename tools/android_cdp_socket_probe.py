@@ -171,7 +171,8 @@ def main():
                  'document-inventory','document-evaluate','document-rebind','document-navigation','document-owner-loss','document-unique','document-metadata','document-no-fallback','document-reuse','document-scope','document-rebind-frames',
                  'response-pass','response-offer-cancel','response-arguments','response-abort','response-frame','response-document-loss','response-body','response-body-cancel','response-late-foreign',
                  'transfer-complete','transfer-cancel','transfer-limit','transfer-epoch','transfer-detach','transfer-pass','transfer-budget','transfer-other-controller','transfer-rebind','transfer-pending-limit','transfer-pending-epoch','transfer-close-retain','transfer-frame-epoch','transfer-ancestor','transfer-retired-binding',
-                 'source-complete','source-pass','source-cancel','source-epoch','source-controller','source-race','source-nonempty','source-changed','source-unsupported','source-activated','source-captured-epoch','source-replay'):
+                 'transfer-world-root','transfer-world-local','transfer-world-ancestor','transfer-world-pending','transfer-world-recover','transfer-world-unrelated',
+                 'source-complete','source-pass','source-cancel','source-epoch','source-controller','source-race','source-nonempty','source-changed','source-unsupported','source-activated','source-captured-epoch','source-replay','source-stream-epoch','source-stream-cancel','source-stream-owner'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')

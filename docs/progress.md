@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E141:** fix confirmed stale download provenance after isolated-world
+  destruction. Revoke old node/descendant epoch fences before minting replacement
+  document references; rebuilding a world cannot reactivate the old download.
+  Six joined world-loss/recovery cases and three in-flight physical-source cases
+  pass 577 checks. Final native passes 124 inputs, 170 worker modes/7,077 checks;
+  Python passes 174/176, saving passes and the rebuilt APK passes 50 inspected
+  definition groups. Public Android admission and installed-provider qualification
+  remain disabled; product policy/UI integration is still required.
 - **Android E140:** separate protected popup network authority from isolated
   document readiness. Bootstrap a typed native source on the original Browser
   attachment before activation; keep the existing Fetch guard and single worker.
@@ -11300,3 +11308,56 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   provenance, in-flight source revocation, OOPIF routing and multi-child/process/
   navigation/takeover recovery. Public protected admission and installed-provider,
   framework and automation qualification remain false. Preserve phone deferral.
+
+
+### E141 — revoke original download epochs when isolated worlds disappear
+
+- Reproduce a concrete defect against the E140 frame implementation: after a
+  controlled isolated-context-destroyed event entered the actual binding/world/frame
+  managers, the original in-flight download still reported frameCurrent=true.
+  E141-red.log/json records the failing assertion and original source hash;
+  the final verifier matches it to preserved E140 native evidence. This is a
+  controlled protocol/component reproduction, not an installed-provider incident.
+- worldLost now revokes the original node epoch and every descendant epoch
+  before issuing new document references. Each replacement receives a fresh
+  atomic fence. Pending and receiving original downloads are cancelled, with
+  their own stream-close/request-abort receipts and file cleanup. Recreating
+  isolation permits a new download under a new document reference; old records
+  remain invalid and cannot borrow that replacement. An unknown unrelated
+  context event does not cancel a valid original download.
+- Six added product/controller modes pass 383 checks: root-world loss,
+  frame-local loss, ancestor loss, a pending unaccepted download, explicit
+  world reconstruction plus a new completed download, and unrelated context
+  destruction. New fixture streams have distinct native handles; do not weaken
+  stream-history/reuse checks. Keep the original assertion when asynchronous
+  fixture cleanup also fails, attaching the latter as a suppressed exception.
+- Three physical Source modes pass 194 checks: replacement while a body read
+  is outstanding, explicit in-flight cancellation and physical source loss.
+  Confirm exact cleanup ACKs and ignore retired late reads under a surviving
+  owner. Physical loss with unconfirmed cleanup never becomes verified or
+  normally releasable. No automatic page action or failed download is replayed.
+- Final E141-native.log passes 124 current hashes, ASan/UBSan/API26/JVM/JNI,
+  170 worker modes/7,077 checks, attachment 2,686/two actual native sessions,
+  controller 360 and JNI 264. Fresh save passes 47/six inputs tied to the current
+  native receipt. Python passes 174/176 in 46.545 seconds; two existing Windows
+  symlink-privilege cases remain skipped. Reuse E140 product 789/18 inputs,
+  popup 110/25/7 and Windows WebView2 301/six cycles, and E105 world evidence,
+  only after every corresponding scoped hash/native-host identity matches.
+- Apply the reviewed frame fix while stopped and rebuild the same development
+  APK. Signing/private-provider/JNI/ARM64/16-KiB/ZIP gates pass. E141-dex.py/log
+  checks 50 actual class/method groups, including worldLost and the existing
+  atomic provenance/native-owner shapes. APK: 6,542,657 bytes, SHA-256
+  52d4a9a1aaa9a3e57fe3abe0834ec69dabab7256f361cfe49fba3822b28033ea.
+  Windows program, native library and portable plugin bytes remain unchanged.
+  E141-final-identities.py/log binds final sources, artifacts and scoped evidence.
+- Development service restored: HTTP 200 on 63625, PID 2496; one deployment
+  about 3,450.6 MiB and D: about 36.7 GiB free. No extra app/Home/source copy,
+  runtime dependency, ADB/phone/WebView change, external-page/model call,
+  production/account/config change or publication.
+- Goal remains active. Next work must join the private native preparation,
+  adoption, original-source and document bindings to actual product action/
+  task policy and UI lifetime. Continue original navigation provenance, OOPIF
+  response routing, same-page return-control and multi-child/process recovery,
+  alongside the remaining Windows focus/dialog and delivery qualification.
+  Public protected Android admission and installed-provider/framework/automation
+  qualification remain false. Phone/WebView verification is still deferred.
