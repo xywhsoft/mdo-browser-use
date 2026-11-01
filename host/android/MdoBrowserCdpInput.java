@@ -136,14 +136,30 @@ final class MdoBrowserCdpInput {
         return value.matches("[a-z_]{1,63}")?value:"input_guard_failed";
     }
     void run(MdoBrowserInput input,MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current,MdoBrowserInput.Completion complete)throws MdoBrowserInput.Failure {
-        MdoBrowserInput.Guard guard=(remaining,checked)->{
+        run(input,worker,marker,current,complete,null,null);
+    }
+    void runAttached(MdoBrowserInput input,MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current,MdoBrowserInput.Completion complete,
+                     MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document documentOwner)throws MdoBrowserInput.Failure {
+        if(handoff==null||documentOwner==null||marker==null||marker.lease()!=documentOwner.lease||!handoff.current()||!handoff.owns(documentOwner)||!documentOwner.current())throw new MdoBrowserInput.Failure("frame_changed");
+        Current scope=()->{String code=current.rejection();return !marker.lease().current()||!handoff.current()||!handoff.owns(documentOwner)||!documentOwner.current()?"frame_changed":code;};
+        run(input,worker,marker,scope,complete,handoff,documentOwner);
+    }
+    private void run(MdoBrowserInput input,MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current,MdoBrowserInput.Completion complete,
+                     MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document documentOwner)throws MdoBrowserInput.Failure {
+        MdoBrowserInput.Guard guard=new MdoBrowserInput.Guard(){
+          public String rejection(){return current.rejection();}
+          public void check(long remaining,MdoBrowserInput.Checked checked){
             String stale=current.rejection();if(stale!=null){checked.complete(stale);return;}
             if(refusal!=null){checked.complete(refusal);return;}if(remaining<100){checked.complete("input_timed_out");return;}
-            try{pending=true;worker.submit(marker,(int)Math.min(15000,remaining),kind.equals("focus"),this::fence,result->{
+            try{pending=true;MdoBrowserCdpWorker.Completion done=result->{
                 pending=false;String rejection=current.rejection();if(rejection==null)rejection=code(result.code);
                 if(rejection==null&&!Arrays.equals(result.bytes,"{\"ok\":true}".getBytes(StandardCharsets.UTF_8)))rejection="input_guard_failed";
                 if(rejection!=null)refusal=rejection;checked.complete(rejection);
-            });}catch(IOException error){pending=false;refusal=code(error.getMessage());checked.complete(refusal);}
+            };
+                if(handoff==null)worker.submit(marker,(int)Math.min(15000,remaining),kind.equals("focus"),MdoBrowserCdpInput.this::fence,done);
+                else worker.submitDocument(marker,handoff,documentOwner,(int)Math.min(15000,remaining),kind.equals("focus"),MdoBrowserCdpInput.this::fence,done);
+            }catch(IOException error){pending=false;refusal=code(error.getMessage());checked.complete(refusal);}
+          }
         };
         MdoBrowserInput.Completion settled=result->{
             // A timed-out input must not leave a queued focus effect running.

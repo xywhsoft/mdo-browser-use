@@ -78,6 +78,8 @@
     "shared_worker": {
       "admission": "explicit_UI_request_for_existing_ready_physical_network_lease_or_original_protected_Source_lease_in_same_8_job_budget_no_discovery_or_new_Browser_wire",
       "protected_opener": "original_stored_Source_proof_reused_after_activation_exact_Handoff_lease_and_native_document_owner_UI_ready_chooser_and_channel_guards",
+      "protected_native_input": "original_document_marker_Handoff_and_Document_proof_on_same_worker_submitDocument_native_sequencer_no_ordinary_rebind_no_input_replay",
+      "native_focus_preflight": "UI_scope_and_geometry_rejection_before_native_acquireFocus_then_original_native_frame_world_and_DOM_focus_fences_before_dispatch",
       "protected_preparation_retirement": "cancel_input_and_revoke_old_frame_pins_explicit_same_epoch_inventory_only_after_original_preparation_settles_no_effect_replay",
       "destroyed_source_acknowledgement": "data_only_exact_native_view_destruction_all_original_native_dependencies_settled_and_original_worker_release_receipt_never_changes_failed_Stop_or_proves_Browser_detach",
       "executor": "same_existing_single_CDP_executor_no_new_thread_or_caller_runs",

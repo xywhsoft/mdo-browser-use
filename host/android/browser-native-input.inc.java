@@ -27,8 +27,12 @@
             if(capture!=null&&(capture.capture.busy()||!capture.capture.cleanupConfirmed()))throw new java.io.IOException("cdp_input_capture_busy_or_unclean");
             if(!(request.opt("navigation") instanceof Number)||request.getDouble("navigation")!=epoch||epoch==0)
                 throw new java.io.IOException("cdp_input_frame_changed");
-            MdoBrowserNativeInput bridge=new MdoBrowserNativeInput(view,cdpWorker,cdpMarker(key,view),()->!stopped&&views.owns(key,view)&&
-                views.epoch(key,view)==epoch&&channel.current()==lease&&channel.active(lease,host.getUrl()),()->views.scale(key,view),request);
+            final PopupPage popup=protocolPopupDocument(key,view);
+            final MdoBrowserCdpMarker marker=popup==null?cdpMarker(key,view):popup.marker;
+            MdoBrowserNativeInput bridge=new MdoBrowserNativeInput(view,cdpWorker,marker,
+                ()->cdpEnvironmentCurrent(key,view,epoch,lease)&&chooserReady(dialogs.get(key))&&
+                    (popup==null||popup.marker==marker&&popup.documentReady()),()->views.scale(key,view),request,
+                popup==null?null:popup.network.handoff,popup==null?null:popup.proof);
             final boolean focusing=bridge.focusing();bridge.run(input,result->complete.done(focusing,result));
         }catch(java.io.IOException|MdoBrowserInput.Failure error){String code=error.getMessage();
             complete.done(false,new MdoBrowserInput.Result(code!=null&&code.matches("[a-z_]{1,63}")?code:"input_guard_failed",false,input.cleanupConfirmed(),0));}

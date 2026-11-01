@@ -132,6 +132,9 @@ final class PopupProductHost {
     void cancelHandoff(String key){PopupHandoff value=protocolPopupHandoffs.get(key);if(value!=null)value.close();}
     int pendingHandoffs(){return protocolPopupHandoffs.size();}
     void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}
+    void inputRpc(String key,JSONObject request)throws Exception{executeNativeInput(key,"input",views.get(key),request);}
+    void foreignInput(String key,JSONObject request)throws Exception{PopupPage page=network(key).page;
+        new MdoBrowserNativeInput(views.get(key),cdpWorker,cdpMarker("root",views.get("root")),()->true,()->1,request,page.network.handoff,page.proof);}
     void frameRpc(String key,JSONObject request)throws Exception{executeFrames(key,"frames",views.get(key),request);}
     MdoBrowserCdpCapture.Session captureSession(String key,MdoBrowserCdpCapture operation,MdoBrowserCdpCapture.Current current)throws Exception{return captureDocumentSession(key,views.get(key),operation,current);}
     @@CAPTURE_SESSION@@

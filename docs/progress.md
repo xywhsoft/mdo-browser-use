@@ -12797,3 +12797,72 @@ This completes the protected-opener preparation phase. Android native
 gesture/upload/navigation routing, public state, takeover, full nested adoption
 and provider/device qualification remain open. Phone/WebView checks stay
 deferred. No ADB, live model, external website or production action was used.
+
+### E165 original protected-document native input
+
+Actual product input reproduced `cdp_binding_failed` after preparing a protected
+popup: `executePreparedNativeInput` still selected the ordinary document marker
+and `MdoBrowserCdpInput` submitted an ordinary binding. The route now selects the
+original PopupPage marker, Handoff and Document proof. Every asynchronous fence
+uses `submitDocument` on the existing worker/connection. Native geometry, epoch,
+channel, visibility, chooser, document-ready and original-proof checks surround
+the same UI-owned input sequencer; there is no ordinary fallback or CDP input
+injection. A foreign marker/proof pair is rejected before any input. See
+`.mdo/E165-input-red.log` and `.mdo/E165-input-final.log`.
+
+The integration exposed a second actual effect boundary. Native `acquireFocus`
+ran before the asynchronous DOM guard, so a scope retired while focus was queued
+still produced a native focus event and then reported `frame_changed`. Guards
+now have a synchronous UI scope preflight before native focus; DOM/native-frame
+focus verification still follows. A preflight that synchronously cancels its
+own input must also prevent native focus. Both red receipts and passing
+regressions are retained in `.mdo/E165-focus-retired-red.log`,
+`.mdo/E165-reentrant-red.log`, `.mdo/E165-input-focus-fixed.log` and
+`.mdo/E165-input-core.log`. Existing guards retain their default preflight and
+ordinary routing. The full ordinary input core reports 318 passing checks.
+
+Sixteen focused protected-input modes report 705 passing checks: hover, click,
+wheel, key, text, focus, original-parent retirement, hidden/chooser/stale refusal,
+in-flight cancellation, navigation and channel loss, cancellation after native
+DOWN, focus timeout and queued scope retirement. A dispatched DOWN is paired
+with native CANCEL, uncertain focus retains its effect receipt, and a replaced
+channel receives no old result. No input is replayed; root input receives no
+child's event. The actual product fragments, sequencer, worker and JNI/frame
+engine run with synthetic UI input/geometry and protocol peers. This does not
+qualify Android framework gestures, installed providers or device behavior.
+
+The fresh complete matrix passes all 406 worker modes, including all earlier390
+and the new16/705. It reports14,972 total checks; the old loading-timeout mode's
+count changed27 to28, and its cleanup receipt also changed: the timed-out page
+remains failed, but cleanup is unconfirmed and new creation is fenced rather
+than confirmed clean. This is not an identical semantic receipt or merely a
+counter variation; its existing assertions allow either confirmed cleanup or
+retained fail-closed uncertainty. Focused revalidation is recorded separately.
+Five focused repetitions reproduce three confirmed-clean and two unconfirmed/
+creation-fenced results (`.mdo/E165-loading-timeout-audit.log`). Other semantic
+fields are unchanged, but the scheduling cause of this cleanup difference is
+not established. The existing gate proves containment, not guaranteed recovery;
+the final verifier records the complete semantic delta and marks loading-timeout
+cleanup recovery unproven. This remains an explicit follow-up before full-goal
+completion. Raw scheduling counts are not a coverage invariant.
+Transport/session/frame/capture/upload/download,
+ASan/UBSan and Android API26 C compilation pass. All130 native input hashes match
+the final source. See `.mdo/E165-native.log` and `.mdo/E165-verification.json`.
+
+Fresh Python178 of180 passes (two existing Windows symlink-privilege skips), as
+do JS466, popup122/25/7 and actual create/async-close850/77. Input contracts pass
+177, lifecycle167, channel22, guard63, wheel66 and hover82. The complete signed
+development APK is6,575,425 bytes, SHA-256
+`1690e7aed27062ae8ae52dbcc0e564fed667bf6987fc9447180e26c4996c03b4`.
+The actual DEX verifies the previous88 groups plus six input groups, including
+the original typed proof fields, attached input method and synchronous preflight.
+The same private QA identity/signer and disabled public admission are preserved.
+Windows W5 and the paired plugin remain unchanged, hash-verified reuse rather
+than a new Windows runtime pass. The single local headless service is HTTP200
+and matches all reviewed overlays. No ADB, live model, external page or production
+action was used.
+
+This completes the private protected-input integration phase. Public Android
+automation stays disabled; protected upload/navigation/takeover, public document
+state, full nested adoption and provider/device qualification remain open.
+Phone/current WebView stay deferred. The overall goal remains active.

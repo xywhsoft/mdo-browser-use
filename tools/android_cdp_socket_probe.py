@@ -241,6 +241,10 @@ def main():
                   'preparation-page-opener-reuse','preparation-page-opener-parent','preparation-page-opener-queued-cancel',
                   'preparation-page-opener-hidden','preparation-page-opener-chooser','preparation-page-opener-rearm','preparation-page-opener-foreign',
                   'preparation-page-opener-source-close','preparation-page-opener-queued-source-close','preparation-page-opener-retire-busy',
+                  'preparation-page-input-hover','preparation-page-input-click','preparation-page-input-wheel','preparation-page-input-key',
+                  'preparation-page-input-text','preparation-page-input-focus','preparation-page-input-parent','preparation-page-input-hidden',
+                  'preparation-page-input-chooser','preparation-page-input-stale','preparation-page-input-cancel','preparation-page-input-late',
+                  'preparation-page-input-afterdown','preparation-page-input-focus-timeout','preparation-page-input-channel','preparation-page-input-focus-retired',
                   'preparation-publication-ready',
                   'preparation-publication-hidden',
                   'preparation-publication-duplicate',
@@ -290,6 +294,7 @@ def main():
                 or popup_worker.get('product_document_restore_tested') is not mode.startswith('preparation-restore-')
                 or popup_worker.get('product_capture_fence_tested') is not mode.startswith('preparation-page-capture-')
                 or popup_worker.get('product_protected_opener_tested') is not mode.startswith('preparation-page-opener-')
+                or popup_worker.get('product_protected_input_tested') is not mode.startswith('preparation-page-input-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -352,6 +357,14 @@ def main():
                     raise RuntimeError('Native source release bypassed the original protocol detach fence')
             elif opener.get('original_opener_prepared') is not (not refused) or opener.get('document_restored_after_retirement') is not True:
                 raise RuntimeError('Protected opener preparation lost its explicit document recovery')
+        if mode.startswith('preparation-page-input-'):
+            receipt=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-input-'):]
+            success=variant in {'hover','click','wheel','key','text','focus','parent'}
+            steps=2 if variant in {'click','key','afterdown'} else 1 if success or variant=='focus-timeout' else 0
+            if (not isinstance(receipt,dict) or receipt.get('success') is not success or receipt.get('native_steps')!=steps
+                    or receipt.get('terminal_callbacks')!=(0 if variant=='channel' else 1) or receipt.get('browser_connections')!=1
+                    or receipt.get('native_proof_connections')!=1 or receipt.get('provider_qualified') is not False):
+                raise RuntimeError('Protected native input lost its exact document, cancellation, no-replay or original connection scope')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool

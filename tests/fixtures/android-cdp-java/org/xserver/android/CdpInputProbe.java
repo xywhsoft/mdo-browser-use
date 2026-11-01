@@ -187,8 +187,18 @@ public final class CdpInputProbe {
             rejects("cdp_input_frame_pins_invalid",()->MdoBrowserCdpInput.parse(request,sample.layout));
         }
     }
+    private static void reentrantScope()throws Exception {
+        try(Case sample=new Case()){
+            MdoBrowserCdpInput operation=MdoBrowserCdpInput.parse(sample.request("leaf-frame","focus",false),sample.layout);
+            operation.run(sample.input,sample.peer.host.worker,sample.peer.host.marker,()->{sample.input.cancel();return null;},sample.results::add);
+            sample.scheduler.ready();Handler.drain();
+            if(!sample.target.sent.isEmpty())throw new AssertionError("Retired input scope acquired native focus: "+sample.target.sent);
+            check(sample.results.size()==1&&!sample.results.get(0).effectMayHaveOccurred&&sample.results.get(0).code.equals("input_cancelled"));
+            check(sample.peer.host.worker.pending()==0&&sample.scripts.isEmpty()&&sample.input.cleanupConfirmed());
+        }
+    }
     public static void main(String[] args)throws Exception {
-        Looper.getMainLooper();System.loadLibrary("xs");modes();immutableAndFailures();ancestryAndGrammar();cancelPending(false);cancelPending(true);sharedVisualSnapshot();
+        Looper.getMainLooper();System.loadLibrary("xs");modes();immutableAndFailures();ancestryAndGrammar();cancelPending(false);cancelPending(true);sharedVisualSnapshot();reentrantScope();
         System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"native_input_sequencer\":true,\"native_ui_calls_doubled\":true,\"protocol_peers_synthetic\":true,\"provider_qualified\":false}");
     }
 }

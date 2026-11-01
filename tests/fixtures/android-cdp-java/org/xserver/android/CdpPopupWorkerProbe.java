@@ -350,9 +350,13 @@ public final class CdpPopupWorkerProbe {
     }
     private static final class NativeSource implements AutoCloseable {
         final CdpNetworkWorkerProbe.Case host;final MdoBrowserPopups<WebView> core;final MdoBrowserCdpPopupNative source;
-        boolean allocationFail;Runnable allocationHook;java.util.function.Consumer<WebView> beforeSend;final MdoBrowserLifecycle<WebView> views=PopupLifecycleFixture.registry(()->allocationFail,()->{if(allocationHook!=null)allocationHook.run();});int births;
+        boolean allocationFail;Runnable allocationHook;java.util.function.Consumer<WebView> beforeSend;final MdoBrowserLifecycle<WebView> views;int births;
         final MdoBrowserPopups.Budget budget=new MdoBrowserPopups.Budget(8);final WebView view;int sends;Runnable consumed,sendHook;boolean fail;WebView adopting;
         NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network)throws Exception{
+            this(host,network,null);
+        }
+        NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network,MdoBrowserLifecycle.Factory<WebView> inputs)throws Exception{
+            views=inputs==null?PopupLifecycleFixture.registry(()->allocationFail,()->{if(allocationHook!=null)allocationHook.run();}):new MdoBrowserLifecycle<>(inputs);
             this.host=host;view=network.view;views.put("root",view);
             core=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
                 public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}
@@ -2168,13 +2172,100 @@ public final class CdpPopupWorkerProbe {
             .put("document_restored_after_retirement",true).put("native_effects",renderer.worlds.evaluations).put("browser_connections",backend.opens.get())
             .put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
     }
+    private static final class InputSurface implements MdoBrowserLifecycle.Factory<WebView>,MdoBrowserInput.Scheduler {
+        final java.util.IdentityHashMap<WebView,List<String>> events=new java.util.IdentityHashMap<>();
+        final java.util.TreeMap<Long,List<Runnable>> timers=new java.util.TreeMap<>();long time=100;Runnable afterDown;
+        public long now(){return time;}public void post(Runnable task,long delay){timers.computeIfAbsent(time+delay,k->new ArrayList<>()).add(task);}
+        public void remove(Runnable task){for(List<Runnable> row:timers.values())row.removeIf(value->value==task);timers.entrySet().removeIf(row->row.getValue().isEmpty());}
+        void pump(){if(!timers.isEmpty()&&timers.firstKey()-time<100){time=Math.max(time,timers.firstKey());List<Runnable> due=timers.pollFirstEntry().getValue();for(Runnable task:due)task.run();}}
+        public MdoBrowserInput create(WebView view,LongSupplier epoch,BooleanSupplier admitted){
+            List<String> sent=new ArrayList<>();events.put(view,sent);
+            return new MdoBrowserInput(new MdoBrowserInput.Target(){
+                private boolean send(String value){check(Looper.myLooper()==Looper.getMainLooper());sent.add(value);return true;}
+                public long document(){return epoch.getAsLong();}public int width(){return view.getWidth();}public int height(){return view.getHeight();}
+                public boolean interactive(){return admitted.getAsBoolean()&&view.shown;}public boolean focused(){return true;}
+                public boolean acquireFocus(){return send("focus");}public boolean hover(long at,float x,float y){return send("hover:"+x+":"+y);}
+                public boolean wheel(long at,float x,float y,float dx,float dy){return send("wheel:"+x+":"+y+":"+dx+":"+dy);}
+                public boolean touch(int action,long down,long at,float x,float y){send("touch:"+action);if(action==0&&afterDown!=null){Runnable work=afterDown;afterDown=null;work.run();}return true;}
+                public boolean key(boolean down,long started,long at,String key,int modifiers){return send("key:"+down+":"+key);}
+                public boolean text(String value){return send("text:"+value);}
+            },this);
+        }
+    }
+    private static JSONObject inputPopup(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer,InputSurface surface)throws Exception {
+        product.windows.put("owned",new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
+            public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}
+        },new MdoBrowserPopups.Budget(8),()->product.views.owns("owned",view),()->product.views.epoch("owned",view),blocked->check(host.ui.onThread())));
+        product.views.scaleChanged("owned",view,1);
+        product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+        waitFor(()->product.preparationReplies==1,host,true);JSONObject root=product.preparationReply.getJSONArray("frames").getJSONObject(0);
+        AtomicInteger prepared=new AtomicInteger();product.prepareOwned("owned",prepared::incrementAndGet,(code,effect)->{throw new AssertionError(code);});
+        waitFor(()->prepared.get()==1,host,true);
+        String local="d-00000000-0000-4000-8000-000000000001";
+        String name=variant.substring("input-".length()),kind=name.equals("click")||name.equals("afterdown")?"click":name.equals("wheel")?"wheel":name.equals("key")?"key":name.equals("text")?"text":name.startsWith("focus")?"focus":"move";
+        JSONObject request=new JSONObject().put("command","input").put("agent",true).put("navigation",product.views.epoch("owned",view)).put("kind",kind)
+            .put("input_document",local).put("input_ref","e7")
+            .put("frame_chain",new org.json.JSONArray().put(new JSONObject().put("frame",root.getString("id")).put("document",root.getString("document"))));
+        if(kind.matches("move|click|wheel"))request.put("x",20).put("y",30);
+        else request.put("focus_document",local).put("focus_ref","e7");
+        if(kind.equals("key"))request.put("key","Enter");if(kind.equals("text"))request.put("text","owned text");if(kind.equals("wheel"))request.put("dx",0).put("dy",5);
+        if(name.equals("stale"))request.getJSONArray("frame_chain").getJSONObject(0).put("document","fd-00000000-0000-4000-8000-000000000002");
+        if(name.equals("hover"))failure("cdp_input_scope_unavailable",()->product.foreignInput("owned",request));
+        renderer.worlds.evaluation=(owner,expression)->{
+            if(expression.startsWith(MdoBrowserCdpInput.ROOT))return new JSONObject().put("ok",true);
+            check(expression.startsWith(MdoBrowserCdpInput.TARGET));return new JSONObject().put("ok",true).put("point",new JSONObject().put("x",20).put("y",30));
+        };
+        if(name.equals("parent")){product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);}
+        if(name.equals("hidden"))view.shown=false;if(name.equals("chooser"))product.chooserAllowed=false;
+        boolean held=java.util.Arrays.asList("cancel","late","focus-timeout","channel").contains(name);
+        if(held)renderer.holdMethod="Page.getFrameTree";
+        if(name.equals("afterdown"))surface.afterDown=()->product.views.input("owned",view).invalidate("input_cancelled");
+        product.inputRpc("owned",request);
+        if(name.equals("focus-retired"))product.popupHandoff("owned").close();
+        if(held){
+            waitFor(()->{surface.pump();return renderer.held!=null;},host,true);
+            check(product.publicCounts.getOrDefault("input",0)==0);
+            if(name.equals("cancel"))product.views.input("owned",view).invalidate("input_cancelled");
+            if(name.equals("late"))check(product.views.navigation("owned",view));
+            if(name.equals("channel"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+            if(name.equals("focus-timeout")){surface.time+=1000;surface.pump();}
+            renderer.release(backend.wire);
+        }
+        waitFor(()->{surface.pump();return name.equals("channel")?product.views.inputClean("owned",view):product.publicCounts.containsKey("input");},host,true);
+        boolean success=java.util.Arrays.asList("hover","click","wheel","key","text","focus","parent").contains(name);
+        List<String> sent=surface.events.get(view);JSONObject result=product.publicReplies.get("input");
+        if(name.equals("channel"))check(result==null&&product.publicCounts.getOrDefault("input",0)==0&&sent.isEmpty());
+        else{
+            if(result.optBoolean("accepted")!=success)throw new AssertionError("Protected input "+name+" failed: "+result);
+            check(product.publicCounts.get("input")==1&&result.optBoolean("cleanup_confirmed"));
+            if(result.optBoolean("effect_may_have_occurred")!=(success||name.equals("afterdown")||name.equals("focus-timeout")))throw new AssertionError("Native effect scope "+name+": "+result+" events="+sent);
+            if(!success)check(result.optJSONObject("error")!=null);
+            if(name.equals("cancel"))check(result.getJSONObject("error").getString("code").equals("input_cancelled"));
+            if(name.equals("focus-timeout"))check(result.getJSONObject("error").getString("code").equals("input_timed_out"));
+        }
+        List<String> expected=new ArrayList<>();
+        if(success){
+            if(kind.equals("click")){expected.add("touch:0");expected.add("touch:1");}
+            else if(kind.equals("key")){expected.add("key:true:Enter");expected.add("key:false:Enter");}
+            else expected.add(kind.equals("focus")?"focus":kind.equals("text")?"text:owned text":kind.equals("wheel")?"wheel:20.0:30.0:0.0:5.0":"hover:20.0:30.0");
+            check(result.optBoolean("target_focused")==kind.equals("focus")&&result.optBoolean("trusted_input")!=kind.equals("focus"));
+        }else if(name.equals("afterdown")){expected.add("touch:0");expected.add("touch:3");}
+        else if(name.equals("focus-timeout"))expected.add("focus");
+        check(sent.equals(expected)&&surface.events.get(product.views.get("root")).isEmpty());
+        check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0);
+        product.retireOwnedPreparation("owned");waitFor(()->product.ownedPreparationSettled("owned"),host,true);
+        check(product.views.inputClean("owned",view)||name.equals("focus-retired")&&!product.views.owns("owned",view)&&view.destroyed==1);
+        return new JSONObject().put("success",success).put("native_steps",sent.size()).put("terminal_callbacks",name.equals("channel")?0:product.publicCounts.get("input"))
+            .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+    }
     private static void productPage(String mode,String directory)throws Exception {
         String variant=mode.substring("preparation-page-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         boolean download=variant.startsWith("download")||variant.equals("route-download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
         boolean worldHeld=java.util.Arrays.asList("world-document-change","world-channel-change","cancel-world","cancel-world-isolated","parent-before-world").contains(variant);
         CountDownLatch worldEntered=new CountDownLatch(1),worldRelease=new CountDownLatch(1);
+        InputSurface inputSurface=variant.startsWith("input-")?new InputSurface():null;
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
-            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
+            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original,inputSurface)){
                 java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
                 try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),host.time::get)){
                     PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,original.adapter,source.core,host.worker);
@@ -2259,6 +2350,7 @@ public final class CdpPopupWorkerProbe {
                             if(variant.equals("parent-before-world")){waitFor(product::preparationSettled,host,true);check(product.popupPageReady("owned")&&product.popupOwner("owned").current());}
                             if(variant.startsWith("capture-"))frameRouteEvidence=capturePopup(variant,host,backend,product,exact[0],renderer[0]);
                             if(variant.startsWith("opener-"))frameRouteEvidence=preparePopupOpener(variant,host,backend,product,exact[0],renderer[0],source.source);
+                            if(variant.startsWith("input-"))frameRouteEvidence=inputPopup(variant,host,backend,product,exact[0],renderer[0],inputSurface);
                             if(variant.equals("document-change")){check(source.views.navigation("owned",exact[0]));check(!product.popupPageDocumentReady("owned")&&product.popupNetworkReady("owned")&&exact[0].destroyed==0);}
                             if(variant.startsWith("route-")){
                                 int queries=0;boolean success=!java.util.Arrays.asList("route-stale","route-channel","route-hidden","route-manual","route-download","route-effect","route-malformed","route-late","route-late-hidden").contains(variant);
@@ -2305,7 +2397,7 @@ public final class CdpPopupWorkerProbe {
                                     .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get())
                                     .put("native_effects",renderer[0].worlds.evaluations).put("provider_qualified",false).put("ui_published",false);
                             }
-                            if(!variant.equals("route-channel")&&!variant.equals("route-manual")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
+                            if(!variant.equals("route-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
                         }
                         check(source.sends==1&&product.configured==1&&product.popupLinks.isEmpty());
                     }catch(Exception|Error error){primary=error;System.err.println("Product page "+variant+" accepted="+accepted.get()+" failed="+failed.get()+" code="+reason[0]);throw error;}
@@ -3016,6 +3108,7 @@ public final class CdpPopupWorkerProbe {
         report.put("product_frame_route_tested",mode.startsWith("preparation-page-route-"));
         report.put("product_capture_fence_tested",mode.startsWith("preparation-page-capture-"));
         report.put("product_protected_opener_tested",mode.startsWith("preparation-page-opener-"));
+        report.put("product_protected_input_tested",mode.startsWith("preparation-page-input-"));
         if(frameRouteEvidence!=null)report.put("product_frame_route",frameRouteEvidence);
         report.put("product_publication_tested",mode.startsWith("preparation-publication-")||mode.startsWith("preparation-restore-"));
         report.put("product_document_restore_tested",mode.startsWith("preparation-restore-"));

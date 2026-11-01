@@ -18,7 +18,7 @@ final class MdoBrowserInput implements AutoCloseable {
     }
     interface Completion { void complete(Result result); }
     interface Checked {void complete(String rejection);}
-    interface Guard {void check(long remainingMilliseconds,Checked complete);}
+    interface Guard {void check(long remainingMilliseconds,Checked complete);default String rejection(){return null;}}
     interface Invalidated {void changed(String reason);}
     static final class Result {
         final boolean ok,effectMayHaveOccurred,cleanupConfirmed;final String code;final int deliveredSteps;
@@ -149,8 +149,11 @@ final class MdoBrowserInput implements AutoCloseable {
             thread();if(done||finishing||checking||active!=this)return;
             if(check==null){dispatch();return;}
             String failure;
-            try{failure=guard();if(failure==null&&scheduler.now()>deadline)failure="input_timed_out";}
+            try{failure=guard();if(failure==null)failure=check.rejection();if(failure==null&&scheduler.now()>deadline)failure="input_timed_out";}
             catch(RuntimeException|OutOfMemoryError error){failure="input_target_failed";}
+            // Scope checks may synchronously retire this exact queued input.
+            // Native focus is an effect too; never acquire it after retirement.
+            if(done||finishing||active!=this)return;
             if(failure!=null){finish(failure);return;}
             try{
                 if(focus){sent=true;if(!target.acquireFocus()){finish("input_focus_required");return;}}

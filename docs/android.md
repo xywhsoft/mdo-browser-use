@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E164)
+## Complete development host APK (current: E165)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,575,425 bytes, SHA-256
-`5ee81a3a1388b04e36d0b2af12ab6faa7bed7c7e40a104cadffb387fce190b8c`.
+`1690e7aed27062ae8ae52dbcc0e564fed667bf6987fc9447180e26c4996c03b4`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -105,10 +105,30 @@ in-flight evaluation preserves its possible-effect result and is never replayed.
 Exact source destruction can reconcile a native release only with the original
 worker release/delivery receipts and all native dependencies settled; it neither
 upgrades a failed Stop nor substitutes for the original protocol detach.
-Thirteen controlled cases pass 551 checks. These include actual frame evaluation
+Thirteen E164 controlled cases pass 551 checks. These include actual frame evaluation
 through the typed route, cancellation and later reuse, using synthetic protocol/UI
-peers. Native touch/key routing, full nested popup adoption, public Android state
-integration and installed-provider/device qualification still remain open.
+peers. At E164, native touch/key routing, full nested popup adoption, public
+Android state integration and installed-provider/device qualification remained open.
+
+E165 connects private protected-popup native input to that original document.
+Hover, click, wheel, key, text and focus retain the PopupPage marker/Handoff/
+Document proof and use the existing worker's attached-document route. A foreign
+proof pair, stale document, hidden view or blocked chooser cannot fall back to
+ordinary binding. Scope/geometry preflight runs before native focus; if that
+check synchronously cancels its input, the sequencer stops before native effects.
+The later native-frame/world/DOM guards remain required. Sixteen controlled
+product cases exercise the real sequencer and JNI graph with synthetic input
+events/geometry, including CANCEL after DOWN and no old result on a new channel.
+They are not installed-provider, Android framework-gesture or device evidence.
+Protected upload/navigation/takeover, public state and complete nested adoption
+still need integration; public Android automation stays disabled.
+The complete native matrix passes 406 popup-worker modes plus the ordinary
+input core (318 reported checks), transport/session/frame/capture/upload/download
+gates, ASan/UBSan and Android API26 compilation. All 130 native input hashes match
+the final sources. Actual DEX checks cover 94 definition groups, including the
+typed input proof fields and both guard preflight definitions. These remain
+controlled protocol/UI checks; see `.mdo/E165-verification.json` and progress
+for the full evidence scope and remaining qualification work.
 
 ```powershell
 python tools/setup_android_client.py --native
