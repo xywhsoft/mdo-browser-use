@@ -273,12 +273,13 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         guard();if(session==null)throw fail("cdp_popup_broker_connection_invalid");
         if(child!=null){
             for(Candidate candidate:candidates)if(candidate.original.matchesNativeSession(child)){
-                Handoff closing=candidate.handoff;if(closing!=null&&closing.retiring()){
+                boolean live=candidate.current();
+                if(retiringCandidate(candidate)){
                     // Never deliver closing-page data or resume its requests.
                     // Keep the existing bounded pause until exact native detach.
                     if("Fetch.requestPaused".equals(method))session.retainAttachedRequest(candidate.original);return;
                 }
-                if(!candidate.current())throw fail("cdp_popup_candidate_retired");
+                if(!live)throw fail("cdp_popup_candidate_retired");
                 MdoBrowserCdpPopupSource source=candidate.sourcePeer;
                 if("Fetch.requestPaused".equals(method)){if(source!=null)source.capture();else session.retainAttachedRequest(candidate.original);return;}
                 if(source!=null)source.event(method,params);
@@ -348,13 +349,18 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         MdoBrowserCdpPopupSource peer=new MdoBrowserCdpPopupSource(session,original.original,handoff,proof,original.sourceFrame,original.sourceLoader);original.sourcePeer=peer;
         try{return MdoBrowserCdpBinding.bindSource(peer,proof,marker,timeout);}catch(IOException|RuntimeException|Error error){handoff.sourceFailure(error);peer.close();throw error;}
     }
+    /** Read deliberate retirement after the native/current snapshot. A UI
+     * close can occur inside that snapshot; an older clock sample must not
+     * turn its newly recorded closeBorn into a backwards-clock failure. */
+    private boolean retiringCandidate(Candidate candidate)throws IOException {
+        Handoff closing=candidate.handoff;if(closing==null||!closing.retiring())return false;
+        if(!closing.retirementCurrent(now()))throw fail("cdp_popup_handoff_cleanup_unconfirmed");return true;
+    }
     private void prune()throws IOException{
         long time=now();for(Candidate candidate:candidates){long age=time-candidate.born;
             candidate.reconcileHandoff();
-            Handoff closing=candidate.handoff;if(closing!=null&&closing.retiring()){
-                if(!closing.retirementCurrent(time))throw fail("cdp_popup_handoff_cleanup_unconfirmed");continue;
-            }
-            if(!candidate.current())throw fail("cdp_popup_broker_opener_lost");
+            boolean live=candidate.current();if(retiringCandidate(candidate))continue;
+            if(!live)throw fail("cdp_popup_broker_opener_lost");
             if(age<0||age>=15000&&(candidate.handoff==null||!candidate.handoff.networkAdmitted.get()))throw fail("cdp_popup_broker_candidate_expired");
         }
         for(int i=registrations.size()-1;i>=0;i--)if(!registrations.get(i).current())registrations.remove(i);

@@ -70,6 +70,7 @@ public final class CdpPopupWorkerProbe {
         final Set<String> continuedSessions=ConcurrentHashMap.newKeySet();
         volatile String responseMode,responseStream="original-child-stream";volatile boolean holdRead;final AtomicInteger responsePasses=new AtomicInteger(),responseAborts=new AtomicInteger(),bodyClaims=new AtomicInteger(),bodyReads=new AtomicInteger(),bodyCloses=new AtomicInteger(),lateRead=new AtomicInteger();
         volatile Runnable responseIo;
+        volatile Runnable retiringClockHook;volatile String retiringClockScope;final AtomicInteger retiringClockTrips=new AtomicInteger();
         DocumentRenderer documentRenderer;
         final Map<String,DocumentRenderer> documentRenderers=new ConcurrentHashMap<>();
         SourceRenderer sourceRenderer;boolean holdAbort,holdClaim;volatile JSONObject heldAbortReply,heldClaimReply;
@@ -136,7 +137,19 @@ public final class CdpPopupWorkerProbe {
             }
         }
         public MdoBrowserCdpPopupBroker create(BooleanSupplier current,LongSupplier clock){creates.incrementAndGet();threads.add(Thread.currentThread());Wire next=new Wire();wire=next;
-            return new MdoBrowserCdpPopupBroker(current,clock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,events,clock::getAsLong);},
+            final Thread worker=Thread.currentThread();LongSupplier originalClock=()->{
+                Runnable work=retiringClockHook;
+                if(work!=null&&Thread.currentThread()==worker){
+                    boolean eligible=false,scope=false;
+                    for(StackTraceElement site:Thread.currentThread().getStackTrace()){
+                        if(site.getClassName().equals("org.xserver.android.MdoBrowserCdpPopupBroker$Handoff")&&site.getMethodName().equals("eligible"))eligible=true;
+                        if(site.getClassName().equals("org.xserver.android.MdoBrowserCdpPopupBroker")&&site.getMethodName().equals(retiringClockScope))scope=true;
+                    }
+                    if(eligible&&scope){retiringClockHook=null;work.run();retiringClockTrips.incrementAndGet();}
+                }
+                return clock.getAsLong();
+            };
+            return new MdoBrowserCdpPopupBroker(current,originalClock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,events,clock::getAsLong);},
                 (target,timeout,alive,events)->{threads.add(Thread.currentThread());nativeOpens.incrementAndGet();CdpBindingProbe.Factory peer=nativeTargets.get(target);
                     if(peer==null)throw new IOException("cdp_fixture_unregistered_target");return peer.open(proofTargets.contains(target)?"owned":"other",timeout,alive,events);});}
         private final class Wire implements MdoBrowserCdpSession.Wire {
@@ -2345,6 +2358,18 @@ public final class CdpPopupWorkerProbe {
                                 if(restoring){
                                     restoration[0]=restorePublished(variant,host,backend,product,exact[0],renderer[0]);
                                 }
+                                if(variant.startsWith("retirement-")){
+                                    MdoBrowserCdpPopupBroker.Handoff originalHandoff=product.popupHandoff("owned");
+                                    backend.retiringClockScope=variant.substring("retirement-".length());
+                                    // A scheduler boundary in the existing clock dependency:
+                                    // retire after the first retirement read, inside current().
+                                    backend.retiringClockHook=()->{host.time.incrementAndGet();originalHandoff.retireAuthority();};
+                                    if(backend.retiringClockScope.equals("event"))backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId","proof-real").put("params",new JSONObject()));
+                                    waitFor(()->backend.retiringClockTrips.get()==1,host,true);int observed=backend.receives.get();
+                                    waitFor(()->backend.receives.get()>observed+8||backend.closes.get()>0,host,true);
+                                    if(backend.closes.get()!=0)throw new AssertionError("Deliberate concurrent retirement poisoned original wire: "+product.preparationWorkerCode());
+                                    check(originalHandoff.retiring()&&!originalHandoff.current()&&product.popupOwner("owned").current()&&exact[0].destroyed==0&&backend.disables.get()==0);
+                                }
 
                                 if(claim||read){
                                     MdoBrowserCdpDownloads controller=product.popupDownloads("owned");controller.accept(controller.list()[0].id,65536,3000);
@@ -2401,7 +2426,8 @@ public final class CdpPopupWorkerProbe {
                             if(restoring)check(product.retirementBoundaryChecks>=1);
                             publicationEvidence=new JSONObject().put("actual_product_creation",true).put("controlled_ui_publication_confirmed",positive).put("controlled_ui_adds",product.root.adds).put("create_replies",product.publicCounts.getOrDefault("create",0)).put("close_replies",product.publicCounts.getOrDefault("close",0))
                                 .put("cleanup_confirmed",!unconfirmed).put("unconfirmed_creation_fenced",unconfirmed).put("active_stream_tested",claim||read).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("no_url_replay",true).put("framework_qualified",false).put("provider_qualified",false)
-                                .put("document_restore",restoration[0]==null?JSONObject.NULL:restoration[0]).put("protected_retirement_boundaries",product.retirementBoundaryChecks);
+                                .put("document_restore",restoration[0]==null?JSONObject.NULL:restoration[0]).put("protected_retirement_boundaries",product.retirementBoundaryChecks)
+                                .put("concurrent_retirement",variant.startsWith("retirement-"));
                             if(renderer[0]!=null)renderer[0].wire.close();
                         }catch(Exception|Error error){System.err.println("Publication cleanup "+variant+" prep="+product.preparationSettled()+" child="+product.popupDiagnostic("owned")+" close="+product.publicReplies.get("close")+" closed="+backend.closes.get()+" abort="+backend.responseAborts.get()+" pass="+backend.responsePasses.get()+" site="+backend.closeSite+" worker="+product.preparationWorkerCode());if(primary!=null)primary.addSuppressed(error);else throw error;}
                     }

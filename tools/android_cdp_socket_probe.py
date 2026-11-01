@@ -253,6 +253,7 @@ def main():
                   'preparation-publication-download-close-claim',
                   'preparation-publication-download-close-read',
                   'preparation-publication-deadline-add','preparation-publication-deadline-bounds',
+                  'preparation-publication-retirement-prune','preparation-publication-retirement-event',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
                   'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
@@ -295,6 +296,8 @@ def main():
                     or published.get('native_proof_connections') not in {0,1} or published.get('no_url_replay') is not True
                     or published.get('framework_qualified') is not False or published.get('provider_qualified') is not False):
                 raise RuntimeError('The original product publication and close receipts did not pass')
+            if mode.startswith('preparation-publication-retirement-') and published.get('concurrent_retirement') is not True:
+                raise RuntimeError('The exact concurrent retirement scheduler boundary was not exercised')
         if mode.startswith('preparation-restore-'):
             restore=popup_worker['product_publication'].get('document_restore')
             if (not isinstance(restore,dict) or restore.get('actual_frame_router') is not True or restore.get('reads',0)<1

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E160)
+## Complete development host APK (current: E161)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,571,329 bytes, SHA-256
-`f68320393cea1d248582f1694b74031be07266d3f16ca72c55d9604f7e46d289`.
+`ae1797d07a1d5b260d8201dc69f172ee7750ae0a3ea9d78f84350cd6cbe4538f`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5782,3 +5782,39 @@ Public Android automation remains disabled; generic observation/input routing,
 protected navigation/takeover/nested preparation, remaining recovery and native
 concurrency qualification, and installed-provider/UI qualification remain open.
 Phone/WebView checks remain deferred; no ADB or production action was used.
+
+
+### E161 concurrent retirement snapshots and original close clocks
+
+Two deterministic scheduling regressions reproduced a remaining check/read race
+in the actual original popup broker. If deliberate authority retirement occurred
+inside the current-owner read, the preceding retirement check was already stale.
+Polling failed with `cdp_popup_broker_opener_lost`; event delivery failed with
+`cdp_popup_candidate_retired`. Both unnecessarily closed the shared original wire.
+
+The worker now checks deliberate retirement after the current-owner snapshot,
+using a fresh clock sample for its already-recorded close deadline. It keeps the
+same closeBorn and five-second budget; an earlier poll timestamp cannot make a
+just-started close appear to move backwards. Real owner loss, foreign sessions,
+missing cleanup and expired budgets retain their original rejection paths.
+
+The controlled scheduler is the existing clock dependency: it trips only inside
+the worker's exact `Handoff.eligible` call in polling or event delivery. It invokes
+only the data-only retirement half, advances the original clock and then proves
+that the still-live native child/shared wire is not closed, followed by actual
+product close and exact native detach/cleanup. Two new modes/74 checks pass.
+Evidence: `.mdo/E161-retirement-prune-red.log`,
+`.mdo/E161-retirement-event-red.log` and `.mdo/E161-retirement-current.log`.
+Fresh native365/13,250, JS466, Python174 of176 (two existing Windows symlink
+privilege skips), creation850/close77, popup110/25/7, save47 and signed APK gates
+pass. All 363 earlier mode counts remain unchanged. The 129 native/479 overall
+source hashes and 82 actual DEX definition groups verify the current code,
+including the new retirement snapshot helper. The APK is 6,571,329 bytes, SHA-256
+`ae1797d07a1d5b260d8201dc69f172ee7750ae0a3ea9d78f84350cd6cbe4538f`.
+See `.mdo/E161-final-identities.log`. Windows E150/world E146 are unchanged,
+hash-verified scoped reuse rather than fresh Windows/provider runs. This is
+controlled scheduling evidence, not Android framework/provider or concurrent
+hardware qualification. Public Android automation, generic observation/input
+routing, protected navigation/takeover/nested preparation and broader recovery
+gates remain open. Phone and current WebView checks remain deferred; no ADB,
+live model, external page or production action was used.
