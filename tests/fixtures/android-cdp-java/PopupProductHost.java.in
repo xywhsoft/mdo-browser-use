@@ -21,6 +21,7 @@ final class PopupProductHost {
     final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed;
     MdoBrowserCdpWorker cdpWorker;
     final Set<String> manual=new HashSet<>();
+    final Map<String,Boolean> loading=new HashMap<>();
     static final class WebMessagePort {}
     final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
     static final class Host {String getUrl(){return "http://127.0.0.1/development";}}
@@ -37,6 +38,16 @@ final class PopupProductHost {
     AutoCloseable handoffNetworkPrepared(String pending,String key,int timeout,Runnable ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
         return handoffPreparedProtocolPopupNetwork("root",views.get("root"),pending,key,timeout,network->ready.run(),failure);
     }
+    AutoCloseable handoffPagePrepared(String pending,String key,int timeout,Runnable ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
+        return handoffPreparedProtocolPopupPage("root",views.get("root"),pending,key,timeout,page->ready.run(),failure);
+    }
+    void pollPopupPage(String key){PopupNetwork row=network(key);if(row!=null&&row.page!=null)row.page.poll();}
+    boolean popupPageReady(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.phase==2&&row.page.current();}
+    boolean popupPageDocumentReady(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.documentReady();}
+    boolean popupPageDownloadOnly(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.downloadOnly;}
+    boolean popupPageInFlight(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.inFlight;}
+    void closePopupPage(String key){PopupNetwork row=network(key);if(row!=null&&row.page!=null)row.page.close();}
+    void duplicatePopupPage(String key)throws Exception{prepareProtocolPopupPage(network(key),page->{throw new AssertionError("Duplicate page entered");},(code,effect)->{throw new AssertionError(code);});}
     PopupNetwork network(String key){NetworkEntry row=networkViews.get(key);return row==null?null:row.popup;}
     boolean popupNetworkReady(String key){PopupNetwork value=network(key);return value!=null&&value.phase==1&&value.current();}
     void closePopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.close();}

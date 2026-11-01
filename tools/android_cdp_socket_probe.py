@@ -203,6 +203,11 @@ def main():
                  'preparation-network-cancel-source','preparation-network-owner-channel','preparation-network-owner-profile','preparation-network-deadline-source','preparation-network-callback-throw','preparation-network-schedule-failure',
                  'preparation-network-unsupported','preparation-network-nonempty','preparation-network-frame-race','preparation-network-peer-detach','preparation-network-close-timeout','preparation-network-download-unconfirmed',
                   'preparation-network-concurrent-ready','preparation-network-concurrent-proof','preparation-network-concurrent-detach',
+                  'preparation-page-ready','preparation-page-parent-close','preparation-page-download','preparation-page-download-stream','preparation-page-document-change',
+                  'preparation-page-activation-unsupported','preparation-page-activation-malformed','preparation-page-world-unique','preparation-page-world-metadata','preparation-page-callback-throw',
+                  'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
+                  'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
+                  'preparation-page-parent-before-world',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))
@@ -213,6 +218,7 @@ def main():
                 or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('product_popup_preparation_tested') is not mode.startswith('preparation')
                 or popup_worker.get('product_prepared_admission_tested') is not mode.startswith('prepared-admission')
+                or popup_worker.get('product_page_startup_tested') is not mode.startswith('preparation-page-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -224,6 +230,12 @@ def main():
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
+        if mode.startswith('preparation-page-'):
+            evidence=popup_worker.get('product_page')
+            if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool
+                    or evidence.get('ui_published') is not False or evidence.get('provider_qualified') is not False
+                    or not evidence['cleanup_confirmed'] and (evidence.get('unconfirmed_creation_fenced') is not True or evidence.get('failure_callbacks')!=1)):
+                raise RuntimeError('Protected page startup lost its actual cleanup/publication evidence')
         popup_worker_results.append(popup_worker)
     result['jvm_popup_worker']=popup_worker_results
     popup_native=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

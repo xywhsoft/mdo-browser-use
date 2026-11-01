@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E156:** join the original product handoff/network to once-only
+  activation and captured root-world readiness under the same total deadline.
+  Download-only popups retain their original offers without requiring DOM,
+  accepting bytes or replaying a URL. Weak UI completion and an explicit
+  native epoch reject late readiness after navigation/owner loss. Twenty new
+  product modes/611 checks pass; fresh popup-worker294/10,135 retains all 274
+  earlier mode counts. Full JS/Python/native/product/popup/save/APK gates pass;
+  the actual APK verifies 82 definition groups. Public tab publication, scoped
+  world-cancellation recovery and platform qualification remain open.
+
 - **Android E155:** serialize protected-popup guard/proof work behind the
   original Browser connection's in-flight RPC. A controlled two-source product
   test reproduced `cdp_session_closed` when cooperative progress attempted a
@@ -12123,3 +12133,80 @@ qualification remain open. Public protected create still rejects
 `popup_network_unqualified`; Android device/framework/provider/public
 automation remain false. The phone/current WebView remain deferred as the
 user requested. No ADB, live model, external page or production action was used.
+
+### E156 — product activation and captured root-world startup (2026-11-01)
+
+Extend the actual product handoff through its already attached physical network
+and download controller into a UI-owned page-startup coordinator. Activation is
+requested exactly once after source bootstrap/attachment succeeds. Its original
+native control receipt must succeed before document/world bootstrap. Allocation,
+adoption, proof, source binding, activation and world readiness share the original
+maximum nine-second total; waiting/repeated metadata inventory cannot renew it.
+
+Document work uses the exact promoted native owner, private attached-document
+proof and existing protocol executor. A field-free static operation warms the
+native frame graph's unique isolated worlds and returns only a fixed root-ready
+status. It executes no caller page script and grants no universal access.
+The UI receives that result through one weak owner reference and rechecks the
+original profile/channel/view plus its captured native document epoch. A live
+lease alone was insufficient to detect a later UI navigation; the explicit
+epoch fence now prevents publishing that old readiness. Readiness only describes
+the captured root document, not a future navigation or all subframes.
+
+Loading metadata can remain pending and be refreshed on the same original
+binding/quota within that deadline. A retained current offer from the exact
+physical root can instead finish startup as download-only, without waiting for
+a DOM/world. The coordinator neither accepts/cancels that offer for the user
+nor reads its body. The existing controller remains responsible for decisions,
+stream cleanup and verified bytes. Failure revokes the original handoff before
+closing document/source markers, and preserves an original sanitized activation
+error instead of replacing it with a later owner-loss message.
+
+Twenty new actual-product modes pass 611 checks: root world startup, same-binding
+world wait, download-only and verified streamed downloads, duplicate admission,
+parent closure both during and after world bootstrap, post-ready navigation,
+unsupported/malformed activation, unique-world/metadata rejection, callback and
+timer failure, loading/activation deadline expiry, cancellation, channel loss
+and document replacement during in-flight world work. Runtime protocol, native
+ownership, worker, frames/worlds and guarded files are real shared components;
+Android framework/renderer/provider peers remain controlled.
+
+Each new receipt records actual ready/failure callbacks, world creation,
+cleanup confirmation and retained creation fences separately. Nine negative
+cases retain unconfirmed cleanup and block new creation; those are passing
+failure-containment assertions, not cleanup/recovery successes. In particular,
+world-startup cancellation and some control failures still terminate the shared
+wire rather than draining only the affected original child. Scoped cancellation
+and failure isolation remain required before public Android qualification.
+No case publishes a UI tab or claims provider qualification.
+
+The first full native run also exposed an old retirement-test sequencing
+assumption: a protocol close receipt was treated as synchronous termination of
+the separate file worker's cache cancellation. The test now waits for that
+original cache terminal before asserting the permanent unconfirmed-source
+release error. Every existing source/disable/verified-byte assertion remains;
+unexpected release errors now include their actual state in diagnostics.
+The strengthened retirement probe passes twenty sequential 59-check runs
+(previously 58 checks). The failed full-run evidence and before/after focused
+runs remain under `.mdo/E156-*`.
+
+Fresh full validation passes 294 popup-worker modes/10,135 checks on 128 current
+native inputs, with all 274 earlier popup mode counts unchanged. JS466,
+Python174/176 (two existing Windows symlink-privilege skips), creation848/close77,
+popup110/25/7 and save47 pass. JNI checking, ASan/UBSan, API26 and production
+Java8 remain in place. All 479 overall input hashes are verified. The signed
+Android development APK is 6,567,233 bytes, SHA-256
+`9c64e1266bb4eb831f451e117eb3ae7947352ea784f1203dab8614d23ac5da25`.
+Actual APK metadata verifies 82 definition groups, including the page coordinator,
+field-free warmup, weak completion and native epoch. Windows E150 and world E146
+evidence remain unchanged hash-verified scoped reuse, not fresh platform runs.
+See `.mdo/E156-final-identities.log`.
+
+The private startup chain is not the public creation/command route. Visible tab
+publication, attached-document command routing, protected navigation/takeover,
+nested popup admission, scoped world cancellation, initialization rollback
+with native-close failure, externally gated Browser-wire completion and broader
+platform/recovery qualification remain pending. Public protected create still
+rejects `popup_network_unqualified`; Android available/device/framework/provider/
+public automation remain false. The phone/current WebView remain deferred.
+No ADB, live model, external page or production publication was used.

@@ -5579,3 +5579,44 @@ Windows E150/world E146 receipts are unchanged scoped reuse. Complete
 activation/world/publication, protected navigation/takeover and the other
 documented recovery gaps remain pending; public protected creation still
 rejects `popup_network_unqualified`. The phone/current WebView remain deferred.
+
+### E156 original activation and captured root-world startup
+
+The private product coordinator now carries one original handoff through network/
+download attachment, once-only activation, its native control receipt and root
+isolated-world warmup on the same Browser connection. All phases share the
+original maximum nine-second total. A field-free worker operation uses the
+existing frame/world manager; only a fixed readiness status reaches the weak
+UI completion. Profile/channel/native-owner and explicit document-epoch checks
+fence late results. Loading metadata may be refreshed on that same binding.
+This certifies only the captured root document and does not publish a tab.
+
+A retained current download offer from that original physical root can complete
+startup as download-only. DOM/world readiness is not required, and the user
+retains the download decision. Actual streaming/verified-byte tests still use
+the existing controller, source receipts and guarded file worker. Activation
+errors retain their original sanitized reason before subsequent owner loss.
+
+Twenty new product modes/611 checks cover both outcomes, parent-first closure,
+same-world wait, native epoch changes, original control/world failures,
+cancellation, owner loss and timeout. Full fresh validation passes 294 popup
+worker modes/10,135 checks, all 274 earlier mode counts unchanged, plus
+JS466/Python174 of176, creation848/close77, popup110/25/7 and save47. The old
+retirement test now waits separately for the original cache-cancellation
+terminal before checking unconfirmed source release; its 59-check probe passes
+twenty sequential runs without weakening existing cleanup assertions.
+
+All 128 native/479 overall hashes and 82 actual DEX definition groups are
+checked. The signed development APK is 6,567,233 bytes, SHA-256
+`9c64e1266bb4eb831f451e117eb3ae7947352ea784f1203dab8614d23ac5da25`.
+See `.mdo/E156-final-identities.log`; Windows E150/world E146 are unchanged
+hash-verified scoped reuse.
+
+New per-case evidence distinguishes cleanup confirmation from retained fencing.
+Nine negative cases intentionally remain unconfirmed. Scoped world cancellation
+and some control-failure isolation still need to preserve the shared wire;
+fencing is not successful recovery. UI publication/public command routing,
+navigation/takeover/nested and other documented rollback/platform gates remain
+open. Android available/framework/device/provider/public qualification remain
+false, and public protected create still rejects `popup_network_unqualified`.
+The phone/current WebView remain deferred.

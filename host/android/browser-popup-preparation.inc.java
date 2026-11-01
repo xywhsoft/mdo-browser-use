@@ -12,6 +12,107 @@
     private final Map<String,PopupPreparation> protocolPopupPreparations=new HashMap<>();
     interface ProtocolPopupReady {void ready(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException;}
     interface ProtocolPopupNetworkReady {void ready(PopupNetwork network)throws java.io.IOException;}
+    interface ProtocolPopupPageReady {void ready(PopupPage page)throws java.io.IOException;}
+    /** Fixed worker-only world warmup. No UI owner, caller script or target ID. */
+    private static final class PopupPageWarmup implements MdoBrowserCdpWorker.Operation {
+        public byte[] run(MdoBrowserCdpBinding binding,MdoBrowserCdpWorker.Deadline budget)throws java.io.IOException {
+            JSONObject inventory=binding.frames().inventory(budget);org.json.JSONArray frames=inventory.optJSONArray("frames");JSONObject root=null;
+            if(!Boolean.TRUE.equals(inventory.opt("ok"))||frames==null||frames.length()>32)throw new java.io.IOException("cdp_popup_page_inventory_invalid");
+            for(int i=0;i<frames.length();i++){
+                JSONObject frame=frames.optJSONObject(i);if(frame==null)throw new java.io.IOException("cdp_popup_page_inventory_invalid");
+                if("f0".equals(frame.opt("id"))){if(root!=null)throw new java.io.IOException("cdp_popup_page_inventory_invalid");root=frame;}
+            }
+            if(root==null||!(root.opt("loading") instanceof Boolean)||!(root.opt("isolated") instanceof Boolean))throw new java.io.IOException("cdp_popup_page_inventory_invalid");
+            if(root.optBoolean("loading"))return new byte[]{0};
+            if(!root.optBoolean("isolated"))throw new java.io.IOException("cdp_popup_page_world_unavailable");
+            return new byte[]{1};
+        }
+    }
+    private static final class PopupPageForward implements MdoBrowserCdpWorker.Completion {
+        private final java.lang.ref.WeakReference<PopupPage> owner;
+        PopupPageForward(PopupPage owner){this.owner=new java.lang.ref.WeakReference<>(owner);}
+        public void done(MdoBrowserCdpWorker.Result result){PopupPage value=owner.get();if(value!=null)value.completed(result);}
+    }
+    /** One UI-owned startup on the original guarded network. Download-only
+     * popups do not need a document world. A ready world certifies only its
+     * captured native document epoch, never a later navigation. */
+    private final class PopupPage implements AutoCloseable {
+        final PopupNetwork network;final Runnable watch=this::poll;
+        ProtocolPopupPageReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
+        MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;
+        int phase;long epoch;boolean inFlight,downloadOnly;
+        PopupPage(PopupNetwork network,ProtocolPopupPageReady ready,MdoBrowserCdpPopupPreparation.Failure failure){this.network=network;this.ready=ready;this.failure=failure;}
+        boolean current(){return phase<3&&network.page==this&&network.current();}
+        boolean documentCurrent(){return marker!=null&&marker.lease().current()&&views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;}
+        boolean documentReady(){return phase==2&&!downloadOnly&&current()&&documentCurrent();}
+        int remaining()throws java.io.IOException {
+            if(!current())throw new java.io.IOException("cdp_popup_page_owner_changed");
+            long left=network.deadline-android.os.SystemClock.elapsedRealtime();if(left<100)throw new java.io.IOException("cdp_popup_page_timeout");return (int)Math.min(3000,left);
+        }
+        void schedule(){networkHandler.removeCallbacks(watch);if(!networkHandler.postDelayed(watch,50))throw new IllegalStateException("cdp_popup_page_scheduler_failed");}
+        void start(){
+            try{
+                remaining();if(!loading.containsKey(network.entry.key))loading.put(network.entry.key,true);
+                activateProtocolPopup(network.owner,network.handoff);schedule();
+            }
+            catch(java.io.IOException|RuntimeException|Error error){fail(reason(error));}
+        }
+        private String reason(Throwable error){String code=error.getMessage();return code!=null&&code.matches("(?:cdp|network)_[a-z_]{1,80}")?code:"cdp_popup_page_failed";}
+        void poll(){
+            if(phase>=2)return;
+            try{
+                MdoBrowserCdpSession.ControlResult flow=network.handoff.flowFailure();
+                if(flow!=null&&!flow.ok)throw new java.io.IOException(flow.code==null?"cdp_popup_page_activation_failed":flow.code);
+                int timeout=remaining();
+                MdoBrowserCdpSession.ControlResult active=network.handoff.activationResult();
+                if(active==null){schedule();return;}
+                if(!active.ok)throw new java.io.IOException(active.code==null?"cdp_popup_page_activation_failed":active.code);
+                if(phase==0)phase=1;
+                // An offer from this exact physical root is useful without DOM.
+                // Never replace the offer, consume its bytes or decide for user.
+                for(MdoBrowserCdpDownloads.Snapshot item:network.entry.downloads.list())if(item.root&&item.frameCurrent){
+                    if(!inFlight&&marker==null){downloadOnly=true;accepted();return;}
+                }
+                if(inFlight||Boolean.TRUE.equals(loading.get(network.entry.key))){schedule();return;}
+                if(marker==null){epoch=views.epoch(network.entry.key,network.entry.view);marker=protocolDocumentMarker(network.entry.key,network.owner,network.handoff);proof=network.owner.document(marker);}
+                if(!documentCurrent())throw new java.io.IOException("cdp_popup_page_document_changed");
+                inFlight=true;schedule();
+                cdpWorker.submitDocument(marker,network.handoff,proof,Math.min(timeout,remaining()),false,new PopupPageWarmup(),new PopupPageForward(this));
+            }catch(java.io.IOException|RuntimeException|Error error){fail(reason(error));}
+        }
+        void completed(MdoBrowserCdpWorker.Result result){
+            if(phase>=2)return;inFlight=false;
+            if(result.code!=null){fail(result.code);return;}
+            try{
+                remaining();if(!documentCurrent())throw new java.io.IOException("cdp_popup_page_document_changed");
+                if(result.bytes==null||result.bytes.length!=1||(result.bytes[0]!=0&&result.bytes[0]!=1))throw new java.io.IOException("cdp_popup_page_result_invalid");
+                if(result.bytes[0]==0){schedule();return;}accepted();
+            }catch(java.io.IOException|RuntimeException|Error error){fail(reason(error));}
+        }
+        private void accepted()throws java.io.IOException {
+            remaining();if(!downloadOnly&&!documentCurrent())throw new java.io.IOException("cdp_popup_page_document_changed");
+            phase=2;networkHandler.removeCallbacks(watch);ProtocolPopupPageReady callback=ready;ready=null;
+            if(callback==null){fail("cdp_popup_page_callback_failed");return;}
+            try{callback.ready(this);}catch(java.io.IOException|RuntimeException|Error error){fail("cdp_popup_page_callback_failed");return;}
+            failure=null;
+        }
+        void retired(String code){
+            if(phase==3)return;phase=3;inFlight=false;networkHandler.removeCallbacks(watch);ready=null;
+            if(marker!=null){
+                try{marker.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
+                try{cdpWorker.cancel(marker.lease());}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
+            }proof=null;
+            MdoBrowserCdpPopupPreparation.Failure callback=failure;failure=null;
+            if(callback!=null)try{callback.failed(code,true);}catch(RuntimeException|Error ignored){/* one startup outcome */}
+        }
+        void fail(String code){if(phase==3)return;network.retire(code);}
+        @Override public void close(){fail("cdp_popup_page_cancelled");}
+    }
+    private PopupPage prepareProtocolPopupPage(PopupNetwork network,ProtocolPopupPageReady ready,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
+        nativeOwnerAdmission();if(network==null||ready==null||failure==null||network.phase!=1||!network.current())throw new java.io.IOException("cdp_popup_page_arguments_invalid");
+        if(network.page!=null)throw new java.io.IOException("cdp_popup_page_busy");
+        PopupPage page=new PopupPage(network,ready,failure);network.page=page;page.start();return page;
+    }
     private static final class PopupNetworkAttach implements MdoBrowserCdpWorker.Operation {
         private final MdoBrowserCdpDownloads.Connection original;
         PopupNetworkAttach(MdoBrowserCdpDownloads.Connection original){this.original=original;}
@@ -28,7 +129,7 @@
     private final class PopupNetwork implements AutoCloseable {
         final NetworkEntry entry;final MdoBrowserCdpPopupNative.Promotion owner;final MdoBrowserCdpPopupBroker.Handoff handoff;
         final long deadline;ProtocolPopupNetworkReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
-        int phase;boolean disposing,downloadsClosed;
+        int phase;boolean disposing,downloadsClosed;PopupPage page;
         PopupNetwork(NetworkEntry entry,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff,long deadline,
                 ProtocolPopupNetworkReady ready,MdoBrowserCdpPopupPreparation.Failure failure){
             this.entry=entry;this.owner=owner;this.handoff=handoff;this.deadline=deadline;this.ready=ready;this.failure=failure;
@@ -65,14 +166,16 @@
         void schedule(){networkHandler.removeCallbacks(entry.watch);if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_scheduler_unavailable");}
         void retire(String code){
             if(phase>=2)return;
-            MdoBrowserCdpSession.ControlResult original=handoff.flowFailure();if(phase==0&&original!=null&&!original.ok&&original.code!=null)code=original.code;
-            else if(phase==0&&handoff.detached())code="cdp_session_detached";
+            boolean starting=phase==0||page!=null&&page.phase<2;
+            MdoBrowserCdpSession.ControlResult original=handoff.flowFailure();if(starting&&original!=null&&!original.ok&&original.code!=null)code=original.code;
+            else if(starting&&handoff.detached())code="cdp_session_detached";
             phase=2;entry.retired=true;entry.ready=false;entry.starting=false;entry.draining=false;entry.code=code;entry.retiredAt=android.os.SystemClock.elapsedRealtime();
             ready=null;disposing=true;networkHandler.removeCallbacks(entry.watch);
             try{
                 // Revoke the original handoff first: otherwise marker/source
                 // invalidation could be mistaken for an unexplained owner loss.
                 try{handoff.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;}
+                try{if(page!=null)page.retired(code);}catch(RuntimeException|Error error){networkCleanupFailed=true;}
                 entry.live.set(false);
                 try{if(entry.downloads!=null)entry.downloads.quiesce();}catch(RuntimeException|Error error){networkCleanupFailed=true;}
                 try{if(entry.marker!=null){entry.marker.close();cdpWorker.cancel(entry.marker.lease());}}catch(RuntimeException|Error error){networkCleanupFailed=true;}
@@ -126,7 +229,7 @@
         MdoBrowserCdpPopupNative source;MdoBrowserCdpPopupNative.Created created;WebView view;MdoBrowserDocument profile;
         MdoBrowserCdpView adapter;MdoBrowserCdpPopupNative.Child proof;
         MdoBrowserCdpPopupNative.Promotion promoted;MdoBrowserCdpPopupBroker.Handoff handoff;
-        ProtocolPopupNetworkReady networkReady;PopupNetwork network;
+        ProtocolPopupNetworkReady networkReady;PopupNetwork network;ProtocolPopupPageReady pageReady;PopupPage page;
         int phase;boolean ended,possible;
         PopupHandoff(String key,String opener,PopupPreparation parent,MdoBrowserPopups.Snapshot pending,int timeout,ProtocolPopupReady ready,MdoBrowserCdpPopupPreparation.Failure failure){
             this.key=key;this.opener=opener;this.parent=parent;this.pending=pending;lease=channel.current();deadline=android.os.SystemClock.elapsedRealtime()+timeout;this.ready=ready;this.failure=failure;
@@ -162,7 +265,7 @@
             if(ended)return;if(phase!=2||proof!=original)throw new java.io.IOException("cdp_popup_handoff_replayed");remaining();
             handoff=proof.handoff();promoted=handoffProtocolPopup(key,source,created,proof);remaining();phase=3;
             if(!disposeProof())throw new java.io.IOException("cdp_popup_handoff_cleanup_unconfirmed");
-            if(networkReady!=null){
+            if(networkReady!=null||pageReady!=null){
                 try{network=prepareProtocolPopupNetwork(key,promoted,handoff,deadline,this::networked,this::fail);}
                 catch(java.io.IOException|RuntimeException|Error error){fail(reason(error),true);}return;
             }
@@ -173,10 +276,17 @@
         }
         void networked(PopupNetwork original)throws java.io.IOException {
             if(ended)return;remaining();if(phase!=3||network!=null&&network!=original||original.owner!=promoted||original.handoff!=handoff||!original.current())throw new java.io.IOException("cdp_popup_network_owner_changed");
+            if(pageReady!=null){network=original;phase=4;page=prepareProtocolPopupPage(original,this::pageReadied,this::fail);return;}
             network=original;ProtocolPopupNetworkReady callback=networkReady;networkReady=null;
             try{callback.ready(original);}catch(java.io.IOException|RuntimeException|Error error){fail("cdp_popup_handoff_callback_failed",true);return;}
             if(ended)return;
             ended=true;phase=4;protocolPopupHandoffs.remove(key,this);
+        }
+        void pageReadied(PopupPage original)throws java.io.IOException {
+            if(ended)return;remaining();if(phase!=4||page!=null&&page!=original||original.network!=network||!original.current())throw new java.io.IOException("cdp_popup_page_owner_changed");
+            page=original;ProtocolPopupPageReady callback=pageReady;pageReady=null;
+            try{callback.ready(original);}catch(java.io.IOException|RuntimeException|Error error){fail("cdp_popup_handoff_callback_failed",true);return;}
+            if(ended)return;ended=true;phase=5;protocolPopupHandoffs.remove(key,this);
         }
         private String reason(Throwable error){String code=error.getMessage();return code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:"cdp_popup_handoff_failed";}
         private boolean disposeProof(){
@@ -185,7 +295,7 @@
         }
         void fail(String code,boolean effect){
             if(ended)return;ended=true;phase=5;possible|=effect;protocolPopupHandoffs.remove(key,this);boolean clean=true;
-            networkReady=null;if(network!=null)try{network.close();}catch(RuntimeException|Error error){clean=false;}
+            networkReady=null;pageReady=null;if(network!=null)try{network.close();}catch(RuntimeException|Error error){clean=false;}
             if(handoff!=null)try{handoff.close();}catch(RuntimeException|Error error){clean=false;}
             if(!disposeProof())clean=false;
             try{parent.preparation.close(code);}catch(RuntimeException|Error error){clean=false;}
@@ -195,16 +305,20 @@
     }
     private PopupHandoff handoffPreparedProtocolPopup(String opener,WebView exact,String pending,String key,int timeout,
             ProtocolPopupReady ready,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
-        return handoffPreparedProtocolPopup(opener,exact,pending,key,timeout,ready,null,failure);
+        return handoffPreparedProtocolPopup(opener,exact,pending,key,timeout,ready,null,null,failure);
     }
     private PopupHandoff handoffPreparedProtocolPopupNetwork(String opener,WebView exact,String pending,String key,int timeout,
             ProtocolPopupNetworkReady ready,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
-        return handoffPreparedProtocolPopup(opener,exact,pending,key,timeout,null,ready,failure);
+        return handoffPreparedProtocolPopup(opener,exact,pending,key,timeout,null,ready,null,failure);
+    }
+    private PopupHandoff handoffPreparedProtocolPopupPage(String opener,WebView exact,String pending,String key,int timeout,
+            ProtocolPopupPageReady ready,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
+        return handoffPreparedProtocolPopup(opener,exact,pending,key,timeout,null,null,ready,failure);
     }
     private PopupHandoff handoffPreparedProtocolPopup(String opener,WebView exact,String pending,String key,int timeout,
-            ProtocolPopupReady ready,ProtocolPopupNetworkReady networkReady,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
+            ProtocolPopupReady ready,ProtocolPopupNetworkReady networkReady,ProtocolPopupPageReady pageReady,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
         nativeOwnerAdmission();
-        if((ready==null)==(networkReady==null)||failure==null||timeout<1||timeout>9000||pending==null||pending.isEmpty())throw new java.io.IOException("cdp_popup_handoff_arguments_invalid");
+        if((ready==null?0:1)+(networkReady==null?0:1)+(pageReady==null?0:1)!=1||failure==null||timeout<1||timeout>9000||pending==null||pending.isEmpty())throw new java.io.IOException("cdp_popup_handoff_arguments_invalid");
         PopupPreparation parent=protocolPopupPreparations.get(opener);
         if(parent==null||parent.view!=exact||!parent.current()||!parent.preparation.ready())throw new java.io.IOException("cdp_popup_preparation_required");
         MdoBrowserPopups<WebView> core=windows.get(opener);MdoBrowserPopups.Snapshot request=core==null?null:core.snapshot();
@@ -212,7 +326,7 @@
         if(protocolPopupHandoffs.containsKey(key))throw new java.io.IOException("cdp_popup_handoff_busy");
         for(PopupHandoff original:protocolPopupHandoffs.values())if(original.parent==parent&&original.pending==request)throw new java.io.IOException("cdp_popup_handoff_busy");
         if(protocolPopupHandoffs.size()>=7)throw new java.io.IOException("cdp_popup_handoff_limit");views.checkNew(key);
-        PopupHandoff result=new PopupHandoff(key,opener,parent,request,timeout,ready,failure);result.networkReady=networkReady;protocolPopupHandoffs.put(key,result);result.start();return result;
+        PopupHandoff result=new PopupHandoff(key,opener,parent,request,timeout,ready,failure);result.networkReady=networkReady;result.pageReady=pageReady;protocolPopupHandoffs.put(key,result);result.start();return result;
     }
     interface ProtocolPopupCreated {void ready(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created child)throws java.io.IOException;}
     /** Product creation uses only the original pending callback and guarded

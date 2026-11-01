@@ -21,6 +21,7 @@ import org.json.JSONObject;
 /** Real common executor/network/marker/dispatcher with controlled UI/renderer.
  * No extra product executor or installed-provider/popup adoption qualification. */
 public final class CdpPopupWorkerProbe {
+    private static JSONObject pageEvidence;
     private static int checks;
     private interface Work {void run()throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Popup worker check "+(checks+1));checks++;}
@@ -86,7 +87,7 @@ public final class CdpPopupWorkerProbe {
         }
         static final class DocumentRenderer {
             final CdpFramesProbe.Plan frames=new CdpFramesProbe.Plan();final CdpWorldsProbe.Engine worlds;
-            final CdpBindingProbe.Wire wire;int resets,runtime;boolean binding=true;
+            final CdpBindingProbe.Wire wire;int resets,runtime;boolean binding=true;Runnable beforeWorld;
             DocumentRenderer(WebView view)throws Exception{worlds=new CdpWorldsProbe.Engine();worlds.evaluation=(context,expression)->{check(expression.equals("({ok:true,text:'managed'})"));return new JSONObject().put("ok",true).put("text","managed");};frames.extra=worlds;CdpBindingProbe.Factory factory=new CdpBindingProbe.Factory(view);wire=new CdpBindingProbe.Wire(factory,"owned");}
             void loseWorld(String raw,Wire output)throws Exception {
                 CdpWorldsProbe.Context found=null;for(CdpWorldsProbe.Context context:worlds.contexts.values())if(context.source==null&&context.frame.equals(raw)){check(found==null);found=context;}
@@ -96,6 +97,7 @@ public final class CdpPopupWorkerProbe {
             void command(JSONObject command,Wire output)throws Exception{
                 JSONObject request=new JSONObject(command.toString());String original=request.getString("sessionId");if(original.equals("proof-real"))request.remove("sessionId");else if(resets>0){String prefix="generation-"+resets+"-";check(original.startsWith(prefix));request.put("sessionId",original.substring(prefix.length()));}
                 String method=request.getString("method");JSONObject params=request.getJSONObject("params");
+                if(method.equals("Page.createIsolatedWorld")&&beforeWorld!=null){Runnable hook=beforeWorld;beforeWorld=null;hook.run();}
                 if(method.equals("Page.enable")&&!request.has("sessionId"))binding=false;
                 if(binding&&(method.equals("Runtime.enable")||method.equals("Runtime.globalLexicalScopeNames")||method.equals("Runtime.evaluate")||method.equals("Page.getFrameTree"))){if(method.equals("Runtime.enable"))runtime++;byte[] bytes=request.toString().getBytes(StandardCharsets.UTF_8);try{wire.send(bytes,1000);}finally{java.util.Arrays.fill(bytes,(byte)0);}}
                 else if(method.equals("Runtime.disable")){check(!request.has("sessionId")&&params.length()==0);resets++;binding=true;worlds.namespaces.remove(wire);wire.queue(ack(request.getInt("id"),null));}
@@ -1995,6 +1997,124 @@ public final class CdpPopupWorkerProbe {
             }
         }finally{Handler.fail=false;android.os.SystemClock.now=Long.MIN_VALUE;}
     }
+    private static void productPage(String mode,String directory)throws Exception {
+        String variant=mode.substring("preparation-page-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
+        boolean download=variant.startsWith("download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
+        boolean worldHeld=java.util.Arrays.asList("world-document-change","world-channel-change","cancel-world","parent-before-world").contains(variant);
+        CountDownLatch worldEntered=new CountDownLatch(1),worldRelease=new CountDownLatch(1);
+        try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
+                java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
+                try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),host.time::get)){
+                    PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,original.adapter,source.core,host.worker);
+                    product.downloadQueue=queue;product.downloadBudget=new MdoBrowserCdpDownloads.Budget();product.loading.put("owned",true);
+                    AtomicInteger prepared=new AtomicInteger(),accepted=new AtomicInteger(),failed=new AtomicInteger();String[] reason={null};
+                    WebView[] exact={null};Backend.DocumentRenderer[] renderer={null};Backend.SourceRenderer initial=new Backend.SourceRenderer("source-complete");
+                    boolean[] acknowledged={false},detachSent={false};AutoCloseable[] handle={null};
+                    MdoBrowserCdpPopupPreparation.Failure failure=(code,effect)->{check(host.ui.onThread()&&effect);failed.incrementAndGet();reason[0]=code;};
+                    source.beforeSend=child->{
+                        check(host.ui.onThread()&&child==source.views.get("owned"));exact[0]=child;source.adopting=child;
+                        backend.nativeTargets.put("target-proof-real",proofPeer(child,"success",null,null));backend.sourceRenderer=initial;
+                        try{renderer[0]=new Backend.DocumentRenderer(child);renderer[0].frames.omitChild=true;renderer[0].frames.includeLocal=false;}
+                        catch(Exception error){throw new AssertionError(error);}
+                        if(variant.equals("world-unique"))renderer[0].worlds.ignoreUnique=true;
+                        if(variant.equals("world-metadata"))renderer[0].worlds.missingUnique=true;
+                        if(variant.equals("world-wait"))try{renderer[0].frames.pending.add(new JSONObject().put("method","Page.frameStartedLoading").put("params",new JSONObject().put("frameId","frame-owned")));}catch(Exception error){throw new AssertionError(error);}
+                        if(worldHeld)renderer[0].beforeWorld=()->{worldEntered.countDown();try{if(!worldRelease.await(5,TimeUnit.SECONDS))throw new AssertionError("World startup wait expired");}catch(InterruptedException error){Thread.currentThread().interrupt();throw new AssertionError(error);}};
+                        backend.managedResumeMode=held?"timeout":variant.equals("activation-unsupported")?"unsupported":variant.equals("activation-malformed")?"nonempty":"normal";
+                        backend.responseMode=download?"source-complete":"source-pass";
+                        backend.managedResumeHook=()->{
+                            check(initial.calls==3&&backend.guards.get()==1&&backend.resumes.get()==1&&backend.continues.get()==0);
+                            backend.sourceRenderer=null;backend.documentRenderer=renderer[0];
+                            if(variant.equals("scheduler-failure"))host.ui.post(()->{Handler.fail=true;product.pollPopupPage("owned");});
+                        };
+                        backend.managedFlowHook=()->{
+                            if(!download&&!variant.equals("loading-timeout"))host.ui.post(()->{check(source.views.navigation("owned",child));product.loading.put("owned",false);});
+                        };
+                    };
+                    product.prepare(prepared::incrementAndGet,failure);waitFor(()->prepared.get()==1,host,true);source.open();
+                    MdoBrowserCdpPopupWorker.Request request=product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class);Throwable primary=null;
+                    try{
+                        handle[0]=product.handoffPagePrepared(source.core.snapshot().id,"owned",9000,()->{
+                            check(host.ui.onThread()&&product.popupPageReady("owned"));accepted.incrementAndGet();
+                            if(variant.equals("callback-throw"))throw new IllegalStateException("controlled_page_delivery_failure");
+                        },failure);
+                        backend.wire.add(attached("proof-real","owned"));waitFor(()->source.sends==1,host,true);source.ack();acknowledged[0]=true;
+                        if(held){
+                            waitFor(()->backend.resumes.get()==1,host,true);check(accepted.get()==0&&backend.continues.get()==0&&renderer[0].worlds.created==0);
+                            if(variant.equals("cancel-activation"))handle[0].close();
+                            else if(variant.equals("channel-activation"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+                            else android.os.SystemClock.now+=9000;
+                            product.pollPopupPage("owned");
+                        }
+                        if(variant.equals("loading-timeout")){
+                            waitFor(()->backend.continues.get()==1,host,true);product.pollPopupPage("owned");check(accepted.get()==0&&renderer[0].worlds.created==0);
+                            android.os.SystemClock.now+=9000;product.pollPopupPage("owned");
+                        }
+                        if(variant.equals("world-wait")){
+                            waitFor(()->{if(renderer[0].frames.snapshotCount>0&&!product.popupPageInFlight("owned"))return true;product.pollPopupPage("owned");return false;},host,true);
+                            check(accepted.get()==0&&failed.get()==0&&renderer[0].worlds.created==0);
+                            backend.wire.add(new JSONObject().put("method","Page.frameStoppedLoading").put("sessionId","proof-real").put("params",new JSONObject().put("frameId","frame-owned")));
+                        }
+                        if(worldHeld){
+                            waitFor(()->{product.pollPopupPage("owned");return worldEntered.getCount()==0;},host,true);check(accepted.get()==0&&product.popupPageInFlight("owned"));
+                            if(variant.equals("parent-before-world"))product.retirePreparation("cdp_popup_preparation_cancelled");
+                            else if(variant.equals("world-document-change"))check(source.views.navigation("owned",exact[0]));
+                            else if(variant.equals("world-channel-change"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+                            else handle[0].close();
+                            product.pollPopupPage("owned");worldRelease.countDown();
+                        }
+                        boolean bad=held||worldHeld&&!variant.equals("parent-before-world")||java.util.Arrays.asList("activation-unsupported","activation-malformed","world-unique","world-metadata","callback-throw","scheduler-failure","loading-timeout").contains(variant);
+                        waitFor(()->{product.pollPopupPage("owned");return accepted.get()!=0||failed.get()!=0;},host,true);
+                        if(bad){
+                            check(failed.get()==1&&accepted.get()==(variant.equals("callback-throw")?1:0)&&product.pendingHandoffs()==0&&!product.popupPageReady("owned"));
+                            if(variant.equals("activation-unsupported"))check(reason[0].equals("cdp_method_unsupported"));
+                            if(variant.equals("activation-malformed"))check(reason[0].equals("cdp_attach_control_reply_invalid"));
+                            if(variant.equals("deadline-activation")||variant.equals("loading-timeout"))check(reason[0].equals("cdp_popup_page_timeout"));
+                        }else{
+                            check(accepted.get()==1&&failed.get()==0&&product.pendingHandoffs()==0&&product.popupNetworkReady("owned")&&product.popupPageReady("owned"));
+                            check(product.popupPageDownloadOnly("owned")==download&&product.popupPageDocumentReady("owned")!=download);
+                            check(initial.calls==3&&backend.resumes.get()==1&&backend.continues.get()==1&&backend.guards.get()==1&&backend.nativeOpens.get()==1&&backend.detaches.get()==0);
+                            check(renderer[0].worlds.created==(download?0:1)&&!renderer[0].worlds.seenPageCode&&renderer[0].worlds.evaluations==0);
+                            if(download){
+                                MdoBrowserCdpDownloads downloads=product.popupDownloads("owned");check(downloads.list().length==1&&backend.bodyClaims.get()==0);
+                                if(variant.equals("download-stream")){String id=downloads.list()[0].id;downloads.accept(id,65536,3000);waitFor(()->{try{return downloads.get(id).terminal();}catch(IOException error){throw new AssertionError(error);}},host,true);check(downloads.get(id).verified&&downloads.get(id).received==3&&downloads.sourcesClean());}
+                            }
+                            if(variant.equals("parent-close")){product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);check(product.popupPageReady("owned")&&product.popupOwner("owned").current());}
+                            if(variant.equals("parent-before-world")){waitFor(product::preparationSettled,host,true);check(product.popupPageReady("owned")&&product.popupOwner("owned").current());}
+                            if(variant.equals("document-change")){check(source.views.navigation("owned",exact[0]));check(!product.popupPageDocumentReady("owned")&&product.popupNetworkReady("owned")&&exact[0].destroyed==0);}
+                            failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
+                        }
+                        check(source.sends==1&&product.configured==1&&product.popupLinks.isEmpty());
+                    }catch(Exception|Error error){primary=error;System.err.println("Product page "+variant+" accepted="+accepted.get()+" failed="+failed.get()+" code="+reason[0]);throw error;}
+                    finally{
+                        try{
+                            worldRelease.countDown();Handler.fail=false;if(handle[0]!=null)handle[0].close();product.closePopupNetwork("owned");product.retirePreparation("cdp_popup_preparation_cancelled");
+                            waitFor(()->{
+                                if(!acknowledged[0]&&source.consumed!=null){source.ack();acknowledged[0]=true;}
+                                if(!detachSent[0]&&exact[0]!=null&&exact[0].destroyed>0&&backend.closes.get()==0){try{backend.wire.add(detached("proof-real"));detachSent[0]=true;}catch(Exception error){throw new AssertionError(error);}}
+                                product.resume();product.pollPopupPage("owned");product.pollPopupNetwork("owned");
+                                if(product.popupNetworkCount()!=0&&backend.closes.get()!=0&&!product.popupHandoff("owned").detached()){
+                                    MdoBrowserCdpPopupWorker.Result receipt=request.result();return receipt!=null&&receipt.terminal&&exact[0]!=null&&exact[0].destroyed==1;
+                                }
+                                return product.preparationSettled()&&product.popupNetworkCount()==0;
+                            },host,true);
+                            check(product.pendingHandoffs()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0&&exact[0].destroyed==1);
+                            if(product.popupNetworkCount()!=0){check(failed.get()==1&&!product.popupProtocolDrained("owned")&&MdoBrowserCdpPopupBroker.creationBlocked());}
+                            check(product.downloadBudget.used()==0&&queue.retainedTickets()==0&&backend.threads.size()==1&&host.threads.containsAll(backend.threads));
+                            pageEvidence=new JSONObject().put("ready_callbacks",accepted.get()).put("failure_callbacks",failed.get())
+                                .put("failure",reason[0]==null?JSONObject.NULL:reason[0]).put("download_only",download)
+                                .put("worlds_created",renderer[0]==null?0:renderer[0].worlds.created)
+                                .put("cleanup_confirmed",product.popupNetworkCount()==0)
+                                .put("unconfirmed_creation_fenced",product.popupNetworkCount()!=0&&MdoBrowserCdpPopupBroker.creationBlocked())
+                                .put("ui_published",false).put("provider_qualified",false);
+                            if(renderer[0]!=null)renderer[0].wire.close();
+                        }catch(Exception|Error error){if(primary!=null)primary.addSuppressed(error);else throw error;}
+                    }
+                }
+            }
+        }finally{Handler.fail=false;android.os.SystemClock.now=Long.MIN_VALUE;}
+    }
     private static boolean awaitingProtection(MdoBrowserCdpPopupWorker.Request original)throws Exception {
         java.lang.reflect.Field field=MdoBrowserCdpPopupWorker.Request.class.getDeclaredField("captured");field.setAccessible(true);
         synchronized(original){
@@ -2290,6 +2410,7 @@ public final class CdpPopupWorkerProbe {
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
         if(mode.startsWith("prepared-admission"))preparedAdmission(mode);
+        else if(mode.startsWith("preparation-page-"))productPage(mode,args[1]);
         else if(mode.startsWith("preparation-child-"))productChildDelivery(mode);
         else if(mode.startsWith("preparation-adoption-"))productAdoption(mode);
         else if(mode.startsWith("preparation-network-concurrent-"))productNetworkConcurrent(mode,args[1]);
@@ -2320,6 +2441,9 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_network_source_tested\":"+mode.startsWith("source")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_prepared_admission_tested\":"+mode.startsWith("prepared-admission")+",\"product_popup_preparation_tested\":"+mode.startsWith("preparation")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        JSONObject report=new JSONObject("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_network_source_tested\":"+mode.startsWith("source")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_prepared_admission_tested\":"+mode.startsWith("prepared-admission")+",\"product_popup_preparation_tested\":"+mode.startsWith("preparation")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        report.put("product_page_startup_tested",mode.startsWith("preparation-page-"));
+        if(pageEvidence!=null)report.put("product_page",pageEvidence);
+        System.out.println(report);
     }
 }

@@ -67,8 +67,16 @@ public final class CdpNetworkRetireProbe {
             await(()->source.reads.get()>=2);source.controller.quiesce();test.host.worker.retireNetwork(source.context.adapter.marker().lease());await(()->source.withheldClose!=0);
             test.host.time.addAndGet(5001);await(()->{test.host.ui.drain();return test.host.worker.networkPending()==0;});
             MdoBrowserCdpNetworks.Result result=terminal(test);check(result.code.equals("cdp_network_retirement_timeout")&&!result.responsesDisabled&&result.cleanupConfirmed);
-            check(source.trace.stream().noneMatch("Fetch.disable"::equals));check(!source.snapshot(id).sourceCleanupConfirmed&&!source.snapshot(id).verified);
-            try{source.controller.release(id);throw new AssertionError("Unconfirmed source was released");}catch(java.io.IOException expected){check(expected.getMessage().equals("download_source_cleanup_unconfirmed"));}
+            check(source.trace.stream().noneMatch("Fetch.disable"::equals));
+            // Native close does not synchronously finish the separate file
+            // worker's cancellation. Assert the permanent source barrier only
+            // after that original cache cancellation has reached its terminal.
+            await(()->source.snapshot(id).terminal());
+            check(!source.snapshot(id).sourceCleanupConfirmed&&!source.snapshot(id).verified);
+            try{source.controller.release(id);throw new AssertionError("Unconfirmed source was released");}catch(java.io.IOException expected){
+                if(!expected.getMessage().equals("download_source_cleanup_unconfirmed"))throw new AssertionError("Unconfirmed source release reported "+expected.getMessage()+" while "+source.snapshot(id).state,expected);
+                check(expected.getMessage().equals("download_source_cleanup_unconfirmed"));
+            }
         }
     }
     private static void verifyingSource(boolean tamper)throws Exception{
