@@ -10,6 +10,30 @@
             views.input(key,view).invalidate("input_cancelled");cdpViews.invalidate(key,view,views.epoch(key,view),"input_cancelled");}
     }
     private final Map<String,PopupPreparation> protocolPopupPreparations=new HashMap<>();
+    interface ProtocolPopupCreated {void ready(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created child)throws java.io.IOException;}
+    /** Product creation uses only the original pending callback and guarded
+     * pre-birth capture. No CDP target ID or supplied WebView enters this API. */
+    private void constructPreparedProtocolPopup(String opener,WebView exact,String pendingId,String key,int timeout,
+            ProtocolPopupCreated ready,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
+        nativeOwnerAdmission();PopupPreparation original=protocolPopupPreparations.get(opener);
+        if(original==null||original.view!=exact||!original.current()||!original.preparation.ready())throw new java.io.IOException("cdp_popup_preparation_required");
+        if(ready==null)throw new java.io.IOException("cdp_popup_delivery_arguments_invalid");
+        original.preparation.allocate(pendingId,timeout,(source,allocation)->{
+            if(!original.current())throw new java.io.IOException("cdp_popup_preparation_owner_changed");
+            ready.ready(source,constructProtocolPopup(source,allocation,key));
+        },failure);
+    }
+    /** Accept proof only through the original worker's UI delivery, never by
+     * polling a completed marker or rebinding a later child/controller. */
+    private void provePreparedProtocolPopup(String opener,WebView exact,MdoBrowserCdpPopupNative.Child child,int timeout,
+            MdoBrowserCdpPopupPreparation.Proven ready,MdoBrowserCdpPopupPreparation.Failure failure)throws java.io.IOException {
+        nativeOwnerAdmission();PopupPreparation original=protocolPopupPreparations.get(opener);
+        if(original==null||original.view!=exact||!original.current()||!original.preparation.ready())throw new java.io.IOException("cdp_popup_preparation_required");
+        if(ready==null)throw new java.io.IOException("cdp_popup_delivery_arguments_invalid");
+        original.preparation.prove(child,timeout,proof->{
+            if(!original.current())throw new java.io.IOException("cdp_popup_preparation_owner_changed");ready.ready(proof);
+        },failure);
+    }
     private JSONObject popupPreparationState(String key)throws JSONException {
         PopupPreparation original=protocolPopupPreparations.get(key);MdoBrowserCdpPopupPreparation value=original==null?null:original.preparation;
         boolean ready=value!=null&&value.ready();return new JSONObject().put("phase",value==null?"none":value.phase()).put("ready",ready)

@@ -11,6 +11,8 @@ import java.util.function.BooleanSupplier;
 final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
     interface Failure {void failed(String code,boolean effectMayHaveOccurred);}
     interface Lost {void lost(String code);}
+    interface Allocated {void ready(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupWorker.Allocation allocation)throws IOException;}
+    interface Proven {void ready(MdoBrowserCdpPopupNative.Child child)throws IOException;}
     private static final int NEW=0,STARTING=1,READY=2,RETIRING=3,TERMINAL=4;
     private static final class Pending {
         final Runnable effect;final Failure failure;
@@ -22,9 +24,23 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         public void state(MdoBrowserCdpPopupWorker.Result result){MdoBrowserCdpPopupPreparation value=owner.get();if(value!=null)value.state(result);}
         public void candidate(MdoBrowserCdpPopupBroker.Candidate candidate){MdoBrowserCdpPopupPreparation value=owner.get();if(value!=null)value.candidate(candidate);}
         public void protection(MdoBrowserCdpPopupBroker.Candidate candidate){MdoBrowserCdpPopupPreparation value=owner.get();if(value!=null)value.protection(candidate);}
+        public void nativeProof(MdoBrowserCdpPopupNative.Child child){MdoBrowserCdpPopupPreparation value=owner.get();if(value!=null)value.nativeProof(child);}
+    }
+    private static final class AllocationWait {
+        final MdoBrowserPopups.Pending pending;final long deadline;final Allocated ready;final Failure failure;
+        AllocationWait(MdoBrowserPopups.Pending pending,long deadline,Allocated ready,Failure failure){this.pending=pending;this.deadline=deadline;this.ready=ready;this.failure=failure;}
+    }
+    private static final class ProofWait {
+        final long deadline;final Proven ready;final Failure failure;
+        ProofWait(long deadline,Proven ready,Failure failure){this.deadline=deadline;this.ready=ready;this.failure=failure;}
     }
     private final MdoBrowserCdpPopupNative source;
     private final BooleanSupplier owner;private final Lost lost;
+    private final android.os.Handler handler=new android.os.Handler(Looper.getMainLooper());
+    private final MdoBrowserCdpPopupNative.Child[] children=new MdoBrowserCdpPopupNative.Child[7];
+    private final ProofWait[] proofs=new ProofWait[7];
+    private final Runnable watch=this::tick;
+    private AllocationWait allocation;private MdoBrowserPopups.Pending allocated;private boolean allocating,watching;
     private MdoBrowserCdpPopupWorker.Request request;private Pending pending;
     private int phase=NEW;private String code;private boolean notified,everReady,running;
     MdoBrowserCdpPopupPreparation(MdoBrowserCdpPopupNative source,BooleanSupplier owner,Lost lost){
@@ -38,6 +54,71 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         catch(IOException|RuntimeException|Error error){phase=TERMINAL;code=error instanceof IOException?safe(error.getMessage()):"cdp_popup_preparation_failed";throw error;}
     }
     private static String safe(String value){return value!=null&&value.matches("cdp_[a-z_]{1,80}")?value:"cdp_popup_preparation_failed";}
+    private static long deadline(int timeout)throws IOException {
+        if(timeout<1||timeout>3000)throw new IOException("cdp_popup_delivery_arguments_invalid");return android.os.SystemClock.elapsedRealtime()+timeout;
+    }
+    private static void failed(Failure callback,String code,boolean effect){try{callback.failed(code,effect);}catch(RuntimeException|Error ignored){/* never replay a failed UI delivery */}}
+    void allocate(String pendingId,int timeout,Allocated ready,Failure failure)throws IOException {
+        thread();if(ready==null||failure==null||pendingId==null||pendingId.isEmpty()||pendingId.length()>160)throw new IOException("cdp_popup_delivery_arguments_invalid");
+        long end=deadline(timeout);
+        if(allocation!=null||allocating)throw new IOException("cdp_popup_native_allocation_busy");
+        if(phase!=READY||!owned()||request==null)throw new IOException("cdp_popup_native_allocation_unavailable");
+        MdoBrowserPopups.Pending pending=source.pending();
+        if(pending==null||!pending.current()||!pending.id.equals(pendingId))throw new IOException("cdp_popup_native_request_changed");
+        if(pending==allocated)throw new IOException("cdp_popup_native_allocation_replayed");
+        allocation=new AllocationWait(pending,end,ready,failure);drainAllocation();schedule();
+    }
+    private void drainAllocation(){
+        AllocationWait original=allocation;if(original==null)return;
+        if(phase!=READY||!owned()){close("cdp_popup_preparation_owner_changed");return;}
+        if(android.os.SystemClock.elapsedRealtime()>=original.deadline){allocation=null;failed(original.failure,"cdp_popup_native_allocation_timed_out",false);return;}
+        if(source.pending()!=original.pending||!original.pending.current()){allocation=null;failed(original.failure,"cdp_popup_native_request_changed",false);return;}
+        MdoBrowserCdpPopupWorker.Allocation captured;
+        try{captured=request.allocateNative(source);}
+        catch(IOException error){
+            if("cdp_popup_native_capture_pending".equals(error.getMessage())||"cdp_popup_interception_required".equals(error.getMessage()))return;
+            allocation=null;failed(original.failure,safe(error.getMessage()),false);return;
+        }catch(RuntimeException|Error error){allocation=null;close("cdp_popup_preparation_failed");failed(original.failure,"cdp_popup_preparation_failed",false);return;}
+        if(captured.pending!=original.pending){allocation=null;close("cdp_popup_native_request_changed");failed(original.failure,"cdp_popup_native_request_changed",false);return;}
+        allocation=null;allocated=original.pending;allocating=true;
+        try{original.ready.ready(source,captured);}
+        catch(IOException|RuntimeException|Error error){close("cdp_popup_native_allocation_callback_failed");failed(original.failure,"cdp_popup_native_allocation_callback_failed",true);}
+        finally{allocating=false;}
+    }
+    void prove(MdoBrowserCdpPopupNative.Child child,int timeout,Proven ready,Failure failure)throws IOException {
+        thread();if(child==null||ready==null||failure==null)throw new IOException("cdp_popup_delivery_arguments_invalid");long end=deadline(timeout);
+        if(phase!=READY||!owned()||request==null)throw new IOException("cdp_popup_native_proof_unavailable");
+        int slot=-1;for(int i=0;i<children.length;i++){if(children[i]==child)throw new IOException("cdp_popup_native_proof_replayed");if(children[i]==null)slot=i;}
+        if(slot<0)throw new IOException("cdp_popup_native_proof_limit");
+        ProofWait original=new ProofWait(end,ready,failure);children[slot]=child;proofs[slot]=original;
+        try{if(!request.proveNative(child))throw new IOException("cdp_popup_native_proof_replayed");}
+        catch(IOException|RuntimeException|Error error){children[slot]=null;proofs[slot]=null;throw error;}
+        schedule();
+    }
+    private void nativeProof(MdoBrowserCdpPopupNative.Child child){
+        thread();int slot=-1;for(int i=0;i<children.length;i++)if(children[i]==child)slot=i;
+        if(slot<0)return;ProofWait original=proofs[slot];
+        if(phase!=READY||!owned()){close("cdp_popup_preparation_owner_changed");return;}
+        if(android.os.SystemClock.elapsedRealtime()>=original.deadline){close("cdp_popup_native_proof_delivery_timed_out");return;}
+        MdoBrowserCdpSession.ControlResult result=child.proof();
+        if(result==null||!result.ok){close(result==null?"cdp_popup_native_proof_invalid":safe(result.code));return;}
+        children[slot]=null;proofs[slot]=null;schedule();
+        try{original.ready.ready(child);}
+        catch(IOException|RuntimeException|Error error){close("cdp_popup_native_proof_callback_failed");failed(original.failure,"cdp_popup_native_proof_callback_failed",true);}
+    }
+    private void schedule(){
+        boolean proofPending=false;for(ProofWait value:proofs)if(value!=null)proofPending=true;
+        if(allocation==null&&!proofPending){if(watching){handler.removeCallbacks(watch);watching=false;}return;}
+        if(watching)return;watching=true;
+        try{if(!handler.postDelayed(watch,50)){watching=false;close("cdp_popup_native_delivery_timer_unavailable");}}
+        catch(RuntimeException|Error error){watching=false;close("cdp_popup_native_delivery_timer_unavailable");}
+    }
+    private void tick(){
+        thread();watching=false;if(phase!=READY||!owned()){close("cdp_popup_preparation_owner_changed");return;}
+        long now=android.os.SystemClock.elapsedRealtime();
+        for(ProofWait value:proofs)if(value!=null&&now>=value.deadline){close("cdp_popup_native_proof_delivery_timed_out");return;}
+        drainAllocation();schedule();
+    }
     void await(Runnable effect,Failure failure)throws IOException {
         thread();if(effect==null||failure==null)throw new IOException("cdp_arguments_invalid");if(pending!=null||running)throw new IOException("cdp_popup_preparation_busy");
         if(phase!=STARTING&&phase!=READY){failure.failed(code==null?"cdp_popup_preparation_retiring":code,false);return;}
@@ -59,8 +140,13 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         thread();if(phase!=READY||!owned()){close("cdp_popup_preparation_owner_changed");return;}
         try{candidate.requestProtection();}catch(IOException|RuntimeException|Error error){close("cdp_popup_preparation_failed");}
     }
-    private void protection(MdoBrowserCdpPopupBroker.Candidate candidate){thread();MdoBrowserCdpSession.ControlResult result=candidate.protection();if(result==null||!result.ok)close("cdp_popup_protection_unavailable");}
-    private void failPending(String reason){Pending original=pending;pending=null;if(original!=null)original.failure.failed(reason,false);}
+    private void protection(MdoBrowserCdpPopupBroker.Candidate candidate){thread();MdoBrowserCdpSession.ControlResult result=candidate.protection();if(result==null||!result.ok)close("cdp_popup_protection_unavailable");else{drainAllocation();schedule();}}
+    private void failPending(String reason){
+        Pending original=pending;pending=null;AllocationWait waiting=allocation;allocation=null;
+        if(watching){handler.removeCallbacks(watch);watching=false;}
+        if(original!=null)failed(original.failure,reason,false);if(waiting!=null)failed(waiting.failure,reason,false);
+        for(int i=0;i<proofs.length;i++){ProofWait value=proofs[i];children[i]=null;proofs[i]=null;if(value!=null)failed(value.failure,reason,true);}
+    }
     private void notifyLost(){if(everReady&&!notified){notified=true;lost.lost(code==null?"cdp_popup_preparation_retired":code);}}
     boolean ready(){thread();if(phase==READY&&!owned())close("cdp_popup_preparation_owner_changed");return phase==READY;}
     boolean settled(){thread();if(phase!=TERMINAL)return false;return request==null?!source.live():request.result()!=null&&request.result().sourceReleased&&source.released();}

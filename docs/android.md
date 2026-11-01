@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E150)
+## Complete development host APK (current: E151)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,554,945 bytes, SHA-256
-`241c794ef0d7cb391e79c944e069df6bd2506d787307da6ae85e05f1687040c4`.
+`f566b6176329831951bf1b12c25c652d5fcc5d692d4397d9e250444b0eea73bc`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5428,3 +5428,31 @@ E150's successful actual SDK run follows the targeted read-only fix. Evidence is
 under `.mdo/E149-*` and `.mdo/E150-*`. No Android install, ADB/provider probe or
 WebView update was attempted. Device/framework/public automation remain false;
 protected-popup network/UI adoption and the other full-goal gaps remain open.
+
+### E151: original pending allocation and native proof UI delivery
+
+The product preparation scope now owns one pending-allocation wait and at most
+seven native-proof deliveries. The original pending callback is captured before
+waiting; pre-birth guarded targets may arrive later, but replacement/replay does
+not authorize new construction. Waiting uses the existing UI handler and
+suspend-inclusive time, capped at 3 seconds. Product construction goes through
+the inherited physical profile and common configuration. Proof callbacks run
+only on the original worker's UI event, never by polling its atomic result, and
+can commit the exact native handoff. No new runtime dependency/thread or UI
+protocol I/O is added. Failure delivery is once-only, with possible native
+effects preserved and original retirement required before reuse.
+
+Sixteen new JNI/worker/product scenarios pass 348 checks. Full native validation
+passes 212 modes/7,878 checks, retaining all 196 prior mode counts. Full JS 466,
+Python 174/176, creation848/close77, popup110/25/7 and save47 pass. The source
+fingerprint covers 479 inputs including `.in` templates and tools. The rebuilt
+APK is signed by the same QA signer and verifies 65 actual DEX definition
+groups. Windows is byte-identical E150 (751 current payloads); its runtime/frame/
+SDK evidence is explicitly scoped reuse. E146 world/document/profile/budget
+evidence is unchanged eight-input reuse. See `.mdo/E151-final-identities.log`.
+
+The complete protected-create route still refuses `popup_network_unqualified`:
+network-source/download binding, document/world activation and final publication
+are not joined yet. The new product seams remain private. Device/framework/
+provider qualification and public Android automation remain false. No phone,
+ADB inventory, install or WebView update was attempted.

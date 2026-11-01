@@ -33,13 +33,19 @@ final class PopupProductHost {
     void prepare(Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction("root",views.get("root"),effect,failure);}
     void retirePreparation(String reason){retireProtocolPopupPreparation("root",views.get("root"),reason);}
     boolean preparationReady(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.ready();}
-    boolean preparationSettled(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.settled();}
+    boolean preparationSettled(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null||row.preparation.settled();}
     String preparationCode(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null?null:row.preparation.failure();}
     // Inspect the actual UI component's retained originals, never forge a
     // worker/source receipt or add a production escape hatch for this test.
     <T>T preparationOriginal(String name,Class<T> type)throws Exception{java.lang.reflect.Field field=MdoBrowserCdpPopupPreparation.class.getDeclaredField(name);field.setAccessible(true);return type.cast(field.get(protocolPopupPreparations.get("root").preparation));}
     void preparationRpc(JSONObject request)throws Exception{executePopupPreparation("root","preparation",views.get("root"),request);}
     void requirePreparation()throws Exception{requireProtocolPopupPreparation("root",views.get("root"));}
+    void constructPrepared(String pending,String key,int timeout,ProtocolPopupCreated ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
+        constructPreparedProtocolPopup("root",views.get("root"),pending,key,timeout,ready,failure);
+    }
+    void provePrepared(MdoBrowserCdpPopupNative.Child child,int timeout,MdoBrowserCdpPopupPreparation.Proven ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
+        provePreparedProtocolPopup("root",views.get("root"),child,timeout,ready,failure);
+    }
     void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}
     boolean dialogReady(String key,WebView view){return true;}
     MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}

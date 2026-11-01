@@ -1757,9 +1757,108 @@ public final class CdpPopupWorkerProbe {
             }
         }
     }
+    private static void productChildDelivery(String mode)throws Exception {
+        String variant=mode.substring("preparation-child-".length());
+        Backend backend=new Backend();android.os.SystemClock.now=1000;
+        try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=host.source();host.ready(network);try(NativeSource source=new NativeSource(host,network)){
+                PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,network.adapter,source.core,host.worker);
+                AtomicInteger prepared=new AtomicInteger(),allocations=new AtomicInteger(),accepted=new AtomicInteger(),failures=new AtomicInteger();
+                String[] reason={null};boolean[] possible={false};boolean[] acknowledged={false},detached={false};WebView[] nativeChild={null};
+                MdoBrowserCdpPopupPreparation.Failure failed=(code,effect)->{check(host.ui.onThread());failures.incrementAndGet();reason[0]=code;possible[0]=effect;};
+                MdoBrowserCdpPopupNative[] original={null};MdoBrowserCdpPopupNative.Created[] created={null};MdoBrowserCdpPopupNative.Promotion[] promoted={null};
+                product.prepare(prepared::incrementAndGet,failed);waitFor(()->prepared.get()==1,host,true);source.open();String pending=source.core.snapshot().id;
+                Throwable primary=null;
+                try{
+                    if(variant.equals("request")){
+                        failure("cdp_popup_native_request_changed",()->product.constructPrepared("foreign-callback","owned",1000,(s,c)->allocations.incrementAndGet(),failed));
+                        for(int timeout:new int[]{0,3001})failure("cdp_popup_delivery_arguments_invalid",()->product.constructPrepared(pending,"owned",timeout,(s,c)->allocations.incrementAndGet(),failed));
+                        failure("cdp_popup_delivery_arguments_invalid",()->product.constructPrepared(pending,"owned",1000,null,failed));
+                        check(allocations.get()==0&&failures.get()==0&&product.preparationReady());return;
+                    }
+                    if(variant.equals("ready")){
+                        backend.wire.add(attached("proof-real","owned"));waitFor(()->backend.guards.get()==1,host,true);
+                        // Drain the protection completion, not only its worker-side request.
+                        for(int i=0;i<10;i++){host.ui.drain();Thread.sleep(1);}
+                    }
+                    int before=WebView.constructions;Handler.fail=variant.equals("timer");
+                    product.constructPrepared(pending,"owned",1000,(s,c)->{
+                        check(host.ui.onThread());allocations.incrementAndGet();original[0]=s;created[0]=c;nativeChild[0]=c.view();
+                        if(variant.equals("allocation-throw"))throw new IOException("controlled_allocation_delivery_failure");
+                        if(variant.equals("reentrant"))try{product.constructPrepared(pending,"duplicate",1000,(unused,other)->{throw new AssertionError("Reentrant allocation");},failed);throw new AssertionError("Reentrant allocation accepted");}
+                        catch(IOException expected){check(expected.getMessage().equals("cdp_popup_native_allocation_busy"));}
+                        catch(Exception unexpected){throw new IOException(unexpected);}
+                    },failed);Handler.fail=false;
+                    if(java.util.Arrays.asList("timeout","owner","channel","replaced","timer").contains(variant)){
+                        check(allocations.get()==0&&WebView.constructions==before);
+                        if(variant.equals("owner"))product.browserPaused=true;
+                        if(variant.equals("channel"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+                        if(variant.equals("replaced")){check(source.core.dismiss(pending));source.ack();source.consumed=null;source.open();}
+                        android.os.SystemClock.now+=variant.equals("timeout")?1100:100;
+                        waitFor(()->failures.get()==1,host,true);check(!possible[0]&&allocations.get()==0&&WebView.constructions==before);
+                        String expected=variant.equals("timeout")?"cdp_popup_native_allocation_timed_out":variant.equals("replaced")?"cdp_popup_native_request_changed":variant.equals("timer")?"cdp_popup_native_delivery_timer_unavailable":"cdp_popup_preparation_owner_changed";
+                        check(reason[0].equals(expected));host.ui.drain();Handler.drain();check(failures.get()==1);return;
+                    }
+                    if(!variant.equals("ready")){check(allocations.get()==0&&WebView.constructions==before);backend.wire.add(attached("proof-real","owned"));}
+                    waitFor(()->allocations.get()==1,host,true);check(WebView.constructions==before+1);
+                    if(variant.equals("allocation-throw")){waitFor(()->failures.get()==1,host,true);check(possible[0]&&reason[0].equals("cdp_popup_native_allocation_callback_failed"));return;}
+                    failure("cdp_popup_native_allocation_replayed",()->product.constructPrepared(pending,"replayed",1000,(s,c)->allocations.incrementAndGet(),failed));
+                    WebView childView=created[0].view();source.adopting=childView;MdoBrowserPopups.Adoption adoption=original[0].adopt(created[0]);
+                    source.ack();acknowledged[0]=true;check(adoption.ok()&&adoption.nativeConsumed()&&source.sends==1);
+                    try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(childView,v->v==childView,new MdoBrowserCdpMarker.DocumentQuota());
+                        MdoBrowserCdpPopupNative.Child child=original[0].child(adoption,created[0],adapter)){
+                        backend.nativeTargets.put("target-proof-real",proofPeer(childView,variant.equals("proof-failure")?"missing":"success",null,null));
+                        Handler.fail=variant.equals("proof-timer");
+                        product.provePrepared(child,1500,proof->{
+                            check(host.ui.onThread()&&proof==child);accepted.incrementAndGet();
+                            if(variant.equals("proof-throw"))throw new IOException("controlled_proof_delivery_failure");
+                            promoted[0]=product.handoff("owned",original[0],created[0],proof);
+                        },failed);Handler.fail=false;
+                        if(variant.equals("proof-replay"))failure("cdp_popup_native_proof_replayed",()->product.provePrepared(child,1500,p->{throw new AssertionError("Duplicate proof delivery");},failed));
+                        if(variant.equals("proof-timeout")||variant.equals("proof-owner")){
+                            waitFor(()->child.proof()!=null,host,false);check(accepted.get()==0&&failures.get()==0);
+                            if(variant.equals("proof-owner"))product.browserPaused=true;
+                            android.os.SystemClock.now+=variant.equals("proof-timeout")?1600:100;Handler.drain();host.ui.drain();
+                        }
+                        if(variant.startsWith("proof-")&&!variant.equals("proof-replay")){
+                            waitFor(()->failures.get()==1,host,true);check(possible[0]&&accepted.get()==(variant.equals("proof-throw")?1:0)&&promoted[0]==null);
+                            check(reason[0]!=null);host.ui.drain();Handler.drain();check(failures.get()==1);
+                        }else{
+                            waitFor(()->promoted[0]!=null,host,true);check(accepted.get()==1&&failures.get()==0&&child.handoff().transferred());
+                            product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);check(promoted[0].current());
+                            child.handoff().close();waitFor(promoted[0]::ended,host,true);check(childView.destroyed==1);
+                        }
+                        check(source.sends==1&&backend.resumes.get()==0&&backend.detaches.get()==0);
+                    }
+                }catch(Exception|Error error){primary=error;System.err.println("Child delivery "+variant+" allocations="+allocations.get()+" accepted="+accepted.get()+" failures="+failures.get()+" reason="+reason[0]);throw error;}
+                finally{
+                    try{
+                        Handler.fail=false;product.retirePreparation("cdp_popup_preparation_cancelled");
+                        waitFor(()->{
+                            if(!acknowledged[0]&&source.consumed!=null){source.ack();acknowledged[0]=true;}
+                            // Controlled provider notification follows its real native
+                            // rejection/destruction receipt; it never substitutes for it.
+                            if(!detached[0]&&original[0]!=null&&promoted[0]==null&&acknowledged[0]&&
+                                    (source.adopting==null||nativeChild[0]!=null&&nativeChild[0].destroyed>0)){
+                                try{backend.wire.add(detached("proof-real"));detached[0]=true;}catch(Exception error){throw new AssertionError(error);}
+                            }
+                            return product.preparationSettled();
+                        },host,true);
+                        check(MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);
+                        if(nativeChild[0]!=null)check(nativeChild[0].destroyed==1);
+                        check(backend.threads.size()==1&&host.threads.containsAll(backend.threads));
+                    }catch(Exception|Error error){
+                        System.err.println("Child cleanup "+variant+" reason="+product.preparationCode()+" native="+(original[0]==null?null:original[0].failure())+" retained="+MdoBrowserCdpPopupNative.retainedUiOwners()+" retiring="+product.retiring()+" sends="+source.sends+" ack="+acknowledged[0]);
+                        if(primary!=null)primary.addSuppressed(error);else throw error;
+                    }
+                }
+            }
+        }finally{Handler.fail=false;android.os.SystemClock.now=Long.MIN_VALUE;}
+    }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
         if(mode.startsWith("prepared-admission"))preparedAdmission(mode);
+        else if(mode.startsWith("preparation-child-"))productChildDelivery(mode);
         else if(mode.startsWith("preparation"))productPreparation(mode);
         else if(mode.startsWith("source"))managedSource(mode,args[1]);
         else if(mode.startsWith("transfer"))managedTransfers(mode,args[1]);

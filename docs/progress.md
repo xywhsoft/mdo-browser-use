@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E151:** connect original-pending allocation and native-proof UI
+  delivery to the product preparation scope. Wait only for guarded pre-birth
+  capture, reject replacements/replay and bound delivery by the existing UI
+  lifecycle and a 3-second maximum. Product construction retains inherited
+  profile/settings; proof callbacks can commit the exact independent handoff.
+  Fresh 16 modes/348 checks, full native 212 modes/7,878 checks, JS 466 and Python
+  174/176 pass. Rebuild/sign the APK and verify 65 DEX definition groups. E150
+  Windows payload/runtime/frame/SDK evidence and E146 world evidence are unchanged
+  scoped reuse. Full protected-create network/world/publication and actual
+  Android provider/device qualification remain incomplete and disabled.
 - **Shared reads E150:** fix the real blank-popup first-inventory race exposed
   by E149's SDK run. Navigation may invalidate an unpinned inventory before a
   document is bound; only fresh observation may discard and repeat that read
@@ -11782,3 +11792,53 @@ service, account or external-page/model test was changed. No phone, ADB or WebVi
 update was requested. Android public automation remains disabled; protected
 popup network/profile/UI adoption, real provider/device verification and the
 remaining Windows/full-goal qualification still require further development.
+
+## Android E151 — pending allocation and proof delivered to the original UI
+
+`MdoBrowserCdpPopupPreparation` now receives the existing worker's `nativeProof`
+event through its weak original-UI forwarder. Product seams allocate against the
+exact original native Pending object before constructing a child and subscribe
+to the exact Child proof before queuing work. Captured/protected targets may
+arrive after the native callback; only those two transient admission states may
+wait. Unknown/replaced requests, duplicate allocation/proof, invalid arguments
+and changed opener/channel/epoch are refused. One allocation wait and at most
+seven proof records are retained, with deadlines capped at 3 seconds using
+suspend-inclusive time and the existing main UI handler. No new executor or UI
+protocol I/O is introduced.
+
+The construction seam calls the real profile-inheriting/configured product
+constructor. Proof acceptance requires original worker UI delivery; a completed
+atomic proof alone cannot publish/hand off the child. Lost ownership, timer
+failure, timeout, failed proof and callback exceptions cancel the original
+preparation, deliver failure once and retain any possible native effect. Fixed
+proof slots avoid allocation while draining failure callbacks. Existing native
+retirement still waits for both native consumption/destruction and protocol
+cleanup; no replacement is destroyed or replayed to make a receipt pass.
+
+Sixteen new controlled JNI/worker/product modes pass 348 checks. They include
+early/delayed capture, pending replacement, timeout/owner/channel loss, timer
+rejection, callback exceptions, reentrancy, late proof UI delivery and duplicate
+proof, plus exact physical destruction and one original executor. The fixture
+now treats an already-removed preparation as settled and clears an already-used
+native callback before its replacement. Controlled target-detach notifications
+follow actual native rejection/destruction receipts; they do not substitute for
+those receipts or qualify an Android provider.
+
+Fresh full native validation binds 128 inputs: 212 modes/7,878 checks, with all
+196 prior mode counts unchanged. Product creation 848/async close 77, popup
+110/25/7 and save 47 pass. Full JS 466 and Python 174/176 pass (two existing
+Windows privilege skips). The JS/Python input fingerprint expands to 479 files,
+including `.in` templates, HPP and tool inputs, and is checked after every gate.
+The rebuilt signed APK contains 65 verified DEX definition groups, including the
+new UI delivery interfaces/records and product methods. Windows remains exactly
+the E150 archive: all 751 payloads, frame inputs and prior runtime12/frames301/
+SDK19 evidence are verified unchanged scoped reuse. The E146 world gate's eight
+inputs are also unchanged reuse, not fresh execution. Evidence is retained in
+`.mdo/E151-*`, particularly `E151-final-identities.py/log`.
+
+This joins private product allocation/proof delivery, not the complete protected
+create route. `popup_network_unqualified` remains enforced pending real network
+source/download attachment, document/world activation and UI publication. No
+phone, ADB, WebView update, live model, external page or production release was
+used. Android framework/provider/public qualification and the broader goal
+remain open.
