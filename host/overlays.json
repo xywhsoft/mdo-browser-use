@@ -204,26 +204,6 @@
       "after": "        SdkPut(Scope,\"project\",C->ProjectId&&C->ProjectId[0]?C->ProjectId:\"default\");\n        SdkPut(Scope,\"session\",C->SessionId);SdkPut(Scope,\"run\",C->RunId);\n        SdkPut(Scope,\"namespace\",C->Namespace);SdkPut(Scope,\"member\",C->MemberId);"
     },
     {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "import { browserLocation, browserPhase, safeBrowserUrl } from \"./model.js\";",
-      "after": "import { createBrowserDialogs } from \"./dialog-ui.js\";\nimport { browserLocation, browserPhase, safeBrowserUrl } from \"./model.js\";"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "  region.append(surface, message); root.append(toolbar, viewport, status, region);",
-      "after": "  const dialogs = createBrowserDialogs({ execute, onControl:()=>{state={...state,manual:true};paint();}, onChange:()=>{void mount.visible?.(shown());}, onError:errorToast });\n  region.append(surface, message); root.append(toolbar, dialogs.element, viewport, status, region);"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "    clearTimeout(timer); menu.dispose();",
-      "after": "    clearTimeout(timer); dialogs.dispose(); menu.dispose();"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "state = await execute(\"state\"); if (signal.aborted) return; paint();",
-      "after": "state = await execute(\"state\"); if (signal.aborted) return; await dialogs.refresh(state); if (signal.aborted) return; paint();"
-    },
-    {
       "path": "app/web/css/workbench.css",
       "before": "@media(max-width:760px) { .workbench { inset:0;z-index:45; }.wb-top { flex-wrap:wrap; }.wb-tabs { flex-basis:70%; }.wb-split { flex-direction:column; } }",
       "after_file": "host/browser-dialog.css",
@@ -283,16 +263,6 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "destroy() { stopped = true; menu.dispose();",
       "after": "destroy() { stopped = true; popupManager.dispose(); window.removeEventListener(\"mdo-browser-popup\",nativePopup); menu.dispose();"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "import { createBrowserDialogs } from \"./dialog-ui.js\";",
-      "after": "import { ensureNativeBrowser } from \"./native-view.js\";\nimport { createBrowserDialogs } from \"./dialog-ui.js\";"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "    await execute(\"create\", { url: browser.url || \"about:blank\", bounds: rect(surface), visible: false });",
-      "after": "    await ensureNativeBrowser({bridge,sdk,browser,clientId,bounds:rect(surface),alive:()=>!signal.aborted});"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",
@@ -425,11 +395,6 @@
       "after": "  if (state.initial_navigation_pending) return \"loading\";\n  if (!state.url || state.url === \"about:blank\" && !state.opener) return \"empty\";"
     },
     {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "    if (document.activeElement !== address) address.value =",
-      "after": "    if (document.activeElement !== address && !state.initial_navigation_pending) address.value ="
-    },
-    {
       "path": "app/src/application/runtime.c",
       "before": "    {\"files.read\",\"Read a bounded file workbench byte range\"},",
       "after": "    {\"files.tree\",\"Read a complete bounded directory manifest with stable identities and SHA-256\"},\n    {\"files.digest\",\"Hash a bounded regular file and return its stable revision and SHA-256\"},\n    {\"files.publish\",\"Publish verified staging bytes as a new hard link under the original task root; retain source\"},\n    {\"files.receive.start\",\"Receive a scoped byte stream into bounded verified task staging\"},\n    {\"files.receive.publish\",\"Publish owned staging with a durable destination intent\"},\n    {\"files.receive.reconcile\",\"Inspect an interrupted publication without replaying file effects\"},\n    {\"files.receive.get\",\"Inspect an owned staged receiver receipt\"},\n    {\"files.receive.list\",\"List owned retained staging receipts\"},\n    {\"files.receive.release\",\"Discard one inactive, identity-verified staging file\"},\n    {\"files.read\",\"Read a bounded file workbench byte range\"},"
@@ -494,26 +459,6 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "command,params,view,action,api,browser:id,",
       "after": "command,params,view,action,api:api.bind(action.context || {}),browser:id,"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "import { createBrowserDialogs } from \"./dialog-ui.js\";",
-      "after": "import { createBrowserChoosers } from \"./chooser-ui.js\";\nimport { createBrowserDialogs } from \"./dialog-ui.js\";"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "  region.append(surface, message); root.append(toolbar, dialogs.element, viewport, status, region);",
-      "after": "  const choosers = createBrowserChoosers({execute,onControl:()=>{state={...state,manual:true};paint();},onChange:()=>{void mount.visible?.(shown());},onError:errorToast});\n  region.append(surface, message); root.append(toolbar, dialogs.element, choosers.element, viewport, status, region);"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "clearTimeout(timer); dialogs.dispose();",
-      "after": "clearTimeout(timer); choosers.dispose(); dialogs.dispose();"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "await dialogs.refresh(state); if (signal.aborted) return; paint();",
-      "after": "await dialogs.refresh(state); if (signal.aborted) return; await choosers.refresh(state); if (signal.aborted) return; paint();"
     },
     {
       "path": "tools/workbench_contracts.py",
@@ -620,36 +565,6 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "'capture','upload','download'].includes(command)",
       "after": "'capture','upload','download','save_download'].includes(command)"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "import { createBrowserChoosers } from \"./chooser-ui.js\";",
-      "after": "import { createBrowserDownloads } from \"./download-ui.js\";\nimport { createBrowserChoosers } from \"./chooser-ui.js\";"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "clientId, shown, updateTitle,",
-      "after": "clientId, shown, alive = () => !signal.aborted, updateTitle,"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "  toolbar.append(back, forward, reload, address, manual, preview, more);",
-      "after": "  const downloadButton=action(\"download\",\"下载\",()=>{downloadButton.setAttribute(\"aria-expanded\",String(downloads.toggle()));});\n  downloadButton.classList.add(\"wb-browser-download-toggle\");downloadButton.setAttribute(\"aria-expanded\",\"false\");\n  toolbar.append(back, forward, reload, address, downloadButton, manual, preview, more);"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "  region.append(surface, message); root.append(toolbar, dialogs.element, choosers.element, viewport, status, region);",
-      "after": "  const downloads=createBrowserDownloads({browser,sdk,execute,signal,alive,onChange:()=>{void mount.visible?.(shown());},\n    onBadge:(native,recovery)=>{const count=native+recovery;downloadButton.dataset.count=String(count);downloadButton.title=count?`下载与待处理记录（${count}）`:\"下载\";downloadButton.setAttribute(\"aria-label\",downloadButton.title);}});\n  region.append(surface, message); root.append(toolbar, dialogs.element, choosers.element, downloads.element, viewport, status, region);"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "clearTimeout(timer); choosers.dispose(); dialogs.dispose(); menu.dispose();",
-      "after": "clearTimeout(timer); downloads.dispose(); choosers.dispose(); dialogs.dispose(); menu.dispose();"
-    },
-    {
-      "path": "app/web/js/features/workbench/browser-view.js",
-      "before": "await choosers.refresh(state); if (signal.aborted) return; paint();",
-      "after": "await choosers.refresh(state); if (signal.aborted) return; await downloads.refresh(state); if (signal.aborted) return; paint();"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -1927,6 +1842,10 @@
     {
       "source": "host/browser-ownership.js",
       "target": "app/web/js/features/workbench/browser-ownership.js"
+    },
+    {
+      "source": "host/browser-view.js",
+      "target": "app/web/js/features/workbench/browser-view.js"
     }
   ]
 }

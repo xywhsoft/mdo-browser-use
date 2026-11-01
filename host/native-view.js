@@ -1,6 +1,11 @@
 // The UI and Agent dispatcher use the same admission descriptor. Concurrent
 // mounts must attach to one native view, not navigate a second popup target.
-export async function ensureNativeBrowser({ bridge, sdk, browser, clientId, bounds, visible = false, requireDownloads = false, requireAutomation = false, alive = () => true }) {
+export function createNativeBrowserExecutor(bridge, browser) {
+  // Task-owned, with no closure over a panel, mutable broker row or AbortSignal.
+  return (command, params = {}) => bridge.call(command, { ...params, browser });
+}
+
+export async function ensureNativeBrowser({ bridge, sdk, browser, clientId, bounds, visible = false, requireDownloads = false, requireAutomation = false, alive = () => true, beforeCreate, cancelOnDetach = true }) {
   const pending = browser.runtime?.popup_request;
   const check = () => { if (!alive()) throw new DOMException("浏览器所属窗口或设备已改变", "AbortError"); };
   check();
@@ -17,6 +22,7 @@ export async function ensureNativeBrowser({ bridge, sdk, browser, clientId, boun
     }
     if(required&&capability.initial_download_interception!==true)throw new Error('当前客户端不能在打开网址前安全拦截下载，请更新客户端后重试。');
   }
+  if (beforeCreate) { await beforeCreate(); check(); }
   const result = await bridge.call("create", { browser: browser.id, url: browser.url || "about:blank", bounds, visible, ...(required?{intercept_downloads:true}:{}),...(requireAutomation?{automation:true}:{}),
     ...(pending ? { popup: pending.id, opener: pending.opener } : {}) });
   const reference=result?.navigation_ref;
@@ -42,7 +48,7 @@ export async function ensureNativeBrowser({ bridge, sdk, browser, clientId, boun
   }catch(error){
     // The old target may already have effects. Revoke only its exact queued
     // operation; never close or stop a physical view now used by a human.
-    if(nativeReference)try{await bridge.call('navigation_cancel',{browser:browser.id,agent:true,navigation_ref:nativeReference},{timeout:1000});}catch{}
+    if(nativeReference&&(cancelOnDetach||alive()))try{await bridge.call('navigation_cancel',{browser:browser.id,agent:true,navigation_ref:nativeReference},{timeout:1000});}catch{}
     throw error;
   }
 }

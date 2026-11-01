@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Shared UI E149:** propagate original mount ownership into actual browser
+  initialization, recovery, polling, controls and cleanup. Separate UI claims
+  from ready task dispatchers; preserve background execution and remount a still
+  scoped selected pane. Reproduce 18 actual-component failures, then pass 95
+  focused cases, full JS 458 and Python 174/176 (two existing privilege skips).
+  The full SDK gate exposed a blank-popup initial inventory `stale_frame`; its
+  failed receipt remains recorded for follow-up. This is not an SDK/Android
+  qualification or a rebuilt preview.
 - **Shared UI E148:** bind browser registration/end/title callbacks to the exact
   original mount, task, resource and native view. Reproduce fifteen applied-host
   failures; late construction/end/update replies now preserve newer instances.
@@ -11695,3 +11703,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   provider/framework/device flags stay false. Phone/WebView remains deferred;
   no publication, production/account/config changes, external-page/model call,
   device/provider update or extra app/Home/source copy occurred.
+
+## Shared UI E149 — component ownership and retained task dispatch
+
+The E148 wrapper passed its original lifetime into the component, but the
+component mostly checked only AbortSignal. Real applied-component tests reproduce
+18/19 failures on baseline `6f3e0ea`; the old callbacks could continue native
+creation, polling, title/report updates, snapshot quoting or closing after their
+mount/task/target changed. Unconditional disposal could also hide a replacement.
+
+The reviewed `host/browser-view.js` replaces the accumulated per-line overlay
+for this component. It checks the original owner before/after each awaited UI
+operation, validates broker ID/scope/client before restore, fixes native dispatch
+to the original browser ID, and stops work on foreign broker results. Cleanup
+uses an exact UI claim plus the original transport; a normal unmount hides its
+own surface without closing/cancelling the task browser. Claims live separately
+from the ready dispatcher registry, so initialization never publishes a usable
+Agent dispatcher prematurely. Explicitly redisplaying a retired, still-scoped
+pane remounts its UI; duplicate split panes prefer the active view.
+
+Validation: 95 focused component/wrapper/popup checks; full JS 458/458; Python
+174/176 with two existing Windows symlink privilege skips. The actual C/JS/
+WebView2 SDK run failed on the blank-popup observation with `stale_frame`,
+`effect_may_have_occurred:false`, from the initial native frame inventory. The
+original log/receipt and source identities are retained under `.mdo/E149-*`.
+That failure is not suppressed or counted as a pass; follow-up is required
+before refreshing packaged previews. Android device/provider checks remain
+deferred and public automation remains disabled.

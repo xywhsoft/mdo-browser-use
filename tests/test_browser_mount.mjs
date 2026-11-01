@@ -9,16 +9,17 @@ const body=source.slice(source.indexOf('  async function browserView('),source.i
 function fixture({preview=false}={}) {
   const row={id:'panel',type:preview?'mdo.preview':'mdo.browser',owner:'extension',client:'display',context:{device:'device',project:'project',session:'task'},...(preview?{params:{url:'https://example.test'}}:{resource:{id:'browser'}})};
   const nativeRow=preview?{...row,resource:{id:'browser'}}:row;
-  const controller=new AbortController(),mount={abort:controller,browserId:'browser'},mounts=new Map([['panel',mount]]),entries=new Map([['panel',row]]),views=new Map(),closed=[],reconciled=[],titles=[];
+  const controller=new AbortController(),mount={abort:controller,browserId:'browser'},mounts=new Map([['panel',mount]]),entries=new Map([['panel',row]]),views=new Map(),closed=[],reconciled=[],titles=[],remounted=[];
   let resolve,options,currentTarget='local';
-  const factory=new Function('mountBrowserView','bound','bridge','clientId','layout','navigation','update','layoutApi','addContext','browserViews','close','popupManager','isRemoteTarget','targetState','createBrowserViewLifetime','entries','mounts',
+  const factory=new Function('mountBrowserView','bound','bridge','clientId','layout','navigation','update','layoutApi','addContext','browserViews','close','popupManager','isRemoteTarget','targetState','createBrowserViewLifetime','entries','mounts','remount',
     `let stopped=false;const displayTarget='local';${body};return {browserView,stop(){stopped=true;}};`);
-  const host=factory(async(root,value)=>{options=value;return new Promise(done=>{resolve=done;});},value=>({context:value.context}),{},'display',{open:true},{get:()=>({view:'chat'})},
+  const layout={open:true,active:'panel'};
+  const host=factory(async(root,value)=>{options=value;return new Promise(done=>{resolve=done;});},value=>({context:value.context}),{},'display',layout,{get:()=>({view:'chat'})},
     async(id,patch,current=()=>true)=>{if(current())titles.push({id,patch});},{call(){throw Error('No external navigation');}},()=>{},views,
-    async(id,current=()=>true)=>{if(current())closed.push(id);},{reconcile:id=>reconciled.push(id)},()=>currentTarget!=='local',()=>({selected:{id:currentTarget}}),createBrowserViewLifetime,entries,mounts);
+    async(id,current=()=>true)=>{if(current())closed.push(id);},{reconcile:id=>reconciled.push(id)},()=>currentTarget!=='local',()=>({selected:{id:currentTarget}}),createBrowserViewLifetime,entries,mounts,id=>remounted.push(id));
   const execute=async()=>({state:'original'}),view={id:'browser',execute};
   const pending=host.browserView({hidden:false},nativeRow,controller.signal,mount);
-  return{...host,row,nativeRow,controller,mount,mounts,entries,views,view,pending,closed,reconciled,titles,options:()=>options,ready:()=>resolve(view),target:value=>{currentTarget=value;}};
+  return{...host,row,nativeRow,controller,mount,mounts,entries,views,view,pending,closed,reconciled,titles,layout,remounted,options:()=>options,ready:()=>resolve(view),target:value=>{currentTarget=value;}};
 }
 
 for(const cause of ['mount','target','scope','resource','stop'])test(`late native mount cannot publish after ${cause} changes`,async()=>{
@@ -83,4 +84,37 @@ for(const cause of ['replacement','owner','stop','removal'])test(`actual panel u
 });
 test('actual panel update preserves its saved result for a current owner',async()=>{
   const f=updating(),pending=f.update('panel',{title:'Original result'},()=>true);f.resolve();assert.equal(await pending,f.saved);assert.equal(f.entries.get('panel'),f.saved);assert.deepEqual(f.effects,['remember','render']);
+});
+
+test('binding retires the old UI before native creation, with one final reconciliation',async()=>{
+  const f=fixture();assert(f.options().onBind(f.view));
+  assert.equal(f.views.size,0,'initializing native view is not a ready task dispatcher');assert.equal(f.reconciled.length,0);assert(f.options().alive());
+  f.ready();await f.pending;assert.equal(f.views.get('browser').execute,f.view.execute);assert.deepEqual(f.reconciled,['browser']);
+});
+test('shared UI claims retire an old pane while preserving the existing ready task dispatcher',async()=>{
+  const row={id:'first',resource:{id:'browser'},owner:'extension',client:'display',context:{project:'project',session:'task'}},
+    other={...row,id:'second'},mounts=new Map(),entries=new Map([['first',row],['second',other]]),views=new Map(),reconciled=[];
+  const create=value=>{const abort=new AbortController(),mount={};mounts.set(value.id,mount);return createBrowserViewLifetime({row:value,signal:abort.signal,mount,mounts,entries,views,
+    alive:()=>true,close:async()=>{},reconcile:id=>reconciled.push(id)});};
+  const a=create(row),first={id:'browser',execute:async()=>({ready:'first'})};assert(a.bind(first));assert(a.register(first));const ready=views.get('browser');
+  const b=create(other),second={id:'browser',execute:async()=>({ready:'second'})};assert(b.bind(second));assert(!a.current());assert(b.current());
+  assert.equal(views.get('browser'),ready);assert.equal((await ready.execute('state')).ready,'first');assert.deepEqual(reconciled,['browser']);
+  assert(!a.canHide());assert(b.canHide());a.release();assert(b.current());assert(b.register(second));assert.equal(views.get('browser').execute,second.execute);
+  b.release();assert(!b.current());assert(b.canRemount());
+});
+for(const cause of ['normal','record','mount','scope','target','stop'])test(`cleanup may hide only its original ${cause} owner`,async()=>{
+  const f=fixture();assert(f.options().onBind(f.view));f.ready();await f.pending;
+  f.mounts.delete('panel');f.controller.abort();
+  if(cause==='record')f.views.set('browser',{row:f.row,execute:async()=>({})});
+  if(cause==='mount')f.mounts.set('panel',{browserId:'browser'});
+  if(cause==='scope')f.entries.set('panel',{...f.row,context:{session:'another-task'}});
+  if(cause==='target')f.target('other-device');if(cause==='stop')f.stop();
+  assert.equal(Boolean(f.options().canHide()),['normal','stop'].includes(cause));
+});
+test('only the preferred still-scoped retired pane can request a remount',async()=>{
+  const f=fixture();f.ready();await f.pending;f.views.set('browser',{row:f.row,execute:async()=>({})});assert(!f.options().alive());
+  f.layout.active='other';f.options().onRetired();assert.equal(f.remounted.length,0);
+  f.layout.secondary='panel';f.mounts.set('other',{browserId:'browser'});f.options().onRetired();assert.equal(f.remounted.length,0);
+  f.mounts.set('other',{browserId:'different-browser'});f.options().onRetired();assert.deepEqual(f.remounted,['panel']);
+  f.remounted.length=0;f.views.set('browser',{row:{...f.row,context:{session:'foreign'}},execute:async()=>({})});f.options().onRetired();assert.equal(f.remounted.length,0);
 });
