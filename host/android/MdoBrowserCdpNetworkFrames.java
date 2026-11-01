@@ -12,6 +12,12 @@ import org.json.JSONObject;
 /** Physical-target network ancestry across document navigations. This ledger
  * grants response provenance only, never an execution world or input route. */
 final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,AutoCloseable {
+    /** Data-only receipt issued by this exact closed ledger, not an error-text match. */
+    static final class Closed extends IOException {
+        private final Object original;
+        private Closed(Object original){super("download_frame_owner_closed");this.original=original;}
+        boolean issuedBy(MdoBrowserCdpNetworkFrames owner){return owner!=null&&original==owner.authority;}
+    }
     private static final int LIMIT=32,DEPTH=32,LIFETIME=4096;
     /** Private bounded root commit history, not a public wire-ID lookup. */
     private static final class Start {
@@ -73,7 +79,7 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     }
     private static boolean loader(Object value){return value instanceof String&&(((String)value).isEmpty()||identity(value));}
     private static String id(JSONObject value,String key)throws IOException {Object raw=value.opt(key);if(!identity(raw))throw fail("download_frame_metadata_invalid");return(String)raw;}
-    private void current()throws IOException {if(Thread.currentThread()!=worker)throw fail("cdp_wrong_worker");if(closed)throw fail("download_frame_owner_closed");}
+    private void current()throws IOException {if(Thread.currentThread()!=worker)throw fail("cdp_wrong_worker");if(closed)throw new Closed(authority);}
     long revision()throws IOException {current();return revision;}
     String rootLoader()throws IOException {origin(root);return frames.get(root).loader;}
     private static byte[] location(JSONObject value){

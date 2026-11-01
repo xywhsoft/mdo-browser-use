@@ -145,9 +145,25 @@ public final class CdpNetworkFramesProbe {
             final int scenario=mode;refused(mode==4?"download_frame_session_unproven":"download_frame_metadata_invalid",()->frames.event("Page.frameStartedNavigating",scenario==4?"foreign-session":null,start));check(!previous.current());
         }
     }
+    private static void originalClosedReceipts()throws Exception {
+        MdoBrowserCdpNetworkFrames first=open(),foreign=open();first.close();
+        try{first.revision();throw new AssertionError("Closed frame ledger admitted work");}
+        catch(MdoBrowserCdpNetworkFrames.Closed ended){check(ended.issuedBy(first)&&!ended.issuedBy(foreign)&&!ended.issuedBy(null));check(ended.getMessage().equals("download_frame_owner_closed")&&ended.getCause()==null);}
+        check(foreign.revision()>=0);foreign.close();
+        MdoBrowserCdpNetworkRequests requests=new MdoBrowserCdpNetworkRequests("root"),other=new MdoBrowserCdpNetworkRequests("root");requests.close();
+        try{requests.revision();throw new AssertionError("Closed request ledger admitted work");}
+        catch(MdoBrowserCdpNetworkRequests.Closed ended){check(ended.issuedBy(requests)&&!ended.issuedBy(other)&&!ended.issuedBy(null));check(ended.getMessage().equals("cdp_request_owner_closed")&&ended.getCause()==null);}
+        check(other.revision()==0);other.close();
+        for(Class<?> type:new Class<?>[]{MdoBrowserCdpNetworkFrames.Closed.class,MdoBrowserCdpNetworkRequests.Closed.class}){
+            check(java.lang.reflect.Modifier.isStatic(type.getModifiers())&&type.getSuperclass()==IOException.class);
+            java.lang.reflect.Constructor<?>[] constructors=java.util.Arrays.stream(type.getDeclaredConstructors()).filter(row->!row.isSynthetic()).toArray(java.lang.reflect.Constructor<?>[]::new);
+            check(constructors.length==1&&java.lang.reflect.Modifier.isPrivate(constructors[0].getModifiers()));
+            java.lang.reflect.Field[] fields=type.getDeclaredFields();check(fields.length==1&&fields[0].getType()==Object.class&&java.lang.reflect.Modifier.isFinal(fields[0].getModifiers()));
+        }
+    }
     public static void main(String[] args)throws Exception{
         android.os.Looper.getMainLooper();java.util.concurrent.ExecutorService worker=java.util.concurrent.Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{ancestry();removalAndSwap();bootstrap();limitsAndFaults();withinDocumentLedger();traversalEvents();}catch(Exception failure){throw new RuntimeException(failure);}}).get(20,java.util.concurrent.TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{ancestry();removalAndSwap();bootstrap();limitsAndFaults();withinDocumentLedger();traversalEvents();originalClosedReceipts();}catch(Exception failure){throw new RuntimeException(failure);}}).get(20,java.util.concurrent.TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,java.util.concurrent.TimeUnit.SECONDS));}
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"actual_network_ancestry\":true,\"native_navigation_epochs\":true,\"same_document_epoch_separate\":true,\"root_control_event_proofs\":true,\"framework_verified\":false,\"provider_qualified\":false}");
     }

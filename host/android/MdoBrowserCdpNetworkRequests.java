@@ -10,6 +10,12 @@ import org.json.JSONObject;
  * crosses this boundary. Correlation failure disables correlation, not existing
  * transfer cleanup. Captured evidence grants no stream or permission. */
 final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,AutoCloseable {
+    /** Only this ledger's closed admission check can issue its original receipt. */
+    static final class Closed extends IOException {
+        private final Object original;
+        private Closed(Object original){super("cdp_request_owner_closed");this.original=original;}
+        boolean issuedBy(MdoBrowserCdpNetworkRequests owner){return owner!=null&&original==owner.owner;}
+    }
     private static final int LIMIT=4096,REDIRECTS=32,COMMANDS=32;
     static final class Receipt {
         private final Object owner;final String loader;final long born;private volatile boolean valid=true;private int redirects;
@@ -62,7 +68,7 @@ final class MdoBrowserCdpNetworkRequests implements MdoBrowserCdpSession.Events,
     private final Command[] commands=new Command[COMMANDS];private int commandCount;
     private long serial;private volatile boolean closed;private volatile String fault;
     MdoBrowserCdpNetworkRequests(String root){if(!MdoBrowserCdpNetworkFrames.identity(root))throw new IllegalArgumentException("Invalid original root");this.root=root;}
-    private void current()throws IOException{if(Thread.currentThread()!=worker)throw new IOException("cdp_wrong_worker");if(closed)throw new IOException("cdp_request_owner_closed");}
+    private void current()throws IOException{if(Thread.currentThread()!=worker)throw new IOException("cdp_wrong_worker");if(closed)throw new Closed(owner);}
     long revision()throws IOException{current();return serial;}
     String failure(){return fault;}
     private void disable(String code){fault=code;for(Receipt receipt:requests.values())receipt.valid=false;requests.clear();loaders.clear();java.util.Arrays.fill(pending,null);java.util.Arrays.fill(commands,null);commandCount=0;}

@@ -268,6 +268,9 @@ def main():
                   'preparation-publication-deadline-add','preparation-publication-deadline-bounds',
                   'preparation-publication-retirement-prune','preparation-publication-retirement-event',
                   'preparation-publication-retirement-source-event','preparation-publication-retirement-source-capture','preparation-publication-source-crash',
+                  'preparation-publication-retirement-ledger-frame','preparation-publication-retirement-ledger-request',
+                  'preparation-publication-retirement-ledger-frame-active','preparation-publication-retirement-ledger-request-active',
+                  'preparation-publication-retirement-ledger-fault','preparation-publication-retirement-ledger-listener',
                   'preparation-publication-retirement-managed',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
@@ -308,7 +311,7 @@ def main():
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
         if mode.startswith(('preparation-publication-','preparation-restore-')):
             published=popup_worker.get('product_publication')
-            clean=mode!='preparation-publication-source-crash' and mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
+            clean=mode not in {'preparation-publication-source-crash','preparation-publication-retirement-ledger-fault','preparation-publication-retirement-ledger-listener'} and mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
             if (not isinstance(published,dict) or published.get('actual_product_creation') is not True or published.get('cleanup_confirmed') is not clean or published.get('unconfirmed_creation_fenced') is not (not clean)
                     or published.get('close_replies')!=1 or published.get('create_replies') not in {0,1} or published.get('browser_connections')!=1
                     or published.get('native_proof_connections') not in {0,1} or published.get('no_url_replay') is not True
@@ -318,6 +321,8 @@ def main():
                 raise RuntimeError('The exact concurrent retirement scheduler boundary was not exercised')
             if mode=='preparation-publication-source-crash' and published.get('source_crash_contained') is not True:
                 raise RuntimeError('A renderer crash was incorrectly treated as deliberate retirement')
+            if mode.startswith('preparation-publication-retirement-ledger-') and published.get('ledger_fault_contained') is not mode.endswith(('-fault','-listener')):
+                raise RuntimeError('A source-ledger fault or ordinary listener error was swallowed as retirement')
         if mode.startswith('preparation-restore-'):
             restore=popup_worker['product_publication'].get('document_restore')
             if (not isinstance(restore,dict) or restore.get('actual_frame_router') is not True or restore.get('reads',0)<1
@@ -371,6 +376,13 @@ def main():
                     or evidence.get('ui_published') is not False or evidence.get('provider_qualified') is not False
                     or not evidence['cleanup_confirmed'] and (evidence.get('unconfirmed_creation_fenced') is not True or evidence.get('failure_callbacks')!=1)):
                 raise RuntimeError('Protected page startup lost its actual cleanup/publication evidence')
+            if mode=='preparation-page-loading-timeout':
+                retirement=popup_worker.get('loading_retirement')
+                if (evidence['cleanup_confirmed'] is not True or evidence.get('unconfirmed_creation_fenced') is not False
+                        or not isinstance(retirement,dict) or retirement.get('original_detach_emitted') is not True
+                        or retirement.get('native_destroyed')!=1 or retirement.get('broker_creation_blocked') is not False
+                        or retirement.get('event_failure') is not None or retirement.get('source_released') is not True):
+                    raise RuntimeError('Loading timeout failed to retain its original pause and drain real detach/disable cleanup')
         if mode.startswith('preparation-isolated-'):
             evidence=popup_worker.get('product_document_retirement');preserved=mode not in ('preparation-isolated-foreign','preparation-isolated-receive-foreign','preparation-isolated-expired')
             if (not isinstance(evidence,dict) or evidence.get('shared_wire_preserved') is not preserved

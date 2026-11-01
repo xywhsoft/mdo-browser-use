@@ -12866,3 +12866,75 @@ This completes the private protected-input integration phase. Public Android
 automation stays disabled; protected upload/navigation/takeover, public document
 state, full nested adoption and provider/device qualification remain open.
 Phone/current WebView stay deferred. The overall goal remains active.
+
+### E166 source-ledger close receipts and retained pause cleanup
+
+The E165 timeout cleanup difference is now traced to a real close/capture race.
+The source guard could pass, then UI/native retirement closed its original
+frame/request ledger before `retainSourceRequest` read it. The generic closed
+IOException escaped the source-retirement join and became `cdp_event_failed`.
+The shared wire closed before the original Target detach, leaving correctly
+fenced but avoidable unconfirmed cleanup. Test-only event/close receipts identify
+`cdp_request_owner_closed`; controlled boundaries reproduce both that error and
+`download_frame_owner_closed`. Evidence: `.mdo/E166-event-failure.log`,
+`.mdo/E166-frame-ledger-red.log` and `.mdo/E166-request-ledger-red.log`.
+
+Each ledger now issues a private typed Closed receipt carrying only its existing
+opaque data identity. The source translates it to its original Retired receipt
+only when this exact source has also closed and the receipt belongs to its own
+ledger. Ordinary IOException text, a foreign ledger or a ledger fault while the
+source is still open does not qualify. Existing renderer-crash handling remains
+unchanged. Frame/request ownership errors keep their original public codes.
+
+Paused-event retention uses the live original connection guard and the existing
+busy-event, exact attachment, protection, duplicate and resource-limit checks.
+It grants no execution, body access, response decision or request continuation.
+This allows a bounded original pause to survive while an attached command's
+own cancellation guard unwinds. That command's authority/retirement guards are
+unchanged; no wire, URL, target or effect is reopened or replayed.
+
+Six controlled product cases pass236 checks: frame/request retirement during
+idle polling and during an active protected command, a genuine ledger fault
+while the source remains open, and an ordinary listener IOException with the
+same closed-request text after source closure. The last two intentionally fail
+and preserve unconfirmed creation fences; they prove containment, not recovery.
+The four retirement cases retain the original wire and complete actual native
+destroy/detach/disable. The controlled peer now distinguishes request and
+response continuation by the original emitted event stage; its older session-
+wide assumption could not represent a second request on the same session.
+See `.mdo/E166-boundaries-final.log` and `.mdo/E166-active-negative.log`.
+
+The original loading-timeout gate is strengthened to require confirmed cleanup,
+its emitted original detach, actual native destruction, original preparation
+source release and eventual Browser-guard release. Waiting for the original
+disable ACK is necessary; native view destruction alone is not that receipt.
+Ten focused repetitions pass; no fallback unconfirmed outcome is accepted for
+this controlled timeout. Original ledger receipt tests pass133 checks, including
+foreign/null owner rejection, unchanged errors and data-only/private definitions.
+Java8's synthetic constructor bridge is excluded when checking the one explicit
+private constructor; it is not a second source-level issuer.
+
+The final fresh native matrix passes412 worker modes/15,208 reported checks,
+including all earlier406 and the six new cases/236. The strengthened original
+loading-timeout gate passes with actual detach, source release and eventual
+Browser-guard release. Ledger tests report133 checks. The full transport/session/
+frame/capture/upload/download gates, ASan/UBSan and Android API26 C compilation
+pass; all130 native input hashes match final source. See `.mdo/E166-native.log`.
+
+Python178/180 passes with the two existing Windows symlink-privilege skips.
+Fresh JS466, popup122/25/7 and create/async-close850/77 also pass. The complete
+signed development APK is6,575,425 bytes, SHA-256
+`a4a77ca74d6ea608b1f3544a521554b261125356871cb07fbdd3c6ae16fc123c`.
+Actual DEX inspection verifies96 definition groups, including both ledger Closed
+definitions, their original Object-only fields and issuer methods. APK/source/
+archive/signature identities verify together in `.mdo/E166-verification.json`
+and `.mdo/E166-verification.log`. Windows W5 and the paired plugin are unchanged,
+hash-verified reuse, not a new Windows runtime pass. The local headless service
+is HTTP200 and matches the reviewed overlays; no temporary product logging was
+added. Controlled protocol diagnostics stay in the test fixture/evidence.
+
+This completes the observed source-ledger close-race phase. It is controlled
+protocol/UI evidence, not Android framework/device qualification. Protected
+upload/navigation/takeover, public document state, full nested adoption and
+remaining platform/final-deliverable checks stay open. Phone/current WebView
+remain deferred; overall Android admission stays disabled and the goal active.

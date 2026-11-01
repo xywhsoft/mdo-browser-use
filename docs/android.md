@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E165)
+## Complete development host APK (current: E166)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,575,425 bytes, SHA-256
-`1690e7aed27062ae8ae52dbcc0e564fed667bf6987fc9447180e26c4996c03b4`.
+`a4a77ca74d6ea608b1f3544a521554b261125356871cb07fbdd3c6ae16fc123c`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -129,6 +129,24 @@ the final sources. Actual DEX checks cover 94 definition groups, including the
 typed input proof fields and both guard preflight definitions. These remain
 controlled protocol/UI checks; see `.mdo/E165-verification.json` and progress
 for the full evidence scope and remaining qualification work.
+
+E166 traces the earlier loading-timeout cleanup difference to source retirement
+between scope admission and original frame/request-ledger reads. A private
+Closed receipt must match that ledger's original identity and the same source's
+closed intent before it becomes a retirement event. Bounded paused-event
+retention keeps the original connection/event/attachment checks while the active
+command unwinds through its own cancellation guard. It grants no body access or
+continuation and does not reopen the wire. Real ledger faults and same-text
+ordinary listener errors still fail and retain creation fences.
+
+Six new controlled cases pass for idle/active close races and the two negative
+fault cases. The original loading-timeout gate now requires real detach and
+eventual Browser-disable cleanup; ten focused repetitions and the full matrix
+pass. The full matrix has412 worker modes, ledger tests133 checks and130 verified
+input hashes. Actual DEX inspection verifies96 definition groups, including both
+data-only ledger receipts. These results resolve the observed controlled close
+race; they do not qualify Android framework/provider/device behavior or enable
+the public Android adapter. See `.mdo/E166-verification.json`.
 
 ```powershell
 python tools/setup_android_client.py --native

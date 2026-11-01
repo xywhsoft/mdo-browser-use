@@ -605,12 +605,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * resume, also retain opaque response IDs without exposing metadata/body.
      * No caller selector or replacement URL/headers/body/JSON is retained. */
     void retainAttachedRequest(AttachedTarget original)throws IOException {
-        guard(false);PausedEvent value=paused;
+        // Retention grants no execution/continuation/body access. The original
+        // guarded event may have become retiring during another attached call;
+        // keep its bounded pause while that call unwinds through its own guard.
+        connectionGuard(false);PausedEvent value=paused;
         if(!busy||value==null||original==null||original.owner!=this||!original.protectionAttempted||!original.matchesNativeSession(value.session))throw new EventFailure("cdp_attach_request_scope_invalid");
         boolean response=value.key!=null&&value.key.startsWith("S|");
         if(value.request==null||value.key==null||response&&!original.managedResumeAttempted)throw new EventFailure("cdp_attach_response_unproven");
         synchronized(controlGate){
-            guard(false);if(heldAttachments==null||heldAttachments.get(original.session)!=original)throw new EventFailure("cdp_attach_request_scope_invalid");
+            connectionGuard(false);if(heldAttachments==null||heldAttachments.get(original.session)!=original)throw new EventFailure("cdp_attach_request_scope_invalid");
             if(value.used||controlKeys.contains(value.key))throw new EventFailure("cdp_attach_request_duplicate");
             if(original.initialRequests.size()+original.protectedResponses.size()>=32||controlKeys.size()>=CONTROL_HISTORY)throw new EventFailure("cdp_attach_request_limit");
             if(response){original.protectedResponses.add(value);original.retainedResponses=original.protectedResponses.size();}
@@ -621,7 +624,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     /** Freeze response ancestry at this original event, never when a UI later
      * selects it or after another document has replaced the initiating frame. */
     void retainSourceRequest(AttachedTarget original,MdoBrowserCdpNetworkFrames frames,MdoBrowserCdpNetworkRequests requests,String root)throws IOException {
-        guard(false);PausedEvent value=paused;if(!busy||value==null)throw failure("cdp_control_not_in_event",false);
+        connectionGuard(false);PausedEvent value=paused;if(!busy||value==null)throw failure("cdp_control_not_in_event",false);
         if(value.key!=null&&value.key.startsWith("S|")){
             MdoBrowserCdpNetworkFrames.Origin origin=null;String kind="response_frame";
             try{origin=frames.origin(value.response.frame);}catch(IOException error){if(!"download_frame_unproven".equals(error.getMessage()))throw error;}

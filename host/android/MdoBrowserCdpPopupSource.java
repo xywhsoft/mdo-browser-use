@@ -69,10 +69,17 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     }
     void event(String method,JSONObject params)throws IOException {
         if("Inspector.detached".equals(method)||"Inspector.targetCrashed".equals(method)||"Inspector.targetReloadedAfterCrash".equals(method)){close();throw new IOException("cdp_popup_source_retired");}
-        guard();frames.event(method,null,params);requests.event(method,null,params);
-        MdoBrowserCdpSession.Events action=receiver;if(action==null)throw new IOException("cdp_popup_source_listener_missing");action.event(method,null,params);
+        guard();try{
+            frames.event(method,null,params);requests.event(method,null,params);
+            MdoBrowserCdpSession.Events action=receiver;if(action==null)throw new IOException("cdp_popup_source_listener_missing");action.event(method,null,params);
+        }catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired();throw ended;}
+        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired();throw ended;}
     }
-    void capture()throws IOException {guard();session.retainSourceRequest(attachment,frames,requests,root);}
+    void capture()throws IOException {
+        guard();try{session.retainSourceRequest(attachment,frames,requests,root);}
+        catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired();throw ended;}
+        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired();throw ended;}
+    }
     public MdoBrowserCdpSession.AttachedResponse next()throws IOException {
         guard();if(!ready)throw new IOException("cdp_popup_source_bootstrap_required");
         if(!attachment.resumeConfirmed())return null;
