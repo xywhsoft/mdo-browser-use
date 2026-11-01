@@ -37,8 +37,30 @@ final class MdoBrowserDocument implements AutoCloseable {
     private void startup()throws MdoBrowserWorld.Failure {
         if(closed||!owned.getAsBoolean()||startupAdmission!=null&&!startupAdmission.getAsBoolean()||closed)throw new MdoBrowserWorld.Failure(closed?"world_closed":"frame_changed");
     }
+    private void begin(BooleanSupplier admission)throws MdoBrowserWorld.Failure {
+        if(started)throw new MdoBrowserWorld.Failure("world_install_order");started=true;initializing=true;startupAdmission=admission;
+    }
+    private void closeAfterFailure(Throwable failure){
+        try{close();}catch(VirtualMachineError|ThreadDeath fatal){fatal.addSuppressed(failure);throw fatal;}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}
+    }
+    private void end(Throwable failed){
+        initializing=false;startupAdmission=null;Runnable complete=initialized;initialized=null;
+        try{if(complete!=null)complete.run();if(!closed)adopt();}catch(VirtualMachineError|ThreadDeath fatal){if(failed!=null)fatal.addSuppressed(failed);throw fatal;}catch(RuntimeException|Error cleanup){if(failed!=null)failed.addSuppressed(cleanup);else throw cleanup;}
+    }
+    /** Confirm configuration before popup transport without creating a script
+     * world. The resulting physical owner retains no opener/controller. */
+    void initializeInheritedProfile(ClassLoader loader,MdoBrowserDocument original,Object opener,BooleanSupplier admission)throws MdoBrowserWorld.Failure {
+        thread();if(loader==null||original==null||opener==null||admission==null)throw new MdoBrowserWorld.Failure("world_arguments_invalid");
+        MdoBrowserProfile source=original.profileFor(opener);String name=MdoBrowserProfile.inheritedName(view,loader,source);begin(admission);Throwable failed=null;
+        try{startup();physicalProfile=MdoBrowserProfile.open(view,loader);startup();physicalProfile.inherit(source,name);startup();fault="popup_world_unqualified";}
+        catch(MdoBrowserWorld.Failure|RuntimeException|Error failure){failed=failure;closeAfterFailure(failure);throw failure;}
+        finally{end(failed);}
+    }
+    private MdoBrowserProfile profileFor(Object exact)throws MdoBrowserWorld.Failure {
+        thread();if(exact!=view||!profileAssigned())throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");return physicalProfile;
+    }
     void initialize(ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,String profile,MdoBrowserWorld.Budget budget,BooleanSupplier admission)throws MdoBrowserWorld.Failure {
-        thread();if(loader==null||scheduler==null||budget==null||admission==null)throw new MdoBrowserWorld.Failure("world_arguments_invalid");budget.used();if(started)throw new MdoBrowserWorld.Failure("world_install_order");started=true;initializing=true;startupAdmission=admission;Throwable failed=null;
+        thread();if(loader==null||scheduler==null||budget==null||admission==null)throw new MdoBrowserWorld.Failure("world_arguments_invalid");budget.used();begin(admission);Throwable failed=null;
         try{
             startup();
             if(profile!=null){physicalProfile=MdoBrowserProfile.open(view,loader);startup();physicalProfile.assign(profile);startup();physicalProfile.seal();}
@@ -53,11 +75,8 @@ final class MdoBrowserDocument implements AutoCloseable {
                 if(physicalProfile!=null&&"isolated_world_unsupported".equals(failure.code)){fault=failure.code;startup();return;}throw failure;
             }
             startup();world.install(BOOTSTRAP);startup();realmInstalled=true;
-        }catch(MdoBrowserWorld.Failure|RuntimeException|Error failure){failed=failure;try{close();}catch(VirtualMachineError|ThreadDeath fatal){fatal.addSuppressed(failure);throw fatal;}catch(RuntimeException|Error cleanup){failure.addSuppressed(cleanup);}throw failure;}
-        finally{
-            initializing=false;startupAdmission=null;Runnable complete=initialized;initialized=null;
-            try{if(complete!=null)complete.run();if(!closed)adopt();}catch(VirtualMachineError|ThreadDeath fatal){if(failed!=null)fatal.addSuppressed(failed);throw fatal;}catch(RuntimeException|Error cleanup){if(failed!=null)failed.addSuppressed(cleanup);else throw cleanup;}
-        }
+        }catch(MdoBrowserWorld.Failure|RuntimeException|Error failure){failed=failure;closeAfterFailure(failure);throw failure;}
+        finally{end(failed);}
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Document requires its owning UI thread");}
     private void receive(MdoBrowserWorld.Peer peer,String text){

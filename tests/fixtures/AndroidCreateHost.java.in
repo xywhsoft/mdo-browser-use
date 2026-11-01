@@ -89,6 +89,11 @@ final class AndroidCreateHost {
             }finally{working=false;Runnable destination=complete;complete=null;if(destination!=null)destination.run();}
         }
         boolean profileAssigned(){return assigned&&!closed&&!working&&view.host.allowProfile;}
+        void initializeInheritedProfile(ClassLoader loader,MdoBrowserDocument parent,Object opener,BooleanSupplier admission)throws MdoBrowserWorld.Failure{
+            working=true;try{view.host.profileRequests.add("inherited");if(parent.view!=opener||!parent.profileAssigned())throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");if(!admission.getAsBoolean()||!view.host.allowProfile)throw new MdoBrowserWorld.Failure("browser_profile_unconfirmed");
+                assigned=true;Runnable hook=view.host.beforeProfile;view.host.beforeProfile=null;if(hook!=null)hook.run();if(closed||!parent.profileAssigned()||!admission.getAsBoolean())throw new MdoBrowserWorld.Failure("frame_changed");
+            }finally{working=false;Runnable callback=complete;complete=null;if(callback!=null)callback.run();}
+        }
         void block(int reason,boolean value){if(reason==MANUAL)manualBlocked=value;if(reason==NAVIGATION)navigationBlocked=value;if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}void close(){closes++;closed=true;}boolean cleanupConfirmed(){return !working&&!view.host.cleanupFault.equals("document");}
         int nativeCommits,navigations,loadedCalls;void navigation(){navigations++;navigationBlocked=false;}void committed(){nativeCommits++;if(view.host.beforeNativeCommit!=null)view.host.beforeNativeCommit.run();navigationBlocked=false;}void loaded(){loadedCalls++;navigationBlocked=false;}
         void viewDestroyed(Object original){if(original!=view||working)throw new AssertionError("Wrong/busy document view");destroyed++;}
@@ -234,6 +239,7 @@ final class AndroidCreateHost {
         Promotion handoff(Created original,Child proof){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}
         final WebView opener;Disposal disposal;int calls;Created latest;
         MdoBrowserCdpPopupNative(WebView opener){this.opener=opener;}
+        WebView opener(){return opener;}boolean current(){return true;}
         static final class Created {
             final WebView view,opener;final String key;final Disposal disposal;final MdoBrowserLifecycle<WebView> registry;
             final MdoBrowserLifecycle.Fresh<WebView> birth;final long openerEpoch;boolean closed;

@@ -50,12 +50,25 @@ final class PopupProductHost {
         MdoBrowserCdpMarker marker(String key,WebView view,long epoch,Object channel,java.util.function.BooleanSupplier current){return registry.marker(key,view,epoch,channel,current);}
         void invalidate(String key,WebView exact,long epoch,String reason){invalidations++;registry.invalidate(key,exact,epoch,reason);}
     }
-    static final class MdoBrowserDocument {static final int BACKGROUND=1;int closes,destroyed;boolean initializing(){return false;}boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
+    static final class MdoBrowserWorld {static final class Failure extends Exception {final String code;Failure(String code){this.code=code;}}}
+    static final class MdoBrowserDocument {
+        static final int BACKGROUND=1;static Runnable profileHook;int closes,destroyed;boolean working,closed,assigned;final Object view;Runnable complete;
+        MdoBrowserDocument(Object view){this.view=view;}
+        static MdoBrowserDocument prepare(Object view,java.util.function.BooleanSupplier owned,java.util.function.LongSupplier epoch){return new MdoBrowserDocument(view);}
+        void whenInitialized(Runnable callback){complete=callback;}boolean initializing(){return working;}
+        boolean profileAssigned(){return assigned&&!closed&&!working;}
+        void initializeInheritedProfile(ClassLoader loader,MdoBrowserDocument parent,Object opener,java.util.function.BooleanSupplier admission)throws MdoBrowserWorld.Failure {
+            working=true;try{if(parent.view!=opener||!parent.profileAssigned())throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");if(!admission.getAsBoolean())throw new MdoBrowserWorld.Failure("frame_changed");assigned=true;
+                Runnable hook=profileHook;profileHook=null;if(hook!=null)hook.run();if(closed||!parent.profileAssigned()||!admission.getAsBoolean())throw new MdoBrowserWorld.Failure("frame_changed");}
+            finally{working=false;Runnable callback=complete;complete=null;if(callback!=null)callback.run();}
+        }
+        boolean cleanupConfirmed(){return !working;}void close(){closes++;closed=true;}void viewDestroyed(WebView exact){if(exact!=view||working)throw new AssertionError("Unsettled/foreign profile owner");destroyed++;}
+    }
     static final class Dialogs {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
-    PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());}
+    PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());WebView root=views.get("root");if(root!=null){MdoBrowserDocument original=new MdoBrowserDocument(root);original.assigned=true;documents.put("root",original);}}
     int networkRetiring(){return networkReady?0:1;}int downloadRetiring(){return 0;}
     boolean networkClean(){return networkReady&&!networkCleanupFailed;}
     void networkRetire(String key,WebView exact,String reason){}void networkDestroyed(WebView exact){networkDestroyed++;}
@@ -75,6 +88,7 @@ final class PopupProductHost {
     @@RESUME@@
     @@CREATION_GUARD@@
     @@DESTRUCTION@@
+    @@PREPARE_DOCUMENT@@
     @@CONSTRUCT@@
     @@PREPARATION@@
     @@INPUT@@

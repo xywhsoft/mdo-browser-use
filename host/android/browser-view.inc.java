@@ -4,6 +4,10 @@
             MdoBrowserCdpPopupWorker.Allocation allocation,String key)throws java.io.IOException {
         nativeOwnerAdmission();
         if(source==null)throw new java.io.IOException("cdp_popup_native_source_invalid");
+        final WebView opener=source.opener();String found=null;
+        for(Map.Entry<String,MdoBrowserDocument> item:documents.entrySet())if(views.owns(item.getKey(),opener)&&item.getValue().profileAssigned()){found=item.getKey();break;}
+        if(found==null)throw new java.io.IOException("browser_profile_source_invalid");
+        final String parentKey=found;final MdoBrowserDocument parent=documents.get(parentKey);final MdoBrowserChannel<WebMessagePort>.Lease originalChannel=channel.current();
         MdoBrowserCdpPopupNative.Created created=source.construct(allocation,views,key,(exactKey,exactView)->{
             WebView current=views.get(exactKey);
             if(current!=null&&current!=exactView)throw new IllegalStateException("popup_binding_mismatch");
@@ -12,10 +16,17 @@
         });
         try{
             WebView view=created.view();
+            MdoBrowserDocument document=prepareDocument(key,view);
+            java.util.function.BooleanSupplier admitted=()->!stopped&&documents.get(parentKey)==parent&&parent.profileAssigned()&&views.owns(parentKey,opener)&&source.current()&&channel.current()==originalChannel&&channel.active(originalChannel,host.getUrl());
+            document.initializeInheritedProfile(WebView.getWebViewClassLoader(),parent,opener,admitted);
+            if(!admitted.getAsBoolean()||documents.get(key)!=document||created.view()!=view)throw new IllegalStateException("popup_binding_mismatch");
             documentFailures.put(key,"popup_world_unqualified");
             configureBrowserView(key,view);
-            created.view(); // Configuration callbacks must not revive a stale allocation.
+            if(!admitted.getAsBoolean()||documents.get(key)!=document||created.view()!=view)throw new IllegalStateException("popup_binding_mismatch");
             return created;
+        }catch(MdoBrowserWorld.Failure failure){
+            try{created.close();}catch(java.io.IOException cleanup){java.io.IOException combined=new java.io.IOException("native_view_cleanup_failed",failure);combined.addSuppressed(cleanup);throw combined;}
+            throw new java.io.IOException(failure.code);
         }catch(RuntimeException|Error failure){
             try{created.close();}
             catch(java.io.IOException cleanup){

@@ -1221,6 +1221,25 @@ public final class CdpPopupWorkerProbe {
     private static void productDisposal(String mode)throws Exception{
         try(OwnershipCase c=new OwnershipCase()){
             PopupProductHost product=new PopupProductHost(c.source.views);
+            if(mode.startsWith("product-disposal-profile")){
+                int before=WebView.constructions;
+                if(mode.endsWith("denied")){
+                    product.documents.get("root").assigned=false;failure("browser_profile_source_invalid",()->product.construct(c.source.source,c.allocation,"owned"));
+                    check(WebView.constructions==before&&product.documents.size()==1);product.documents.get("root").assigned=true;
+                }
+                if(mode.endsWith("close")||mode.endsWith("channel"))PopupProductHost.MdoBrowserDocument.profileHook=()->{
+                    WebView exact=c.source.views.get("owned");PopupProductHost.MdoBrowserDocument doc=product.documents.get("owned");check(doc.initializing()&&product.configured==0&&exact.destroyed==0);
+                    if(mode.endsWith("close")){check(!product.retire("owned",exact));check(exact.destroyed==0&&!doc.cleanupConfirmed());}else product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+                };
+                if(mode.endsWith("close")||mode.endsWith("channel")){
+                    failure("frame_changed",()->product.construct(c.source.source,c.allocation,"owned"));check(WebView.lastConstructed.destroyed==1&&product.configured==0);
+                }else{
+                    MdoBrowserCdpPopupNative.Created created=product.construct(c.source.source,c.allocation,"owned");WebView child=created.view();
+                    check(product.documents.get("owned").profileAssigned()&&product.configured==1&&child.destroyed==0);created.close();check(child.destroyed==1);
+                }
+                check(product.documents.size()==1&&product.retiring()==0&&!product.failed()&&product.retired==1&&MdoBrowserCdpPopupNative.creationConfirmed());
+                c.cancel(false);check(c.request.result().sourceReleased&&c.request.result().processCleanupConfirmed);return;
+            }
             if(mode.equals("product-disposal-configuration")){
                 product.failConfiguration=true;
                 try{product.construct(c.source.source,c.allocation,"owned");throw new AssertionError("Product configuration fault was lost");}

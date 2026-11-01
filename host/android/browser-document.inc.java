@@ -43,9 +43,7 @@
         if(android.os.Build.VERSION.SDK_INT<28){documentFailures.put(key,"provider_loader_unsupported");if(automation)throw new UnsupportedOperationException("provider_loader_unsupported");return;}
         MdoBrowserDocument document=null;
         try{
-            document=MdoBrowserDocument.prepare(view,()->!stopped&&views.owns(key,view),()->views.epoch(key,view));
-            documents.put(key,document); // Publish logical ownership before native callbacks.
-            document.whenInitialized(()->{NativeDestruction row=nativeDestructions.get(view);if(row!=null&&row.prepared)executeNativeDestruction(row);});
+            document=prepareDocument(key,view);
             document.initialize(WebView.getWebViewClassLoader(),new MdoBrowserWorld.Scheduler(){
                 private final android.os.Handler handler=new android.os.Handler(android.os.Looper.getMainLooper());
                 public long now(){return android.os.SystemClock.uptimeMillis();}
@@ -64,6 +62,12 @@
             // input, document and transfer state together; never destroy here.
             if(automation)throw new UnsupportedOperationException(failure.code);
         }
+    }
+    private MdoBrowserDocument prepareDocument(String key,WebView view)throws MdoBrowserWorld.Failure {
+        MdoBrowserDocument document=MdoBrowserDocument.prepare(view,()->!stopped&&views.owns(key,view),()->views.epoch(key,view));
+        documents.put(key,document); // Publish logical ownership before native callbacks.
+        document.whenInitialized(()->{NativeDestruction row=nativeDestructions.get(view);if(row!=null&&row.prepared)executeNativeDestruction(row);});
+        return document;
     }
     private boolean closeDocument(String key){
         WebView networkView=views.get(key);if(networkView!=null)networkRetire(key,networkView,"network_document_closed");

@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E146:** bind acknowledged opener profiles into the actual protected
+  child constructor before settings or native transport. Publish its physical
+  controller before provider callbacks and reuse initialization quiescence and
+  exact destruction. Missing/unconfirmed sources are refused before allocating
+  a native child; stale source/channel/configuration cannot publish one. Profile
+  checks pass 396, product 848, full native 196 modes/7,530 checks, with all prior
+  192 modes unchanged. The rebuilt APK passes 60 actual definition groups.
+  Complete task/policy/UI routing and physical/document recovery integration
+  remain outstanding; public Android/provider qualification stays false.
 - **Android E145:** join the independent physical profile to actual root
   creation/network admission before settings/navigation. The optional boundary
   world borrows that exact confirmed owner without another provider/setter;
@@ -11520,3 +11529,46 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   qualification remain false. Phone/WebView remains deferred at user request;
   no ADB/device/provider, production/account/config, external-page/model or
   publication action occurred, and no second app/Home/source copy was created.
+
+
+### E146 — inherited physical profiles in protected child construction
+
+- The actual protected constructor obtains its exact original opener from the
+  native source and requires a confirmed matching physical controller before
+  native allocation. Publish the child's controller before binding its profile,
+  inherit only the acknowledged original namespace/provider, and confirm before
+  ordinary settings or transport. Do not create a boundary world/listener or
+  publish/navigate/reply for the still-unadopted child. Recheck original parent,
+  source, channel and child identities around configuration. A manual/default
+  source cannot implicitly become a protected source.
+- Reuse one shared controller begin/end/cleanup path for root and inheritance.
+  Keep the child profile object before its setter so acknowledgment loss remains
+  attached to that exact physical owner. The resulting child retains no opener
+  controller and survives its close after independent handoff. Failed provider
+  allocation, parent/child close, denied admission and unknown setter outcomes
+  retain the original one-shot completion and exact-destruction obligations.
+- Fresh actual world/document/profile/budget checks pass 35/86/396/18 under
+  Java 8, including 77 new inherited-controller assertions. Product creation
+  passes 848 (21 new), asynchronous close 77. Four new actual native/product
+  modes pass 102 assertions: inheritance, no-source refusal before allocation,
+  close during binding and original-channel replacement. Full native passes
+  128 inputs, 196 modes/7,530 checks, retaining every prior mode's check count;
+  controller 360, attachment 2,686/two native sessions and JNI 264 also pass,
+  with ASan/UBSan/API26. Fresh popup 110/25/7, saving 47 and Python 174/176 pass
+  in 52.935 seconds; two existing Windows symlink privilege skips remain.
+- Reapply the same deployment and rebuild the full APK: 6,550,849 bytes,
+  SHA-256 42d91c05654c95fde3c2cf49dbb0977e8ce4bdbe0c832d862f2f0652bf496759.
+  Signing/layout/native/source checks and 60 actual DEX groups pass, including
+  the original-opener getter, inherited-controller entry, shared setup/teardown
+  and both profile-inheritance overloads. The controller has no parent field.
+  Windows program/plugin/native bytes stay unchanged. E145 Windows 301/six
+  cycles, packed runtime 12 and JS 377 are scoped hash-checked reuse, not fresh
+  executions. E146-final-identities.py/log bind sources, artifacts and receipts.
+- Goal stays active. Next join these protected construction/transport/proof/
+  handoff/document primitives to actual task permission, published-tab UI and
+  physical/document network lifetime; continue navigation, OOPIF, multi-child/
+  process recovery and outstanding Windows qualification. Public Android and
+  installed-provider/framework/device qualification remain false. Phone/WebView
+  work remains deferred; no ADB/device/provider update, publication, production/
+  account/config mutation, model/external-page call or extra app/Home/source
+  copy occurred.

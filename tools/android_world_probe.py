@@ -213,7 +213,7 @@ def main():
     report['document_checks']=json.loads(document.stdout.strip())['checks'];report['document_framework_verified']=False
     profile=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidProfileContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['profile']=json.loads(profile.stdout.strip())
-    if not report['profile'].get('passed') or not report['profile'].get('standalone_profile_inheritance') or not report['profile'].get('borrowed_world_and_physical_controller') or report['profile'].get('framework_verified') is not False:
+    if not report['profile'].get('passed') or not report['profile'].get('inherited_physical_controller') or not report['profile'].get('standalone_profile_inheritance') or not report['profile'].get('borrowed_world_and_physical_controller') or report['profile'].get('framework_verified') is not False:
         raise RuntimeError('Original-view profile assignment contract did not pass')
     budget=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidNativeBudgetContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['native_budget']=json.loads(budget.stdout.strip())

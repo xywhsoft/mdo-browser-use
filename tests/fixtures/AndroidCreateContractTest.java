@@ -98,8 +98,31 @@ public final class AndroidCreateContractTest {
         try{failed.acknowledge(exact);throw new AssertionError("Native destruction failure ignored");}catch(IllegalStateException expected){check(exact.destroys==1,"Wrong failing physical attempt");}
         failed.cleanupFault="";failed.acknowledge(exact);check(!failed.retire("tab",exact)&&exact.destroys==1&&Boolean.TRUE.equals(failed.capabilities().data.get("native_view_cleanup_failed")),"Uncertain native destructor was replayed");
     }
+    // Controlled physical profile; actual provider inheritance is exercised by AndroidProfileContractTest.
+    static AndroidCreateHost popupProfileHost()throws Exception{AndroidCreateHost host=new AndroidCreateHost();host.allowProfile=true;host.create("opener",request(false));host.documents.get("opener").assigned=true;return host;}
+    static void inheritedPopupProfile()throws Exception{
+        AndroidCreateHost manual=new AndroidCreateHost();manual.create("opener",request(false));AndroidCreateHost.MdoBrowserCdpPopupNative unprofiled=new AndroidCreateHost.MdoBrowserCdpPopupNative(manual.views.get("opener"));
+        try{manual.protocolPopup(unprofiled,"refused");throw new AssertionError("Manual default profile became a protected popup source");}
+        catch(java.io.IOException expected){check(expected.getMessage().equals("browser_profile_source_invalid")&&unprofiled.calls==0,"Missing physical profile allocated a native child");}manual.closeCommand("opener");
+        for(String mode:new String[]{"child-close","parent-close","channel","configured"}){
+            AndroidCreateHost host=popupProfileHost();AndroidCreateHost.WebView parent=host.views.get("opener");AndroidCreateHost.MdoBrowserCdpPopupNative source=new AndroidCreateHost.MdoBrowserCdpPopupNative(parent);
+            Runnable cancel=()->{
+                AndroidCreateHost.WebView child=host.views.get("child");AndroidCreateHost.MdoBrowserDocument document=host.documents.get("child");
+                if(!mode.equals("configured"))check(document.initializing()&&child.touches==0&&child.loads==0&&!host.root.children.contains(child),"Popup configuration preceded profile acknowledgment");
+                if(mode.equals("child-close")){host.closeCommand("child");check(child.destroys==0&&!document.cleanupConfirmed(),"Inherited setter destroyed its active native view");}
+                else if(mode.equals("parent-close"))host.closeCommand("opener");else if(mode.equals("channel"))host.channel.lease=host.channel.new Lease();else host.documents.get("opener").close();
+            };
+            if(mode.equals("configured"))host.beforeConfigured=cancel;else host.beforeProfile=cancel;
+            try{host.protocolPopup(source,"child");throw new AssertionError("Retired inherited configuration was published: "+mode);}
+            catch(java.io.IOException|IllegalStateException expected){check(true,"Original popup setup refused");}
+            AndroidCreateHost.WebView exact=source.latest.view;
+            check(exact.destroys==1&&host.views.nativeDestroyed(exact)&&exact.loads==0&&!host.root.children.contains(exact),"Inherited popup rollback destroyed twice or navigated: "+mode);
+            check(!host.documents.containsKey("child")&&!host.documentFailures.containsKey("child")&&!host.dialogs.containsKey("child")&&!Boolean.TRUE.equals(host.capabilities().data.get("native_view_cleanup_failed")),"Inherited popup retained resources or poisoned clean admission: "+mode);
+            check(exact.touches==(mode.equals("configured")?7:0),"Retired inherited popup continued native settings: "+mode);
+        }
+    }
     static void protocolConfiguration()throws Exception{
-        AndroidCreateHost host=new AndroidCreateHost();host.create("opener",request(false));
+        AndroidCreateHost host=popupProfileHost();
         AndroidCreateHost.WebView opener=host.views.get("opener");int replies=host.replies,profiles=host.profileRequests.size();
         AndroidCreateHost.MdoBrowserCdpPopupNative source=new AndroidCreateHost.MdoBrowserCdpPopupNative(opener);
         AndroidCreateHost.MdoBrowserCdpPopupNative.Created created=host.protocolPopup(source,"child");
@@ -107,12 +130,12 @@ public final class AndroidCreateContractTest {
         check(source.calls==1&&source.disposal!=null&&child!=opener&&host.views.owns("child",child),"Product popup configuration bypassed exact native construction/disposal");
         check(child.touches==7&&child.client!=null&&host.dialogs.get("child").view==child,"Protocol child missed ordinary settings/listeners/dialog binding");
         check(!host.root.children.contains(child)&&child.loads==0&&child.url==null&&host.replies==replies,"Configuration published, navigated or replied for an unadopted child");
-        check(!host.documents.containsKey("child")&&"popup_world_unqualified".equals(host.documentFailures.get("child"))&&host.profileRequests.size()==profiles,"Configuration granted an unqualified world or rebound the pre-adoption profile");
+        check(host.documents.get("child").profileAssigned()&&!host.documents.get("child").isolated&&"popup_world_unqualified".equals(host.documentFailures.get("child"))&&host.profileRequests.size()==profiles+1,"Configuration missed physical profile inheritance or granted an unqualified world");
         created.close();created.close();
         check(child.destroys==1&&host.views.nativeDestroyed(child)&&host.views.size()==1&&host.root.children.contains(opener),"Product disposer did not release exactly the unsent native instance");
         check(!host.dialogs.containsKey("child")&&!host.documentFailures.containsKey("child")&&!host.documents.containsKey("child"),"Product disposer retained configured child resources");
         for(String fault:new String[]{"settings","dialog","client","stale"}){
-            AndroidCreateHost failed=new AndroidCreateHost();failed.create("opener",request(false));
+            AndroidCreateHost failed=popupProfileHost();
             AndroidCreateHost.WebView parent=failed.views.get("opener");AndroidCreateHost.MdoBrowserCdpPopupNative nativeSource=new AndroidCreateHost.MdoBrowserCdpPopupNative(parent);
             failed.fault=fault;if(fault.equals("stale"))failed.beforeConfigured=()->failed.views.navigation("opener",parent);
             try{failed.protocolPopup(nativeSource,"child");throw new AssertionError("Product popup configuration fault ignored: "+fault);}
@@ -121,7 +144,7 @@ public final class AndroidCreateContractTest {
             check(exact.destroys==1&&parent.destroys==0&&failed.views.nativeDestroyed(exact)&&failed.views.size()==1,"Configuration rollback destroyed the parent or retained the child: "+fault);
             check(!failed.root.children.contains(exact)&&exact.loads==0&&!failed.dialogs.containsKey("child")&&!failed.documentFailures.containsKey("child"),"Failed configuration was published/navigated or retained UI state: "+fault);
         }
-        AndroidCreateHost failed=new AndroidCreateHost();failed.create("opener",request(false));
+        AndroidCreateHost failed=popupProfileHost();
         AndroidCreateHost.MdoBrowserCdpPopupNative nativeSource=new AndroidCreateHost.MdoBrowserCdpPopupNative(failed.views.get("opener"));
         failed.fault="settings";failed.cleanupFault="destroy";
         try{failed.protocolPopup(nativeSource,"child");throw new AssertionError("Unconfirmed product disposal ignored");}
@@ -632,7 +655,7 @@ public final class AndroidCreateContractTest {
             if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
             host.closeCommand("tab");
         }
-        existingProtectedReattach();reattachReconciliation();physicalProfileCreation();deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
+        existingProtectedReattach();reattachReconciliation();physicalProfileCreation();deferredHostDestruction();inheritedPopupProfile();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         int asyncCloseChecks=AndroidCloseContractTest.run();checks+=asyncCloseChecks;
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"physical_profile_creation\":true,\"existing_protected_reattach\":true,\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");

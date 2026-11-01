@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 /** A narrow framework seam. It recognizes only the fixed native housekeeping
  * forms. No DOM/browser/provider behavior is simulated as a qualification. */
 public final class WebView {
+    public static ClassLoader getWebViewClassLoader(){return WebView.class.getClassLoader();}
     public static int constructions;public static WebView lastConstructed;public static boolean failNewDestroy,failConstruction;private final android.content.Context context;
     public WebView(){this(new android.content.Context());}
     public WebView(android.content.Context context){this.context=context;constructions++;lastConstructed=this;destroyFailure=failNewDestroy;if(failConstruction)throw new IllegalStateException("Controlled constructor no return");}

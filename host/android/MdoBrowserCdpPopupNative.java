@@ -369,6 +369,7 @@ final class MdoBrowserCdpPopupNative {
     /** Called only on the original UI before exposing preparation/candidates. */
     boolean current(){thread();MdoBrowserPopups<WebView> core=owner.get();return failure==null&&creationConfirmed()&&claimed&&core!=null&&core.protocolCurrent(scope);}
     boolean ready(){thread();MdoBrowserPopups<WebView> core=owner.get();return current()&&core!=null&&core.readyProtocol(scope);}
+    WebView opener()throws IOException {thread();WebView exact=view.get();if(exact==null||!current())throw new IOException("cdp_popup_native_source_invalid");return exact;}
     boolean live(){MdoBrowserPopups.Scope value=scope;return failure==null&&creationConfirmed()&&value!=null&&value.current();}
     MdoBrowserPopups.Pending pending(){thread();MdoBrowserPopups<WebView> core=owner.get();return claimed&&core!=null?core.pendingProtocol(scope):null;}
     Created construct(MdoBrowserCdpPopupWorker.Allocation allocation,MdoBrowserLifecycle<WebView> registry,String key)throws IOException {

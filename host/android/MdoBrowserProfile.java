@@ -24,17 +24,24 @@ final class MdoBrowserProfile implements AutoCloseable {
      * The returned child holds no parent reference and never shares its lifetime.
      * A failure can follow a native setter; the caller still owns child teardown. */
     static MdoBrowserProfile inherit(Object view,ClassLoader loader,MdoBrowserProfile original)throws MdoBrowserWorld.Failure {
+        String name=inheritedName(view,loader,original);MdoBrowserProfile child=null;
+        try{child=open(view,loader);child.inherit(original,name);return child;}
+        catch(MdoBrowserWorld.Failure|RuntimeException|Error failure){if(child!=null)child.close();throw failure;}
+    }
+    static String inheritedName(Object view,ClassLoader loader,MdoBrowserProfile original)throws MdoBrowserWorld.Failure {
         if(original==null)throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");original.thread();
         String name=original.name();
         if(view==null||view==original.view||loader!=original.loader||name==null)throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");
-        MdoBrowserProfile child=null;
-        try{
-            child=open(view,loader);
-            if(!name.equals(original.name()))throw new MdoBrowserWorld.Failure("browser_profile_owner_changed");
-            child.assign(name);
-            if(!name.equals(original.name()))throw new MdoBrowserWorld.Failure("browser_profile_owner_changed");
-            child.seal();return child;
-        }catch(MdoBrowserWorld.Failure|RuntimeException|Error failure){if(child!=null)child.close();throw failure;}
+        return name;
+    }
+    /** The physical controller retains this child before a native setter may
+     * reenter. Failed acknowledgment therefore remains chargeable to its owner. */
+    void inherit(MdoBrowserProfile original,String expected)throws MdoBrowserWorld.Failure {
+        thread();if(original==null||expected==null||view==original.view||loader!=original.loader)throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");original.thread();
+        if(!expected.equals(original.name()))throw new MdoBrowserWorld.Failure("browser_profile_owner_changed");
+        assign(expected);
+        if(!expected.equals(original.name()))throw new MdoBrowserWorld.Failure("browser_profile_owner_changed");
+        seal();
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Profile requires its owning UI thread");}
     boolean supported(){thread();return supported;}

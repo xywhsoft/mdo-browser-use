@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E145)
+## Complete development host APK (current: E146)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,550,849 bytes, SHA-256
-`c486583b51f40db78293fb4c4d7f5afb76a8aa8727fc001eeca66102e7c634d7`.
+`42d91c05654c95fde3c2cf49dbb0977e8ce4bdbe0c832d862f2f0652bf496759`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5297,3 +5297,45 @@ multi-child/process recovery. All Android provider/framework/device/automation
 qualification flags remain false and the public adapter stays disabled.
 Phone/WebView validation remains deferred; no device/provider/production change
 or release was made. Windows program and paired plugin bytes are unchanged.
+
+
+### E146: inherited profiles before protected popup settings and transport
+
+constructProtocolPopup now reads the exact original opener from the native
+source and requires its current acknowledged physical profile controller. This
+check precedes child allocation and never accepts a default/manual association.
+The configured native child receives a published physical controller before
+provider callbacks. Its one-time profile assignment and exact native readback
+reuse the original namespace and provider classloader. No script world/listener,
+navigation, tab publication or transport is granted by this initialization.
+Original parent/controller/source/channel and exact child are rechecked before
+and after common settings. A changed owner cannot revive an allocated child.
+
+Root and inherited initialization share the same in-flight/completion/cleanup
+logic. The child controller retains the physical profile object before calling
+its setter, so uncertain native results remain chargeable until exact view
+destruction. Parent loss during provider allocation prevents the setter;
+retirement during/after binding cannot publish a child. Known children retain no
+parent controller/profile owner and keep their independent profile association
+after parent close. Binding failure uses the existing native disposer and never
+replays construction, the setter or transport as a fallback.
+
+Actual provider/controller tests pass 396 checks (77 new); world/document/budget
+checks remain 35/86/18 under Java 8. Product root/child creation passes 848 checks
+(21 new) and asynchronous close 77. Four joint actual native/product cases add
+102 assertions for inheritance, pre-allocation refusal, in-flight close and
+original-channel replacement. Full native passes 128 current source hashes,
+196 modes/7,530 checks with all prior modes unchanged, controller 360, attachment
+2,686/two native sessions and JNI 264, plus ASan/UBSan/API26. Popup, saving and
+Python 174/176 pass; two existing symlink privilege cases stay skipped.
+
+The rebuilt APK passes 60 actual definition groups, including native opener,
+inherited-controller setup, common cleanup and the two inheritance overloads.
+No parent controller field is present. E146-final-identities.py/log bind all
+current artifacts and fresh evidence. E145 Windows frames, packed Windows runtime
+and JS checks are scoped unchanged reuse, rather than claimed fresh execution.
+Actual task permission/UI publication, original physical/document network scopes
+and navigation/OOPIF/multi-child/process recovery still need integration. Public
+Android/provider/framework/device qualification remains false; phone/WebView
+checks remain deferred at the user's request. No release or device change was
+made, and the Windows program/paired plugin/native binaries remain unchanged.

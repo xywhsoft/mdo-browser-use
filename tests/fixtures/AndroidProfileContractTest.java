@@ -205,12 +205,41 @@ public final class AndroidProfileContractTest {
             check(completions[0]==1&&!preparing.initializing()&&preparing.cleanupConfirmed()==!close,"Cancelled native initialization retained callback ownership");preparing.viewDestroyed(candidate);check(preparing.cleanupConfirmed(),"Exact native destruction did not settle cancelled profile initialization");
         }
     }
+    private static void inheritedController(ClassLoader loader)throws Exception{
+        mode("success");invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE"});
+        Object opener=view();MdoBrowserDocument parent=new MdoBrowserDocument(opener,loader,new AndroidDocumentContractTest.Clock(),()->true,()->1,"qa.popup-source");
+        Object nativeChild=view();MdoBrowserDocument child=MdoBrowserDocument.prepare(nativeChild,()->true,()->1);
+        int creates=calls("create"),sets=calls("setProfile"),worlds=calls("getJavaScriptWorld"),scripts=calls("addJavaScriptOnEvent"),listeners=calls("addWebMessageListener");
+        rejects("browser_profile_source_invalid",()->child.initializeInheritedProfile(loader,parent,view(),()->true));
+        rejects("browser_profile_source_invalid",()->child.initializeInheritedProfile(ClassLoader.getPlatformClassLoader(),parent,opener,()->true));
+        check(calls("create")==creates,"Invalid physical source allocated a child provider");
+        int[] completed={0};child.whenInitialized(()->{check(!child.initializing(),"Inherited completion preceded native return");completed[0]++;});
+        child.initializeInheritedProfile(loader,parent,opener,()->true);
+        check(child.profileAssigned()&&!child.worldInstalled()&&!child.ready()&&"popup_world_unqualified".equals(child.phase())&&completed[0]==1,"Inherited physical controller granted a realm or lost acknowledgment");
+        check(calls("create")==creates+1&&calls("setProfile")==sets+1&&"qa.popup-source".equals(invoke("profileName",new Class<?>[]{Object.class},nativeChild)),"Native child did not read back the original profile once");
+        check(calls("getJavaScriptWorld")==worlds&&calls("addJavaScriptOnEvent")==scripts&&calls("addWebMessageListener")==listeners,"Pre-transport inheritance granted script access");
+        parent.close();check(child.profileAssigned(),"Independent physical child retained its parent lifetime");child.close();child.viewDestroyed(nativeChild);parent.viewDestroyed(opener);
+        for(java.lang.reflect.Field field:MdoBrowserDocument.class.getDeclaredFields())check(field.getType()!=MdoBrowserDocument.class,"Child controller retained its opener");
+        for(String mode:new String[]{"child-close","parent-close","provider-close","uncertain","denied"}){
+            Object rootView=view(),candidate=view();MdoBrowserDocument root=new MdoBrowserDocument(rootView,loader,new AndroidDocumentContractTest.Clock(),()->true,()->1,"qa.popup-failure");
+            MdoBrowserDocument pending=MdoBrowserDocument.prepare(candidate,()->true,()->1);int[] terminal={0};pending.whenInitialized(()->{check(!pending.initializing(),"Inherited completion remained in flight");terminal[0]++;});
+            creates=calls("create");sets=calls("setProfile");
+            if(mode.equals("provider-close"))invoke("providerHook",new Class<?>[]{Runnable.class},(Runnable)root::close);
+            if(mode.equals("child-close")||mode.equals("parent-close"))invoke("profileHook",new Class<?>[]{Runnable.class},(Runnable)()->{check(pending.initializing()&&!pending.cleanupConfirmed(),"Inherited setter lost its in-flight owner");if(mode.equals("child-close"))pending.close();else root.close();});
+            if(mode.equals("uncertain"))mode("profile_set_after_throw");
+            rejects(mode.equals("child-close")||mode.equals("uncertain")?"browser_profile_unconfirmed":mode.equals("denied")?"frame_changed":"browser_profile_owner_changed",()->pending.initializeInheritedProfile(loader,root,rootView,()->!mode.equals("denied")));
+            check(terminal[0]==1&&!pending.profileAssigned()&&!pending.initializing(),"Failed inherited setup retained admission/completion");
+            check(pending.cleanupConfirmed()==!(mode.equals("child-close")||mode.equals("uncertain")),"Inherited native uncertainty was lost or invented");
+            check(calls("create")==creates+(mode.equals("denied")?0:1)&&calls("setProfile")==sets+(mode.equals("denied")||mode.equals("provider-close")?0:1),"Failed inherited setup retried native configuration");
+            pending.viewDestroyed(candidate);check(pending.cleanupConfirmed(),"Exact inherited native teardown did not settle uncertainty");mode("success");root.close();root.viewDestroyed(rootView);
+        }
+    }
     public static void main(String[] args)throws Exception{
         try(URLClassLoader loader=new URLClassLoader(new URL[]{Paths.get(args[0]).toUri().toURL()},ClassLoader.getPlatformClassLoader())){
             remote=Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil",true,loader);
             check(remote.getClassLoader()!=AndroidProfileContractTest.class.getClassLoader(),"Provider loader was not foreign");
-            mode("success");unconfirmed(loader);confirmed(loader);validation(loader);document(loader);reentrant(loader);standalone(loader);inheritanceFailures(loader);borrowedWorld(loader);physicalController(loader);
-            System.out.println("{\"passed\":true,\"checks\":"+checks+",\"foreign_classloader\":true,\"borrowed_world_and_physical_controller\":true,\"standalone_profile_inheritance\":true,\"original_view_readback\":true,\"no_profile_retry\":true,\"framework_verified\":false}");
+            mode("success");unconfirmed(loader);confirmed(loader);validation(loader);document(loader);reentrant(loader);standalone(loader);inheritanceFailures(loader);borrowedWorld(loader);physicalController(loader);inheritedController(loader);
+            System.out.println("{\"passed\":true,\"checks\":"+checks+",\"foreign_classloader\":true,\"inherited_physical_controller\":true,\"borrowed_world_and_physical_controller\":true,\"standalone_profile_inheritance\":true,\"original_view_readback\":true,\"no_profile_retry\":true,\"framework_verified\":false}");
         }
     }
 }

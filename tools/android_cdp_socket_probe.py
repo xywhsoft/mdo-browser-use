@@ -22,6 +22,7 @@ def prepare_popup_product(output):
     fragments={
         '@@CREATION_GUARD@@':document[document.index('    private void nativeCreationAdmission'):document.index('    private final Map<String,MdoBrowserDocument>')],
         '@@DESTRUCTION@@':document[document.index('    private final class NativeDestruction'):document.index('    private void documentNavigation')],
+        '@@PREPARE_DOCUMENT@@':document[document.index('    private MdoBrowserDocument prepareDocument'):document.index('    private boolean closeDocument')],
         '@@CONSTRUCT@@':view[view.index('    private MdoBrowserCdpPopupNative.Created constructProtocolPopup'):view.index('    /** Common native policy')],
         '@@PREPARATION@@':(ROOT/'host/android/browser-popup-preparation.inc.java').read_text(encoding='utf-8'),
         '@@INPUT@@':(ROOT/'host/android/browser-native-input.inc.java').read_text(encoding='utf-8'),
@@ -163,6 +164,7 @@ def main():
                  'native-proof','native-proof-missing','native-proof-unique','native-proof-owner','native-proof-cancel','native-proof-barrier','native-proof-detach','native-proof-no-guard','native-proof-marker','native-proof-late-ui','native-proof-between','native-proof-cooperative','native-proof-no-opener','native-proof-foreign-opener','native-proof-multiple','native-proof-post-birth','allocation','allocation-cleanup-failure','ownership','ownership-constructor-failure','ownership-disposal-failure','ownership-disposal-no-ack','retirement','retirement-disposal-failure','retirement-disposal-no-ack','retirement-no-consumption','retirement-opener-loss','admission-fence','owner-lifetime-unsent','owner-lifetime-sent',
                  'host-destruction','host-destruction-unsent','host-destruction-inline','host-destruction-human','host-destruction-human-inline','host-destruction-failure','host-destruction-nested-parent','host-destruction-nested-child',
                  'product-disposal','product-disposal-sent','product-disposal-consumed','product-disposal-configuration','product-disposal-network','product-disposal-failure','product-disposal-logical-failure','product-disposal-nested','product-disposal-reentrant',
+                 'product-disposal-profile','product-disposal-profile-denied','product-disposal-profile-close','product-disposal-profile-channel',
                  'delivery-loss','delivery-loss-retry','delivery-loss-create','delivery-loss-queued','delivery-loss-multiple','delivery-loss-sent','delivery-loss-unsent','delivery-loss-scope',
                  'quiescence-failure','quiescence-shutdown','quiescence-ui-loss','quiescence-timeout','quiescence-sent','quiescence-physical-failure','quiescence-reentrant','quiescence-close-failure',
                  'promotion-parent-close','promotion-request-close','promotion-parent-reuse','promotion-global','promotion-ui-loss','promotion-failure','promotion-human','promotion-denied','promotion-multiple','promotion-nested',
