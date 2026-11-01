@@ -2544,6 +2544,94 @@ public final class CdpPopupWorkerProbe {
             });
         }
     }
+    private static JSONObject nestedPopup(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView opener,Backend.DocumentRenderer parent)throws Exception {
+        boolean refused=java.util.Arrays.asList("nested-unrelated","nested-navigation","nested-manual","nested-invalidated").contains(variant),cancelled=variant.equals("nested-cancelled"),parentClosed=variant.equals("nested-parent-close");
+        MdoBrowserPopups<WebView> core=new MdoBrowserPopups<>(opener,new MdoBrowserPopups.Scheduler(){
+            public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}
+        },new MdoBrowserPopups.Budget(8),()->product.views.owns("owned",opener),()->product.views.epoch("owned",opener),blocked->{
+            check(host.ui.onThread());if(blocked){product.views.input("owned",opener).invalidate("popup_pending");product.invalidatePopupDocument("owned","popup_pending");}
+        });product.windows.put("owned",core);
+        AtomicInteger prepared=new AtomicInteger();product.prepareOwned("owned",prepared::incrementAndGet,(code,effect)->{throw new AssertionError(code);});waitFor(()->prepared.get()==1,host,true);
+        int before=product.publicCounts.getOrDefault("frames",0);product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+        waitFor(()->product.publicCounts.getOrDefault("frames",0)==before+1,host,true);JSONObject oldRoot=product.publicReplies.get("frames").getJSONArray("frames").getJSONObject(0);
+        final WebView[] child={null};final Runnable[] consumed={null};AtomicInteger sent=new AtomicInteger(),acknowledged=new AtomicInteger();boolean[] detached={false};Backend.DocumentRenderer[] renderer={null};
+        Backend.SourceRenderer source=new Backend.SourceRenderer("source-complete","proof-second");
+        backend.documentRenderers.put("proof-real",parent);backend.managedResumeHook=null;backend.proofTargets.add("target-proof-second");
+        backend.managedResumeChildHook=session->{if(session.equals("proof-second")){check(source.calls==3);backend.sourceRenderers.remove("proof-second");backend.documentRenderers.put("proof-second",renderer[0]);}};
+        backend.managedFlowHook=()->{if(child[0]!=null)host.ui.post(()->{if(product.views.owns("grandchild",child[0])){check(product.views.navigation("grandchild",child[0]));product.loading.put("grandchild",false);}});};
+        boolean[] negative={false},restored={false},published={false},closedParent={false};Throwable primary=null;JSONObject evidence=new JSONObject();
+        try{
+            if(variant.equals("nested-unrelated")){
+                product.invalidatePopupDocument("owned","popup_pending");
+                failure("cdp_popup_preparation_required",()->product.publicCreateFrom("owned","unrelated","grandchild",new JSONObject()));
+                int count=product.publicCounts.getOrDefault("frames",0);product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+                waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);check(!product.publicReplies.get("frames").getBoolean("ok")&&sent.get()==0&&parent.worlds.created==1);negative[0]=true;
+            }else{
+            check(core.open(new MdoBrowserPopups.Transport<WebView>(){
+                private final Object identity=new Object();public Object token(){return identity;}
+                public void send(WebView exact,Runnable receipt){check(host.ui.onThread());sent.incrementAndGet();if(exact==null){acknowledged.incrementAndGet();receipt.run();try{backend.wire.add(detached("proof-second"));detached[0]=true;}catch(Exception error){throw new AssertionError(error);}return;}
+                    child[0]=exact;consumed[0]=receipt;backend.nativeTargets.put("target-proof-second",proofPeer(exact,"success",null,null));backend.sourceRenderers.put("proof-second",source);
+                    try{renderer[0]=new Backend.DocumentRenderer(exact,"proof-second");renderer[0].frames.omitChild=true;renderer[0].frames.includeLocal=false;}catch(Exception error){throw new AssertionError(error);}product.loading.put("grandchild",true);
+                }
+            },false));check(core.busy()&&!product.popupPageDocumentReady("owned"));
+            if(variant.equals("nested-duplicate"))product.invalidatePopupDocument("owned","popup_pending");
+            if(variant.equals("nested-blocked")){
+                int count=product.publicCounts.getOrDefault("frames",0),worlds=parent.worlds.createCalls;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+                waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);check(!product.publicReplies.get("frames").getBoolean("ok")&&parent.worlds.createCalls==worlds&&backend.resumes.get()==1);negative[0]=true;
+                product.inputRpc("owned",new JSONObject().put("command","input").put("agent",true).put("navigation",product.views.epoch("owned",opener)).put("kind","move").put("x",20).put("y",30)
+                    .put("input_document","d-00000000-0000-4000-8000-000000000001").put("input_ref","e7").put("frame_chain",new org.json.JSONArray().put(new JSONObject().put("frame",oldRoot.getString("id")).put("document",oldRoot.getString("document")))));
+                waitFor(()->product.publicCounts.getOrDefault("input",0)==1,host,true);JSONObject denied=product.publicReplies.get("input");check(!denied.getBoolean("accepted")&&!denied.getBoolean("effect_may_have_occurred")&&denied.getInt("delivered_steps")==0&&parent.worlds.createCalls==worlds);
+            }
+            String pending=core.snapshot().id;
+            if(variant.equals("nested-foreign")){failure("cdp_popup_native_request_changed",()->product.publicCreateFrom("owned","foreign","grandchild",new JSONObject()));check(sent.get()==0&&core.snapshot().id.equals(pending));negative[0]=true;}
+            if(refused){
+                if(variant.equals("nested-navigation")){check(product.views.navigation("owned",opener));product.invalidatePopupDocument("owned","input_navigation");}
+                else if(variant.equals("nested-manual")){product.manual.add("owned");product.invalidatePopupDocument("owned","manual_takeover");}
+                else product.invalidatePopupDocument("owned","input_cancelled");
+                failure("cdp_popup_preparation_required",()->product.publicCreateFrom("owned",pending,"grandchild",new JSONObject()));check(sent.get()==0&&product.views.get("grandchild")==null);negative[0]=true;
+            }else{
+            backend.wire.add(attached("proof-second","target-proof-real"));product.publicCreateFrom("owned",pending,"grandchild",new JSONObject());
+            if(cancelled){waitFor(()->sent.get()==1,host,true);product.cancelHandoff("grandchild");}
+            waitFor(()->{if(consumed[0]!=null&&acknowledged.get()==0){acknowledged.incrementAndGet();consumed[0].run();}product.pollPopupPage("grandchild");return product.publicCounts.getOrDefault("nested-create",0)==1;},host,true);
+            JSONObject created=product.publicReplies.get("nested-create");if(cancelled){check(!created.optBoolean("ok")&&product.root.adds==1&&!product.publicLinkReady("grandchild"));negative[0]=true;}
+            else{
+            if(!created.optBoolean("ok"))throw new AssertionError("Nested native creation failed: "+created+" proofs="+backend.nativeOpens.get()+" guards="+backend.guards.get()+" view="+(child[0]==null?"none":child[0].destroyed+"/"+child[0].evaluations+"/"+child[0].cleanup)+" preparation="+product.ownedPreparationDiagnostic("owned"));published[0]=true;
+            check(sent.get()==1&&acknowledged.get()==1&&child[0]!=null&&product.publicLinkReady("grandchild")&&product.root.children.contains(opener)&&product.root.children.contains(child[0]));
+            int calls=product.publicCounts.getOrDefault("frames",0);product.frameRpc("grandchild",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+            waitFor(()->product.publicCounts.getOrDefault("frames",0)==calls+1,host,true);check(product.publicReplies.get("frames").getBoolean("ok")&&product.popupPageDocumentReady("grandchild"));
+            int restore=product.publicCounts.getOrDefault("frames",0);product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+            waitFor(()->product.publicCounts.getOrDefault("frames",0)==restore+1,host,true);JSONObject recovered=product.publicReplies.get("frames");
+            if(!recovered.optBoolean("ok"))throw new AssertionError("Nested opener did not restore: "+recovered);
+            check(product.popupPageDocumentReady("owned")&&!oldRoot.getString("document").equals(recovered.getJSONArray("frames").getJSONObject(0).getString("document")));
+            restored[0]=true;
+            if(variant.equals("nested-old-pin")){
+                int count=product.publicCounts.getOrDefault("frames",0),worlds=parent.worlds.createCalls;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","capture_owner").put("frame",oldRoot.getString("id")).put("document",oldRoot.getString("document")));
+                waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);check(!product.publicReplies.get("frames").getBoolean("ok")&&parent.worlds.createCalls==worlds);negative[0]=true;
+            }
+            if(parentClosed){
+                product.publicClose("owned");boolean[] sentDetach={false};
+                waitFor(()->{if(opener.destroyed==1&&!sentDetach[0])try{backend.wire.add(detached("proof-real"));sentDetach[0]=true;}catch(Exception error){throw new AssertionError(error);}product.resume();product.pollPopupNetwork("owned");product.pollPublicClose();return product.views.get("owned")==null&&product.network("owned")==null&&!product.publicClosePending();},host,true);
+                check(product.publicCounts.getOrDefault("close",0)==1&&product.publicReplies.get("close").getBoolean("world_cleanup_confirmed")&&product.publicLinkReady("grandchild")&&child[0].destroyed==0&&backend.closes.get()==0);closedParent[0]=true;
+                int count=product.publicCounts.getOrDefault("frames",0);product.frameRpc("grandchild",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);check(product.publicReplies.get("frames").getBoolean("ok"));
+            }
+            check(backend.opens.get()==1&&backend.nativeOpens.get()==2&&backend.resumes.get()==2&&backend.continues.get()==2&&backend.closes.get()==0);
+            }}}
+            return evidence.put("actual_publication",published[0]).put("opener_document_restored",restored[0]).put("negative_checked",negative[0]).put("independent_opener_close",closedParent[0])
+                .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+        }catch(Exception|Error error){primary=error;throw error;
+        }finally{
+            try{
+            product.cancelHandoff("grandchild");if(child[0]!=null)product.publicClose("grandchild","nested-close");
+            waitFor(()->{if(child[0]!=null&&child[0].destroyed==1&&!detached[0])try{backend.wire.add(detached("proof-second"));detached[0]=true;}catch(Exception error){throw new AssertionError(error);}
+                product.resume();product.pollPopupNetwork("grandchild");product.pollPublicClose();return product.views.get("grandchild")==null&&!product.publicClosePending()&&product.network("grandchild")==null;
+            },host,true);
+            product.retireOwnedPreparation("owned");waitFor(()->product.ownedPreparationSettled("owned"),host,true);
+            check(child[0]==null||child[0].destroyed==1);boolean openerLive=product.views.owns("owned",opener);check(product.root.children.size()==(openerLive?1:0)&&(openerLive?product.root.children.contains(opener):opener.destroyed==1));
+            if(child[0]!=null)check(product.publicCounts.getOrDefault("nested-close",0)==1&&product.publicReplies.get("nested-close").getBoolean("world_cleanup_confirmed"));
+            evidence.put("native_sends",sent.get()).put("native_consumptions",acknowledged.get()).put("native_view_closed",child[0]==null||child[0].destroyed==1).put("native_destroy_count",child[0]==null?0:child[0].destroyed).put("original_prepare_settled",product.ownedPreparationSettled("owned"));
+            }catch(Exception|Error error){if(primary!=null)primary.addSuppressed(error);else throw error;}
+        }
+    }
     private static void productPublication(String mode,String directory)throws Exception {
         boolean restoring=mode.startsWith("preparation-restore-");String variant=mode.substring((restoring?"preparation-restore-":"preparation-publication-").length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         boolean hidden=restoring||variant.equals("hidden"),download=variant.startsWith("download"),invalid=variant.equals("invalid-layout")||variant.equals("foreign-pending");
@@ -2613,6 +2701,7 @@ public final class CdpPopupWorkerProbe {
                                 if(restoring){
                                     restoration[0]=restorePublished(variant,host,backend,product,exact[0],renderer[0]);
                                 }
+                                if(variant.startsWith("nested-"))frameRouteEvidence=nestedPopup(variant,host,backend,product,exact[0],renderer[0]);
                                 if(sourceCrash){
                                     backend.wire.add(new JSONObject().put("method","Inspector.targetCrashed").put("sessionId","proof-real").put("params",new JSONObject()));
                                     waitFor(()->backend.closes.get()>0,host,true);
@@ -3165,6 +3254,7 @@ public final class CdpPopupWorkerProbe {
         report.put("product_capture_fence_tested",mode.startsWith("preparation-page-capture-"));
         report.put("product_protected_opener_tested",mode.startsWith("preparation-page-opener-"));
         report.put("product_protected_input_tested",mode.startsWith("preparation-page-input-"));
+        report.put("product_nested_adoption_tested",mode.startsWith("preparation-publication-nested-"));
         if(frameRouteEvidence!=null)report.put("product_frame_route",frameRouteEvidence);
         report.put("product_publication_tested",mode.startsWith("preparation-publication-")||mode.startsWith("preparation-restore-"));
         report.put("product_document_restore_tested",mode.startsWith("preparation-restore-"));

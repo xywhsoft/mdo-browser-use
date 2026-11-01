@@ -12938,3 +12938,63 @@ protocol/UI evidence, not Android framework/device qualification. Protected
 upload/navigation/takeover, public document state, full nested adoption and
 remaining platform/final-deliverable checks stay open. Phone/current WebView
 remain deferred; overall Android admission stays disabled and the goal active.
+
+### E167 original nested popup transport and independent child lifetime
+
+The actual protected popup could not open its own child. Its original native
+callback invalidated input with `popup_pending`, which correctly revoked the
+document world but also made `PopupPreparation.current()` false. The normal
+product create route then reported `cdp_popup_preparation_required` before child
+allocation. The controlled reproduction uses the first actually published UI
+popup, its original pending native transport and the real create route; it does
+not substitute a caller target or replay a URL. See `.mdo/E167-nested-red.log`.
+
+Keep a UI-only exact preparation receipt only when that original ready protected
+page still owns its native source, Pending, document epoch and channel. This
+receipt preserves native allocation/consumption/proof, without preserving old
+document markers, frame pins or input. Fresh explicit inventory can restore the
+same epoch after all original allocation/proof/consumption waits settle. Plain
+`popup_pending` text without the original native Pending, unrelated cancellation,
+navigation and manual ownership cannot qualify. Existing epoch/channel/visibility,
+physical source, network, UI ownership, limits and worker guards are unchanged.
+
+Eleven focused product cases pass659 reported checks: full nested publication,
+blocked parent read/input, duplicate invalidation of the same original callback,
+foreign pending ID, old document pin, independent opener close, unrelated pending
+text, navigation, manual ownership, explicit invalidation and cancellation before
+native consumption. Each actual child closes through the product close route,
+exact native destruction and emitted original target detach; the original
+preparation source settles. Closing the opener leaves its already published
+child readable on the same Browser wire. The controlled peer explicitly registers
+the second exact marker-bearing native target, as the existing independent-owner
+cases do; target proof checks are unchanged. Separate close IDs prevent the
+fixture from treating a grandchild close as the parent close. Evidence:
+`.mdo/E167-nested-final.log`.
+
+The fresh full native matrix passes423 worker modes/15,867 reported checks,
+including the new11/659. All earlier412 modes retain their previous semantic
+receipts; only raw diagnostic check counts are excluded from that comparison.
+Original loading-timeout cleanup still confirms detach, native destruction,
+source release and eventual Browser-guard release. All130 native input hashes
+match the final source. Full transport/session/frame/input/capture/upload/download
+gates, ASan/UBSan and Android API26 C compilation pass. See
+`.mdo/E167-native.log` and `.mdo/E167-semantic-differences.json`.
+
+Fresh Python178/180 passes with the two existing Windows symlink-privilege skips;
+JS466, popup122/25/7 and creation850/async-close77 pass. The complete signed
+Android development APK is6,579,521 bytes, SHA-256
+`5f37d08ab421f99ad945c02cd56b97fa20a70fe78b0fc40b557ebbe9af62b5e4`.
+Actual DEX inspection verifies96 definition groups, including the two native
+turn methods and exact UI-only preparation field in the existing classes. Same
+QA package/signer and disabled public admission are preserved. Source/overlay/
+archive/APK/signature identities and local HTTP200 verify together in
+`.mdo/E167-verification.json` and `.mdo/E167-verification.log`. Windows W5 and the
+paired plugin are unchanged, hash-verified reuse rather than a fresh Windows
+runtime pass. No temporary product logging was added.
+
+This completes the private nested-popup product integration phase, not Android
+framework, installed-provider or device qualification. Public Android admission
+stays disabled. Protected upload/navigation/takeover, public document state,
+platform qualification and remaining Windows/final-deliverable checks remain
+open. Phone/current WebView remain deferred; no ADB, model, external page or
+production action was used. The overall goal stays active.

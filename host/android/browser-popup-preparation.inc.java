@@ -6,7 +6,8 @@
         PopupPreparation(String key,WebView view,NetworkEntry network){this.key=key;this.view=view;this.network=network;protectedOwner=network.popup;epoch=views.epoch(key,view);}
         boolean current(){return protocolPopupPreparations.get(key)==this&&epoch>0&&views.owns(key,view)&&views.epoch(key,view)==epoch&&networkViews.get(key)==network&&
             network.ready&&!network.retired&&!network.draining&&networkCurrent(network)&&!manual.contains(key)&&!pageClosed.contains(key)&&
-            (protectedOwner==null||network.popup==protectedOwner&&protectedOwner.current()&&protectedOwner.page!=null&&protectedOwner.page.documentReady()&&protectedOwner.sourceProof!=null&&protectedOwner.sourceProof.current());}
+            (protectedOwner==null||network.popup==protectedOwner&&protectedOwner.current()&&protectedOwner.page!=null&&
+                (protectedOwner.page.documentReady()||protectedOwner.page.continuingNativePreparation(this))&&protectedOwner.sourceProof!=null&&protectedOwner.sourceProof.current());}
         void lost(String reason){if(protocolPopupPreparations.get(key)!=this||!views.owns(key,view))return;
             views.input(key,view).invalidate("input_cancelled");cdpViews.invalidate(key,view,views.epoch(key,view),"input_cancelled");
             if(protectedOwner!=null)protocolPopupDocumentInvalidated(key,view,"popup_preparation_retired");}
@@ -91,26 +92,35 @@
         ProtocolPopupPageReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
         MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;
         int phase;long epoch;boolean inFlight,downloadOnly,worldReady,suspended,restoring;
+        // An original onCreateWindow callback revokes document execution, but
+        // its exact prepared native transport must still be consumable once.
+        // UI-only receipt: it never keeps a DOM marker or input reference alive.
+        PopupPreparation pendingPreparation;
         PopupPage(PopupNetwork network,ProtocolPopupPageReady ready,MdoBrowserCdpPopupPreparation.Failure failure){this.network=network;this.ready=ready;this.failure=failure;}
         boolean current(){return phase<3&&network.page==this&&network.current();}
         boolean documentCurrent(){return marker!=null&&marker.lease().current()&&views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;}
         boolean documentReady(){return phase==2&&!downloadOnly&&worldReady&&!restoring&&current()&&documentCurrent();}
+        boolean continuingNativePreparation(PopupPreparation original){return original!=null&&pendingPreparation==original&&protocolPopupPreparations.get(network.entry.key)==original&&original.protectedOwner==network&&original.epoch==epoch&&phase==2&&!downloadOnly&&current()&&views.epoch(network.entry.key,network.entry.view)==epoch;}
         void invalidated(String reason){
             if(phase!=2||downloadOnly)return;
+            PopupPreparation original=protocolPopupPreparations.get(network.entry.key);
+            boolean ownPopup="popup_pending".equals(reason)&&original!=null&&original.protectedOwner==network&&original.epoch==epoch&&
+                (worldReady||continuingNativePreparation(original))&&current()&&views.epoch(network.entry.key,network.entry.view)==epoch&&original.preparation.originalNativePending()!=null;
+            pendingPreparation=ownPopup?original:null;
             worldReady=false;restoring=false;
             // Only a known UI-only loss can rearm this exact epoch. Cancellation,
             // navigation, manual takeover and channel changes remain terminal.
-            suspended=("input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"popup_preparation_retired".equals(reason))&&current()&&
+            suspended=(ownPopup||"input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"popup_preparation_retired".equals(reason))&&current()&&
                 views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;
         }
         void restoreFailed(MdoBrowserCdpMarker original){
             if(marker!=original||!restoring)return;
-            worldReady=false;restoring=false;suspended=false;
+            worldReady=false;restoring=false;suspended=false;pendingPreparation=null;
             cdpViews.invalidate(network.entry.key,network.entry.view,epoch,"popup_restore_failed");
         }
         void restored(MdoBrowserCdpMarker original,JSONObject inventory)throws java.io.IOException {
             if(marker!=original||!restoring||!current()||!documentCurrent())throw new java.io.IOException("cdp_worker_cancelled");
-            if(PopupPageWarmup.inventoryState(inventory)==1){worldReady=true;restoring=false;}
+            if(PopupPageWarmup.inventoryState(inventory)==1){worldReady=true;restoring=false;pendingPreparation=null;}
             // Loading inventory is useful, but does not certify a world. A later
             // explicit read may continue the same marker; never poll or replay.
         }
@@ -173,7 +183,7 @@
             failure=null;
         }
         void retired(String code){
-            if(phase==3)return;phase=3;inFlight=false;worldReady=false;restoring=false;suspended=false;networkHandler.removeCallbacks(watch);ready=null;
+            if(phase==3)return;phase=3;inFlight=false;worldReady=false;restoring=false;suspended=false;pendingPreparation=null;networkHandler.removeCallbacks(watch);ready=null;
             if(marker!=null){
                 try{marker.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
                 try{cdpWorker.cancel(marker.lease());}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
@@ -213,7 +223,7 @@
             views.inputBusy(key,view)||!views.inputClean(key,view))throw new java.io.IOException("cdp_popup_page_document_unavailable");
         if(cdpWorker.pending(page.marker))throw new java.io.IOException("cdp_popup_page_restore_busy");
         PopupPreparation preparing=protocolPopupPreparations.get(key);
-        if(preparing!=null&&!preparing.preparation.settled())throw new java.io.IOException("cdp_popup_page_restore_busy");
+        if(preparing!=null&&!preparing.preparation.settled()&&!(page.continuingNativePreparation(preparing)&&preparing.preparation.nativeTurnSettled()))throw new java.io.IOException("cdp_popup_page_restore_busy");
         nativeOwnerAdmission();page.suspended=false;page.restoring=true;page.worldReady=false;
         try{
             page.marker=protocolDocumentMarker(key,network.owner,network.handoff);page.proof=network.owner.document(page.marker);

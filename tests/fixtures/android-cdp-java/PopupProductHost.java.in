@@ -28,7 +28,9 @@ final class PopupProductHost {
     boolean failBounds;Runnable sizing;JSONObject lastBounds;
     void bounds(WebView view,JSONObject request){if(failBounds)throw new IllegalStateException("controlled_bounds_failure");try{lastBounds=new JSONObject(request.toString());}catch(JSONException error){throw new AssertionError(error);}boolean visible=request.optBoolean("visible",true);views.visibility(request.optString("browser"),view,visible);if(!visible)inputInvalidated(request.optString("browser"),view,views.epoch(request.optString("browser"),view),"input_view_unavailable");view.shown=visible;if(sizing!=null){Runnable work=sizing;sizing=null;work.run();}}
     void publicCreate(String pending,String key,JSONObject request)throws Exception{request.put("popup",pending).put("opener","root");executeProtocolPopupCreate(key,"create",request);}
+    void publicCreateFrom(String opener,String pending,String key,JSONObject request)throws Exception{request.put("popup",pending).put("opener",opener);executeProtocolPopupCreate(key,"nested-create",request);}
     void publicClose(String key){executeBrowserClose(key,"close");}
+    void publicClose(String key,String id){executeBrowserClose(key,id);}
     boolean publicClosePending(){return !browserCloses.isEmpty();}
     boolean publicLinkReady(String key){PopupLink link=popupLinks.get(key);return link!=null&&link.ready;}
     void pollPublicClose(){for(BrowserClose row:new ArrayList<>(browserCloses.values()))browserClosePoll(row);}

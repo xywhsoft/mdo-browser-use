@@ -198,6 +198,12 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         for(int i=0;i<adoptions.length;i++){AdoptionWait value=adoptions[i];adoptions[i]=null;if(value!=null){if(value.subscription!=null)value.subscription.close();failed(value.failure,reason,true);}}
     }
     private void notifyLost(){if(everReady&&!notified){notified=true;lost.lost(code==null?"cdp_popup_preparation_retired":code);}}
+    /** UI-only original callback evidence; this grants no document execution. */
+    MdoBrowserPopups.Pending originalNativePending(){thread();if(phase!=READY||!source.current())return null;MdoBrowserPopups.Pending value=source.pending();return value!=null&&value.current()?value:null;}
+    boolean nativeTurnSettled(){
+        thread();if(phase!=READY||!source.current()||source.pending()!=null||allocation!=null||allocating||pending!=null||running)return false;
+        for(ProofWait value:proofs)if(value!=null)return false;for(AdoptionWait value:adoptions)if(value!=null)return false;return true;
+    }
     boolean ready(){thread();if(phase==READY&&!owned())close("cdp_popup_preparation_owner_changed");return phase==READY;}
     boolean settled(){thread();if(phase!=TERMINAL)return false;return request==null?!source.live():request.result()!=null&&request.result().sourceReleased&&source.released();}
     String phase(){thread();return new String[]{"new","preparing","ready","retiring","terminal"}[phase];}

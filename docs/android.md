@@ -5890,6 +5890,31 @@ routing, protected navigation/takeover/nested preparation and broader recovery
 gates remain open. Phone and current WebView checks remain deferred; no ADB,
 live model, external page or production action was used.
 
+### Protected popup opening another popup (private route)
+
+An original `onCreateWindow` callback invalidates its opener's input and document
+references. It must not also discard the already prepared physical source needed
+to consume that same native Message. The private popup route now retains only an
+exact UI-owned preparation receipt when the original protected page, physical
+source, native pending callback, document epoch and channel still match. A plain
+`popup_pending` reason without that native receipt cannot preserve authority.
+
+The receipt admits native allocation, consumption and proof through the existing
+shared worker; it does not admit document execution or input. Explicit inventory
+can restore a fresh document only after that original native turn has settled.
+Old frame/document pins stay invalid. Navigation, cancellation, manual ownership,
+channel loss and unrelated invalidation keep their existing rejection paths.
+Already published nested children retain independent native ownership when their
+opener closes. Each child still requires its own native destroy, original target
+detach and network cleanup before a successful close receipt.
+
+The controlled fixture drives actual product create/frame/input/close fragments,
+original native transports and marker proofs, including parent close, stale pins,
+blocked reads/input, wrong pending IDs and cancellation before native consumption.
+This is private host integration evidence, not Android framework, provider or
+device qualification. Public automation remains disabled and phone/current
+WebView checks remain deferred.
+
 
 ### E162 scope-issued network-source retirement receipts
 

@@ -272,6 +272,10 @@ def main():
                   'preparation-publication-retirement-ledger-frame-active','preparation-publication-retirement-ledger-request-active',
                   'preparation-publication-retirement-ledger-fault','preparation-publication-retirement-ledger-listener',
                   'preparation-publication-retirement-managed',
+                  'preparation-publication-nested-ready','preparation-publication-nested-blocked','preparation-publication-nested-duplicate',
+                  'preparation-publication-nested-foreign','preparation-publication-nested-old-pin','preparation-publication-nested-parent-close',
+                  'preparation-publication-nested-unrelated','preparation-publication-nested-navigation','preparation-publication-nested-manual',
+                  'preparation-publication-nested-invalidated','preparation-publication-nested-cancelled',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
                   'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
@@ -298,6 +302,7 @@ def main():
                 or popup_worker.get('product_capture_fence_tested') is not mode.startswith('preparation-page-capture-')
                 or popup_worker.get('product_protected_opener_tested') is not mode.startswith('preparation-page-opener-')
                 or popup_worker.get('product_protected_input_tested') is not mode.startswith('preparation-page-input-')
+                or popup_worker.get('product_nested_adoption_tested') is not mode.startswith('preparation-publication-nested-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -314,7 +319,7 @@ def main():
             clean=mode not in {'preparation-publication-source-crash','preparation-publication-retirement-ledger-fault','preparation-publication-retirement-ledger-listener'} and mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
             if (not isinstance(published,dict) or published.get('actual_product_creation') is not True or published.get('cleanup_confirmed') is not clean or published.get('unconfirmed_creation_fenced') is not (not clean)
                     or published.get('close_replies')!=1 or published.get('create_replies') not in {0,1} or published.get('browser_connections')!=1
-                    or published.get('native_proof_connections') not in {0,1} or published.get('no_url_replay') is not True
+                    or published.get('native_proof_connections') not in ({1,2} if mode.startswith('preparation-publication-nested-') else {0,1}) or published.get('no_url_replay') is not True
                     or published.get('framework_qualified') is not False or published.get('provider_qualified') is not False):
                 raise RuntimeError('The original product publication and close receipts did not pass')
             if mode.startswith('preparation-publication-retirement-') and published.get('concurrent_retirement') is not True:
@@ -323,6 +328,19 @@ def main():
                 raise RuntimeError('A renderer crash was incorrectly treated as deliberate retirement')
             if mode.startswith('preparation-publication-retirement-ledger-') and published.get('ledger_fault_contained') is not mode.endswith(('-fault','-listener')):
                 raise RuntimeError('A source-ledger fault or ordinary listener error was swallowed as retirement')
+        if mode.startswith('preparation-publication-nested-'):
+            proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-nested-'):]
+            public=variant in {'ready','blocked','duplicate','foreign','old-pin','parent-close'}
+            sent=0 if variant=='unrelated' else 1
+            if (not isinstance(proof,dict) or proof.get('actual_publication') is not public or proof.get('opener_document_restored') is not public
+                    or proof.get('negative_checked') is not (variant not in {'ready','duplicate','parent-close'})
+                    or proof.get('independent_opener_close') is not (variant=='parent-close')
+                    or proof.get('native_sends')!=sent or proof.get('native_consumptions')!=sent
+                    or proof.get('native_destroy_count')!=(1 if public or variant=='cancelled' else 0)
+                    or proof.get('native_view_closed') is not True or proof.get('original_prepare_settled') is not True
+                    or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=(2 if public else 1)
+                    or proof.get('provider_qualified') is not False):
+                raise RuntimeError('The original nested native transport, document revocation, publication or exact close was not confirmed')
         if mode.startswith('preparation-restore-'):
             restore=popup_worker['product_publication'].get('document_restore')
             if (not isinstance(restore,dict) or restore.get('actual_frame_router') is not True or restore.get('reads',0)<1
