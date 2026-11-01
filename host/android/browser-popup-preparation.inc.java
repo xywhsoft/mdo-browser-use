@@ -202,6 +202,34 @@
     private void protocolPopupDocumentInvalidated(String key,WebView view,String reason){
         NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view&&entry.popup!=null&&entry.popup.page!=null)entry.popup.page.invalidated(reason);
     }
+    /** Dispatcher family only, never readiness or public automation admission. */
+    private boolean protocolPopupFrameRouting(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup!=null||protocolPopupHandoffs.containsKey(key);}
+    private void requireLegacyDocumentRoute(String key)throws java.io.IOException {
+        if(protocolPopupFrameRouting(key))throw new java.io.IOException("cdp_popup_document_route_required");
+    }
+    /** UI snapshot only: never prepare, restore, submit a job or create a realm.
+     * Native popup frames have no legacy single-world document identity. */
+    private JSONObject protocolPopupDocumentState(String key)throws JSONException {
+        NetworkEntry entry=networkViews.get(key);
+        if(entry==null||entry.popup==null){
+            PopupHandoff pending=protocolPopupHandoffs.get(key);if(pending==null)return null;
+            return new JSONObject().put("adapter","android-native-frames-v1").put("installed",false).put("ready",false).put("phase","starting")
+                .put("pending",0).put("pending_scope","document_worker").put("native_document",JSONObject.NULL)
+                .put("profile_isolation",pending.profile!=null&&pending.profile.profileAssigned());
+        }
+        PopupNetwork owner=entry.popup;PopupPage page=owner.page;
+        boolean installed=page!=null&&page.documentReady()&&page.proof!=null&&owner.handoff.owns(page.proof)&&page.proof.current();
+        boolean pending=page!=null&&cdpWorker.pending(page.marker);
+        MdoBrowserPopups<WebView> core=windows.get(key);boolean popupPending=core!=null&&core.busy();
+        boolean ready=installed&&!pending&&cdpEnvironmentCurrent(key,entry.view,page.epoch,entry.channelLease)&&chooserReady(dialogs.get(key))&&
+            !views.inputBusy(key,entry.view)&&views.inputClean(key,entry.view)&&!nativeViewCleanupFailed&&!networkCleanupFailed&&
+            MdoBrowserCdpPopupNative.creationConfirmed()&&nativeRetiringViews.isEmpty()&&networkRetiring()==0&&downloadRetiring()==0;
+        String phase=!owner.current()?"owner_unavailable":page==null||page.phase<2?"starting":page.downloadOnly?"download_only":
+            views.epoch(key,entry.view)!=page.epoch?"document_changed":popupPending?"popup_pending":page.restoring?"restoring":pending?"busy":ready?"ready":page.suspended?"suspended":"document_unavailable";
+        return new JSONObject().put("adapter","android-native-frames-v1").put("installed",installed).put("ready",ready).put("phase",phase)
+            .put("pending",pending?1:0).put("pending_scope","document_worker").put("native_document",JSONObject.NULL)
+            .put("profile_isolation",entry.profile.profileAssigned());
+    }
     private void retireProtocolPopupAuthority(WebView view){
         for(NetworkEntry entry:networkViews.values())if(entry.view==view&&entry.popup!=null)entry.popup.handoff.retireAuthority();
     }

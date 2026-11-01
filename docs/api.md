@@ -123,6 +123,16 @@ actions, frame uploads/pickers and composed screenshot privacy use the same
 private routing. Existing backends without this flag keep their original path.
 Models still cannot request raw script, sessions or protocol operations.
 
+Android's original protected-popup route also reports this dispatcher flag,
+with `isolated_world.adapter:"android-native-frames-v1"`. It describes the
+native frame interface, not public automation permission; Android admission is
+still disabled. Its status has no single legacy `native_document` identity.
+Readiness, startup, suspension, restoration and document-worker pending state
+come from the retained original native owner, without starting protocol work.
+The legacy single-document `automation` route refuses these popups, including
+before their native handoff has finished. C and JS callers use the same native
+JSON interface; frame/document pins still come from an explicit frame inventory.
+
 The internal `frame-reader.js` now combines one isolated local-frame runtime
 per document. It prevents duplicate same-origin traversal, namespaces element
 references by native frame/document and local runtime identity, and detects

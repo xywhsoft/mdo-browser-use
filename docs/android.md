@@ -5915,6 +5915,35 @@ This is private host integration evidence, not Android framework, provider or
 device qualification. Public automation remains disabled and phone/current
 WebView checks remain deferred.
 
+### Protected document status and dispatcher selection
+
+The `state` reply identifies an original protected popup with
+`frame_automation:true` and `isolated_world.adapter:"android-native-frames-v1"`.
+This also applies during its original native handoff before UI publication, and
+while its physical owner is retiring. It selects the existing native frame
+driver; it is not public automation permission. `browser_use.available` and the
+global product admission remain disabled until qualification is complete.
+
+This descriptor reports the original UI-owned page's current readiness rather
+than the inherited profile's legacy document world. `native_document` is null:
+frame/document references must come from the native frame inventory. `pending`
+is a bounded document-worker job count (zero or one), with
+`pending_scope:"document_worker"`; legacy callback and world-budget counters are
+not fabricated for this different adapter. Ordinary pages keep their existing
+`android-main-document-v1` state contract.
+
+Status reads only observe existing handoff/network/document/input state. They
+do not prepare a popup, submit a job, restore a document, construct a world or
+consume a pending native Message. A hidden/suspended page remains unready after
+visibility returns until an explicit fresh inventory restores its original
+epoch. Startup, busy/restoring, download-only, owner loss and document change
+remain distinguishable. Protected popups reject the legacy `automation` command
+before looking up or evaluating a legacy world, including during construction.
+
+These contracts are controlled product integration evidence. Native navigation,
+upload/takeover integration, public recovery/arming and provider/device
+qualification remain separate work; the new routing flag does not enable them.
+
 
 ### E162 scope-issued network-source retirement receipts
 

@@ -42,6 +42,8 @@ def prepare_popup_product(output):
         '@@INPUT_INVALIDATION@@':'    private void inputInvalidated'+(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8').split('    private void inputInvalidated',1)[1].split('    private void chooserBlocked',1)[0],
         '@@FRAME_ENVIRONMENT@@':document[document.index('    private boolean cdpEnvironmentCurrent'):document.index('    private MdoBrowserCdpMarker cdpMarker')],
         '@@FRAME_ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
+        '@@DOCUMENT_STATE@@':document[document.index('    private JSONObject documentState'):document.index('    private void documentFailure')]+network[network.index('    private JSONObject networkState'):],
+        '@@LEGACY_DOCUMENT@@':document[document.index('    private void documentFailure'):],
         '@@CAPTURE_SESSION@@':capture[capture.index('    private MdoBrowserCdpCapture.Session captureDocumentSession'):capture.index('    private void executeNativeCapture')],
         '@@INPUT@@':(ROOT/'host/android/browser-native-input.inc.java').read_text(encoding='utf-8'),
         '@@POST_DESTROY@@':upload[upload.index('        views.viewDestroyed(view);'):upload.index('        retireUploadTargets(view);')],
@@ -276,6 +278,10 @@ def main():
                   'preparation-publication-nested-foreign','preparation-publication-nested-old-pin','preparation-publication-nested-parent-close',
                   'preparation-publication-nested-unrelated','preparation-publication-nested-navigation','preparation-publication-nested-manual',
                   'preparation-publication-nested-invalidated','preparation-publication-nested-cancelled',
+                  'preparation-publication-state-ready','preparation-publication-state-starting','preparation-publication-state-legacy','preparation-publication-state-hidden',
+                  'preparation-publication-state-viewport','preparation-publication-state-busy','preparation-publication-state-restoring',
+                  'preparation-publication-state-navigation','preparation-publication-state-manual','preparation-publication-state-channel',
+                  'preparation-publication-state-retiring','preparation-publication-state-pending','preparation-publication-state-download',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
                   'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
@@ -303,6 +309,7 @@ def main():
                 or popup_worker.get('product_protected_opener_tested') is not mode.startswith('preparation-page-opener-')
                 or popup_worker.get('product_protected_input_tested') is not mode.startswith('preparation-page-input-')
                 or popup_worker.get('product_nested_adoption_tested') is not mode.startswith('preparation-publication-nested-')
+                or popup_worker.get('product_document_state_tested') is not mode.startswith('preparation-publication-state-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -341,6 +348,14 @@ def main():
                     or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=(2 if public else 1)
                     or proof.get('provider_qualified') is not False):
                 raise RuntimeError('The original nested native transport, document revocation, publication or exact close was not confirmed')
+        if mode.startswith('preparation-publication-state-'):
+            proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-state-'):]
+            phase={'ready':'ready','starting':'ready','legacy':'ready','hidden':'suspended','viewport':'suspended','busy':'busy','restoring':'restoring',
+                   'navigation':'document_changed','manual':'owner_unavailable','channel':'owner_unavailable','retiring':'owner_unavailable','pending':'popup_pending','download':'download_only'}[variant]
+            if (not isinstance(proof,dict) or proof.get('native_adapter') is not True or proof.get('read_only') is not True or proof.get('legacy_world_queries')!=0
+                    or proof.get('phase_checked')!=phase or proof.get('ready_checked') is not (variant in {'ready','starting','legacy'}) or proof.get('startup_checked') is not (variant=='starting')
+                    or proof.get('explicit_restore_checked') is not (variant in {'hidden','viewport','restoring'}) or proof.get('provider_qualified') is not False):
+                raise RuntimeError('The original popup document-state route, readiness or read-only boundary did not pass')
         if mode.startswith('preparation-restore-'):
             restore=popup_worker['product_publication'].get('document_restore')
             if (not isinstance(restore,dict) or restore.get('actual_frame_router') is not True or restore.get('reads',0)<1

@@ -165,6 +165,9 @@
         for(MdoBrowserDocument document:new ArrayList<>(documents.values()))document.block(reason,value);
     }
     private JSONObject documentState(String key) throws JSONException {
+        JSONObject attached=protocolPopupDocumentState(key);
+        if(attached!=null)return attached.put("native_view_cleanup_failed",nativeViewCleanupFailed||!MdoBrowserCdpPopupNative.creationConfirmed())
+            .put("native_view_retiring",nativeRetiringViews.size()).put("network",networkState(key));
         MdoBrowserDocument document=documents.get(key);
         return new JSONObject().put("installed",document!=null&&document.worldInstalled()).put("ready",document!=null&&document.ready())
             .put("phase",document==null?documentFailures.getOrDefault(key,"world_unavailable"):document.phase())
@@ -181,6 +184,7 @@
         catch(JSONException error){reply(lease,id,null,"world_result_invalid");}
     }
     private void executeDocument(String key,String id,JSONObject request) throws Exception {
+        requireLegacyDocumentRoute(key);
         MdoBrowserDocument document=documents.get(key);
         if(document==null)throw new UnsupportedOperationException(documentFailures.getOrDefault(key,"world_unavailable"));
         final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();

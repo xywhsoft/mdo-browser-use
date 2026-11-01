@@ -1442,6 +1442,11 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "  const update = async (id, patch) => { const row = entries.get(id); const saved = await bound(row).call(\"panel.update\", { id, revision: row.revision, ...patch }); entries.set(id, saved); remember(); render(); return saved; };",
       "after": "  const update = async (id, patch, current = () => true) => {\n    const row = entries.get(id); if (!row || stopped || !current()) return;\n    const saved = await bound(row).call(\"panel.update\", { id, revision: row.revision, ...patch });\n    if (stopped || !current() || entries.get(id) !== row) return;\n    entries.set(id, saved); remember(); render(); return saved;\n  };"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": ".put(\"isolated_world\",documentState(key))",
+      "after": ".put(\"isolated_world\",documentState(key)).put(\"frame_automation\",protocolPopupFrameRouting(key))"
     }
   ],
   "files": [

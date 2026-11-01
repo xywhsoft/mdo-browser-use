@@ -12998,3 +12998,60 @@ stays disabled. Protected upload/navigation/takeover, public document state,
 platform qualification and remaining Windows/final-deliverable checks remain
 open. Phone/current WebView remain deferred; no ADB, model, external page or
 production action was used. The overall goal stays active.
+
+### E168 protected document status and legacy execution refusal
+
+The published native popup's state still described its inherited profile's old
+`android-main-document-v1` world. The frontend therefore had no original
+`frame_automation` signal selecting the already integrated attached frame
+driver. The actual product-state reproduction fails on that wrong adapter;
+see `.mdo/E168-state-red.log`. State also needed to identify the original native
+handoff before publication, so an allocated child could not briefly use a legacy
+execution route while awaiting native consumption/proof.
+
+The UI now snapshots the original handoff/physical network/PopupPage state as
+`android-native-frames-v1`, with the native dispatcher flag and a null legacy
+document identity. It never derives a popup realm from the inherited profile's
+world. Pending is explicitly scoped to the original document-worker job, rather
+than inventing legacy callback/world-budget counters. Ordinary page state and
+its original counters are preserved. `frame_automation` identifies the dispatcher
+family, not public permission or a ready realm; global Android admission remains
+disabled. Direct legacy `automation` refuses the original popup before reading
+or evaluating its legacy world, including during native construction.
+
+Thirteen focused cases pass687 reported checks: ready, native construction,
+ordinary/missing page compatibility, hidden/viewport-suspended, active read,
+restore in flight, navigation, manual/channel loss, physical retirement, original
+pending native Message and download-only page. Actual product state and legacy
+execution fragments run with controlled UI/renderer dependencies. Repeated state
+reads do not construct worlds, execute page code, submit work, reopen a wire,
+consume the pending Message or query the legacy popup world. Showing the page
+does not restore it; only explicit fresh inventory rearms the original epoch.
+Evidence: `.mdo/E168-state-final.log`.
+
+Fresh full native436 modes/16,554 reported checks pass, including the new13/687.
+All earlier423 modes retain their previous semantic receipts (raw diagnostic
+check counts are excluded). Original loading-timeout cleanup still confirms
+detach, native destruction, source release and Browser-guard release. All130
+native input hashes match final source; transport/session/frame/input/capture/
+upload/download, ASan/UBSan and Android API26 C gates pass. See
+`.mdo/E168-native.log` and `.mdo/E168-semantic-differences.json`.
+
+Fresh Python178/180 passes with two existing Windows symlink-privilege skips;
+JS466, popup122/25/7 and creation850/async-close77 pass. The signed complete
+development APK is6,579,521 bytes, SHA-256
+`ea2b7312bfc64102eea31a956dd6158d910bc1bcce265dedcc97b9927f7d533b`.
+Actual DEX inspection verifies96 definition groups, including the protected
+status/dispatcher/legacy-refusal methods in the existing browser class. Same
+QA package/signer and disabled public admission are preserved. Final deployed
+state binding, source/overlay/archive/APK/signature identities and local HTTP200
+verify in `.mdo/E168-verification.json` and `.mdo/E168-verification.log`.
+Windows W5 and the paired plugin remain unchanged, hash-verified reuse rather
+than a fresh Windows runtime pass. No temporary product logging was added.
+
+This completes truthful protected-document status and legacy-route refusal.
+Public recovery/arming, protected upload/navigation/takeover and overall platform/
+final-deliverable gates remain open. This is private integration, not Android
+framework/provider/device qualification. Phone/current WebView remain deferred,
+with no ADB, live model, external page or production action. The overall goal
+remains active.
