@@ -254,6 +254,8 @@ def main():
                   'preparation-publication-download-close-read',
                   'preparation-publication-deadline-add','preparation-publication-deadline-bounds',
                   'preparation-publication-retirement-prune','preparation-publication-retirement-event',
+                  'preparation-publication-retirement-source-event','preparation-publication-retirement-source-capture','preparation-publication-source-crash',
+                  'preparation-publication-retirement-managed',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
                   'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
@@ -290,7 +292,7 @@ def main():
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
         if mode.startswith(('preparation-publication-','preparation-restore-')):
             published=popup_worker.get('product_publication')
-            clean=mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
+            clean=mode!='preparation-publication-source-crash' and mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
             if (not isinstance(published,dict) or published.get('actual_product_creation') is not True or published.get('cleanup_confirmed') is not clean or published.get('unconfirmed_creation_fenced') is not (not clean)
                     or published.get('close_replies')!=1 or published.get('create_replies') not in {0,1} or published.get('browser_connections')!=1
                     or published.get('native_proof_connections') not in {0,1} or published.get('no_url_replay') is not True
@@ -298,6 +300,8 @@ def main():
                 raise RuntimeError('The original product publication and close receipts did not pass')
             if mode.startswith('preparation-publication-retirement-') and published.get('concurrent_retirement') is not True:
                 raise RuntimeError('The exact concurrent retirement scheduler boundary was not exercised')
+            if mode=='preparation-publication-source-crash' and published.get('source_crash_contained') is not True:
+                raise RuntimeError('A renderer crash was incorrectly treated as deliberate retirement')
         if mode.startswith('preparation-restore-'):
             restore=popup_worker['product_publication'].get('document_restore')
             if (not isinstance(restore,dict) or restore.get('actual_frame_router') is not True or restore.get('reads',0)<1

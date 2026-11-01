@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E162:** recognize only original source-guard
+  retirement receipts after a close races with event/capture admission. Keep the
+  shared original wire and retain paused requests without replay; a renderer
+  crash with the same error text still fails and fences unconfirmed cleanup.
+  Four product modes/151 checks and fresh native369/13,401 pass, retaining all
+  365 earlier counts. Full JS/Python/product/APK, 479 hashes and 83 actual DEX
+  groups pass; the first-matrix failure is preserved with its deterministic
+  reproduction. Broader public product routing and completion gates stay open.
+
 - **Android E161:** reject stale retirement snapshots
   after a concurrent original-owner close. Check deliberate retirement after
   current-owner reads, and sample the original close clock after it starts. Two
@@ -12550,3 +12559,58 @@ hardware qualification. Public Android automation, generic observation/input
 routing, protected navigation/takeover/nested preparation and broader recovery
 gates remain open. Phone and current WebView checks remain deferred; no ADB,
 live model, external page or production action was used.
+
+
+### E162 scope-issued network-source retirement receipts
+
+The original event/capture router now recognizes a narrowly typed retirement
+receipt issued only by the original network source's scope guard. A close that
+occurs after the broker's current/retirement snapshot, but inside that source
+guard, no longer becomes a global `cdp_event_failed`. The event is discarded; a
+paused request is retained on its exact original attachment without continuing
+it, claiming a body or replaying an action. The original retirement helper still
+checks the original closeBorn and native owner; unrelated or expired failures
+are not accepted.
+
+Only the new private `MdoBrowserCdpPopupSource.Retired` subtype is caught. The
+existing native error code is unchanged. A renderer crash can emit the same text
+through an ordinary IOException, but must still report failure. Generic listener,
+metadata, wire, request and protocol exceptions are not swallowed. The actual APK
+definition gate now requires this private data-only exception class.
+
+Four new controlled product modes/151 checks pass: close inside source event
+admission, close inside paused-request capture, close inside managed flow, and a
+reported renderer crash.
+The three concurrent-close modes preserve the original wire and finish actual
+product/native detach cleanup. The crash intentionally retains an unconfirmed original attachment,
+reports failed cleanup and fences new creation; its passing test is containment,
+not recovery or Android renderer-process qualification. Earlier draft evidence
+incorrectly treated every unconfirmed case as an active-download abort; only that
+fixture assumption was corrected, preserving all existing download expectations.
+Evidence: `.mdo/E162-source-event-red.log`,
+`.mdo/E162-source-capture-red.log` and `.mdo/E162-source-retirement-final.log`.
+The first full matrix stopped on the earlier stale-publication case with
+`cdp_popup_candidate_retired`. Five focused repetitions passed without a fix,
+so the observed failure was not dismissed as a consistently reproducible UI
+failure. A new deterministic clock boundary exposed the same stale retirement
+snapshot in `serviceManaged`, outside its scoped error handler. Read the native
+current snapshot before deliberate retirement there too. The new case and five
+post-fix stale-publication repetitions pass. See
+`.mdo/E162-native-first-failure.log`, `.mdo/E162-managed-retirement-red.log` and
+`.mdo/E162-source-managed-final.log`. The corrected production source then passed a complete fresh matrix; no failed
+prefix is claimed as a full pass.
+
+Fresh native369/13,401, JS466, Python174 of176 (two existing Windows symlink
+privilege skips), creation850/close77, popup110/25/7, save47 and signed APK gates
+pass. All 365 earlier mode counts remain unchanged. The 129 native/479 overall
+source hashes and 83 actual DEX definition groups verify current code. The new
+exception definition extends IOException and has no instance/outer-owner fields.
+The APK is 6,571,329 bytes, SHA-256
+`c09899ee5f6322b3fb49f8793b47aeaaa8c383112e91da03125370ae54f169ac`.
+See `.mdo/E162-final-identities.log`; Windows E150/world E146 remain unchanged,
+hash-verified scoped reuse, not fresh Windows/framework runs.
+
+Broader public Android document/input, protected navigation/takeover/nested
+preparation and platform qualification remain open; Windows end-to-end completion
+audit and final deliverables also remain open. Phone/current WebView checks stay
+deferred. No ADB, live model, external page or production action was used.

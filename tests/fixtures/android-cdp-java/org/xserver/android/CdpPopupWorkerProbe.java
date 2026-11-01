@@ -143,7 +143,8 @@ public final class CdpPopupWorkerProbe {
                     boolean eligible=false,scope=false;
                     for(StackTraceElement site:Thread.currentThread().getStackTrace()){
                         if(site.getClassName().equals("org.xserver.android.MdoBrowserCdpPopupBroker$Handoff")&&site.getMethodName().equals("eligible"))eligible=true;
-                        if(site.getClassName().equals("org.xserver.android.MdoBrowserCdpPopupBroker")&&site.getMethodName().equals(retiringClockScope))scope=true;
+                        boolean sourceScope=retiringClockScope.startsWith("source-");
+                        if(site.getClassName().equals("org.xserver.android."+(sourceScope?"MdoBrowserCdpPopupSource":"MdoBrowserCdpPopupBroker"))&&site.getMethodName().equals(sourceScope?retiringClockScope.substring(7):retiringClockScope))scope=true;
                     }
                     if(eligible&&scope){retiringClockHook=null;work.run();retiringClockTrips.incrementAndGet();}
                 }
@@ -2296,8 +2297,9 @@ public final class CdpPopupWorkerProbe {
         boolean cancelled=variant.equals("close-add")||variant.equals("close-before-allocation")||variant.equals("close-world");
         boolean changed=variant.equals("channel-add")||variant.equals("stale-add"),broken=variant.equals("add-fail")||variant.equals("bounds-fail")||variant.startsWith("deadline-");
         boolean positive=!invalid&&!cancelled&&!changed&&!broken;
-        boolean unconfirmed=variant.equals("download-abort-mismatch")||variant.equals("download-abort-missing")||variant.equals("download-abort-rejected");
-        boolean delayed=variant.equals("download-delayed-abort")||unconfirmed,claim=variant.equals("download-close-claim"),read=variant.equals("download-close-read");
+        boolean sourceCrash=variant.equals("source-crash");
+        boolean unconfirmed=sourceCrash||variant.equals("download-abort-mismatch")||variant.equals("download-abort-missing")||variant.equals("download-abort-rejected");
+        boolean delayed=variant.equals("download-delayed-abort")||unconfirmed&&!sourceCrash,claim=variant.equals("download-close-claim"),read=variant.equals("download-close-read");
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
                 java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
@@ -2358,17 +2360,25 @@ public final class CdpPopupWorkerProbe {
                                 if(restoring){
                                     restoration[0]=restorePublished(variant,host,backend,product,exact[0],renderer[0]);
                                 }
+                                if(sourceCrash){
+                                    backend.wire.add(new JSONObject().put("method","Inspector.targetCrashed").put("sessionId","proof-real").put("params",new JSONObject()));
+                                    waitFor(()->backend.closes.get()>0,host,true);
+                                    check("cdp_event_failed".equals(product.preparationWorkerCode())&&MdoBrowserCdpPopupBroker.creationBlocked());
+                                }
                                 if(variant.startsWith("retirement-")){
                                     MdoBrowserCdpPopupBroker.Handoff originalHandoff=product.popupHandoff("owned");
                                     backend.retiringClockScope=variant.substring("retirement-".length());
+                                    if(backend.retiringClockScope.equals("managed"))backend.retiringClockScope="serviceManaged";
                                     // A scheduler boundary in the existing clock dependency:
                                     // retire after the first retirement read, inside current().
                                     backend.retiringClockHook=()->{host.time.incrementAndGet();originalHandoff.retireAuthority();};
-                                    if(backend.retiringClockScope.equals("event"))backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId","proof-real").put("params",new JSONObject()));
+                                    if(backend.retiringClockScope.endsWith("event"))backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId","proof-real").put("params",new JSONObject()));
+                                    if(backend.retiringClockScope.equals("source-capture"))backend.wire.add(handoffPaused("retiring-original",false));
                                     waitFor(()->backend.retiringClockTrips.get()==1,host,true);int observed=backend.receives.get();
                                     waitFor(()->backend.receives.get()>observed+8||backend.closes.get()>0,host,true);
                                     if(backend.closes.get()!=0)throw new AssertionError("Deliberate concurrent retirement poisoned original wire: "+product.preparationWorkerCode());
                                     check(originalHandoff.retiring()&&!originalHandoff.current()&&product.popupOwner("owned").current()&&exact[0].destroyed==0&&backend.disables.get()==0);
+                                    if(backend.retiringClockScope.startsWith("source-"))check(!backend.continuedIds.contains("retiring-original")&&backend.bodyClaims.get()==0);
                                 }
 
                                 if(claim||read){
@@ -2391,6 +2401,7 @@ public final class CdpPopupWorkerProbe {
                             if(!product.publicCounts.containsKey("close")&&!product.publicClosePending())product.publicClose("owned");
                             if(parentClosed[0])product.retirePreparation("cdp_popup_preparation_cancelled");
                             waitFor(()->{
+                                if(sourceCrash&&backend.closes.get()>0&&!negativeExpired[0]){negativeExpired[0]=true;android.os.SystemClock.now+=5001;host.time.addAndGet(5001);}
                                 if(exact[0]==null&&!nullConsumed[0]&&source.consumed!=null){nullConsumed[0]=true;source.ack();}
                                 if(!detachSent[0]&&exact[0]!=null&&exact[0].destroyed>0&&backend.closes.get()==0){try{backend.wire.add(detached("proof-real"));detachSent[0]=true;}catch(Exception error){throw new AssertionError(error);}}
                                 if(detachSent[0]&&product.network("owned")!=null&&product.popupHandoff("owned").detached()){
@@ -2416,7 +2427,7 @@ public final class CdpPopupWorkerProbe {
                                 return (unconfirmed||product.preparationSettled())&&(unconfirmed||product.popupNetworkCount()==0)&&product.publicCounts.getOrDefault("close",0)==1;
                             },host,true);
                             check(product.publicReplies.get("close").getBoolean("world_cleanup_confirmed")==!unconfirmed&&product.publicReplies.get("close").getBoolean("popup_cleanup_confirmed"));
-                            if(unconfirmed){check(product.popupNetworkCount()==1&&!product.popupDownloads("owned").sourcesClean());try{product.checkCreation();throw new AssertionError("Unconfirmed source did not fence construction");}catch(IllegalStateException error){check(error.getMessage().equals("network_cleanup_failed"));}}
+                            if(unconfirmed){check(product.popupNetworkCount()==1&&(sourceCrash?!product.popupProtocolDrained("owned"):!product.popupDownloads("owned").sourcesClean()));try{product.checkCreation();throw new AssertionError("Unconfirmed source did not fence construction");}catch(IllegalStateException error){check(error.getMessage().equals("network_cleanup_failed"));}}
                             if(delayed)check(abortDelivered[0]&&backend.responseAborts.get()==1);
                             if(claim||read)check(backend.bodyCloses.get()==1&&backend.responseAborts.get()==1&&backend.bodyReads.get()==(read?1:0));
                             if(read)check(lateSent[0]&&parentClosed[0]);
@@ -2427,7 +2438,7 @@ public final class CdpPopupWorkerProbe {
                             publicationEvidence=new JSONObject().put("actual_product_creation",true).put("controlled_ui_publication_confirmed",positive).put("controlled_ui_adds",product.root.adds).put("create_replies",product.publicCounts.getOrDefault("create",0)).put("close_replies",product.publicCounts.getOrDefault("close",0))
                                 .put("cleanup_confirmed",!unconfirmed).put("unconfirmed_creation_fenced",unconfirmed).put("active_stream_tested",claim||read).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("no_url_replay",true).put("framework_qualified",false).put("provider_qualified",false)
                                 .put("document_restore",restoration[0]==null?JSONObject.NULL:restoration[0]).put("protected_retirement_boundaries",product.retirementBoundaryChecks)
-                                .put("concurrent_retirement",variant.startsWith("retirement-"));
+                                .put("concurrent_retirement",variant.startsWith("retirement-")).put("source_crash_contained",sourceCrash);
                             if(renderer[0]!=null)renderer[0].wire.close();
                         }catch(Exception|Error error){System.err.println("Publication cleanup "+variant+" prep="+product.preparationSettled()+" child="+product.popupDiagnostic("owned")+" close="+product.publicReplies.get("close")+" closed="+backend.closes.get()+" abort="+backend.responseAborts.get()+" pass="+backend.responsePasses.get()+" site="+backend.closeSite+" worker="+product.preparationWorkerCode());if(primary!=null)primary.addSuppressed(error);else throw error;}
                     }

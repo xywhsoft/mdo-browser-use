@@ -11,6 +11,11 @@ import org.json.JSONObject;
  * replaces the existing Request/Response Fetch guard. Document readiness is
  * deliberately independent of receiving/deciding a paused network response. */
 final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBrowserCdpDownloads.AttachedSource {
+    /** Only this scope guard can issue a retirement receipt. A renderer crash
+     * or a listener/protocol error with the same text is not this receipt. */
+    static final class Retired extends IOException {
+        private Retired(){super("cdp_popup_source_retired");}
+    }
     private final MdoBrowserCdpSession session;
     private final MdoBrowserCdpSession.AttachedTarget attachment;
     private final MdoBrowserCdpPopupBroker.Handoff handoff;
@@ -33,7 +38,7 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         final AtomicBoolean stop=closed;final MdoBrowserCdpPopupBroker.Handoff physical=handoff;final MdoBrowserCdpPopupNative.Source original=proof;
         scope=()->!stop.get()&&physical.current()&&original.current()&&physical.owns(original);
     }
-    private void guard()throws IOException {if(!scope.getAsBoolean())throw new IOException("cdp_popup_source_retired");}
+    private void guard()throws IOException {if(!scope.getAsBoolean())throw new Retired();}
     boolean matches(MdoBrowserCdpPopupNative.Source original){return proof==original;}
     String frame()throws IOException {guard();return root;}
     String loader()throws IOException {guard();return initialLoader;}

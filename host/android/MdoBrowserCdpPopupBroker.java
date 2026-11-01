@@ -281,8 +281,13 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 }
                 if(!live)throw fail("cdp_popup_candidate_retired");
                 MdoBrowserCdpPopupSource source=candidate.sourcePeer;
-                if("Fetch.requestPaused".equals(method)){if(source!=null)source.capture();else session.retainAttachedRequest(candidate.original);return;}
-                if(source!=null)source.event(method,params);
+                if("Fetch.requestPaused".equals(method)){
+                    try{if(source!=null)source.capture();else session.retainAttachedRequest(candidate.original);}
+                    catch(MdoBrowserCdpPopupSource.Retired ended){if(!retiringCandidate(candidate))throw ended;session.retainAttachedRequest(candidate.original);}
+                    return;
+                }
+                if(source!=null)try{source.event(method,params);}
+                    catch(MdoBrowserCdpPopupSource.Retired ended){if(!retiringCandidate(candidate))throw ended;return;}
                 DocumentPeer document=candidate.documentPeer;if(document!=null)document.event(method,null,params);
                 else if(source==null||!(method.startsWith("Page.")||method.startsWith("Network.")||method.startsWith("Inspector.")))throw fail("cdp_popup_broker_child_unproven");return;
             }
@@ -379,9 +384,9 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private boolean serviceManaged(int timeout)throws IOException {
         int count=candidates.size();for(int n=0;n<count;n++){
             int index=(managedTurn+n)%count;Candidate candidate=candidates.get(index);Handoff handoff=candidate.handoff;
-            if(handoff!=null&&handoff.retiring())continue;
             if(handoff==null||!handoff.activationRequested.get())continue;
-            if(!handoff.current())throw fail("cdp_popup_candidate_retired");
+            boolean live=handoff.current();if(retiringCandidate(candidate))continue;
+            if(!live)throw fail("cdp_popup_candidate_retired");
             try{
                 if(handoff.activationResult.get()==null){
                     session.resumeProtectedAttachment(candidate.original,handoff::current,handoff::draining,timeout);
