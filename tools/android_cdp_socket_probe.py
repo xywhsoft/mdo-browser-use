@@ -36,6 +36,8 @@ def prepare_popup_product(output):
         '@@PREPARE_DOCUMENT@@':document[document.index('    private MdoBrowserDocument prepareDocument'):document.index('    private boolean closeDocument')],
         '@@CONSTRUCT@@':view[view.index('    private MdoBrowserCdpPopupNative.Created constructProtocolPopup'):view.index('    /** Common native policy')],
         '@@PREPARATION@@':(ROOT/'host/android/browser-popup-preparation.inc.java').read_text(encoding='utf-8'),
+        '@@FRAME_ENVIRONMENT@@':document[document.index('    private boolean cdpEnvironmentCurrent'):document.index('    private MdoBrowserCdpMarker cdpMarker')],
+        '@@FRAME_ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
         '@@INPUT@@':(ROOT/'host/android/browser-native-input.inc.java').read_text(encoding='utf-8'),
         '@@POST_DESTROY@@':upload[upload.index('        views.viewDestroyed(view);'):upload.index('        retireUploadTargets(view);')],
         '@@RESUME@@':lifecycle[lifecycle.index('    void resume()'):lifecycle.index('    void destroy()')],
@@ -209,6 +211,20 @@ def main():
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
                   'preparation-page-parent-before-world',
                   'preparation-page-cancel-world-isolated',
+                  'preparation-page-route-list',
+                  'preparation-page-route-repeat',
+                  'preparation-page-route-nested',
+                  'preparation-page-route-parent',
+                  'preparation-page-route-stale',
+                  'preparation-page-route-channel',
+                  'preparation-page-route-hidden',
+                  'preparation-page-route-manual',
+                  'preparation-page-route-download',
+                  'preparation-page-route-effect',
+                  'preparation-page-route-busy',
+                  'preparation-page-route-malformed',
+                  'preparation-page-route-late',
+                  'preparation-page-route-late-hidden',
                   'preparation-isolated-world','preparation-isolated-nested','preparation-isolated-detach','preparation-isolated-read','preparation-isolated-effect','preparation-isolated-detach-nested',
                   'preparation-isolated-foreign','preparation-isolated-expired','preparation-isolated-reset-attach','preparation-isolated-reset-runtime',
                   'preparation-isolated-receive-other','preparation-isolated-receive-foreign','preparation-isolated-receive-detach',
@@ -225,6 +241,7 @@ def main():
                 or popup_worker.get('product_prepared_admission_tested') is not mode.startswith('prepared-admission')
                 or popup_worker.get('product_page_startup_tested') is not mode.startswith('preparation-page-')
                 or popup_worker.get('product_document_retirement_tested') is not mode.startswith('preparation-isolated-')
+                or popup_worker.get('product_frame_route_tested') is not mode.startswith('preparation-page-route-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -236,6 +253,13 @@ def main():
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
+        if mode.startswith('preparation-page-route-'):
+            route=popup_worker.get('product_frame_route')
+            expected=mode.rsplit('-',1)[1] in {'list','repeat','nested','parent','busy'}
+            if (not isinstance(route,dict) or route.get('actual_product_frame_route') is not True or route.get('reply_ok') is not expected
+                    or route.get('browser_connections')!=1 or route.get('native_proof_connections')!=1 or route.get('native_effects')!=0
+                    or route.get('commands') not in {1,2} or route.get('provider_qualified') is not False or route.get('ui_published') is not False):
+                raise RuntimeError('Original product frame command routing was not confirmed')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool

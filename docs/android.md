@@ -5656,3 +5656,39 @@ Visible-tab publication/public command routing, navigation/takeover/nested and
 the documented rollback/stream/platform gates remain pending. Public protected
 create still rejects `popup_network_unqualified`, all Android public/provider/
 device qualification remains false, and the phone/current WebView stay deferred.
+
+### E158 actual frame-command routing on the original protected page
+
+The product `executeFrames` path now selects the exact prepared popup document
+and its existing marker/native proof, then dispatches on its original protected
+Browser connection. The previous ordinary marker/discovery path failed with
+`cdp_binding_failed`. A stale/missing/download-only document does not fall back
+or replace its original marker. Existing chooser continuation requires its
+original busy marker/binding. Effectful scripts retain the independent popup-
+preparation requirement; protected-source nested preparation is still pending.
+
+Current UI admission is checked both before dispatch and before normal result
+delivery. An original reply received after the view is hidden cannot be returned
+just because its startup document proof remains valid. View/epoch/handoff/channel
+ownership, request grammar and result-buffer clearing remain in force.
+
+Fourteen new actual-product modes/530 checks cover root/nested/repeated reads,
+opener closure, stale/hidden/manual/channel/download-only admission, blocked
+effects, busy requests, malformed raw session fields, and late navigation/
+visibility changes. Full fresh native325/11,671 retains every earlier 311 mode
+count and other JVM probe count. JS466, Python174 of176, creation848/close77,
+popup110/25/7, save47 and the signed APK pass. All 128 native/479 overall input
+hashes and 82 actual DEX groups verify current sources. Ordinary-only chooser/
+upload fixture dependencies were extended without changing their existing checks.
+
+The 6,567,233-byte APK SHA-256 is
+`72820c3402faf3adc449389b7d7e7d1f9aa9c1d627878fd37d218b4a780600a9`.
+See `.mdo/E158-final-identities.log` and retained before/after failures. Windows
+E150/world E146 remain unchanged scoped reuse. No device/provider/UI-publication
+qualification follows from these controlled protocol tests.
+
+Public protected creation/UI publication, protected-source effect preparation,
+navigation/takeover/nested popup and documented rollback/stream/platform gates
+remain open. Malformed/unsupported activation still retain unconfirmed cleanup
+fences. Android availability/qualification remain false and public protected create
+still rejects `popup_network_unqualified`. The phone/current WebView remain deferred.

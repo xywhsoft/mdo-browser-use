@@ -75,5 +75,14 @@ final class ChooserContinuationHost implements AutoCloseable {
         if(reference!=null)throw new java.io.IOException("cdp_navigation_document_unproven");return null;
     }
     void requireProtocolPopupPreparation(String key,WebView view)throws java.io.IOException{} // Controlled admission seam; PopupProductHost tests actual preparation.
+
+    // Ordinary-page fixture dependency. Protected-popup routing is exercised
+    // by PopupProductHost using the actual original handoff/coordinator.
+    static final class PopupNetwork {MdoBrowserCdpPopupBroker.Handoff handoff;}
+    static final class PopupPage {
+        MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;PopupNetwork network;
+        boolean documentReady(){return false;}
+    }
+    private PopupPage protocolPopupDocument(String key,WebView view){return null;}
 @@ROUTER@@
 }

@@ -8,6 +8,7 @@
         try{
             if(uploadBusy(key,view))throw new java.io.IOException("cdp_upload_busy");
             final MdoBrowserCdpFrameRequest operation=MdoBrowserCdpFrameRequest.parse(request);
+            final PopupPage popup=protocolPopupDocument(key,view);
             final MdoBrowserCdpNetworks.Navigation proof=navigationReadProof(key,view,operation.navigationRef);
             // The ordinary frame reader has no UI mutation reservation. Only
             // upload.clear may join the fixed primitive to its original record.
@@ -17,19 +18,30 @@
             // No request field can enable debugging or bypass that admission.
             boolean blocked=!chooserReady(dialogs.get(key)),continuation=operation.chooserContinuation();
             if(blocked&&(!continuation||!chooserContinuationReady(key,view)||views.inputBusy(key,view)||!views.inputClean(key,view)))throw new java.io.IOException("cdp_chooser_scope_unavailable");
-            final MdoBrowserCdpMarker marker=continuation?cdpViews.existing(key,view,epoch,original):cdpMarker(key,view);
+            final MdoBrowserCdpMarker marker;
+            if(popup!=null){
+                if(continuation){if(!popup.marker.lease().busy())throw new java.io.IOException("cdp_worker_binding_unavailable");}
+                else if(!cdpEnvironmentCurrent(key,view,epoch,original))throw new java.io.IOException("cdp_popup_page_document_unavailable");
+                marker=popup.marker;
+            }else marker=continuation?cdpViews.existing(key,view,epoch,original):cdpMarker(key,view);
             MdoBrowserCdpWorker.Completion complete=result->{
                 try{
                     JSONObject response;
                     try{
                         if(!views.owns(key,view)||views.epoch(key,view)!=epoch)throw new java.io.IOException("cdp_worker_cancelled");
+                        if(popup!=null&&(!popup.documentReady()||popup.marker!=marker||!continuation&&!cdpEnvironmentCurrent(key,view,epoch,original)))throw new java.io.IOException("cdp_worker_cancelled");
                         if(proof!=null&&navigationReadProof(key,view,operation.navigationRef)!=proof)throw new java.io.IOException("cdp_navigation_cancelled");
                         response=MdoBrowserCdpFrameRequest.response(result);
                     }catch(java.io.IOException changed){response=MdoBrowserCdpFrameRequest.failure(changed.getMessage(),result.effectMayHaveOccurred);}
                     reply(original,id,response,null);
                 }catch(JSONException error){reply(original,id,null,"frame_result_invalid");}
             };
-            if(proof!=null)cdpWorker.submitGuarded(marker,operation.timeout,operation.effect,proof,operation::run,complete);
+            if(popup!=null){
+                if(continuation)cdpWorker.submitExisting(marker,operation.timeout,operation.effect,operation::run,complete);
+                else if(proof!=null)throw new java.io.IOException("cdp_popup_navigation_unqualified");
+                else cdpWorker.submitDocument(marker,popup.network.handoff,popup.proof,operation.timeout,operation.effect,operation::run,complete);
+            }
+            else if(proof!=null)cdpWorker.submitGuarded(marker,operation.timeout,operation.effect,proof,operation::run,complete);
             else if(continuation)cdpWorker.submitExisting(marker,operation.timeout,operation.effect,operation::run,complete);
             else cdpWorker.submit(marker,operation.timeout,operation.effect,operation::run,complete);
         }catch(java.io.IOException error){reply(original,id,MdoBrowserCdpFrameRequest.failure(error.getMessage(),false),null);}

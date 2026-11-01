@@ -120,6 +120,15 @@
         if(network.page!=null)throw new java.io.IOException("cdp_popup_page_busy");
         PopupPage page=new PopupPage(network,ready,failure);network.page=page;page.start();return page;
     }
+    /** Select only the original prepared document. A missing/stale popup page
+     * must never fall back to ordinary discovery or replace its marker. */
+    private PopupPage protocolPopupDocument(String key,WebView view)throws java.io.IOException {
+        NetworkEntry entry=networkViews.get(key);if(entry==null||entry.popup==null)return null;
+        PopupNetwork network=entry.popup;PopupPage page=network.page;
+        if(entry.view!=view||network.entry!=entry||page==null||page.network!=network||!page.documentReady()||page.proof==null||
+            !network.handoff.owns(page.proof)||!page.proof.current())throw new java.io.IOException("cdp_popup_page_document_unavailable");
+        return page;
+    }
     private static final class PopupNetworkAttach implements MdoBrowserCdpWorker.Operation {
         private final MdoBrowserCdpDownloads.Connection original;
         PopupNetworkAttach(MdoBrowserCdpDownloads.Connection original){this.original=original;}

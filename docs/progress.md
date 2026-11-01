@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E158:** connect the actual frame-command router to the original
+  prepared popup document instead of ordinary discovery. Repeated and nested
+  metadata reads keep that exact marker/connection; stale, hidden, manual,
+  channel-lost and download-only pages never fall back. Recheck UI admission
+  before delivering a late result. Fourteen new modes/530 checks and fresh full
+  native325/11,671 pass; all 311 earlier mode counts remain unchanged. Full
+  JS/Python/product/popup/save/APK gates, 479 hashes and 82 actual DEX groups
+  pass. Public UI publication, effect preparation and platform gates remain open.
+
 - **Android E157:** retire cancelled original document/control/response commands
   without poisoning another proved page on the same Browser connection. Process
   an already received packet under global connection ownership before applying
@@ -12286,4 +12295,65 @@ failure, externally gated Browser-wire completion, stream/IO recovery and broade
 platform qualification remain open. Public protected create still rejects
 `popup_network_unqualified`; Android available/device/framework/provider/public
 automation remain false. The phone/current WebView remain deferred. No ADB, live
+model, external page or production publication was used.
+
+### E158 — route actual frame commands through the original prepared popup (2026-11-01)
+
+The real product frame router did not yet recognize the prepared protected
+popup. A regression joins original allocation, native consumption, source
+protection, activation and world startup, then calls the actual `executeFrames`.
+Before this change it replaced the original marker with an ordinary one and
+attempted another binding, ending in `cdp_binding_failed`. Preserve that run in
+`.mdo/E158-routed-list-red.log`.
+
+The router now selects only the exact original prepared page from the physical
+network registry. It checks its native view, handoff, document proof and captured
+epoch, then submits through the typed original attached-document route. A missing,
+stale or download-only popup document is an explicit refusal, never ordinary
+rediscovery or marker replacement. Existing chooser continuations require the
+original busy marker and existing binding; they cannot create a replacement.
+Ordinary-page behavior and the request grammar remain intact. Caller-supplied
+protocol session fields are still rejected. Scripts with possible effects still
+require their own popup preparation; protected-source nested preparation has not
+yet qualified and is not bypassed by this routing change.
+
+A second regression withheld the original frame-tree reply, hid that exact view,
+and then released its original reply. Its startup document proof remained valid,
+so the first routing implementation delivered metadata after visibility admission
+was lost. The completion now rechecks current UI admission as well as exact native
+view/epoch/page before returning a normal result. Original chooser continuations
+retain their separate admitted path. Failed or stale replies do not expose the
+received page data, and existing result-buffer clearing remains in place.
+Preserve the failure in `.mdo/E158-route-hidden-red.log`.
+
+Fourteen new modes/530 checks exercise the actual product router: root/nested
+frame inventory, repeated reads with stable document identity, opener-first
+closure, stale document, replaced channel, hidden view, human takeover,
+download-only page, effect-preparation refusal, busy dispatch, malformed raw
+session input, navigation during a read and visibility loss during a read.
+Positive cases require one original Browser connection and native proof, no
+page-script effects and no new target selection. Controlled nested frame peers
+are not evidence of an Android provider pass or nested-popup admission.
+
+Fresh full validation passes 325 popup-worker modes/11,671 checks on 128 native
+inputs; all 311 earlier mode counts and other JVM probe counts are unchanged.
+JS466, Python174/176 (two existing Windows symlink-privilege skips), creation848/
+close77, popup110/25/7 and save47 pass. JNI checking, ASan/UBSan, API26 and production
+Java8 remain in place. The first full compilation found missing popup dependency
+types in two ordinary-only chooser/upload test hosts; their controlled null
+popup dependency is now explicit, and their original checks remain unchanged.
+All 479 overall input hashes and 82 actual APK DEX definition groups verify the
+current sources, including the product router and typed page selector.
+The signed development APK is 6,567,233 bytes, SHA-256
+`72820c3402faf3adc449389b7d7e7d1f9aa9c1d627878fd37d218b4a780600a9`.
+See `.mdo/E158-final-identities.log`. Windows E150/world E146 remain unchanged,
+hash-verified scoped reuse, not fresh platform runs.
+
+Visible-tab publication/public protected creation, effect/nested-popup preparation,
+protected navigation/takeover, initialization rollback/native-close failures,
+externally gated Browser-wire completion, active stream/IO cleanup and broader
+platform qualification remain pending. The two malformed/unsupported activation
+cases remain unconfirmed and fenced. Public protected create still rejects
+`popup_network_unqualified`; Android available/device/framework/provider/public
+automation remain false. The phone/current WebView stay deferred. No ADB, live
 model, external page or production publication was used.
