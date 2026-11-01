@@ -13,6 +13,10 @@ import org.json.JSONObject;
  * immutable records or submit atomic decisions. Events/turns run on the existing
  * protocol worker; disk work stays on the shared bounded download file worker. */
 final class MdoBrowserCdpDownloads implements AutoCloseable {
+    interface AttachedSource {
+        MdoBrowserCdpSession.AttachedResponse next()throws IOException;
+        MdoBrowserCdpSession.Offer retain(MdoBrowserCdpSession.AttachedResponse response)throws IOException;
+    }
     /** One opaque callback authority per explicitly armed native connection.
      * Never resolve an old callback through the controller's current ticket. */
     static final class Connection implements MdoBrowserCdpNetworks.Events {
@@ -23,7 +27,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
         @Override public void turn(MdoBrowserCdpBinding.Network network)throws IOException {owner.turn(this,network);}
         @Override public boolean navigationAllowed(){synchronized(owner.gate){return owner.current==this&&!owner.closed&&!owner.disconnected&&!owner.quiescing&&!owner.pending();}}
         void attach(MdoBrowserCdpPopupBroker.Handoff physical)throws IOException {if(physical==null||!physical.current())throw new IOException("cdp_download_owner_changed");owner.protocol(this,physical);}
-        boolean attachedTurn(MdoBrowserCdpPopupBroker.Handoff physical,MdoBrowserCdpBinding document,int timeout)throws IOException {return owner.attachedTurn(this,physical,document,timeout);}
+        boolean attachedTurn(MdoBrowserCdpPopupBroker.Handoff physical,AttachedSource source,int timeout)throws IOException {return owner.attachedTurn(this,physical,source,timeout);}
         void disconnect(){owner.disconnect(this,false);}
         void disconnect(boolean cleanupConfirmed){owner.disconnect(this,cleanupConfirmed);}
     }
@@ -266,14 +270,14 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     /** Same native controller/UI policy/file queue, fed by an exact original
      * popup response. Existing rows use their frozen response after epoch loss;
      * a replacement document cannot select or read their body through its IDs. */
-    private boolean attachedTurn(Connection connection,MdoBrowserCdpPopupBroker.Handoff physical,MdoBrowserCdpBinding document,int timeout)throws IOException {
+    private boolean attachedTurn(Connection connection,MdoBrowserCdpPopupBroker.Handoff physical,AttachedSource document,int timeout)throws IOException {
         synchronized(gate){
             protocol(connection,physical);if(timeout<10||timeout>5000)throw new IOException("cdp_arguments_invalid");
             for(Row row:rows)if(row!=null&&row.connection==connection)try{advance(row,null);}catch(IOException error){row.error=safe(error);row.failureSource="native_protocol";row.offer.cancel();if(row.ticket!=null)files.cancel(row.ticket);}
         }
         if(document==null)return false;MdoBrowserCdpSession.AttachedResponse response=null;
         try{
-            response=document.nextAttachedResponse();if(response==null)return false;boolean stop;synchronized(gate){stop=quiescing;}
+            response=document.next();if(response==null)return false;boolean stop;synchronized(gate){stop=quiescing;}
             // ACK waits must never hold the UI snapshot/decision monitor.
             if(stop||!response.metadata().kind.equals("candidate")){if(!stop&&response.metadata().kind.equals("pass"))response.pass(timeout);else response.abort(timeout);return true;}
             if(!retainAttached(connection,physical,document,response))response.abort(timeout);return true;
@@ -285,15 +289,14 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
             if(response!=null)response.abort(timeout);return response!=null;
         }
     }
-    private boolean retainAttached(Connection connection,MdoBrowserCdpPopupBroker.Handoff physical,MdoBrowserCdpBinding document,MdoBrowserCdpSession.AttachedResponse response)throws IOException {
+    private boolean retainAttached(Connection connection,MdoBrowserCdpPopupBroker.Handoff physical,AttachedSource document,MdoBrowserCdpSession.AttachedResponse response)throws IOException {
         synchronized(gate){
             protocol(connection,physical);
             int slot=0;while(slot<rows.length&&rows[slot]!=null)slot++;
             if(slot==rows.length||!budget.acquire()){failure="download_receipt_limit";return false;}
             MdoBrowserCdpSession.Offer offer=null;boolean published=false;
             try{
-                MdoBrowserCdpNetworkFrames.Origin source=document.responseOrigin(response.metadata().frame);
-                offer=response.offer();offer.bindSourceEpoch(source,"response_frame");Row row=new Row(++serial,offer,source,connection,response);
+                offer=document.retain(response);MdoBrowserCdpNetworkFrames.Origin source=offer.sourceEpoch();Row row=new Row(++serial,offer,source,connection,response);
                 if(!source.current()){revokeFrame(row);publish(row,"cancelling",row.error,0,null,false,true,false,row.failureSource);}else publish(row,"pending",null,0,null,false,true,false,null);
                 rows[slot]=row;published=true;
             }catch(IOException error){

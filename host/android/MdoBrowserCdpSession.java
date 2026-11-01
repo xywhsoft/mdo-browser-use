@@ -206,6 +206,11 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         void pass(int timeout)throws IOException{owner.responseFlow(this,false,timeout);}
         void abort(int timeout)throws IOException{owner.responseFlow(this,true,timeout);}
         Offer offer()throws IOException{return owner.responseOffer(this);}
+        Offer sourceOffer()throws IOException{
+            if(original.sourceEpoch==null)throw new IOException("download_frame_unproven");Offer offer=offer();
+            try{offer.associateRequest(original.sourceLink);offer.bindSourceEpoch(original.sourceEpoch,original.sourceKind);return offer;}
+            catch(RuntimeException|Error failure){offer.cancel();offer.retireRequestAssociation();throw failure;}
+        }
         private void body(Body body)throws IOException{owner.guard(false);if(body==null||body.owner!=owner||body.responseIdentity!=original.identity)throw owner.failure("cdp_body_owner_mismatch",false);}
         void requestRead(Body body)throws IOException{body(body);owner.requestBodyRead(body);}
         BodyChunk takeChunk(Body body)throws IOException{body(body);return owner.takeBodyChunk(body);}
@@ -219,6 +224,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private static final ControlResult CONTROL_SEND_FAILED=new ControlResult(false,"cdp_control_send_failed",0,true);
     private static final class PausedEvent {
         final Object identity=new Object();BooleanSupplier sourceOwner;boolean responseSelected;
+        MdoBrowserCdpNetworkFrames.Origin sourceEpoch;MdoBrowserCdpNetworkRequests.Link sourceLink;String sourceKind;
         final String request,session,key,networkId;final MdoBrowserCdpResponse response;boolean used,continuationAttempted;
         PausedEvent(MdoBrowserCdpJson.Message message){
             response=MdoBrowserCdpResponse.inspect(message.value);
@@ -508,9 +514,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         protectedAttachment(original,true);for(PausedEvent response:original.protectedResponses)if(!response.responseSelected)return response.response;return null;
     }
     AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission)throws IOException{
+        return nextAttachedResponse(original,scope,admission,false);
+    }
+    AttachedResponse nextSourceResponse(AttachedTarget original,BooleanSupplier scope)throws IOException{return nextAttachedResponse(original,scope,scope,true);}
+    boolean ownsAttachedResponse(AttachedTarget original,AttachedResponse response)throws IOException {guard(false);return response!=null&&response.owner==this&&response.attachment==original;}
+    private AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission,boolean source)throws IOException{
         protectedAttachment(original,true);if(!original.resumed||scope==null||admission==null||!owned(scope)||!owned(admission))throw failure("cdp_attach_owner_changed",false);
         synchronized(controlGate){for(PausedEvent response:original.protectedResponses)if(!response.responseSelected){
-            AttachedResponse receipt=new AttachedResponse(this,original,response,scope,admission);response.sourceOwner=scope;response.responseSelected=true;
+            AttachedResponse receipt=new AttachedResponse(this,original,response,scope,admission);final MdoBrowserCdpNetworkFrames.Origin epoch=response.sourceEpoch;response.sourceOwner=source?()->owned(scope)&&epoch!=null&&epoch.current():scope;response.responseSelected=true;
             if(!owned(scope)||!owned(admission)){response.responseSelected=false;response.sourceOwner=null;throw failure("cdp_attach_owner_changed",false);}return receipt;
         }}return null;
     }
@@ -551,6 +562,23 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             else{original.initialRequests.add(value);original.retainedRequests=original.initialRequests.size();}
             value.used=true;controlKeys.add(value.key);
         }
+    }
+    /** Freeze response ancestry at this original event, never when a UI later
+     * selects it or after another document has replaced the initiating frame. */
+    void retainSourceRequest(AttachedTarget original,MdoBrowserCdpNetworkFrames frames,MdoBrowserCdpNetworkRequests requests,String root)throws IOException {
+        guard(false);PausedEvent value=paused;if(!busy||value==null)throw failure("cdp_control_not_in_event",false);
+        if(value.key!=null&&value.key.startsWith("S|")){
+            MdoBrowserCdpNetworkFrames.Origin origin=null;String kind="response_frame";
+            try{origin=frames.origin(value.response.frame);}catch(IOException error){if(!"download_frame_unproven".equals(error.getMessage()))throw error;}
+            MdoBrowserCdpNetworkRequests.Link link=requests.link(value.networkId,value.response.frame);
+            if(origin!=null){
+                if(link!=null)try{MdoBrowserCdpNetworkFrames.Origin initial=link.epoch();if(initial!=null){origin=initial;kind="navigation_candidates";}}
+                    catch(IOException ambiguous){if(!"download_frame_unproven".equals(ambiguous.getMessage()))throw ambiguous;origin=MdoBrowserCdpNetworkFrames.unproven(origin);kind="unproven";}
+                else if(requests.failure()!=null&&root.equals(value.response.frame)){origin=MdoBrowserCdpNetworkFrames.unproven(origin);kind="unproven";}
+            }
+            value.sourceEpoch=origin;value.sourceKind=kind;value.sourceLink=link;
+        }
+        retainAttachedRequest(original);
     }
     /** Only while the process broker waits for its own disable ACK. Record
      * late sessions as retired without resuming or detaching them again. */

@@ -5038,3 +5038,46 @@ scoped unchanged Windows/world evidence. No installed-provider result is inferre
 The next coordinator tests must cover initial frame loading while the first
 response is paused, document readiness and original navigation provenance; these
 controlled renderer modes do not establish that real provider ordering.
+
+### E140: a protected network source does not require a ready document
+
+A paused response can precede a ready isolated document. The private host now
+issues separate exact-native Source and Document receipts. Bootstrap Source on
+the original proved Browser attachment before activation, using the root/frame
+metadata from the native-child ownership proof. Fixed Page/Network setup and
+bounded consistent frame-tree reads preserve pending-navigation events without
+enabling Runtime, creating worlds, navigating or replacing Fetch interception.
+See the pinned [Chromium Page handler](https://github.com/chromium/chromium/blob/138.0.7204.179/content/browser/devtools/protocol/page_handler.cc#L622-L642)
+for the pending navigation event emitted during Page.enable.
+
+submitSource shares the existing job quotas, worker and binding cache. Source
+rejects arbitrary RPC and frame/world operations before I/O; DOM/input still
+requires its separately admitted isolated document. A document lease can retire
+without retiring a valid physical network source. Duplicate/foreign source
+proofs, binding after activation, unsupported methods, unexpected reply contents
+and unstable bootstrap metadata grant no fallback or replacement connection.
+
+Freeze response ancestry and original request correlation at receipt, then reuse
+the existing product download controller, explicit UI decisions, file queue and
+bounded Body/Offer state machines. Selection cannot borrow a replacement page's
+epoch. Pending/stale sources are aborted, and bytes require explicit acceptance.
+Normal responses can pass while the document is still loading. Full product
+policy/UI coordination and original navigation provenance remain outstanding.
+
+Twelve new controlled source modes pass 632 checks, including a valid pending
+navigation during bootstrap, response decisions while loading, binary readback,
+original capture invalidation before selection, subsequent epoch change, document
+lease independence, competing/duplicate sources and bounded bootstrap failures.
+Final native passes 124 current inputs and 161 worker modes/6,500 checks; fresh
+Windows WebView2 passes 301 checks/six input cycles. Product/popup/save pass and
+Python passes 174/176, with two existing symlink-privilege skips. Reviewed source
+copy/hash/compile manifests are checked together. Actual APK signing/ARM64/JNI/
+16-KiB/ZIP and 50 class/method definition groups pass, including data-only Source
+ownership and absence of UI references from the worker facade.
+
+E140-final-identities.py/log records current hashes and explicitly scoped E105
+world reuse. This is component integration evidence, not installed-provider or
+framework/automation qualification. Public protected popup admission stays off;
+phone/WebView tests remain deferred. Next recovery checks include isolated-world
+loss versus graph-issued download epoch fences, in-flight source revocation,
+native product UI/policy coordination, OOPIF and multi-child/process recovery.

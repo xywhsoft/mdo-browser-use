@@ -1,0 +1,89 @@
+package org.xserver.android;
+
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BooleanSupplier;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+/** Network-only facade on the proved original Browser attachment. Its fixed
+ * bootstrap never enables Runtime, creates worlds, resumes the debugger or
+ * replaces the existing Request/Response Fetch guard. Document readiness is
+ * deliberately independent of receiving/deciding a paused network response. */
+final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBrowserCdpDownloads.AttachedSource {
+    private final MdoBrowserCdpSession session;
+    private final MdoBrowserCdpSession.AttachedTarget attachment;
+    private final MdoBrowserCdpPopupBroker.Handoff handoff;
+    private final MdoBrowserCdpPopupNative.Source proof;
+    private final String root,initialLoader;
+    private final AtomicBoolean closed=new AtomicBoolean();
+    private final BooleanSupplier scope;
+    private final MdoBrowserCdpNetworkFrames frames;
+    private final MdoBrowserCdpNetworkRequests requests;
+    private MdoBrowserCdpSession.Events receiver;
+    private MdoBrowserCdpDownloads.Connection connection;
+    private boolean started,ready;
+
+    MdoBrowserCdpPopupSource(MdoBrowserCdpSession session,MdoBrowserCdpSession.AttachedTarget attachment,
+            MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source proof,String root,String loader)throws IOException {
+        this.session=session;this.attachment=attachment;this.handoff=handoff;this.proof=proof;this.root=root;initialLoader=loader;
+        frames=new MdoBrowserCdpNetworkFrames(root,loader);requests=new MdoBrowserCdpNetworkRequests(root);
+        // Body receipts keep only stop data and the exact native ownership
+        // receipts, not this peer, the broker, a document graph or a WebView.
+        final AtomicBoolean stop=closed;final MdoBrowserCdpPopupBroker.Handoff physical=handoff;final MdoBrowserCdpPopupNative.Source original=proof;
+        scope=()->!stop.get()&&physical.current()&&original.current()&&physical.owns(original);
+    }
+    private void guard()throws IOException {if(!scope.getAsBoolean())throw new IOException("cdp_popup_source_retired");}
+    boolean matches(MdoBrowserCdpPopupNative.Source original){return proof==original;}
+    String frame()throws IOException {guard();return root;}
+    String loader()throws IOException {guard();return initialLoader;}
+    String target()throws IOException {guard();return attachment.target;}
+    void observe(MdoBrowserCdpSession.Events next)throws IOException {guard();if(next==null||receiver!=null)throw new IOException("cdp_controller_busy");receiver=next;}
+    private int remaining(long born,int timeout)throws IOException {
+        guard();long used=android.os.SystemClock.elapsedRealtime()-born;if(used<0||used>timeout-10)throw new IOException("cdp_popup_source_timeout");return timeout-(int)used;
+    }
+    private JSONObject bootstrapCall(String method,JSONObject params,long born,int timeout)throws IOException {
+        JSONObject reply=session.callAttached(attachment,scope,method,params,null,Math.min(5000,remaining(born,timeout)),false);guard();return reply;
+    }
+    void bootstrap(int timeout)throws IOException {
+        guard();if(started||receiver==null||attachment.resumeConfirmed()||timeout<100||timeout>15000)throw new IOException("cdp_popup_source_bootstrap_invalid");started=true;
+        long born=android.os.SystemClock.elapsedRealtime();
+        try{
+            if(bootstrapCall("Page.enable",new JSONObject(),born,timeout).length()!=0)throw new IOException("cdp_popup_source_reply_invalid");
+            boolean initialized=false;
+            for(int attempt=0;attempt<3;attempt++){
+                long before=frames.revision();JSONObject reply=bootstrapCall("Page.getFrameTree",new JSONObject(),born,timeout);
+                if(reply.length()!=1||!(reply.opt("frameTree") instanceof JSONObject))throw new IOException("cdp_popup_source_reply_invalid");
+                if(before!=frames.revision())continue;frames.initialize(reply.getJSONObject("frameTree"),before);initialized=true;break;
+            }
+            if(!initialized)throw new IOException("download_frame_bootstrap_changed");
+            JSONObject params=new JSONObject().put("maxTotalBufferSize",0).put("maxResourceBufferSize",0).put("maxPostDataSize",0);
+            if(bootstrapCall("Network.enable",params,born,timeout).length()!=0)throw new IOException("cdp_popup_source_reply_invalid");remaining(born,timeout);ready=true;
+        }catch(JSONException error){throw new IOException("cdp_popup_source_reply_invalid");}
+    }
+    void event(String method,JSONObject params)throws IOException {
+        if("Inspector.detached".equals(method)||"Inspector.targetCrashed".equals(method)||"Inspector.targetReloadedAfterCrash".equals(method)){close();throw new IOException("cdp_popup_source_retired");}
+        guard();frames.event(method,null,params);requests.event(method,null,params);
+        MdoBrowserCdpSession.Events action=receiver;if(action==null)throw new IOException("cdp_popup_source_listener_missing");action.event(method,null,params);
+    }
+    void capture()throws IOException {guard();session.retainSourceRequest(attachment,frames,requests,root);}
+    public MdoBrowserCdpSession.AttachedResponse next()throws IOException {
+        guard();if(!ready)throw new IOException("cdp_popup_source_bootstrap_required");
+        if(!attachment.resumeConfirmed())return null;
+        MdoBrowserCdpSession.AttachedResponse response=session.nextSourceResponse(attachment,scope);if(response!=null)handoff.admitNetwork();return response;
+    }
+    public MdoBrowserCdpSession.Offer retain(MdoBrowserCdpSession.AttachedResponse response)throws IOException {
+        guard();if(response==null||!session.ownsAttachedResponse(attachment,response))throw new IOException("cdp_attach_response_owner_invalid");return response.sourceOffer();
+    }
+    void downloads(MdoBrowserCdpDownloads.Connection next)throws IOException {
+        guard();if(!ready||next==null)throw new IOException("cdp_popup_source_bootstrap_required");if(connection!=null&&connection!=next)throw new IOException("cdp_controller_busy");next.attach(handoff);connection=next;
+    }
+    boolean turn(int timeout)throws IOException {guard();return connection!=null&&connection.attachedTurn(handoff,this,timeout);}
+    // This typed binding grants no arbitrary protocol or execution RPC.
+    public JSONObject call(String method,JSONObject params,int timeout)throws IOException {guard();throw new IOException("cdp_network_scope_invalid");}
+    public JSONObject call(String method,JSONObject params,String child,int timeout,boolean effect)throws IOException {return call(method,params,timeout);}
+    public boolean poll(int timeout)throws IOException {guard();boolean progress=session.poll(timeout);guard();return progress;}
+    public boolean poll(int receive,int timeout)throws IOException {guard();boolean progress=session.poll(receive,timeout);guard();return progress;}
+    public boolean idle()throws IOException {guard();return session.idle();}
+    @Override public void close(){if(closed.compareAndSet(false,true)){ready=false;receiver=null;frames.close();requests.close();MdoBrowserCdpDownloads.Connection original=connection;connection=null;if(original!=null)original.disconnect();handoff.close();}}
+}

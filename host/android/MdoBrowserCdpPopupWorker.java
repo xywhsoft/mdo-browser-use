@@ -113,6 +113,9 @@ final class MdoBrowserCdpPopupWorker {
     MdoBrowserCdpBinding bindDocument(MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpMarker marker,int timeout)throws IOException{
         MdoBrowserCdpPopupBroker current=broker;if(closed.get()||current==null||!current.armed())throw new IOException("cdp_popup_broker_closed");return current.bindDocument(handoff,document,marker,timeout);
     }
+    MdoBrowserCdpBinding bindSource(MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,MdoBrowserCdpMarker marker,int timeout)throws IOException {
+        MdoBrowserCdpPopupBroker current=broker;if(closed.get()||current==null||!current.armed())throw new IOException("cdp_popup_broker_closed");return current.bindSource(handoff,source,marker,timeout);
+    }
     int pending(){thread();synchronized(gate){int count=0;for(Job job:jobs)if(job!=null)count++;return count;}}
     private boolean clean(){MdoBrowserCdpPopupBroker current=broker;return current==null||current.cleanupConfirmed();}
     private boolean enabled(){MdoBrowserCdpPopupBroker current=broker;return current!=null&&current.enabledMayHaveOccurred();}

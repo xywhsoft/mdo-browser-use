@@ -70,6 +70,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         boolean current(){MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();return eligible()&&original!=null&&original.current();}
         boolean owns(MdoBrowserCdpPopupNative.Promotion original){return original!=null&&nativeOwner.get()==original;}
         boolean owns(MdoBrowserCdpPopupNative.Document original){return original!=null&&original.matches(nativeOwner.get());}
+        boolean owns(MdoBrowserCdpPopupNative.Source original){return original!=null&&original.matches(nativeOwner.get());}
+        void admitNetwork(){networkAdmitted.set(true);}
         void activate()throws IOException{if(!committed.get()||!current())throw problem("cdp_popup_activation_unavailable");if(!activationRequested.compareAndSet(false,true))throw problem("cdp_popup_activation_replayed");}
         MdoBrowserCdpSession.ControlResult activationResult(){return activationResult.get();}
         MdoBrowserCdpSession.ControlResult flowFailure(){return flowFailure.get();}
@@ -87,6 +89,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private volatile MdoBrowserCdpBinding.Network nativeBound;private volatile MdoBrowserCdpPopupNative.Child nativeChild;
         private volatile Handoff handoff;
         private volatile DocumentPeer documentPeer;
+        private volatile MdoBrowserCdpPopupSource sourcePeer;private String sourceFrame,sourceLoader;
         private MdoBrowserCdpDownloads.Connection downloads;
         private Candidate(Registration[] possibleOpeners,MdoBrowserCdpSession.AttachedTarget original,long born,AtomicBoolean brokerClosed){this.possibleOpeners=possibleOpeners;this.original=original;this.born=born;this.brokerClosed=brokerClosed;}
         boolean current(){
@@ -107,7 +110,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         int retainedRequestCount(){return original.retainedRequestCount();}
         int retainedResponseCount(){return original.retainedResponseCount();}
         private void reconcileHandoff(){Handoff transfer=handoff;if(transfer!=null&&transfer.transferred()){possibleOpeners=NO_OPENERS;provenOpener=null;MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;nativeChild=null;if(bound!=null)bound.close();}}
-        private void retired(){retired=true;MdoBrowserCdpDownloads.Connection transfers=downloads;downloads=null;if(transfers!=null)transfers.disconnect();DocumentPeer document=documentPeer;documentPeer=null;if(document!=null)document.retire();Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
+        private void retired(){retired=true;MdoBrowserCdpPopupSource source=sourcePeer;sourcePeer=null;if(source!=null)source.close();sourceFrame=sourceLoader=null;MdoBrowserCdpDownloads.Connection transfers=downloads;downloads=null;if(transfers!=null)transfers.disconnect();DocumentPeer document=documentPeer;documentPeer=null;if(document!=null)document.retire();Handoff transfer=handoff;if(transfer!=null)transfer.close();possibleOpeners=NO_OPENERS;provenOpener=null;if(protectionRequested.get())protection.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_candidate_retired",0,protectionStarted));
             MdoBrowserCdpBinding.Network bound=nativeBound;nativeBound=null;if(bound!=null)bound.close();nativeChild=null;}
     }
     /** Worker-owned document facade on the exact original Browser session.
@@ -125,7 +128,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         void observe(MdoBrowserCdpSession.Events next)throws IOException{guard();if(next==null||receiver!=null)throw problem("cdp_controller_busy");receiver=next;}
         void controller(MdoBrowserCdpBinding bound)throws IOException{guard();if(bound==null||binding!=null)throw problem("cdp_controller_busy");binding=bound;}
         void downloads(MdoBrowserCdpDownloads.Connection transfers)throws IOException {
-            guard();if(transfers==null||binding==null||!binding.responseReady(binding.rootFrame))throw problem("cdp_popup_response_admission_required");
+            guard();if(candidate.sourcePeer!=null)throw problem("cdp_controller_busy");if(transfers==null||binding==null||!binding.responseReady(binding.rootFrame))throw problem("cdp_popup_response_admission_required");
             if(candidate.downloads!=null&&candidate.downloads!=transfers)throw problem("cdp_controller_busy");transfers.attach(handoff);candidate.downloads=transfers;
         }
         private MdoBrowserCdpBinding responseDocument(){
@@ -246,8 +249,11 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         if(child!=null){
             for(Candidate candidate:candidates)if(candidate.original.matchesNativeSession(child)){
                 if(!candidate.current())throw fail("cdp_popup_candidate_retired");
-                if("Fetch.requestPaused".equals(method)){session.retainAttachedRequest(candidate.original);return;}
-                DocumentPeer document=candidate.documentPeer;if(document==null)throw fail("cdp_popup_broker_child_unproven");document.event(method,null,params);return;
+                MdoBrowserCdpPopupSource source=candidate.sourcePeer;
+                if("Fetch.requestPaused".equals(method)){if(source!=null)source.capture();else session.retainAttachedRequest(candidate.original);return;}
+                if(source!=null)source.event(method,params);
+                DocumentPeer document=candidate.documentPeer;if(document!=null)document.event(method,null,params);
+                else if(source==null||!(method.startsWith("Page.")||method.startsWith("Network.")||method.startsWith("Inspector.")))throw fail("cdp_popup_broker_child_unproven");return;
             }
             DocumentPeer document=nestedDocuments.get(child);if(document!=null){if("Fetch.requestPaused".equals(method))throw fail("cdp_popup_document_response_unqualified");document.event(method,child,params);return;}
             throw fail("cdp_popup_broker_child_unproven");
@@ -302,6 +308,14 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         int left=remaining(born,timeout);if(left<100){peer.close();throw problem("cdp_popup_document_timeout");}
         return MdoBrowserCdpBinding.bindAttached(peer,proof,marker,left);
     }
+    MdoBrowserCdpBinding bindSource(Handoff handoff,MdoBrowserCdpPopupNative.Source proof,MdoBrowserCdpMarker marker,int timeout)throws IOException {
+        guard();prune();if(handoff==null||proof==null||marker==null||marker.lease()!=proof.lease||!handoff.current()||!handoff.owns(proof)||!proof.current()||timeout<100||timeout>15000)throw problem("cdp_popup_source_owner_invalid");
+        Candidate original=null;for(Candidate candidate:candidates)if(candidate.handoff==handoff)original=candidate;if(original==null)throw problem("cdp_popup_candidate_retired");
+        if(handoff.activationRequested.get()||original.original.resumeConfirmed())throw problem("cdp_popup_source_activation_started");
+        if(original.sourcePeer!=null)throw problem("cdp_controller_busy");
+        MdoBrowserCdpPopupSource peer=new MdoBrowserCdpPopupSource(session,original.original,handoff,proof,original.sourceFrame,original.sourceLoader);original.sourcePeer=peer;
+        try{return MdoBrowserCdpBinding.bindSource(peer,proof,marker,timeout);}catch(IOException|RuntimeException|Error error){peer.close();throw error;}
+    }
     private void prune()throws IOException{
         long time=now();for(Candidate candidate:candidates){long age=time-candidate.born;
             candidate.reconcileHandoff();
@@ -331,7 +345,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 if(session.continueProtectedRequest(candidate.original,handoff::current,timeout)){
                     handoff.continuedRequests.incrementAndGet();managedTurn=(index+1)%count;return true;
                 }
-                if(candidate.downloads!=null){DocumentPeer document=candidate.documentPeer;MdoBrowserCdpBinding bound=document==null?null:document.responseDocument();
+                if(candidate.sourcePeer!=null){if(candidate.sourcePeer.turn(timeout)){managedTurn=(index+1)%count;return true;}}
+                else if(candidate.downloads!=null){DocumentPeer document=candidate.documentPeer;MdoBrowserCdpBinding bound=document==null?null:document.responseDocument();
                     if(candidate.downloads.attachedTurn(handoff,bound,timeout)){managedTurn=(index+1)%count;return true;}}
             }catch(IOException|RuntimeException|Error error){
                 int protocol=error instanceof MdoBrowserCdpSession.Failure?((MdoBrowserCdpSession.Failure)error).protocolCode:0;
@@ -390,6 +405,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             session.confirmProtectedAttachment(matched.original,remaining(born,timeout));
             guard();prune();if(!requestCurrent.getAsBoolean()||!matched.current()||!child.current()||!bound.physicalCurrent())throw problem("cdp_popup_native_child_changed");
             Handoff prepared=new Handoff(child,closed,matched.born,clock);
+            matched.sourceFrame=bound.sourceFrame();matched.sourceLoader=bound.sourceLoader();
             matched.provenOpener=opener;matched.nativeChild=child;matched.nativeBound=bound;matched.handoff=prepared;bound=null;child.prepareHandoff(prepared);child.finish(true,null,0,true);
         }catch(IOException error){child.finish(false,safe(error.getMessage()),error instanceof MdoBrowserCdpSession.Failure?((MdoBrowserCdpSession.Failure)error).protocolCode:0,true);}
         catch(RuntimeException|Error error){child.finish(false,"cdp_popup_native_proof_failed",0,true);}

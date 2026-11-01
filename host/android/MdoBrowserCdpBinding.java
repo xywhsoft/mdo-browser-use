@@ -16,7 +16,7 @@ import org.json.JSONObject;
  * supplied debugger address or caller-picked target is an ownership proof.
  * Unbound candidates receive only context metadata/lexical-name enumeration;
  * the random marker name is never sent to a nonmatching candidate. */
-final class MdoBrowserCdpBinding implements AutoCloseable {
+final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads.AttachedSource {
     interface Targets {List<String> discover(int timeoutMs) throws IOException;}
     interface Peer extends AutoCloseable {
         JSONObject call(String method,JSONObject params,int timeoutMs) throws IOException;
@@ -264,6 +264,12 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
             (id,budget,current,events)->{if(!target.equals(id))throw problem("cdp_popup_document_owner_invalid");peer.observe(events);return peer;},false,document::current,true);
         try{peer.controller(bound);return bound;}catch(IOException|RuntimeException|Error error){bound.close();throw error;}
     }
+    static MdoBrowserCdpBinding bindSource(MdoBrowserCdpPopupSource peer,MdoBrowserCdpPopupNative.Source source,MdoBrowserCdpMarker marker,int timeout)throws IOException {
+        if(peer==null||source==null||marker==null||source.lease!=marker.lease()||!source.current()||!peer.matches(source))throw problem("cdp_popup_source_owner_invalid");
+        Contexts contexts=new Contexts();contexts.network();Context root=new Context(0,"",peer.frame());root.loader=peer.loader();
+        MdoBrowserCdpBinding bound=new MdoBrowserCdpBinding(peer,source.lease,contexts,root,peer.target());boolean done=false;
+        try{source.lease.track(bound);peer.observe(contexts);peer.bootstrap(timeout);done=true;return bound;}finally{if(!done)bound.close();}
+    }
     /** A separate physical-view proof, never a promotion of an ordinary
      * document binding. This private facade exposes no page/frame RPC. */
     static Network bindNetwork(MdoBrowserCdpMarker marker,int timeoutMs,MdoBrowserCdpSession.Events events)throws IOException {
@@ -314,6 +320,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         private PopupSource popupSource;
         boolean physicalCurrent(){return !retiring&&!bound.closed.get()&&bound.lease.current()&&!bound.contexts.dirty;}
         boolean matchesPopup(MdoBrowserCdpSession.AttachedTarget original){return original!=null&&bound.target.equals(original.target)&&physicalCurrent();}
+        String sourceFrame(){return bound.rootFrame;}String sourceLoader(){return bound.rootLoader;}
         PopupSource popupSource()throws IOException{active();if(retiring)throw problem("cdp_network_retiring");if(popupSource==null)popupSource=new PopupSource(this);return popupSource;}
         /** Ephemeral native selection, not a public entry-ID or URL lookup. */
         private static final class Selection {
@@ -576,17 +583,21 @@ final class MdoBrowserCdpBinding implements AutoCloseable {
         MdoBrowserCdpSession.Events original=contexts.forward;
         contexts.forward=(method,session,params)->{if(original!=null)original.event(method,session,params);controller.event(method,session,params);};
     }
-    MdoBrowserCdpFrames frames()throws IOException {current();if(frames==null)frames=new MdoBrowserCdpFrames(this);return frames;}
+    MdoBrowserCdpFrames frames()throws IOException {current();if(peer instanceof MdoBrowserCdpPopupSource)throw problem("cdp_network_scope_invalid");if(frames==null)frames=new MdoBrowserCdpFrames(this);return frames;}
     boolean responseReady(String raw)throws IOException{current();return frames!=null&&frames.responseReady(rootFrame)&&frames.responseReady(raw);}
     MdoBrowserCdpSession.AttachedResponse nextAttachedResponse()throws IOException {
-        current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");return ((MdoBrowserCdpPopupBroker.DocumentPeer)peer).nextResponse();
+        current();if(peer instanceof MdoBrowserCdpPopupSource)return ((MdoBrowserCdpPopupSource)peer).next();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");return ((MdoBrowserCdpPopupBroker.DocumentPeer)peer).nextResponse();
+    }
+    public MdoBrowserCdpSession.AttachedResponse next()throws IOException{return nextAttachedResponse();}
+    public MdoBrowserCdpSession.Offer retain(MdoBrowserCdpSession.AttachedResponse response)throws IOException {
+        current();if(peer instanceof MdoBrowserCdpPopupSource)return ((MdoBrowserCdpPopupSource)peer).retain(response);MdoBrowserCdpNetworkFrames.Origin origin=responseOrigin(response.metadata().frame);MdoBrowserCdpSession.Offer offer=response.offer();offer.bindSourceEpoch(origin,"response_frame");return offer;
     }
     MdoBrowserCdpNetworkFrames.Origin responseOrigin(String raw)throws IOException {current();if(frames==null)throw problem("download_frame_unproven");return frames.responseOrigin(raw);}
     MdoBrowserCdpNetworkFrames.Origin issueResponseOrigin(String frame,String document,boolean root,java.util.concurrent.atomic.AtomicBoolean[] scopes)throws IOException {
         current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");return MdoBrowserCdpNetworkFrames.attached(frame,document,root,lease,scopes);
     }
     void attachDownloads(MdoBrowserCdpDownloads.Connection downloads)throws IOException {
-        current();if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");((MdoBrowserCdpPopupBroker.DocumentPeer)peer).downloads(downloads);
+        current();if(peer instanceof MdoBrowserCdpPopupSource){((MdoBrowserCdpPopupSource)peer).downloads(downloads);return;}if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");((MdoBrowserCdpPopupBroker.DocumentPeer)peer).downloads(downloads);
     }
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){

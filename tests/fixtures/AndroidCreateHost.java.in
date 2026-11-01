@@ -93,6 +93,7 @@ final class AndroidCreateHost {
         interface Owner {boolean current(WebView view);}final MdoBrowserCdpMarker marker;final WebView view;final Owner popupOwner;
         MdoBrowserCdpView(WebView view,Owner owner,Owner popupOwner){this.view=view;this.popupOwner=popupOwner;marker=new MdoBrowserCdpMarker(()->owner.current(view));}
         static MdoBrowserCdpView network(WebView view,Owner owner,Owner popupOwner,MdoBrowserCdpMarker.DocumentQuota quota){MdoBrowserCdpView result=new MdoBrowserCdpView(view,owner,popupOwner);result.marker.quota=quota;return result;}
+        static MdoBrowserCdpView network(WebView view,Owner owner,MdoBrowserCdpMarker.DocumentQuota quota){return network(view,owner,owner,quota);}
         MdoBrowserCdpMarker marker(){return marker;}
         boolean popupCurrent(WebView exact){return view==exact&&marker.lease.live&&popupOwner.current(exact);}
     }

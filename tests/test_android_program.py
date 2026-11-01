@@ -1,4 +1,7 @@
 """Do not qualify a compiled upload provider using another element's flags."""
+import ast
+import textwrap
+import json
 from pathlib import Path
 import sys
 import unittest
@@ -36,6 +39,26 @@ class CompiledManifestTests(unittest.TestCase):
 
 
 class ActualDexClassesTests(unittest.TestCase):
+    def test_reviewed_cdp_sources_are_both_compiled_and_hashed(self):
+        import build_android_client as client
+        root=Path(__file__).resolve().parents[1]
+        manifest=json.loads((root/'host/overlays.json').read_text(encoding='utf-8'))
+        sources=[row for row in manifest['files'] if row['source'].startswith('host/android/MdoBrowserCdp') and row['source'].endswith('.java')]
+        self.assertTrue(sources)
+        copied=set()
+        for change in manifest['changes']:
+            if change['path']=='tools/android/browser_overlay.py' and 'after' in change:
+                # Source-copy fragments are statements. Other reviewed anchors
+                # can be partial dictionary entries, validated by composition.
+                try: fragment=ast.parse(textwrap.dedent(change['after']))
+                except SyntaxError: continue
+                copied.update(node.value for node in ast.walk(fragment) if isinstance(node,ast.Constant) and isinstance(node.value,str) and node.value.endswith('.java'))
+        for row in sources:
+            with self.subTest(source=row['source']):
+                self.assertIn(row['source'],client.INPUTS)
+                self.assertIn(row['target'],client.HOST_INPUTS)
+                self.assertIn(Path(row['source']).name,copied)
+
     def report(self,names=None,extra=''):
         if names is None:names=program.HOST_CLASSES
         return '<api><package name="org.xserver.android">'+''.join('<class name="'+name+'"/>' for name in names)+extra+'</package></api>'
@@ -48,7 +71,7 @@ class ActualDexClassesTests(unittest.TestCase):
 
     def test_class_reference_cannot_substitute_for_implementation(self):
         for required in ('MdoBrowserCdpPopupNative$UiRetention','MdoBrowserPopups$ProtocolUi','MdoBrowserCdpWorker$Guard','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoBrowserCdpNetworks$Navigation','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpBinding$Network','MdoBrowserCdpBinding$Network$Navigation','MdoBrowserCdpBinding$Network$Selection','MdoBrowserCdpNetworkRequests','MdoBrowserCdpNetworkRequests$Command','MdoBrowserCdpNetworkRequests$Receipt','MdoBrowserCdpNetworkRequests$Link','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Commit','MdoBrowserCdpNetworkFrames$Start','MdoBrowserCdpNetworkFrames$Traversal','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope',
-                         'MdoBrowser$BrowserClose','MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Destruction','MdoBrowserCdpPopupNative$Retirement','MdoBrowserCdpPopupNative$Promotion','MdoBrowserCdpPopupBroker$Handoff','MdoBrowserCdpPopupBroker$DocumentPeer','MdoBrowserCdpPopupNative$Document','MdoBrowserLifecycle$Independent','MdoBrowserCdpPopupNative$CloseGate','MdoBrowserCdpSession$CloseBarrier','MdoBrowserCdpSession$WireCancellation','MdoBrowserCdpNative$CancelHandle',
+                         'MdoBrowser$BrowserClose','MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Destruction','MdoBrowserCdpPopupNative$Retirement','MdoBrowserCdpPopupNative$Promotion','MdoBrowserCdpPopupBroker$Handoff','MdoBrowserCdpPopupBroker$DocumentPeer','MdoBrowserCdpPopupNative$Document','MdoBrowserCdpPopupNative$Source','MdoBrowserCdpPopupSource','MdoBrowserCdpDownloads$AttachedSource','MdoBrowserLifecycle$Independent','MdoBrowserCdpPopupNative$CloseGate','MdoBrowserCdpSession$CloseBarrier','MdoBrowserCdpSession$WireCancellation','MdoBrowserCdpNative$CancelHandle',
                          'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpResponse',
                          'MdoBrowserCdpSession$AttachedResponse','MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',
                          'MdoBrowserCdpSession$Offer','MdoBrowserCdpSession$OfferDecision','MdoBrowserCdpSession$OfferResult',

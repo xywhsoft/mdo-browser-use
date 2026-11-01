@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E140:** separate protected popup network authority from isolated
+  document readiness. Bootstrap a typed native source on the original Browser
+  attachment before activation; keep the existing Fetch guard and single worker.
+  Freeze response ancestry at receipt time and reuse the product download
+  controller. Twelve new modes pass 632 checks, including loading, cancellation,
+  stale capture, duplicate sources and bounded bootstrap races. Final native
+  passes 124 inputs and 161 worker modes/6,500 checks; fresh Windows passes
+  301/six input cycles, product/popup/save pass, and Python passes 174/176 with
+  two existing skips. Actual APK passes signing and 50 definition groups.
+  Full product/policy coordination and installed-provider qualification remain
+  incomplete; public protected admission stays disabled and phone testing deferred.
 - **Android E139:** feed original popup responses into the existing product
   download controller/file queue and UI decision state machine. Keep one physical
   connection across document rebind, with atomic frame/document/ancestor provenance
@@ -11227,3 +11238,65 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Next coordinator checks must include initial frame-loading/paused-response/
   document-ready ordering and original navigation provenance. The controlled
   renderer modes above do not establish that installed-provider sequence.
+
+
+### E140 — network sources independent of document/world readiness
+
+- Remove the dependency between deciding a paused response and first admitting
+  a ready isolated document. Add a UI-issued, exact-native Source receipt,
+  independent of Document receipts, and bind it to the original protected
+  Browser attachment before debugger activation. Preserve the original native
+  proof's root/frame metadata; never discover a replacement target or socket.
+  This resolves the component-level ordering gap, not an observed qualification
+  failure of an installed Android provider.
+- Bootstrap only fixed Page.enable, bounded revision-consistent frame-tree
+  reads and zero-buffer Network.enable. Route original native Page/Network
+  events before a document binding exists. Leave the existing Request/Response
+  Fetch guard intact. Do not enable Runtime, create a world, navigate, resume
+  or grant arbitrary protocol/DOM/input operations through this source facade.
+  Document operations retain their own isolated-world admission and lifetime.
+- Preserve valid pending-navigation/loading events during bootstrap. The pinned
+  [Chromium Page handler](https://github.com/chromium/chromium/blob/138.0.7204.179/content/browser/devtools/protocol/page_handler.cc#L622-L642)
+  emits pending navigation metadata when Page is enabled; controlled fixtures
+  now exercise that ordering without inventing document readiness.
+- Capture response-frame ancestry and original request correlation at the exact
+  retained Fetch event. Do not look up the current document when a later UI
+  decision selects the response. Epoch changes cancel pending/unfinished
+  sources instead of retagging them. Reuse the same controller, file queue,
+  explicit acceptance, budgets, native cleanup receipts and body ownership.
+  Source bindings use the existing executor/cache; generic submission and
+  arbitrary execution are rejected, with no fallback or new connection.
+- Twelve added source modes pass 632 assertions: pass-through while loading,
+  explicit binary download/read/release, cancellation, competing controllers,
+  original capture invalidation before selection, later document replacement,
+  document-lease independence, bounded snapshot race/retry, nonempty replies,
+  unsupported protocol, activation ordering and duplicate source refusal.
+  The three-field Source receipt is data-only. These controlled renderers do
+  not qualify an installed framework/provider or the public product coordinator.
+- Final E140-native.log passes 124 current hashes, ASan/UBSan/API26/JVM/JNI,
+  161 worker modes/6,500 checks, attachment 2,686/two actual native sessions,
+  controller 360 and JNI 264. Fresh product passes 789/18 inputs, popup 110/25/7
+  and save 47/six inputs bound to current native evidence. Python passes 174/176
+  in 52.499 seconds; two existing Windows symlink-privilege cases remain skipped.
+- Actual APK assembly caught missing new-source copy/compile manifest entries;
+  correct all reviewed deployment/copy/hash lists and add a consistency check.
+  Signing/private-provider/JNI/ARM64/16-KiB/ZIP gates pass. E140-dex.py/log inspects
+  50 actual class/method groups, the three-field Source, forbidden UI references
+  and the existing ownership/provenance shapes. APK: 6,542,657 bytes, SHA-256
+  8b6816c71faa26cc009fe06a8dc8122afa236e029d32d54b7c4704bd3330b552.
+  Windows program, native library and portable plugin bytes remain unchanged.
+- Do not reuse the old Windows manifest hash. Fresh E140-windows-frames.py/log
+  passes 301 actual WebView2 checks and six fill/interrupted-drag cycles, with
+  no new native diagnostics or retained upload reservations. Reuse E105 world
+  evidence only after every scoped hash matches. E140-final-identities.py/log
+  binds current sources/artifacts to all final evidence.
+- Development service restored: HTTP 200 on 63625, PID 31592; one deployment
+  about 3,450.1 MiB, D: about 36.72 GiB free. No additional app/Home/source copy,
+  ADB/phone/WebView change, runtime dependency, external-page/model call,
+  production/account/config change or publication.
+- Goal remains active. Next: audit isolated-world destruction against existing
+  graph-issued download epoch fences (worldLost currently rotates aliases),
+  then complete native product policy/UI coordination, original navigation
+  provenance, in-flight source revocation, OOPIF routing and multi-child/process/
+  navigation/takeover recovery. Public protected admission and installed-provider,
+  framework and automation qualification remain false. Preserve phone deferral.

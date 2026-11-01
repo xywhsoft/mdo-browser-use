@@ -158,6 +158,10 @@ final class MdoBrowserCdpPopupNative {
             thread();if(!current()||marker==null||marker.lease().physicalNetwork()||!marker.ownsNative(view()))throw new IOException("cdp_popup_document_owner_invalid");
             Document proof=new Document(this,marker.lease());if(!proof.lease.attach(proof.identity))throw new IOException("cdp_popup_document_owner_invalid");return proof;
         }
+        Source source(MdoBrowserCdpMarker marker)throws IOException {
+            thread();if(!current()||marker==null||!marker.lease().physicalNetwork()||!marker.ownsNative(view()))throw new IOException("cdp_popup_source_owner_invalid");
+            Source proof=new Source(this,marker.lease());if(!proof.lease.attach(proof.identity))throw new IOException("cdp_popup_source_owner_invalid");return proof;
+        }
         boolean ended(){return ended.get();}boolean failed(){return failed.get();}boolean nativeDestroyed(){return nativeOwner.destroyed();}
         WebView view(){thread();if(!current())throw new IllegalStateException("cdp_popup_native_promotion_unavailable");return nativeOwner.view();}
         private void notifyClose(){Runnable action=closer.get();if(action!=null)try{action.run();}catch(RuntimeException|Error ignored){/* retained UI owner is reconciled on recovery */}}
@@ -169,6 +173,14 @@ final class MdoBrowserCdpPopupNative {
         private final Promotion owner;final MdoBrowserCdpMarker.Lease lease;private final Object identity=new Object();
         private Document(Promotion owner,MdoBrowserCdpMarker.Lease lease){this.owner=owner;this.lease=lease;}
         boolean current(){return owner.current()&&lease.current()&&lease.belongsToAttachment(identity);}
+        boolean matches(Promotion exact){return owner==exact;}
+    }
+    /** Exact UI-native physical ownership, deliberately independent of a DOM
+     * epoch or an isolated execution world. It grants network housekeeping only. */
+    static final class Source {
+        private final Promotion owner;final MdoBrowserCdpMarker.Lease lease;private final Object identity=new Object();
+        private Source(Promotion owner,MdoBrowserCdpMarker.Lease lease){this.owner=owner;this.lease=lease;}
+        boolean current(){return owner.current()&&lease.physicalNetwork()&&lease.current()&&lease.belongsToAttachment(identity);}
         boolean matches(Promotion exact){return owner==exact;}
     }
     /** Bounded UI ownership survives a host removing its opener's controller.

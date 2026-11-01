@@ -109,6 +109,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     }
     int popupPending(){return popups.pending();}
     MdoBrowserCdpBinding bindPopupDocument(MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpMarker marker,int timeout)throws IOException{return popups.bindDocument(handoff,document,marker,timeout);}
+    MdoBrowserCdpBinding bindPopupSource(MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,MdoBrowserCdpMarker marker,int timeout)throws IOException{return popups.bindSource(handoff,source,marker,timeout);}
     private void thread(){if(!ui.onThread())throw new IllegalStateException("Network owner dispatch requires its UI thread");}
     private static String safe(String code){return code!=null&&code.matches("(?:cdp|download_frame)_[a-z_]{1,80}")?code:"cdp_network_worker_failed";}
     void start(MdoBrowserCdpMarker marker,int timeout,Events events,Completion complete)throws IOException {

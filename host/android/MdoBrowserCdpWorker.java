@@ -107,6 +107,10 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         thread();if(marker==null||handoff==null||document==null||marker.lease()!=document.lease||!document.current()||!handoff.current()||!handoff.owns(document))throw new IOException("cdp_popup_document_owner_invalid");
         submit(marker,timeout,effect,operation,complete,null,null,handoff,document);
     }
+    void submitSource(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,int timeout,Operation operation,Completion complete)throws IOException {
+        thread();if(marker==null||handoff==null||source==null||marker.lease()!=source.lease||!source.current()||!handoff.current()||!handoff.owns(source))throw new IOException("cdp_popup_source_owner_invalid");
+        submit(marker,timeout,false,operation,complete,null,null,handoff,null,source);
+    }
     void submitGuarded(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Guard guard,Operation operation,Completion complete)throws IOException {
         if(guard==null)throw new IOException("cdp_worker_arguments_invalid");
         submit(marker,timeoutMs,effect,operation,complete,null,guard);
@@ -120,13 +124,16 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         submit(marker,timeoutMs,effect,operation,complete,existing,guard,null,null);
     }
     private void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete,MdoBrowserCdpBinding existing,Guard guard,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document)throws IOException {
+        submit(marker,timeoutMs,effect,operation,complete,existing,guard,handoff,document,null);
+    }
+    private void submit(MdoBrowserCdpMarker marker,int timeoutMs,boolean effect,Operation operation,Completion complete,MdoBrowserCdpBinding existing,Guard guard,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpPopupNative.Source source)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(marker==null||!marker.lease().current()||operation==null||complete==null||timeoutMs<100||timeoutMs>15000)
             throw new IOException("cdp_worker_arguments_invalid");
-        if(marker.lease().physicalNetwork())throw new IOException("cdp_network_scope_invalid");
+        if(marker.lease().physicalNetwork()&&source==null)throw new IOException("cdp_network_scope_invalid");
         if(jobs.containsKey(marker.lease()))throw new IOException("cdp_worker_busy");
         if(jobs.size()>=LIMIT)throw new IOException("cdp_worker_limit");
-        Job job=new Job(marker,timeoutMs,effect,operation,complete,existing,guard,handoff,document);jobs.put(job.lease,job);
+        Job job=new Job(marker,timeoutMs,effect,operation,complete,existing,guard,handoff,document,source);jobs.put(job.lease,job);
         try{executor.execute(job);}catch(RejectedExecutionException failure){jobs.remove(job.lease,job);job.drop();throw new IOException("cdp_worker_unavailable");}
         catch(RuntimeException|Error failure){jobs.remove(job.lease,job);job.drop();throw failure;}
     }
@@ -168,18 +175,18 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         final WeakReference<MdoBrowserCdpMarker> marker;final MdoBrowserCdpMarker.Lease lease;
         final int timeout;final long started;final boolean effect;
         final MdoBrowserCdpBinding existing;
-        final MdoBrowserCdpPopupBroker.Handoff handoff;final MdoBrowserCdpPopupNative.Document document;
+        final MdoBrowserCdpPopupBroker.Handoff handoff;final MdoBrowserCdpPopupNative.Document document;final MdoBrowserCdpPopupNative.Source source;
         final AtomicBoolean cancelled=new AtomicBoolean();final AtomicReference<Completion> callback;
         final Runnable delivery=this::deliver;
         private Operation operation;private Guard guard;private byte[] bytes;private String code;private boolean posted,delivered;
         private volatile boolean entered;
-        Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback,MdoBrowserCdpBinding existing,Guard guard,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document){
+        Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback,MdoBrowserCdpBinding existing,Guard guard,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpPopupNative.Source source){
             this.marker=new WeakReference<>(marker);lease=marker.lease();this.timeout=timeout;this.effect=effect;
             this.operation=operation;this.guard=guard;this.callback=new AtomicReference<>(callback);started=clock.getAsLong();this.existing=existing;
-            this.handoff=handoff;this.document=document;
+            this.handoff=handoff;this.document=document;this.source=source;
         }
         int remaining(int minimum)throws IOException {
-            if(closed.get()||cancelled.get()||!lease.current()||document!=null&&!document.current())throw new IOException("cdp_worker_cancelled");
+            if(closed.get()||cancelled.get()||!lease.current()||document!=null&&!document.current()||source!=null&&(!source.current()||!handoff.current()))throw new IOException("cdp_worker_cancelled");
             long used=clock.getAsLong()-started;if(used<0||used>timeout-minimum)throw new IOException("cdp_worker_timeout");
             return timeout-(int)used;
         }
@@ -191,8 +198,8 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
                 if(existing!=null){if(binding!=existing)throw new IOException("cdp_worker_binding_changed");binding.current();}
                 else if(binding==null){
                     MdoBrowserCdpMarker owned=marker.get();if(owned==null)throw new IOException("cdp_binding_owner_changed");
-                    if(document==null&&lease.attached())throw new IOException("cdp_attached_binding_required");
-                    binding=document==null?connector.bind(owned,remaining(100)):networks.bindPopupDocument(handoff,document,owned,remaining(100));
+                    if(document==null&&source==null&&lease.attached())throw new IOException("cdp_attached_binding_required");
+                    binding=source!=null?networks.bindPopupSource(handoff,source,owned,remaining(100)):document==null?connector.bind(owned,remaining(100)):networks.bindPopupDocument(handoff,document,owned,remaining(100));
                     if(binding==null)throw new IOException("cdp_worker_binding_invalid");
                     bindings.put(lease,binding);remaining(10);
                 }
