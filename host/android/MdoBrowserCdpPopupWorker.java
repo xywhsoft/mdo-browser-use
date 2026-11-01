@@ -159,7 +159,7 @@ final class MdoBrowserCdpPopupWorker {
                     if(job.notified.add(candidate.id)){job.request.capture(job.registration,candidate);job.offer(candidate);}
                     if(candidate.protectionRequested()&&candidate.protection()==null&&!job.request.cancelled.get()){
                         if(job.nativeSource==null)current.refuseProtection(candidate,"cdp_popup_native_source_required");
-                        else if(!protectedOne){protectedOne=true;current.protect(candidate,250);}
+                        else if(!protectedOne&&current.idle()){protectedOne=true;current.protect(candidate,250);}
                     }
                     MdoBrowserCdpSession.ControlResult protection=candidate.protection();
                     if(protection!=null&&job.protectionNotified.add(candidate.id)){
@@ -167,7 +167,7 @@ final class MdoBrowserCdpPopupWorker {
                         if(!protection.ok&&job.nativeSource!=null){job.cancelCode=protection.code;job.request.cancelled.set(true);job.beginNativeCancel();break;}
                     }
                 }
-                if(!protectedOne&&!job.request.cancelled.get()){
+                if(!protectedOne&&!job.request.cancelled.get()&&current.idle()){
                     MdoBrowserCdpPopupNative.Child child=job.request.takeNative();if(child!=null){protectedOne=true;
                         if(job.nativeSource==null)child.finish(false,"cdp_popup_native_source_required",0,false);
                         else try{current.proveNative(job.registration,child,1500,job.request.proofScope());}

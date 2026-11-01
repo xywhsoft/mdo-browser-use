@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E155:** serialize protected-popup guard/proof work behind the
+  original Browser connection's in-flight RPC. A controlled two-source product
+  test reproduced `cdp_session_closed` when cooperative progress attempted a
+  second protocol operation. Protection and native proof now wait for idle
+  before sending or dequeuing the original proof. Three new modes/153 checks
+  cover waiting protection, waiting proof and one child detaching while the
+  other bootstraps. Fresh native274/9,524 retains all 271 earlier mode counts;
+  JS/Python/product/popup/save/APK gates pass. Public Android qualification
+  remains false; activation/world/UI publication is still being implemented.
+
 - **Android E154:** attach the protected original popup source and real download
   controller to the product physical-network registry before activation. The
   original total deadline spans allocation/adoption/proof/source bootstrap;
@@ -12052,3 +12062,64 @@ takeover/rearm and broader platform/recovery qualification remain open. Public
 protected creation still rejects `popup_network_unqualified`; no device/provider
 or public Android qualification is claimed. No phone, ADB, WebView update, live
 model, external page or production publication was used.
+
+### E155 — serialize concurrent protected source admission (2026-11-01)
+
+The E154 concurrency question is now reproduced for two same-opener sources.
+The first source's Page-enable reply is withheld while its `send` returns, so
+the actual cooperative Browser RPC loop continues receiving and capturing a
+second attachment. The popup worker previously attempted Fetch protection on
+that same busy session. The session correctly rejected reentry, but broker
+failure then closed the healthy shared connection: both product handoffs ended
+with `cdp_session_closed`. Preserve the failed run in
+`.mdo/E155-concurrent-red.log`.
+
+The broker exposes a worker-thread idle query against the original Browser
+session. The popup worker waits for that query before protection and before
+dequeueing a native proof. Captures, cancellation and ordinary owner checks
+remain active during the original RPC. Waiting does not consume the queued
+proof, create another executor/connection, reset a deadline, select a new
+target, resume a debugger, or release a paused request. This corrects dispatch
+ordering without relaxing the session's reentry rejection.
+
+Three product modes pass 153 checks using the actual handoff/network registry
+and two fixed controlled native-source peers:
+
+- A second capture requests protection while the first source waits for its
+  reply. No second protection/native proof is sent until that reply returns;
+  both original sources then complete once.
+- Both captures are protected before the first source RPC. The second native
+  child is consumed and its proof queued during that RPC. No second native
+  connection is opened until the original reply returns; neither proof is lost.
+- After source one is ready, source two waits for its bootstrap reply. Closing
+  source one and receiving its authenticated original detach does not poison
+  source two. Its original reply completes it, while the shared guard remains
+  armed until the remaining child is closed.
+
+The modes also check one original executor, exact-once native destruction,
+independent parent release, empty download budgets/queues, original detach
+receipts, and no implicit debugger/request continuation or protocol detach.
+The fixture extends only its two fixed synthetic sessions; production APIs
+gain no caller-selected target or test escape hatch. This qualifies the three
+stated two-source scenarios, not arbitrary concurrency or nested popups.
+
+Fresh full native validation passes 274 modes and 9,524 checks on 128 current
+inputs. Every earlier mode and its check count is unchanged. JS466, Python174
+of176 (two existing Windows symlink-privilege skips), creation848/close77,
+popup110/25/7 and save47 pass. JNI checking, ASan/UBSan, API26 and production
+Java8 remain in place. All 479 overall input hashes are verified. The rebuilt
+signed Android development APK is 6,567,233 bytes, SHA-256
+`6584ece52f7a3c6634c17e24de0e3bd31189acd99d6f0cf04f4d1cd6b3183291`.
+Actual APK metadata verifies 78 definition groups including the new broker idle
+method and the existing weak-owner/source/close-receipt fields. Windows E150
+and world E146 evidence are unchanged, hash-verified scoped reuse; these are
+not fresh Windows/device runs. Final comparisons and evidence remain under
+`.mdo/E155-*`.
+
+Activation/document-world/UI publication, protected navigation/takeover,
+nested popup admission, initialization rollback with native-close failure,
+externally gated Browser-wire completion and broader platform/recovery
+qualification remain open. Public protected create still rejects
+`popup_network_unqualified`; Android device/framework/provider/public
+automation remain false. The phone/current WebView remain deferred as the
+user requested. No ADB, live model, external page or production action was used.

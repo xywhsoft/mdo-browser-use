@@ -202,6 +202,7 @@ def main():
                  'preparation-network-ready','preparation-network-inline','preparation-network-parent-close','preparation-network-duplicate','preparation-network-download','preparation-network-download-stream',
                  'preparation-network-cancel-source','preparation-network-owner-channel','preparation-network-owner-profile','preparation-network-deadline-source','preparation-network-callback-throw','preparation-network-schedule-failure',
                  'preparation-network-unsupported','preparation-network-nonempty','preparation-network-frame-race','preparation-network-peer-detach','preparation-network-close-timeout','preparation-network-download-unconfirmed',
+                  'preparation-network-concurrent-ready','preparation-network-concurrent-proof','preparation-network-concurrent-detach',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))

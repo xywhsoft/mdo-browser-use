@@ -59,24 +59,29 @@ public final class CdpPopupWorkerProbe {
         volatile Runnable responseIo;
         DocumentRenderer documentRenderer;
         SourceRenderer sourceRenderer;boolean holdAbort;
+        final Map<String,SourceRenderer> sourceRenderers=new ConcurrentHashMap<>();
         static final class SourceRenderer {
-            final String mode;int calls,trees;Runnable beforeFirst;SourceRenderer(String mode){this.mode=mode;}
+            final String mode,session;volatile int calls,trees;Runnable beforeFirst;boolean holdFirst;volatile JSONObject held;
+            SourceRenderer(String mode){this(mode,"proof-real");}
+            SourceRenderer(String mode,String session){if(!session.equals("proof-real")&&!session.equals("proof-second"))throw new AssertionError("Unregistered source fixture");this.mode=mode;this.session=session;}
+            void release(Wire output){JSONObject original=held;check(original!=null);held=null;output.add(original);}
             void command(JSONObject command,Wire output)throws Exception {
-                check(command.length()==4&&command.getString("sessionId").equals("proof-real"));String method=command.getString("method");JSONObject params=command.getJSONObject("params"),result=new JSONObject();calls++;
+                check(command.length()==4&&command.getString("sessionId").equals(session));String method=command.getString("method");JSONObject params=command.getJSONObject("params"),result=new JSONObject();calls++;
                 if(method.equals("Page.enable")){
                     Runnable hook=beforeFirst;if(hook!=null)hook.run();
-                    check(params.length()==0);output.add(new JSONObject().put("method","Page.frameStartedNavigating").put("sessionId","proof-real").put("params",new JSONObject().put("frameId","frame-owned").put("loaderId","load-pending").put("navigationType","differentDocument").put("url","https://private.invalid/pending")));
-                    output.add(new JSONObject().put("method","Page.frameStartedLoading").put("sessionId","proof-real").put("params",new JSONObject().put("frameId","frame-owned")));
+                    check(params.length()==0);output.add(new JSONObject().put("method","Page.frameStartedNavigating").put("sessionId",session).put("params",new JSONObject().put("frameId","frame-owned").put("loaderId","load-pending").put("navigationType","differentDocument").put("url","https://private.invalid/pending")));
+                    output.add(new JSONObject().put("method","Page.frameStartedLoading").put("sessionId",session).put("params",new JSONObject().put("frameId","frame-owned")));
                     if(mode.equals("source-nonempty"))result.put("unexpected",true);
                 }else if(method.equals("Page.getFrameTree")){
                     check(params.length()==0);trees++;JSONObject frame=new JSONObject().put("id","frame-owned").put("loaderId","load-owned");
-                    if(mode.equals("source-changed")||mode.equals("source-race")&&trees==1)output.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId","proof-real").put("params",new JSONObject().put("frame",frame)));
+                    if(mode.equals("source-changed")||mode.equals("source-race")&&trees==1)output.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId",session).put("params",new JSONObject().put("frame",frame)));
                     result.put("frameTree",new JSONObject().put("frame",frame));
                 }else{
                     check(method.equals("Network.enable")&&params.length()==3&&params.getInt("maxTotalBufferSize")==0&&params.getInt("maxResourceBufferSize")==0&&params.getInt("maxPostDataSize")==0);
-                    if(mode.equals("source-unsupported")){output.add(new JSONObject().put("id",command.getInt("id")).put("sessionId","proof-real").put("error",new JSONObject().put("code",-32601).put("message","synthetic-unread")));return;}
+                    if(mode.equals("source-unsupported")){output.add(new JSONObject().put("id",command.getInt("id")).put("sessionId",session).put("error",new JSONObject().put("code",-32601).put("message","synthetic-unread")));return;}
                 }
-                output.add(ack(command.getInt("id"),"proof-real").put("result",result));
+                JSONObject reply=ack(command.getInt("id"),session).put("result",result);
+                if(holdFirst&&method.equals("Page.enable")){check(held==null);held=reply;return;}output.add(reply);
             }
         }
         static final class DocumentRenderer {
@@ -110,7 +115,10 @@ public final class CdpPopupWorkerProbe {
             void add(JSONObject packet){incoming.add(packet.toString().getBytes(StandardCharsets.UTF_8));}
             public void send(byte[] bytes,int timeout)throws IOException{
                 threads.add(Thread.currentThread());try{JSONObject command=new JSONObject(new String(bytes,StandardCharsets.UTF_8));String method=command.getString("method");int id=command.getInt("id");
-                    if(sourceRenderer!=null&&command.has("sessionId")&&(method.equals("Page.enable")||method.equals("Page.getFrameTree")||method.equals("Network.enable"))){sourceRenderer.command(command,this);return;}
+                    if(command.has("sessionId")&&(method.equals("Page.enable")||method.equals("Page.getFrameTree")||method.equals("Network.enable"))){
+                        SourceRenderer renderer=sourceRenderers.get(command.getString("sessionId"));if(renderer==null)renderer=sourceRenderer;
+                        if(renderer!=null){renderer.command(command,this);return;}
+                    }
                     if(documentRenderer!=null&&command.has("sessionId")&&!method.startsWith("Fetch.")&&!method.startsWith("IO.")&&!method.equals("Runtime.runIfWaitingForDebugger")){documentRenderer.command(command,this);return;}
                     if(responseMode!=null&&(method.equals("Fetch.takeResponseBodyAsStream")||method.equals("Fetch.failRequest")||method.startsWith("IO.")||method.equals("Fetch.continueRequest")&&continues.get()>0)){
                         Runnable audit=responseIo;if(audit!=null)audit.run();
@@ -1987,6 +1995,87 @@ public final class CdpPopupWorkerProbe {
             }
         }finally{Handler.fail=false;android.os.SystemClock.now=Long.MIN_VALUE;}
     }
+    private static boolean awaitingProtection(MdoBrowserCdpPopupWorker.Request original)throws Exception {
+        java.lang.reflect.Field field=MdoBrowserCdpPopupWorker.Request.class.getDeclaredField("captured");field.setAccessible(true);
+        synchronized(original){
+            @SuppressWarnings("unchecked") List<MdoBrowserCdpPopupBroker.Candidate> captures=(List<MdoBrowserCdpPopupBroker.Candidate>)field.get(original);
+            for(MdoBrowserCdpPopupBroker.Candidate candidate:captures)if(candidate.protectionRequested()&&candidate.protection()==null)return true;
+            return false;
+        }
+    }
+    private static void productNetworkConcurrent(String mode,String directory)throws Exception {
+        Backend backend=new Backend();android.os.SystemClock.now=1000;
+        boolean proofQueued=mode.endsWith("-proof"),detachBusy=mode.endsWith("-detach");
+        try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
+                java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
+                try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),host.time::get)){
+                    PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,original.adapter,source.core,host.worker);
+                    product.downloadQueue=queue;product.downloadBudget=new MdoBrowserCdpDownloads.Budget();
+                    AtomicInteger prepared=new AtomicInteger(),accepted=new AtomicInteger(),failed=new AtomicInteger();String[] reason={null};
+                    WebView[] exact=new WebView[2];AutoCloseable[] handles=new AutoCloseable[2];boolean[] detached=new boolean[2];
+                    String[] keys={"owned","second"},sessions={"proof-real","proof-second"};
+                    Backend.SourceRenderer first=new Backend.SourceRenderer("source-complete");first.holdFirst=true;
+                    Backend.SourceRenderer second=new Backend.SourceRenderer("source-complete","proof-second");second.holdFirst=detachBusy;
+                    backend.sourceRenderers.put(sessions[0],first);backend.sourceRenderers.put(sessions[1],second);backend.proofTargets.add("target-proof-second");
+                    MdoBrowserCdpPopupPreparation.Failure failure=(code,effect)->{check(host.ui.onThread());failed.incrementAndGet();reason[0]=code;};
+                    source.beforeSend=child->{int index=source.sends;check(index<2&&host.ui.onThread()&&child==source.views.get(keys[index]));exact[index]=child;source.adopting=child;backend.nativeTargets.put("target-"+sessions[index],proofPeer(child,"success",null,null));};
+                    product.prepare(prepared::incrementAndGet,failure);waitFor(()->prepared.get()==1,host,true);
+                    MdoBrowserCdpPopupWorker.Request request=product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class);Throwable primary=null;
+                    try{
+                        source.open();handles[0]=product.handoffNetworkPrepared(source.core.snapshot().id,keys[0],9000,accepted::incrementAndGet,failure);
+                        backend.wire.add(attached(sessions[0],"owned"));waitFor(()->source.sends==1,host,true);
+                        if(proofQueued){backend.wire.add(attached(sessions[1],"owned"));waitFor(()->backend.guards.get()==2,host,true);}
+                        source.ack();
+                        waitFor(()->first.held!=null,host,true);check(first.calls==1&&accepted.get()==0&&backend.guards.get()==(proofQueued?2:1));
+                        source.open();handles[1]=product.handoffNetworkPrepared(source.core.snapshot().id,keys[1],9000,accepted::incrementAndGet,failure);
+                        if(proofQueued){waitFor(()->source.sends==2,host,true);source.ack();}
+                        else{
+                            backend.wire.add(attached(sessions[1],"owned"));
+                            waitFor(()->{try{return failed.get()!=0||awaitingProtection(request);}catch(Exception error){throw new AssertionError(error);}},host,true);
+                        }
+                        int before=backend.receives.get();waitFor(()->failed.get()!=0||backend.receives.get()>before+12,host,true);
+                        if(failed.get()!=0)throw new AssertionError("Concurrent source bootstrap failed: "+reason[0]+" / "+product.preparationCode());
+                        check(request.result().ready&&!request.result().terminal&&backend.guards.get()==(proofQueued?2:1)&&backend.nativeOpens.get()==1&&source.sends==(proofQueued?2:1)&&second.calls==0);
+                        first.release(backend.wire);if(!proofQueued){waitFor(()->source.sends==2,host,true);source.ack();}
+                        if(detachBusy){
+                            waitFor(()->accepted.get()==1&&second.held!=null,host,true);
+                            MdoBrowserCdpPopupBroker.Handoff held=product.popupHandoff(keys[0]);
+                            product.retirePreparation("cdp_popup_preparation_cancelled");
+                            product.closePopupNetwork(keys[0]);backend.wire.add(detached(sessions[0]));detached[0]=true;
+                            waitFor(held::detached,host,true);check(failed.get()==0&&second.calls==1&&accepted.get()==1&&product.popupOwner(keys[1]).current());
+                            product.pollPopupNetwork(keys[0]);check(product.popupNetworkCount()==1&&exact[0].destroyed==1&&backend.disables.get()==0);
+                            second.release(backend.wire);
+                        }
+                        waitFor(()->accepted.get()==2||failed.get()!=0,host,true);
+                        check(failed.get()==0&&product.popupNetworkCount()==(detachBusy?1:2)&&product.pendingHandoffs()==0&&first.calls==3&&second.calls==3);
+                        check((detachBusy||product.popupNetworkReady(keys[0]))&&product.popupNetworkReady(keys[1])&&backend.guards.get()==2&&backend.nativeOpens.get()==2&&backend.barriers.get()==2);
+                        check(backend.resumes.get()==0&&backend.continues.get()==0&&backend.bodyClaims.get()==0&&backend.detaches.get()==0);
+                        product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);
+                        if(!detached[0]){product.closePopupNetwork(keys[0]);backend.wire.add(detached(sessions[0]));detached[0]=true;}
+                        waitFor(()->{product.pollPopupNetwork(keys[0]);return product.popupNetworkCount()==1;},host,true);
+                        check(exact[0].destroyed==1&&product.popupNetworkReady(keys[1])&&product.popupOwner(keys[1]).current()&&backend.disables.get()==0&&MdoBrowserCdpPopupBroker.creationBlocked());
+                    }catch(Exception|Error error){primary=error;throw error;}
+                    finally{
+                        try{
+                            if(first.held!=null)first.release(backend.wire);
+                            if(second.held!=null)second.release(backend.wire);
+                            for(int i=0;i<2;i++){if(handles[i]!=null)handles[i].close();product.closePopupNetwork(keys[i]);}
+                            product.retirePreparation("cdp_popup_preparation_cancelled");
+                            waitFor(()->{
+                                for(int i=0;i<2;i++)if(!detached[i]&&exact[i]!=null&&exact[i].destroyed>0){try{backend.wire.add(detached(sessions[i]));detached[i]=true;}catch(Exception error){throw new AssertionError(error);}}
+                                product.resume();for(String key:keys)product.pollPopupNetwork(key);
+                                return product.preparationSettled()&&product.popupNetworkCount()==0;
+                            },host,true);
+                            for(WebView view:exact)if(view!=null)check(view.destroyed==1);
+                            check(product.pendingHandoffs()==0&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);
+                            check(product.downloadBudget.used()==0&&queue.retainedTickets()==0&&backend.threads.size()==1&&host.threads.containsAll(backend.threads));
+                        }catch(Exception|Error error){if(primary!=null)primary.addSuppressed(error);else throw error;}
+                    }
+                }
+            }
+        }finally{android.os.SystemClock.now=Long.MIN_VALUE;}
+    }
     private static void productNetwork(String mode,String directory)throws Exception {
         String variant=mode.substring("preparation-network-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);
@@ -2203,6 +2292,7 @@ public final class CdpPopupWorkerProbe {
         if(mode.startsWith("prepared-admission"))preparedAdmission(mode);
         else if(mode.startsWith("preparation-child-"))productChildDelivery(mode);
         else if(mode.startsWith("preparation-adoption-"))productAdoption(mode);
+        else if(mode.startsWith("preparation-network-concurrent-"))productNetworkConcurrent(mode,args[1]);
         else if(mode.startsWith("preparation-network-"))productNetwork(mode,args[1]);
         else if(mode.startsWith("preparation-coordinator-"))productCoordinator(mode);
         else if(mode.startsWith("preparation"))productPreparation(mode);

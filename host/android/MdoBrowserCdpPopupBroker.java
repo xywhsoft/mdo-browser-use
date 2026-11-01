@@ -397,6 +397,10 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         }catch(IOException error){throw fail(safe(error.getMessage()));}
         catch(RuntimeException|Error error){throw fail("cdp_popup_broker_failed");}
     }
+    /** Cooperative RPC progress may observe captures while this same Browser
+     * wire is awaiting a reply. Defer protocol work until its original call
+     * finishes; never turn a healthy serialized connection into a reentry. */
+    boolean idle()throws IOException {guard();return state==ARMED&&session.idle();}
     List<Candidate> pending()throws IOException{guard();prune();return new ArrayList<>(candidates);}
     void refuseProtection(Candidate candidate,String code)throws IOException {
         guard();if(candidate==null||!candidates.contains(candidate)||!candidate.current())throw problem("cdp_popup_candidate_retired");

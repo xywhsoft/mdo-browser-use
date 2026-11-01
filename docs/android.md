@@ -5550,3 +5550,32 @@ concurrent-scheduling qualification remain pending, as do initialization rollbac
 with native-close failure and externally gated Browser-wire completion. Device/
 framework/provider/public qualification remain false. Existing Windows E150 and
 world E146 evidence is unchanged scoped reuse; the phone/WebView were untouched.
+
+### E155 concurrent source admission on the shared Browser connection
+
+A real product-coordinator regression withheld source one's Page-enable reply
+while allowing the original cooperative receive loop to capture source two.
+The popup worker attempted protection on that busy Browser connection, and
+the resulting reentry failure closed both handoffs with `cdp_session_closed`.
+The worker now waits for the original session to be idle before protection or
+before taking a queued native proof. It keeps cancellation/capture processing
+and the original deadlines; no second executor, endpoint, replay or premature
+debugger/request continuation is introduced.
+
+Three new controlled product modes/153 checks cover waiting protection,
+waiting proof and authenticated detach of one child while the other awaits a
+source reply. Both sources use their original native ownership and exact-once
+destruction; closing one keeps the other current and the process guard armed.
+The full fresh native gate passes 274 modes/9,524 checks with all 271 earlier
+mode counts unchanged. JS466, Python174/176, creation848/close77, popup110/25/7,
+save47 and the signed APK pass; all 128 native/479 overall input hashes and 78
+actual DEX definition groups are checked. The APK is 6,567,233 bytes, SHA-256
+`6584ece52f7a3c6634c17e24de0e3bd31189acd99d6f0cf04f4d1cd6b3183291`.
+See `.mdo/E155-final-identities.log` and the retained original failure evidence.
+
+This covers three two-source scheduling scenarios, not Android framework,
+device/provider, nested-popup or general concurrency qualification. Existing
+Windows E150/world E146 receipts are unchanged scoped reuse. Complete
+activation/world/publication, protected navigation/takeover and the other
+documented recovery gaps remain pending; public protected creation still
+rejects `popup_network_unqualified`. The phone/current WebView remain deferred.
