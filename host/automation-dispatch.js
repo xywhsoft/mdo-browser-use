@@ -106,11 +106,20 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     // locating a target. The Android frame router cannot treat arbitrary
     // evaluation as read-only, so protect it before any page script. Selection
     // prepares separately before the dispatch uncertainty flag is set.
-    if(method!=='selectOptions'&&popupPreparationRequired){const preparation=await armPopups();if(preparation)throw Object.assign(new Error('Popup preparation stopped the original evaluation'),{browserBoundary:preparation});}
+    const perExpression=pageDriver?.evaluationPreparation==='per_expression';
+    const prepareEvaluation=async()=>{
+      if(!popupPreparationRequired)return;
+      const preparation=await armPopups();if(preparation)throw Object.assign(new Error('Popup preparation stopped the original evaluation'),{browserBoundary:preparation});
+    };
+    // Native inventory can restore a suspended realm without page execution.
+    // Its frame driver protects each later expression instead of requiring the
+    // old realm before the inventory. Legacy drivers keep their early gate.
+    if(method!=='selectOptions'&&!perExpression)await prepareEvaluation();
     navigationRef ||= method==='observe'?initialNavigationReference:null;
     if(navigationRef===initialNavigationReference&&navigationRef&&!initialNavigationDocument)
       return{ok:false,error:{code:'navigation_unproven',message:'The original initial navigation has not proved its committed document',effect_may_have_occurred:false}};
-    if(pageDriver){const result=await pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{...(navigationRef?{navigation_ref:navigationRef}:{}),checkpoint:async()=>{
+    if(pageDriver){const result=await pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{...(navigationRef?{navigation_ref:navigationRef}:{}),
+      ...(perExpression?{beforeEvaluate:prepareEvaluation,...(method==='selectOptions'?{onDispatch:()=>{dispatched=true;}}:{})}:{}),checkpoint:async()=>{
       const checked=await guard(true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
     }});
       // A driver must not publish a payload after the initial record changed,
@@ -635,8 +644,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         inputTarget={input_document:fresh.native_target.document,input_ref:fresh.native_target.ref};
       if (params.op === "select") {
         const checked = await guard(true);if(checked.handled)return checked;
-        const preparation=await armPopups(checked);if(preparation)return preparation;
-        dispatched = true;
+        if(pageDriver?.evaluationPreparation!=='per_expression'){
+          const preparation=await armPopups(checked);if(preparation)return preparation;
+          dispatched = true;
+        }
         const selected = await read("selectOptions",pinned);
         if (!selected.ok) { if(selected.error?.effect_may_have_occurred===false)dispatched=false;return {handled:true,result:selected}; }
         dispatched = Boolean(selected.dispatched);

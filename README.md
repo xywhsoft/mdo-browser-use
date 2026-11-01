@@ -295,6 +295,14 @@ pressed-state cleanup, cancellation and immutable-parameter checks, together
 with the retained protocol/ownership gates. DOM/provider/events are doubled;
 installed Android input and full automation remain unqualified.
 
+After that gate compiles the shared QA classes, run
+`node tools/android_frontend_recovery_probe.mjs` to join the actual shared
+dispatcher/frame driver to JVM product state, frame and preparation fragments.
+It reproduces the old preparation-before-inventory refusal, then exercises
+observation, waiting and cancellation after UI suspension, with actual native
+envelope validation and original close receipts. UI, protocol transport and page
+values are controlled; this does not qualify an installed Android provider.
+
 With that native gate current and the single headless development service running,
 `python tools/android_save_probe.py` joins the exact Android download command
 fragment and real JVM/JNI controller/file queue to the shared JavaScript save

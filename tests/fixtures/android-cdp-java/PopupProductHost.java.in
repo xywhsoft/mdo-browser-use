@@ -126,6 +126,7 @@ final class PopupProductHost {
     // worker/source receipt or add a production escape hatch for this test.
     <T>T preparationOriginal(String name,Class<T> type)throws Exception{java.lang.reflect.Field field=MdoBrowserCdpPopupPreparation.class.getDeclaredField(name);field.setAccessible(true);return type.cast(field.get(protocolPopupPreparations.get("root").preparation));}
     void preparationRpc(JSONObject request)throws Exception{executePopupPreparation("root","preparation",views.get("root"),request);}
+    void preparationRpc(String key,JSONObject request)throws Exception{executePopupPreparation(key,"preparation",views.get(key),request);}
     void requirePreparation()throws Exception{requireProtocolPopupPreparation("root",views.get("root"));}
     void constructPrepared(String pending,String key,int timeout,ProtocolPopupCreated ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
         constructPreparedProtocolPopup("root",views.get("root"),pending,key,timeout,ready,failure);

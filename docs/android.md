@@ -5944,6 +5944,31 @@ These contracts are controlled product integration evidence. Native navigation,
 upload/takeover integration, public recovery/arming and provider/device
 qualification remain separate work; the new routing flag does not enable them.
 
+### Recovery before page-expression preparation
+
+The shared frame driver now lets fixed native inventory/warmup restore a
+suspended original document before asking for popup protection. Each subsequent
+page expression waits for the originating action's preparation acknowledgment
+and a fresh cancellation/ownership/deadline checkpoint. Both the frame reader
+and direct frame methods use this gate. Legacy single-document drivers retain
+their earlier preparation order. This changes no native admission or stale-pin
+rules and never retries a page mutation.
+
+The internal driver declares `evaluationPreparation:"per_expression"` and
+honors the read control's `beforeEvaluate` hook. Its synchronous `onDispatch`
+notification applies only at an actual selection expression, after the gate.
+Thus cancellation during selection lookup/preparation is still un-dispatched;
+lost results after the actual mutation retain uncertainty. Callbacks are trusted
+host controls, never model parameters or page-world functions.
+
+The cross-layer development probe uses actual dispatcher/driver/reader code,
+actual product state/frame/preparation/close fragments and JNI envelope
+validation. Four sequential cases cover the old-order refusal, restored
+observation/waiting and cancellation with zero page expressions. Each uses its
+original Browser wire/native proof and confirms actual close cleanup. Android
+UI, protocol transport and page values remain controlled; framework/provider/
+device qualification and public admission remain false.
+
 
 ### E162 scope-issued network-source retirement receipts
 

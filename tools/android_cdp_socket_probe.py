@@ -310,6 +310,7 @@ def main():
                 or popup_worker.get('product_protected_input_tested') is not mode.startswith('preparation-page-input-')
                 or popup_worker.get('product_nested_adoption_tested') is not mode.startswith('preparation-publication-nested-')
                 or popup_worker.get('product_document_state_tested') is not mode.startswith('preparation-publication-state-')
+                or popup_worker.get('product_frontend_recovery_tested') is not mode.startswith('preparation-publication-frontend-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')

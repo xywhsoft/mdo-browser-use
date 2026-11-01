@@ -133,6 +133,16 @@ The legacy single-document `automation` route refuses these popups, including
 before their native handoff has finished. C and JS callers use the same native
 JSON interface; frame/document pins still come from an explicit frame inventory.
 
+Internally, the shared native frame driver declares
+`evaluationPreparation:"per_expression"`. It may perform fixed native inventory
+before the read control's asynchronous `beforeEvaluate` callback, but invokes
+that callback and rechecks the original action before every page expression.
+Thrown action boundaries survive reader error handling unchanged. The optional
+synchronous `onDispatch` notification is issued only immediately before a
+mutating expression is sent. This is a trusted host-driver agreement, not a new
+public C/JS service or a model-supplied callback interface. Legacy drivers keep
+their earlier preparation path; native ownership/effect receipts remain final.
+
 The internal `frame-reader.js` now combines one isolated local-frame runtime
 per document. It prevents duplicate same-origin traversal, namespaces element
 references by native frame/document and local runtime identity, and detects

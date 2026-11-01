@@ -21,18 +21,29 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
       catch(error){interruption=error;throw error;}
       if(performance.now()>=deadline)throw issue('timed_out','The frame operation deadline expired');
     };
-    const native=async(command,params)=>{await check();try{return await execute(command,{...params,...(control.navigation_ref?{navigation_ref:control.navigation_ref}:{})});}finally{await check();}};
+    const beforeEvaluation=async()=>{
+      // Inventory/bootstrap is native-only. Every page expression, through
+      // either reader or direct method, waits for the original action's gate.
+      if(!control.beforeEvaluate)return;
+      try{await control.beforeEvaluate();}catch(error){interruption=error;throw error;}
+      await check();
+    };
+    const native=async(command,params)=>{
+      await check();if(command==='frames'&&params.action==='evaluate')await beforeEvaluation();
+      try{return await execute(command,{...params,...(control.navigation_ref?{navigation_ref:control.navigation_ref}:{})});}finally{await check();}
+    };
     const reader=createFrameReader({execute:(command,params)=>native(command,params),checkpoint:check});
     const fromReader=async(name,args)=>{const result=await reader[name]({...args,timeout_ms:Math.max(1,deadline-performance.now())});if(interruption)throw interruption;return result;};
     async function evaluate(route,name,args){
-      await check();
+      await check();await beforeEvaluation();
+      const request={action:'evaluate',agent:true,frame:route.frame,document:route.frame_document,
+        script:`(${browserRuntime.toString()})({local_frame:true}).${name}(${JSON.stringify(args)})`};
       // Read helpers can be retried by their caller. Mutations retain uncertainty
       // from the instant their request is sent, including lost/error replies.
-      if(mutations.has(name))possibleEffect=true;
+      if(mutations.has(name)){control.onDispatch?.();possibleEffect=true;}
       let result;
       try{
-        result=await execute('frames',{action:'evaluate',agent:true,frame:route.frame,document:route.frame_document,
-          script:`(${browserRuntime.toString()})({local_frame:true}).${name}(${JSON.stringify(args)})`});
+        result=await execute('frames',request);
         if(!result?.ok&&result?.error?.evaluation_may_have_occurred===false)possibleEffect=false;
       }finally{await check();}
       if(!result?.ok){
@@ -206,5 +217,5 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
         message:String(error?.message||'Frame operation failed').slice(0,256),effect_may_have_occurred:possibleEffect}};
     }
   }
-  return Object.freeze({read});
+  return Object.freeze({read,evaluationPreparation:'per_expression'});
 }

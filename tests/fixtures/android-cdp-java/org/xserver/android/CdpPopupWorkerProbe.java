@@ -2674,6 +2674,43 @@ public final class CdpPopupWorkerProbe {
         if(!hidden&&!viewport&&!restoring)check(renderer.worlds.createCalls==calls);check(renderer.worlds.evaluations==effects&&backend.nativeOpens.get()==proofs&&backend.opens.get()==connections);
         return new JSONObject().put("native_adapter",true).put("read_only",true).put("legacy_world_queries",original.worldQueries-queries).put("phase_checked",phase).put("ready_checked",expectedReady).put("startup_checked",startup!=null).put("explicit_restore_checked",hidden||viewport||restoring).put("provider_qualified",false);
     }
+    private static JSONObject frontendRecovery(CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        final String document="d-00000000-0000-4000-8000-000000000169";AtomicInteger scripts=new AtomicInteger(),preparations=new AtomicInteger();
+        product.windows.put("owned",new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}},
+            new MdoBrowserPopups.Budget(8),()->product.views.owns("owned",view),()->product.views.epoch("owned",view),blocked->{if(blocked){product.views.input("owned",view).invalidate("popup_pending");product.invalidatePopupDocument("owned","popup_pending");}}));
+        renderer.worlds.evaluation=(context,expression)->{
+            String prefix="({local_frame:true}).";int begin=expression.lastIndexOf(prefix);if(begin<0)throw new AssertionError("Unexpected frontend expression");
+            String tail=expression.substring(begin+prefix.length()),method=tail.substring(0,tail.indexOf('('));
+            if(!method.equals("describe")&&!method.equals("observe"))throw new AssertionError("Unexpected frontend method");scripts.incrementAndGet();
+            JSONObject result=new JSONObject().put("ok",true).put("document",document).put("ready","complete").put("url","https://original.invalid/page").put("title","Controlled popup")
+                .put("viewport",new JSONObject().put("width",320).put("height",240));
+            if(method.equals("observe"))result.put("text","Restored original native popup").put("elements",new org.json.JSONArray()).put("frames",new org.json.JSONArray().put(new JSONObject().put("id","f0").put("dom",true))).put("visited",1).put("truncated",false);
+            return result;
+        };
+        product.bounds(view,new JSONObject().put("browser","owned").put("visible",false));product.bounds(view,new JSONObject().put("browser","owned").put("visible",true));
+        check(!product.inspectDocumentState("owned").getBoolean("ready"));
+        System.out.println(new JSONObject().put("event","ready").put("provider_qualified",false));System.out.flush();
+        java.io.BufferedReader input=new java.io.BufferedReader(new java.io.InputStreamReader(System.in,StandardCharsets.UTF_8));String line;
+        while((line=input.readLine())!=null){
+            if(line.length()>300000)throw new AssertionError("Frontend fixture request limit");JSONObject request=new JSONObject(line);int id=request.getInt("id");String command=request.getString("command");
+            JSONObject result=null;
+            if(command.equals("fixture_finish")){System.out.println(new JSONObject().put("id",id).put("result",new JSONObject().put("ok",true)));System.out.flush();break;}
+            if(command.equals("state"))result=new JSONObject().put("automation",true).put("platform","android-webview").put("loading",false).put("navigation",product.views.epoch("owned",view))
+                .put("frame_automation",product.inspectFrameRouting("owned")).put("isolated_world",product.inspectDocumentState("owned"))
+                .put("popup_preparation_required",true).put("popup_preparation_capability",true);
+            else if(command.equals("popup_prepare")){
+                int count=product.publicCounts.getOrDefault("preparation",0);preparations.incrementAndGet();product.preparationRpc("owned",request.getJSONObject("params"));
+                waitFor(()->product.publicCounts.getOrDefault("preparation",0)==count+1,host,true);result=product.publicReplies.get("preparation");
+            }else if(command.equals("frames")){
+                int count=product.publicCounts.getOrDefault("frames",0);JSONObject params=request.getJSONObject("params");params.put("command","frames");product.frameRpc("owned",params);
+                waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);result=product.publicReplies.get("frames");
+            }else throw new AssertionError("Unsupported frontend fixture command");
+            System.out.println(new JSONObject().put("id",id).put("result",result));System.out.flush();
+        }
+        check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0&&view.destroyed==0);
+        return new JSONObject().put("actual_product_frontend",true).put("worlds",renderer.worlds.created).put("expressions",scripts.get()).put("preparations",preparations.get())
+            .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+    }
     private static void productPublication(String mode,String directory)throws Exception {
         boolean restoring=mode.startsWith("preparation-restore-");String variant=mode.substring((restoring?"preparation-restore-":"preparation-publication-").length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         boolean hidden=restoring||variant.equals("hidden"),download=variant.startsWith("download")||variant.equals("state-download"),invalid=variant.equals("invalid-layout")||variant.equals("foreign-pending");
@@ -2746,6 +2783,7 @@ public final class CdpPopupWorkerProbe {
                                 }
                                 if(variant.startsWith("nested-"))frameRouteEvidence=nestedPopup(variant,host,backend,product,exact[0],renderer[0]);
                                 if(variant.startsWith("state-"))frameRouteEvidence=popupDocumentState(variant,host,product,exact[0],backend,renderer[0],startup[0]);
+                                if(variant.startsWith("frontend-"))frameRouteEvidence=frontendRecovery(host,backend,product,exact[0],renderer[0]);
                                 if(sourceCrash){
                                     backend.wire.add(new JSONObject().put("method","Inspector.targetCrashed").put("sessionId","proof-real").put("params",new JSONObject()));
                                     waitFor(()->backend.closes.get()>0,host,true);
@@ -3300,6 +3338,7 @@ public final class CdpPopupWorkerProbe {
         report.put("product_protected_input_tested",mode.startsWith("preparation-page-input-"));
         report.put("product_nested_adoption_tested",mode.startsWith("preparation-publication-nested-"));
         report.put("product_document_state_tested",mode.startsWith("preparation-publication-state-"));
+        report.put("product_frontend_recovery_tested",mode.startsWith("preparation-publication-frontend-"));
         if(frameRouteEvidence!=null)report.put("product_frame_route",frameRouteEvidence);
         report.put("product_publication_tested",mode.startsWith("preparation-publication-")||mode.startsWith("preparation-restore-"));
         report.put("product_document_restore_tested",mode.startsWith("preparation-restore-"));

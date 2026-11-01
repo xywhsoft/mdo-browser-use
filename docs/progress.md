@@ -13055,3 +13055,83 @@ final-deliverable gates remain open. This is private integration, not Android
 framework/provider/device qualification. Phone/current WebView remain deferred,
 with no ADB, live model, external page or production action. The overall goal
 remains active.
+
+### E169 frame recovery and per-expression popup protection
+
+The actual shared dispatcher requested popup preparation before its frame
+driver could read inventory. A UI-suspended protected page needs that fixed
+inventory to restore first; the native preparation route correctly refuses an
+unready document. Observation and wait therefore failed with
+`popup_protection_unavailable`. The two real dispatcher/driver/reader
+reproductions fail in `.mdo/E169-frame-order-red.log`.
+
+The native frame driver now declares an internal per-expression preparation
+contract. Fixed native inventory/bootstrap may run first; both reader and
+direct-method page expressions await the original action's protection gate and
+then recheck cancellation, ownership and deadline. Legacy drivers keep their
+early gate. Native admission, epochs, frame/document pins, navigation references,
+limits and effect receipts are unchanged. This is no effect replay or public
+automation enablement. Selection marks dispatch only at the actual mutating
+expression, after that gate, instead of before its preceding lookup/read work.
+
+Ten focused JS cases cover observation/wait, every-expression preparation,
+cancellation/manual/navigation/owner loss, capability/inventory refusal, deadline,
+stale pins, selection before/after-send/lost/refused receipts, preserved thrown
+boundaries and hosts without the preparation contract. The existing targeted
+dispatcher/frame/initial-observation checks also pass. See
+`.mdo/E169-frame-controls.log` and `.mdo/E169-frame-first.log`.
+
+The new sequential frontend probe joins actual shared JS code to the original
+JVM product state/frame/preparation/close fragments and JNI envelope validation.
+Its framework window controller, transport and returned page values are
+controlled. With the old driver order, the actual native preparation refuses
+before restoration. Restored observation and waiting both use one original
+Browser wire/native proof, create only their explicit replacement world and
+run two page expressions. Cancellation after preparation runs zero expressions.
+All four cases finish with confirmed actual native close cleanup. The fixture's
+previous omission of the owned window controller was corrected to model the
+existing framework seam; no native proof/admission was bypassed. Evidence:
+`.mdo/E169-native-frontend-first.log`,
+`.mdo/E169-native-frontend-second.log`, and
+`.mdo/android-frontend-recovery-result.json`.
+
+Fresh native436 modes/16,553 reported checks pass with all130 input hashes
+current. All earlier mode semantic receipts are unchanged; only raw diagnostic
+check counts differ (they are not a coverage invariant). Original loading-timeout
+detach/native destroy/source/Broker cleanup remains confirmed. Full protocol,
+input/capture/upload/download, ASan/UBSan and API26 C gates pass. The cross-layer
+four-case probe passes again after that full compile, with current class/library
+and JS/product source hashes. See `.mdo/E169-native.log`,
+`.mdo/E169-native-frontend-final.log` and
+`.mdo/E169-semantic-differences.json`.
+
+Fresh Python178/180 passes with two existing Windows symlink-privilege skips;
+JS476, popup122/25/7 and creation850/async-close77 pass. The actual Windows public
+C/JS SDK passes19 actions, four navigations and five wait conditions. Full visual
+input/privacy/drag/managed read-only gates pass. The newly packed program passes
+12 actual runtime checks in the same Home, including default-workspace SDK,
+paired plugin, native observation/input/capture, reset failure/recovery and close.
+Its existing official update policy is preserved and its development channel
+remains disabled. The packaging probe initially refused because the command
+sequence restarted the development service too early; stopping it before the
+probe corrected the invocation without a product change. See
+`.mdo/E169-sdk.log`, `.mdo/E169-visual.log` and
+`.mdo/E169-packed-runtime.log`. The old isolated mount timeout did not recur;
+its historical cause remains unconfirmed and is not attributed to this fix.
+
+The fresh Windows executable is6,941,992 bytes, SHA-256
+`8503e6ad98aa9aa1501f6c57d7b00a05bb107b25b3b630fb40ec5d2273109c0e`.
+The signed Android development APK is rebuilt from that exact exercised archive:
+6,579,521 bytes, SHA-256
+`f2e9683235e39c74ad8f98026b3b3e695808b6c96ea3793d564d98e0f52ebc49`.
+Actual DEX96 definition groups, same QA identity/signer, paired plugin, deployed
+overlays, APK/archive/source identities and headless HTTP200 verify together in
+`.mdo/E169-verification.json` and `.mdo/E169-verification.log`. The unchanged
+plugin is source/hash verified and exercised by the fresh packed runtime.
+No temporary product logging was added.
+
+This completes the shared recovery/protection ordering and selection-dispatch
+accounting phase. Protected upload/navigation/takeover, overall Android admission
+and platform/final-deliverable qualification remain open. Phone/current WebView
+stay deferred; no ADB, live model, external site or production action was used.
+The overall goal remains active.
