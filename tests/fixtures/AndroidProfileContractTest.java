@@ -106,12 +106,58 @@ public final class AndroidProfileContractTest {
         rejects("browser_profile_unconfirmed",()->oom.install("no fallback after allocation failure"));
         oom.close();check(!oom.cleanupConfirmed(),"Fatal native acknowledgement loss was reported clean");oom.viewDestroyed(exhausted);check(oom.cleanupConfirmed(),"Exact native destruction did not settle allocation failure");mode("success");
     }
+    private static void standalone(ClassLoader loader)throws Exception{
+        invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE"});mode("success");
+        int worlds=calls("getJavaScriptWorld"),scripts=calls("addJavaScriptOnEvent"),listeners=calls("addWebMessageListener"),creates=calls("create"),sets=calls("setProfile"),gets=calls("getProfile");
+        Object parentView=view();rejects("isolated_world_unsupported",()->open(parentView,loader));check(calls("create")==creates,"Unqualified world instantiated a provider");
+        MdoBrowserProfile parent=MdoBrowserProfile.open(parentView,loader);
+        check(parent.supported()&&parent.name()==null&&calls("getProfile")==gets&&calls("setProfile")==sets,"Opening a profile locked or mutated the default association");
+        parent.assign("qa.native-original");parent.assign("qa.native-original");parent.seal();
+        check(parent.name().equals("qa.native-original")&&calls("setProfile")==sets+1&&calls("getProfile")==gets+1,"Original standalone profile was not acknowledged exactly once");
+        Object aView=view(),bView=view();MdoBrowserProfile a=MdoBrowserProfile.inherit(aView,loader,parent),b=MdoBrowserProfile.inherit(bView,loader,parent);
+        check(a.name().equals(parent.name())&&b.name().equals(parent.name())&&calls("setProfile")==sets+3&&calls("getProfile")==gets+3,"Native children did not inherit the original confirmed namespace");
+        check("qa.native-original".equals(invoke("profileName",new Class<?>[]{Object.class},aView))&&"qa.native-original".equals(invoke("profileName",new Class<?>[]{Object.class},bView)),"Inheritance guessed profile identity without native readback");
+        parent.close();check(parent.name()==null&&parent.cleanupConfirmed()&&a.name().equals("qa.native-original")&&b.name().equals("qa.native-original"),"Closing the opener retired independent child profiles");
+        rejects("world_profile_order",()->a.assign("qa.other"));a.close();a.close();check(a.cleanupConfirmed()&&b.name().equals("qa.native-original"),"Child close changed another native owner");
+        check("qa.native-original".equals(invoke("profileName",new Class<?>[]{Object.class},aView)),"Logical close reset or deleted native profile data");b.close();
+        check(calls("getJavaScriptWorld")==worlds&&calls("addJavaScriptOnEvent")==scripts&&calls("addWebMessageListener")==listeners,"Profile-only inheritance granted script/world/listener access");
+        for(java.lang.reflect.Field field:MdoBrowserProfile.class.getDeclaredFields())check(field.getType()!=MdoBrowserProfile.class,"Child retained its opener profile owner");
+        invoke("features",new Class<?>[]{String[].class},(Object)new String[]{});creates=calls("create");sets=calls("setProfile");
+        rejects("browser_profile_unsupported",()->MdoBrowserProfile.open(view(),loader));check(calls("create")==creates&&calls("setProfile")==sets,"Missing profile support fell back to native/default mutation");
+    }
+    private static void inheritanceFailures(ClassLoader loader)throws Exception{
+        invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE"});mode("success");
+        Object parentView=view();MdoBrowserProfile parent=MdoBrowserProfile.open(parentView,loader);int creates=calls("create");
+        rejects("browser_profile_source_invalid",()->MdoBrowserProfile.inherit(view(),loader,parent));parent.assign("qa.original");
+        rejects("browser_profile_source_invalid",()->MdoBrowserProfile.inherit(parentView,loader,parent));
+        rejects("browser_profile_source_invalid",()->MdoBrowserProfile.inherit(view(),ClassLoader.getPlatformClassLoader(),parent));
+        rejects("browser_profile_source_invalid",()->MdoBrowserProfile.inherit(view(),loader,null));check(calls("create")==creates,"Invalid inheritance source allocated a provider");
+        java.util.concurrent.atomic.AtomicReference<Throwable> foreign=new java.util.concurrent.atomic.AtomicReference<>();
+        Thread thread=new Thread(()->{try{parent.name();}catch(Throwable error){foreign.set(error);}});thread.start();thread.join();check(foreign.get() instanceof IllegalStateException,"Profile ownership crossed the original UI thread");
+        for(String fault:new String[]{"profile_ignore","profile_set_before_throw","profile_set_after_throw","profile_get_throw","profile_no_handler","profile_null","profile_name_throw","profile_name_null","profile_name_number","profile_mismatch"}){
+            int sets=calls("setProfile"),worlds=calls("getJavaScriptWorld");Object child=view();mode(fault);
+            rejects("browser_profile_unconfirmed",()->MdoBrowserProfile.inherit(child,loader,parent));
+            check(calls("setProfile")==sets+1&&calls("getJavaScriptWorld")==worlds&&parent.name().equals("qa.original"),"Failed child profile retried, granted a world or damaged the source");mode("success");
+        }
+        Object original=view();MdoBrowserProfile direct=MdoBrowserProfile.open(original,loader);mode("profile_set_after_throw");int sets=calls("setProfile");
+        rejects("browser_profile_unconfirmed",()->direct.assign("qa.direct"));direct.close();check(!direct.cleanupConfirmed()&&direct.name()==null,"Acknowledgment loss was reported clean");
+        try{direct.viewDestroyed(view());throw new AssertionError("Foreign native destruction released uncertainty");}catch(IllegalStateException expected){check(true,"exact destruction");}
+        direct.viewDestroyed(original);check(direct.cleanupConfirmed()&&calls("setProfile")==sets+1,"Exact native teardown retried or retained profile uncertainty");mode("success");
+        Object child=view();sets=calls("setProfile");int gets=calls("getProfile");invoke("profileHook",new Class<?>[]{Runnable.class},(Runnable)parent::close);
+        rejects("browser_profile_owner_changed",()->MdoBrowserProfile.inherit(child,loader,parent));
+        check(calls("setProfile")==sets+1&&calls("getProfile")==gets+1&&"qa.original".equals(invoke("profileName",new Class<?>[]{Object.class},child)),"Changed opener hid or replayed a completed child assignment");
+        creates=calls("create");rejects("browser_profile_source_invalid",()->MdoBrowserProfile.inherit(view(),loader,parent));check(calls("create")==creates,"Closed opener admitted a replacement child");
+        MdoBrowserProfile before=MdoBrowserProfile.open(view(),loader);before.assign("qa.before");sets=calls("setProfile");
+        invoke("providerHook",new Class<?>[]{Runnable.class},(Runnable)before::close);
+        rejects("browser_profile_owner_changed",()->MdoBrowserProfile.inherit(view(),loader,before));check(calls("setProfile")==sets,"Retired opener assigned a child after provider allocation");
+        invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"JS_INJECTION_IN_FRAME_AND_WORLD","MULTI_PROFILE"});
+    }
     public static void main(String[] args)throws Exception{
         try(URLClassLoader loader=new URLClassLoader(new URL[]{Paths.get(args[0]).toUri().toURL()},ClassLoader.getPlatformClassLoader())){
             remote=Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil",true,loader);
             check(remote.getClassLoader()!=AndroidProfileContractTest.class.getClassLoader(),"Provider loader was not foreign");
-            mode("success");unconfirmed(loader);confirmed(loader);validation(loader);document(loader);reentrant(loader);
-            System.out.println("{\"passed\":true,\"checks\":"+checks+",\"foreign_classloader\":true,\"original_view_readback\":true,\"no_profile_retry\":true,\"framework_verified\":false}");
+            mode("success");unconfirmed(loader);confirmed(loader);validation(loader);document(loader);reentrant(loader);standalone(loader);inheritanceFailures(loader);
+            System.out.println("{\"passed\":true,\"checks\":"+checks+",\"foreign_classloader\":true,\"standalone_profile_inheritance\":true,\"original_view_readback\":true,\"no_profile_retry\":true,\"framework_verified\":false}");
         }
     }
 }

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E143)
+## Complete development host APK (current: E144)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,546,753 bytes, SHA-256
-`3a67270d71647754ecfe8dfccca1f3fcd5f3418872d2f74bff3eded467d9334d`.
+`0ded7344edf364c647fa0c7aea1eed748a20d7ecd9b87e8049a3059f9a7c2e14`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5194,3 +5194,51 @@ binds their source hashes to E142 evidence and checks current sources/artifacts.
 The public Android gate remains disabled. Actual popup create/policy/UI/profile
 coordination, physical/document navigation lifetime, OOPIF/multi-child/process
 recovery and deferred phone/WebView qualification still require work.
+
+
+### E144: native profile ownership independent of isolated script worlds
+
+MdoBrowserProfile owns one exact native view's acknowledged profile association.
+Its standalone open/inherit path requires MULTI_PROFILE without requiring
+JS_INJECTION_IN_FRAME_AND_WORLD or message listeners. The existing world adapter
+now delegates to this same implementation; its duplicated profile state was
+removed. Both paths reuse the existing bounded feature inspection and strict
+foreign-classloader method binding. No browser/runtime library was added.
+
+A profile is assigned once before other WebView use, then read back on that
+exact native provider. Sealing forbids later reassignment. Acknowledgment loss
+stays uncertain after logical close and is settled only by the exact original
+view's destruction; no setter replay/default-profile fallback is allowed.
+Inheritance accepts only a confirmed original, another view and the same
+provider classloader. Recheck the source after provider allocation and after
+assignment, so retirement during either native callback cannot publish a child.
+The returned child is sealed and retains no parent owner. Closing one owner
+neither closes siblings nor resets/deletes the native named profile data.
+
+These handles acknowledge configuration, not native window freshness, page
+identity, permissions or transport ownership. Callers still own fresh native
+construction and teardown, including when inheritance fails after a setter.
+Root/network and protected-popup creation must next use the independent profile
+handle before settings, navigation or transport; they still depend on the
+unfinished product coordinator. Public Android automation remains disabled.
+This change does not claim that the installed deferred WebView supports profiles.
+
+The actual world/profile code passes Java 8 compilation against controlled
+published boundary signatures in a foreign loader. Eighty new inheritance checks
+cover profile-only capability, no world/listener grants, source/provider/thread
+mismatch, parent close, independent siblings, failures before/after setter,
+readback errors and ownership loss during provider allocation/assignment. Profile
+checks total 270; existing world/document/native-budget checks remain 35/85/18.
+Full native passes 128 current inputs and 192 modes/7,428 checks. Fresh product
+798, popup 110/25/7, saving 47, Python 174/176 and real WebView2 301/six cycles
+pass. Two existing symlink privilege cases remain skipped. Windows program/paired
+plugin bytes are unchanged; packed-runtime evidence is scoped hash-checked reuse.
+
+The rebuilt full APK passes signing/layout/source/JNI and 59 actual class/method
+definition groups. Inspect the profile definition, its absence of a parent field
+and the world's single delegate with no parallel legacy profile state. The
+existing provider/framework/automation flags remain false. E144-world.log,
+E144-native.log, E144-frames-current.json, E144-dex-methods.json and
+E144-final-identities.py/log retain current evidence. Phone/WebView work remains
+deferred; complete product policy/UI/profile/lifetime and recovery qualification
+is still required before enabling the public adapter.

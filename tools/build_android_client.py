@@ -19,7 +19,7 @@ ROOT=Path(__file__).resolve().parents[1]
 INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActivity.java',
         'host/android/dev/AndroidManifest.xml','tools/build_android_client.py','host/android/browser-capabilities.inc.java',
         'host/android/dev/BrowserUseInputProbe.java','host/android/MdoBrowserInput.java','host/android/MdoBrowserInputTarget.java',
-        'host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserDocument.java',
+        'host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserDocument.java','host/android/MdoBrowserProfile.java',
         'host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserCapture.java',
         'host/android/MdoBrowserCaptureBuffer.java','host/android/MdoBrowserCaptureRuntime.java','host/android/MdoBrowserCaptureTarget.java',
         'host/android/MdoBrowserNativeCapture.java','host/android/dev/BrowserUseCaptureProbe.java',
@@ -39,7 +39,7 @@ INPUTS=('host/android/MdoBrowserWorld.java','host/android/dev/BrowserUseDevActiv
         'host/android/browser-popup-preparation.inc.java','host/android/browser-frame-router.inc.java','host/android/browser-close.inc.java','host/android/browser-network.inc.java','host/android/browser-network-navigation.inc.java','host/android/browser-downloads.inc.java','tools/update_android_owner_scripts.py',
         'host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/upload-picker-broker.js','tools/update_android_upload_broker.py')
 HOST_INPUTS=('tools/android/MdoBrowser.java','tools/android/MdoBrowserInput.java','tools/android/MdoBrowserInputTarget.java',
-    'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java',
+    'tools/android/MdoBrowserLifecycle.java','tools/android/MdoBrowserChannel.java','tools/android/MdoBrowserDocument.java','tools/android/MdoBrowserProfile.java',
     'tools/android/MdoBrowserNativeInput.java','tools/android/MdoBrowserWheel.java','tools/android/MdoBrowserCapture.java',
     'tools/android/MdoBrowserCaptureBuffer.java','tools/android/MdoBrowserCaptureRuntime.java','tools/android/MdoBrowserCaptureTarget.java',
     'tools/android/MdoBrowserNativeCapture.java','tools/android/MdoBrowserDialogs.java','tools/android/MdoBrowserDialogTarget.java',

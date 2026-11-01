@@ -721,7 +721,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))",
-      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))"
+      "after": "    shutil.copy2(Path(__file__).with_name('MdoBrowser.java'),source.with_name('MdoBrowser.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserWorld.java'),source.with_name('MdoBrowserWorld.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserProfile.java'),source.with_name('MdoBrowserProfile.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInput.java'),source.with_name('MdoBrowserInput.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserInputTarget.java'),source.with_name('MdoBrowserInputTarget.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserLifecycle.java'),source.with_name('MdoBrowserLifecycle.java'))\n    shutil.copy2(Path(__file__).with_name('MdoBrowserDocument.java'),source.with_name('MdoBrowserDocument.java'))"
     },
     {
       "path": "tools/android/MdoBrowser.java",
@@ -1883,6 +1883,10 @@
     {
       "source": "host/android/MdoBrowserCdpPopupPreparation.java",
       "target": "tools/android/MdoBrowserCdpPopupPreparation.java"
+    },
+    {
+      "source": "host/android/MdoBrowserProfile.java",
+      "target": "tools/android/MdoBrowserProfile.java"
     }
   ]
 }

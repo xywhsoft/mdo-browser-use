@@ -45,9 +45,9 @@ final class MdoBrowserWorld implements AutoCloseable {
     private final Object view;private final ClassLoader loader;private final InvocationHandler provider;
     private final Scheduler scheduler;private final Receiver receiver;private final Thread owner=Thread.currentThread();
     private final Set<Pending> pending=new HashSet<>();private final Set<NativeCall> outstanding=new HashSet<>();
-    private final boolean profiles;private final Budget budget;
+    private final MdoBrowserProfile profile;private final Budget budget;
     private InvocationHandler script;private Peer current;private boolean listening,closed,scriptUncertain;
-    private boolean profileAttempted,profileUncertain,installAttempted;private String assignedProfile;
+    private boolean installAttempted;
 
     static Features inspect(ClassLoader loader) throws Failure {
         if(loader==null)throw new Failure("world_provider_unavailable");
@@ -69,14 +69,16 @@ final class MdoBrowserWorld implements AutoCloseable {
         if(view==null||loader==null||scheduler==null||receiver==null||budget==null)throw new Failure("world_arguments_invalid");budget.used();
         Features features=inspect(loader);
         if(!features.isolatedWorld)throw new Failure("isolated_world_unsupported");
+        return new MdoBrowserWorld(view,features.loader,provider(features,view),scheduler,receiver,features.profiles,budget);
+    }
+    static InvocationHandler provider(Features features,Object view)throws Failure {
         try{
-            Object result=invoke(loader,features.factory,"WebViewProviderFactoryBoundaryInterface","createWebView",view);
-            if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");
-            return new MdoBrowserWorld(view,features.loader,(InvocationHandler)result,scheduler,receiver,features.profiles,budget);
+            Object result=invoke(features.loader,features.factory,"WebViewProviderFactoryBoundaryInterface","createWebView",view);
+            if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");return(InvocationHandler)result;
         }catch(Failure failure){throw failure;}catch(RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
     }
     private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,boolean profiles,Budget budget){
-        this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;this.profiles=profiles;
+        this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;profile=new MdoBrowserProfile(view,loader,provider,profiles);
         this.budget=budget;
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("World operations require their owning UI thread");}
@@ -84,7 +86,7 @@ final class MdoBrowserWorld implements AutoCloseable {
         if(value==null)return!type.isPrimitive();if(type.isInstance(value))return true;
         return type==int.class&&value instanceof Integer||type==boolean.class&&value instanceof Boolean||type==long.class&&value instanceof Long;
     }
-    private static Object invoke(ClassLoader loader,InvocationHandler handler,String name,String operation,Object... values) throws Failure {
+    static Object invoke(ClassLoader loader,InvocationHandler handler,String name,String operation,Object... values) throws Failure {
         try{
             Class<?> boundary=Class.forName(PREFIX+name,false,loader);Method selected=null;
             for(Method method:boundary.getMethods()){
@@ -97,32 +99,15 @@ final class MdoBrowserWorld implements AutoCloseable {
             return handler.invoke(null,selected,values);
         }catch(VirtualMachineError|ThreadDeath fatal){throw fatal;}catch(Failure failure){throw failure;}catch(Throwable error){throw new Failure("world_boundary_failed");}
     }
-    boolean supportsProfile(){return profiles;}
+    boolean supportsProfile(){return profile.supported();}
     void profile(String name) throws Failure {
-        thread();if(profileUncertain)throw new Failure("browser_profile_unconfirmed");
-        if(closed||installAttempted||profileAttempted&&!java.util.Objects.equals(name,assignedProfile))throw new Failure("world_profile_order");
-        if(!profiles)throw new Failure("browser_profile_unsupported");
-        if(name==null||name.equals("Default")||!name.matches("[A-Za-z0-9._-]{1,80}"))throw new Failure("world_profile_invalid");
-        if(profileAttempted)return;
-        // setProfile must precede all other WebView use. Reading the previous
-        // profile first would itself lock that profile on Android. Admit only
-        // one mutation, then prove the exact native view's returned association.
-        profileAttempted=true;profileUncertain=true;
-        try{
-            invoke(loader,provider,"WebViewProviderBoundaryInterface","setProfile",name);
-            if(closed)throw new Failure("browser_profile_unconfirmed");
-            Object profile=invoke(loader,provider,"WebViewProviderBoundaryInterface","getProfile");
-            if(closed||!(profile instanceof InvocationHandler))throw new Failure("browser_profile_unconfirmed");
-            Object actual=invoke(loader,(InvocationHandler)profile,"ProfileBoundaryInterface","getName");
-            if(closed||!name.equals(actual))throw new Failure("browser_profile_unconfirmed");
-            assignedProfile=name;profileUncertain=false;
-        }catch(Failure failure){throw new Failure("browser_profile_unconfirmed");}
+        thread();profile.available();if(closed||installAttempted)throw new Failure("world_profile_order");profile.assign(name);
     }
     void install(String bootstrap) throws Failure {
-        thread();if(profileUncertain)throw new Failure("browser_profile_unconfirmed");
+        thread();profile.available();
         if(closed||installAttempted)throw new Failure("world_install_order");
         if(!bounded(bootstrap,131072))throw new Failure("world_script_limit");
-        installAttempted=true;
+        profile.seal();installAttempted=true;
         Object world=invoke(loader,provider,"WebViewProviderBoundaryInterface","getJavaScriptWorld",WORLD);
         if(!(world instanceof Integer)||((Integer)world)<=0)throw new Failure("isolated_world_unsupported");
         InvocationHandler listener=(proxy,method,args)->{
@@ -227,14 +212,14 @@ final class MdoBrowserWorld implements AutoCloseable {
     int sharedOutstanding(){thread();return budget.used();}
     int sharedLimit(){thread();return budget.limit();}
     @Override public void close(){
-        thread();if(!closed){closed=true;invalidate();for(Pending job:new ArrayList<>(pending))job.finish(null,"world_closed");}
+        thread();profile.close();if(!closed){closed=true;invalidate();for(Pending job:new ArrayList<>(pending))job.finish(null,"world_closed");}
         if(script!=null)try{invoke(loader,script,"ScriptHandlerBoundaryInterface","remove");script=null;}catch(Failure failure){receiver.fault("world_script_cleanup_failed");}
         if(listening)try{invoke(loader,provider,"WebViewProviderBoundaryInterface","removeWebMessageListener",LISTENER,WORLD);listening=false;}catch(Failure failure){receiver.fault("world_listener_cleanup_failed");}
     }
     void viewDestroyed(Object original){
         thread();if(!closed||original!=view)throw new IllegalStateException("Confirm only the exact closed native view");
-        script=null;scriptUncertain=false;listening=false;profileUncertain=false;
+        script=null;scriptUncertain=false;listening=false;profile.viewDestroyed(original);
         for(NativeCall call:new ArrayList<>(outstanding))call.release();
     }
-    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&!profileUncertain&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
+    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&profile.cleanupConfirmed()&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
 }

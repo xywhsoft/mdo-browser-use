@@ -39,11 +39,11 @@ class CompiledManifestTests(unittest.TestCase):
 
 
 class ActualDexClassesTests(unittest.TestCase):
-    def test_reviewed_cdp_sources_are_both_compiled_and_hashed(self):
+    def test_reviewed_native_sources_are_both_compiled_and_hashed(self):
         import build_android_client as client
         root=Path(__file__).resolve().parents[1]
         manifest=json.loads((root/'host/overlays.json').read_text(encoding='utf-8'))
-        sources=[row for row in manifest['files'] if row['source'].startswith('host/android/MdoBrowserCdp') and row['source'].endswith('.java')]
+        sources=[row for row in manifest['files'] if (row['source'].startswith('host/android/MdoBrowserCdp') or row['source']=='host/android/MdoBrowserProfile.java') and row['source'].endswith('.java')]
         self.assertTrue(sources)
         copied=set()
         for change in manifest['changes']:
@@ -70,7 +70,7 @@ class ActualDexClassesTests(unittest.TestCase):
         self.assertNotIn('org.json.JSONObject',names)
 
     def test_class_reference_cannot_substitute_for_implementation(self):
-        for required in ('MdoBrowserCdpPopupNative$UiRetention','MdoBrowserPopups$ProtocolUi','MdoBrowserCdpWorker$Guard','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoBrowserCdpNetworks$Navigation','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpBinding$Network','MdoBrowserCdpBinding$Network$Navigation','MdoBrowserCdpBinding$Network$Selection','MdoBrowserCdpNetworkRequests','MdoBrowserCdpNetworkRequests$Command','MdoBrowserCdpNetworkRequests$Receipt','MdoBrowserCdpNetworkRequests$Link','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Commit','MdoBrowserCdpNetworkFrames$Start','MdoBrowserCdpNetworkFrames$Traversal','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope',
+        for required in ('MdoBrowserProfile','MdoBrowserCdpPopupNative$UiRetention','MdoBrowserPopups$ProtocolUi','MdoBrowserCdpWorker$Guard','MdoBrowser$NetworkEntry','MdoBrowser$NativeNavigation','MdoBrowser$NavigationRequest','MdoBrowserCdpNetworks$Navigation','MdoBrowserCdpSession','MdoBrowserCdpSession$ControlReceipt','MdoBrowserCdpSession$ControlResult','MdoBrowserCdpSession$Navigation','MdoBrowserCdpSession$NavigationResult','MdoBrowserCdpBinding$Network','MdoBrowserCdpBinding$Network$Navigation','MdoBrowserCdpBinding$Network$Selection','MdoBrowserCdpNetworkRequests','MdoBrowserCdpNetworkRequests$Command','MdoBrowserCdpNetworkRequests$Receipt','MdoBrowserCdpNetworkRequests$Link','MdoBrowserCdpNetworkFrames','MdoBrowserCdpNetworkFrames$Origin','MdoBrowserCdpNetworkFrames$Commit','MdoBrowserCdpNetworkFrames$Start','MdoBrowserCdpNetworkFrames$Traversal','MdoBrowserCdpNetworkFrames$Frame','MdoBrowserCdpNetworkFrames$Scope',
                          'MdoBrowser$BrowserClose','MdoBrowser$NativeDestruction','MdoBrowserCdpPopupNative$Destruction','MdoBrowserCdpPopupNative$Retirement','MdoBrowserCdpPopupNative$Promotion','MdoBrowserCdpPopupBroker$Handoff','MdoBrowserCdpPopupBroker$DocumentPeer','MdoBrowserCdpPopupNative$Document','MdoBrowserCdpPopupNative$Source','MdoBrowserCdpPopupSource','MdoBrowserCdpPopupPreparation','MdoBrowserCdpPopupPreparation$Forward','MdoBrowserCdpPopupPreparation$Pending','MdoBrowserCdpPopupPreparation$Failure','MdoBrowserCdpPopupPreparation$Lost','MdoBrowser$PopupPreparation','MdoBrowser$NativeInputCompletion','MdoBrowserCdpDownloads$AttachedSource','MdoBrowserLifecycle$Independent','MdoBrowserCdpPopupNative$CloseGate','MdoBrowserCdpSession$CloseBarrier','MdoBrowserCdpSession$WireCancellation','MdoBrowserCdpNative$CancelHandle',
                          'MdoBrowserCdpNetworks','MdoBrowserCdpNetworks$Slot','MdoBrowserCdpNetworks$Result','MdoBrowserCdpSession$Cooperation','MdoBrowserCdpResponse',
                          'MdoBrowserCdpSession$AttachedResponse','MdoBrowserCdpSession$Body','MdoBrowserCdpSession$BodyResult','MdoBrowserCdpSession$BodyChunk',

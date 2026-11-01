@@ -60,9 +60,10 @@ public final class SupportLibReflectionUtil {
  public static void profileSeed(Object view,String name){profileNames.put(view,name);}
  public static void profileHook(Runnable hook){profileHook=hook;}
  public static void features(String[] value){features=value;}public static int calls(String prefix){int n=0;for(String value:calls)if(value.startsWith(prefix))n++;return n;}
+ private static Runnable providerHook;public static void providerHook(Runnable action){providerHook=action;}
  public static InvocationHandler createWebViewProviderFactory(){return(p,m,a)->{
   foreign(m);if(m.getName().equals("getSupportedFeatures"))return features;
-  if(m.getName().equals("createWebView")){calls.add("create");return provider(a[0]);}throw new UnsupportedOperationException();};}
+  if(m.getName().equals("createWebView")){calls.add("create");Runnable hook=providerHook;providerHook=null;if(hook!=null)hook.run();return provider(a[0]);}throw new UnsupportedOperationException();};}
  private static void foreign(Method method){if(method.getDeclaringClass().getClassLoader()!=SupportLibReflectionUtil.class.getClassLoader())throw new AssertionError("Wrong boundary class loader");}
  private static InvocationHandler provider(Object view){return(p,m,a)->{foreign(m);calls.add(m.getName());
   switch(m.getName()){
@@ -199,7 +200,7 @@ def main():
     paths=[]
     for name,text in SOURCES.items():
         target=source/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text,encoding='utf-8',newline='\n');paths.append(target)
-    production=[dev.ROOT/'host/android/MdoBrowserWorld.java',dev.ROOT/'host/android/MdoBrowserDocument.java']
+    production=[dev.ROOT/'host/android/MdoBrowserWorld.java',dev.ROOT/'host/android/MdoBrowserProfile.java',dev.ROOT/'host/android/MdoBrowserDocument.java']
     paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java',dev.ROOT/'tests/fixtures/AndroidProfileContractTest.java'])
     def linux(path):
         path=path.resolve().as_posix();return '/mnt/'+path[0].lower()+path[2:]
@@ -212,7 +213,7 @@ def main():
     report['document_checks']=json.loads(document.stdout.strip())['checks'];report['document_framework_verified']=False
     profile=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidProfileContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['profile']=json.loads(profile.stdout.strip())
-    if not report['profile'].get('passed') or report['profile'].get('framework_verified') is not False:
+    if not report['profile'].get('passed') or not report['profile'].get('standalone_profile_inheritance') or report['profile'].get('framework_verified') is not False:
         raise RuntimeError('Original-view profile assignment contract did not pass')
     budget=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidNativeBudgetContractTest',linux(classes)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['native_budget']=json.loads(budget.stdout.strip())

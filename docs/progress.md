@@ -15,6 +15,19 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E144:** extract one native profile owner from the isolated-world
+  adapter and implement acknowledged child inheritance. Profile-only providers
+  need `MULTI_PROFILE`, without script-world/listener support. Reuse the same
+  strict foreign-loader boundary dispatch; keep one setter, exact readback,
+  first-use sealing, UI-thread ownership and sticky acknowledgment loss.
+  Children retain no parent owner and survive its close. Eighty new assertions
+  raise profile checks to 270; world/document/budget checks remain 35/85/18.
+  Full native passes 128 inputs, 192 modes/7,428 checks; fresh product/popup/save,
+  Python 174/176 and real Windows 301/six cycles pass. Rebuilt APK passes 59
+  actual definition groups and verifies the single profile delegate. Public
+  Android automation/provider qualification stays disabled. Root/network and
+  popup construction still need the profile-only handle integrated before
+  ordinary WebView use; complete policy/UI/lifetime and device work remains.
 - **Android E143:** fix two confirmed false refusals introduced by preparation:
   an active process-protection fence blocked proved child handoff/activation/
   source/document operations, and also blocked reattaching an existing view.
@@ -11418,3 +11431,34 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   and process recovery plus outstanding Windows focus/dialog/delivery checks.
   Public Android automation and installed-provider qualification remain false;
   phone/WebView checks remain deferred at the user's request.
+
+
+### E144 — independent native profile binding and inherited configuration
+
+- Extract the actual profile state/readback/lifetime code from MdoBrowserWorld
+  into MdoBrowserProfile. Existing world calls delegate to it instead of keeping
+  another implementation. Shared native boundary dispatch remains strict and
+  uses the original provider classloader. Native profile-only open/inherit does
+  not require or install a script world, listener, browser or new runtime.
+- Preserve exact-view acknowledgment, first-use sealing and sticky unknown
+  setters. Inheritance checks the original confirmed namespace, native view and
+  provider identity before work and source lifetime after native callbacks.
+  Independent children keep no parent reference; close preserves native profile
+  data. Callers retain fresh-view/permission/teardown obligations.
+- Eighty new assertions pass; actual profile/world/document/budget checks are
+  270/35/85/18. Production classes compile as Java 8. Full native passes 128
+  current inputs and all 192 prior modes/7,428 checks. Fresh product, popup,
+  saving, Python 174/176 and Windows WebView2 301/six input cycles pass. Two
+  existing Windows symlink privilege cases remain skipped.
+- Deploy into the same source/Home, rebuild the full APK, and verify 59 actual
+  definition groups, including profile inheritance and the single world delegate.
+  APK: 6,546,753 bytes, SHA-256
+  0ded7344edf364c647fa0c7aea1eed748a20d7ecd9b87e8049a3059f9a7c2e14.
+  Windows program and paired plugin bytes remain unchanged. Packed Windows
+  runtime/JS evidence is scoped unchanged reuse; no publication, production,
+  model/external-page, account/config, ADB or provider update occurred.
+- Goal remains active. Next join the profile-only owner to root/network and
+  prepared-popup native construction before other WebView use. Continue actual
+  task/policy/UI ownership, navigation, OOPIF, multi-child/process recovery and
+  remaining Windows qualification. Public Android admission and installed-device
+  qualification remain false; phone/WebView verification remains deferred.
