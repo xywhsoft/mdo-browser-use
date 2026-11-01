@@ -20,6 +20,7 @@ def prepare_popup_product(output):
     upload=(ROOT/'host/android/browser-native-upload.inc.java').read_text(encoding='utf-8')
     lifecycle=(ROOT/'host/android/browser-destroy.inc.java').read_text(encoding='utf-8')
     network=(ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8')
+    capture=(ROOT/'host/android/browser-native-capture.inc.java').read_text(encoding='utf-8')
     lifetime=network[network.index('    private void networkRetire(NetworkEntry'):network.index('    private void networkReplyFailure')]
     # The previously controlled root connection stays a fixture dependency;
     # the real popup registry/current/retire/watch/destruction paths run here.
@@ -41,6 +42,7 @@ def prepare_popup_product(output):
         '@@INPUT_INVALIDATION@@':'    private void inputInvalidated'+(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8').split('    private void inputInvalidated',1)[1].split('    private void chooserBlocked',1)[0],
         '@@FRAME_ENVIRONMENT@@':document[document.index('    private boolean cdpEnvironmentCurrent'):document.index('    private MdoBrowserCdpMarker cdpMarker')],
         '@@FRAME_ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
+        '@@CAPTURE_SESSION@@':capture[capture.index('    private MdoBrowserCdpCapture.Session captureDocumentSession'):capture.index('    private void executeNativeCapture')],
         '@@INPUT@@':(ROOT/'host/android/browser-native-input.inc.java').read_text(encoding='utf-8'),
         '@@POST_DESTROY@@':upload[upload.index('        views.viewDestroyed(view);'):upload.index('        retireUploadTargets(view);')],
         '@@RESUME@@':lifecycle[lifecycle.index('    void resume()'):lifecycle.index('    void destroy()')],
@@ -232,6 +234,9 @@ def main():
                   'preparation-page-route-malformed',
                   'preparation-page-route-late',
                   'preparation-page-route-late-hidden',
+                  'preparation-page-capture-ok','preparation-page-capture-parent','preparation-page-capture-cancel',
+                  'preparation-page-capture-hidden','preparation-page-capture-late','preparation-page-capture-stale','preparation-page-capture-reentrant',
+                  'preparation-page-capture-chooser',
                   'preparation-publication-ready',
                   'preparation-publication-hidden',
                   'preparation-publication-duplicate',
@@ -279,6 +284,7 @@ def main():
                 or popup_worker.get('product_frame_route_tested') is not mode.startswith('preparation-page-route-')
                 or popup_worker.get('product_publication_tested') is not mode.startswith(('preparation-publication-','preparation-restore-'))
                 or popup_worker.get('product_document_restore_tested') is not mode.startswith('preparation-restore-')
+                or popup_worker.get('product_capture_fence_tested') is not mode.startswith('preparation-page-capture-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -317,6 +323,17 @@ def main():
                     or route.get('browser_connections')!=1 or route.get('native_proof_connections')!=1 or route.get('native_effects')!=0
                     or route.get('commands') not in {1,2} or route.get('provider_qualified') is not False or route.get('ui_published') is not False):
                 raise RuntimeError('Original product frame command routing was not confirmed')
+        if mode.startswith('preparation-page-capture-'):
+            proof=popup_worker.get('product_frame_route');variant=mode.rsplit('-',1)[1]
+            if not isinstance(proof,dict) or proof.get('raster_started') is not False:
+                raise RuntimeError('Protected capture fence lost its explicit native-raster qualification boundary')
+            if variant in {'hidden','chooser'}:
+                if proof.get('refused_before_protocol') is not True:
+                    raise RuntimeError('A hidden/chooser-blocked protected popup admitted capture work')
+            elif (proof.get('original_document_capture_fence') is not True or proof.get('success') is not (variant in {'ok','parent'})
+                    or proof.get('terminal_callbacks')!=1 or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1
+                    or proof.get('world_fences')!=(2 if variant in {'ok','parent','late'} else 0) or proof.get('provider_qualified') is not False):
+                raise RuntimeError('Protected capture used a foreign/reopened document or lost cancellation/epoch guards')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool
@@ -525,7 +542,7 @@ def main():
     subprocess.run([str(clang),f"--target=aarch64-linux-android{lock['api']}",'-std=gnu11','-Wall','-Wextra','-Werror','-O2','-fPIC',
         '-DXRT_MODULE_WEBSOCKET_HANDSHAKE','-DXRT_MODULE_WEBSOCKET_MESSAGE','-DXRT_MODULE_RANDOM_SECURE','-I'+str(include),
         '-c',str(ROOT/'host/android/MdoBrowserCdpWebSocket.c'),'-o',str(output/'android-websocket.o')],cwd=ROOT,check=True)
-    inputs=('host/android/cdp-protocol.json','host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
+    inputs=('host/android/MdoBrowserNativeCapture.java','host/android/cdp-protocol.json','host/android/MdoBrowserCdpSocket.c','host/android/MdoBrowserCdpSocket.h','host/android/MdoBrowserCdpJni.inc.c',
             'host/android/MdoBrowserCdpWebSocket.c','host/android/MdoBrowserCdpWebSocket.h',
             'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpResponse.java','host/android/MdoBrowserCdpSession.java',
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java','host/android/MdoBrowserCdpNetworkRequests.java',

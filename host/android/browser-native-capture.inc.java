@@ -28,14 +28,28 @@
         if(matches)entry.capture.cancel();
         reply(id,new JSONObject().put("cancelled",matches).put("pending_native",entry!=null&&entry.capture.busy()),null);
     }
+    private MdoBrowserCdpCapture.Session captureDocumentSession(String key,WebView view,MdoBrowserCdpCapture operation,MdoBrowserCdpCapture.Current current)throws java.io.IOException {
+        final PopupPage popup=protocolPopupDocument(key,view);
+        final long epoch=views.epoch(key,view);final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
+        final MdoBrowserCdpMarker marker=popup==null?cdpMarker(key,view):popup.marker;
+        MdoBrowserCdpCapture.Current scope=()->{
+            if(!cdpEnvironmentCurrent(key,view,epoch,lease)||!chooserReady(dialogs.get(key))||!marker.lease().current()||popup!=null&&(popup.marker!=marker||!popup.documentReady()))return "capture_changed";
+            return current.rejection();
+        };
+        // A protected child already has an attached native document. Its fence
+        // must use that exact proof/shared wire, never ordinary target discovery.
+        return popup==null?operation.session(cdpWorker,marker,scope):
+            operation.attachedSession(cdpWorker,marker,scope,popup.network.handoff,popup.proof);
+    }
     private void executeNativeCapture(String key,String id,WebView view,JSONObject request)throws Exception {
         final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();final long epoch=views.epoch(key,view);
         MdoBrowserCdpCapture operation=MdoBrowserCdpCapture.parse(request);CaptureEntry entry=captureEntry(key,view);
         if(entry.capture.busy())throw new IllegalStateException("capture_busy");
         if(!entry.capture.cleanupConfirmed())throw new IllegalStateException("capture_cleanup_failed");
         entry.identity.document=operation.nativeDocument;
-        MdoBrowserNativeCapture proof=new MdoBrowserNativeCapture(operation,entry.target,cdpWorker,cdpMarker(key,view),
-            ()->!stopped&&views.owns(key,view)&&views.epoch(key,view)==epoch&&channel.current()==lease&&channel.active(lease,host.getUrl()));
+        MdoBrowserNativeCapture proof=new MdoBrowserNativeCapture(operation,entry.target,
+            ()->!stopped&&views.owns(key,view)&&views.epoch(key,view)==epoch&&channel.current()==lease&&channel.active(lease,host.getUrl()),
+            current->captureDocumentSession(key,view,operation,current));
         entry.requestKey=proof.captureKey;
         try{entry.capture.capture(proof.plan,proof::check,result->{
             if(proof.captureKey.equals(entry.requestKey))entry.requestKey=null;proof.close();

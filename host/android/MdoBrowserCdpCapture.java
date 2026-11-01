@@ -198,19 +198,36 @@ final class MdoBrowserCdpCapture {
     }
     final class Session implements AutoCloseable {
         private final MdoBrowserCdpWorker worker;private final MdoBrowserCdpMarker marker;private final Current current;private boolean pending,closed;
-        Session(MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current){this.worker=worker;this.marker=marker;this.current=current;}
+        private final MdoBrowserCdpPopupBroker.Handoff handoff;private final MdoBrowserCdpPopupNative.Document documentOwner;
+        Session(MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current){this(worker,marker,current,null,null);}
+        Session(MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document documentOwner){
+            this.worker=worker;this.marker=marker;this.current=current;this.handoff=handoff;this.documentOwner=documentOwner;
+        }
+        private String rejection(){
+            if(closed)return "capture_cancelled";String code=current.rejection();if(closed)return "capture_cancelled";if(code!=null)return code;
+            if(!marker.lease().current()||handoff!=null&&(!handoff.current()||!handoff.owns(documentOwner)||!documentOwner.current()))return "capture_changed";
+            return null;
+        }
         void check(long remaining,MdoBrowserCapture.Checked complete){
-            String failure=closed?"capture_cancelled":current.rejection();if(closed)failure="capture_cancelled";if(failure!=null){complete.complete(failure);return;}
+            String failure=rejection();if(failure!=null){complete.complete(failure);return;}
             if(pending){complete.complete("capture_guard_busy");return;}
             if(remaining<100){complete.complete("capture_timed_out");return;}
-            try{pending=true;worker.submit(marker,(int)Math.min(15000,remaining),false,MdoBrowserCdpCapture.this::fence,result->{
-                pending=false;String code=closed?"capture_cancelled":current.rejection();if(closed)code="capture_cancelled";if(code==null&&result.code!=null)code=code(result.code);
+            try{pending=true;MdoBrowserCdpWorker.Completion done=result->{
+                pending=false;String code=rejection();if(code==null&&result.code!=null)code=code(result.code);
                 if(code==null&&!Arrays.equals(ACK,result.bytes))code="capture_guard_failed";complete.complete(code);
-            });}catch(IOException error){pending=false;complete.complete(code(error.getMessage()));}
+            };
+                if(handoff==null)worker.submit(marker,(int)Math.min(15000,remaining),false,MdoBrowserCdpCapture.this::fence,done);
+                else worker.submitDocument(marker,handoff,documentOwner,(int)Math.min(15000,remaining),false,MdoBrowserCdpCapture.this::fence,done);
+            }catch(IOException error){pending=false;complete.complete(code(error.getMessage()));}
         }
         @Override public void close(){if(closed)return;closed=true;if(pending){pending=false;worker.cancel(marker.lease());}}
     }
     Session session(MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current){return new Session(worker,marker,current);}
+    Session attachedSession(MdoBrowserCdpWorker worker,MdoBrowserCdpMarker marker,Current current,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document documentOwner)throws IOException {
+        if(worker==null||marker==null||current==null||handoff==null||documentOwner==null||marker.lease()!=documentOwner.lease||
+            !marker.lease().current()||!handoff.current()||!handoff.owns(documentOwner)||!documentOwner.current())throw new IOException("cdp_capture_scope_unavailable");
+        return new Session(worker,marker,current,handoff,documentOwner);
+    }
     private static String code(String value){if(value==null)return "capture_guard_failed";
         if(value.contains("timeout"))return "capture_timed_out";if(value.contains("cancelled"))return "capture_cancelled";
         return value.matches("[a-z_]{1,63}")?value:"capture_guard_failed";}

@@ -117,6 +117,8 @@ final class PopupProductHost {
     int pendingHandoffs(){return protocolPopupHandoffs.size();}
     void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}
     void frameRpc(String key,JSONObject request)throws Exception{executeFrames(key,"frames",views.get(key),request);}
+    MdoBrowserCdpCapture.Session captureSession(String key,MdoBrowserCdpCapture operation,MdoBrowserCdpCapture.Current current)throws Exception{return captureDocumentSession(key,views.get(key),operation,current);}
+    @@CAPTURE_SESSION@@
     void invalidatePopupDocument(String key,String reason){WebView view=views.get(key);inputInvalidated(key,view,views.epoch(key,view),reason);}
     boolean popupDocumentPending(String key){PopupNetwork owner=network(key);return owner!=null&&owner.page!=null&&cdpWorker.pending(owner.page.marker);}
     void observeNativeProofRevocation(WebView view){
@@ -125,7 +127,8 @@ final class PopupProductHost {
         }
     }
     boolean uploadBusy(String key,WebView view){return false;}
-    boolean chooserReady(MdoBrowserDialogTarget target){return true;}
+    boolean chooserAllowed=true;
+    boolean chooserReady(MdoBrowserDialogTarget target){return chooserAllowed;}
     boolean chooserContinuationReady(String key,WebView view){return false;}
     MdoBrowserCdpNetworks.Navigation navigationReadProof(String key,WebView view,String reference)throws java.io.IOException {
         if(reference!=null)throw new java.io.IOException("cdp_navigation_document_unproven");return null;

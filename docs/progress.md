@@ -12665,3 +12665,57 @@ new changes target the application C broker. No fresh 369-mode run is claimed.
 Public Android routing, protected navigation/takeover/nested preparation,
 platform qualification and final delivery remain open. Phone and the current
 WebView stay deferred, with no ADB, live model, external page or production action.
+
+
+### E163 protected popup screenshot document routing
+
+The Android integration audit found that `executeNativeCapture` selected an
+ordinary marker even for an independently handed-off popup. Its frame inventory
+already used the exact original attached document, but screenshot fences did not.
+A new controlled test reproduced `cdp_binding_failed` through that ordinary
+capture session. See `.mdo/E163-capture-red.log`.
+
+The native capture wrapper now obtains its session from the product controller.
+Ordinary views keep their ordinary route; a protected popup uses only its existing
+marker, original Handoff and typed Document proof through `submitDocument`.
+There is no discovery, new target binding, URL replay, world replacement or
+fallback to another owner. Each fence rechecks the original view epoch/channel,
+document readiness, visibility, chooser admission and exact typed proof; current
+capture geometry still surrounds the native raster through the existing capture
+transaction. Session cancellation keeps priority even when an admission callback
+closes that same session.
+
+A chooser continuation may intentionally retain the original idle realm, so its
+existence alone cannot authorize a new screenshot. The new chooser case failed
+before the explicit admission check and now refuses before protocol submission.
+Evidence: `.mdo/E163-capture-chooser-red.log` and
+`.mdo/E163-capture-final.log`. Eight product-route cases pass 314 checks: success,
+opener retirement, pending cancellation, hidden view, late navigation, stale
+document, reentrant cancellation and retained-chooser rejection. Late navigation
+allows already-issued read-only fences to finish, then refuses their result;
+no raster is started. Every successful/terminal async case preserves one browser
+connection and one original native-proof connection. These are actual product
+selection/session/worker/JNI/frame-graph checks with synthetic protocol/UI peers,
+not Android pixel, framework or provider qualification.
+
+Python passes 178 of180 (two existing Windows symlink-privilege skips).
+The complete Android host APK is rebuilt and signed, 6,575,425 bytes, SHA-256
+`a9b73db108dae0232d9b2a0de9ebd7d8892a8749f645320dd7e229fc2e1fa285`.
+Actual DEX inspection verifies the previous 83 definition groups plus four capture
+groups, the product session factory and the typed original proof fields.
+Windows W5 and the paired plugin are unchanged, hash-verified reuse rather than
+fresh Windows execution. Public Android routing/input, protected navigation,
+takeover/nested preparation and platform qualification remain open; phone and
+the current WebView stay deferred. No ADB, live model, external page or production
+action was used.
+
+The final complete native gate passes 377 popup-worker modes/13,715 checks,
+including the eight new modes/314 checks. All previous 369 mode counts remain
+unchanged. Its full transport/session/frame/capture/upload/download matrix,
+ASan/UBSan transport checks and Android API26 C compilation pass; all130 recorded
+input hashes match the final sources. See `.mdo/E163-native-final.log` and
+`.mdo/E163-verification.json`. The earlier 376-mode matrix was completed before
+the retained-chooser case and is preserved separately; it is not substituted for
+this final run. APK/DEX and source/archive identities are verified together in
+`.mdo/E163-verification.log`. This completes the protected capture-routing phase,
+not the overall Android integration or the long-term goal.

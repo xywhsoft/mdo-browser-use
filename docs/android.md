@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E162)
+## Complete development host APK (current: E163)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,571,329 bytes, SHA-256
-`c09899ee5f6322b3fb49f8793b47aeaaa8c383112e91da03125370ae54f169ac`.
+Current APK: 6,575,425 bytes, SHA-256
+`a9b73db108dae0232d9b2a0de9ebd7d8892a8749f645320dd7e229fc2e1fa285`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,10 +72,25 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the verified W4 Windows
+key is included. The app archive is extracted from the verified W5 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
+
+E163 routes a protected popup's native screenshot fences through its original
+attached document and shared connection. The native capture transaction obtains
+that session from the product controller; it cannot accidentally discover a new
+ordinary target for the child. Page/navigation/channel visibility, chooser
+admission, original proof and cancellation are checked before and after each
+fence. Closing the opener leaves the independently handed-off child usable.
+In-flight read-only fences may finish after a navigation, but their result is
+rejected before starting the native raster step. Explicit cancellation, including
+cancellation inside an admission callback, cannot submit another fence.
+Eight controlled product-route scenarios pass 314 checks. They exercise the real
+session/worker/JNI/frame graph with synthetic protocol/UI peers; they do not draw
+Android pixels or qualify a provider. The APK definition gate additionally requires
+the native capture class, its binding interface and the capture session. See the
+current verification scope and remaining gates in [progress](progress.md).
 
 ```powershell
 python tools/setup_android_client.py --native
