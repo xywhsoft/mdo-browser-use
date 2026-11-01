@@ -80,7 +80,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     private final MdoBrowserDownloadQueue files;private final Budget budget;
     private final Thread uiOwner=Thread.currentThread();
     private Connection current=new Connection(this);private int generations=1;
-    private Object original;private Thread worker;private long serial;private boolean closed,disconnected,quiescing;
+    private Object original;private Thread worker;private long serial;private boolean closed,disconnected,quiescing,sourceCleanupUnconfirmed;
     private volatile String failure;
     MdoBrowserCdpDownloads(MdoBrowserDownloadQueue files,Budget budget){
         if(files==null||budget==null)throw new IllegalArgumentException("Missing native download services");this.files=files;this.budget=budget;
@@ -306,6 +306,9 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
         }
     }
     String failure(){return failure;}
+    /** Observe original stream/abort receipts before discarding UI rows.
+     * Target detach or native destruction cannot manufacture an I/O close. */
+    boolean sourcesClean(){synchronized(gate){if(sourceCleanupUnconfirmed)return false;for(Row row:rows)if(row!=null&&!sourceClean(row))return false;return true;}}
     /** User takeover cancels unfinished original sources without discarding
      * complete source bytes that are still being independently verified. */
     void quiesce(){
@@ -352,6 +355,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
     @Override public void close(){
         synchronized(gate){if(closed)return;closed=true;
             int slot=0;for(Row row:rows)if(row!=null){row.offer.cancel();if(row.ticket!=null){retiring[slot++]=row.ticket;try{files.release(row.ticket);}catch(IOException ignored){}}
+                if(!sourceClean(row))sourceCleanupUnconfirmed=true;
                 publish(row,"closed","download_owner_closed",row.snapshot.received,null,false,row.ticket==null,sourceClean(row),"owner");row.releaseDone=true;retire(row);}
             original=null;worker=null;
         }

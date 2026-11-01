@@ -15,6 +15,22 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E154:** attach the protected original popup source and real download
+  controller to the product physical-network registry before activation. The
+  original total deadline spans allocation/adoption/proof/source bootstrap;
+  no blank reload, debugger resume or world grant is implicit. Eighteen new
+  modes/477 checks pass, including actual original-connection downloads and
+  verified bytes. Fix cancellation/peer-detach poisoning of the shared Browser
+  wire, preserve original bootstrap errors before native cleanup, and retain
+  missing stream cleanup receipts after UI rows are discarded. Also repair
+  ordinary network close confirmation: pending native close is not success,
+  and a failure remains observable after repeated close or worker termination.
+  Full native271/9,371 and network worker268/ten sequential runs pass. Current
+  JS466/Python174/176/product/popup/save/APK pass; 78 actual DEX groups verify
+  data-only worker attachment, weak UI completion and durable close receipts.
+  Complete activation/world/publication, navigation/takeover/nested/concurrent
+  qualification and real platform verification remain pending and disabled.
+
 - **Android E153:** join actual product allocation, original native consumption,
   physical proof and independent handoff under one original deadline. Twenty-two
   new controlled modes/472 checks pass. Deliberately closed handed-off children
@@ -11961,3 +11977,78 @@ cross-Activity/process recovery are still incomplete. Public protected creation
 continues to reject `popup_network_unqualified`; device/framework/provider/public
 automation remain false. No phone, ADB, WebView update, live model, external page
 or production publication was used.
+
+### E154 — attach original popup sources and prove native close completion
+
+`handoffPreparedProtocolPopupNetwork` extends the actual product transaction
+through source bootstrap. It registers the exact inherited-profile child in the
+physical `networkViews` registry, creates its original download controller and
+attaches that controller on the existing Browser session. The same original
+deadline bounds all four phases. This path does not load `about:blank`, replay a
+URL, resume the debugger, continue a request, grant a world or publish a tab.
+Physical source ownership survives opener release and document-generation
+changes; channel/profile/view loss revokes it. The worker operation contains
+only the data controller link, and completion retains the UI record weakly.
+Retirement/destruction/watch and resume reconciliation use the real product
+network registry. Unsupported protected navigation/takeover are explicitly
+fenced until their typed product paths are implemented.
+
+Cancellation during an in-flight source read exposed a shared-wire defect:
+cooperative `idle()` checked the cancelled attachment rather than the Browser
+connection, and source read cancellation closed the entire Browser wire. A
+fixed pre-activation bootstrap API now admits only Page enable/frame metadata
+and zero-buffer Network enable. On an explicitly retiring committed owner it
+retires only the original local attachment bookkeeping. Existing seen-child
+isolation drains late packets; this sends no detach/resume/Fetch disable and
+does not manufacture a native detach receipt. Authenticated peer detach can
+likewise end that original read without poisoning other registrations. Global
+protection still requires the original detach and eventual disable acknowledgement.
+
+Store the first sanitized bootstrap failure before native cleanup. Unsupported
+protocol and malformed replies previously became `network_view_closed`; the
+product now reports the original fixed cause. Stream-close/request-abort
+receipts remain separate from native destruction/target detach. Discarding UI
+download rows keeps a sticky unconfirmed-source flag, so a later resume cannot
+turn lost cleanup evidence into success. Missing target or stream receipts
+remain fenced and are not retried or reset.
+
+Full validation also exposed an ordinary-network close race. A once-only
+closed flag became visible before the native close returned, and a later close
+could miss its failure. Session and peer/binding layers now publish durable
+pending/confirmed/failed close data. The network worker waits for completion,
+with a bounded closing phase, before delivering its terminal cleanup receipt.
+After the protocol worker exits, UI reconciliation observes only that data;
+it never reconnects or performs native I/O. Native close still runs after local
+bookkeeping failure. Deterministic delayed-close tests cover both success and
+failure, repeated close, and worker-first shutdown. The 268-check network-worker
+probe passes ten sequential runs; the original 195 checks remain covered.
+
+Eighteen new product modes pass 477 checks, including original-connection file
+downloads with verified bytes, parent-first release, duplicate admission,
+source cancellation, channel/profile loss, deadline expiry, callback/timer
+failure, unsupported/malformed/racing metadata, authenticated peer detach and
+unconfirmed target/stream cleanup. Full native validation passes 271 modes and
+9,371 checks on 128 current inputs. All 253 earlier modes remain, with only the
+ten handoff reflection counts adding the new data-only detach field; all other
+earlier probe counts are unchanged except the strengthened network-worker gate.
+
+Current JS466/Python174 of176 (two existing privilege skips), creation848/close77,
+popup110/25/7 and save47 pass. The ordinary-create fixture has a rejecting type
+dependency for the new popup member; it cannot simulate protected networking.
+Its update did not change any of the native gate's 128 inputs, so those passed
+native results are hash-verified same-stage reuse after the fixture correction.
+All 479 overall input hashes are verified. The signed APK is 6,567,233 bytes,
+SHA-256 `194d499dd21bade72c180b77895cb1dcf4ef855dd363d5f818b798635a632b8b`.
+Actual APK metadata verifies 78 definition groups, weak UI completion, a data-only
+attachment operation, sticky source cleanup and the native peer's close receipt.
+Windows E150 and world E146 remain unchanged scoped reuse. Evidence, including
+the original failed cases and deterministic close regression, is in `.mdo/E154-*`.
+
+Complete activation/world/UI publication is still pending. Shared-Browser
+protection/proof scheduling under concurrent source RPCs needs an adversarial
+gate, as do nested popup admission, initialization rollback with native-close
+failure and externally gated Browser-wire completion. Protected navigation,
+takeover/rearm and broader platform/recovery qualification remain open. Public
+protected creation still rejects `popup_network_unqualified`; no device/provider
+or public Android qualification is claimed. No phone, ADB, WebView update, live
+model, external page or production publication was used.

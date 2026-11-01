@@ -43,7 +43,7 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         guard();long used=android.os.SystemClock.elapsedRealtime()-born;if(used<0||used>timeout-10)throw new IOException("cdp_popup_source_timeout");return timeout-(int)used;
     }
     private JSONObject bootstrapCall(String method,JSONObject params,long born,int timeout)throws IOException {
-        JSONObject reply=session.callAttached(attachment,scope,method,params,null,Math.min(5000,remaining(born,timeout)),false);guard();return reply;
+        JSONObject reply=session.callAttachedBootstrap(attachment,scope,handoff::draining,method,params,Math.min(5000,remaining(born,timeout)));guard();return reply;
     }
     void bootstrap(int timeout)throws IOException {
         guard();if(started||receiver==null||attachment.resumeConfirmed()||timeout<100||timeout>15000)throw new IOException("cdp_popup_source_bootstrap_invalid");started=true;
@@ -59,7 +59,8 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
             if(!initialized)throw new IOException("download_frame_bootstrap_changed");
             JSONObject params=new JSONObject().put("maxTotalBufferSize",0).put("maxResourceBufferSize",0).put("maxPostDataSize",0);
             if(bootstrapCall("Network.enable",params,born,timeout).length()!=0)throw new IOException("cdp_popup_source_reply_invalid");remaining(born,timeout);ready=true;
-        }catch(JSONException error){throw new IOException("cdp_popup_source_reply_invalid");}
+        }catch(JSONException error){IOException invalid=new IOException("cdp_popup_source_reply_invalid");handoff.sourceFailure(invalid);throw invalid;}
+        catch(IOException|RuntimeException|Error error){handoff.sourceFailure(error);throw error;}
     }
     void event(String method,JSONObject params)throws IOException {
         if("Inspector.detached".equals(method)||"Inspector.targetCrashed".equals(method)||"Inspector.targetReloadedAfterCrash".equals(method)){close();throw new IOException("cdp_popup_source_retired");}

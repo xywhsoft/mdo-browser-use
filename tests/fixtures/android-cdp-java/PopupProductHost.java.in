@@ -26,10 +26,30 @@ final class PopupProductHost {
     static final class Host {String getUrl(){return "http://127.0.0.1/development";}}
     final Host host=new Host();int preparationReplies;JSONObject preparationReply;String preparationReplyError;
     void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject value,String error){if(channel.active(lease,host.getUrl())){preparationReplies++;preparationReply=value;preparationReplyError=error;}}
-    private static final class NetworkEntry {final WebView view;final MdoBrowserCdpView adapter;final MdoBrowserChannel<WebMessagePort>.Lease lease;boolean ready=true,retired,draining;NetworkEntry(WebView view,MdoBrowserCdpView adapter,MdoBrowserChannel<WebMessagePort>.Lease lease){this.view=view;this.adapter=adapter;this.lease=lease;}}
+    private static final class NativeNavigation {}
+    @@NETWORK_ENTRY@@
     private final Map<String,NetworkEntry> networkViews=new HashMap<>();
-    boolean networkCurrent(NetworkEntry entry){return !stopped&&!browserPaused&&networkReady&&views.owns("root",entry.view)&&channel.current()==entry.lease&&channel.active(entry.lease,host.getUrl());}
-    void bindPreparation(WebView view,MdoBrowserCdpView adapter,MdoBrowserPopups<WebView> core,MdoBrowserCdpWorker worker){windows.put("root",core);networkViews.put("root",new NetworkEntry(view,adapter,channel.current()));cdpWorker=worker;cdpViews.worker=worker;}
+    final android.os.Handler networkHandler=new android.os.Handler(android.os.Looper.getMainLooper());
+    MdoBrowserDownloadQueue downloadQueue;MdoBrowserCdpDownloads.Budget downloadBudget;
+    Runnable downloadFactoryHook;
+    @@NETWORK_CURRENT@@
+    void bindPreparation(WebView view,MdoBrowserCdpView adapter,MdoBrowserPopups<WebView> core,MdoBrowserCdpWorker worker){windows.put("root",core);NetworkEntry row=new NetworkEntry("root",view,documents.get("root"),channel.current(),null,null);row.adapter=adapter;row.marker=adapter.marker();row.ready=true;networkViews.put("root",row);cdpWorker=worker;cdpViews.worker=worker;}
+    AutoCloseable handoffNetworkPrepared(String pending,String key,int timeout,Runnable ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
+        return handoffPreparedProtocolPopupNetwork("root",views.get("root"),pending,key,timeout,network->ready.run(),failure);
+    }
+    PopupNetwork network(String key){NetworkEntry row=networkViews.get(key);return row==null?null:row.popup;}
+    boolean popupNetworkReady(String key){PopupNetwork value=network(key);return value!=null&&value.phase==1&&value.current();}
+    void closePopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.close();}
+    void pollPopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.watch();}
+    int popupNetworkCount(){int count=0;for(NetworkEntry row:networkViews.values())if(row.popup!=null)count++;return count;}
+    MdoBrowserCdpDownloads popupDownloads(String key){return network(key).entry.downloads;}
+    MdoBrowserCdpPopupNative.Promotion popupOwner(String key){return network(key).owner;}
+    MdoBrowserCdpPopupBroker.Handoff popupHandoff(String key){return network(key).handoff;}
+    String popupNetworkCode(String key){return network(key).entry.code;}
+    boolean popupNetworkExpired(String key){return network(key).entry.cleanupObservationExpired;}
+    boolean popupProtocolDrained(String key){return network(key).entry.protocolDrained;}
+    String popupDiagnostic(String key){PopupNetwork value=network(key);return value==null?"none":"phase="+value.phase+" code="+value.entry.code+" destroyed="+value.entry.destroyed+" native="+value.owner.nativeDestroyed()+" detach="+value.handoff.detached()+" sources="+(value.entry.downloads==null?null:value.entry.downloads.sourcesClean())+" cleanup="+networkCleanupFailed;}
+    void duplicatePopupNetwork(String key)throws Exception{PopupNetwork old=network(key);prepareProtocolPopupNetwork(key,old.owner,old.handoff,android.os.SystemClock.elapsedRealtime()+3000,network->{throw new AssertionError("Duplicate source entered");},(code,effect)->{throw new AssertionError(code);});}
     void prepare(Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction("root",views.get("root"),effect,failure);}
     void retirePreparation(String reason){retireProtocolPopupPreparation("root",views.get("root"),reason);}
     boolean preparationReady(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.ready();}
@@ -83,9 +103,13 @@ final class PopupProductHost {
     static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
     PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());WebView root=views.get("root");if(root!=null){MdoBrowserDocument original=new MdoBrowserDocument(root);original.assigned=true;documents.put("root",original);}}
-    int networkRetiring(){return networkReady?0:1;}int downloadRetiring(){return 0;}
-    boolean networkClean(){return networkReady&&!networkCleanupFailed;}
-    void networkRetire(String key,WebView exact,String reason){}void networkDestroyed(WebView exact){networkDestroyed++;}
+    int networkRetiring(){int count=networkReady?0:1;for(NetworkEntry row:networkViews.values())if(row.draining||row.retired&&!row.protocolDrained)count++;return count;}
+    int downloadRetiring(){int count=0;for(NetworkEntry row:networkViews.values())if(row.downloads!=null)count+=row.downloads.retiringFiles();return count;}
+    boolean networkClean(){return networkReady&&!networkCleanupFailed&&networkRetiring()==0&&downloadRetiring()==0;}
+    MdoBrowserCdpDownloads newNetworkDownloads(){Runnable hook=downloadFactoryHook;if(hook!=null)hook.run();if(downloadQueue==null||downloadBudget==null)throw new IllegalStateException("controlled_download_backend_missing");return new MdoBrowserCdpDownloads(downloadQueue,downloadBudget);}
+    void nativeNavigationRetire(NetworkEntry row){}void networkReplyFailure(NetworkEntry row){}void networkDiscardUnsent(NetworkEntry row){}
+    @@NETWORK_LIFETIME@@
+    @@NETWORK_DESTROY@@
     void cancelUpload(String key,WebView exact){if(failClose)throw new IllegalStateException("controlled_logical_cleanup_failure");}
     void retireUploadData(WebView view){@@POST_DESTROY@@ retired++;}
     void configureBrowserView(String key,WebView view){configured++;dialogs.put(key,new MdoBrowserDialogTarget(view));if(failConfiguration)throw new IllegalStateException("controlled_product_configuration_failure");}

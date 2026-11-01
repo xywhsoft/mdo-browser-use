@@ -78,13 +78,13 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         }
         private synchronized void disconnected(){url=null;if(result()==null)finish(issued?CLOSED_SENT:CLOSED_UNSENT);}
     }
-    private static final int LIMIT=8,QUEUED=0,STARTING=1,READY=2,TERMINAL=3;
+    private static final int LIMIT=8,QUEUED=0,STARTING=1,READY=2,TERMINAL=3,CLOSING=4;
     private final MdoBrowserCdpWorker.Ui ui;private final Connector connector;private final LongSupplier clock;
     private final ThreadPoolExecutor executor;private final Object gate=new Object();private final Slot[] slots=new Slot[LIMIT];
     private final Runnable unavailable;
     private final MdoBrowserCdpPopupWorker popups;
     private final AtomicBoolean closed=new AtomicBoolean(),pumpQueued=new AtomicBoolean();
-    private int cursor;private boolean servicing;
+    private int cursor;private boolean servicing;private volatile boolean ownerExited;
     private final Runnable pump=()->{pumpQueued.set(false);if(closed.get())return;turn();schedule();};
     MdoBrowserCdpNetworks(MdoBrowserCdpWorker.Ui ui,Connector connector,LongSupplier clock,ThreadPoolExecutor executor,Runnable unavailable){
         this(ui,connector,clock,executor,unavailable,MdoBrowserCdpPopupBroker::new);
@@ -152,11 +152,17 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         }
         schedule();return request;
     }
-    int pending(){thread();int count=0;synchronized(gate){for(Slot slot:slots)if(slot!=null)count++;}return count;}
-    boolean pending(MdoBrowserCdpMarker.Lease lease){thread();synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease)return true;}return false;}
+    private void reconcileExited(){
+        if(!ownerExited)return;
+        // The protocol loop has ended. Observe only durable close data; never
+        // reconnect or run native I/O from this UI reconciliation.
+        for(int i=0;i<LIMIT;i++){Slot slot;synchronized(gate){slot=slots[i];}if(slot!=null)slot.observeClose();}
+    }
+    int pending(){thread();reconcileExited();int count=0;synchronized(gate){for(Slot slot:slots)if(slot!=null)count++;}return count;}
+    boolean pending(MdoBrowserCdpMarker.Lease lease){thread();reconcileExited();synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.lease==lease)return true;}return false;}
     private void schedule(){
         if(closed.get())return;boolean needed=popups.needed();
-        synchronized(gate){for(Slot slot:slots)if(slot!=null&&slot.stage==READY){needed=true;break;}}
+        synchronized(gate){for(Slot slot:slots)if(slot!=null&&(slot.stage==READY||slot.stage==CLOSING)){needed=true;break;}}
         if(!needed||!pumpQueued.compareAndSet(false,true))return;
         try{executor.execute(pump);}catch(RuntimeException|Error rejected){pumpQueued.set(false);closeAll();unavailable.run();}
     }
@@ -169,10 +175,11 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             Slot selected=null;
             synchronized(gate){for(int i=0;i<LIMIT;i++){
                 int next=cursor++%LIMIT;Slot row=slots[next];
-                if(row!=null&&row.stage==READY){selected=row;break;}
+                if(row!=null&&(row.stage==READY||row.stage==CLOSING)){selected=row;break;}
             }cursor%=LIMIT;}
             if(selected==null)return;
             try{
+                if(selected.stage==CLOSING){selected.finish(selected.terminalCode);if(selected.stage==CLOSING)try{Thread.sleep(1);}catch(InterruptedException error){Thread.currentThread().interrupt();}return;}
                 if(selected.cancelled.get()||!selected.lease.current()){selected.finish("cdp_network_cancelled");return;}
                 MdoBrowserCdpBinding.Network connection=selected.connection;
                 if(connection==null)throw new IOException("cdp_network_binding_invalid");
@@ -206,12 +213,13 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
     /** The common executor thread has exited: no original I/O can still be
      * running. This is distinct from an earlier UI shutdown request. */
     void ownerTerminated(){
-        closeAll();popups.ownerTerminated();for(int i=0;i<LIMIT;i++){Slot slot;synchronized(gate){slot=slots[i];}if(slot!=null)slot.finish("cdp_network_cancelled");}
+        closeAll();popups.ownerTerminated();for(int i=0;i<LIMIT;i++){Slot slot;synchronized(gate){slot=slots[i];}if(slot!=null)slot.finish("cdp_network_cancelled");}ownerExited=true;
     }
     private final class Slot implements Runnable {
         final WeakReference<MdoBrowserCdpMarker> marker;final MdoBrowserCdpMarker.Lease lease;final int timeout;final long born;
         final AtomicBoolean cancelled=new AtomicBoolean();final Runnable delivery=this::deliver;
         final AtomicBoolean retiring=new AtomicBoolean();long retirementBorn;boolean retirementStarted;
+        long closingBorn;
         volatile int stage=QUEUED;volatile MdoBrowserCdpBinding.Network connection;
         volatile boolean enabledMayHaveOccurred,cleanupFailed;volatile String terminalCode;
         volatile Navigation navigation;
@@ -264,7 +272,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         private void closeNative(){
             MdoBrowserCdpBinding.Network bound=connection;
             if(bound!=null)try{bound.close();}catch(RuntimeException|Error error){cleanupFailed=true;}
-            if(bound!=null&&!bound.cleanupConfirmed())cleanupFailed=true;
+            if(bound!=null){int state=bound.cleanupState();if(state!=1&&state!=2)cleanupFailed=true;}
             Navigation request=navigation;if(request!=null)request.disconnected();
         }
         void cancel(){
@@ -275,7 +283,16 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         void finish(String code){
             if(stage==TERMINAL){release();return;}
             closeNative();terminalCode=cancelled.get()||!lease.current()?"cdp_network_cancelled":code;
+            int state=connection==null?2:connection.cleanupState();
+            if(state==1){
+                long now=clock.getAsLong();if(stage!=CLOSING){closingBorn=now;stage=CLOSING;}
+                long age=now-closingBorn;if(age>=0&&age<5000){schedule();return;}cleanupFailed=true;
+            }else if(state!=2)cleanupFailed=true;
             stage=TERMINAL;post();release();
+        }
+        void observeClose(){
+            if(stage!=CLOSING||connection==null)return;int state=connection.cleanupState();if(state==1)return;
+            if(state!=2)cleanupFailed=true;stage=TERMINAL;release();
         }
         private void post(){
             synchronized(this){if(posted||delivering||terminalDelivered||complete==null||closed.get())return;posted=true;}

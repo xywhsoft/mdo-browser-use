@@ -15,6 +15,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 import org.json.JSONObject;
 
@@ -56,8 +57,8 @@ public final class CdpNetworkWorkerProbe {
                 (id,timeout,current,events)->peer.open("owned",timeout,current,events));
         },time::get,(marker,budget,events)->{
             check(!ui.onThread());threads.add(Thread.currentThread());CdpNetworkBindingProbe.Context source=sources.get(marker);
-            return MdoBrowserCdpBinding.bindNetwork(marker,budget,events,t->Arrays.asList(networkTargets.getOrDefault(marker,"owned")),
-                (id,timeout,current,forward)->source.peer.open("owned",timeout,current,forward));
+            MdoBrowserCdpBinding.Network bound=MdoBrowserCdpBinding.bindNetwork(marker,budget,events,t->Arrays.asList(networkTargets.getOrDefault(marker,"owned")),
+                (id,timeout,current,forward)->source.peer.open("owned",timeout,current,forward));source.network=bound;return bound;
         },popupFactory);}
         CdpNetworkBindingProbe.Context source(){CdpNetworkBindingProbe.Context c=new CdpNetworkBindingProbe.Context(true);owned.add(c);sources.put(c.adapter.marker(),c);return c;}
         CdpNetworkBindingProbe.Context source(WebView original,MdoBrowserCdpMarker.DocumentQuota quota){CdpNetworkBindingProbe.Context c=new CdpNetworkBindingProbe.Context(true,original,quota);owned.add(c);sources.put(c.adapter.marker(),c);return c;}
@@ -188,16 +189,46 @@ public final class CdpNetworkWorkerProbe {
         }
         try(Case c=new Case()){
             CdpNetworkBindingProbe.Context source=c.source();c.uncertainCleanup=true;c.ready(source);
+            check(!source.wire().closed.get());AtomicInteger closes=new AtomicInteger();
             CdpBindingProbe.Factory.Extra original=source.peer.extra;source.peer.extra=new CdpBindingProbe.Factory.Extra(){
                 public boolean send(JSONObject command,CdpBindingProbe.Wire wire)throws Exception{return original.send(command,wire);}
-                public void closed(CdpBindingProbe.Wire wire){throw new IllegalStateException("private-native-close-failure");}
+                public void closed(CdpBindingProbe.Wire wire){closes.incrementAndGet();throw new IllegalStateException("private-native-close-failure");}
             };
             c.worker.cancelNetwork(source.adapter.marker().lease());c.deliver(1);
-            check(!c.states.get(1).cleanupConfirmed&&c.worker.networkPending()==1);
+            boolean clean=c.states.get(1).cleanupConfirmed;int pending=c.worker.networkPending();
+            if(clean||pending!=1)throw new AssertionError("Close failure receipt clean="+clean+" pending="+pending+" attempts="+closes.get()+" nativeClosed="+source.wire().closed.get());
+            check(!clean&&pending==1);
+        }
+    }
+    private static void closeReceipts()throws Exception {
+        for(boolean shutdown:new boolean[]{false,true})for(boolean fail:new boolean[]{false,true})try(Case c=new Case()){
+            CdpNetworkBindingProbe.Context source=c.source();c.uncertainCleanup=fail;c.ready(source);
+            java.lang.reflect.Field storage=MdoBrowserCdpBinding.Network.class.getDeclaredField("bound");storage.setAccessible(true);
+            Object bound=storage.get(source.network);java.lang.reflect.Field peerField=MdoBrowserCdpBinding.class.getDeclaredField("peer");peerField.setAccessible(true);Object peer=peerField.get(bound);
+            MdoBrowserCdpSession original=null;for(java.lang.reflect.Field field:peer.getClass().getDeclaredFields())if(field.getType()==MdoBrowserCdpSession.class){field.setAccessible(true);original=(MdoBrowserCdpSession)field.get(peer);}
+            check(original!=null);final MdoBrowserCdpSession session=original;
+            CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);AtomicReference<Throwable> result=new AtomicReference<>();AtomicInteger closes=new AtomicInteger();
+            source.peer.extra=new CdpBindingProbe.Factory.Extra(){
+                public boolean send(JSONObject command,CdpBindingProbe.Wire wire){return false;}
+                public void closed(CdpBindingProbe.Wire wire){closes.incrementAndGet();entered.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new AssertionError("Close fixture wait expired");}catch(InterruptedException error){Thread.currentThread().interrupt();throw new AssertionError(error);}if(fail)throw new IllegalStateException("controlled_native_close_failure");}
+            };
+            Thread closer=new Thread(()->{try{session.close();}catch(Throwable error){result.set(error);}},"controlled-native-close");closer.start();
+            try{
+                check(entered.await(3,TimeUnit.SECONDS));source.network.close();
+                if(source.network.cleanupConfirmed())throw new AssertionError("An unfinished native close was reported confirmed");check(true);
+                if(shutdown){c.worker.close();await(c.worker::terminated);check(source.network.cleanupPending()&&c.worker.networkPending()==1);}
+            }finally{release.countDown();closer.join(3000);}
+            check(!closer.isAlive()&&closes.get()==1&&(result.get()!=null)==fail);
+            if(fail){check(!source.network.cleanupConfirmed());}
+            else check(source.network.cleanupConfirmed());
+            session.close();source.network.close();check(closes.get()==1&&source.network.cleanupConfirmed()!=fail);
+            if(shutdown)check(c.states.size()==1);
+            else{await(()->{c.ui.drain();return c.states.size()==2;});check(c.states.get(1).cleanupConfirmed!=fail);}
+            await(()->c.worker.networkPending()==(fail?1:0));check(c.worker.networkPending()==(fail?1:0));
         }
     }
     public static void main(String[] ignored)throws Exception{
-        Looper.getMainLooper();System.loadLibrary("xs");activationAndIdle();cooperativeDocumentWait();queueAndCapacity();failuresAndClose();
+        Looper.getMainLooper();System.loadLibrary("xs");closeReceipts();activationAndIdle();cooperativeDocumentWait();queueAndCapacity();failuresAndClose();
         System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"shared_protocol_worker\":true,\"cooperative_page_wait\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
 }

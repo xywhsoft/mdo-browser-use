@@ -71,6 +71,7 @@ public final class CdpBindingProbe {
                 public MdoBrowserCdpSession.Navigation historyRoot(String frame,int entry,int timeout)throws IOException{return session.historyRoot(frame,entry,timeout);}
                 public MdoBrowserCdpSession.Navigation reloadRoot(String frame,String loader,int timeout)throws IOException{return session.reloadRoot(frame,loader,timeout);}
                 public void close(){session.close();}
+                public int closeState(){return session.closeState();}
             };
         }
         void balanced(){for(Wire wire:wires){check(wire.closed.get());check(!wire.otherSawName);wire.cleared();}}

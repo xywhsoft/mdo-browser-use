@@ -11,6 +11,7 @@
         final long born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->networkWatch(this);
         MdoBrowserCdpView adapter;MdoBrowserCdpMarker marker;MdoBrowserCdpDownloads downloads;MdoBrowserCdpDownloads.Connection downloadConnection;long warmupEpoch,retiredAt;
         NativeNavigation navigation;
+        PopupNetwork popup;
         boolean warming=true,starting,ready,created,retired,draining,rearm,responsesDisabled,protocolDrained=true,destroyed,replySent,cleanupObservationExpired;
         String code;
         NetworkEntry(String key,WebView view,MdoBrowserDocument profile,MdoBrowserChannel<WebMessagePort>.Lease lease,String id,String target){
@@ -35,6 +36,7 @@
     }
     private void networkCommand(String key,WebView view,String command,boolean agent){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
+        if(entry.popup!=null&&Arrays.asList("navigate","back","forward","reload").contains(command))throw new UnsupportedOperationException("popup_navigation_unqualified");
         if("downloads".equals(command)&&entry.downloads!=null)return;
         if(entry.navigation!=null&&entry.navigation.ticket!=null&&entry.navigation.ticket.result()==null&&(agent||!manual.contains(key))&&Arrays.asList("navigate","back","forward","reload","automation","input","wheel","drag","upload").contains(command))throw new IllegalStateException("navigation_pending");
         if(entry.retired&&(agent||Arrays.asList("automation","frames","input","wheel","drag","upload").contains(command)))throw new IllegalStateException("network_owner_unavailable");
@@ -46,6 +48,7 @@
     }
     private void networkStop(String key,WebView view){retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
     private void networkTakeover(String key,WebView view){
+        NetworkEntry original=networkViews.get(key);if(original!=null&&original.view==view&&original.popup!=null)throw new UnsupportedOperationException("popup_takeover_unqualified");
         retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.draining)return;
         if(!entry.ready||entry.marker==null||entry.downloads==null){networkRetire(entry,"network_user_takeover");return;}
@@ -64,6 +67,7 @@
      * until fresh native proof/frame bootstrap/Fetch.enable are acknowledged. */
     private boolean networkReleaseControl(String key,WebView view,String id,boolean agent)throws java.io.IOException {
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return false;
+        if(entry.popup!=null)throw new UnsupportedOperationException("popup_takeover_unqualified");
         if(entry.draining)throw new IllegalStateException("network_retiring");
         if(!entry.retired){if(entry.rearm&&entry.starting)throw new IllegalStateException("network_starting");return false;}
         if(agent)throw new IllegalStateException("user_takeover");
@@ -93,6 +97,7 @@
     }
     private void networkNavigation(String key,WebView view,String address){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.ready)return;
+        if(entry.popup!=null)return; // original Browser frame proof owns bootstrap, never a replacement blank load
         if(entry.rearm){networkRetire(entry,"network_rearm_navigation_changed");return;}
         if(!entry.warming||entry.warmupEpoch!=0||!"about:blank".equals(address)||!networkCurrent(entry)){
             networkRetire(entry,"network_bootstrap_navigation_changed");return;
@@ -103,6 +108,7 @@
      * document, so it cannot clear the target navigation's loading state. */
     private boolean networkLoaded(String key,WebView view,String address){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.ready)return false;
+        if(entry.popup!=null)return true;
         if(!entry.warming)return true;
         if(!"about:blank".equals(address)||!"about:blank".equals(view.getUrl())||entry.warmupEpoch<=0||views.epoch(key,view)!=entry.warmupEpoch||!networkCurrent(entry)){
             networkRetire(entry,"network_bootstrap_navigation_changed");return true;
@@ -121,8 +127,7 @@
             // The worker callback uses only atomic admission and the original
             // native connection. Never consult UI objects from this thread.
             final java.util.concurrent.atomic.AtomicBoolean live=entry.live;
-            if(entry.downloads==null){MdoBrowserDownloadRuntime service=MdoBrowserDownloadRuntime.get(activity);
-                entry.downloads=new MdoBrowserCdpDownloads(service.files,service.budget);entry.downloadConnection=entry.downloads.connection();}
+            if(entry.downloads==null){entry.downloads=newNetworkDownloads();entry.downloadConnection=entry.downloads.connection();}
             final MdoBrowserCdpDownloads.Connection downloads=entry.downloadConnection;
             entry.protocolDrained=false;
             if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_scheduler_unavailable");
@@ -192,6 +197,7 @@
     }
     private void networkRetire(NetworkEntry entry,String reason){
         if(networkViews.get(entry.key)!=entry)return;
+        if(entry.popup!=null){entry.popup.retire(reason);return;}
         retireProtocolPopupPreparation(entry.key,entry.view,"cdp_popup_preparation_owner_changed");
         nativeNavigationRetire(entry);
         entry.draining=false;
@@ -210,6 +216,7 @@
     private void networkRetireAll(String reason){for(NetworkEntry entry:new ArrayList<>(networkViews.values()))networkRetire(entry,reason);}
     private void networkWatch(NetworkEntry entry){
         if(networkViews.get(entry.key)!=entry)return;
+        if(entry.popup!=null){entry.popup.watch();return;}
         long now=android.os.SystemClock.elapsedRealtime();
         if(entry.draining){
             if(!networkCurrent(entry)||now-entry.retiredAt<0||now-entry.retiredAt>=5500){networkRetire(entry,!networkCurrent(entry)?"network_owner_changed":"network_retirement_timeout");return;}
@@ -248,10 +255,12 @@
     }
     private void networkDestroyed(String key,WebView view){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
+        if(entry.popup!=null){entry.popup.destroyed();return;}
         entry.destroyed=true;entry.quota.close();networkRelease(entry);
     }
     private void networkDestroyed(WebView view){for(NetworkEntry entry:new ArrayList<>(networkViews.values()))if(entry.view==view){networkDestroyed(entry.key,view);return;}}
     private void networkRelease(NetworkEntry entry){
+        if(entry.popup!=null){entry.popup.watch();return;}
         if(entry.destroyed&&entry.downloads!=null)try{entry.downloads.close();}catch(RuntimeException|Error failure){networkCleanupFailed=true;}
         if(entry.destroyed&&entry.protocolDrained){
             networkHandler.removeCallbacks(entry.watch);
@@ -262,6 +271,7 @@
         }
     }
     private String networkProtocolCode(String code,String fallback){return code!=null&&code.matches("(?:cdp|download_frame)_[a-z_]{1,80}")?code:fallback;}
+    private MdoBrowserCdpDownloads newNetworkDownloads(){MdoBrowserDownloadRuntime service=MdoBrowserDownloadRuntime.get(activity);return new MdoBrowserCdpDownloads(service.files,service.budget);}
     private JSONObject networkState(String key)throws JSONException {
         NetworkEntry entry=networkViews.get(key);
         return new JSONObject().put("installed",entry!=null).put("ready",entry!=null&&entry.ready&&!entry.retired)

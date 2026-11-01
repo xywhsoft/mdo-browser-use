@@ -53,6 +53,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private final long born;private final LongSupplier clock;
         private final AtomicBoolean cancelled=new AtomicBoolean(),committed=new AtomicBoolean();
         private final AtomicReference<Long> closeBorn=new AtomicReference<>();
+        private final AtomicBoolean detached=new AtomicBoolean();
         private final AtomicReference<MdoBrowserCdpPopupNative.Promotion> nativeOwner=new AtomicReference<>();
         private final AtomicBoolean activationRequested=new AtomicBoolean();
         private final AtomicReference<MdoBrowserCdpSession.ControlResult> activationResult=new AtomicReference<>(),flowFailure=new AtomicReference<>();
@@ -73,6 +74,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         /** Deliberate closure revokes authority immediately, but the original
          * attachment must still receive its native detach on this same wire. */
         boolean retiring(){return committed.get()&&cancelled.get();}
+        boolean detached(){return detached.get();}
+        boolean draining(){try{return retiring()&&!brokerClosed.get()&&retirementCurrent(clock.getAsLong());}catch(RuntimeException|Error error){return false;}}
         private boolean retirementCurrent(long now){Long born=closeBorn.get();MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();
             return born!=null&&now-born>=0&&now-born<5000&&original!=null&&!original.failed();}
         boolean owns(MdoBrowserCdpPopupNative.Promotion original){return original!=null&&nativeOwner.get()==original;}
@@ -82,6 +85,12 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         void activate()throws IOException{if(!committed.get()||!current())throw problem("cdp_popup_activation_unavailable");if(!activationRequested.compareAndSet(false,true))throw problem("cdp_popup_activation_replayed");}
         MdoBrowserCdpSession.ControlResult activationResult(){return activationResult.get();}
         MdoBrowserCdpSession.ControlResult flowFailure(){return flowFailure.get();}
+        void sourceFailure(Throwable error){
+            String code=error instanceof IOException?safe(error.getMessage()):"cdp_worker_failed";
+            int protocol=error instanceof MdoBrowserCdpSession.Failure?((MdoBrowserCdpSession.Failure)error).protocolCode:0;
+            boolean effect=error instanceof MdoBrowserCdpSession.Failure&&((MdoBrowserCdpSession.Failure)error).effectMayHaveOccurred;
+            flowFailure.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,code,protocol,effect));
+        }
         int continuedRequests(){return continuedRequests.get();}
         @Override public void close(){if(!cancelled.get()){
                 try{closeBorn.compareAndSet(null,clock.getAsLong());}catch(RuntimeException|Error ignored){/* absent clock fails retirement closed */}
@@ -296,7 +305,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             Object id=params.opt("sessionId");
             DocumentPeer nested=nestedDocuments.get(id);if(nested!=null){nested.event(method,nested.children.get(id),params);return;}
             for(int i=candidates.size()-1;i>=0;i--){Candidate candidate=candidates.get(i);if(candidate.original.matchesNativeSession(id)){
-                candidate.retired();session.retireAttachedTarget(candidate.original);candidates.remove(i);
+                Handoff original=candidate.handoff;
+                session.retireAttachedTarget(candidate.original);if(original!=null)original.detached.set(true);candidate.retired();candidates.remove(i);
             }}return;
         }
         if("Fetch.requestPaused".equals(method)&&child!=null){
@@ -330,7 +340,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         if(handoff.activationRequested.get()||original.original.resumeConfirmed())throw problem("cdp_popup_source_activation_started");
         if(original.sourcePeer!=null)throw problem("cdp_controller_busy");
         MdoBrowserCdpPopupSource peer=new MdoBrowserCdpPopupSource(session,original.original,handoff,proof,original.sourceFrame,original.sourceLoader);original.sourcePeer=peer;
-        try{return MdoBrowserCdpBinding.bindSource(peer,proof,marker,timeout);}catch(IOException|RuntimeException|Error error){peer.close();throw error;}
+        try{return MdoBrowserCdpBinding.bindSource(peer,proof,marker,timeout);}catch(IOException|RuntimeException|Error error){handoff.sourceFailure(error);peer.close();throw error;}
     }
     private void prune()throws IOException{
         long time=now();for(Candidate candidate:candidates){long age=time-candidate.born;

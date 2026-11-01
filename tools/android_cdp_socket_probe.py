@@ -19,7 +19,18 @@ def prepare_popup_product(output):
     view=(ROOT/'host/android/browser-view.inc.java').read_text(encoding='utf-8')
     upload=(ROOT/'host/android/browser-native-upload.inc.java').read_text(encoding='utf-8')
     lifecycle=(ROOT/'host/android/browser-destroy.inc.java').read_text(encoding='utf-8')
+    network=(ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8')
+    lifetime=network[network.index('    private void networkRetire(NetworkEntry'):network.index('    private void networkReplyFailure')]
+    # The previously controlled root connection stays a fixture dependency;
+    # the real popup registry/current/retire/watch/destruction paths run here.
+    lifetime=lifetime.replace('        retireProtocolPopupPreparation(entry.key,entry.view,', '        if(entry.popup==null)return;\n        retireProtocolPopupPreparation(entry.key,entry.view,',1)
+    destruction=network[network.index('    private void networkDestroyed(String'):network.index('    private String networkProtocolCode')]
+    destruction=destruction.replace('private void networkDestroyed(WebView view){for(', 'private void networkDestroyed(WebView view){networkDestroyed++;for(',1)
     fragments={
+        '@@NETWORK_ENTRY@@':network[network.index('    private final class NetworkEntry'):network.index('    private boolean networkCurrent')],
+        '@@NETWORK_CURRENT@@':network[network.index('    private boolean networkCurrent'):network.index('    private int networkRetiring')],
+        '@@NETWORK_LIFETIME@@':lifetime,
+        '@@NETWORK_DESTROY@@':destruction,
         '@@CREATION_GUARD@@':document[document.index('    private void nativeCreationAdmission'):document.index('    private final Map<String,MdoBrowserDocument>')],
         '@@DESTRUCTION@@':document[document.index('    private final class NativeDestruction'):document.index('    private void documentNavigation')],
         '@@PREPARE_DOCUMENT@@':document[document.index('    private MdoBrowserDocument prepareDocument'):document.index('    private boolean closeDocument')],
@@ -188,6 +199,9 @@ def main():
                  'preparation-coordinator-cancel-allocation','preparation-coordinator-cancel-adoption','preparation-coordinator-cancel-proof','preparation-coordinator-profile-cancel','preparation-coordinator-allocation-owner','preparation-coordinator-adoption-owner','preparation-coordinator-proof-owner',
                  'preparation-coordinator-deadline-adoption','preparation-coordinator-deadline-proof','preparation-coordinator-callback-throw','preparation-coordinator-configuration-failure','preparation-coordinator-proof-failure',
                  'preparation-coordinator-close-parent-active','preparation-coordinator-close-no-parent','preparation-coordinator-close-timeout','preparation-coordinator-close-clock',
+                 'preparation-network-ready','preparation-network-inline','preparation-network-parent-close','preparation-network-duplicate','preparation-network-download','preparation-network-download-stream',
+                 'preparation-network-cancel-source','preparation-network-owner-channel','preparation-network-owner-profile','preparation-network-deadline-source','preparation-network-callback-throw','preparation-network-schedule-failure',
+                 'preparation-network-unsupported','preparation-network-nonempty','preparation-network-frame-race','preparation-network-peer-detach','preparation-network-close-timeout','preparation-network-download-unconfirmed',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))

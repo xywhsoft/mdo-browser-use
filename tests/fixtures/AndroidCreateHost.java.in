@@ -10,6 +10,13 @@ final class AndroidCreateHost {
     boolean protocolPopupBusy; // controlled process-protection peer
     boolean protocolPopupCreationBlocked(){return protocolPopupBusy;}
     void retireProtocolPopupPreparation(String key,WebView view,String reason){}
+    /** This ordinary-create fixture must never simulate protected popup
+     * networking; the real product path has its separate JNI/worker gate. */
+    static final class PopupNetwork {
+        void retire(String reason){throw new AssertionError("Ordinary creation entered popup networking");}
+        void watch(){throw new AssertionError("Ordinary creation entered popup networking");}
+        void destroyed(){throw new AssertionError("Ordinary creation entered popup networking");}
+    }
     static final class JSONException extends Exception {}
     static final class JSONObject {
         static final Object NULL=new Object();

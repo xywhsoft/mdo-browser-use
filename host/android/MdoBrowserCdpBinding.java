@@ -19,6 +19,9 @@ import org.json.JSONObject;
 final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads.AttachedSource {
     interface Targets {List<String> discover(int timeoutMs) throws IOException;}
     interface Peer extends AutoCloseable {
+        /** 0 unknown/open, 1 pending, 2 confirmed, 3 failed; absence of a
+         * receipt must never turn a once-only close flag into success. */
+        default int closeState(){return 0;}
         JSONObject call(String method,JSONObject params,int timeoutMs) throws IOException;
         default JSONObject call(String method,JSONObject params,String child,int timeoutMs,boolean effect)throws IOException {
             if(child!=null||effect)throw new IOException("cdp_session_routing_unsupported");return call(method,params,timeoutMs);
@@ -76,6 +79,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
                 public MdoBrowserCdpSession.Navigation historyRoot(String frame,int entry,int timeout)throws IOException{return session.historyRoot(frame,entry,timeout);}
                 public MdoBrowserCdpSession.Navigation reloadRoot(String frame,String loader,int timeout)throws IOException{return session.reloadRoot(frame,loader,timeout);}
                 public void close(){session.close();}
+                public int closeState(){return session.closeState();}
             };
         }catch(RuntimeException|Error failure){session.close();throw failure;}
     };
@@ -157,6 +161,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean cleanupFailed=new java.util.concurrent.atomic.AtomicBoolean();
+    private final java.util.concurrent.atomic.AtomicBoolean closeFinished=new java.util.concurrent.atomic.AtomicBoolean();
     final String rootFrame,rootLoader,uniqueContext;final int contextId;
     // Fresh namespace per binding. Specific names belong to native frame/
     // loader proofs; old or possibly privileged worlds are never adopted.
@@ -537,7 +542,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
             bound.current();if(!responsesDisabled)throw problem("cdp_network_disable_unconfirmed");bound.peer.poll(receiveMs,timeoutMs);
         }
         boolean responsesDisabled(){return responsesDisabled;}
-        boolean cleanupConfirmed(){return bound.closed.get()&&!bound.cleanupFailed.get();}
+        int cleanupState(){if(!bound.closed.get())return 0;if(!bound.closeFinished.get())return 1;if(bound.cleanupFailed.get())return 3;return bound.peer.closeState();}
+        boolean cleanupConfirmed(){return cleanupState()==2;}
+        boolean cleanupPending(){return cleanupState()==1;}
         @Override public void close(){frames.close();requests.close();bound.lease.untrack(this);bound.close();}
     }
     private static Context match(Peer peer,Contexts contexts,MdoBrowserCdpMarker.Ticket ticket,long started,int timeout,MdoBrowserCdpMarker.Lease lease) throws IOException,JSONException {
@@ -601,7 +608,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     }
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){
-        contexts.forward=null;contexts.dirty=true;if(frames!=null)frames.retire();lease.untrack(this);lease.untrack(peer);
-        try{peer.close();}catch(RuntimeException|Error failure){cleanupFailed.set(true);throw failure;}
+        Throwable problem=null;
+        try{contexts.forward=null;contexts.dirty=true;if(frames!=null)frames.retire();lease.untrack(this);lease.untrack(peer);}catch(RuntimeException|Error failure){cleanupFailed.set(true);problem=failure;}
+        try{peer.close();}catch(RuntimeException|Error failure){cleanupFailed.set(true);if(problem==null)problem=failure;}finally{closeFinished.set(true);}
+        if(problem instanceof RuntimeException)throw (RuntimeException)problem;if(problem instanceof Error)throw (Error)problem;
     }}
 }

@@ -1,5 +1,5 @@
     void pause(){browserPaused=true;cancelPopups();cancelDialogs();blockDocuments(MdoBrowserDocument.BACKGROUND,true);views.background(true);}
-    void resume(){browserPaused=false;MdoBrowserCdpPopupNative.reconcileRetirements();views.background(false);blockDocuments(MdoBrowserDocument.BACKGROUND,false);}
+    void resume(){browserPaused=false;MdoBrowserCdpPopupNative.reconcileRetirements();views.background(false);blockDocuments(MdoBrowserDocument.BACKGROUND,false);resumePopupNetworks();}
     void destroy(){
         stopped=true;cancelBrowserCloses();
         // Capture and register every exact physical owner before any logical

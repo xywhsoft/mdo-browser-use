@@ -5514,3 +5514,39 @@ verifies 71 actual DEX definition groups and 479 current source hashes; see
 reuse. Full public create/network/download/world/publication integration and
 device/provider/recovery qualification remain pending; protected public creation
 is still disabled. The current phone and WebView were left untouched.
+
+### E154 original physical source and download attachment
+
+The product now joins original allocation/adoption/proof/handoff to a real
+physical network entry and download controller on the same protected Browser
+connection. One total deadline spans the phases. Source setup does not reload
+the native child, resume it, replay navigation, grant a world or publish a tab.
+The existing worker receives only a data controller and a weak UI completion.
+Product retirement/destruction/watch/resume routes retain exact ownership and
+original cleanup evidence. Protected navigation and takeover/rearm are still
+fenced pending their typed implementation.
+
+Fix cooperative idle and read-cancellation handling so a deliberately closing
+child cannot poison the shared Browser connection. Only fixed pre-activation
+Page/Network metadata bootstrap reads may abandon their local attachment;
+late packets remain isolated, and native detach is a separate authenticated
+receipt. Peer detach during bootstrap is likewise scoped to that child. Preserve
+the original sanitized protocol failure before cleanup can replace it with a
+generic view-close error. Clearing download rows cannot fabricate missing
+stream-close/response-abort receipts, including during later resume.
+
+Ordinary network closure now distinguishes pending native close from completion.
+Its durable success/failure survives repeated close and worker-first shutdown;
+post-exit reconciliation performs no native I/O. Deterministic delayed-close
+tests pass ten sequential 268-check runs. Full native271/9,371 includes 18 new
+product modes/477 checks and original-connection downloads with verified bytes.
+Current JS466, Python174/176, creation848/close77, popup110/25/7, save47 and APK
+gates pass. The separate ordinary-create fixture type update reuses the passed
+native gate only after verifying all 128 unchanged inputs; 479 overall hashes
+and 78 actual DEX groups are checked. See `.mdo/E154-final-identities.log`.
+
+Complete activation/world/publication, protected navigation/takeover/nested and
+concurrent-scheduling qualification remain pending, as do initialization rollback
+with native-close failure and externally gated Browser-wire completion. Device/
+framework/provider/public qualification remain false. Existing Windows E150 and
+world E146 evidence is unchanged scoped reuse; the phone/WebView were untouched.
