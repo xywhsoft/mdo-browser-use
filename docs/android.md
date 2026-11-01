@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E144)
+## Complete development host APK (current: E145)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,546,753 bytes, SHA-256
-`0ded7344edf364c647fa0c7aea1eed748a20d7ecd9b87e8049a3059f9a7c2e14`.
+Current APK: 6,550,849 bytes, SHA-256
+`c486583b51f40db78293fb4c4d7f5afb76a8aa8727fc001eeca66102e7c634d7`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5242,3 +5242,58 @@ E144-native.log, E144-frames-current.json, E144-dex-methods.json and
 E144-final-identities.py/log retain current evidence. Phone/WebView work remains
 deferred; complete product policy/UI/profile/lifetime and recovery qualification
 is still required before enabling the public adapter.
+
+
+### E145: physical root profiles and deferred initialization teardown
+
+The actual root create/network path now uses the independent profile owner
+before ordinary settings, navigation or transport. MdoBrowserDocument owns the
+physical profile and optionally borrows it into MdoBrowserWorld using the same
+exact native view, provider and classloader. Borrowing never repeats provider
+creation or the profile setter, and closing that world alone does not close the
+physical association. Missing boundary-world capability is explicitly unavailable
+while a confirmed MULTI_PROFILE association remains usable by the existing
+private CDP adapter. This is not device/CDP/public-automation qualification.
+Once native world installation starts, uncertainty is not downgraded to an
+optional-capability result or retried. Realm faults, page navigation and manual
+takeover do not themselves erase the physical configuration.
+
+The original profile's close revokes borrowed peer admission, posting and
+evaluation. A retained native call may still terminate, but it cannot deliver a
+success payload after that owner closes; its terminal callback releases the
+original pending/native budget without replaying an action. The failing draft
+regression is retained in E145-borrowed-owner-red.log.
+
+Root creation publishes the prepared controller before invoking native provider
+callbacks. Original channel/view admission is rechecked after binding and around
+settings/view publication. Close retires logical ownership immediately but holds
+native destruction until initialization returns; its one-shot completion then
+resumes the original captured destruction row. Cleanup cannot be acknowledged
+while native initialization is active. Invalid initialization parameters have
+no provider effect. Fatal allocation/thread errors remain fatal through cleanup.
+
+The new joined root test reproduced a double native destroy against e737074:
+callback close completed destruction, but outer creation rollback did not find
+its acknowledgment. MdoBrowserLifecycle now retains an exact weak-history ACK
+for plain roots, as already required for fresh popup children. Registry removal,
+an equal object or a reused key never substitutes for native destruction. The
+red log/hash receipt is preserved before the fix; current close/host/channel/
+configuration cancellation paths assert one destroy and no late navigation.
+
+Fresh actual profile/world/document/budget checks are 319/35/86/18, production
+Java target 8. Product root checks are 827 plus asynchronous close 77; lifecycle
+checks are 167. Full native passes 128 source hashes, 192 modes/7,428 assertions,
+attachment 2,686/two native sessions, controller 360 and JNI 264, including
+ASan/UBSan/API26. Fresh popup, saving, Python 174/176 and Windows 301/six input
+cycles pass; two existing symlink privilege tests remain skipped. The same
+deployment's rebuilt APK passes 60 actual definition groups, including the
+physical controller, borrowed world flag and plain-root acknowledgment field.
+E145-final-identities.py/log bind the final artifacts, source hashes, red
+regression and scoped unchanged Windows/JS evidence.
+
+Protected popup profile inheritance before transport still needs actual task
+policy/UI coordination, physical/document network lifetime and navigation/OOPIF/
+multi-child/process recovery. All Android provider/framework/device/automation
+qualification flags remain false and the public adapter stays disabled.
+Phone/WebView validation remains deferred; no device/provider/production change
+or release was made. Windows program and paired plugin bytes are unchanged.

@@ -50,7 +50,7 @@ final class PopupProductHost {
         MdoBrowserCdpMarker marker(String key,WebView view,long epoch,Object channel,java.util.function.BooleanSupplier current){return registry.marker(key,view,epoch,channel,current);}
         void invalidate(String key,WebView exact,long epoch,String reason){invalidations++;registry.invalidate(key,exact,epoch,reason);}
     }
-    static final class MdoBrowserDocument {static final int BACKGROUND=1;int closes,destroyed;boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
+    static final class MdoBrowserDocument {static final int BACKGROUND=1;int closes,destroyed;boolean initializing(){return false;}boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
     static final class Dialogs {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}

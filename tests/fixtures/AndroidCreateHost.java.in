@@ -73,15 +73,25 @@ final class AndroidCreateHost {
         interface Scheduler {long now();void post(Runnable task,long delay);void remove(Runnable task);}
     }
     static final class MdoBrowserDocument {
-        final WebView view;int closes,destroyed;boolean manualBlocked,navigationBlocked;
-        MdoBrowserDocument(Object raw,ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,BooleanSupplier owned,LongSupplier epoch,String profile,MdoBrowserWorld.Budget budget)throws MdoBrowserWorld.Failure{
-            view=(WebView)raw;view.host.profileRequests.add(profile);
-            if(profile!=null&&!view.host.allowProfile||view.host.fault.equals("manual_world"))throw new MdoBrowserWorld.Failure(profile==null?"isolated_world_unsupported":"browser_profile_unconfirmed");
+        final WebView view;int closes,destroyed;boolean manualBlocked,navigationBlocked,working,closed,assigned,isolated;Runnable complete;
+        private MdoBrowserDocument(Object raw){view=(WebView)raw;}
+        static MdoBrowserDocument prepare(Object raw,BooleanSupplier owned,LongSupplier epoch){return new MdoBrowserDocument(raw);}
+        MdoBrowserDocument(Object raw,ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,BooleanSupplier owned,LongSupplier epoch,String profile,MdoBrowserWorld.Budget budget)throws MdoBrowserWorld.Failure{this(raw);initialize(loader,scheduler,profile,budget,()->true);}
+        void whenInitialized(Runnable complete){this.complete=complete;}
+        boolean initializing(){return working;}
+        void initialize(ClassLoader loader,MdoBrowserWorld.Scheduler scheduler,String profile,MdoBrowserWorld.Budget budget,BooleanSupplier admitted)throws MdoBrowserWorld.Failure{
+            working=true;try{
+                view.host.profileRequests.add(profile);
+                if(!admitted.getAsBoolean())throw new MdoBrowserWorld.Failure("frame_changed");
+                if(profile!=null&&!view.host.allowProfile||view.host.fault.equals("manual_world"))throw new MdoBrowserWorld.Failure(profile==null?"isolated_world_unsupported":"browser_profile_unconfirmed");
+                assigned=profile!=null;isolated=view.host.allowIsolation;if(!isolated&&profile==null)throw new MdoBrowserWorld.Failure("isolated_world_unsupported");Runnable hook=view.host.beforeProfile;view.host.beforeProfile=null;if(hook!=null)hook.run();
+                if(closed||!admitted.getAsBoolean())throw new MdoBrowserWorld.Failure(closed?"world_closed":"frame_changed");
+            }finally{working=false;Runnable destination=complete;complete=null;if(destination!=null)destination.run();}
         }
-        boolean profileAssigned(){return view.host.allowProfile;}
-        void block(int reason,boolean value){if(reason==MANUAL)manualBlocked=value;if(reason==NAVIGATION)navigationBlocked=value;if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}void close(){closes++;}boolean cleanupConfirmed(){return !view.host.cleanupFault.equals("document");}
+        boolean profileAssigned(){return assigned&&!closed&&!working&&view.host.allowProfile;}
+        void block(int reason,boolean value){if(reason==MANUAL)manualBlocked=value;if(reason==NAVIGATION)navigationBlocked=value;if(view.host.beforeControlCancel!=null)view.host.beforeControlCancel.run();}void close(){closes++;closed=true;}boolean cleanupConfirmed(){return !working&&!view.host.cleanupFault.equals("document");}
         int nativeCommits,navigations,loadedCalls;void navigation(){navigations++;navigationBlocked=false;}void committed(){nativeCommits++;if(view.host.beforeNativeCommit!=null)view.host.beforeNativeCommit.run();navigationBlocked=false;}void loaded(){loadedCalls++;navigationBlocked=false;}
-        void viewDestroyed(Object original){if(original!=view)throw new AssertionError("Wrong document view");destroyed++;}
+        void viewDestroyed(Object original){if(original!=view||working)throw new AssertionError("Wrong/busy document view");destroyed++;}
         static final int BACKGROUND=1,CHANNEL=2,MANUAL=3,NAVIGATION=4;
     }
     static final class MdoBrowserChannel<T> {final class Lease {}Lease lease=new Lease();boolean open=true;Lease current(){return lease;}boolean active(Lease original,String url){return open&&lease==original;}void close(){open=false;}}
@@ -214,7 +224,7 @@ final class AndroidCreateHost {
         static void activateDestruction(WebView view,Destruction destruction)throws java.io.IOException{
             if(view.host.deferredRows.get(view)==destruction&&view.host.acknowledgedDestruction.contains(view)&&destruction.ready())destruction.destroy();
         }
-        static void viewDestroyed(WebView view){if(view.destroys!=1||view.host.views.values().contains(view))throw new AssertionError("Native owner notified before exact destruction/registry ACK");view.host.nativeRetirementNotifications++;}
+        static void viewDestroyed(WebView view){if(view.destroys!=1||view.host.views.values().contains(view))throw new AssertionError("Native owner notified before exact destruction/registry ACK; destroys="+view.destroys+" retained="+view.host.views.values().contains(view));view.host.nativeRetirementNotifications++;}
         interface Disposal {void destroy(String key,WebView exact);}
         // This focused create/close fixture never certifies promotion. The joint
         // worker fixture executes the real native implementation and disposer.
@@ -245,6 +255,8 @@ final class AndroidCreateHost {
     static final class MdoBrowserCdpPopupBroker {
         static final class Handoff {boolean current(){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}boolean owns(MdoBrowserCdpPopupNative.Promotion owner){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}void activate(){throw new UnsupportedOperationException("handoff_requires_joint_fixture");}}
     }
+    Runnable beforeProfile;
+    boolean allowIsolation=true;
     boolean stopped,browserPaused,allowProfile;String fault="",cleanupFault="";int replies,retired,nativeRetirementNotifications;JSONObject lastReply;
     final Set<WebView> deferredDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>()),acknowledgedDestruction=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
     final Map<WebView,MdoBrowserCdpPopupNative.Destruction> deferredRows=new IdentityHashMap<>();

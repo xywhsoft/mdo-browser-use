@@ -120,7 +120,14 @@ public final class AndroidLifecycleContractTest {
         MdoBrowserLifecycle.Construction<View> unknown=c.views.reservePopup("unknown",root);unknown.start();rejects(unknown::cancelBeforeStart);
         c.views.close();check(c.views.size()==1&&c.views.values().isEmpty()&&!unknown.destroyed(),"No-return constructor was reported as destroyed");
     }
+    private static void rootReceipts(){
+        Case c=new Case();View original=new View();c.views.put("root",original);c.views.remove("root");
+        check(!c.views.nativeDestroyed(original),"Registry removal forged native root destruction");c.views.viewDestroyed(new View());check(!c.views.nativeDestroyed(original),"Value-equal root callback acknowledged another view");
+        c.views.viewDestroyed(original);c.views.viewDestroyed(original);check(c.views.nativeDestroyed(original),"Plain original root lost its native destruction receipt");
+        View next=new View();c.views.put("root",next);check(!c.views.nativeDestroyed(next)&&c.views.nativeDestroyed(original),"Reused root key transferred a prior physical destruction receipt");c.views.close();c.views.viewDestroyed(next);
+    }
     public static void main(String[] args)throws Exception {
+        rootReceipts();
         constructorReservations();
         freshChildren();
         Case replacement=new Case();View original=new View(),next=new View();replacement.views.put("tab",original);replacement.press(original);

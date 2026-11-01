@@ -38,6 +38,10 @@ final class MdoBrowserProfile implements AutoCloseable {
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("Profile requires its owning UI thread");}
     boolean supported(){thread();return supported;}
+    boolean owns(Object exact){thread();return view==exact&&name()!=null;}
+    InvocationHandler provider(Object exact,ClassLoader original)throws MdoBrowserWorld.Failure {
+        thread();if(view!=exact||loader!=original||!sealed||name()==null)throw new MdoBrowserWorld.Failure("browser_profile_source_invalid");return provider;
+    }
     void assign(String name)throws MdoBrowserWorld.Failure {
         thread();available();
         if(closed||sealed||attempted&&!java.util.Objects.equals(name,assigned))throw new MdoBrowserWorld.Failure("world_profile_order");

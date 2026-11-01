@@ -129,7 +129,7 @@ public final class AndroidDocumentContractTest {
             mode("success");Object nextView=invoke("newView",new Class<?>[]{});
             MdoBrowserDocument isolated=new MdoBrowserDocument(nextView,loader,new Clock(),()->true,()->1,"qa.content");
             check(isolated.profileAssigned()&&calls("setProfile")==profiles+1,"Explicit profile was not assigned before use");
-            isolated.loaded();int fourth=peer();emit(nextView,true,"foreign payload",fourth);denied(isolated,"world_message_invalid");isolated.close();check(isolated.cleanupConfirmed(),"Failed document did not clean up");
+            isolated.loaded();int fourth=peer();emit(nextView,true,"foreign payload",fourth);denied(isolated,"world_message_invalid");check(isolated.profileAssigned(),"Realm fault revoked confirmed physical profile authority");isolated.close();check(isolated.cleanupConfirmed(),"Failed document did not clean up");
             invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE"});int creates=calls("create");
             try{new MdoBrowserDocument(nextView,loader,new Clock(),()->true,()->1,null);throw new AssertionError();}
             catch(MdoBrowserWorld.Failure failure){check(failure.code.equals("isolated_world_unsupported"),"Unsupported provider was not explicit");}

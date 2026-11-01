@@ -15,6 +15,18 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E145:** join the independent physical profile to actual root
+  creation/network admission before settings/navigation. The optional boundary
+  world borrows that exact confirmed owner without another provider/setter;
+  its absence or document faults do not revoke the physical association. Publish
+  the initializing controller before native callbacks and defer destruction
+  until they return. Reproduce and fix a plain-root destruction receipt bug that
+  otherwise destroys the same view twice on creation rollback. Fresh actual
+  profile/world/document/budget checks pass 319/35/86/18, root product 827,
+  lifecycle 167, full native 128 inputs/192 modes/7,428 checks, Python 174/176
+  and Windows 301/six cycles. Rebuilt APK passes 60 actual definition groups.
+  Protected popup policy/profile/UI integration and installed-provider/device
+  qualification remain incomplete; public Android automation stays disabled.
 - **Android E144:** extract one native profile owner from the isolated-world
   adapter and implement acknowledged child inheritance. Profile-only providers
   need `MULTI_PROFILE`, without script-world/listener support. Reuse the same
@@ -11462,3 +11474,49 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   task/policy/UI ownership, navigation, OOPIF, multi-child/process recovery and
   remaining Windows qualification. Public Android admission and installed-device
   qualification remain false; phone/WebView verification remains deferred.
+
+
+### E145 — physical root profile admission and initialization quiescence
+
+- Root create now confirms the independent profile before ordinary settings,
+  navigation or network setup. The optional boundary document world borrows
+  that exact provider/profile instead of assigning it again. MULTI_PROFILE-only
+  providers retain physical configuration for the original CDP adapter while
+  reporting boundary execution unavailable; this does not qualify a provider or
+  enable public Android automation. Document faults, navigation and takeover
+  preserve the physical profile until its actual owner closes.
+- Split controller publication from native initialization. Retain the controller
+  before provider callbacks, recheck original channel/view admission around
+  configuration, and defer native destruction until initialization returns.
+  Invalid arguments have no provider effect, completion runs once, and uncertain
+  binding stays unconfirmed until exact native destruction. Preserve fatal
+  errors through cleanup instead of masking them with ordinary failure text.
+  Closing a borrowed physical owner revokes peer post/evaluation and suppresses
+  late success payloads; E145-borrowed-owner-red.log preserves the detected gap.
+- Reproduce the prior plain-root receipt defect against e737074: closing in
+  the initialization callback destroyed the native window, then outer rollback
+  destroyed it again. E145-root-receipt-red.json/log retain destroys=2 evidence
+  and baseline source hash. Record an exact weak-history native ACK for roots
+  as well as fresh popup children; removal/value equality/key reuse is no ACK.
+- Fresh world/document/profile/budget gates pass 35/86/319/18 under Java 8,
+  including 49 new profile/controller checks. Product creation passes 827/18
+  source inputs and asynchronous close 77; actual lifecycle gate passes 167.
+  Full native passes 128 inputs, all prior 192 modes/7,428 checks, attachment
+  2,686/two native sessions, controller 360 and JNI 264 with ASan/UBSan/API26.
+  Popup 110/25/7, saving 47 and Python 174/176 pass in 49.527 seconds; two
+  existing Windows symlink privilege cases remain skipped.
+- Reapply only the existing deployment and rebuild its APK: 6,550,849 bytes,
+  SHA-256 c486583b51f40db78293fb4c4d7f5afb76a8aa8727fc001eeca66102e7c634d7.
+  Verify 60 actual DEX groups, borrowed profile ownership, the published physical
+  controller and root destruction receipt. Windows WebView2 passes 301 checks,
+  six input/interrupted-drag cycles with seven before/after input hashes.
+  Windows program/plugin/native bytes remain unchanged. Packed Windows 12 and
+  JS 377 evidence is scoped unchanged reuse; E145-final-identities.py/log binds
+  all final sources, artifacts, regressions and fresh/scoped receipts.
+- Goal remains active. Next join protected popup profile inheritance before
+  transport to the actual task policy/UI lifecycle and physical/document network
+  scopes, then continue navigation/OOPIF/multi-child/process recovery and the
+  remaining Windows qualification. Public Android admission and installed-device
+  qualification remain false. Phone/WebView remains deferred at user request;
+  no ADB/device/provider, production/account/config, external-page/model or
+  publication action occurred, and no second app/Home/source copy was created.

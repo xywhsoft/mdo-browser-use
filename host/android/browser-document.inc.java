@@ -37,22 +37,28 @@
         final long epoch=views.epoch(key,view);final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
         return cdpViews.marker(key,view,epoch,original,()->cdpEnvironmentCurrent(key,view,epoch,original)&&chooserReady(dialogs.get(key)));
     }
-    private void bindDocument(String key,WebView view,boolean automation){
+    private void bindDocument(String key,WebView view,boolean automation,MdoBrowserChannel<WebMessagePort>.Lease original){
         if(documents.containsKey(key))closeDocument(key);
         documentFailures.remove(key);
-        if(android.os.Build.VERSION.SDK_INT<28){documentFailures.put(key,"provider_loader_unsupported");return;}
+        if(android.os.Build.VERSION.SDK_INT<28){documentFailures.put(key,"provider_loader_unsupported");if(automation)throw new UnsupportedOperationException("provider_loader_unsupported");return;}
+        MdoBrowserDocument document=null;
         try{
-            MdoBrowserDocument document=new MdoBrowserDocument(view,WebView.getWebViewClassLoader(),new MdoBrowserWorld.Scheduler(){
+            document=MdoBrowserDocument.prepare(view,()->!stopped&&views.owns(key,view),()->views.epoch(key,view));
+            documents.put(key,document); // Publish logical ownership before native callbacks.
+            document.whenInitialized(()->{NativeDestruction row=nativeDestructions.get(view);if(row!=null&&row.prepared)executeNativeDestruction(row);});
+            document.initialize(WebView.getWebViewClassLoader(),new MdoBrowserWorld.Scheduler(){
                 private final android.os.Handler handler=new android.os.Handler(android.os.Looper.getMainLooper());
                 public long now(){return android.os.SystemClock.uptimeMillis();}
                 public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("World scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
-            },()->!stopped&&views.owns(key,view),()->views.epoch(key,view),automation?"mdo.browser-use":null,worldBudget);
+            },automation?"mdo.browser-use":null,worldBudget,()->channel.current()==original&&channel.active(original,host.getUrl()));
             document.block(MdoBrowserDocument.BACKGROUND,browserPaused);
             document.block(MdoBrowserDocument.CHANNEL,channel.current()==null);
-            documents.put(key,document);
+            if(documents.get(key)!=document||!views.owns(key,view))throw new IllegalStateException("native_view_owner_changed");
         }catch(MdoBrowserWorld.Failure failure){
-            documentFailures.put(key,failure.code);
+            if(document!=null)document.close();
+            if(views.owns(key,view))documentFailures.put(key,failure.code);
+            if(!automation&&document!=null){if(!document.cleanupConfirmed())throw new UnsupportedOperationException(failure.code);documents.remove(key,document);}
             // The create route owns the one native retirement attempt. Keep
             // this exact view registered until its failure handler tears down
             // input, document and transfer state together; never destroy here.
@@ -77,7 +83,7 @@
         final String key;final WebView view;final MdoBrowserPopups<WebView> popup;final MdoBrowserDialogTarget dialog;final CaptureEntry capture;final MdoBrowserDocument document;
         boolean prepared,running,destroyed,complete,failed,clean,controlled;
         NativeDestruction(String key,WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){this.key=key;this.view=view;this.popup=popup;this.dialog=dialog;this.capture=capture;this.document=document;}
-        public boolean ready(){return prepared&&!running&&!failed;}
+        public boolean ready(){return prepared&&!running&&!failed&&(document==null||!document.initializing());}
         public boolean failed(){return failed;}
         public void destroy(){
             if(complete||running)return;if(!ready())throw new IllegalStateException("native_view_retirement_busy");running=true;
@@ -107,7 +113,7 @@
         row.controlled=MdoBrowserCdpPopupNative.registerDestruction(view,row);return row;
     }
     private boolean executeNativeDestruction(NativeDestruction row){
-        if(row.complete)return row.clean;if(row.failed)return false;
+        if(row.complete)return row.clean;if(row.failed)return false;if(row.document!=null&&row.document.initializing())return false;
         try{if(row.controlled)MdoBrowserCdpPopupNative.activateDestruction(row.view,row);else row.destroy();}
         catch(java.io.IOException error){row.failed=true;nativeViewCleanupFailed=true;nativeRetiringViews.remove(row.view);throw new IllegalStateException("native_view_cleanup_failed",error);}
         return row.complete&&row.clean;
@@ -153,7 +159,7 @@
     }
     private JSONObject documentState(String key) throws JSONException {
         MdoBrowserDocument document=documents.get(key);
-        return new JSONObject().put("installed",document!=null).put("ready",document!=null&&document.ready())
+        return new JSONObject().put("installed",document!=null&&document.worldInstalled()).put("ready",document!=null&&document.ready())
             .put("phase",document==null?documentFailures.getOrDefault(key,"world_unavailable"):document.phase())
             .put("pending",document==null?0:document.pending()).put("native_outstanding",document==null?0:document.outstanding())
             .put("native_budget_used",worldBudget.used()).put("native_budget_limit",worldBudget.limit())

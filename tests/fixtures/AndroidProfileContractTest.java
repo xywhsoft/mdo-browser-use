@@ -152,12 +152,65 @@ public final class AndroidProfileContractTest {
         rejects("browser_profile_owner_changed",()->MdoBrowserProfile.inherit(view(),loader,before));check(calls("setProfile")==sets,"Retired opener assigned a child after provider allocation");
         invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"JS_INJECTION_IN_FRAME_AND_WORLD","MULTI_PROFILE"});
     }
+    private static void borrowedWorld(ClassLoader loader)throws Exception{
+        mode("success");invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE","JS_INJECTION_IN_FRAME_AND_WORLD"});
+        Object original=view();MdoBrowserProfile profile=MdoBrowserProfile.open(original,loader);profile.assign("qa.borrowed");profile.seal();
+        MdoBrowserWorld.Peer[] observed={null};int sets=calls("setProfile"),creates=calls("create");MdoBrowserWorld.Receiver sink=new MdoBrowserWorld.Receiver(){public void message(MdoBrowserWorld.Peer peer,String text){observed[0]=peer;}public void fault(String code){throw new AssertionError(code);}};
+        AndroidDocumentContractTest.Clock clock=new AndroidDocumentContractTest.Clock();MdoBrowserWorld.Budget budget=new MdoBrowserWorld.Budget(2);
+        rejects("browser_profile_source_invalid",()->MdoBrowserWorld.borrow(view(),loader,clock,sink,budget,profile));
+        rejects("browser_profile_source_invalid",()->MdoBrowserWorld.borrow(original,ClassLoader.getPlatformClassLoader(),clock,sink,budget,profile));
+        MdoBrowserWorld borrowed=MdoBrowserWorld.borrow(original,loader,clock,sink,budget,profile);borrowed.install("fixed borrowed bootstrap");
+        check(calls("setProfile")==sets&&calls("create")==creates,"Borrowing rebound profile or recreated native provider");
+        borrowed.close();check(borrowed.cleanupConfirmed()&&profile.name().equals("qa.borrowed")&&!profile.cleanupConfirmed(),"Realm cleanup retired the physical profile owner");borrowed.viewDestroyed(original);
+        MdoBrowserWorld again=MdoBrowserWorld.borrow(original,loader,clock,sink,budget,profile);again.install("fixed live borrowed world");
+        int nativePeer=(Integer)invoke("newPeer",new Class<?>[]{});invoke("emit",new Class<?>[]{Object.class,boolean.class,String.class,int.class},original,true,"fixed",nativePeer);
+        check(observed[0]!=null&&again.current(observed[0]),"Live borrowed peer was not admitted");
+        List<MdoBrowserWorld.Result> delayed=new ArrayList<>();mode("defer");observed[0].evaluate("fixed pending call",100,delayed::add);mode("success");
+        MdoBrowserWorld uninstalled=MdoBrowserWorld.borrow(original,loader,clock,sink,budget,profile);profile.close();int worlds=calls("getJavaScriptWorld"),dispatches=calls("peer:executeJavaScript");
+        check(!again.current(observed[0]),"Closed physical owner retained an admitted borrowed peer");
+        rejects("frame_changed",()->observed[0].evaluate("must not execute",100,result->{}));check(calls("peer:executeJavaScript")==dispatches,"Closed physical profile dispatched borrowed native execution");
+        rejects("frame_changed",()->observed[0].post("must not post"));invoke("late",new Class<?>[]{});
+        check(delayed.size()==1&&!delayed.get(0).ok&&delayed.get(0).value==null&&"frame_changed".equals(delayed.get(0).code)&&again.pending()==0&&again.outstanding()==0,"Retired borrowed owner published a late result or leaked its native call");
+        rejects("world_profile_order",()->uninstalled.install("refused revoked physical owner"));check(calls("getJavaScriptWorld")==worlds,"Closed physical profile granted an execution world");again.close();uninstalled.close();profile.viewDestroyed(original);
+    }
+    private static void physicalController(ClassLoader loader)throws Exception{
+        mode("success");invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE"});
+        Object untouched=view();MdoBrowserDocument pending=MdoBrowserDocument.prepare(untouched,()->true,()->1);int[] completed={0};
+        pending.whenInitialized(()->completed[0]++);int before=calls("create");
+        rejects("world_arguments_invalid",()->pending.initialize(null,new AndroidDocumentContractTest.Clock(),"qa.validation",new MdoBrowserWorld.Budget(2),()->true));
+        rejects("world_arguments_invalid",()->pending.initialize(loader,null,"qa.validation",new MdoBrowserWorld.Budget(2),()->true));
+        rejects("world_arguments_invalid",()->pending.initialize(loader,new AndroidDocumentContractTest.Clock(),"qa.validation",null,()->true));
+        rejects("world_arguments_invalid",()->pending.initialize(loader,new AndroidDocumentContractTest.Clock(),"qa.validation",new MdoBrowserWorld.Budget(2),null));
+        check(calls("create")==before&&completed[0]==0&&!pending.initializing(),"Invalid initialization touched the provider or consumed completion");
+        pending.initialize(loader,new AndroidDocumentContractTest.Clock(),"qa.validation",new MdoBrowserWorld.Budget(2),()->true);
+        check(completed[0]==1&&pending.profileAssigned(),"Corrected initialization did not complete exactly once");
+        rejects("world_install_order",()->pending.initialize(loader,new AndroidDocumentContractTest.Clock(),"qa.validation",new MdoBrowserWorld.Budget(2),()->true));
+        pending.close();pending.viewDestroyed(untouched);check(completed[0]==1&&pending.cleanupConfirmed(),"Closing replayed the initialization callback");
+        MdoBrowserDocument abandoned=MdoBrowserDocument.prepare(view(),()->true,()->1);abandoned.close();abandoned.whenInitialized(()->completed[0]++);
+        check(completed[0]==2&&abandoned.cleanupConfirmed(),"Already closed preparation retained its completion callback");
+        Object original=view();int sets=calls("setProfile"),creates=calls("create"),worlds=calls("getJavaScriptWorld");
+        MdoBrowserDocument controller=new MdoBrowserDocument(original,loader,new AndroidDocumentContractTest.Clock(),()->true,()->1,"qa.native-controller");
+        check(controller.profileAssigned()&&!controller.ready()&&!controller.worldInstalled()&&controller.identity()==null&&controller.phase().equals("isolated_world_unsupported"),"Physical-only controller invented or lost profile/world authority");
+        check(calls("setProfile")==sets+1&&calls("create")==creates+1&&calls("getJavaScriptWorld")==worlds,"Profile-only controller created a realm or repeated provider binding");
+        controller.navigation();controller.committed();controller.block(MdoBrowserDocument.MANUAL,true);controller.block(MdoBrowserDocument.MANUAL,false);
+        check(controller.profileAssigned()&&controller.pending()==0&&controller.outstanding()==0,"Document lifecycle revoked physical profile association");controller.close();check(controller.cleanupConfirmed()&&!controller.profileAssigned(),"Physical controller close did not release logical ownership");controller.viewDestroyed(original);
+        invoke("features",new Class<?>[]{String[].class},(Object)new String[]{"MULTI_PROFILE","JS_INJECTION_IN_FRAME_AND_WORLD"});
+        Object shared=view();sets=calls("setProfile");creates=calls("create");MdoBrowserDocument full=new MdoBrowserDocument(shared,loader,new AndroidDocumentContractTest.Clock(),()->true,()->1,"qa.full-controller");
+        check(full.profileAssigned()&&full.worldInstalled()&&calls("setProfile")==sets+1&&calls("create")==creates+1,"Controller did not borrow its single confirmed native profile");full.close();check(full.cleanupConfirmed(),"Shared profile/world controller cleanup failed");full.viewDestroyed(shared);
+        for(boolean close:new boolean[]{false,true}){
+            java.util.concurrent.atomic.AtomicBoolean admitted=new java.util.concurrent.atomic.AtomicBoolean(true);Object candidate=view();MdoBrowserDocument preparing=MdoBrowserDocument.prepare(candidate,()->true,()->1);
+            int[] completions={0};preparing.whenInitialized(()->{check(!preparing.initializing(),"Initialization callback preceded native return");completions[0]++;});
+            invoke("profileHook",new Class<?>[]{Runnable.class},(Runnable)()->{check(preparing.initializing()&&!preparing.cleanupConfirmed(),"Native profile call was not charged during callback");if(close)preparing.close();else admitted.set(false);});
+            rejects(close?"browser_profile_unconfirmed":"frame_changed",()->preparing.initialize(loader,new AndroidDocumentContractTest.Clock(),"qa.cancelled-controller",new MdoBrowserWorld.Budget(2),admitted::get));
+            check(completions[0]==1&&!preparing.initializing()&&preparing.cleanupConfirmed()==!close,"Cancelled native initialization retained callback ownership");preparing.viewDestroyed(candidate);check(preparing.cleanupConfirmed(),"Exact native destruction did not settle cancelled profile initialization");
+        }
+    }
     public static void main(String[] args)throws Exception{
         try(URLClassLoader loader=new URLClassLoader(new URL[]{Paths.get(args[0]).toUri().toURL()},ClassLoader.getPlatformClassLoader())){
             remote=Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil",true,loader);
             check(remote.getClassLoader()!=AndroidProfileContractTest.class.getClassLoader(),"Provider loader was not foreign");
-            mode("success");unconfirmed(loader);confirmed(loader);validation(loader);document(loader);reentrant(loader);standalone(loader);inheritanceFailures(loader);
-            System.out.println("{\"passed\":true,\"checks\":"+checks+",\"foreign_classloader\":true,\"standalone_profile_inheritance\":true,\"original_view_readback\":true,\"no_profile_retry\":true,\"framework_verified\":false}");
+            mode("success");unconfirmed(loader);confirmed(loader);validation(loader);document(loader);reentrant(loader);standalone(loader);inheritanceFailures(loader);borrowedWorld(loader);physicalController(loader);
+            System.out.println("{\"passed\":true,\"checks\":"+checks+",\"foreign_classloader\":true,\"borrowed_world_and_physical_controller\":true,\"standalone_profile_inheritance\":true,\"original_view_readback\":true,\"no_profile_retry\":true,\"framework_verified\":false}");
         }
     }
 }

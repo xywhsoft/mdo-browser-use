@@ -28,6 +28,35 @@ public final class AndroidCreateContractTest {
         check(host.views.get("retained")==null&&original.destroys==1&&host.boundsCalls==bounds,"Stale view was resized, recreated or retained after reconciliation");
         check(host.replies==afterClose[0],"Closed view published a successful create receipt");
     }
+    static void physicalProfileCreation()throws Exception{
+        AndroidCreateHost host=networkHost();host.allowIsolation=false;AndroidCreateHost.NetworkCall nativeOwner=startNetwork(host,"profile-only");
+        AndroidCreateHost.WebView view=host.views.get("profile-only");AndroidCreateHost.MdoBrowserDocument controller=host.documents.get("profile-only");
+        check(controller.profileAssigned()&&!controller.isolated,"Profile-only native creation invented a script world");nativeOwner.ready();
+        check(Boolean.TRUE.equals(host.network("profile-only").data.get("ready"))&&view.loads==1,"Missing optional realm prevented native network readiness or replayed warmup");
+        host.startPage("profile-only",view.url);host.finishPage("profile-only",view.url);host.takeover("profile-only");nativeOwner.retired();host.returnControl("profile-only");host.cdpWorker.calls.get(1).ready();
+        check(controller.profileAssigned()&&!host.manual.contains("profile-only")&&view.loads==1,"Native rearm lost physical profile or navigated without a realm");host.closeCommand("profile-only");
+        for(String mode:new String[]{"close","host","channel","configured"}){
+            AndroidCreateHost candidate=networkHost();
+            Runnable cancel=()->{
+                AndroidCreateHost.WebView exact=candidate.created.get(0);AndroidCreateHost.MdoBrowserDocument document=candidate.documents.get("tab");
+                if(!mode.equals("configured"))check(document.initializing(),"Profile callback escaped initializing reservation");
+                if(mode.equals("host"))candidate.destroy();else if(mode.equals("channel"))candidate.channel.lease=candidate.channel.new Lease();else candidate.closeCommand("tab");
+                if(mode.equals("close")||mode.equals("host"))check(exact.destroys==0&&!document.cleanupConfirmed(),"Native view was destroyed/released inside profile boundary call");
+            };
+            if(mode.equals("configured"))candidate.beforeConfigured=cancel;else candidate.beforeProfile=cancel;
+            try{candidate.create("tab",request(true));throw new AssertionError("Retired creation published a browser: "+mode);}
+            catch(RuntimeException expected){check(true,"Original creation rejected after ownership loss");}catch(AssertionError failure){throw new AssertionError("Physical profile creation mode "+mode,failure);}
+            AndroidCreateHost.WebView exact=candidate.created.get(0);
+            check(exact.destroys==1&&exact.loads==0&&candidate.views.get("tab")==null&&candidate.root.children.isEmpty(),"Interrupted profile creation leaked, navigated or destroyed twice: "+mode);
+            check(candidate.cdpWorker.calls.isEmpty()&&candidate.nativeRetirementNotifications==1,"Interrupted profile creation sent protocol work or lost exact native notification: "+mode);
+            check(!Boolean.TRUE.equals(candidate.capabilities().data.get("native_view_cleanup_failed")),"Confirmed deferred setup cleanup poisoned native admission: "+mode);
+        }
+        android.os.Build.VERSION.SDK_INT=27;try{
+            AndroidCreateHost unsupported=networkHost();try{unsupported.create("tab",request(true));throw new AssertionError("Unsupported loader configured an automation view");}
+            catch(UnsupportedOperationException expected){check(expected.getMessage().equals("provider_loader_unsupported"),"Wrong loader capability failure");}
+            AndroidCreateHost.WebView exact=unsupported.created.get(0);check(exact.loads==0&&exact.touches==0&&exact.destroys==1&&unsupported.profileRequests.isEmpty(),"Missing loader changed profile, touched settings or leaked native view");
+        }finally{android.os.Build.VERSION.SDK_INT=35;}
+    }
     static void deferredHostDestruction()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();host.create("tab",request(false));AndroidCreateHost.WebView view=host.views.get("tab");
         AndroidCreateHost.MdoBrowserDocument original=host.documents.get("tab");host.deferredDestruction.add(view);
@@ -603,9 +632,9 @@ public final class AndroidCreateContractTest {
             if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
             host.closeCommand("tab");
         }
-        existingProtectedReattach();reattachReconciliation();deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
+        existingProtectedReattach();reattachReconciliation();physicalProfileCreation();deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         int asyncCloseChecks=AndroidCloseContractTest.run();checks+=asyncCloseChecks;
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"existing_protected_reattach\":true,\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"physical_profile_creation\":true,\"existing_protected_reattach\":true,\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

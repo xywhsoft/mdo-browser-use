@@ -61,7 +61,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         Entry(T view){this.view=view;}
     }
     private final class History {
-        final WeakReference<T> view;final Fresh<T> fresh;
+        final WeakReference<T> view;final Fresh<T> fresh;boolean destroyed;
         History(T view,Fresh<T> fresh){this.view=new WeakReference<>(view);this.fresh=fresh;}
     }
     private final Map<String,Entry> entries=new LinkedHashMap<>();private final Factory<T> factory;private final Invalidated<T> invalidated;
@@ -169,10 +169,11 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
      * invokes it only after destroying this exact returned framework instance. */
     void viewDestroyed(T exact){
         thread();for(Entry entry:entries.values())if(entry.view==exact)throw new IllegalStateException("Native view is still registered");
+        for(History original:history)if(original.view.get()==exact)original.destroyed=true;
         Fresh<T> child=retiring.remove(exact);if(child!=null){child.live.set(false);child.destroyed.set(true);}
         for(Iterator<Construction<T>> at=constructing.values().iterator();at.hasNext();){Construction<T> pending=at.next();if(pending.nativeView==exact){pending.disposed=true;pending.nativeView=null;if(pending.birth!=null){pending.birth.live.set(false);pending.birth.destroyed.set(true);}at.remove();}}
     }
-    boolean nativeDestroyed(T exact){thread();for(History original:history)if(original.view.get()==exact)return original.fresh!=null&&original.fresh.destroyed();return false;}
+    boolean nativeDestroyed(T exact){thread();for(History original:history)if(original.view.get()==exact)return original.destroyed||original.fresh!=null&&original.fresh.destroyed();return false;}
     private void retire(Entry entry){if(entry.fresh!=null){entry.fresh.live.set(false);if(entry.fresh.independent!=null)entry.fresh.independent.retired.set(true);retiring.put(entry.view,entry.fresh);}}
     private void settle(Entry entry,Runnable operation){
         try{operation.run();}catch(RuntimeException error){entry.failed=true;cleanupFailed=true;}

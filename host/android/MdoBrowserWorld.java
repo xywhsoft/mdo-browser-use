@@ -45,7 +45,7 @@ final class MdoBrowserWorld implements AutoCloseable {
     private final Object view;private final ClassLoader loader;private final InvocationHandler provider;
     private final Scheduler scheduler;private final Receiver receiver;private final Thread owner=Thread.currentThread();
     private final Set<Pending> pending=new HashSet<>();private final Set<NativeCall> outstanding=new HashSet<>();
-    private final MdoBrowserProfile profile;private final Budget budget;
+    private final MdoBrowserProfile profile;private final boolean ownsProfile;private final Budget budget;
     private InvocationHandler script;private Peer current;private boolean listening,closed,scriptUncertain;
     private boolean installAttempted;
 
@@ -69,7 +69,13 @@ final class MdoBrowserWorld implements AutoCloseable {
         if(view==null||loader==null||scheduler==null||receiver==null||budget==null)throw new Failure("world_arguments_invalid");budget.used();
         Features features=inspect(loader);
         if(!features.isolatedWorld)throw new Failure("isolated_world_unsupported");
-        return new MdoBrowserWorld(view,features.loader,provider(features,view),scheduler,receiver,features.profiles,budget);
+        InvocationHandler provider=provider(features,view);
+        return new MdoBrowserWorld(view,features.loader,provider,scheduler,receiver,new MdoBrowserProfile(view,loader,provider,features.profiles),true,budget);
+    }
+    static MdoBrowserWorld borrow(Object view,ClassLoader loader,Scheduler scheduler,Receiver receiver,Budget budget,MdoBrowserProfile profile)throws Failure {
+        if(view==null||loader==null||scheduler==null||receiver==null||budget==null||profile==null)throw new Failure("world_arguments_invalid");budget.used();
+        profile.provider(view,loader);Features features=inspect(loader);if(!features.isolatedWorld)throw new Failure("isolated_world_unsupported");
+        return new MdoBrowserWorld(view,loader,profile.provider(view,loader),scheduler,receiver,profile,false,budget);
     }
     static InvocationHandler provider(Features features,Object view)throws Failure {
         try{
@@ -77,8 +83,8 @@ final class MdoBrowserWorld implements AutoCloseable {
             if(!(result instanceof InvocationHandler))throw new Failure("world_provider_unavailable");return(InvocationHandler)result;
         }catch(Failure failure){throw failure;}catch(RuntimeException|LinkageError error){throw new Failure("world_provider_unavailable");}
     }
-    private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,boolean profiles,Budget budget){
-        this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;profile=new MdoBrowserProfile(view,loader,provider,profiles);
+    private MdoBrowserWorld(Object view,ClassLoader loader,InvocationHandler provider,Scheduler scheduler,Receiver receiver,MdoBrowserProfile profile,boolean ownsProfile,Budget budget){
+        this.view=view;this.loader=loader;this.provider=provider;this.scheduler=scheduler;this.receiver=receiver;this.profile=profile;this.ownsProfile=ownsProfile;
         this.budget=budget;
     }
     private void thread(){if(Thread.currentThread()!=owner)throw new IllegalStateException("World operations require their owning UI thread");}
@@ -143,7 +149,7 @@ final class MdoBrowserWorld implements AutoCloseable {
     void invalidate(Peer expected){
         thread();if(expected==null)return;retire(expected,"frame_changed");if(current==expected)current=null;
     }
-    boolean current(Peer peer){thread();return!closed&&peer!=null&&current==peer&&!peer.retired;}
+    boolean current(Peer peer){thread();return!closed&&(ownsProfile||profile.owns(view))&&peer!=null&&current==peer&&!peer.retired;}
     void cancelPending(String reason){
         thread();for(Pending job:new ArrayList<>(pending))job.finish(null,reason);
     }
@@ -151,12 +157,12 @@ final class MdoBrowserWorld implements AutoCloseable {
         private final InvocationHandler reply;private boolean retired;
         Peer(InvocationHandler reply){this.reply=reply;}private MdoBrowserWorld world(){return MdoBrowserWorld.this;}
         void post(String text) throws Failure {
-            thread();if(closed||retired||current!=this)throw new Failure("frame_changed");
+            thread();if(!current(this))throw new Failure("frame_changed");
             if(!bounded(text,16384))throw new Failure("world_message_limit");
             invoke(loader,reply,"JsReplyProxyBoundaryInterface","postMessage",text);
         }
         void evaluate(String expression,long timeout,Completion complete) throws Failure {
-            thread();if(closed||retired||current!=this)throw new Failure("frame_changed");
+            thread();if(!current(this))throw new Failure("frame_changed");
             if(!bounded(expression,131072)||timeout<1||timeout>10000||complete==null)throw new Failure("world_evaluation_invalid");
             if(outstanding.size()>=16)throw new Failure("world_job_limit");
             NativeCall callback=new NativeCall(MdoBrowserWorld.this,budget);
@@ -204,6 +210,7 @@ final class MdoBrowserWorld implements AutoCloseable {
             Completion destination=complete;complete=null;
             try{scheduler.remove(timer);}catch(RuntimeException error){code="world_timer_cleanup_failed";value=null;}
             if(scheduler.now()>=deadline){value=null;code="world_timed_out";}
+            if(code==null&&!current(peer)){value=null;code="frame_changed";}
             try{destination.complete(new Result(code==null,value,code,sent));}catch(RuntimeException error){receiver.fault("world_callback_failed");}
         }
     }
@@ -212,14 +219,14 @@ final class MdoBrowserWorld implements AutoCloseable {
     int sharedOutstanding(){thread();return budget.used();}
     int sharedLimit(){thread();return budget.limit();}
     @Override public void close(){
-        thread();profile.close();if(!closed){closed=true;invalidate();for(Pending job:new ArrayList<>(pending))job.finish(null,"world_closed");}
+        thread();if(ownsProfile)profile.close();if(!closed){closed=true;invalidate();for(Pending job:new ArrayList<>(pending))job.finish(null,"world_closed");}
         if(script!=null)try{invoke(loader,script,"ScriptHandlerBoundaryInterface","remove");script=null;}catch(Failure failure){receiver.fault("world_script_cleanup_failed");}
         if(listening)try{invoke(loader,provider,"WebViewProviderBoundaryInterface","removeWebMessageListener",LISTENER,WORLD);listening=false;}catch(Failure failure){receiver.fault("world_listener_cleanup_failed");}
     }
     void viewDestroyed(Object original){
         thread();if(!closed||original!=view)throw new IllegalStateException("Confirm only the exact closed native view");
-        script=null;scriptUncertain=false;listening=false;profile.viewDestroyed(original);
+        script=null;scriptUncertain=false;listening=false;if(ownsProfile)profile.viewDestroyed(original);
         for(NativeCall call:new ArrayList<>(outstanding))call.release();
     }
-    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&profile.cleanupConfirmed()&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
+    boolean cleanupConfirmed(){thread();return closed&&script==null&&!scriptUncertain&&(!ownsProfile||profile.cleanupConfirmed())&&!listening&&pending.isEmpty()&&outstanding.isEmpty();}
 }

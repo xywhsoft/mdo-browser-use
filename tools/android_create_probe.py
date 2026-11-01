@@ -92,7 +92,7 @@ def main():
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*map(linux,paths)],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidCreateContractTest'],cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     result=json.loads(run.stdout)
-    if not result.get('passed') or not result.get('native_control_ui_join') or not result.get('existing_protected_reattach') or not result.get('native_async_close_receipts') or result.get('framework_verified') is not False:
+    if not result.get('passed') or not result.get('native_control_ui_join') or not result.get('existing_protected_reattach') or not result.get('physical_profile_creation') or not result.get('native_async_close_receipts') or result.get('framework_verified') is not False:
         raise RuntimeError('Original native history/reload UI admission contract did not pass')
     result['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in
         [*production,template,fixture,close_fixture,overlay,dev.ROOT/'tools/android_create_probe.py',dev.ROOT/'host/android/browser-close.inc.java',dev.ROOT/'host/android/browser-network.inc.java',dev.ROOT/'host/android/browser-network-navigation.inc.java',dev.ROOT/'host/android/browser-navigation.inc.java',dev.ROOT/'host/android/browser-document.inc.java',dev.ROOT/'host/android/browser-destroy.inc.java',dev.ROOT/'host/android/browser-create.inc.java',dev.ROOT/'host/android/browser-view.inc.java',dev.ROOT/'host/android/browser-native-upload.inc.java',dev.ROOT/'host/android/browser-capabilities.inc.java']}

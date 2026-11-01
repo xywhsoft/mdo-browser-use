@@ -1,4 +1,5 @@
             if("create".equals(command)) {
+                final MdoBrowserChannel<WebMessagePort>.Lease creatingChannel=channel.current();
                 if(web==null)nativeCreationAdmission();else nativeOwnerAdmission();
                 final boolean networkRequired=request.optBoolean("automation")||request.optBoolean("intercept_downloads");
                 if(web!=null){
@@ -25,10 +26,13 @@
                     final WebView exactOpener=popupSource==null?null:views.get(opener);
                     final MdoBrowserLifecycle.Fresh<WebView> fresh=popupSource==null?null:views.putPopup(key,exactOpener,web);
                     if(fresh==null)views.put(key,web);
-                    if(popupSource==null)bindDocument(key,web,networkRequired);
+                    if(popupSource==null)bindDocument(key,web,networkRequired,creatingChannel);
                     else documentFailures.put(key,"popup_world_unqualified");
+                    if(!views.owns(key,web)||channel.current()!=creatingChannel)throw new IllegalStateException("native_view_owner_changed");
                     configureBrowserView(key,web);
-                    crashed.remove(key);pageClosed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);loading.put(key,true);
+                    if(!views.owns(key,web)||channel.current()!=creatingChannel)throw new IllegalStateException("native_view_owner_changed");
+                    crashed.remove(key);pageClosed.remove(key);locations.put(key,target);root.addView(web);bounds(web,request);
+                    if(!views.owns(key,web)||channel.current()!=creatingChannel)throw new IllegalStateException("native_view_owner_changed");loading.put(key,true);
                     if(popupSource!=null){
                         final WebView freshChild=fresh.claim(exactOpener);
                         final PopupLink link=new PopupLink(web,opener,popupId);popupLinks.put(key,link);
