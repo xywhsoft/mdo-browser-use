@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E147)
+## Complete development host APK (current: E148)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,550,849 bytes, SHA-256
-`cb515d536bcc61891164dd4c67099ec1fd17376dffddea22e630bf801143f208`.
+`2f2b81d69b7d496ed8cdfbf02adce55debd57ba9311721d8270ff875a7c16355`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5371,3 +5371,34 @@ evidence. Shared UI fixes do not enable the incomplete Android automation route.
 Provider/framework/device qualification remains false. Actual protected popup
 task/UI publication and network/document lifetime integration remain required,
 and phone/WebView checks stay deferred at the user's request.
+
+
+### E148: original browser mount, end and title-update ownership
+
+The shared UI wrapper now uses the original mount/entry/task/resource and prior
+registry instance, rather than only an AbortSignal, when registering a browser
+or handling its end/title callback. Older asynchronous work cannot overwrite or
+remove a newer instance. The shared browser-ownership module keeps popup and
+mount identity normalization consistent. Panel update checks row/lifetime again
+after backend replies while retaining the saved-result contract for current
+callers. Normal preview and metadata refresh still work. Aborting a UI mount
+does not close/revoke the task's native dispatcher or erase its registry record.
+
+Fifteen red failures are retained with baseline/applied-source hashes; final
+verification reconstructs the original applied wrapper. Twenty-two new wrapper/
+update tests plus the prior popup suite pass. Fresh full JS passes 424/424,
+Python 174/176 and actual SDK popup/display/close pass; two existing symlink
+privilege cases remain skipped. Fresh native passes 128 inputs/196 modes/7,530
+checks, with creation, popup, saving, Windows frames and packed program gates
+passing. E146's unchanged eight-input Java world gate is scoped reuse.
+
+The same deployment includes 127 reviewed files and the new shared module.
+Both previews are rebuilt and Windows verifies all 751 payloads; the matching
+APK passes signing/layout/source/native checks and 60 actual DEX groups. Use
+the current hash near the top. E148-final-identities.py/log binds final artifacts
+and evidence. This wrapper does not yet qualify browser-view.js internal
+initialization/recovery/poll/viewport/end owner propagation, actual protected
+Android task/UI/network coordination or installed-provider behavior. Those
+remain in progress; public Android/provider/framework/device qualification is
+false and phone/WebView checks remain deferred. No release or device change
+was made.

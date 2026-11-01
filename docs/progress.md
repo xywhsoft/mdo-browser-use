@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Shared UI E148:** bind browser registration/end/title callbacks to the exact
+  original mount, task, resource and native view. Reproduce fifteen applied-host
+  failures; late construction/end/update replies now preserve newer instances.
+  Keep preview/metadata refresh and independent background dispatchers working.
+  Share UI identity code with the popup manager. Fresh JS 424, Python 174/176,
+  actual SDK, native 7,530 checks, Windows frames 301/six cycles and packed program
+  12 pass. Rebuild both previews with the new module. Browser component internal
+  initialize/recover/poll/viewport/end boundaries still require owner propagation;
+  this wrapper gate does not claim those paths or Android automation complete.
 - **Shared UI E147:** reproduce and fix stale popup/page-close callbacks that
   continued after an opener or child instance/task changed. Snapshot the original
   scope before waiting, recheck exact instances at every asynchronous boundary,
@@ -11636,3 +11645,53 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   false; phone/WebView work remains deferred. No publication, production/account/
   config mutation, device/provider update, external-page/model call or extra
   application/Home/source copy occurred.
+
+
+### E148 — exact browser mount/end and panel-update ownership
+
+- Execute the actual applied browserView wrapper and reproduce fifteen failures
+  against 2f34f0c: late mount results could overwrite a newer registry entry, end
+  callbacks could delete/close replacement resources, and stale callbacks kept
+  their UI admission after abort, mount/task/target/resource changes or stop.
+  E148-mount-red.json/log preserve baseline and applied-source hashes. Final
+  verification reconstructs that source from pinned Git and baseline overlays.
+- Add a shared UI-only ownership module and use it in both popup reconciliation
+  and browser mounting. Its per-mount controller snapshots the exact original
+  mount/entry/resource/scope and prior registry instance. Publish only the same
+  browser ID; end only the registered original, once; title updates carry the
+  same lifetime guard. Generic panel update rechecks exact row and lifetime after
+  its backend reply while preserving its saved return value for current callers.
+  Type/resource/URL/task changes retire admission; metadata-only refresh and
+  preview's transient browser resource remain valid.
+- Preserve the independent task dispatcher: UI abort neither closes the native
+  browser nor deletes/revokes its execute/row registry record. A later owner may
+  replace it; an older mount cannot overwrite that replacement. No automatic
+  native reconnect/rollback or extra permission grant is introduced. The helper
+  checks UI identity only; broker/native permission checks remain authoritative.
+- Twenty-two new actual-wrapper/update tests pass alongside the 39 prior popup
+  cases. Fresh JS passes 424/424 with before/after expanded input hashes; Python
+  passes 174/176 in 50.524 seconds with two existing symlink privilege skips.
+  Actual C/JS/native SDK passes 19 actions/four navigations/five wait types/three
+  frames, including normal popup admission/display/close. Fresh native passes
+  128 inputs, 196 modes/7,530 assertions; creation 848/asynchronous close 77,
+  popup 110/25/7, saving 47 and Windows frames 301/six input/interrupted-drag
+  cycles pass. Unchanged eight-input E146 world/document/profile/budget evidence
+  35/86/396/18 is scoped hash-checked reuse, not fresh provider execution.
+- Apply 127 reviewed host files into the same deployment. Rebuild and verify
+  twelve packed Windows checks and all 751 payload files: 6,939,785 bytes,
+  SHA-256 5a85120888564e5d4eb7710e3c6c70cb6ebb47c8927a256038aec4cd43e8d007.
+  Matching Android APK is 6,550,849 bytes, SHA-256
+  2f2b81d69b7d496ed8cdfbf02adce55debd57ba9311721d8270ff875a7c16355.
+  Signing/layout/native/source and 60 actual DEX groups pass. Native binaries
+  and portable plugin bytes remain unchanged. E148-final-identities.py/log
+  binds final sources, payloads, red regressions and fresh/scoped evidence.
+- Goal remains active. The wrapper now supplies original owner admission, but
+  browser-view.js still uses only AbortSignal at several internal initialize,
+  recover, poll, viewport and explicit-end boundaries. Propagate/check the owner
+  there next, including revoked broker resources during recovery; this wrapper
+  gate does not qualify those paths. Continue actual Android protected-create/
+  task/UI and physical/document network integration, navigation/OOPIF/multi-child/
+  process recovery and remaining Windows qualification. Android automation and
+  provider/framework/device flags stay false. Phone/WebView remains deferred;
+  no publication, production/account/config changes, external-page/model call,
+  device/provider update or extra app/Home/source copy occurred.

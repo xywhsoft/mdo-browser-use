@@ -22,9 +22,13 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview (E147 popup/task UI lifetime guards,
-including E142/E106/W4/W3b/W3a/W2/W1/E66/F21) is **6,938,902 bytes**, SHA-256
-`54d3f82aa23cb925c3f7e0922dea8dcb35aa36a6687b7e6e5066bd93b382f6c3`.
+The current verified Windows preview (E148 original browser mount/end/title
+ownership, including E147/E142/E106/W4/W3b/W3a/W2/W1/E66/F21) is **6,939,785 bytes**,
+SHA-256 `5a85120888564e5d4eb7710e3c6c70cb6ebb47c8927a256038aec4cd43e8d007`.
+E148 prevents late mount/end/title callbacks from registering over or removing a
+newer panel/native-view owner. The original task's dispatcher survives UI unmount.
+Fresh JS 424, actual SDK, native frames and packed runtime checks pass; browser
+component internal lifecycle boundaries are still undergoing qualification.
 E147 snapshots original opener/child scope and checks exact UI ownership across
 asynchronous popup admission, creation and panel open/close. Late replies cannot
 publish or remove a replacement view. Already-issued uncertain native effects
@@ -38,7 +42,7 @@ acknowledgment. Windows does not declare that requirement and retains its direct
 input route. This rebuilt artifact passes twelve packed-program runtime checks
 and fresh WebView2 regression passes 301 assertions with six input cycles.
 Current evidence is recorded in `docs/progress.md` and the adjacent receipt.
-Its native inventory contains 750 files, including runtime 20, the shared
+Its native inventory contains 751 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and
 E24's shared admission guard for uncertain native dialog cleanup, plus E27's

@@ -1,9 +1,6 @@
 import { safeBrowserUrl } from "./model.js";
 import { ensureNativeBrowser } from "./native-view.js";
-
-const scopeKey = row => JSON.stringify([row?.owner || "", ...["device","project","session","run","workspace","namespace","member"]
-  .map(key => row?.context?.[key] || (key === "project" ? "default" : ""))]);
-const viewKey = row => JSON.stringify([row?.resource?.id || row?.id, row?.client, scopeKey(row)]);
+import { browserScopeKey as scopeKey, browserViewKey as viewKey } from "./browser-ownership.js";
 
 // The native message only schedules reconciliation. Ownership, URLs and request
 // identities are read again from the original native opener and broker scope.

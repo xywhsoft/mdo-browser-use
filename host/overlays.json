@@ -257,7 +257,7 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "import { executeBrowserAutomation } from \"./automation-dispatch.js\";",
-      "after": "import { createBrowserPopups } from \"./popup-manager.js\";\nimport { ensureNativeBrowser } from \"./native-view.js\";\nimport { executeBrowserAutomation } from \"./automation-dispatch.js\";"
+      "after": "import { createBrowserPopups } from \"./popup-manager.js\";\nimport { createBrowserViewLifetime } from \"./browser-ownership.js\";\nimport { ensureNativeBrowser } from \"./native-view.js\";\nimport { executeBrowserAutomation } from \"./automation-dispatch.js\";"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -1506,6 +1506,17 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "    try { await bound(row).call(\"panel.close\", { id }); } catch (error) { if (error.status !== 404) throw error; }\n    disposeMount(id); entries.delete(id); selectRemaining();",
       "after": "    if (entries.get(id) !== row || !current()) return;\n    try { await bound(row).call(\"panel.close\", { id }); } catch (error) { if (error.status !== 404) throw error; }\n    if (stopped || !current() || entries.get(id) !== row) return;\n    disposeMount(id); entries.delete(id); selectRemaining();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  async function browserView(root, row, signal, mount) {\n    const view = await mountBrowserView(root, { row, sdk: bound(row), signal, mount, bridge, clientId,\n      alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n      shown: () => !root.hidden && layout.open && !document.hidden && navigation.get().view !== \"settings\",\n      updateTitle: title => update(row.id, { title }), openExternal: target => layoutApi.call(\"system.open\", { target }), addContext,\n      onEnd: async id => { browserViews.delete(id); await close(row.id); } });\n    if (!signal.aborted) { browserViews.set(view.id, { execute: view.execute, row }); void popupManager.reconcile(view.id); }\n  }\n",
+      "after_file": "host/browser-view-lifetime.inc.js",
+      "suffix": ""
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  const update = async (id, patch) => { const row = entries.get(id); const saved = await bound(row).call(\"panel.update\", { id, revision: row.revision, ...patch }); entries.set(id, saved); remember(); render(); return saved; };",
+      "after": "  const update = async (id, patch, current = () => true) => {\n    const row = entries.get(id); if (!row || stopped || !current()) return;\n    const saved = await bound(row).call(\"panel.update\", { id, revision: row.revision, ...patch });\n    if (stopped || !current() || entries.get(id) !== row) return;\n    entries.set(id, saved); remember(); render(); return saved;\n  };"
     }
   ],
   "files": [
@@ -1912,6 +1923,10 @@
     {
       "source": "host/android/MdoBrowserProfile.java",
       "target": "tools/android/MdoBrowserProfile.java"
+    },
+    {
+      "source": "host/browser-ownership.js",
+      "target": "app/web/js/features/workbench/browser-ownership.js"
     }
   ]
 }

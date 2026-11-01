@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { ensureNativeBrowser } from "../host/native-view.js";
+import { browserScopeKey, browserViewKey } from "../host/browser-ownership.js";
 
 const original = await readFile(new URL("../host/popup-manager.js",import.meta.url),"utf8");
 const source = original.replace('import { safeBrowserUrl } from "./model.js";',
   'const safeBrowserUrl = value => {const u=new URL(value);if(!["http:","https:"].includes(u.protocol)||u.username||u.password)throw Error("Unsafe URL");return u.href;};')
-  .replace('import { ensureNativeBrowser } from "./native-view.js";',`const ensureNativeBrowser=${ensureNativeBrowser.toString()};`);
+  .replace('import { ensureNativeBrowser } from "./native-view.js";',`const ensureNativeBrowser=${ensureNativeBrowser.toString()};`)
+  .replace('import { browserScopeKey as scopeKey, browserViewKey as viewKey } from "./browser-ownership.js";',
+    `const browserScopeKey=${browserScopeKey.toString()};const scopeKey=browserScopeKey,viewKey=${browserViewKey.toString()};`);
 const { createBrowserPopups } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 const ticket = "popup-{00000000-0000-0000-0000-000000000001}";
 const context = { device:"original-device",project:"original-project",session:"original-session",run:"" };
