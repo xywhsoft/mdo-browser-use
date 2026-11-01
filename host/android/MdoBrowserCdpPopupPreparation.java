@@ -13,6 +13,7 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
     interface Lost {void lost(String code);}
     interface Allocated {void ready(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupWorker.Allocation allocation)throws IOException;}
     interface Proven {void ready(MdoBrowserCdpPopupNative.Child child)throws IOException;}
+    interface Consumed {void ready(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created child,MdoBrowserPopups.Adoption receipt)throws IOException;}
     private static final int NEW=0,STARTING=1,READY=2,RETIRING=3,TERMINAL=4;
     private static final class Pending {
         final Runnable effect;final Failure failure;
@@ -34,11 +35,17 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         final long deadline;final Proven ready;final Failure failure;
         ProofWait(long deadline,Proven ready,Failure failure){this.deadline=deadline;this.ready=ready;this.failure=failure;}
     }
+    private static final class AdoptionWait {
+        final MdoBrowserCdpPopupNative.Created child;final long deadline;final Consumed ready;final Failure failure;
+        MdoBrowserPopups.Adoption receipt;MdoBrowserCdpPopupNative.Consumption subscription;
+        AdoptionWait(MdoBrowserCdpPopupNative.Created child,long deadline,Consumed ready,Failure failure){this.child=child;this.deadline=deadline;this.ready=ready;this.failure=failure;}
+    }
     private final MdoBrowserCdpPopupNative source;
     private final BooleanSupplier owner;private final Lost lost;
     private final android.os.Handler handler=new android.os.Handler(Looper.getMainLooper());
     private final MdoBrowserCdpPopupNative.Child[] children=new MdoBrowserCdpPopupNative.Child[7];
     private final ProofWait[] proofs=new ProofWait[7];
+    private final AdoptionWait[] adoptions=new AdoptionWait[7];
     private final Runnable watch=this::tick;
     private AllocationWait allocation;private MdoBrowserPopups.Pending allocated;private boolean allocating,watching;
     private MdoBrowserCdpPopupWorker.Request request;private Pending pending;
@@ -85,6 +92,36 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         catch(IOException|RuntimeException|Error error){close("cdp_popup_native_allocation_callback_failed");failed(original.failure,"cdp_popup_native_allocation_callback_failed",true);}
         finally{allocating=false;}
     }
+    void adopt(MdoBrowserCdpPopupNative.Created child,int timeout,Consumed ready,Failure failure)throws IOException {
+        thread();if(child==null||ready==null||failure==null)throw new IOException("cdp_popup_delivery_arguments_invalid");long end=deadline(timeout);
+        if(phase!=READY||!owned())throw new IOException("cdp_popup_native_adoption_unavailable");
+        int slot=-1;for(int i=0;i<adoptions.length;i++){if(adoptions[i]!=null&&adoptions[i].child==child)throw new IOException("cdp_popup_native_adoption_replayed");if(adoptions[i]==null)slot=i;}
+        if(slot<0)throw new IOException("cdp_popup_native_adoption_limit");if(!source.adoptable(child))throw new IOException("cdp_popup_native_adoption_unavailable");
+        AdoptionWait original=new AdoptionWait(child,end,ready,failure);adoptions[slot]=original;
+        try{
+            original.receipt=source.adopt(child);
+            if(!active(original))return;
+            MdoBrowserCdpPopupNative.Consumption subscription=source.consume(child,original.receipt,new MdoBrowserCdpPopupNative.ConsumptionEvents(){
+                public void consumed(MdoBrowserPopups.Adoption receipt){nativeConsumed(original,receipt);}
+                public void failed(String code){if(active(original))close(code);}
+            });
+            if(active(original))original.subscription=subscription;else subscription.close();
+        }catch(IOException|RuntimeException|Error error){
+            if(active(original)){removeAdoption(original);close("cdp_popup_native_adoption_unconfirmed");failed(failure,"cdp_popup_native_adoption_unconfirmed",true);}
+        }
+        schedule();
+    }
+    private boolean active(AdoptionWait original){for(AdoptionWait row:adoptions)if(row==original)return true;return false;}
+    private void removeAdoption(AdoptionWait original){for(int i=0;i<adoptions.length;i++)if(adoptions[i]==original)adoptions[i]=null;if(original.subscription!=null)original.subscription.close();}
+    private void nativeConsumed(AdoptionWait original,MdoBrowserPopups.Adoption receipt){
+        thread();if(!active(original))return;
+        if(phase!=READY||!owned()){close("cdp_popup_preparation_owner_changed");return;}
+        if(android.os.SystemClock.elapsedRealtime()>=original.deadline){close("cdp_popup_native_consumption_timed_out");return;}
+        if(receipt!=original.receipt||!receipt.ok()||!receipt.nativeConsumed()){close("cdp_popup_native_adoption_unconfirmed");return;}
+        removeAdoption(original);schedule();
+        try{original.ready.ready(source,original.child,receipt);}
+        catch(IOException|RuntimeException|Error error){close("cdp_popup_native_consumption_callback_failed");failed(original.failure,"cdp_popup_native_consumption_callback_failed",true);}
+    }
     void prove(MdoBrowserCdpPopupNative.Child child,int timeout,Proven ready,Failure failure)throws IOException {
         thread();if(child==null||ready==null||failure==null)throw new IOException("cdp_popup_delivery_arguments_invalid");long end=deadline(timeout);
         if(phase!=READY||!owned()||request==null)throw new IOException("cdp_popup_native_proof_unavailable");
@@ -108,7 +145,8 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
     }
     private void schedule(){
         boolean proofPending=false;for(ProofWait value:proofs)if(value!=null)proofPending=true;
-        if(allocation==null&&!proofPending){if(watching){handler.removeCallbacks(watch);watching=false;}return;}
+        boolean adoptionPending=false;for(AdoptionWait value:adoptions)if(value!=null)adoptionPending=true;
+        if(allocation==null&&!proofPending&&!adoptionPending){if(watching){handler.removeCallbacks(watch);watching=false;}return;}
         if(watching)return;watching=true;
         try{if(!handler.postDelayed(watch,50)){watching=false;close("cdp_popup_native_delivery_timer_unavailable");}}
         catch(RuntimeException|Error error){watching=false;close("cdp_popup_native_delivery_timer_unavailable");}
@@ -117,6 +155,10 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         thread();watching=false;if(phase!=READY||!owned()){close("cdp_popup_preparation_owner_changed");return;}
         long now=android.os.SystemClock.elapsedRealtime();
         for(ProofWait value:proofs)if(value!=null&&now>=value.deadline){close("cdp_popup_native_proof_delivery_timed_out");return;}
+        for(AdoptionWait value:adoptions)if(value!=null){
+            if(now>=value.deadline){close("cdp_popup_native_consumption_timed_out");return;}
+            if(value.subscription!=null&&!value.subscription.current()){close("cdp_popup_native_consumption_retired");return;}
+        }
         drainAllocation();schedule();
     }
     void await(Runnable effect,Failure failure)throws IOException {
@@ -146,6 +188,7 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
         if(watching){handler.removeCallbacks(watch);watching=false;}
         if(original!=null)failed(original.failure,reason,false);if(waiting!=null)failed(waiting.failure,reason,false);
         for(int i=0;i<proofs.length;i++){ProofWait value=proofs[i];children[i]=null;proofs[i]=null;if(value!=null)failed(value.failure,reason,true);}
+        for(int i=0;i<adoptions.length;i++){AdoptionWait value=adoptions[i];adoptions[i]=null;if(value!=null){if(value.subscription!=null)value.subscription.close();failed(value.failure,reason,true);}}
     }
     private void notifyLost(){if(everReady&&!notified){notified=true;lost.lost(code==null?"cdp_popup_preparation_retired":code);}}
     boolean ready(){thread();if(phase==READY&&!owned())close("cdp_popup_preparation_owner_changed");return phase==READY;}

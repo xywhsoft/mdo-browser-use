@@ -1855,10 +1855,121 @@ public final class CdpPopupWorkerProbe {
             }
         }finally{Handler.fail=false;android.os.SystemClock.now=Long.MIN_VALUE;}
     }
+    private static java.lang.ref.WeakReference<MdoBrowserCdpPopupNative.Consumption> unretainedConsumption(
+            MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created child,MdoBrowserPopups.Adoption receipt,AtomicInteger callbacks)throws Exception {
+        return new java.lang.ref.WeakReference<>(source.consume(child,receipt,new MdoBrowserCdpPopupNative.ConsumptionEvents(){
+            public void consumed(MdoBrowserPopups.Adoption original){callbacks.incrementAndGet();}
+            public void failed(String code){callbacks.incrementAndGet();}
+        }));
+    }
+    private static void productAdoption(String mode)throws Exception {
+        String variant=mode.substring("preparation-adoption-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
+        try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=host.source();host.ready(network);try(NativeSource source=new NativeSource(host,network)){
+                PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,network.adapter,source.core,host.worker);
+                AtomicInteger prepared=new AtomicInteger(),received=new AtomicInteger(),proven=new AtomicInteger(),failures=new AtomicInteger();
+                String[] reason={null};boolean[] possible={false},acknowledged={false},detached={false};
+                MdoBrowserCdpPopupPreparation.Failure failed=(code,effect)->{check(host.ui.onThread());failures.incrementAndGet();reason[0]=code;possible[0]=effect;};
+                MdoBrowserCdpPopupNative[] original={null};MdoBrowserCdpPopupNative.Created[] created={null};WebView[] exact={null};
+                MdoBrowserCdpView[] adapter={null};MdoBrowserCdpPopupNative.Child[] proof={null};MdoBrowserCdpPopupNative.Promotion[] promoted={null};
+                product.prepare(prepared::incrementAndGet,failed);waitFor(()->prepared.get()==1,host,true);source.open();
+                product.constructPrepared(source.core.snapshot().id,"owned",1000,(s,c)->{original[0]=s;created[0]=c;exact[0]=c.view();},failed);
+                backend.wire.add(attached("proof-real","owned"));waitFor(()->created[0]!=null,host,true);
+                backend.nativeTargets.put("target-proof-real",proofPeer(exact[0],"success",null,null));Throwable primary=null;
+                try{
+                    if(variant.equals("arguments")){
+                        for(int timeout:new int[]{0,3001})failure("cdp_popup_delivery_arguments_invalid",()->product.adoptPrepared(created[0],timeout,(s,c,r)->received.incrementAndGet(),failed));
+                        failure("cdp_popup_delivery_arguments_invalid",()->product.adoptPrepared(created[0],1000,null,failed));
+                        check(source.sends==0&&failures.get()==0&&product.preparationReady());return;
+                    }
+                    source.adopting=exact[0];
+                    if(variant.equals("unretained")){
+                        MdoBrowserPopups.Adoption receipt=original[0].adopt(created[0]);
+                        java.lang.ref.WeakReference<MdoBrowserCdpPopupNative.Consumption> subscription=unretainedConsumption(original[0],created[0],receipt,received);
+                        for(int i=0;i<40&&subscription.get()!=null;i++){System.gc();Thread.sleep(5);}check(subscription.get()==null);
+                        source.ack();acknowledged[0]=true;check(received.get()==0&&receipt.ok());return;
+                    }
+                    if(variant.equals("inline"))source.sendHook=()->{source.ack();acknowledged[0]=true;};
+                    if(variant.equals("inline-expired"))source.sendHook=()->{android.os.SystemClock.now+=1100;source.ack();acknowledged[0]=true;};
+                    source.fail=variant.equals("send-failure");
+                    Handler.fail=variant.equals("timer");
+                    product.adoptPrepared(created[0],1000,(s,c,receipt)->{
+                        check(host.ui.onThread()&&s==original[0]&&c==created[0]&&receipt.ok()&&receipt.nativeConsumed());received.incrementAndGet();
+                        if(variant.equals("callback-throw"))throw new IOException("controlled_consumption_delivery_failure");
+                        adapter[0]=MdoBrowserCdpView.network(exact[0],v->v==exact[0],new MdoBrowserCdpMarker.DocumentQuota());
+                        proof[0]=s.child(receipt,c,adapter[0]);
+                        try{product.provePrepared(proof[0],1500,p->{promoted[0]=product.handoff("owned",s,c,p);proven.incrementAndGet();},failed);}
+                        catch(Exception error){throw new IOException(error);}
+                    },failed);Handler.fail=false;source.fail=false;
+                    check(source.sends==1);if(!variant.equals("inline"))check(received.get()==0);
+                    if(variant.equals("replay"))failure("cdp_popup_native_adoption_replayed",()->product.adoptPrepared(created[0],1000,(s,c,r)->{throw new AssertionError("Duplicate native adoption");},failed));
+                    if(variant.equals("subscription-replay")||variant.equals("wrong-owner")){
+                        java.lang.reflect.Field field=MdoBrowserCdpPopupNative.Created.class.getDeclaredField("adoption");field.setAccessible(true);
+                        MdoBrowserPopups.Adoption receipt=(MdoBrowserPopups.Adoption)field.get(created[0]);
+                        failure(variant.equals("wrong-owner")?"cdp_popup_native_consumption_unavailable":"cdp_popup_native_consumption_replayed",()->
+                            (variant.equals("wrong-owner")?source.source:original[0]).consume(created[0],receipt,new MdoBrowserCdpPopupNative.ConsumptionEvents(){
+                                public void consumed(MdoBrowserPopups.Adoption value){throw new AssertionError("Replacement listener");}public void failed(String code){throw new AssertionError("Replacement listener");}}));
+                        check(source.sends==1&&received.get()==0);
+                    }
+                    boolean interrupted=java.util.Arrays.asList("timeout","cancel","owner","channel","epoch","timer","native-close").contains(variant);
+                    if(interrupted){
+                        if(variant.equals("cancel"))product.retirePreparation("cdp_popup_preparation_cancelled");
+                        if(variant.equals("owner"))product.browserPaused=true;
+                        if(variant.equals("channel"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+                        if(variant.equals("epoch"))check(source.views.navigation("root",source.view));
+                        if(variant.equals("native-close"))created[0].close();
+                        android.os.SystemClock.now+=variant.equals("timeout")?1100:100;
+                        waitFor(()->failures.get()==1,host,true);check(possible[0]&&received.get()==0&&proven.get()==0&&exact[0].destroyed==0);
+                    }
+                    if(variant.equals("physical-owner"))network.adapter.marker().close();
+                    if(variant.equals("late-ack"))android.os.SystemClock.now+=1100;
+                    if(!acknowledged[0]){source.ack();acknowledged[0]=true;}
+                    if(interrupted||java.util.Arrays.asList("callback-throw","physical-owner","late-ack","inline-expired","send-failure").contains(variant)){
+                        waitFor(()->failures.get()==1,host,true);check(possible[0]&&received.get()==(variant.equals("callback-throw")?1:0)&&proven.get()==0&&promoted[0]==null);
+                        check(reason[0]!=null);host.ui.drain();Handler.drain();check(failures.get()==1);
+                    }else{
+                        waitFor(()->proven.get()==1,host,true);check(received.get()==1&&failures.get()==0&&promoted[0].current());
+                        product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);check(promoted[0].current());
+                        proof[0].handoff().close();waitFor(promoted[0]::ended,host,true);
+                    }
+                    check(source.sends==1&&backend.resumes.get()==0&&backend.detaches.get()==0);
+                }catch(Exception|Error error){primary=error;System.err.println("Adoption "+variant+" received="+received.get()+" proven="+proven.get()+" failures="+failures.get()+" reason="+reason[0]);throw error;}
+                finally{
+                    try{
+                        Handler.fail=false;product.retirePreparation("cdp_popup_preparation_cancelled");
+                        if(proof[0]!=null)proof[0].close();if(adapter[0]!=null)adapter[0].close();
+                        boolean uncertain=variant.equals("physical-owner")||variant.equals("send-failure");
+                        MdoBrowserCdpPopupWorker.Request finishing=uncertain?product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class):null;
+                        waitFor(()->{
+                            if(!acknowledged[0]&&source.consumed!=null){source.ack();acknowledged[0]=true;}
+                            if(!detached[0]&&promoted[0]==null&&acknowledged[0]&&(source.adopting==null||exact[0].destroyed>0)){
+                                try{backend.wire.add(detached("proof-real"));detached[0]=true;}catch(Exception error){throw new AssertionError(error);}}
+                            if(finishing!=null){MdoBrowserCdpPopupWorker.Result result=finishing.result();
+                                return result!=null&&result.terminal&&exact[0].destroyed==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==0;}
+                            return product.preparationSettled();
+                        },host,true);
+                        check(exact[0].destroyed==1&&MdoBrowserCdpPopupNative.retainedUiOwners()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);
+                        if(uncertain){
+                            MdoBrowserCdpPopupWorker.Result result=product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class).result();
+                            check(!result.sourceReleased&&result.code.equals(variant.equals("physical-owner")?"cdp_popup_broker_opener_lost":"cdp_popup_native_rejection_unconfirmed")&&!product.preparationSettled());
+                            try{product.checkCreation();throw new AssertionError("Unknown process protection was released");}
+                            catch(IllegalStateException expected){check(expected.getMessage().equals("native_popup_protection_busy"));}
+                        }
+                        check(backend.threads.size()==1&&host.threads.containsAll(backend.threads));
+                    }catch(Exception|Error error){
+                        MdoBrowserCdpPopupWorker.Result result=product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class).result();
+                        System.err.println("Adoption cleanup "+variant+" reason="+product.preparationCode()+" native="+original[0].failure()+" destroyed="+exact[0].destroyed+" retained="+MdoBrowserCdpPopupNative.retainedUiOwners()+" sourceReleased="+(result==null?null:result.sourceReleased)+" result="+(result==null?null:result.code));
+                        if(primary!=null)primary.addSuppressed(error);else throw error;
+                    }
+                }
+            }
+        }finally{Handler.fail=false;android.os.SystemClock.now=Long.MIN_VALUE;}
+    }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
         if(mode.startsWith("prepared-admission"))preparedAdmission(mode);
         else if(mode.startsWith("preparation-child-"))productChildDelivery(mode);
+        else if(mode.startsWith("preparation-adoption-"))productAdoption(mode);
         else if(mode.startsWith("preparation"))productPreparation(mode);
         else if(mode.startsWith("source"))managedSource(mode,args[1]);
         else if(mode.startsWith("transfer"))managedTransfers(mode,args[1]);

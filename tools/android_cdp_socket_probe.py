@@ -181,6 +181,9 @@ def main():
                  'preparation-input-unready','preparation-input-invalid','preparation-input-retired',
                  'preparation-child-ready','preparation-child-delayed','preparation-child-timeout','preparation-child-owner','preparation-child-channel','preparation-child-request','preparation-child-replaced','preparation-child-timer',
                  'preparation-child-allocation-throw','preparation-child-reentrant','preparation-child-proof-timeout','preparation-child-proof-owner','preparation-child-proof-failure','preparation-child-proof-replay','preparation-child-proof-timer','preparation-child-proof-throw',
+                 'preparation-adoption-ready','preparation-adoption-inline','preparation-adoption-timeout','preparation-adoption-cancel','preparation-adoption-owner','preparation-adoption-channel','preparation-adoption-epoch','preparation-adoption-timer',
+                 'preparation-adoption-native-close','preparation-adoption-replay','preparation-adoption-subscription-replay','preparation-adoption-wrong-owner','preparation-adoption-physical-owner','preparation-adoption-callback-throw','preparation-adoption-unretained','preparation-adoption-arguments',
+                 'preparation-adoption-late-ack','preparation-adoption-inline-expired','preparation-adoption-send-failure',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))

@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E151)
+## Complete development host APK (current: E152)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,554,945 bytes, SHA-256
-`f566b6176329831951bf1b12c25c652d5fcc5d692d4397d9e250444b0eea73bc`.
+Current APK: 6,559,041 bytes, SHA-256
+`282e559cb81d8f6f38488a379516e1abdc089069bce12cc8491f2b8d67d7c673`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5456,3 +5456,32 @@ network-source/download binding, document/world activation and final publication
 are not joined yet. The new product seams remain private. Device/framework/
 provider qualification and public Android automation remain false. No phone,
 ADB inventory, install or WebView update was attempted.
+
+### E152: native consumption delivered to product adoption
+
+The product preparation can now send the exact configured child once and await
+its original native consumption notification before continuing to proof/handoff.
+The original deadline spans both steps (maximum 3 seconds; seven bounded waits).
+Native Created records retain subscription handles weakly; UI ownership keeps
+them alive only while waiting. Inline confirmation before subscription, delayed
+confirmation and cancellation/expiry use the same original Adoption identity.
+No receipt polling, new URL/view, replacement subscription or extra thread is
+used to recover. Native close retires the subscription; callback exceptions keep
+the original possible-effect outcome.
+
+Nineteen new controlled modes pass 385 checks; full native validation passes
+231 modes/8,263 checks with all earlier 212 counts unchanged. Full JS466,
+Python174/176, creation848/close77, popup110/25/7 and save47 pass. The rebuilt APK
+is signed by the existing QA signer and verifies 69 actual DEX definition groups,
+including weak ownership field shapes. The 479 input hashes include templates
+and tools. E150 Windows artifact/payload/runtime/frame/SDK and E146 world checks
+are unchanged scoped reuse. Evidence: `.mdo/E152-final-identities.log`.
+
+Two negative modes explicitly distinguish native destruction from protocol
+release: opener loss and send failure may leave `sourceReleased:false` even when
+the child is destroyed. They remain unsettled and block new construction in the
+original host; Activity/process recovery is not qualified by this gate. The full
+protected-create network/download/source/world/publication coordinator is still
+not joined, and `popup_network_unqualified` remains enforced. Device/framework/
+provider/public automation remain unqualified/false; no phone, ADB, install or
+WebView update was attempted.

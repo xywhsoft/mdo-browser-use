@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E152:** deliver original native consumption into the product
+  preparation scope. A once-only, weak native subscription supports both
+  synchronous acknowledgement and later UI delivery without polling the receipt.
+  Product adoption retains its original deadline and can advance to proof and
+  independent handoff only after the exact native confirmation. Nineteen new
+  modes/385 checks pass; fresh full native 231 modes/8,263 checks, JS 466 and
+  Python 174/176 pass. Rebuild/sign the APK and verify 69 actual DEX groups and
+  weak ownership fields. E150 Windows and E146 world evidence remain unchanged
+  scoped reuse. Complete protected creation/network/world/publication and
+  Android platform/recovery qualification remain open and disabled.
 - **Android E151:** connect original-pending allocation and native-proof UI
   delivery to the product preparation scope. Wait only for guarded pre-birth
   capture, reject replacements/replay and bound delivery by the existing UI
@@ -11842,3 +11852,49 @@ source/download attachment, document/world activation and UI publication. No
 phone, ADB, WebView update, live model, external page or production release was
 used. Android framework/provider/public qualification and the broader goal
 remain open.
+
+## Android E152 — original native consumption, without receipt polling
+
+The native Created record now observes its exact Adoption through the existing
+UI consumption callback and offers a once-only subscription. The native record
+keeps only a weak subscription link; the UI retains it while waiting. A receipt
+that was acknowledged synchronously can be delivered when subscribing later,
+but an arbitrary completed flag cannot replace the original UI notification.
+Closing/destroying the original child cancels its subscription. Replacement
+subscriptions and wrong-owner receipts are refused; callback exceptions never
+replay the native send.
+
+Product `adoptPreparedProtocolPopup` joins this to the original preparation.
+Arguments, owner and a free bounded slot are checked before sending; the same
+deadline spans send and confirmation (maximum 3 seconds). At most seven original
+adoptions wait. Owner/channel/epoch loss, timeout, timer failure and native
+retirement cancel the old callback and preserve possible effects. The exact
+configured/inherited-profile child can advance via the existing proof UI and
+independent handoff seams. Network/source/download attachment, world activation
+and final publication are still separate pending work; public protected creation
+still refuses `popup_network_unqualified`.
+
+Nineteen controlled JNI/worker/product modes pass 385 checks, including inline/
+delayed confirmation, late confirmation before timer dispatch, inline expiry,
+replay/wrong owner, unretained callback GC, cancellation, native close and callback
+errors. They exercise actual product allocation/adoption/proof/handoff methods.
+Physical-owner loss and native send failure deliberately retain
+`sourceReleased:false`: the exact child is destroyed, but unknown protocol
+release is not called settled and the original host still rejects new creation.
+These checks do not qualify cross-Activity/process recovery. Controlled target
+detach follows native destruction; no failure flag is reset to make cleanup pass.
+
+Fresh full native validation binds 128 inputs, passes 231 modes/8,263 checks and
+preserves all 212 earlier mode counts. Full JS 466 and Python 174/176 pass (two
+existing Windows privilege skips); source fingerprints include 479 files and
+are checked after every gate. Creation848/close77, popup110/25/7 and save47 pass.
+The rebuilt signed APK verifies 69 DEX definition groups, including the native
+consumption subscription/events and UI adoption records; actual field metadata
+confirms the weak native links. Windows remains the exact E150 artifact with
+751 current payloads and unchanged runtime12/frames301/SDK19 evidence. The E146
+world/profile gate is unchanged eight-input scoped reuse, not fresh execution.
+Evidence is retained under `.mdo/E152-*`, including final identity checks and
+the diagnostic that distinguishes local destruction from unconfirmed protocol
+release. No phone/ADB/WebView update, live model, external page or production
+publish was used; Android public/framework/provider and broader goal
+qualification remain incomplete.

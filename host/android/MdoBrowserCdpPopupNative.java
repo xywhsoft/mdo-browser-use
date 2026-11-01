@@ -13,6 +13,27 @@ import java.util.concurrent.atomic.AtomicInteger;
 final class MdoBrowserCdpPopupNative {
     interface Disposal {void destroy(String key,WebView exact);}
     interface Destruction {boolean ready();default boolean failed(){return false;}void destroy();}
+    interface ConsumptionEvents {void consumed(MdoBrowserPopups.Adoption original);void failed(String code);}
+    /** UI-owned subscription. Retained native records keep only its weak link,
+     * so an uncertain transport cannot retain an Activity/callback indefinitely. */
+    static final class Consumption implements AutoCloseable {
+        private final WeakReference<Created> owner;private final MdoBrowserPopups.Adoption original;
+        private ConsumptionEvents events;private int state;
+        private Consumption(Created owner,MdoBrowserPopups.Adoption original,ConsumptionEvents events){this.owner=new WeakReference<>(owner);this.original=original;this.events=events;}
+        boolean current(){thread();Created value=owner.get();MdoBrowserCdpPopupNative source=value==null?null:value.owner.get();
+            return state==0&&value!=null&&!value.done&&value.live.get()&&!value.retirementRequested&&value.adoption==original&&source!=null&&source.scope==value.action&&source.current();}
+        boolean delivered(){thread();return state==1;}
+        private void unbind(){Created value=owner.get();if(value!=null&&value.consumption.get()==this)value.consumption.clear();owner.clear();}
+        private void deliver(){
+            thread();Created value=owner.get();if(state!=0||value==null||!value.consumptionObserved)return;
+            boolean valid=current()&&original.nativeConsumed()&&original.ok();ConsumptionEvents callback=events;events=null;state=valid?1:3;unbind();
+            if(callback==null)return;
+            if(!valid){try{callback.failed("cdp_popup_native_consumption_unavailable");}catch(RuntimeException|Error ignored){}return;}
+            try{callback.consumed(original);}
+            catch(RuntimeException|Error error){state=3;try{callback.failed("cdp_popup_native_consumption_callback_failed");}catch(RuntimeException|Error ignored){/* never replay native consumption */}}
+        }
+        @Override public void close(){thread();if(state==0)state=2;events=null;unbind();}
+    }
     private static final AtomicBoolean CREATION_UNCERTAIN=new AtomicBoolean();
     private static final UiRetention[] UI_OWNERS=new UiRetention[8];
     private static final Created[] PROMOTED=new Created[8];
@@ -225,6 +246,8 @@ final class MdoBrowserCdpPopupNative {
         private final AtomicBoolean live=new AtomicBoolean(true);
         private Destruction hostDestruction;
         private MdoBrowserPopups.Adoption adoption;
+        private WeakReference<Consumption> consumption=new WeakReference<>(null);
+        private boolean consumptionRegistered,consumptionObserved;
         private Promotion promotion;private final AtomicBoolean promotionPosted=new AtomicBoolean();
         private final Runnable promotionClose=()->{promotionPosted.set(false);try{close();}catch(IOException failure){/* sticky diagnostic, no destructor replay */}};
         private final Runnable promotionNotify=()->{if(promotionPosted.compareAndSet(false,true))try{if(!PROMOTION_UI.post(promotionClose))promotionPosted.set(false);}catch(RuntimeException|Error failure){promotionPosted.set(false);}};
@@ -234,10 +257,20 @@ final class MdoBrowserCdpPopupNative {
         }
         void attachDisposal(Disposal cleanup){thread();MdoBrowserCdpPopupNative original=owner.get();if(cleanup==null||disposal!=null||sent||done||original==null||!original.current()||!allocation.current())throw new IllegalStateException("cdp_popup_native_child_invalid");disposal=cleanup;}
         WebView view(){thread();if(disposal==null)throw new IllegalStateException("cdp_popup_native_disposal_required");MdoBrowserCdpPopupNative original=owner.get();if(done||!live.get()||view==null||birth==null||!birth.current()||!allocation.current()||original==null||!original.current())throw new IllegalStateException("cdp_popup_native_child_invalid");return view;}
-        private void finished(){done=true;if(promotion!=null){promotion.live.set(false);if(promotion.ended.compareAndSet(false,true))promotion.parent.releasePromotion(promotion);for(int i=0;i<PROMOTED.length;i++)if(PROMOTED[i]==this)PROMOTED[i]=null;try{PROMOTION_UI.removeCallbacks(promotionClose);}catch(RuntimeException|Error ignored){}return;}UiOwned original=book.get();if(original!=null){for(int i=0;i<original.constructions.length;i++)if(original.constructions[i]==this){original.constructions[i]=null;break;}original.drained();}}
+        private void cancelConsumption(){Consumption value=consumption.get();if(value!=null)value.close();}
+        private void finished(){cancelConsumption();done=true;if(promotion!=null){promotion.live.set(false);if(promotion.ended.compareAndSet(false,true))promotion.parent.releasePromotion(promotion);for(int i=0;i<PROMOTED.length;i++)if(PROMOTED[i]==this)PROMOTED[i]=null;try{PROMOTION_UI.removeCallbacks(promotionClose);}catch(RuntimeException|Error ignored){}return;}UiOwned original=book.get();if(original!=null){for(int i=0;i<original.constructions.length;i++)if(original.constructions[i]==this){original.constructions[i]=null;break;}original.drained();}}
         private void cancelOwner(){if(promotion!=null)return;MdoBrowserCdpPopupNative original=owner.get();if(original!=null&&original.scope==action&&original.rejecting.get()==0&&original.pending()==allocation.pending)original.reject();}
         private void awaitConsumption(){retirementRequested=true;if(!awaitingConsumption){awaitingConsumption=true;MdoBrowserCdpPopupNative source=owner.get();if(promotion==null&&source!=null)source.retiring.incrementAndGet();}}
-        private void consumed(MdoBrowserPopups.Adoption exact)throws IOException {if(exact==adoption&&retirementRequested)close();}
+        private void consumed(MdoBrowserPopups.Adoption exact)throws IOException {
+            if(exact!=adoption)return;consumptionObserved=true;if(retirementRequested){close();return;}
+            Consumption callback=consumption.get();if(callback!=null)callback.deliver();
+        }
+        private Consumption whenConsumed(MdoBrowserPopups.Adoption exact,ConsumptionEvents events)throws IOException {
+            thread();if(consumptionRegistered)throw new IOException("cdp_popup_native_consumption_replayed");
+            if(events==null||exact==null||exact!=adoption||!sent||done||!live.get()||retirementRequested)throw new IOException("cdp_popup_native_consumption_unavailable");
+            Consumption callback=new Consumption(this,exact,events);consumptionRegistered=true;consumption.clear();
+            consumption=new WeakReference<>(callback);if(consumptionObserved)callback.deliver();return callback;
+        }
         private void clearConsumptionWait(){if(awaitingConsumption){awaitingConsumption=false;MdoBrowserCdpPopupNative source=owner.get();if(promotion==null&&source!=null)source.retiring.decrementAndGet();}}
         private void acknowledgeDestruction(){if(promotion!=null)return;MdoBrowserCdpPopupNative source=owner.get();MdoBrowserPopups<WebView> core=source==null?null:source.owner.get();if(adoption!=null&&adoption.dispatched()&&core!=null)core.nativeChildDestroyed(adoption,view);}
         private Promotion promote(Child child)throws IOException {return promote(child,null);}
@@ -257,6 +290,7 @@ final class MdoBrowserCdpPopupNative {
         }
         @Override public void close()throws IOException {
             thread();if(done||closing)return;
+            cancelConsumption();
             live.set(false);
             if(sent&&adoption!=null&&!adoption.dispatched())sent=false;
             if(birth!=null&&birth.humanOwned()&&hostDestruction==null){
@@ -402,6 +436,11 @@ final class MdoBrowserCdpPopupNative {
         MdoBrowserPopups<WebView> core=owner.get();if(!claimed||core==null||core.pendingProtocol(scope)!=original.allocation.pending)throw new IllegalStateException("popup_request_unavailable");
         original.adoption=core.prepareProtocolAdoption(scope,original.allocation.pending,original.birth.claim(view.get()));
         original.sent=true;core.sendProtocolAdoption(scope,original.adoption);return original.adoption;
+    }
+    boolean owns(Created original){thread();return original!=null&&original.owner.get()==this&&original.action==scope&&!original.done&&original.live.get()&&original.promotion==null&&current();}
+    boolean adoptable(Created original){thread();return owns(original)&&!original.sent&&original.allocation!=null&&original.allocation.current()&&pending()==original.allocation.pending;}
+    Consumption consume(Created original,MdoBrowserPopups.Adoption exact,ConsumptionEvents events)throws IOException {
+        thread();if(!owns(original))throw new IOException("cdp_popup_native_consumption_unavailable");return original.whenConsumed(exact,events);
     }
     MdoBrowserPopups.Adoption adopt(MdoBrowserPopups.Pending original,MdoBrowserLifecycle.Fresh<WebView> child){
         thread();MdoBrowserPopups<WebView> core=owner.get();
