@@ -91,6 +91,22 @@ final class PopupProductHost {
     String popupDiagnostic(String key){PopupNetwork value=network(key);return value==null?"none":"phase="+value.phase+" code="+value.entry.code+" destroyed="+value.entry.destroyed+" native="+value.owner.nativeDestroyed()+" detach="+value.handoff.detached()+" sources="+(value.entry.downloads==null?null:value.entry.downloads.sourcesClean())+" cleanup="+networkCleanupFailed;}
     void duplicatePopupNetwork(String key)throws Exception{PopupNetwork old=network(key);prepareProtocolPopupNetwork(key,old.owner,old.handoff,android.os.SystemClock.elapsedRealtime()+3000,network->{throw new AssertionError("Duplicate source entered");},(code,effect)->{throw new AssertionError(code);});}
     void prepare(Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction("root",views.get("root"),effect,failure);}
+    void prepareOwned(String key,Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction(key,views.get(key),effect,failure);}
+    void retireOwnedPreparation(String key){retireProtocolPopupPreparation(key,views.get(key),"cdp_popup_preparation_cancelled");}
+    boolean ownedPreparationSettled(String key){PopupPreparation row=protocolPopupPreparations.get(key);return row==null||row.preparation.settled();}
+    String ownedPreparationDiagnostic(String key)throws Exception{PopupPreparation row=protocolPopupPreparations.get(key);if(row==null)return "none";
+        java.lang.reflect.Field request=MdoBrowserCdpPopupPreparation.class.getDeclaredField("request");request.setAccessible(true);
+        MdoBrowserCdpPopupWorker.Request saved=(MdoBrowserCdpPopupWorker.Request)request.get(row.preparation);MdoBrowserCdpPopupWorker.Result result=saved==null?null:saved.result();
+        java.lang.reflect.Field source=MdoBrowserCdpPopupPreparation.class.getDeclaredField("source");source.setAccessible(true);MdoBrowserCdpPopupNative nativeSource=(MdoBrowserCdpPopupNative)source.get(row.preparation);
+        StringBuilder detail=new StringBuilder();for(String name:new String[]{"claimed","released","scope","stop","destroyedSource"}){java.lang.reflect.Field field=MdoBrowserCdpPopupNative.class.getDeclaredField(name);field.setAccessible(true);Object value=field.get(nativeSource);detail.append(" ").append(name).append("=").append(value);
+            if(name.equals("destroyedSource")&&value!=null){java.lang.reflect.Field settled=value.getClass().getDeclaredField("nativeSettled");settled.setAccessible(true);detail.append(" settled=").append(settled.get(value));}}
+        return row.preparation.phase()+" "+row.preparation.failure()+" native="+nativeSource.failure()+" pending="+nativeSource.rejectionPending()+" confirmed="+nativeSource.confirmed()+" released="+nativeSource.released()+detail+" result="+(result==null?"pending":result.code+" released="+result.sourceReleased+" clean="+result.processCleanupConfirmed);}
+    void foreignPreparation(String key,MdoBrowserCdpPopupNative foreign)throws java.io.IOException{
+        PopupNetwork row=network(key);cdpWorker.prepareAttachedNativePopups(foreign,row.handoff,row.sourceProof,3000,new MdoBrowserCdpPopupWorker.Events(){
+            public void state(MdoBrowserCdpPopupWorker.Result value){throw new AssertionError("Foreign opener acquired a request");}
+            public void candidate(MdoBrowserCdpPopupBroker.Candidate value){throw new AssertionError("Foreign opener acquired a candidate");}
+        });
+    }
     void retirePreparation(String reason){retireProtocolPopupPreparation("root",views.get("root"),reason);}
     boolean preparationReady(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.ready();}
     boolean preparationSettled(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null||row.preparation.settled();}

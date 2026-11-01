@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E163)
+## Complete development host APK (current: E164)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,575,425 bytes, SHA-256
-`a9b73db108dae0232d9b2a0de9ebd7d8892a8749f645320dd7e229fc2e1fa285`.
+`5ee81a3a1388b04e36d0b2af12ab6faa7bed7c7e40a104cadffb387fce190b8c`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -91,6 +91,24 @@ session/worker/JNI/frame graph with synthetic protocol/UI peers; they do not dra
 Android pixels or qualify a provider. The APK definition gate additionally requires
 the native capture class, its binding interface and the capture session. See the
 current verification scope and remaining gates in [progress](progress.md).
+
+E164 prepares an already handed-off popup as an opener on the existing broker.
+The controller retains the original physical Source proof from bootstrap;
+registration derives the target from that broker's original native attachment.
+The UI and worker check the exact Handoff, lease, document epoch and caller
+channel. No ordinary-network lookup, discovery, new connection or replacement
+Source proof is used for this path. Existing eight-request limits still apply.
+
+Retiring preparation cancels input and old frame pins. Only an explicit same-page
+inventory may restore them, after the original preparation has settled. An
+in-flight evaluation preserves its possible-effect result and is never replayed.
+Exact source destruction can reconcile a native release only with the original
+worker release/delivery receipts and all native dependencies settled; it neither
+upgrades a failed Stop nor substitutes for the original protocol detach.
+Thirteen controlled cases pass 551 checks. These include actual frame evaluation
+through the typed route, cancellation and later reuse, using synthetic protocol/UI
+peers. Native touch/key routing, full nested popup adoption, public Android state
+integration and installed-provider/device qualification still remain open.
 
 ```powershell
 python tools/setup_android_client.py --native

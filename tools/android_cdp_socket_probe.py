@@ -237,6 +237,10 @@ def main():
                   'preparation-page-capture-ok','preparation-page-capture-parent','preparation-page-capture-cancel',
                   'preparation-page-capture-hidden','preparation-page-capture-late','preparation-page-capture-stale','preparation-page-capture-reentrant',
                   'preparation-page-capture-chooser',
+                  'preparation-page-opener-ready','preparation-page-opener-effect','preparation-page-opener-effect-cancel',
+                  'preparation-page-opener-reuse','preparation-page-opener-parent','preparation-page-opener-queued-cancel',
+                  'preparation-page-opener-hidden','preparation-page-opener-chooser','preparation-page-opener-rearm','preparation-page-opener-foreign',
+                  'preparation-page-opener-source-close','preparation-page-opener-queued-source-close','preparation-page-opener-retire-busy',
                   'preparation-publication-ready',
                   'preparation-publication-hidden',
                   'preparation-publication-duplicate',
@@ -285,6 +289,7 @@ def main():
                 or popup_worker.get('product_publication_tested') is not mode.startswith(('preparation-publication-','preparation-restore-'))
                 or popup_worker.get('product_document_restore_tested') is not mode.startswith('preparation-restore-')
                 or popup_worker.get('product_capture_fence_tested') is not mode.startswith('preparation-page-capture-')
+                or popup_worker.get('product_protected_opener_tested') is not mode.startswith('preparation-page-opener-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -334,6 +339,19 @@ def main():
                     or proof.get('terminal_callbacks')!=1 or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1
                     or proof.get('world_fences')!=(2 if variant in {'ok','parent','late'} else 0) or proof.get('provider_qualified') is not False):
                 raise RuntimeError('Protected capture used a foreign/reopened document or lost cancellation/epoch guards')
+        if mode.startswith('preparation-page-opener-'):
+            opener=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-opener-'):]
+            refused=variant in {'hidden','chooser','foreign'} or variant.startswith('queued-')
+            if (not isinstance(opener,dict) or opener.get('browser_connections')!=1 or opener.get('native_proof_connections')!=1
+                    or opener.get('provider_qualified') is not False or opener.get('native_effects')!=(1 if variant.startswith('effect') else 0)
+                    or opener.get('ready_callbacks')!=(0 if refused else 2 if variant in {'reuse','rearm'} else 1)
+                    or opener.get('failure_callbacks')!=(1 if refused else 0)):
+                raise RuntimeError('Protected opener preparation lost its original ownership/callback/effect scope')
+            if variant.endswith('source-close'):
+                if opener.get('original_source_retired') is not True or opener.get('original_detach_pending') is not True:
+                    raise RuntimeError('Native source release bypassed the original protocol detach fence')
+            elif opener.get('original_opener_prepared') is not (not refused) or opener.get('document_restored_after_retirement') is not True:
+                raise RuntimeError('Protected opener preparation lost its explicit document recovery')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool

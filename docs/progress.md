@@ -12719,3 +12719,81 @@ the retained-chooser case and is preserved separately; it is not substituted for
 this final run. APK/DEX and source/archive identities are verified together in
 `.mdo/E163-verification.log`. This completes the protected capture-routing phase,
 not the overall Android integration or the long-term goal.
+
+
+### E164 prepare protected openers on their original connection
+
+The next integration audit reproduced `cdp_popup_opener_unavailable`: preparation
+looked up a handed-off popup in the ordinary network-slot registry. The new route
+uses its retained original Source proof and Handoff on the existing broker. The
+target comes only from that broker's original, activated native attachment.
+Source proof, physical lease, registration, UI epoch/channel and native owner are
+checked across queued work, readiness, candidate allocation, proof and callbacks.
+There is no discovery, new Browser wire, new physical marker, caller target ID or
+new thread. The same eight-request budget applies. The ordinary route is retained
+for ordinary views. See `.mdo/E164-opener-red.log`.
+
+The original bootstrap Source proof is now retained on its UI network owner.
+Recreating that opaque proof would not be an acceptable replacement for the
+original native lease. Ready preparation is reusable; after retirement, input and
+frame pins are revoked. A fresh explicit inventory can rearm only the same epoch
+after the old preparation actually settles. This fixes a reproduced permanently
+unreadable document after ordinary preparation cancellation; the old pinned action
+is never replayed. See `.mdo/E164-restore-red.log`.
+
+Source closure exposed a second lifetime boundary: the worker had delivered a
+released registration and the exact native view/dependencies were gone, but the
+UI record had already disappeared before it could acknowledge private source
+bookkeeping. `released()` now reconciles only that exact destroyed-scope receipt,
+after original request/delivery/release and native-settled flags, without any I/O,
+cleanup retry, notification or saved-failure reset. A separate confirmed Stop may
+acknowledge release after its exact native controller's destruction; foreign,
+unconfirmed and stale Stop receipts remain rejected. Twelve new core checks cover
+the latter boundary. `.mdo/E164-confirmed-stop-red.log`,
+`.mdo/E164-confirmed-stop.log` and `.mdo/E164-source-detail.log` preserve the
+reproductions. Native source release does not prove Browser cleanup: both source
+close cases explicitly retain the original detach fence and the original wire.
+
+Thirteen focused product cases pass 551 checks, including readiness, actual frame
+evaluation, uncertain in-flight cancellation, reuse, original-opener retirement,
+queued cancellation, hidden/chooser/foreign-scope refusal, repeated preparation,
+source close before/after readiness and refusal to restore before cleanup settles.
+See `.mdo/E164-opener-all.log`. The code exercises original UI selection, native
+source claims, broker/worker/JNI and frame execution with controlled protocol/UI
+peers. This does not prove physical Android input, pixels or framework behavior.
+The native popup contract passes122/25/7; Python passes178 of180 with two existing
+Windows symlink-privilege skips; JS466 passes fresh. The first Python run caught a
+duplicated already-required DEX class entry; the duplicate was removed rather
+than weakening class-definition validation. The fresh corrected run is
+`.mdo/E164-python-final.log`.
+
+The first complete 390-mode run passed with 14,265 reported checks. Comparing
+its receipts to E163 found only the scheduler-failure mode's count changed from
+25 to 24; its semantic receipt was identical. Five focused repetitions reported
+both counts with the same outcome. The fixture's shared counter used a plain
+cross-thread integer, now replaced with AtomicInteger without changing any
+assertion. Five repetitions after that change still reported both 24 and 25:
+the raw count also depends on scheduling and is not a coverage invariant. The
+gate requires every named mode and its semantic assertions, not equal raw counts.
+See `.mdo/E164-native-before-counter.json`, `.mdo/E164-scheduler-audit.log` and
+`.mdo/E164-scheduler-atomic.log`. A fresh complete run covers the final fixture.
+
+The signed APK is rebuilt, 6,575,425 bytes, SHA-256
+`5ee81a3a1388b04e36d0b2af12ab6faa7bed7c7e40a104cadffb387fce190b8c`.
+Actual DEX checks cover the previous87 groups plus opener Registration, the new
+typed methods and Source/retirement fields. Windows W5 and the paired plugin are
+unchanged archive/source-hash reuse, not a new Windows runtime pass.
+
+The fresh final native matrix passes all 390 named worker modes with 14,266
+reported checks, including the thirteen opener modes/551 checks. All 377 earlier
+modes pass. Transport/session/frame/capture/upload/download gates, ASan/UBSan and
+Android API26 C compilation pass; all 130 recorded input hashes match the final
+sources. The final run happens to report the same counts for the old modes as
+E163; this does not change the scheduling-count limitation above. APK/DEX and
+source/archive identities verify together in `.mdo/E164-verification.json` and
+`.mdo/E164-verification.log`; the full run is `.mdo/E164-native-final.log`.
+The local headless service returns HTTP200 and matches the reviewed overlays.
+This completes the protected-opener preparation phase. Android native
+gesture/upload/navigation routing, public state, takeover, full nested adoption
+and provider/device qualification remain open. Phone/WebView checks stay
+deferred. No ADB, live model, external website or production action was used.

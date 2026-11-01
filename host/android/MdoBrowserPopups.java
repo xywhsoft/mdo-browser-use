@@ -283,7 +283,13 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
     }
     private boolean releaseStop(Stop stop){
         thread();if(protocolStop!=stop||!stop.confirmed()||entry!=null&&(stop.scope==null||entry.pending!=null&&entry.pending.scope==stop.scope))return false;
-        if(stop.scope!=null){if(protocol==null||protocol.scope!=stop.scope)return false;protocol=null;}
+        if(stop.scope!=null){
+            // Exact native destruction may already have removed this protocol.
+            // The original confirmed Stop still has to acknowledge its release.
+            // A closed controller, foreign Stop or failed receipt is insufficient.
+            if(protocol==null){if(!destroyed)return false;}
+            else{if(protocol.scope!=stop.scope)return false;protocol=null;}
+        }
         protocolStop=null;protocolStopping=false;return true;
     }
     void cancel(){thread();if(protocol!=null)protocol.scope.live.set(false);if(entry!=null){entry.invalidated=true;if(!entry.sent)reject(entry);}}

@@ -38,9 +38,12 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     };
     static final class Registration implements AutoCloseable {
         private final MdoBrowserCdpBinding.Network.PopupSource source;private final String target;
+        private final Handoff handoff;private final MdoBrowserCdpPopupNative.Source attached;
         private final AtomicBoolean active=new AtomicBoolean(true);
-        private Registration(MdoBrowserCdpBinding.Network.PopupSource source,String target){this.source=source;this.target=target;}
-        boolean current(){return active.get()&&source.current();}
+        private Registration(MdoBrowserCdpBinding.Network.PopupSource source,String target){this.source=source;this.target=target;handoff=null;attached=null;}
+        private Registration(Handoff handoff,MdoBrowserCdpPopupNative.Source attached,String target){source=null;this.handoff=handoff;this.attached=attached;this.target=target;}
+        boolean current(){return active.get()&&(source!=null?source.current():handoff.current()&&handoff.owns(attached)&&attached.current());}
+        boolean owns(MdoBrowserCdpMarker.Lease lease){return current()&&(source!=null?source.owns(lease):attached.lease==lease);}
         @Override public void close(){active.set(false);}
     }
     /** Single-use native/UI reservation for this exact already protected
@@ -245,6 +248,17 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         for(Registration original:registrations)if(original.source==source||original.target.equals(target))throw problem("cdp_popup_opener_busy");
         if(registrations.size()>=8)throw problem("cdp_popup_opener_limit");Registration added=new Registration(source,target);registrations.add(added);return added;
     }
+    /** Only the original native handoff can become another opener. Its target
+     * comes from this broker's own retained attachment, never caller discovery. */
+    Registration registerAttached(Handoff handoff,MdoBrowserCdpPopupNative.Source proof)throws IOException {
+        guard();prune();if(state!=ARMED||handoff==null||proof==null||!handoff.current()||!handoff.owns(proof)||!proof.current())throw problem("cdp_popup_attached_opener_invalid");
+        Candidate original=null;for(Candidate candidate:candidates)if(candidate.handoff==handoff)original=candidate;
+        MdoBrowserCdpSession.ControlResult activation=handoff.activationResult();
+        if(original==null||!original.current()||!original.original.resumeConfirmed()||activation==null||!activation.ok||handoff.flowFailure()!=null)throw problem("cdp_popup_attached_opener_unavailable");
+        for(Registration row:registrations)if(row.handoff==handoff||row.target.equals(original.original.target))throw problem("cdp_popup_opener_busy");
+        if(registrations.size()>=8)throw problem("cdp_popup_opener_limit");
+        Registration added=new Registration(handoff,proof,original.original.target);registrations.add(added);return added;
+    }
     void arm(int timeout)throws IOException {
         guard();if(state!=NEW)throw problem("cdp_popup_broker_state_invalid");
         if(timeout<10||timeout>5000)throw problem("cdp_arguments_invalid");prune();if(registrations.isEmpty())throw problem("cdp_popup_opener_unavailable");
@@ -448,7 +462,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     void proveNative(Registration opener,MdoBrowserCdpPopupNative.Child child,int timeout,BooleanSupplier requestCurrent)throws IOException {
         guard();prune();if(state!=ARMED||opener==null||!registrations.contains(opener)||!opener.current())throw problem("cdp_popup_candidate_retired");
         if(timeout<100||timeout>5000)throw problem("cdp_arguments_invalid");
-        if(child==null||requestCurrent==null||!requestCurrent.getAsBoolean()||!child.ownedBy(opener.source)||!child.claim()){
+        if(child==null||requestCurrent==null||!requestCurrent.getAsBoolean()||!child.ownedBy(opener)||!child.claim()){
             if(child!=null)child.finish(false,"cdp_popup_native_child_invalid",0,false);return;
         }
         MdoBrowserCdpBinding.Network bound=null;long born=now();

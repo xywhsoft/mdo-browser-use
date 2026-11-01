@@ -213,7 +213,7 @@ final class MdoBrowserCdpPopupNative {
         void ending(){ending=true;sweep();}
         void destroyed(WebView exact){
             if(released)return;
-            if(source.view.get()==exact){ending=true;if(source.scope==scope)source.reject();else for(Created child:book.constructions)if(child!=null)try{child.close();}catch(IOException error){/* retained uncertainty */}}
+            if(source.view.get()==exact){ending=true;if(source.scope==scope){source.destroyedSource=retirement;source.reject();}else for(Created child:book.constructions)if(child!=null)try{child.close();}catch(IOException error){/* retained uncertainty */}}
             for(Created child:book.constructions)if(child!=null&&child.view==exact&&child.construction!=null&&child.construction.destroyed())try{child.close();}catch(IOException error){/* retained uncertainty */}
             sweep();
         }
@@ -344,7 +344,7 @@ final class MdoBrowserCdpPopupNative {
         boolean nativeDestroyed(){return birth.destroyed();}
         boolean belongsTo(MdoBrowserCdpMarker.Lease exact){return exact!=null&&opener==exact;}
         boolean belongsTo(Retirement original){return original!=null&&source==original.scope;}
-        boolean ownedBy(MdoBrowserCdpBinding.Network.PopupSource source){MdoBrowserCdpMarker.Lease parent=opener;return source!=null&&parent!=null&&source.owns(parent);}
+        boolean ownedBy(MdoBrowserCdpPopupBroker.Registration source){MdoBrowserCdpMarker.Lease parent=opener;return source!=null&&parent!=null&&source.owns(parent);}
         MdoBrowserCdpMarker marker(){return marker.get();}
         boolean enqueue(){return current()&&queued.compareAndSet(false,true);}
         boolean claim(){return current()&&queued.get()&&attempted.compareAndSet(false,true);}
@@ -354,7 +354,7 @@ final class MdoBrowserCdpPopupNative {
     }
     private final MdoBrowserCdpMarker.Lease lease;private final WeakReference<WebView> view;
     private final WeakReference<MdoBrowserPopups<WebView>> owner;private final WeakReference<MdoBrowserCdpView> adapter;
-    private boolean claimed,released;private volatile MdoBrowserPopups.Scope scope;
+    private boolean claimed,released;private volatile MdoBrowserPopups.Scope scope;private Retirement destroyedSource;
     private volatile MdoBrowserPopups.Stop stop;private volatile String failure;
     private final AtomicBoolean rejectStarted=new AtomicBoolean();
     private static final class UiOwned implements MdoBrowserPopups.ProtocolUi {
@@ -394,7 +394,7 @@ final class MdoBrowserCdpPopupNative {
         UiOwned ui=new UiOwned();
         try{scope=core.claimProtocol(exact,()->nativeView.popupCurrent(exact));core.attachProtocolUi(scope,ui);uiOwned=new WeakReference<>(ui);}
         catch(RuntimeException|OutOfMemoryError error){if(scope!=null)try{core.abandonProtocol(scope);}catch(RuntimeException|OutOfMemoryError ignored){}scope=null;throw new IOException("cdp_popup_native_source_busy");}
-        rejectStarted.set(false);claimed=true;released=false;
+        rejectStarted.set(false);claimed=true;released=false;destroyedSource=null;
     }
     void abandon(){
         thread();MdoBrowserPopups<WebView> core=owner.get();
@@ -473,10 +473,16 @@ final class MdoBrowserCdpPopupNative {
     }
     boolean rejectionPending(){MdoBrowserPopups.Stop value=stop;return disposing.get()!=0||rejecting.get()!=0||retiring.get()!=0||!rejectStarted.get()&&(failure!=null||!creationConfirmed())||value!=null&&value.pending();}
     boolean confirmed(){MdoBrowserPopups.Stop value=stop;return failure==null&&!rejectionPending()&&value!=null&&value.confirmed();}
-    /** UI receipt after the original Stop has actually released its scope.
-     * confirmed() intentionally describes the still-retained Stop, not this
-     * historical release state once finish() has removed that Stop. */
-    boolean released(){thread();return released&&!claimed&&scope==null&&stop==null&&failure==null&&!rejectionPending();}
+    /** Data-only reconciliation after exact physical retirement and the
+     * original worker's release receipt. The UI record may already be gone;
+     * no native cleanup or notification is replayed from this query. */
+    private void acknowledgeDestroyedSource(){
+        Retirement original=destroyedSource;
+        if(original==null||original.scope!=scope||!original.requested.get()||!original.delivered.get()||!original.releaseAllowed||!original.nativeSettled.get()||failure!=null)return;
+        released=true;claimed=false;scope=null;stop=null;destroyedSource=null;
+    }
+    /** confirmed() describes the original Stop, not historical physical release. */
+    boolean released(){thread();acknowledgeDestroyedSource();return released&&!claimed&&scope==null&&stop==null&&failure==null&&!rejectionPending();}
     String failure(){
         if(failure!=null)return failure;MdoBrowserPopups.Stop value=stop;
         if(value==null||value.pending()||value.confirmed())return null;
@@ -484,8 +490,13 @@ final class MdoBrowserCdpPopupNative {
     }
     void finish(boolean sourceReleased){
         thread();UiRetention retained=retention.get();if(retained!=null&&retained.scope==scope)retained.ending();if(!sourceReleased)return;released=true;
+        // Native destruction can finish the exact UI record before its Stop
+        // acknowledgment is delivered. This is a physical retirement receipt,
+        // not a successful Stop: every original native dependency must have
+        // settled, and the source's saved failure is never cleared here.
+        acknowledgeDestroyedSource();if(!claimed&&scope==null&&stop==null)return;
         MdoBrowserPopups.Stop value=stop;
         if(value==null){abandon();return;}
-        if(confirmed()&&value.release()){claimed=false;stop=null;scope=null;}
+        if(confirmed()&&value.release()){claimed=false;stop=null;scope=null;destroyedSource=null;}
     }
 }

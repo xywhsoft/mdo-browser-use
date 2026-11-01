@@ -83,6 +83,9 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         return networks.startPopups(source.lease(),timeout,events,source);
     }
     int popupPending(){thread();return networks.popupPending();}
+    MdoBrowserCdpPopupWorker.Request prepareAttachedNativePopups(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source proof,int timeout,MdoBrowserCdpPopupWorker.Events events)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.startAttachedPopups(source,handoff,proof,timeout,events);
+    }
     MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.navigate(lease,url,timeout);
     }

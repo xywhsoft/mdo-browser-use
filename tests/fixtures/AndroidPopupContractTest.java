@@ -33,7 +33,25 @@ public final class AndroidPopupContractTest {
         String id(){MdoBrowserPopups.Snapshot row=core.snapshot();return row==null?null:row.id;}
         void adopt(String id,Object child){core.adopt(id,child,(ok,code,may)->results.add(ok+":"+code+":"+may));}
     }
+    static void confirmedStopAfterDestruction(){
+        Harness known=new Harness();MdoBrowserPopups.Scope scope=known.core.claimProtocol(known.view,()->true);
+        MdoBrowserPopups.Stop confirmed=known.core.stopForProtocol(scope);check(confirmed.confirmed());
+        known.core.viewDestroyed(known.view);check(confirmed.confirmed());check(confirmed.release());check(!confirmed.release());
+
+        Harness uncertain=new Harness();MdoBrowserPopups.Scope pending=uncertain.core.claimProtocol(uncertain.view,()->true);
+        check(uncertain.core.readyProtocol(pending));Native nativeCall=new Native();check(uncertain.core.open(nativeCall,false));
+        MdoBrowserPopups.Adoption sent=uncertain.core.prepareProtocolAdoption(pending,uncertain.core.pendingProtocol(pending),new Object());
+        uncertain.core.sendProtocolAdoption(pending,sent);MdoBrowserPopups.Stop unconfirmed=uncertain.core.stopForProtocol(pending);
+        check(!unconfirmed.confirmed());uncertain.core.viewDestroyed(uncertain.view);check(!unconfirmed.confirmed()&&!unconfirmed.release());
+        check(uncertain.budget.used()==0);
+
+        Harness reused=new Harness();MdoBrowserPopups.Scope first=reused.core.claimProtocol(reused.view,()->true);
+        MdoBrowserPopups.Stop old=reused.core.stopForProtocol(first);check(old.release());
+        MdoBrowserPopups.Scope next=reused.core.claimProtocol(reused.view,()->true);MdoBrowserPopups.Stop current=reused.core.stopForProtocol(next);
+        reused.core.viewDestroyed(reused.view);check(!old.release());check(current.release());
+    }
     public static void main(String[] args)throws Exception {
+        confirmedStopAfterDestruction();
         Harness a=new Harness();Native first=new Native();check(a.core.open(first,true));String id=a.id();
         check(id.length()==36&&a.budget.used()==1&&a.core.busy()&&a.core.clean());
         check(a.core.snapshot().epoch==1&&a.core.snapshot().userInitiated);check(a.core.open(first,false));check(id.equals(a.id()));

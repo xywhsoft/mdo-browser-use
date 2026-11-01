@@ -59,7 +59,7 @@
     "product_global_auto_attach_enabled": false,
     "process_broker": {
       "arming": "one_process_claim_before_fixed_page_only_flattened_waiting_Target_setAutoAttach",
-      "opener_registration": "enabled_original_physical_Network_binding_only_no_caller_target_ID",
+      "opener_registration": "enabled_original_physical_Network_or_activated_original_native_Handoff_Source_proof_target_derived_only_from_original_Broker_attachment_no_caller_target_ID",
       "related_metadata_is_native_child_or_transport_proof": false,
       "unclaimed_waiting_target": "retain_original_waiting_page_regardless_missing_or_unmatched_opener_metadata_never_automatic_resume_or_detach",
       "existing_nonwaiting_target": "original_detach_only_no_synthetic_resume",
@@ -76,7 +76,10 @@
       "installed_provider_verified": false
     },
     "shared_worker": {
-      "admission": "explicit_UI_request_for_an_existing_ready_physical_network_lease_only",
+      "admission": "explicit_UI_request_for_existing_ready_physical_network_lease_or_original_protected_Source_lease_in_same_8_job_budget_no_discovery_or_new_Browser_wire",
+      "protected_opener": "original_stored_Source_proof_reused_after_activation_exact_Handoff_lease_and_native_document_owner_UI_ready_chooser_and_channel_guards",
+      "protected_preparation_retirement": "cancel_input_and_revoke_old_frame_pins_explicit_same_epoch_inventory_only_after_original_preparation_settles_no_effect_replay",
+      "destroyed_source_acknowledgement": "data_only_exact_native_view_destruction_all_original_native_dependencies_settled_and_original_worker_release_receipt_never_changes_failed_Stop_or_proves_Browser_detach",
       "executor": "same_existing_single_CDP_executor_no_new_thread_or_caller_runs",
       "limits": "8_source_requests_including_pending_UI_terminal_delivery_shared_original_executor_queue",
       "pump": "existing_network_scheduler_and_cooperative_document_RPC_waits",

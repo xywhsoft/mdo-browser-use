@@ -56,8 +56,15 @@ final class MdoBrowserCdpPopupPreparation implements AutoCloseable {
     private static void thread(){if(Looper.myLooper()!=Looper.getMainLooper())throw new IllegalStateException("Popup preparation requires its original UI");}
     private boolean owned(){try{return owner.getAsBoolean()&&source.current();}catch(RuntimeException|Error error){return false;}}
     void start(MdoBrowserCdpWorker worker,int timeout)throws IOException {
+        start(worker,timeout,null,null);
+    }
+    void startAttached(MdoBrowserCdpWorker worker,int timeout,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source proof)throws IOException {
+        if(handoff==null||proof==null)throw new IOException("cdp_popup_attached_opener_invalid");start(worker,timeout,handoff,proof);
+    }
+    private void start(MdoBrowserCdpWorker worker,int timeout,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source proof)throws IOException {
         thread();if(phase!=NEW||worker==null)throw new IOException("cdp_popup_preparation_replayed");phase=STARTING;
-        try{if(!owner.getAsBoolean())throw new IOException("cdp_popup_preparation_owner_changed");request=worker.prepareNativePopups(source,timeout,new Forward(this));}
+        try{if(!owner.getAsBoolean())throw new IOException("cdp_popup_preparation_owner_changed");
+            request=handoff==null?worker.prepareNativePopups(source,timeout,new Forward(this)):worker.prepareAttachedNativePopups(source,handoff,proof,timeout,new Forward(this));}
         catch(IOException|RuntimeException|Error error){phase=TERMINAL;code=error instanceof IOException?safe(error.getMessage()):"cdp_popup_preparation_failed";throw error;}
     }
     private static String safe(String value){return value!=null&&value.matches("cdp_[a-z_]{1,80}")?value:"cdp_popup_preparation_failed";}

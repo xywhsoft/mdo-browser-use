@@ -1,13 +1,15 @@
     // The UI keeps this bounded scope; worker callbacks retain it weakly. A new
     // request never replaces an unretired source under a reused browser key.
     private final class PopupPreparation {
-        final String key;final WebView view;final long epoch;final NetworkEntry network;
+        final String key;final WebView view;final long epoch;final NetworkEntry network;final PopupNetwork protectedOwner;
         MdoBrowserCdpPopupPreparation preparation;
-        PopupPreparation(String key,WebView view,NetworkEntry network){this.key=key;this.view=view;this.network=network;epoch=views.epoch(key,view);}
+        PopupPreparation(String key,WebView view,NetworkEntry network){this.key=key;this.view=view;this.network=network;protectedOwner=network.popup;epoch=views.epoch(key,view);}
         boolean current(){return protocolPopupPreparations.get(key)==this&&epoch>0&&views.owns(key,view)&&views.epoch(key,view)==epoch&&networkViews.get(key)==network&&
-            network.ready&&!network.retired&&!network.draining&&networkCurrent(network)&&!manual.contains(key)&&!pageClosed.contains(key);}
+            network.ready&&!network.retired&&!network.draining&&networkCurrent(network)&&!manual.contains(key)&&!pageClosed.contains(key)&&
+            (protectedOwner==null||network.popup==protectedOwner&&protectedOwner.current()&&protectedOwner.page!=null&&protectedOwner.page.documentReady()&&protectedOwner.sourceProof!=null&&protectedOwner.sourceProof.current());}
         void lost(String reason){if(protocolPopupPreparations.get(key)!=this||!views.owns(key,view))return;
-            views.input(key,view).invalidate("input_cancelled");cdpViews.invalidate(key,view,views.epoch(key,view),"input_cancelled");}
+            views.input(key,view).invalidate("input_cancelled");cdpViews.invalidate(key,view,views.epoch(key,view),"input_cancelled");
+            if(protectedOwner!=null)protocolPopupDocumentInvalidated(key,view,"popup_preparation_retired");}
     }
     private final Map<String,PopupPreparation> protocolPopupPreparations=new HashMap<>();
     interface ProtocolPopupReady {void ready(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException;}
@@ -98,7 +100,7 @@
             worldReady=false;restoring=false;
             // Only a known UI-only loss can rearm this exact epoch. Cancellation,
             // navigation, manual takeover and channel changes remain terminal.
-            suspended=("input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason))&&current()&&
+            suspended=("input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"popup_preparation_retired".equals(reason))&&current()&&
                 views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;
         }
         void restoreFailed(MdoBrowserCdpMarker original){
@@ -210,6 +212,8 @@
         if(!inventory||!page.suspended||!cdpEnvironmentCurrent(key,view,page.epoch,entry.channelLease)||!chooserReady(dialogs.get(key))||
             views.inputBusy(key,view)||!views.inputClean(key,view))throw new java.io.IOException("cdp_popup_page_document_unavailable");
         if(cdpWorker.pending(page.marker))throw new java.io.IOException("cdp_popup_page_restore_busy");
+        PopupPreparation preparing=protocolPopupPreparations.get(key);
+        if(preparing!=null&&!preparing.preparation.settled())throw new java.io.IOException("cdp_popup_page_restore_busy");
         nativeOwnerAdmission();page.suspended=false;page.restoring=true;page.worldReady=false;
         try{
             page.marker=protocolDocumentMarker(key,network.owner,network.handoff);page.proof=network.owner.document(page.marker);
@@ -231,6 +235,7 @@
      * Source bootstrap never reloads/resumes the protected native popup. */
     private final class PopupNetwork implements AutoCloseable {
         final NetworkEntry entry;final MdoBrowserCdpPopupNative.Promotion owner;final MdoBrowserCdpPopupBroker.Handoff handoff;
+        MdoBrowserCdpPopupNative.Source sourceProof;
         final long deadline;ProtocolPopupNetworkReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
         int phase;boolean disposing,downloadsClosed;PopupPage page;
         PopupNetwork(NetworkEntry entry,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff,long deadline,
@@ -247,11 +252,11 @@
             try{
                 int timeout=remaining();WebView exact=entry.view;
                 entry.adapter=MdoBrowserCdpView.network(exact,v->v==exact&&current(),v->v==exact&&current()&&phase==1&&entry.ready,entry.quota);
-                entry.marker=entry.adapter.marker();MdoBrowserCdpPopupNative.Source proof=owner.source(entry.marker);
+                entry.marker=entry.adapter.marker();sourceProof=owner.source(entry.marker);
                 entry.downloads=newNetworkDownloads();entry.downloadConnection=entry.downloads.connection();
                 final MdoBrowserCdpDownloads.Connection original=entry.downloadConnection;
                 schedule();
-                cdpWorker.submitSource(entry.marker,handoff,proof,Math.min(timeout,remaining()),new PopupNetworkAttach(original),new PopupNetworkForward(this));
+                cdpWorker.submitSource(entry.marker,handoff,sourceProof,Math.min(timeout,remaining()),new PopupNetworkAttach(original),new PopupNetworkForward(this));
             }catch(java.io.IOException|RuntimeException|Error error){retire(reason(error));}
         }
         void completed(MdoBrowserCdpWorker.Result result){
@@ -277,7 +282,7 @@
             try{
                 // Revoke the original handoff first: otherwise marker/source
                 // invalidation could be mistaken for an unexplained owner loss.
-                try{handoff.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;}
+                try{handoff.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;}sourceProof=null;
                 try{if(page!=null)page.retired(code);}catch(RuntimeException|Error error){networkCleanupFailed=true;}
                 entry.live.set(false);
                 try{if(entry.downloads!=null)entry.downloads.quiesce();}catch(RuntimeException|Error error){networkCleanupFailed=true;}
@@ -524,11 +529,18 @@
                 if(timeout<100)throw new java.io.IOException("cdp_popup_preparation_timeout");
                 NetworkEntry network=networkViews.get(key);MdoBrowserPopups<WebView> core=windows.get(key);
                 if(network==null||network.view!=view||network.adapter==null||!network.ready||network.retired||network.draining||core==null||!networkCurrent(network)||manual.contains(key)||pageClosed.contains(key))throw new java.io.IOException("cdp_popup_network_owner_unavailable");
+                PopupNetwork protectedOwner=network.popup;
+                if(protectedOwner!=null){
+                    nativeOwnerAdmission();PopupPage page=protocolPopupDocument(key,view);
+                    if(page==null||page.network!=protectedOwner||protectedOwner.sourceProof==null||!protectedOwner.handoff.owns(protectedOwner.sourceProof)||!protectedOwner.sourceProof.current()||
+                        !cdpEnvironmentCurrent(key,view,views.epoch(key,view),channel.current())||!chooserReady(dialogs.get(key)))throw new java.io.IOException("cdp_popup_attached_opener_unavailable");
+                }
                 if(protocolPopupPreparations.size()>=8)throw new java.io.IOException("cdp_popup_preparation_limit");
                 PopupPreparation added=new PopupPreparation(key,view,network);
                 MdoBrowserCdpPopupNative source=new MdoBrowserCdpPopupNative(network.adapter,view,core);
                 added.preparation=new MdoBrowserCdpPopupPreparation(source,added::current,added::lost);protocolPopupPreparations.put(key,added);
-                try{added.preparation.start(cdpWorker,timeout);}catch(java.io.IOException|RuntimeException|Error error){if(added.preparation.settled())protocolPopupPreparations.remove(key,added);throw error;}old=added;
+                try{if(protectedOwner==null)added.preparation.start(cdpWorker,timeout);else added.preparation.startAttached(cdpWorker,timeout,protectedOwner.handoff,protectedOwner.sourceProof);}
+                catch(java.io.IOException|RuntimeException|Error error){if(added.preparation.settled())protocolPopupPreparations.remove(key,added);throw error;}old=added;
             }
             if(old.view!=view)throw new java.io.IOException("cdp_popup_preparation_owner_changed");old.preparation.await(effect,failure);
         }catch(java.io.IOException error){failure.failed(error.getMessage(),false);}
