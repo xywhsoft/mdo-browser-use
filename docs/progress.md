@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E153:** join actual product allocation, original native consumption,
+  physical proof and independent handoff under one original deadline. Twenty-two
+  new controlled modes/472 checks pass. Deliberately closed handed-off children
+  now revoke authority immediately and drain the original detach for at most
+  five seconds, instead of poisoning their opener before reading the receipt.
+  Unrelated construction stays fenced while process protection is active or
+  uncertain, including after the parent preparation has settled. Fresh full
+  native 253 modes/8,884 checks, JS466, Python174/176 and signed APK/71 actual
+  DEX groups pass. Complete protected creation/network/world/publication and
+  device/provider/recovery qualification remain pending and disabled.
+
 - **Android E152:** deliver original native consumption into the product
   preparation scope. A once-only, weak native subscription supports both
   synchronous acknowledgement and later UI delivery without polling the receipt.
@@ -11898,3 +11909,55 @@ the diagnostic that distinguishes local destruction from unconfirmed protocol
 release. No phone/ADB/WebView update, live model, external page or production
 publish was used; Android public/framework/provider and broader goal
 qualification remain incomplete.
+
+### E153 — product popup handoff and deliberate-close draining
+
+`handoffPreparedProtocolPopup` joins the actual product allocator, configured
+inherited-profile constructor, original native consumption callback, original
+worker proof and independent handoff. One captured native request and one child
+key own the transaction. The total budget is at most nine seconds; each phase
+uses the remaining original budget, capped at three seconds. Duplicate keys or
+the same captured request under another key cannot replace the first transaction.
+At most seven records wait. Cancellation before construction reports no native
+effect; cancellation inside profile setup, native send or proof preserves possible
+effects. A failed delivery callback retires the exact promoted child and the
+original preparation. This is internal product coordination, not public creation.
+
+That callback failure reproduced a broker defect: local child destruction was
+followed by `cdp_popup_broker_opener_lost` before the same original Browser wire
+could read its exact target-detach event. A committed handoff now revokes all
+operation/data authority immediately on explicit close, while keeping only a
+bounded cleanup wait on the existing worker. It forwards no document data and
+never resumes closing-page requests. Original paused requests retain the existing
+32-item limit. The five-second close deadline cannot be renewed by repeated
+close; missing detach, failed disposal or a bad clock retain
+`cdp_popup_handoff_cleanup_unconfirmed`. Unknown process protection is not reset.
+Unrelated native construction also checks the process protection fence, even
+when the parent preparation has already settled or been removed.
+
+Normal document/response/transfer/source tests now deliver the original detach
+instead of depending on the old erroneous connection failure. An original
+stream-close and response-abort acknowledgement may confirm download cleanup
+after source ownership is revoked; absent receipts still prevent release. The
+56 associated modes pass 3,083 checks. All 231 earlier modes remain present:
+159 counts are unchanged and 72 add explicit receipt/fence/field checks. The 22
+new coordinator modes pass 472 checks, including callback failure, original total
+deadline, duplicate admission, phase cancellation, profile-construction reentry,
+owner loss, active-parent close, parent-first close, timeout and clock rollback.
+
+Fresh full validation passes native253/8,884, JS466, Python174/176 (two existing
+Windows privilege skips), creation848/close77, popup110/25/7 and save47. It verifies
+128 native and 479 overall source hashes; JNI/ASan/UBSan and API26/Java8 gates
+remain in place. The rebuilt signed APK is 6,563,137 bytes, SHA-256
+`bb4acd3d35308477b5c663da624d4f51113096ec35eb50e45b0f19899d507d5e`.
+Actual APK metadata verifies 71 definition groups, the coordinator methods,
+weak native subscriptions and the data-only handoff deadline field. Windows
+E150 artifact/payload/runtime/frames/SDK and E146 world evidence are unchanged
+scoped reuse. Evidence is retained under `.mdo/E153-*`, including failed-case
+diagnostics and the final independent identity/mode comparisons.
+
+Network/source/download binding, world activation, final UI publication and
+cross-Activity/process recovery are still incomplete. Public protected creation
+continues to reject `popup_network_unqualified`; device/framework/provider/public
+automation remain false. No phone, ADB, WebView update, live model, external page
+or production publication was used.

@@ -184,6 +184,10 @@ def main():
                  'preparation-adoption-ready','preparation-adoption-inline','preparation-adoption-timeout','preparation-adoption-cancel','preparation-adoption-owner','preparation-adoption-channel','preparation-adoption-epoch','preparation-adoption-timer',
                  'preparation-adoption-native-close','preparation-adoption-replay','preparation-adoption-subscription-replay','preparation-adoption-wrong-owner','preparation-adoption-physical-owner','preparation-adoption-callback-throw','preparation-adoption-unretained','preparation-adoption-arguments',
                  'preparation-adoption-late-ack','preparation-adoption-inline-expired','preparation-adoption-send-failure',
+                 'preparation-coordinator-ready','preparation-coordinator-inline','preparation-coordinator-parent-close','preparation-coordinator-arguments','preparation-coordinator-busy','preparation-coordinator-key-conflict',
+                 'preparation-coordinator-cancel-allocation','preparation-coordinator-cancel-adoption','preparation-coordinator-cancel-proof','preparation-coordinator-profile-cancel','preparation-coordinator-allocation-owner','preparation-coordinator-adoption-owner','preparation-coordinator-proof-owner',
+                 'preparation-coordinator-deadline-adoption','preparation-coordinator-deadline-proof','preparation-coordinator-callback-throw','preparation-coordinator-configuration-failure','preparation-coordinator-proof-failure',
+                 'preparation-coordinator-close-parent-active','preparation-coordinator-close-no-parent','preparation-coordinator-close-timeout','preparation-coordinator-close-clock',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))

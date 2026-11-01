@@ -49,6 +49,11 @@ final class PopupProductHost {
     void adoptPrepared(MdoBrowserCdpPopupNative.Created child,int timeout,MdoBrowserCdpPopupPreparation.Consumed ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
         adoptPreparedProtocolPopup("root",views.get("root"),child,timeout,ready,failure);
     }
+    AutoCloseable handoffPrepared(String pending,String key,int timeout,ProtocolPopupReady ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{
+        return handoffPreparedProtocolPopup("root",views.get("root"),pending,key,timeout,ready,failure);
+    }
+    void cancelHandoff(String key){PopupHandoff value=protocolPopupHandoffs.get(key);if(value!=null)value.close();}
+    int pendingHandoffs(){return protocolPopupHandoffs.size();}
     void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}
     boolean dialogReady(String key,WebView view){return true;}
     MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}

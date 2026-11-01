@@ -5485,3 +5485,32 @@ protected-create network/download/source/world/publication coordinator is still
 not joined, and `popup_network_unqualified` remains enforced. Device/framework/
 provider/public automation remain unqualified/false; no phone, ADB, install or
 WebView update was attempted.
+
+### E153 product handoff and original close receipts
+
+An internal product transaction now joins original allocation, inherited-profile
+construction, native consumption, physical proof and independent handoff. It
+owns the captured native callback and child key, rejects duplicate admission and
+uses one original total deadline across all phases. It stops before network
+activation or UI publication. Cancellation and callback exceptions retain their
+native possible-effect and cleanup outcomes; a failed callback closes the exact
+promoted child rather than replaying native send or navigation.
+
+Explicitly closing a committed child previously caused opener-loss failure
+before the Browser wire could read its original detach. The existing worker now
+drains that exact receipt for at most five seconds, with all page-operation and
+data authority already revoked. It does not resume paused requests or forward
+closing-page data. Repeated close cannot renew the deadline. Missing receipts,
+clock rollback and failed native disposal remain unconfirmed and fenced. The
+process protection fence also blocks unrelated construction after the original
+parent preparation has settled. Native destruction alone cannot clear it.
+
+Twenty-two new modes/472 checks and the full native253/8,884 checks pass. The 56
+document/response/transfer/source modes verify original close receipts and
+acknowledged cleanup rather than relying on premature wire failure. JS466,
+Python174/176, creation848/close77, popup110/25/7 and save47 pass. The signed APK
+verifies 71 actual DEX definition groups and 479 current source hashes; see
+`.mdo/E153-final-identities.log`. Windows E150 and world E146 are unchanged scoped
+reuse. Full public create/network/download/world/publication integration and
+device/provider/recovery qualification remain pending; protected public creation
+is still disabled. The current phone and WebView were left untouched.
