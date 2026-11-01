@@ -16,6 +16,7 @@ final class AndroidCreateHost {
     void executeProtocolPopupCreate(String key,String id,JSONObject request){protectedCreateDispatches++;}
 
     void retireProtocolPopupPreparation(String key,WebView view,String reason){}
+    void retireProtocolPopupAuthority(WebView view){} // ordinary views have no protected Browser attachment
     /** This ordinary-create fixture must never simulate protected popup
      * networking; the real product path has its separate JNI/worker gate. */
     static final class PopupNetwork {

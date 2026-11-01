@@ -92,10 +92,13 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             flowFailure.compareAndSet(null,new MdoBrowserCdpSession.ControlResult(false,code,protocol,effect));
         }
         int continuedRequests(){return continuedRequests.get();}
-        @Override public void close(){if(!cancelled.get()){
+        /** Revoke data authority before native destruction invalidates its UI
+         * proof. This first half must not notify/reenter a native disposer. */
+        void retireAuthority(){if(!cancelled.get()){
                 try{closeBorn.compareAndSet(null,clock.getAsLong());}catch(RuntimeException|Error ignored){/* absent clock fails retirement closed */}
                 cancelled.set(true);
-            }
+            }}
+        @Override public void close(){retireAuthority();
             MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();if(original!=null)original.close();}
     }
     static final class Candidate {

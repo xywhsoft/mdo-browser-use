@@ -20,6 +20,7 @@
             catch(IllegalStateException unavailable){/* No original bound realm: ordinary retirement remains mandatory. */}
         }
         cdpViews.invalidate(key,view,epoch,reason);
+        protocolPopupDocumentInvalidated(key,view,reason);
     }
     private void chooserBlocked(String key,WebView view,boolean blocked){
         // A retired target must not update a replacement document with the same key.

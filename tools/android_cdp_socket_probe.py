@@ -46,6 +46,10 @@ def prepare_popup_product(output):
         '@@RESUME@@':lifecycle[lifecycle.index('    void resume()'):lifecycle.index('    void destroy()')],
     }
     for marker,value in fragments.items():
+        if marker=='@@DESTRUCTION@@':
+            boundary='row.controlled=MdoBrowserCdpPopupNative.registerDestruction(view,row);return row;'
+            if value.count(boundary)!=1:raise RuntimeError('Native destruction boundary changed')
+            value=value.replace(boundary,'observeNativeProofRevocation(view);'+boundary)
         if source.count(marker)!=1:raise RuntimeError('Popup product fixture marker changed')
         source=source.replace(marker,value)
     generated=output/'PopupProductHost.java';generated.write_text(source,encoding='utf-8');return generated
@@ -249,6 +253,10 @@ def main():
                   'preparation-publication-download-close-claim',
                   'preparation-publication-download-close-read',
                   'preparation-publication-deadline-add','preparation-publication-deadline-bounds',
+                  'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
+                  'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
+                  'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
+                  'preparation-restore-busy','preparation-restore-late','preparation-restore-close','preparation-restore-quota',
                   'preparation-isolated-world','preparation-isolated-nested','preparation-isolated-detach','preparation-isolated-read','preparation-isolated-effect','preparation-isolated-detach-nested',
                   'preparation-isolated-foreign','preparation-isolated-expired','preparation-isolated-reset-attach','preparation-isolated-reset-runtime',
                   'preparation-isolated-receive-other','preparation-isolated-receive-foreign','preparation-isolated-receive-detach',
@@ -266,7 +274,8 @@ def main():
                 or popup_worker.get('product_page_startup_tested') is not mode.startswith('preparation-page-')
                 or popup_worker.get('product_document_retirement_tested') is not mode.startswith('preparation-isolated-')
                 or popup_worker.get('product_frame_route_tested') is not mode.startswith('preparation-page-route-')
-                or popup_worker.get('product_publication_tested') is not mode.startswith('preparation-publication-')
+                or popup_worker.get('product_publication_tested') is not mode.startswith(('preparation-publication-','preparation-restore-'))
+                or popup_worker.get('product_document_restore_tested') is not mode.startswith('preparation-restore-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -278,7 +287,7 @@ def main():
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
-        if mode.startswith('preparation-publication-'):
+        if mode.startswith(('preparation-publication-','preparation-restore-')):
             published=popup_worker.get('product_publication')
             clean=mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
             if (not isinstance(published,dict) or published.get('actual_product_creation') is not True or published.get('cleanup_confirmed') is not clean or published.get('unconfirmed_creation_fenced') is not (not clean)
@@ -286,6 +295,14 @@ def main():
                     or published.get('native_proof_connections') not in {0,1} or published.get('no_url_replay') is not True
                     or published.get('framework_qualified') is not False or published.get('provider_qualified') is not False):
                 raise RuntimeError('The original product publication and close receipts did not pass')
+        if mode.startswith('preparation-restore-'):
+            restore=popup_worker['product_publication'].get('document_restore')
+            if (not isinstance(restore,dict) or restore.get('actual_frame_router') is not True or restore.get('reads',0)<1
+                    or restore.get('browser_connections')!=1 or restore.get('native_proof_connections')!=1 or restore.get('native_effects')!=0
+                    or restore.get('same_document_quota') is not True or restore.get('no_url_replay') is not True
+                    or restore.get('framework_qualified') is not False or restore.get('provider_qualified') is not False
+                    or popup_worker['product_publication'].get('protected_retirement_boundaries',0)<1):
+                raise RuntimeError('The original popup document restore and retirement boundaries did not pass')
         if mode.startswith('preparation-page-route-'):
             route=popup_worker.get('product_frame_route')
             expected=mode.rsplit('-',1)[1] in {'list','repeat','nested','parent','busy'}

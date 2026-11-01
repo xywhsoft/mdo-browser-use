@@ -114,6 +114,9 @@
     private NativeDestruction prepareNativeDestruction(String key,WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){
         NativeDestruction old=nativeDestructions.get(view);if(old!=null)return old;
         NativeDestruction row=new NativeDestruction(key,view,popup,dialog,capture,document);nativeDestructions.put(view,row);nativeRetiringViews.add(view);
+        // Worker polling can run between these UI statements. Record deliberate
+        // protocol retirement before native proof revocation, without callbacks.
+        retireProtocolPopupAuthority(view);
         row.controlled=MdoBrowserCdpPopupNative.registerDestruction(view,row);return row;
     }
     private boolean executeNativeDestruction(NativeDestruction row){

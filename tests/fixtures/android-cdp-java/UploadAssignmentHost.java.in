@@ -128,10 +128,15 @@ final class UploadAssignmentHost implements AutoCloseable {
     // by PopupProductHost using the actual original handoff/coordinator.
     static final class PopupNetwork {MdoBrowserCdpPopupBroker.Handoff handoff;}
     static final class PopupPage {
-        MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;PopupNetwork network;
+        MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;PopupNetwork network;boolean restoring;
         boolean documentReady(){return false;}
+        boolean documentCurrent(){return false;}boolean current(){return false;}
+        void restored(MdoBrowserCdpMarker marker,JSONObject response)throws java.io.IOException{}
+        void restoreFailed(MdoBrowserCdpMarker marker){}
     }
     private PopupPage protocolPopupDocument(String key,WebView view){return null;}
+    private PopupPage protocolPopupDocument(String key,WebView view,boolean inventory){return null;}
+    private void protocolPopupDocumentInvalidated(String key,WebView view,String reason){}
 @@ROUTER@@
 @@UPLOAD@@
 @@ASSIGNMENT@@

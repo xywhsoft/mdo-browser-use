@@ -18,7 +18,7 @@ final class PopupProductHost {
     final Map<String,CaptureEntry> captures=new HashMap<>();
     final Map<String,PopupLink> popupLinks=new HashMap<>();final Map<String,Object> navigationRequests=new HashMap<>();
     final Map<String,String> documentFailures=new HashMap<>();final Set<String> pageClosed=new HashSet<>();
-    final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed;
+    final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed,retirementBoundaryChecks;
     MdoBrowserCdpWorker cdpWorker;
     final Set<String> manual=new HashSet<>();
     final Map<String,Boolean> loading=new HashMap<>();
@@ -26,7 +26,7 @@ final class PopupProductHost {
     @@POPUP_LINK@@
     final Map<String,JSONObject> publicReplies=new HashMap<>();final Map<String,Integer> publicCounts=new HashMap<>();
     boolean failBounds;Runnable sizing;JSONObject lastBounds;
-    void bounds(WebView view,JSONObject request){if(failBounds)throw new IllegalStateException("controlled_bounds_failure");try{lastBounds=new JSONObject(request.toString());}catch(JSONException error){throw new AssertionError(error);}boolean visible=request.optBoolean("visible",true);views.visibility(request.optString("browser"),view,visible);if(!visible)inputInvalidated(request.optString("browser"),view,views.epoch(request.optString("browser"),view),"input_hidden");view.shown=visible;if(sizing!=null){Runnable work=sizing;sizing=null;work.run();}}
+    void bounds(WebView view,JSONObject request){if(failBounds)throw new IllegalStateException("controlled_bounds_failure");try{lastBounds=new JSONObject(request.toString());}catch(JSONException error){throw new AssertionError(error);}boolean visible=request.optBoolean("visible",true);views.visibility(request.optString("browser"),view,visible);if(!visible)inputInvalidated(request.optString("browser"),view,views.epoch(request.optString("browser"),view),"input_view_unavailable");view.shown=visible;if(sizing!=null){Runnable work=sizing;sizing=null;work.run();}}
     void publicCreate(String pending,String key,JSONObject request)throws Exception{request.put("popup",pending).put("opener","root");executeProtocolPopupCreate(key,"create",request);}
     void publicClose(String key){executeBrowserClose(key,"close");}
     boolean publicClosePending(){return !browserCloses.isEmpty();}
@@ -117,6 +117,13 @@ final class PopupProductHost {
     int pendingHandoffs(){return protocolPopupHandoffs.size();}
     void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}
     void frameRpc(String key,JSONObject request)throws Exception{executeFrames(key,"frames",views.get(key),request);}
+    void invalidatePopupDocument(String key,String reason){WebView view=views.get(key);inputInvalidated(key,view,views.epoch(key,view),reason);}
+    boolean popupDocumentPending(String key){PopupNetwork owner=network(key);return owner!=null&&owner.page!=null&&cdpWorker.pending(owner.page.marker);}
+    void observeNativeProofRevocation(WebView view){
+        for(NetworkEntry entry:networkViews.values())if(entry.view==view&&entry.popup!=null){
+            if(!entry.popup.handoff.retiring())throw new AssertionError("Native proof revoked before original attachment retirement");retirementBoundaryChecks++;
+        }
+    }
     boolean uploadBusy(String key,WebView view){return false;}
     boolean chooserReady(MdoBrowserDialogTarget target){return true;}
     boolean chooserContinuationReady(String key,WebView view){return false;}

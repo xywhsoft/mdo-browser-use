@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E160:** restore a UI-suspended protected
+  popup only through explicit fresh frame inventory, preserving its original
+  owner, connection and document quota. Validate world readiness before accepting
+  pinned operations, refuse old/foreign authority and await cancelled jobs. Revoke
+  protocol authority before native destruction invalidates its proof. Sixteen
+  targeted modes/772 checks and full native363/13,176 pass, with all 347 earlier
+  mode counts unchanged. JS/Python/product/APK, 479 hashes and 82 actual DEX
+  groups pass. Device/provider qualification and public automation remain open.
+
 - **Android E159:** wire protected-popup creation to its original native
   transport, prepared source/world and controlled UI publication. Freeze layout,
   never replay the supplied URL, keep one original publication deadline and
@@ -12453,3 +12462,48 @@ gates, and device/provider qualification remain pending. Public Browser Use
 availability and automation admission remain false even though the protected
 create/publication implementation is now wired. No phone, ADB, WebView update,
 live model, external page or production publication was used.
+
+
+### E160 explicit protected-document rearm and native-close ordering
+
+The actual frame router can now restore a UI-suspended protected popup on an
+explicit fresh inventory read. It retains the exact native view, navigation epoch,
+original handoff/connection and document quota. Pinned reads, effects, unknown
+cancellation, manual takeover, changed channel/epoch and download-only popups
+cannot create a replacement realm. A still-running cancelled job must deliver
+its original terminal receipt before rearm. Concurrent inventory requests share
+the new marker and ordinary worker-busy result.
+
+An issued proof is not world readiness: the UI waits for a validated unique root
+isolated world in the original inventory. A loading inventory may be read again
+explicitly under the same marker; there is no background retry or URL/navigation
+replay. Repeated failure cannot silently allocate more worlds, and the original
+16-declaration quota survives UI cycles. Late replies cannot make a hidden,
+closed or replaced document ready.
+
+The stale-reference regression also reproduced a native close race: registering
+destruction revoked the native proof before the worker could see deliberate
+attachment retirement. Split data-only authority retirement from native close,
+and perform that first half before proof revocation. It uses the existing close
+budget and cannot synchronously reenter the disposer. The controlled observer
+checks this exact production boundary before native registration.
+
+Sixteen new actual-product modes/772 checks pass with controlled UI/provider
+peers: reshow, repeated cycles, hidden refusal, stale pins, viewport invalidation,
+parent-first retirement, cancellation, changed epoch/channel, manual ownership,
+unsupported/unique-context failure, concurrent reads, late reply, in-flight close
+and quota exhaustion. Evidence: `.mdo/E160-hidden-restore-red.log`,
+`.mdo/E160-restore-matrix.log` and `.mdo/E160-restore-final-matrix.log`.
+Fresh full native363/13,176, JS466, Python174 of176 (two existing Windows
+symlink-privilege skips), creation850/close77, popup110/25/7, save47 and signed APK
+checks pass. All 347 earlier popup mode counts remain unchanged. All 129 native
+and 479 overall input hashes plus 82 actual DEX definition groups verify the
+current code, including rearm state/validation and data-only retirement methods.
+The APK is 6,571,329 bytes, SHA-256
+`f68320393cea1d248582f1694b74031be07266d3f16ca72c55d9604f7e46d289`.
+See `.mdo/E160-final-identities.log`. Windows E150/world E146 are unchanged,
+hash-verified scoped reuse; this stage does not claim fresh Windows execution.
+Public Android automation remains disabled; generic observation/input routing,
+protected navigation/takeover/nested preparation, remaining recovery and native
+concurrency qualification, and installed-provider/UI qualification remain open.
+Phone/WebView checks remain deferred; no ADB or production action was used.
