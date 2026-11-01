@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E146)
+## Complete development host APK (current: E147)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,550,849 bytes, SHA-256
-`42d91c05654c95fde3c2cf49dbb0977e8ce4bdbe0c832d862f2f0652bf496759`.
+`cb515d536bcc61891164dd4c67099ec1fd17376dffddea22e630bf801143f208`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5339,3 +5339,35 @@ and navigation/OOPIF/multi-child/process recovery still need integration. Public
 Android/provider/framework/device qualification remains false; phone/WebView
 checks remain deferred at the user's request. No release or device change was
 made, and the Windows program/paired plugin/native binaries remain unchanged.
+
+
+### E147: shared popup/task UI lifetime and refreshed program payloads
+
+The shared popup manager snapshots original scope before native state reads and
+checks exact opener/child instances and task/client ownership around asynchronous
+admission, creation, settlement and publication. Page-close callbacks cannot
+remove a replacement. Actual panel adapters forward child lifetime guards, and
+open/close check them plus original row identity after backend replies. Known
+adopted children retain independent ownership. Uncertain effects/admissions stay
+retained; stale callbacks never automatically recreate/close a replacement, and
+already-issued backend operations are not claimed cancelled.
+
+E147-popup-red.json/log retain twelve reproduced baseline failures; applied panel
+open/close adds five red cases. Thirty-nine focused tests pass. A full JS run
+also exposes the old bootstrap extractor's dependency on Java field ordering;
+strict constant-token parsing replaces that brittle boundary while retaining
+actual bootstrap behavior checks. Earlier E145/E146 JS377 scoped reuse omitted
+this Java dependency and is superseded by fresh 402/402 JS results, with expanded
+before/after source hashes. Fresh actual SDK popup display/close and Python
+174/176 pass. Full native passes 128 inputs/196 modes/7,530 checks, and current
+creation/popup/saving/Windows frames/packed runtime gates pass. The unchanged
+eight-input E146 Java world gate is scoped reuse, not a fresh provider run.
+
+Both development programs are rebuilt from the same source/Home. The APK uses
+the newly validated Windows app archive and passes 60 actual DEX definition
+groups plus signing/layout/native/source checks; use the current hash near the
+top of this document. E147-final-identities.py/log binds final artifacts and
+evidence. Shared UI fixes do not enable the incomplete Android automation route.
+Provider/framework/device qualification remains false. Actual protected popup
+task/UI publication and network/document lifetime integration remain required,
+and phone/WebView checks stay deferred at the user's request.

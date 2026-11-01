@@ -9,13 +9,16 @@ const source=readFileSync(new URL('../host/android/MdoBrowserDocument.java',impo
 const world=readFileSync(new URL('../host/android/MdoBrowserWorld.java',import.meta.url),'utf8');
 const hello=JSON.parse(source.match(/\bHELLO=("(?:\\.|[^"\\])*")/)[1]);
 const listener=JSON.parse(world.match(/\bLISTENER=("(?:\\.|[^"\\])*")/)[1]);
-const expression=source.match(/\bBOOTSTRAP=([\s\S]+?);\s*private final/)[1];
-const tokens=[];let offset=0;
-for(const match of expression.matchAll(/"(?:\\.|[^"\\])*"|MdoBrowserWorld\.LISTENER|HELLO|\+/g)){
-  assert.equal(expression.slice(offset,match.index).trim(),'');tokens.push(match[0]);offset=match.index+match[0].length;
+const declarations=[...source.matchAll(/\bstatic\s+final\s+String\s+BOOTSTRAP\s*=/g)];assert.equal(declarations.length,1);
+const tokens=[],token=/\s*("(?:\\.|[^"\\])*"|MdoBrowserWorld\.LISTENER|HELLO|[+;])/y;
+let offset=declarations[0].index+declarations[0][0].length,value=true;
+for(;;){
+  token.lastIndex=offset;const match=token.exec(source);assert(match,'Unsupported Java bootstrap constant expression');offset=token.lastIndex;
+  if(value){assert(!['+',';'].includes(match[1]));tokens.push(match[1]);value=false;}
+  else if(match[1]===';')break;
+  else {assert.equal(match[1],'+');value=true;}
 }
-assert.equal(expression.slice(offset).trim(),'');
-const bootstrap=tokens.filter(token=>token!=='+').map(token=>token==='HELLO'?hello:
+const bootstrap=tokens.map(token=>token==='HELLO'?hello:
   token==='MdoBrowserWorld.LISTENER'?listener:JSON.parse(token)).join('');
 
 test('Android document bootstrap announces once and fixes its private marker',()=>{

@@ -262,7 +262,7 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "  const browserViews = new Map();",
-      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"新窗口\",resource:{id:browser.id},reveal},sdk),\n    closePanels:async browser=>{for(const [id,row] of [...entries])if(row.resource?.id===browser)await close(id);},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
+      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal,current)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"新窗口\",resource:{id:browser.id},reveal},sdk,undefined,current),\n    closePanels:async (browser,current)=>{for(const [id,row] of [...entries]){if(!current())return;if(row.resource?.id===browser&&entries.get(id)===row)await close(id,()=>current()&&entries.get(id)===row);}},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -1481,6 +1481,31 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "else if(\"frames\".equals(command)){executeFrames(key,id,web,request);return;}",
       "after": "else if(\"popup_prepare\".equals(command)){executePopupPreparation(key,id,web,request);return;}\n            else if(\"frames\".equals(command)){executeFrames(key,id,web,request);return;}"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  async function open(type, params = {}, scopedApi = api, definition) {\n    if (stopped) throw new Error(\"工作区已退出\");",
+      "after": "  async function open(type, params = {}, scopedApi = api, definition, current = () => true) {\n    const check = () => { if (stopped) throw new Error(\"工作区已退出\"); if (!current()) throw new DOMException(\"原标签页或任务已改变\", \"AbortError\"); };\n    check();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "      const scope = await client.call(\"sdk.context\"); if (stopped) throw new Error(\"工作区已退出\");",
+      "after": "      const scope = await client.call(\"sdk.context\"); check();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "    const row = await client.call(\"panel.open\", { ...params, type, client: clientId });\n    entries.set(row.id, row);",
+      "after": "    const row = await client.call(\"panel.open\", { ...params, type, client: clientId });\n    check();\n    entries.set(row.id, row);"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  const close = async id => {\n    const row = entries.get(id); if (!row) return;",
+      "after": "  const close = async (id, current = () => true) => {\n    const row = entries.get(id); if (!row || stopped || !current()) return;"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "    try { await bound(row).call(\"panel.close\", { id }); } catch (error) { if (error.status !== 404) throw error; }\n    disposeMount(id); entries.delete(id); selectRemaining();",
+      "after": "    if (entries.get(id) !== row || !current()) return;\n    try { await bound(row).call(\"panel.close\", { id }); } catch (error) { if (error.status !== 404) throw error; }\n    if (stopped || !current() || entries.get(id) !== row) return;\n    disposeMount(id); entries.delete(id); selectRemaining();"
     }
   ],
   "files": [

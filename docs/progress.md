@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Shared UI E147:** reproduce and fix stale popup/page-close callbacks that
+  continued after an opener or child instance/task changed. Snapshot the original
+  scope before waiting, recheck exact instances at every asynchronous boundary,
+  and carry child lifetime/row guards into panel open/close. Preserve acknowledged
+  independent children and uncertain native receipts; never close/recreate a
+  replacement. Fresh JS 402, actual C/JS/native SDK, native 7,530 checks, Windows
+  301/six cycles and packed program 12 pass. Rebuild both development programs.
+  This full JS run supersedes E145/E146's insufficient narrow JS reuse, which
+  missed the Java source dependency of the document-bootstrap extraction test.
 - **Android E146:** bind acknowledged opener profiles into the actual protected
   child constructor before settings or native transport. Publish its physical
   controller before provider callbacks and reuse initialization quiescence and
@@ -11564,6 +11573,8 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   Windows program/plugin/native bytes stay unchanged. E145 Windows 301/six
   cycles, packed runtime 12 and JS 377 are scoped hash-checked reuse, not fresh
   executions. E146-final-identities.py/log bind sources, artifacts and receipts.
+  The JS-only scope was insufficient for a test reading Java declarations;
+  E147 fixes that test's extraction and supersedes this JS reuse with a full run.
 - Goal stays active. Next join these protected construction/transport/proof/
   handoff/document primitives to actual task permission, published-tab UI and
   physical/document network lifetime; continue navigation, OOPIF, multi-child/
@@ -11572,3 +11583,56 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   work remains deferred; no ADB/device/provider update, publication, production/
   account/config mutation, model/external-page call or extra app/Home/source
   copy occurred.
+
+
+### E147 — original task and instance lifetime across popup/UI awaits
+
+- Reproduce twelve failures against d38472d: after native state/list, broker
+  admission, capability, create/settlement or page-close waits, an original view
+  could disappear/change and stale work would still create/publish a popup or
+  delete its replacement. E147-popup-red.json/log preserve baseline hashes and
+  red evidence. The actual applied panel open/close functions also reproduce
+  five late-reply failures in E147-panel-red.log.
+- Freeze the original scope before native state reads and recheck the exact
+  opener instance/client/extension/task around every wait. Validate admitted
+  children and capture their original view identity; never replace or operate
+  on a foreign/replaced child. Harmless metadata refresh remains admitted.
+  Acknowledged adoption creates an independent child lifetime, which is passed
+  through the actual panel adapter into guarded panel opening. Page-close panel
+  cleanup captures original row identities. Panel open/close recheck lifetime
+  and exact rows after backend replies before changing UI. No pending admission
+  or uncertain native effect is automatically recreated, settled or closed on
+  lost ownership. Already dispatched backend operations cannot be recalled.
+- Thirty-nine focused popup/applied-panel tests pass, including the actual
+  adapters, independent child lifetime, scope mutation, foreign child refusal,
+  late backend replies and metadata-only refresh. The full JS run initially
+  exposed an older test that extracted BOOTSTRAP until the next private-final
+  field; E145's Java field changes made that boundary invalid. Replace it with
+  strict token parsing of the actual Java constant through its semicolon and
+  retain both behavioral bootstrap checks. E145/E146's previous JS377 reuse
+  checked too narrow a scope and is superseded, not counted as a current pass.
+  Fresh JS passes 402/402, with Java/Python/C/header as well as JS inputs captured
+  before execution and checked afterward. Fresh Python passes 174/176 in 46.808
+  seconds; two existing Windows symlink privilege cases remain skipped.
+- The actual UI/native public SDK gate passes 19 actions, four navigations,
+  five wait types and three frames, including independent/blank native popup
+  admission, panel display and page-requested close. Fresh full native passes
+  128 inputs, all 196 modes/7,530 checks; creation 848, asynchronous close 77,
+  popup 110/25/7, saving 47 and Windows frames 301/six input/interrupted-drag
+  cycles pass. Unchanged E146 Java world/document/profile/budget 35/86/396/18
+  evidence is explicitly scoped hash-checked reuse, not a fresh provider run.
+- Repackage the same deployment and validate twelve packed Windows checks:
+  6,938,902 bytes, SHA-256
+  54d3f82aa23cb925c3f7e0922dea8dcb35aa36a6687b7e6e5066bd93b382f6c3.
+  Rebuild full Android APK with the matching app archive: 6,550,849 bytes,
+  SHA-256 cb515d536bcc61891164dd4c67099ec1fd17376dffddea22e630bf801143f208.
+  Signing/layout/native/source and 60 actual DEX groups pass. Portable plugin
+  and native host binaries stay unchanged. E147-final-identities.py/log binds
+  final inputs, red cases, fresh/scoped evidence and actual program payloads.
+- Goal remains active. Continue browser mount/end callback ownership and the
+  actual Android protected-create/task/UI route, physical/document network
+  lifetime, navigation/OOPIF/multi-child/process recovery and remaining Windows
+  qualification. Public Android/provider/framework/device qualification stays
+  false; phone/WebView work remains deferred. No publication, production/account/
+  config mutation, device/provider update, external-page/model call or extra
+  application/Home/source copy occurred.

@@ -22,9 +22,15 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview (E142 shared dispatcher, including
-E106/W4/W3b/W3a/W2/W1/E66/F21) is **6,938,317 bytes**, SHA-256
-`17771ec5da278d36834db2e0bd3386fa017e0659bcd7257c919dcef206684db2`.
+The current verified Windows preview (E147 popup/task UI lifetime guards,
+including E142/E106/W4/W3b/W3a/W2/W1/E66/F21) is **6,938,902 bytes**, SHA-256
+`54d3f82aa23cb925c3f7e0922dea8dcb35aa36a6687b7e6e5066bd93b382f6c3`.
+E147 snapshots original opener/child scope and checks exact UI ownership across
+asynchronous popup admission, creation and panel open/close. Late replies cannot
+publish or remove a replacement view. Already-issued uncertain native effects
+retain their original receipt instead of triggering automatic recreation/close.
+Fresh JS 402 and actual C/JS/native popup admission/display/window-close checks
+pass; previous E145/E146 narrow JS reuse is superseded by this full run.
 E142 adds an internal popup preparation handshake only for hosts declaring that
 requirement. Preparation cannot hide an asynchronous wait inside native input:
 the dispatcher rechecks cancellation, deadline and original ownership after its
