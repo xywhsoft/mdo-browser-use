@@ -342,7 +342,17 @@
     {
       "path": "app/src/application/workbench.c",
       "before": "        cstr Kind=Browser?\"browsers\":\"panels\";xvalue* V=NULL;",
-      "after": "        if(!Browser&&!WbPanelBrowserReference(C,Next,P,E))goto done;\n        cstr Kind=Browser?\"browsers\":\"panels\";xvalue* V=NULL;"
+      "after": "        mdo_sdk_context_v1 Creation=*C;bool BrowserPanel=!Browser&&WbIsBrowserPanel(Next,P);\n        if(!Browser&&!WbBrowserPanelContext(C,Next,P,&Creation,E))goto done;\n        cstr Kind=Browser?\"browsers\":\"panels\";xvalue* V=NULL;"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "            if(WbBound(C,Item)&&WbEqual(Client,SdkField(Item,\"client\"))&&WbEqual(Key,SdkField(Item,\"key\"))&&(Browser||WbEqual(Type,SdkField(Item,\"type\")))){V=Item;break;}",
+      "after": "            if(WbBound(C,Item)&&(!BrowserPanel||WbBrowserPanelScopeBound(&Creation,Item))&&WbEqual(Client,SdkField(Item,\"client\"))&&WbEqual(Key,SdkField(Item,\"key\"))&&(Browser||WbEqual(Type,SdkField(Item,\"type\")))){V=Item;break;}"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "        xrtValueObjectSetNew(V,XRT_STR_LITERAL(\"context\"),WbContext(C));SdkPutUInt(V,\"revision\",1);",
+      "after": "        xrtValueObjectSetNew(V,XRT_STR_LITERAL(\"context\"),WbContext(&Creation));SdkPutUInt(V,\"revision\",1);"
     },
     {
       "path": "app/src/application/workbench.c",

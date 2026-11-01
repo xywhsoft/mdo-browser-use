@@ -12614,3 +12614,54 @@ Broader public Android document/input, protected navigation/takeover/nested
 preparation and platform qualification remain open; Windows end-to-end completion
 audit and final deliverables also remain open. Phone/current WebView checks stay
 deferred. No ADB, live model, external page or production action was used.
+
+
+### W5 original browser context for action-created panels
+
+The Windows completion audit reproduced a real public managed-tool failure:
+read-only screenshot requests ended with `waiting_for_panel_mount` while their
+visible panel already reported ready. Panel and browser owner, client, device,
+project, session, namespace and member matched, but run/workspace differed.
+`panel.open` copied the later invocation context; the frontend correctly refused
+to bind that panel to the original browser. The managed visual gate reproduced
+this twice. Four broker regression tests then exposed three baseline failures,
+including cross-private references and keyed-panel mixing. Evidence is retained
+in `.mdo/W5-managed-failures.jsonl`, `.mdo/W5-managed-visual-scopes.log` and
+`.mdo/W5-browser-panel-red.log`.
+
+The broker now copies the original browser run/workspace into browser-panel
+metadata only. Current caller permissions, action admission and deadline remain
+unchanged. A browser reference must match owner/device/project/session and exact
+namespace/member. Reusing a browser panel key also requires its full original
+scope; an old mismatched panel is not silently rebound or removed. Custom panels
+and empty panels preserve the current context. This changes neither generic
+resource ownership nor the frontend's exact scope guard.
+
+Fresh full visual/managed checks pass, including the formerly failing read-only
+capture, denied read-only clicks/drags, native canvas input, six visual drag paths,
+cross-frame gestures and recovery without replay. Actual public C/JS SDK passes
+19 actions, four navigations and five wait conditions. Python passes 178 of180
+(two existing Windows symlink-privilege skips); JS466 and the twelve checks on
+the newly packed executable pass. See `.mdo/W5-public-visual-fixed.log`,
+`.mdo/W5-public-sdk-fixed.log`, `.mdo/W5-python.log`,
+`.mdo/W5-javascript.log` and `.mdo/W5-packed-runtime.log`.
+
+The first earlier SDK capture also reported a mount timeout, but the diagnostic
+reproduction and three full pre-fix SDK repetitions passed. Its own cause remains
+unconfirmed; the confirmed managed scope defect is not proof of every mount
+timeout's cause. No browser mutation, URL or tool call is automatically replayed
+by this fix.
+
+Windows is 6,941,635 bytes, SHA-256
+`630cf63fe50306a943cd7cce9068aefbabf6b6365c2f8706459168414d6cef32`.
+The paired Android development APK is rebuilt from that exact exercised app
+archive, 6,571,329 bytes, SHA-256
+`01a9a1f8ad919fc00d1bee0bbe039e8ef2f3015cc7d101e64f75b0a418a0f26a`.
+Signing, native inventory and actual DEX definition gates pass; this is not a
+device/framework/automation pass. Android Java/native sources are unchanged.
+The previous private-native matrix remains historical: 128 of its129 source
+hashes match; the remaining input is the shared overlay manifest, whose only
+new changes target the application C broker. No fresh 369-mode run is claimed.
+Public Android routing, protected navigation/takeover/nested preparation,
+platform qualification and final delivery remain open. Phone and the current
+WebView stay deferred, with no ADB, live model, external page or production action.

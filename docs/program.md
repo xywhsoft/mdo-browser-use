@@ -22,18 +22,27 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview (E149 original component ownership and
-E150 fresh-inventory recovery, including E148/E147/E142/E106/W4/W3b/W3a/W2/W1/E66/F21)
-is **6,941,205 bytes**, SHA-256
-`cf62590ea674e3e40dc93f1b9cfebbf509439105849f7b18f0a723cb232db755`.
+The current verified Windows preview adds W5's original browser-panel context
+binding to E149 original component ownership and E150 fresh-inventory recovery
+(including E148/E147/E142/E106/W4/W3b/W3a/W2/W1/E66/F21).
+It is **6,941,635 bytes**, SHA-256
+`630cf63fe50306a943cd7cce9068aefbabf6b6365c2f8706459168414d6cef32`.
+W5 fixes actual managed read-only screenshots timing out during panel mounting:
+the panel retains its browser's original run/workspace, while the action keeps
+the current caller's permissions and admission context. Foreign namespace/member
+references are rejected, and keyed browser panels require the full original
+scope. Generic custom panels retain their caller context. Fresh public C/JS SDK,
+visual/managed-permission and twelve packed runtime checks pass. Android uses
+the rebuilt app archive but remains unqualified; phone checks are deferred.
 E149 carries original mount/task/native ownership through initialization,
 recovery, controls, polling and cleanup. UI claims are separate from ready
 Agent dispatchers; normal pane disposal preserves the task browser. E150 fixes
 a real blank-popup observation race: navigation-invalidated unpinned inventory
 is read again under the original deadline, while pinned locators/evaluations
 retain their stale refusal. No mutation or navigation is replayed.
-Fresh JS 466, actual SDK (including normal/blank popups), native frames 301/six
-cycles and packed runtime 12 pass. Broader goal/Android qualification remains open.
+E150 passed JS 466, actual SDK (including normal/blank popups), native frames
+301/six cycles and packed runtime 12. Those earlier native-frame measurements
+are historical, not a fresh W5 run. Broader goal/Android qualification remains open.
 E147 snapshots original opener/child scope and checks exact UI ownership across
 asynchronous popup admission, creation and panel open/close. Late replies cannot
 publish or remove a replacement view. Already-issued uncertain native effects

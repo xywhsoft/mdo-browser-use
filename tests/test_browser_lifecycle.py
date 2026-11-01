@@ -107,5 +107,56 @@ class BrowserLifecycleTests(unittest.TestCase):
         self.assertEqual(status, 404, json.loads(raw))
 
 
+    def test_browser_panel_keeps_original_run_and_workspace(self):
+        browser = self.browser()
+        original = dev.call("browser.get", {"id": browser}, self.scope)
+        current = dict(self.scope, run="current-tool-run", workspace=str(dev.ROOT))
+        params = {"type": "close-qa-browser", "client": self.client,
+                  "key": browser, "resource": {"id": browser}}
+        panel = dev.call("panel.open", params, current)
+        self.panels.append(panel["id"])
+        self.assertEqual(panel["context"], original["context"])
+        repeated = dev.call("panel.open", params, dict(current, run="next-tool-run"))
+        self.panels.append(repeated["id"])
+        self.assertEqual(repeated["id"], panel["id"])
+        self.assertEqual(dev.call("browser.get", {"id": browser}, self.scope), original)
+
+    def test_browser_panel_does_not_adopt_foreign_private_scope(self):
+        browser = self.browser()
+        for field in ("namespace", "member"):
+            status, _, raw = dev.request("POST", "/api/v1/application/call", {
+                "method": "panel.open", "params": {"type": "close-qa-browser",
+                "client": self.client, "resource": {"id": browser}},
+                "context": dict(self.scope, **{field: "foreign"})})
+            response = json.loads(raw)
+            if status == 200:
+                self.panels.append(response["data"]["id"])
+            self.assertEqual(status, 409, response)
+            self.assertEqual(response["error"]["code"], "context_mismatch")
+
+    def test_private_browser_panels_with_same_key_stay_distinct(self):
+        first = self.browser()
+        private = dict(self.scope, namespace="private", member="worker")
+        second = dev.call("browser.create", {"client": self.client}, private)
+        self.browsers.append(second["id"])
+        params = {"type": "close-qa-browser", "client": self.client, "key": "private-panel-key"}
+        left = dev.call("panel.open", dict(params, resource={"id": first}), self.scope)
+        self.panels.append(left["id"])
+        right = dev.call("panel.open", dict(params, resource={"id": second["id"]}), private)
+        self.panels.append(right["id"])
+        self.assertNotEqual(left["id"], right["id"])
+        self.assertEqual(right["resource"]["id"], second["id"])
+        self.assertEqual(right["context"], second["context"])
+
+    def test_custom_panel_retains_current_call_scope(self):
+        browser = self.browser()
+        current = dict(self.scope, run="current-custom-run", workspace=str(dev.ROOT))
+        row = dev.call("panel.open", {"type": "close-qa-custom", "client": self.client,
+                       "resource": {"id": browser}}, current)
+        self.panels.append(row["id"])
+        self.assertEqual(row["context"]["run"], current["run"])
+        self.assertEqual(row["context"]["workspace"], current["workspace"])
+
+
 if __name__ == "__main__":
     unittest.main()
