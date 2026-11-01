@@ -48,6 +48,21 @@ final class PopupProductHost {
     boolean popupPageInFlight(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.inFlight;}
     void closePopupPage(String key){PopupNetwork row=network(key);if(row!=null&&row.page!=null)row.page.close();}
     void duplicatePopupPage(String key)throws Exception{prepareProtocolPopupPage(network(key),page->{throw new AssertionError("Duplicate page entered");},(code,effect)->{throw new AssertionError(code);});}
+    AutoCloseable beginPopupPage(String key,Runnable ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{return prepareProtocolPopupPage(network(key),page->ready.run(),failure);}
+    void runPopupPage(String key,boolean effect,boolean nested,MdoBrowserCdpWorker.Completion complete)throws Exception{
+        PopupNetwork owner=network(key);PopupPage page=owner.page;if(!page.documentReady())throw new AssertionError("Original popup document not ready");
+        cdpWorker.submitDocument(page.marker,owner.handoff,page.proof,3000,effect,(binding,deadline)->{
+            org.json.JSONArray frames=binding.frames().inventory(deadline).optJSONArray("frames");JSONObject chosen=null;
+            for(int i=0;i<frames.length();i++){JSONObject item=frames.optJSONObject(i);if(nested?binding.frames().select(item.optString("id"),item.optString("document")).session!=null:"f0".equals(item.optString("id"))){chosen=item;break;}}
+            if(chosen==null)throw new java.io.IOException("cdp_fixture_frame_missing");
+            binding.frames().evaluate(chosen.optString("id"),chosen.optString("document"),"({ok:true,text:'managed'})",effect,deadline);return new byte[]{1};
+        },complete);
+    }
+    void rebindPopupPage(String key,MdoBrowserCdpWorker.Completion complete)throws Exception{
+        PopupNetwork owner=network(key);WebView view=owner.owner.view();cdpViews.invalidate(key,view,views.epoch(key,view),"permission_changed");
+        MdoBrowserCdpMarker marker=protocolDocumentMarker(key,owner.owner,owner.handoff);MdoBrowserCdpPopupNative.Document proof=owner.owner.document(marker);
+        cdpWorker.submitDocument(marker,owner.handoff,proof,3000,false,(binding,deadline)->{binding.frames().inventory(deadline);return new byte[]{1};},complete);
+    }
     PopupNetwork network(String key){NetworkEntry row=networkViews.get(key);return row==null?null:row.popup;}
     boolean popupNetworkReady(String key){PopupNetwork value=network(key);return value!=null&&value.phase==1&&value.current();}
     void closePopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.close();}

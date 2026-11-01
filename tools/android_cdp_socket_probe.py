@@ -208,6 +208,11 @@ def main():
                   'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
                   'preparation-page-parent-before-world',
+                  'preparation-page-cancel-world-isolated',
+                  'preparation-isolated-world','preparation-isolated-nested','preparation-isolated-detach','preparation-isolated-read','preparation-isolated-effect','preparation-isolated-detach-nested',
+                  'preparation-isolated-foreign','preparation-isolated-expired','preparation-isolated-reset-attach','preparation-isolated-reset-runtime',
+                  'preparation-isolated-receive-other','preparation-isolated-receive-foreign','preparation-isolated-receive-detach',
+                  'preparation-isolated-control-resume','preparation-isolated-control-request','preparation-isolated-control-response',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))
@@ -219,6 +224,7 @@ def main():
                 or popup_worker.get('product_popup_preparation_tested') is not mode.startswith('preparation')
                 or popup_worker.get('product_prepared_admission_tested') is not mode.startswith('prepared-admission')
                 or popup_worker.get('product_page_startup_tested') is not mode.startswith('preparation-page-')
+                or popup_worker.get('product_document_retirement_tested') is not mode.startswith('preparation-isolated-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -236,6 +242,14 @@ def main():
                     or evidence.get('ui_published') is not False or evidence.get('provider_qualified') is not False
                     or not evidence['cleanup_confirmed'] and (evidence.get('unconfirmed_creation_fenced') is not True or evidence.get('failure_callbacks')!=1)):
                 raise RuntimeError('Protected page startup lost its actual cleanup/publication evidence')
+        if mode.startswith('preparation-isolated-'):
+            evidence=popup_worker.get('product_document_retirement');preserved=mode not in ('preparation-isolated-foreign','preparation-isolated-receive-foreign','preparation-isolated-expired')
+            if (not isinstance(evidence,dict) or evidence.get('shared_wire_preserved') is not preserved
+                    or evidence.get('other_original_document_verified') is not preserved
+                    or evidence.get('browser_connections')!=1 or evidence.get('native_proof_connections')!=2
+                    or preserved and (evidence.get('native_detach_confirmed') is not True or evidence.get('effects_preserved') is not True)
+                    or evidence.get('provider_qualified') is not False or evidence.get('ui_published') is not False):
+                raise RuntimeError('Original document retirement isolation was not proved')
         popup_worker_results.append(popup_worker)
     result['jvm_popup_worker']=popup_worker_results
     popup_native=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

@@ -198,9 +198,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * Later body flow follows its frozen physical owner rather than a new DOM. */
     static final class AttachedResponse {
         private final MdoBrowserCdpSession owner;private final AttachedTarget attachment;private final PausedEvent original;
-        private final BooleanSupplier sourceOwner;private BooleanSupplier admission;private boolean decided;
+        private final BooleanSupplier sourceOwner,retiring;private BooleanSupplier admission;private boolean decided;
         private final AtomicReference<ControlResult> outcome=new AtomicReference<>();
-        private AttachedResponse(MdoBrowserCdpSession owner,AttachedTarget attachment,PausedEvent original,BooleanSupplier scope,BooleanSupplier admission){this.owner=owner;this.attachment=attachment;this.original=original;sourceOwner=scope;this.admission=admission;}
+        private AttachedResponse(MdoBrowserCdpSession owner,AttachedTarget attachment,PausedEvent original,BooleanSupplier scope,BooleanSupplier admission,BooleanSupplier retiring){this.owner=owner;this.attachment=attachment;this.original=original;sourceOwner=scope;this.admission=admission;this.retiring=retiring;}
         MdoBrowserCdpResponse metadata(){return original.response;}
         ControlResult result(){return outcome.get();}
         void pass(int timeout)throws IOException{owner.responseFlow(this,false,timeout);}
@@ -286,7 +286,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         EventFailure(String code){super(checked(code));this.code=code;}
     }
     static final class Failure extends IOException {
-        final int protocolCode;final boolean effectMayHaveOccurred;boolean uniqueContextRejected,attachedReadCancelled;
+        final int protocolCode;final boolean effectMayHaveOccurred;boolean uniqueContextRejected,attachedCommandCancelled;
         Failure(String code,int protocolCode,boolean effect) {super(code);this.protocolCode=protocolCode;effectMayHaveOccurred=effect;}
     }
     private final Thread owner=Thread.currentThread();
@@ -305,7 +305,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final Map<Integer,String> retiredBodyReads=new HashMap<>();
     private PausedEvent paused;private AttachedTarget attached;private long activeStarted;private int activeTimeout;private String controlFault;
     private BooleanSupplier attachmentCommandOwner;
-    private AttachedTarget attachmentBootstrap;private BooleanSupplier attachmentRetirement;
+    private AttachedTarget attachmentRetirementTarget;private BooleanSupplier attachmentRetirement;private String attachmentRetirementCode;
     private Navigation navigation;private int navigationCount;
     private volatile Wire wire;
     private volatile CloseBarrier closeBarrier;
@@ -358,8 +358,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(attachmentCommandOwner!=null){
             try{alive=attachmentCommandOwner.getAsBoolean();}catch(RuntimeException|Error failure){alive=false;}
             if(!alive){
-                boolean retiring=false;try{retiring=attachmentBootstrap!=null&&attachmentRetirement!=null&&attachmentRetirement.getAsBoolean();}catch(RuntimeException|Error ignored){}
-                if(retiring){Failure cancelled=failure("cdp_popup_source_retired",false);cancelled.attachedReadCancelled=true;throw cancelled;}
+                boolean retiring=false;try{retiring=attachmentRetirementTarget!=null&&attachmentRetirement!=null&&attachmentRetirement.getAsBoolean();}catch(RuntimeException|Error ignored){}
+                if(retiring){Failure cancelled=failure(attachmentRetirementCode,effect);cancelled.attachedCommandCancelled=true;throw cancelled;}
                 close();throw failure("cdp_owner_changed",effect);
             }
         }
@@ -385,7 +385,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         seenChildren.add(child);children.add(child);
     }
     void retireChild(String child) throws Failure {
-        guard(false);retireChildData(child);
+        // Local bookkeeping remains possible while an attached command loses
+        // its deliberately closing owner. It sends no protocol operation.
+        connectionGuard(false);retireChildData(child);
     }
     private void retireChildData(String child){
         children.remove(child);
@@ -498,23 +500,32 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean live;try{live=owner.getAsBoolean();}catch(RuntimeException|Error error){live=false;}
         if(!live)throw failure("cdp_attach_owner_changed",false);
     }
-    private void protectedCall(AttachedTarget original,BooleanSupplier owner,String method,JSONObject params,int timeout)throws IOException {
+    private void protectedCall(AttachedTarget original,BooleanSupplier owner,BooleanSupplier retiring,String method,JSONObject params,int timeout)throws IOException {
         admitProtectedCommand(original,owner,timeout);
         attachmentCommandOwner=owner;
+        if(retiring!=null){attachmentRetirementTarget=original;attachmentRetirement=retiring;attachmentRetirementCode="cdp_popup_control_retired";}
         try{JSONObject reply=call(method,params,original.session,timeout,true);if(reply.length()!=0){close();throw failure("cdp_attach_control_reply_invalid",true);}guard(true);}
-        finally{attachmentCommandOwner=null;}
+        finally{attachmentCommandOwner=null;attachmentRetirementTarget=null;attachmentRetirement=null;attachmentRetirementCode=null;}
     }
     void resumeProtectedAttachment(AttachedTarget original,BooleanSupplier owner,int timeout)throws IOException {
+        resumeProtectedAttachment(original,owner,null,timeout);
+    }
+    void resumeProtectedAttachment(AttachedTarget original,BooleanSupplier owner,BooleanSupplier retiring,int timeout)throws IOException {
         protectedAttachment(original,true);if(original.managedResumeAttempted||original.resumed)throw failure("cdp_attach_resume_replayed",false);
         admitProtectedCommand(original,owner,timeout);
         original.managedResumeAttempted=true;
-        protectedCall(original,owner,"Runtime.runIfWaitingForDebugger",new JSONObject(),timeout);original.resumed=true;
+        protectedCall(original,owner,retiring,"Runtime.runIfWaitingForDebugger",new JSONObject(),timeout);original.resumed=true;
     }
-    /** Controller RPC on one original attachment. Document checks are the
-     * peer's responsibility; physical ownership guards every wire operation. */
-    JSONObject callAttached(AttachedTarget original,BooleanSupplier owner,String method,JSONObject params,String child,int timeout,boolean effect)throws IOException {
-        admitProtectedCommand(original,owner,timeout);if(child!=null&&!children.contains(child))throw failure("cdp_session_invalid",false);
-        attachmentCommandOwner=owner;try{return call(method,params,child==null?original.session:child,timeout,effect);}finally{attachmentCommandOwner=null;}
+    /** A proved document peer may retire only its original closing attachment.
+     * Abandon its wait/result; effects may already have occurred. Native detach
+     * still supplies the independent cleanup receipt; nothing is replayed. */
+    JSONObject callAttachedDocument(AttachedTarget original,BooleanSupplier owner,BooleanSupplier retiring,String method,JSONObject params,String child,int timeout,boolean effect)throws IOException {
+        if(retiring==null)throw failure("cdp_popup_document_owner_invalid",false);
+        admitProtectedCommand(original,owner,timeout);if(!original.resumeConfirmed())throw failure("cdp_popup_activation_required",false);
+        if(child!=null&&!children.contains(child))throw failure("cdp_session_invalid",false);
+        attachmentCommandOwner=owner;attachmentRetirementTarget=original;attachmentRetirement=retiring;attachmentRetirementCode="cdp_popup_document_retired";
+        try{return call(method,params,child==null?original.session:child,timeout,effect);}
+        finally{attachmentCommandOwner=null;attachmentRetirementTarget=null;attachmentRetirement=null;attachmentRetirementCode=null;}
     }
     /** Only the fixed pre-activation source bootstrap may abandon its exact
      * closing attachment locally. It grants no replacement command or result.
@@ -525,16 +536,19 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             Integer.valueOf(0).equals(params.opt("maxTotalBufferSize"))&&Integer.valueOf(0).equals(params.opt("maxResourceBufferSize"))&&Integer.valueOf(0).equals(params.opt("maxPostDataSize")));
         if(!fixed||retiring==null)throw failure("cdp_network_scope_invalid",false);
         admitProtectedCommand(original,owner,timeout);if(original.resumeConfirmed())throw failure("cdp_popup_source_activation_started",false);
-        attachmentCommandOwner=owner;attachmentBootstrap=original;attachmentRetirement=retiring;
+        attachmentCommandOwner=owner;attachmentRetirementTarget=original;attachmentRetirement=retiring;attachmentRetirementCode="cdp_popup_source_retired";
         try{return call(method,params,original.session,timeout,false);}
-        finally{attachmentCommandOwner=null;attachmentBootstrap=null;attachmentRetirement=null;}
+        finally{attachmentCommandOwner=null;attachmentRetirementTarget=null;attachmentRetirement=null;attachmentRetirementCode=null;}
     }
     boolean continueProtectedRequest(AttachedTarget original,BooleanSupplier owner,int timeout)throws IOException {
+        return continueProtectedRequest(original,owner,null,timeout);
+    }
+    boolean continueProtectedRequest(AttachedTarget original,BooleanSupplier owner,BooleanSupplier retiring,int timeout)throws IOException {
         protectedAttachment(original,true);if(!original.resumed)throw failure("cdp_attach_resume_unconfirmed",false);
         admitProtectedCommand(original,owner,timeout);
         PausedEvent request;synchronized(controlGate){if(original.initialRequests.isEmpty())return false;request=original.initialRequests.get(0);
             if(request.continuationAttempted)throw failure("cdp_attach_request_replayed",false);request.continuationAttempted=true;}
-        try{protectedCall(original,owner,"Fetch.continueRequest",new JSONObject().put("requestId",request.request),timeout);}
+        try{protectedCall(original,owner,retiring,"Fetch.continueRequest",new JSONObject().put("requestId",request.request),timeout);}
         catch(org.json.JSONException error){throw failure("cdp_attach_request_invalid",false);}
         synchronized(controlGate){original.initialRequests.remove(request);original.retainedRequests=original.initialRequests.size();}return true;
     }
@@ -542,14 +556,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         protectedAttachment(original,true);for(PausedEvent response:original.protectedResponses)if(!response.responseSelected)return response.response;return null;
     }
     AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission)throws IOException{
-        return nextAttachedResponse(original,scope,admission,false);
+        return nextAttachedResponse(original,scope,admission,null,false);
     }
-    AttachedResponse nextSourceResponse(AttachedTarget original,BooleanSupplier scope)throws IOException{return nextAttachedResponse(original,scope,scope,true);}
+    AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission,BooleanSupplier retiring)throws IOException{return nextAttachedResponse(original,scope,admission,retiring,false);}
+    AttachedResponse nextSourceResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier retiring)throws IOException{return nextAttachedResponse(original,scope,scope,retiring,true);}
     boolean ownsAttachedResponse(AttachedTarget original,AttachedResponse response)throws IOException {guard(false);return response!=null&&response.owner==this&&response.attachment==original;}
-    private AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission,boolean source)throws IOException{
+    private AttachedResponse nextAttachedResponse(AttachedTarget original,BooleanSupplier scope,BooleanSupplier admission,BooleanSupplier retiring,boolean source)throws IOException{
         protectedAttachment(original,true);if(!original.resumed||scope==null||admission==null||!owned(scope)||!owned(admission))throw failure("cdp_attach_owner_changed",false);
         synchronized(controlGate){for(PausedEvent response:original.protectedResponses)if(!response.responseSelected){
-            AttachedResponse receipt=new AttachedResponse(this,original,response,scope,admission);final MdoBrowserCdpNetworkFrames.Origin epoch=response.sourceEpoch;response.sourceOwner=source?()->owned(scope)&&epoch!=null&&epoch.current():scope;response.responseSelected=true;
+            AttachedResponse receipt=new AttachedResponse(this,original,response,scope,admission,retiring);final MdoBrowserCdpNetworkFrames.Origin epoch=response.sourceEpoch;response.sourceOwner=source?()->owned(scope)&&epoch!=null&&epoch.current():scope;response.responseSelected=true;
             if(!owned(scope)||!owned(admission)){response.responseSelected=false;response.sourceOwner=null;throw failure("cdp_attach_owner_changed",false);}return receipt;
         }}return null;
     }
@@ -565,7 +580,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(!abort&&!"pass".equals(response.original.response.kind))throw failure("cdp_attach_response_not_passable",false);
         JSONObject params;try{params=new JSONObject().put("requestId",response.original.request);if(abort)params.put("errorReason","Aborted");}catch(org.json.JSONException error){throw failure("cdp_attach_response_invalid",false);}
         response.decided=true;response.admission=null;
-        try{protectedCall(response.attachment,response.sourceOwner,abort?"Fetch.failRequest":"Fetch.continueRequest",params,timeout);releaseResponse(response);response.outcome.set(new ControlResult(true,null,0,true));}
+        try{protectedCall(response.attachment,response.sourceOwner,response.retiring,abort?"Fetch.failRequest":"Fetch.continueRequest",params,timeout);releaseResponse(response);response.outcome.set(new ControlResult(true,null,0,true));}
         catch(IOException|RuntimeException|Error error){int protocol=error instanceof Failure?((Failure)error).protocolCode:0;boolean effect=!(error instanceof Failure)||((Failure)error).effectMayHaveOccurred;
             response.outcome.set(new ControlResult(false,error instanceof Failure?error.getMessage():"cdp_attach_response_failed",protocol,effect));throw error;}
     }
@@ -1203,22 +1218,30 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 progress();
                 expireControls(effect);budget=remaining(started,timeoutMs,effect);
                 byte[] bytes=wire.receive(Math.min(20,budget));if(bytes==null)continue;
-                MdoBrowserCdpJson.Message message=packet(bytes,effect);
-                remaining(started,timeoutMs,effect);
-                if(++packetsSeen>4096)throw failure("cdp_event_limit",effect);
-                if(message==null)continue;
-                if(message.event()) {
-                    event(message,effect);
-                    if(!admitted(session)){
-                        Failure detached=failure("cdp_session_detached",effect);
-                        try{if(attachmentBootstrap!=null&&attachmentRetirement!=null&&attachmentRetirement.getAsBoolean())detached.attachedReadCancelled=true;}catch(RuntimeException|Error ignored){}
-                        throw detached;
+                MdoBrowserCdpJson.Message message;boolean handled;
+                // A received packet belongs to the shared connection, not
+                // only this call. Validate/dispatch it under global ownership
+                // before observing a concurrent attachment cancellation.
+                // Otherwise cancellation could erase another page's event or
+                // hide unknown/corrupt traffic already removed from the wire.
+                BooleanSupplier commandOwner=attachmentCommandOwner;attachmentCommandOwner=null;
+                try{
+                    message=packet(bytes,effect);remaining(started,timeoutMs,effect);
+                    if(++packetsSeen>4096)throw failure("cdp_event_limit",effect);
+                    handled=message==null;
+                    if(message!=null){
+                        if(message.event()){event(message,effect);handled=true;}
+                        else if(navigationReply(message,effect)||controlReply(message,effect))handled=true;
+                        else if(message.id!=commandId||!Objects.equals(message.session,session))throw failure("cdp_reply_mismatch",effect);
                     }
-                    continue;
+                }finally{attachmentCommandOwner=commandOwner;}
+                if(!admitted(session)){
+                    Failure detached=failure("cdp_session_detached",effect);
+                    try{if(attachmentRetirementTarget!=null&&attachmentRetirement!=null&&attachmentRetirement.getAsBoolean())detached.attachedCommandCancelled=true;}catch(RuntimeException|Error ignored){}
+                    throw detached;
                 }
-                if(navigationReply(message,effect)||controlReply(message,effect))continue;
-                if(message.id!=commandId||!Objects.equals(message.session,session))throw failure("cdp_reply_mismatch",effect);
                 guard(effect);
+                if(handled)continue;
                 replied=true;
                 if(message.failed) {
                     // A protocol rejection is a complete reply, not a corrupt
@@ -1231,8 +1254,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             }
         } catch(Failure failure) {
             boolean retired=false;
-            if(failure.attachedReadCancelled&&attachmentBootstrap!=null){
-                AttachedTarget original=attachmentBootstrap;attachmentCommandOwner=null;
+            if(failure.attachedCommandCancelled&&attachmentRetirementTarget!=null){
+                AttachedTarget original=attachmentRetirementTarget;attachmentCommandOwner=null;
                 try{retireAttachedTarget(original);retired=true;}catch(IOException|RuntimeException|Error error){close();}
             }
             if(attempted&&!replied&&!retired)close();throw failure;

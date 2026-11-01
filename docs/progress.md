@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E157:** retire cancelled original document/control/response commands
+  without poisoning another proved page on the same Browser connection. Process
+  an already received packet under global connection ownership before applying
+  the original command's cancellation, preserving other-page events and rejecting
+  foreign traffic. Seventeen new modes/1,007 checks pass; fresh full native
+  311/11,141 retains all 294 earlier modes. Seven earlier page cases now confirm
+  cleanup; two protocol-failure cases remain fenced. Full JS/Python/product/
+  popup/save/APK gates, 479 input hashes and 82 actual DEX groups pass. Public
+  publication/routing and broader recovery/platform qualification remain open.
+
 - **Android E156:** join the original product handoff/network to once-only
   activation and captured root-world readiness under the same total deadline.
   Download-only popups retain their original offers without requiring DOM,
@@ -12210,3 +12220,70 @@ platform/recovery qualification remain pending. Public protected create still
 rejects `popup_network_unqualified`; Android available/device/framework/provider/
 public automation remain false. The phone/current WebView remain deferred.
 No ADB, live model, external page or production publication was used.
+
+### E157 — scoped document/control retirement and received-packet ownership (2026-11-01)
+
+A controlled original world-bootstrap cancellation reproduced closure of the
+shared Browser wire. The closing page's lost owner was being treated as global
+connection loss, so another independently proved page could not continue. The
+same distinction was missing from activated-document calls and managed
+activation, request and response controls. Preserve the original failed runs in
+`.mdo/E157-world-cancel-red.log` and `.mdo/E157-receive-cancel-red.log`.
+
+Only the exact original handoff's bounded retirement now permits abandoning its
+own command. Global connection ownership is checked first, effect uncertainty is
+preserved, and known nested sessions are retired locally. The original native
+detach remains a separate authenticated receipt. No command, navigation or
+response is replayed; there is no new connection, executor, deadline renewal or
+caller-selected target. Remove the unused unscoped attached-document facade.
+Expired retirement, foreign traffic and malformed/global protocol failures still
+fail closed. A new page without a document marker waits for required original
+native/network/download retirement within its existing total deadline.
+
+A second deterministic race paused immediately after bytes had been removed from
+the wire, then cancelled the original page before decoding. The old owner guard
+silently discarded that packet: an unknown foreign packet escaped validation,
+or another page's event/original detach was lost. The receive loop now decodes
+and dispatches already received traffic under global connection ownership,
+restores the per-command owner in finally, and checks the original owner again
+before delivering its own result. Existing callbacks retain their own captured
+peer/document/frame scope and reentry rejection. No queue or buffer is added.
+
+Seventeen new controlled product modes pass 1,007 checks. They cover cancellation
+during root and nested world startup, read and possible-effect calls, nested
+retirement, runtime/auto-attach reset, native detach, managed resume/request/
+response control, already received other-page events/detach/foreign traffic, and
+expired retirement. Positive cases require the same original Browser connection,
+two original native proofs, successful execution on the other original document,
+preserved effect evidence and actual native detach. Negative cases require wire
+closure. No case publishes a UI tab or qualifies an Android provider.
+
+Two older activation-owner-loss cases now require local control retirement,
+actual original detach and final protection-disable acknowledgement instead of
+expecting shared-wire death; each gains three assertions. Seven older page
+cancellation/deadline cases now confirm cleanup, so their conditional retained-
+fence assertion no longer runs. Unsupported and malformed activation remain the
+two unconfirmed page cases and retain their creation fence. Those passes establish
+containment, not protocol-failure recovery. Active stream/IO cleanup remains an
+independent qualification item, not proved by the two-page document tests.
+
+Fresh full validation passes 311 popup-worker modes/11,141 checks on 128 native
+inputs. All 294 earlier modes remain, with only the nine explicitly described
+count changes. JS466, Python174/176 (two existing Windows symlink-privilege skips),
+creation848/close77, popup110/25/7 and save47 pass. JNI checking, ASan/UBSan, API26
+and production Java8 remain in place. All 479 overall input hashes and 82 actual
+APK DEX definition groups pass, including typed retirement suppliers, preserved
+failure fields and absence of the unsafe facade. The signed development APK is
+6,567,233 bytes, SHA-256
+`18d01dc2bd2056bda8a0e1cb1ad9141e87874f7a3b7eae809d112d8d07f6cab5`.
+Windows E150 and world E146 are unchanged hash-verified scoped reuse, not fresh
+platform runs. There is no fresh twenty-run retirement claim in E157; that was
+E156 evidence. See `.mdo/E157-final-identities.log` and retained focused evidence.
+
+Public visible-tab publication and attached-document command routing, protected
+navigation/takeover/nested admission, initialization rollback with native-close
+failure, externally gated Browser-wire completion, stream/IO recovery and broader
+platform qualification remain open. Public protected create still rejects
+`popup_network_unqualified`; Android available/device/framework/provider/public
+automation remain false. The phone/current WebView remain deferred. No ADB, live
+model, external page or production publication was used.

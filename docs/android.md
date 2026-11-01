@@ -5620,3 +5620,39 @@ navigation/takeover/nested and other documented rollback/platform gates remain
 open. Android available/framework/device/provider/public qualification remain
 false, and public protected create still rejects `popup_network_unqualified`.
 The phone/current WebView remain deferred.
+
+### E157 original document/control retirement without cross-page wire loss
+
+Closing one original page during a document or managed control call now drains
+only that handoff under its original bounded retirement. The global connection
+guard still runs first, possible effects remain observable, known nested sessions
+are retired locally, and native detach must be authenticated separately. A
+pending required retirement delays new document admission within its original
+total budget. Expired retirement and global/unknown protocol errors fail closed.
+Remove the unused unscoped attached-document call facade.
+
+The receive/cancel race is also corrected: bytes already received must be decoded
+under global connection ownership before the original command's cancellation is
+applied. This preserves other-page events and original detach receipts, and does
+not silently erase foreign packets. Original peer/document/frame scopes and
+reentry rejection remain in force; no queue, connection or deadline is added.
+
+Seventeen new modes/1,007 checks cover two original sources, root/nested startup,
+reads/effects/resets, controls, native detach, receive/cancel races and negative
+foreign/expired cases. Two older owner-loss modes now strengthen actual detach/
+final-disable assertions. Seven earlier page cases now confirm cleanup; only
+unsupported/malformed activation remain unconfirmed and fenced. Stream/IO
+cleanup and broader recovery are independent outstanding gates.
+
+Fresh full native311/11,141, JS466, Python174 of176, creation848/close77,
+popup110/25/7, save47 and the full signed APK pass. All 128 native/479 overall
+input hashes and 82 actual DEX definition groups verify current sources. The
+6,567,233-byte APK SHA-256 is
+`18d01dc2bd2056bda8a0e1cb1ad9141e87874f7a3b7eae809d112d8d07f6cab5`.
+See `.mdo/E157-final-identities.log`. Windows E150/world E146 remain unchanged
+scoped reuse; the E156 twenty-run retirement evidence is not a fresh E157 run.
+
+Visible-tab publication/public command routing, navigation/takeover/nested and
+the documented rollback/stream/platform gates remain pending. Public protected
+create still rejects `popup_network_unqualified`, all Android public/provider/
+device qualification remains false, and the phone/current WebView stay deferred.

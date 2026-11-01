@@ -74,6 +74,13 @@
                     if(!inFlight&&marker==null){downloadOnly=true;accepted();return;}
                 }
                 if(inFlight||Boolean.TRUE.equals(loading.get(network.entry.key))){schedule();return;}
+                if(marker==null){
+                    if(nativeViewCleanupFailed||networkCleanupFailed)nativeOwnerAdmission();
+                    // Another original view may still be retiring on this
+                    // shared wire. Keep this ready owner's original deadline
+                    // instead of failing its document bootstrap on a busy gate.
+                    if(!nativeRetiringViews.isEmpty()||networkRetiring()!=0||downloadRetiring()!=0){schedule();return;}
+                }
                 if(marker==null){epoch=views.epoch(network.entry.key,network.entry.view);marker=protocolDocumentMarker(network.entry.key,network.owner,network.handoff);proof=network.owner.document(marker);}
                 if(!documentCurrent())throw new java.io.IOException("cdp_popup_page_document_changed");
                 inFlight=true;schedule();

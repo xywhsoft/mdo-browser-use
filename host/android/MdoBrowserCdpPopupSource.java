@@ -71,7 +71,7 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     public MdoBrowserCdpSession.AttachedResponse next()throws IOException {
         guard();if(!ready)throw new IOException("cdp_popup_source_bootstrap_required");
         if(!attachment.resumeConfirmed())return null;
-        MdoBrowserCdpSession.AttachedResponse response=session.nextSourceResponse(attachment,scope);if(response!=null)handoff.admitNetwork();return response;
+        MdoBrowserCdpSession.AttachedResponse response=session.nextSourceResponse(attachment,scope,handoff::draining);if(response!=null)handoff.admitNetwork();return response;
     }
     public MdoBrowserCdpSession.Offer retain(MdoBrowserCdpSession.AttachedResponse response)throws IOException {
         guard();if(response==null||!session.ownsAttachedResponse(attachment,response))throw new IOException("cdp_attach_response_owner_invalid");return response.sourceOffer();

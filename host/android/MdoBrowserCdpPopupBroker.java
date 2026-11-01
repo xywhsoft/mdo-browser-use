@@ -159,13 +159,15 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             guard();MdoBrowserCdpBinding bound=binding;if(bound==null||!bound.responseReady(bound.rootFrame))throw problem("cdp_popup_response_admission_required");
             MdoBrowserCdpResponse next=host.session.peekAttachedResponse(candidate.original);if(next==null)return null;
             if(next.frame==null||!bound.responseReady(next.frame))throw problem("cdp_popup_response_frame_unproven");guard();final String frame=next.frame;
-            MdoBrowserCdpSession.AttachedResponse response=host.session.nextAttachedResponse(candidate.original,handoff::current,()->{try{return !closed.get()&&document.current()&&bound.responseReady(frame);}catch(IOException error){return false;}});
+            MdoBrowserCdpSession.AttachedResponse response=host.session.nextAttachedResponse(candidate.original,handoff::current,()->{try{return !closed.get()&&document.current()&&bound.responseReady(frame);}catch(IOException error){return false;}},handoff::draining);
             handoff.networkAdmitted.set(true);return response;
         }
         public JSONObject call(String method,JSONObject params,int timeout)throws IOException{return call(method,params,null,timeout,false);}
         public JSONObject call(String method,JSONObject params,String child,int timeout,boolean effect)throws IOException{
             guard();if(child!=null&&!children.containsKey(child))throw problem("cdp_popup_document_session_invalid");
-            JSONObject reply=host.session.callAttached(candidate.original,handoff::current,method,params,child,timeout,effect);
+            JSONObject reply;
+            try{reply=host.session.callAttachedDocument(candidate.original,handoff::current,handoff::draining,method,params,child,timeout,effect);}
+            catch(MdoBrowserCdpSession.Failure error){if(error.attachedCommandCancelled)retire();throw error;}
             if(fault!=null)throw new MdoBrowserCdpSession.Failure(fault,0,effect);if(closed.get()||!document.current())throw new MdoBrowserCdpSession.Failure("cdp_popup_document_retired",0,effect);guard();return reply;
         }
         public boolean poll(int timeout)throws IOException{return poll(timeout,timeout);}
@@ -325,9 +327,10 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             if(!old.closed.get()&&old.document.current())throw problem("cdp_popup_document_busy");old.close();
             try{
                 JSONObject disable=new JSONObject().put("autoAttach",false).put("waitForDebuggerOnStart",false).put("flatten",true);
-                JSONObject reply=session.callAttached(original.original,handoff::current,"Target.setAutoAttach",disable,null,Math.min(5000,remaining(born,timeout)),true);if(reply.length()!=0)throw fail("cdp_popup_document_reset_invalid");
-                reply=session.callAttached(original.original,handoff::current,"Runtime.disable",new JSONObject(),null,Math.min(5000,remaining(born,timeout)),false);if(reply.length()!=0)throw fail("cdp_popup_document_reset_invalid");
+                JSONObject reply=session.callAttachedDocument(original.original,handoff::current,handoff::draining,"Target.setAutoAttach",disable,null,Math.min(5000,remaining(born,timeout)),true);if(reply.length()!=0)throw fail("cdp_popup_document_reset_invalid");
+                reply=session.callAttachedDocument(original.original,handoff::current,handoff::draining,"Runtime.disable",new JSONObject(),null,Math.min(5000,remaining(born,timeout)),false);if(reply.length()!=0)throw fail("cdp_popup_document_reset_invalid");
                 old.retire();original.documentPeer=null;
+            }catch(MdoBrowserCdpSession.Failure error){if(error.attachedCommandCancelled)old.retire();throw error;
             }catch(JSONException error){throw fail("cdp_popup_document_reset_invalid");}
         }
         DocumentPeer peer=new DocumentPeer(this,original,proof);original.documentPeer=peer;
@@ -369,10 +372,10 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             if(!handoff.current())throw fail("cdp_popup_candidate_retired");
             try{
                 if(handoff.activationResult.get()==null){
-                    session.resumeProtectedAttachment(candidate.original,handoff::current,timeout);
+                    session.resumeProtectedAttachment(candidate.original,handoff::current,handoff::draining,timeout);
                     handoff.activationResult.set(new MdoBrowserCdpSession.ControlResult(true,null,0,true));managedTurn=(index+1)%count;return true;
                 }
-                if(session.continueProtectedRequest(candidate.original,handoff::current,timeout)){
+                if(session.continueProtectedRequest(candidate.original,handoff::current,handoff::draining,timeout)){
                     handoff.continuedRequests.incrementAndGet();managedTurn=(index+1)%count;return true;
                 }
                 if(candidate.sourcePeer!=null){if(candidate.sourcePeer.turn(timeout)){managedTurn=(index+1)%count;return true;}}
@@ -382,7 +385,11 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 int protocol=error instanceof MdoBrowserCdpSession.Failure?((MdoBrowserCdpSession.Failure)error).protocolCode:0;
                 boolean effect=!(error instanceof MdoBrowserCdpSession.Failure)||((MdoBrowserCdpSession.Failure)error).effectMayHaveOccurred;
                 MdoBrowserCdpSession.ControlResult result=new MdoBrowserCdpSession.ControlResult(false,error instanceof IOException?safe(error.getMessage()):"cdp_popup_activation_failed",protocol,effect);
-                handoff.activationResult.compareAndSet(null,result);handoff.flowFailure.compareAndSet(null,result);throw error;
+                handoff.activationResult.compareAndSet(null,result);handoff.flowFailure.compareAndSet(null,result);
+                boolean cancelled=error instanceof MdoBrowserCdpSession.Failure&&((MdoBrowserCdpSession.Failure)error).attachedCommandCancelled||
+                    java.util.Arrays.asList("cdp_attach_owner_changed","cdp_attach_response_unavailable","cdp_popup_source_retired","cdp_popup_document_retired","cdp_download_owner_changed","cdp_download_connection_closed").contains(result.code);
+                boolean idle=false;if(cancelled&&handoff.draining())try{idle=session.idle();}catch(IOException ignored){/* a failed shared wire is never recovered here */}
+                if(idle){if(candidate.documentPeer!=null)candidate.documentPeer.retire();managedTurn=(index+1)%count;return true;}throw error;
             }
         }return false;
     }
