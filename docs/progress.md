@@ -15,6 +15,18 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E159:** wire protected-popup creation to its original native
+  transport, prepared source/world and controlled UI publication. Freeze layout,
+  never replay the supplied URL, keep one original publication deadline and
+  include a pending create's receipts in close. Preserve registered transfer
+  receipts after target retirement and drain original offers/streams before
+  disabling the Browser guard. Twenty-two new modes/723 checks pass; fresh
+  native347/12,404 retains all 325 earlier modes. The old transfer-detach case
+  now requires successful source/cache/final-disable receipts (+10 checks).
+  Full JS/Python/product/popup/save/APK, 479 hashes and 82 actual DEX groups pass.
+  Public automation remains disabled; hidden rearm and broader platform/control
+  qualification remain open.
+
 - **Android E158:** connect the actual frame-command router to the original
   prepared popup document instead of ordinary discovery. Repeated and nested
   metadata reads keep that exact marker/connection; stale, hidden, manual,
@@ -12357,3 +12369,87 @@ cases remain unconfirmed and fenced. Public protected create still rejects
 `popup_network_unqualified`; Android available/device/framework/provider/public
 automation remain false. The phone/current WebView stay deferred. No ADB, live
 model, external page or production publication was used.
+
+### E159 — protected popup create/publication and original transfer retirement (2026-11-01)
+
+The actual create branch now delegates a protected popup to the existing typed
+coordinator. A regression reproduced `native_popup_protection_busy`: ordinary
+new-window admission incorrectly rejected the already guarded original popup.
+Only that pending popup enters the typed path, which independently verifies its
+opener, original request and native proof. Unrelated creation still uses the
+ordinary guard, and in-flight child reattachment is rejected. Global automation
+admission remains disabled before this branch. This wires a product path, not
+public Android qualification. See `.mdo/E159-create-route-red.log`.
+
+After original native consumption, physical proof, source protection, activation
+and page/download readiness, the coordinator attaches that exact view to the UI
+and records its original popup link. It uses the native address, never a supplied
+popup URL or another navigation. Only bounded copied layout/visibility data is
+retained; later caller mutation cannot change it. View/channel/page ownership and
+the original total deadline are checked around UI attachment and layout. A failed
+or expired publication closes the original handoff and reports a conservative
+structured native-create receipt once. No new deadline or retry is manufactured.
+Download-only pages retain their offer without acquiring a document world.
+
+Closing during preparation now captures and cancels the original handoff even
+before a native view exists. Final close observes its original preparation,
+independent child and network receipts; removing the pending map row is not
+cleanup. The response includes `popup_cleanup_confirmed`. Cancellation cannot
+later publish a resurrected tab. A hidden creation retains physical network/native
+ownership while ordinary input invalidation revokes document admission. Restoring
+its document witness after showing it again remains a separate unfinished item.
+The installed Android ViewGroup, provider and visual behavior are not qualified
+by these controlled framework peers.
+
+Public close also reproduced two transfer-retirement defects. First,
+`retireChildData` discarded the associations for in-flight original abort/stream
+controls. Their later acknowledgements were quarantined, so a valid cleanup receipt
+could not be matched. Preserve bounded original offer/body rows, revoke data
+admission, and admit only registered receipts to strict ID/session validation.
+Known retired read receipts remain drainable; unknown retired page data remains
+quarantined. Wrong-session, rejected or missing receipts never confirm cleanup.
+Second, Broker shutdown waited only for control rows and could close immediately
+after a delayed claim reply, before its resulting stream had been cleaned up.
+Drain the original pending offers/bodies as well as controls within the same
+shutdown budget. No new body claim/read, URL replay, connection or executor is
+introduced for retirement. Retain the original failures in
+`.mdo/E159-publication-download-close.log` and focused stream logs.
+
+Twenty-two new modes pass 723 checks: ordinary/hidden/independent/download-only
+publication, copied layout, duplicate creation, wrong pending identity, invalid
+layout, reentrant close/channel/document changes, UI/layout failures, cancellation
+before allocation and during world work, UI/layout deadline expiry, late original
+abort acknowledgement, wrong/rejected/missing acknowledgements, and closing during
+body claim/read. The active-read case drains a late original packet without
+forwarding its data. Three negative source-receipt cases intentionally remain
+unconfirmed and retain creation fences; they are containment, not recovery passes.
+
+The earlier transfer-detach regression now requires source and cache cleanup,
+exact original stream-close/request-abort receipts and final guard-disable
+confirmation. Its parent was already released, so the now-clean last connection
+closes normally. It gains ten checks; the other 324 earlier mode counts are
+unchanged. An older missing-ack fixture also had to advance its protocol clock,
+not only its UI clock, to observe the real five-second failure deadline. It still
+requires unconfirmed-source fencing; no protocol receipt was fabricated. A native
+null-transport cancellation is likewise acknowledged separately in the new
+before-allocation case rather than assumed synchronous.
+
+Fresh full validation passes 347 popup-worker modes/12,404 checks on 129 native
+inputs, JS466, Python174/176 (two existing Windows symlink-privilege skips),
+creation850/close77, popup110/25/7 and save47. Creation adds two actual command-
+dispatch checks to the earlier 848. JNI checking, ASan/UBSan, API26 and production
+Java8 remain in place. All 479 overall input hashes and 82 actual APK DEX
+definition groups verify current sources, including product create/layout/pending
+methods, handoff cleanup and retiring-receipt dispatch. The signed development
+APK is 6,571,329 bytes, SHA-256
+`6964abbc0b07b575341adebd2becfb2bafdcc3bedf14aa89261e05c66b860e69`.
+Windows E150/world E146 remain unchanged hash-verified scoped reuse, not fresh
+platform runs. See `.mdo/E159-final-identities.log` and retained failed full runs.
+
+Complete public document/observation/input routing, hidden-document rearm,
+protected-source effect/nested-popup preparation, navigation/takeover, the
+remaining initialization/native-close and externally gated Browser-wire recovery
+gates, and device/provider qualification remain pending. Public Browser Use
+availability and automation admission remain false even though the protected
+create/publication implementation is now wired. No phone, ADB, WebView update,
+live model, external page or production publication was used.

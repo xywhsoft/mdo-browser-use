@@ -24,6 +24,7 @@ public final class WebView {
     private final WebSettings settings=new WebSettings();
     public boolean defer,throwAfterRetain,badReply,shown=true;public int evaluations,cleanup;
     public boolean isShown(){return shown;}
+    public String nativeUrl="about:blank";public String getUrl(){return nativeUrl;}
     public int getPaddingLeft(){return 0;}public int getPaddingTop(){return 0;}
     public int getPaddingRight(){return 0;}public int getPaddingBottom(){return 0;}
     public int getWidth(){return 800;}public int getHeight(){return 600;}

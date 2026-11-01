@@ -9,6 +9,12 @@ import java.util.function.LongSupplier;
 final class AndroidCreateHost {
     boolean protocolPopupBusy; // controlled process-protection peer
     boolean protocolPopupCreationBlocked(){return protocolPopupBusy;}
+    static final class PopupHandoff {void close(){}boolean cleanupConfirmed(){return true;}}
+    final Map<String,PopupHandoff> protocolPopupHandoffs=new HashMap<>();
+    int protectedCreateDispatches;
+    boolean protocolPopupCreatePending(String key){return false;}
+    void executeProtocolPopupCreate(String key,String id,JSONObject request){protectedCreateDispatches++;}
+
     void retireProtocolPopupPreparation(String key,WebView view,String reason){}
     /** This ordinary-create fixture must never simulate protected popup
      * networking; the real product path has its separate JNI/worker gate. */

@@ -5,6 +5,13 @@ public final class AndroidCreateContractTest {
     static int checks;
     static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     static AndroidCreateHost.JSONObject request(boolean automation)throws Exception{return new AndroidCreateHost.JSONObject().put("automation",automation).put("url","https://fixture.invalid/");}
+    static void protectedCreateDispatch()throws Exception{
+        AndroidCreateHost host=new AndroidCreateHost();host.create("root",request(false));host.protocolPopupBusy=true;
+        host.create("guarded",request(true).put("popup","popup").put("opener","root"));
+        check(host.protectedCreateDispatches==1,"Protected popup bypassed its typed product coordinator");
+        check(host.created.size()==1&&host.views.get("guarded")==null,"Protected popup took ordinary allocation/navigation path");
+        host.protocolPopupBusy=false;host.closeCommand("root");
+    }
     static void existingProtectedReattach()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();host.create("retained",request(false));AndroidCreateHost.WebView original=host.views.get("retained");
         host.protocolPopupBusy=true;host.create("retained",request(false));
@@ -655,7 +662,7 @@ public final class AndroidCreateContractTest {
             if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
             host.closeCommand("tab");
         }
-        existingProtectedReattach();reattachReconciliation();physicalProfileCreation();deferredHostDestruction();inheritedPopupProfile();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
+        protectedCreateDispatch();existingProtectedReattach();reattachReconciliation();physicalProfileCreation();deferredHostDestruction();inheritedPopupProfile();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         int asyncCloseChecks=AndroidCloseContractTest.run();checks+=asyncCloseChecks;
         System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"physical_profile_creation\":true,\"existing_protected_reattach\":true,\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");

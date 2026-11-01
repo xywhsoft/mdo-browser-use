@@ -27,6 +27,8 @@ def prepare_popup_product(output):
     destruction=network[network.index('    private void networkDestroyed(String'):network.index('    private String networkProtocolCode')]
     destruction=destruction.replace('private void networkDestroyed(WebView view){for(', 'private void networkDestroyed(WebView view){networkDestroyed++;for(',1)
     fragments={
+        '@@POPUP_LINK@@':(ROOT/'host/android/browser-native-popup.inc.java').read_text(encoding='utf-8').split('    private final Map<String,MdoBrowserPopups')[0],
+        '@@BROWSER_CLOSE@@':(ROOT/'host/android/browser-close.inc.java').read_text(encoding='utf-8'),
         '@@NETWORK_ENTRY@@':network[network.index('    private final class NetworkEntry'):network.index('    private boolean networkCurrent')],
         '@@NETWORK_CURRENT@@':network[network.index('    private boolean networkCurrent'):network.index('    private int networkRetiring')],
         '@@NETWORK_LIFETIME@@':lifetime,
@@ -36,6 +38,7 @@ def prepare_popup_product(output):
         '@@PREPARE_DOCUMENT@@':document[document.index('    private MdoBrowserDocument prepareDocument'):document.index('    private boolean closeDocument')],
         '@@CONSTRUCT@@':view[view.index('    private MdoBrowserCdpPopupNative.Created constructProtocolPopup'):view.index('    /** Common native policy')],
         '@@PREPARATION@@':(ROOT/'host/android/browser-popup-preparation.inc.java').read_text(encoding='utf-8'),
+        '@@INPUT_INVALIDATION@@':'    private void inputInvalidated'+(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8').split('    private void inputInvalidated',1)[1].split('    private void chooserBlocked',1)[0],
         '@@FRAME_ENVIRONMENT@@':document[document.index('    private boolean cdpEnvironmentCurrent'):document.index('    private MdoBrowserCdpMarker cdpMarker')],
         '@@FRAME_ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
         '@@INPUT@@':(ROOT/'host/android/browser-native-input.inc.java').read_text(encoding='utf-8'),
@@ -225,6 +228,27 @@ def main():
                   'preparation-page-route-malformed',
                   'preparation-page-route-late',
                   'preparation-page-route-late-hidden',
+                  'preparation-publication-ready',
+                  'preparation-publication-hidden',
+                  'preparation-publication-duplicate',
+                  'preparation-publication-parent',
+                  'preparation-publication-download',
+                  'preparation-publication-close-add',
+                  'preparation-publication-channel-add',
+                  'preparation-publication-stale-add',
+                  'preparation-publication-add-fail',
+                  'preparation-publication-bounds-fail',
+                  'preparation-publication-close-before-allocation',
+                  'preparation-publication-close-world',
+                  'preparation-publication-invalid-layout',
+                  'preparation-publication-foreign-pending',
+                  'preparation-publication-download-delayed-abort',
+                  'preparation-publication-download-abort-mismatch',
+                  'preparation-publication-download-abort-missing',
+                  'preparation-publication-download-abort-rejected',
+                  'preparation-publication-download-close-claim',
+                  'preparation-publication-download-close-read',
+                  'preparation-publication-deadline-add','preparation-publication-deadline-bounds',
                   'preparation-isolated-world','preparation-isolated-nested','preparation-isolated-detach','preparation-isolated-read','preparation-isolated-effect','preparation-isolated-detach-nested',
                   'preparation-isolated-foreign','preparation-isolated-expired','preparation-isolated-reset-attach','preparation-isolated-reset-runtime',
                   'preparation-isolated-receive-other','preparation-isolated-receive-foreign','preparation-isolated-receive-detach',
@@ -242,6 +266,7 @@ def main():
                 or popup_worker.get('product_page_startup_tested') is not mode.startswith('preparation-page-')
                 or popup_worker.get('product_document_retirement_tested') is not mode.startswith('preparation-isolated-')
                 or popup_worker.get('product_frame_route_tested') is not mode.startswith('preparation-page-route-')
+                or popup_worker.get('product_publication_tested') is not mode.startswith('preparation-publication-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')
@@ -253,6 +278,14 @@ def main():
                 or popup_worker.get('native_ui_promotion_tested') is not mode.startswith('promotion') or popup_worker.get('protocol_promotion_qualified') is not False
                 or popup_worker.get('native_popup_adoption_qualified') is not False or popup_worker.get('provider_qualified') is not False):
             raise RuntimeError('The shared popup executor/UI lifecycle gate did not pass')
+        if mode.startswith('preparation-publication-'):
+            published=popup_worker.get('product_publication')
+            clean=mode not in {'preparation-publication-download-abort-'+x for x in ('mismatch','missing','rejected')}
+            if (not isinstance(published,dict) or published.get('actual_product_creation') is not True or published.get('cleanup_confirmed') is not clean or published.get('unconfirmed_creation_fenced') is not (not clean)
+                    or published.get('close_replies')!=1 or published.get('create_replies') not in {0,1} or published.get('browser_connections')!=1
+                    or published.get('native_proof_connections') not in {0,1} or published.get('no_url_replay') is not True
+                    or published.get('framework_qualified') is not False or published.get('provider_qualified') is not False):
+                raise RuntimeError('The original product publication and close receipts did not pass')
         if mode.startswith('preparation-page-route-'):
             route=popup_worker.get('product_frame_route')
             expected=mode.rsplit('-',1)[1] in {'list','repeat','nested','parent','busy'}
@@ -474,7 +507,7 @@ def main():
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java','host/android/MdoBrowserCdpNetworkRequests.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpPopupBroker.java','host/android/MdoBrowserCdpPopupWorker.java','host/android/MdoBrowserCdpPopupNative.java','host/android/MdoBrowserCdpPopupSource.java','host/android/MdoBrowserCdpPopupPreparation.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
             'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserDownloadFiles.java','host/android/MdoBrowserDownloadQueue.java','host/android/MdoBrowserCdpDownloads.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
-            'host/android/browser-network-navigation.inc.java','host/android/browser-destroy.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-popup-preparation.inc.java','host/android/browser-native-input.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
+            'host/android/browser-network-navigation.inc.java','host/android/browser-destroy.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-popup-preparation.inc.java','host/android/browser-close.inc.java','host/android/browser-native-input.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserPopups.java','host/android/browser-native-popup.inc.java','host/android/popup-protocol.json',
             'tools/android_cdp_socket_probe.py','tests/fixtures/android-cdp-java/PopupProductHost.java.in','host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',

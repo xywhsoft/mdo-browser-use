@@ -13,6 +13,51 @@
     interface ProtocolPopupReady {void ready(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException;}
     interface ProtocolPopupNetworkReady {void ready(PopupNetwork network)throws java.io.IOException;}
     interface ProtocolPopupPageReady {void ready(PopupPage page)throws java.io.IOException;}
+    private boolean protocolPopupCreatePending(String key){return protocolPopupHandoffs.containsKey(key);}
+    /** Retain only immutable layout data. A popup URL must never be replayed. */
+    private JSONObject protocolPopupLayout(String key,JSONObject request)throws JSONException {
+        if(request.has("visible")&&!(request.opt("visible") instanceof Boolean)||request.has("bounds")&&!(request.opt("bounds") instanceof JSONObject))throw new IllegalArgumentException("popup_layout_invalid");
+        JSONObject supplied=request.optJSONObject("bounds"),box=new JSONObject();
+        String[] names={"x","y","width","height","scale"};double[] defaults={0,0,640,480,1};
+        for(int i=0;i<names.length;i++){
+            Object value=supplied==null?null:supplied.opt(names[i]);
+            if(value!=null&&(!(value instanceof Number)||!Double.isFinite(((Number)value).doubleValue())))throw new IllegalArgumentException("popup_layout_invalid");
+            box.put(names[i],value==null?defaults[i]:((Number)value).doubleValue());
+        }
+        return new JSONObject().put("browser",key).put("bounds",box).put("visible",request.optBoolean("visible",true));
+    }
+    /** The normal create command joins the exact pending native transport;
+     * global automation admission still precedes this private product route. */
+    private void executeProtocolPopupCreate(String key,String id,JSONObject request)throws java.io.IOException,JSONException {
+        nativeOwnerAdmission();
+        String pending=request.optString("popup"),opener=request.optString("opener");WebView exactOpener=views.get(opener);
+        if(key.equals(opener)||pending.isEmpty()||opener.isEmpty()||exactOpener==null||views.get(key)!=null)throw new java.io.IOException("cdp_popup_handoff_arguments_invalid");
+        final JSONObject layout=protocolPopupLayout(key,request);final MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
+        final java.util.concurrent.atomic.AtomicBoolean replied=new java.util.concurrent.atomic.AtomicBoolean();
+        handoffPreparedProtocolPopupPage(opener,exactOpener,pending,key,9000,page->{try{
+            page.remaining();
+            PopupNetwork network=page.network;WebView exact=network.entry.view;
+            if(!page.current()||!page.downloadOnly&&!page.documentReady()||!network.entry.key.equals(key)||!views.owns(key,exact)||channel.current()!=lease||!channel.active(lease,host.getUrl())||popupLinks.containsKey(key))throw new java.io.IOException("cdp_popup_publication_owner_changed");
+            JSONObject result=new JSONObject().put("ok",true).put("created",true).put("popup_attached",true).put("downloads_intercepted",true).put("initial_navigation_pending",false);
+            PopupLink link=new PopupLink(exact,opener,pending);popupLinks.put(key,link);
+            crashed.remove(key);errors.remove(key);errorCodes.remove(key);pageClosed.remove(key);
+            String address=exact.getUrl();locations.put(key,address==null?"about:blank":address);
+            root.addView(exact);
+            page.remaining();
+            if(!page.current()||!views.owns(key,exact)||popupLinks.get(key)!=link||channel.current()!=lease||!channel.active(lease,host.getUrl()))throw new java.io.IOException("cdp_popup_publication_owner_changed");
+            bounds(exact,layout);
+            page.remaining();
+            if(!page.current()||layout.optBoolean("visible",true)&&!page.downloadOnly&&!page.documentReady()||popupLinks.get(key)!=link||channel.current()!=lease||!channel.active(lease,host.getUrl()))throw new java.io.IOException("cdp_popup_publication_owner_changed");
+            link.ready=true;if(replied.compareAndSet(false,true))reply(lease,id,result,null);
+        }catch(JSONException error){throw new java.io.IOException("cdp_popup_publication_result_invalid");}},(code,effect)->{
+            if(!replied.compareAndSet(false,true))return;
+            try{reply(lease,id,new JSONObject().put("ok",false).put("created",false).put("popup_attached",false)
+                .put("error",new JSONObject().put("code",code!=null&&code.matches("cdp_[a-z_]{1,80}")?code:"cdp_popup_create_failed"))
+                .put("native_create",new JSONObject().put("created_may_have_occurred",effect).put("navigation_may_have_occurred",effect)
+                    .put("network_cleanup_confirmed",false).put("view_cleanup_confirmed",!effect&&!nativeViewCleanupFailed&&MdoBrowserCdpPopupNative.creationConfirmed()&&views.get(key)==null)),null);}
+            catch(JSONException error){reply(lease,id,null,"popup_result_invalid");}
+        });
+    }
     /** Fixed worker-only world warmup. No UI owner, caller script or target ID. */
     private static final class PopupPageWarmup implements MdoBrowserCdpWorker.Operation {
         public byte[] run(MdoBrowserCdpBinding binding,MdoBrowserCdpWorker.Deadline budget)throws java.io.IOException {
@@ -236,8 +281,8 @@
     }
     private void resumePopupNetworks(){for(NetworkEntry entry:new ArrayList<>(networkViews.values()))if(entry.popup!=null)entry.popup.watch();}
     private final Map<String,PopupHandoff> protocolPopupHandoffs=new HashMap<>();
-    /** One original product transaction, ending before network activation or
-     * UI publication. No phase can renew the overall budget or replay a URL. */
+    /** One original transaction through native adoption, source/world readiness
+     * and optional UI publication. No phase renews its budget or replays a URL. */
     private final class PopupHandoff implements AutoCloseable {
         final String key,opener;final PopupPreparation parent;final MdoBrowserChannel<WebMessagePort>.Lease lease;
         final MdoBrowserPopups.Snapshot pending;
@@ -308,6 +353,14 @@
         private boolean disposeProof(){
             boolean clean=true;if(proof!=null){try{proof.close();}catch(RuntimeException|Error error){clean=false;}proof=null;}
             if(adapter!=null){try{adapter.close();}catch(RuntimeException|Error error){clean=false;}adapter=null;}return clean;
+        }
+        /** A pending create's close must also observe its original source and
+         * independent child receipts; removing its map row is not cleanup. */
+        boolean cleanupConfirmed(){
+            if(!ended||!parent.preparation.settled()||nativeViewCleanupFailed||networkCleanupFailed||!MdoBrowserCdpPopupNative.creationConfirmed())return false;
+            if(network!=null)return network.phase==3;
+            if(promoted!=null)return promoted.nativeDestroyed()&&!promoted.failed()&&handoff!=null&&handoff.detached();
+            return view==null||views.nativeDestroyed(view);
         }
         void fail(String code,boolean effect){
             if(ended)return;ended=true;phase=5;possible|=effect;protocolPopupHandoffs.remove(key,this);boolean clean=true;

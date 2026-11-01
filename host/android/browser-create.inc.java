@@ -1,9 +1,13 @@
             if("create".equals(command)) {
                 final MdoBrowserChannel<WebMessagePort>.Lease creatingChannel=channel.current();
-                if(web==null)nativeCreationAdmission();else nativeOwnerAdmission();
                 final boolean networkRequired=request.optBoolean("automation")||request.optBoolean("intercept_downloads");
+                if(web==null&&networkRequired&&!request.optString("popup").isEmpty()){
+                    executeProtocolPopupCreate(key,id,request);return;
+                }
+                if(web==null)nativeCreationAdmission();else nativeOwnerAdmission();
                 if(web!=null){
                     if(!views.owns(key,web))throw new IllegalStateException("native_view_owner_changed");
+                    if(protocolPopupCreatePending(key))throw new IllegalStateException("popup_transport_unconfirmed");
                     networkAttach(key,web,networkRequired);
                     PopupLink link=popupLinks.get(key);
                     if(request.has("popup")&&(link==null||link.view!=web||!link.id.equals(request.optString("popup"))||!link.opener.equals(request.optString("opener"))))
@@ -18,7 +22,6 @@
                     MdoBrowserPopups.Snapshot pending=popupSource==null?null:popupSource.snapshot();
                     if(opener.equals(key)||views.get(opener)==null||pending==null||!pending.id.equals(popupId))throw new IllegalStateException("popup_request_unavailable");
                 }else if(!opener.isEmpty())throw new IllegalArgumentException("popup_binding_mismatch");
-                if(popupSource!=null&&networkRequired)throw new UnsupportedOperationException("popup_network_unqualified");
                 views.checkNew(key);
                 String target=popupSource==null?request.optString("url","about:blank"):"about:blank";if(!"about:blank".equals(target))target=url(target);
                 web=new WebView(activity);final WebView createdView=web;

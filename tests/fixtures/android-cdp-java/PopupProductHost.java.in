@@ -16,17 +16,31 @@ final class PopupProductHost {
     final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();
     final Map<String,CaptureEntry> captures=new HashMap<>();
-    final Map<String,Object> popupLinks=new HashMap<>(),navigationRequests=new HashMap<>();
+    final Map<String,PopupLink> popupLinks=new HashMap<>();final Map<String,Object> navigationRequests=new HashMap<>();
     final Map<String,String> documentFailures=new HashMap<>();final Set<String> pageClosed=new HashSet<>();
     final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed;
     MdoBrowserCdpWorker cdpWorker;
     final Set<String> manual=new HashSet<>();
     final Map<String,Boolean> loading=new HashMap<>();
+    final Map<String,String> errors=new HashMap<>(),locations=new HashMap<>();final Map<String,Integer> errorCodes=new HashMap<>();final Set<String> crashed=new HashSet<>();
+    @@POPUP_LINK@@
+    final Map<String,JSONObject> publicReplies=new HashMap<>();final Map<String,Integer> publicCounts=new HashMap<>();
+    boolean failBounds;Runnable sizing;JSONObject lastBounds;
+    void bounds(WebView view,JSONObject request){if(failBounds)throw new IllegalStateException("controlled_bounds_failure");try{lastBounds=new JSONObject(request.toString());}catch(JSONException error){throw new AssertionError(error);}boolean visible=request.optBoolean("visible",true);views.visibility(request.optString("browser"),view,visible);if(!visible)inputInvalidated(request.optString("browser"),view,views.epoch(request.optString("browser"),view),"input_hidden");view.shown=visible;if(sizing!=null){Runnable work=sizing;sizing=null;work.run();}}
+    void publicCreate(String pending,String key,JSONObject request)throws Exception{request.put("popup",pending).put("opener","root");executeProtocolPopupCreate(key,"create",request);}
+    void publicClose(String key){executeBrowserClose(key,"close");}
+    boolean publicClosePending(){return !browserCloses.isEmpty();}
+    boolean publicLinkReady(String key){PopupLink link=popupLinks.get(key);return link!=null&&link.ready;}
+    void pollPublicClose(){for(BrowserClose row:new ArrayList<>(browserCloses.values()))browserClosePoll(row);}
+    boolean chooserClean(MdoBrowserDialogTarget target){return true;}
+    boolean closeDocument(String key){return true;}
+    @@BROWSER_CLOSE@@
+
     static final class WebMessagePort {}
     final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
     static final class Host {String getUrl(){return "http://127.0.0.1/development";}}
     final Host host=new Host();int preparationReplies;JSONObject preparationReply;String preparationReplyError;
-    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject value,String error){if(channel.active(lease,host.getUrl())){preparationReplies++;preparationReply=value;preparationReplyError=error;}}
+    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject value,String error){if(channel.active(lease,host.getUrl())){preparationReplies++;preparationReply=value;preparationReplyError=error;publicReplies.put(id,value);publicCounts.put(id,publicCounts.getOrDefault(id,0)+1);}}
     private static final class NativeNavigation {}
     @@NETWORK_ENTRY@@
     private final Map<String,NetworkEntry> networkViews=new HashMap<>();
@@ -81,6 +95,7 @@ final class PopupProductHost {
     boolean preparationReady(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.ready();}
     boolean preparationSettled(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null||row.preparation.settled();}
     String preparationCode(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null?null:row.preparation.failure();}
+    String preparationWorkerCode(){try{MdoBrowserCdpPopupWorker.Result result=preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class).result();return result==null?"pending":result.code;}catch(Exception error){return error.getClass().getSimpleName();}}
     // Inspect the actual UI component's retained originals, never forge a
     // worker/source receipt or add a production escape hatch for this test.
     <T>T preparationOriginal(String name,Class<T> type)throws Exception{java.lang.reflect.Field field=MdoBrowserCdpPopupPreparation.class.getDeclaredField(name);field.setAccessible(true);return type.cast(field.get(protocolPopupPreparations.get("root").preparation));}
@@ -108,11 +123,17 @@ final class PopupProductHost {
     MdoBrowserCdpNetworks.Navigation navigationReadProof(String key,WebView view,String reference)throws java.io.IOException {
         if(reference!=null)throw new java.io.IOException("cdp_navigation_document_unproven");return null;
     }
+    void cancelTargetedUpload(String key,WebView view,long epoch){}
+    @@INPUT_INVALIDATION@@
     @@FRAME_ENVIRONMENT@@
     @@FRAME_ROUTER@@
     boolean dialogReady(String key,WebView view){return true;}
     MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}
-    static final class Root {int removes;Runnable callback;void removeView(WebView exact){removes++;Runnable work=callback;callback=null;if(work!=null)work.run();}}
+    static final class Root {
+        int removes,adds;Runnable callback,adding;boolean failAdd;final Set<WebView> children=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
+        void addView(WebView exact){if(!children.add(exact))throw new AssertionError("Duplicate native UI child");adds++;Runnable work=adding;adding=null;if(work!=null)work.run();if(failAdd)throw new IllegalStateException("controlled_root_add_failure");}
+        void removeView(WebView exact){children.remove(exact);removes++;Runnable work=callback;callback=null;if(work!=null)work.run();}
+    }
     static final class CdpViews {
         int invalidations;MdoBrowserCdpWorker worker;
         final MdoBrowserCdpRegistry<WebView> registry=new MdoBrowserCdpRegistry<>((view,quota,current)->new MdoBrowserCdpView(view,v->v==view&&current.getAsBoolean(),quota).marker(),lease->{if(worker!=null)worker.cancel(lease);});

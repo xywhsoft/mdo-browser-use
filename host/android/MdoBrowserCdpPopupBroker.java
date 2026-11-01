@@ -360,7 +360,10 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         }
     }
     private void drain(long born,int timeout)throws IOException{
-        while(session.pendingControls()!=0){int left=remaining(born,timeout);session.poll(Math.min(20,left),left);prune();}prune();
+        while(session.pendingControls()!=0||session.pendingBodies()!=0||session.pendingOffers()!=0){
+            int left=remaining(born,timeout);session.serviceBodies(Math.min(250,left));
+            left=remaining(born,timeout);session.poll(Math.min(20,left),left);prune();
+        }prune();
     }
     /** One fixed flow/response decision per turn on the existing worker. Fair
      * across bounded children; Bodies still require native UI acceptance. */

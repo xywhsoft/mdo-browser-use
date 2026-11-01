@@ -5692,3 +5692,48 @@ navigation/takeover/nested popup and documented rollback/stream/platform gates
 remain open. Malformed/unsupported activation still retain unconfirmed cleanup
 fences. Android availability/qualification remain false and public protected create
 still rejects `popup_network_unqualified`. The phone/current WebView remain deferred.
+
+### E159 protected create/publication and transfer retirement receipts
+
+Protected create now joins the original pending native popup to the existing
+source/activation/world coordinator and attaches that exact view after readiness.
+It uses the native address, copied bounded layout and original total deadline;
+there is no URL replay, replacement target, connection or renewed budget.
+Ordinary unrelated creation retains its guard. Global automation admission still
+rejects public use before this product route.
+
+A close during preparation cancels and observes the original handoff even before
+allocation completes. Final close reports `popup_cleanup_confirmed` alongside
+native/network cleanup; a removed map row alone is insufficient. Failed UI/layout
+attachment, expired publication, changed channel/document and reentrant close do
+not produce a success reply or resurrect a tab. Hidden creation retains physical
+ownership but revokes document admission. Reshow/rearm remains pending.
+
+Target retirement now retains bounded in-flight offer/body associations and drains
+only their exact registered receipts through strict ID/session matching. This
+fixes valid stream/abort acknowledgements being discarded as retired traffic.
+Broker shutdown also drains original offers/bodies before disabling protection,
+including a claim reply that arrives after native detach. It does not read more
+body data or fabricate cleanup from native destruction. Wrong, rejected and
+missing acknowledgements retain unconfirmed-source fencing.
+
+Twenty-two new actual-product modes/723 checks cover publication, immutable layout,
+original-budget expiry, native cancellation, UI failures and claim/read/abort
+retirement. Framework/ViewGroup/provider peers remain controlled. The active-read
+case discards a late original packet. Three negative receipt cases remain
+unconfirmed; their passing tests prove containment rather than recovery. The old
+transfer-detach case now strengthens source/cache/stream/abort/final-disable
+confirmation (+10 checks). The other 324 earlier mode counts are unchanged.
+
+Full fresh native347/12,404, JS466, Python174 of176, creation850/close77,
+popup110/25/7, save47 and the signed APK pass. All 129 native/479 overall hashes and
+82 actual DEX definition groups verify current sources. The 6,571,329-byte APK
+SHA-256 is `6964abbc0b07b575341adebd2becfb2bafdcc3bedf14aa89261e05c66b860e69`.
+See `.mdo/E159-final-identities.log`. Windows E150/world E146 are unchanged scoped
+reuse. No installed Android UI/provider/device qualification is claimed.
+
+Public document/input routing, hidden rearm, protected navigation/takeover/nested
+preparation and remaining rollback/stream/platform gates remain open. Public
+availability/automation admission stay disabled; the product create path is wired
+behind that gate. The phone and current WebView remain deferred, without ADB,
+external model/page access or production publication.

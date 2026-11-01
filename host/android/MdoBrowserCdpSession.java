@@ -393,15 +393,27 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         children.remove(child);
         synchronized(controlGate){if(heldAttachments!=null){AttachedTarget original=heldAttachments.remove(child);if(original!=null)original.clearRequests();}
         for(int i=0;i<controls.length;i++)if(controls[i]!=null&&Objects.equals(child,controls[i].session)){
-            controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;controlCount--;
+            Control row=controls[i];
+            // Detach does not acknowledge an original stream/abort operation.
+            // Preserve its bounded wire association, revoke data admission and
+            // drain the actual receipt before the Browser guard can close.
+            if(row.offer!=null||row.body!=null){if(row.offer!=null)row.offer.cancel();if(row.body!=null)row.body.cancel();continue;}
+            row.receipt.finish(CONTROL_CANCELLED);controls[i]=null;controlCount--;
         }}
+    }
+    private boolean retiringReceipt(MdoBrowserCdpJson.Message message){
+        if(message.event())return false;
+        synchronized(controlGate){
+            if(retiredBodyReads.containsKey(message.id))return true;
+            for(Control row:controls)if(row!=null&&row.id==message.id&&(row.offer!=null||row.body!=null))return true;
+        }return false;
     }
     private boolean admitted(String session){return session==null||children.contains(session);}
     private MdoBrowserCdpJson.Message packet(byte[] bytes,boolean effect) throws IOException {
         try {
             guard(effect);
             MdoBrowserCdpJson.Message message=MdoBrowserCdpJson.decode(bytes);
-            if(!admitted(message.session)) {
+            if(!admitted(message.session)&&!retiringReceipt(message)) {
                 // Drain late traffic from an explicitly retired child; it
                 // cannot be rebound to a new target under the same ID.
                 if(seenChildren.contains(message.session))return null;
