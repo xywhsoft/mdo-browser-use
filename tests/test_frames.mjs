@@ -15,7 +15,7 @@ function fixture(){
     visited:3,beforeList:null,onRead:null,checkpoint:null};
   const reader=createFrameReader({checkpoint:async()=>{await state.checkpoint?.();},execute:async(command,params)=>{
     assert.equal(command,'frames');state.calls.push(params);
-    if(params.action==='list'){state.lists++;await state.beforeList?.(state.lists);return{ok:true,complete:true,frames:structuredClone(state.rows)};}
+    if(params.action==='list'){state.lists++;await state.beforeList?.(state.lists);if(state.listResult)return await state.listResult(state.lists);return{ok:true,complete:true,frames:structuredClone(state.rows)};}
     assert.equal(params.action,'evaluate');assert(params.script.includes('({local_frame:true}).'));
     const tail=params.script.split('({local_frame:true}).').at(-1),method=tail.slice(0,tail.indexOf('('));
     const options=JSON.parse(tail.slice(tail.indexOf('(')+1,-1));assert(['describe','observe','locate'].includes(method));
@@ -30,6 +30,22 @@ function fixture(){
   }});
   return{state,reader};
 }
+
+test('only an unpinned observation can retry an inventory invalidated by navigation',async()=>{
+  const f=fixture();f.state.listResult=()=>({ok:false,error:{code:'stale_frame'}});
+  const observed=await f.reader.observe({});assert.equal(observed.error.code,'frame_tree_changed');assert.equal(observed.error.effect_may_have_occurred,false);
+  const located=await f.reader.locate({document:rootDoc,target:{name:'Root action'}});assert.equal(located.error.code,'stale_frame');
+  assert.equal(f.state.calls.filter(x=>x.action==='evaluate').length,0);
+});
+test('a navigation-invalidated final inventory discards an unpinned partial observation',async()=>{
+  const f=fixture();f.state.listResult=count=>count===1?{ok:true,complete:true,frames:structuredClone(f.state.rows)}:{ok:false,error:{code:'stale_frame'}};
+  const result=await f.reader.observe({});assert.equal(result.error.code,'frame_tree_changed');assert.equal(result.text,undefined);assert.equal(result.document,undefined);
+  assert(f.state.calls.some(x=>x.action==='evaluate'));
+});
+for(const code of ['stale_document','context_changed','frame_interrupted','frame_response_invalid'])
+test(`inventory ${code} is never relabelled as a transient navigation`,async()=>{
+  const f=fixture();f.state.listResult=()=>({ok:false,error:{code}});const result=await f.reader.observe({});assert.equal(result.error.code,code);
+});
 
 test('one-frame observations merge text and namespace identical local references',async()=>{
   const {reader,state}=fixture(),out=await reader.observe({});assert(out.ok);

@@ -22,9 +22,16 @@ export function createFrameReader({execute,checkpoint=async()=>{}}){
     const value=await execute(command,params);await checkpoint();
     if(performance.now()>=scope.deadline)throw problem('timed_out','The combined frame read exceeded its deadline');return value;
   };
-  async function inventory(scope){
+  async function inventory(scope,freshObservation=false){
     const value=await call('frames',{action:'list',agent:true},scope);
-    if(!value?.ok)throw problem(value?.error?.code||'frame_unavailable','The native frame inventory is unavailable');
+    if(!value?.ok){
+      const code=value?.error?.code||'frame_unavailable';
+      // Navigation may invalidate this read before any document has been bound.
+      // Only a fresh observation may discard it and restart under the caller's
+      // existing deadline. Pinned locators/evaluations keep their stale refusal.
+      if(freshObservation&&code==='stale_frame')throw problem('frame_tree_changed','Navigation changed the unpinned frame inventory');
+      throw problem(code,'The native frame inventory is unavailable');
+    }
     if(value.complete!==true)throw problem('frame_not_ready','The frame process tree is still being established');
     if(!Array.isArray(value.frames)||!value.frames.length||value.frames.length>32)throw problem('frame_limit','The frame inventory exceeds the 32-frame observation budget');
     const byId=new Map();
@@ -52,15 +59,15 @@ export function createFrameReader({execute,checkpoint=async()=>{}}){
     return native.value;
   }
   async function begin(expected,scope){
-    const frames=await inventory(scope),root=frames[0];
+    const frames=await inventory(scope,!expected),root=frames[0];
     if(root.loading||!root.isolated)throw problem('frame_not_ready','The original frame is not ready for isolated observation');
     const meta=await evaluate(root,'describe',{},scope);
     if(!meta.ok||!localDocument.test(meta.document))throw problem('frame_response_invalid','The root document identity is invalid');
     if(expected&&expected!==meta.document)throw problem('stale_document','Observe the current root document before locating an element');
-    return{frames,root,meta,scope};
+    return{frames,root,meta,scope,freshObservation:!expected};
   }
   async function revalidate(context,relevant=context.frames,wholeTree=true){
-    const current=await inventory(context.scope),byId=new Map(current.map(row=>[row.id,row]));
+    const current=await inventory(context.scope,context.freshObservation),byId=new Map(current.map(row=>[row.id,row]));
     const root=byId.get('f0');
     if(root?.document!==context.root.document||root.loading)throw problem('stale_document','The original document changed during the read');
     for(const row of relevant){

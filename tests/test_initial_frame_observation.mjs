@@ -31,6 +31,7 @@ function fixture(mode){
     if(command==='automation'){trace.scripts++;throw Error('An unguarded native script was reached');}
     assert.equal(command,'frames');assert.equal(params.agent,true);assert.equal(params.navigation_ref,mode==='ordinary-later'?undefined:navigation);trace.native.push(params.action);
     if(mode==='native-rejected')return{ok:false,error:{code:'stale_document',native_code:'cdp_navigation_document_changed',evaluation_may_have_occurred:false}};
+    if(params.action==='list'&&(mode==='inventory-persistent'||mode==='inventory-race'&&trace.native.length===1))return{ok:false,error:{code:'stale_frame'}};
     if(params.action==='list')return{ok:true,complete:true,frames:[{id:'f0',document:mode==='tree-changed'&&trace.observations?'fd-00000000-0000-4000-8000-000000000092':fd,parent:null,isolated:true,loading:false,url:'https://fixture.invalid/'}]};
     assert.equal(params.action,'evaluate');assert.equal(params.frame,'f0');assert.equal(params.document,fd);
     assert(!params.script.includes(navigation));
@@ -50,6 +51,16 @@ test('initial observation traverses the actual dispatcher and frame reader with 
   const f=fixture('ready'),out=await executeBrowserAutomation(f.options);
   assert(out.result.ok);assert.equal(out.result.document,document);assert.equal(out.result.text,'Original target page');
   assert.equal(f.trace.observations,1);assert(f.trace.native.filter(name=>name==='list').length>=2);assert.equal(f.trace.scripts,0);
+});
+test('fresh observation retries navigation-invalidated inventory through the real dispatcher and reader',async()=>{
+  const f=fixture('inventory-race'),result=await executeBrowserAutomation(f.options);
+  assert(result.result.ok);assert.equal(result.result.text,'Original target page');assert.equal(f.trace.observations,1);
+  assert(f.trace.native.filter(x=>x==='list').length>=3);assert.equal(f.trace.scripts,0);
+});
+test('a perpetually changing fresh inventory remains bounded by the original action deadline',async()=>{
+  const f=fixture('inventory-persistent');f.trace.states=3;f.options.params.timeout_ms=250;const start=performance.now(),result=await executeBrowserAutomation(f.options);
+  assert.equal(result.result.error.code,'timed_out');assert.equal(result.result.error.effect_may_have_occurred,false);
+  assert(performance.now()-start<1500);assert(f.trace.native.length>1&&f.trace.native.length<20);assert.equal(f.trace.observations,0);assert.equal(f.trace.scripts,0);
 });
 test('initial native guard refusal withholds all page data through the actual frame coordinator',async()=>{
   const f=fixture('native-rejected'),out=await executeBrowserAutomation(f.options);

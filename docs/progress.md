@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Shared reads E150:** fix the real blank-popup first-inventory race exposed
+  by E149's SDK run. Navigation may invalidate an unpinned inventory before a
+  document is bound; only fresh observation may discard and repeat that read
+  under its original deadline. Pinned locators/evaluations still reject stale
+  identities, and mutations/navigation are never replayed. Four deterministic
+  regressions reproduced first; full JS 466, Python 174/176, actual SDK including
+  both popup types, native 7,530, Windows frames 301/six cycles and packed runtime
+  12 pass. Rebuild both development previews and verify exact source/payload/DEX
+  identities. Android device/provider and broader goal qualification remain open.
 - **Shared UI E149:** propagate original mount ownership into actual browser
   initialization, recovery, polling, controls and cleanup. Separate UI claims
   from ready task dispatchers; preserve background execution and remount a still
@@ -11730,3 +11739,46 @@ original log/receipt and source identities are retained under `.mdo/E149-*`.
 That failure is not suppressed or counted as a pass; follow-up is required
 before refreshing packaged previews. Android device/provider checks remain
 deferred and public automation remains disabled.
+
+## Shared reads E150 — navigation-invalidated unpinned inventory
+
+The E149 full SDK failure was the blank child's first `observe`: native `frames`
+list returned `stale_frame` with `effect_may_have_occurred:false`. The retained
+receipt points to the inventory path, and the exact native navigation callback
+invalidates outstanding tree jobs when the blank page is populated. This was
+not evidence that a mutation should be retried or that a later document may
+replace a previously pinned target.
+
+`frame-reader.js` now distinguishes unpinned observation inventory from pinned
+locator/evaluation work. Only native `stale_frame` during the former is classified
+as `frame_tree_changed`, allowing the existing dispatcher to discard partial
+output and re-read under the same action deadline and ownership checkpoints.
+Other native errors, pinned inventories, changed selected frames and document
+refusals retain their existing failure codes. No new action, navigation, click,
+or browser ID is created by this recovery.
+
+Four deterministic failures were captured against `8d74302`; 52 frame/driver/
+dispatcher cases then pass, including a continuously changing inventory that
+still times out and pinned operations that still fail. Full JS 466/466, Python
+174/176 (two existing symlink privilege skips), actual C/JS/WebView2 SDK 19 actions,
+four navigations and five wait conditions pass. The SDK gate includes normal/
+blank popup admission, original owner/context, display, `window.close` and
+broker close cleanup. The original failed E149 log/receipt remains preserved.
+
+Fresh native transport/worker validation binds 128 hashes and 196 modes/7,530
+checks; product creation 848 plus async close 77, popup 110/25/7, save 47 and
+Windows frames 301 with six fill/interrupted-drag cycles pass. The Windows
+packed program passes 12 real runtime checks and all 751 payload identities.
+The APK is rebuilt and signed with the existing QA certificate, with 60 actual
+DEX definition groups and the exact shared Windows source archive verified.
+The unchanged E146 world/document/profile/budget gate remains explicitly scoped
+eight-input reuse, not a fresh Android provider run. Evidence:
+`.mdo/E150-final-identities.py/log`, the original red/failure logs and final
+source/artifact receipts. Current artifact metadata is in `docs/program.md`
+and `docs/android.md`.
+
+The one deployment is restored healthy; no formal update channel, production
+service, account or external-page/model test was changed. No phone, ADB or WebView
+update was requested. Android public automation remains disabled; protected
+popup network/profile/UI adoption, real provider/device verification and the
+remaining Windows/full-goal qualification still require further development.

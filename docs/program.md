@@ -22,13 +22,18 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview (E148 original browser mount/end/title
-ownership, including E147/E142/E106/W4/W3b/W3a/W2/W1/E66/F21) is **6,939,785 bytes**,
-SHA-256 `5a85120888564e5d4eb7710e3c6c70cb6ebb47c8927a256038aec4cd43e8d007`.
-E148 prevents late mount/end/title callbacks from registering over or removing a
-newer panel/native-view owner. The original task's dispatcher survives UI unmount.
-Fresh JS 424, actual SDK, native frames and packed runtime checks pass; browser
-component internal lifecycle boundaries are still undergoing qualification.
+The current verified Windows preview (E149 original component ownership and
+E150 fresh-inventory recovery, including E148/E147/E142/E106/W4/W3b/W3a/W2/W1/E66/F21)
+is **6,941,205 bytes**, SHA-256
+`cf62590ea674e3e40dc93f1b9cfebbf509439105849f7b18f0a723cb232db755`.
+E149 carries original mount/task/native ownership through initialization,
+recovery, controls, polling and cleanup. UI claims are separate from ready
+Agent dispatchers; normal pane disposal preserves the task browser. E150 fixes
+a real blank-popup observation race: navigation-invalidated unpinned inventory
+is read again under the original deadline, while pinned locators/evaluations
+retain their stale refusal. No mutation or navigation is replayed.
+Fresh JS 466, actual SDK (including normal/blank popups), native frames 301/six
+cycles and packed runtime 12 pass. Broader goal/Android qualification remains open.
 E147 snapshots original opener/child scope and checks exact UI ownership across
 asynchronous popup admission, creation and panel open/close. Late replies cannot
 publish or remove a replacement view. Already-issued uncertain native effects

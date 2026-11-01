@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E148)
+## Complete development host APK (current: E150)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,550,849 bytes, SHA-256
-`2f2b81d69b7d496ed8cdfbf02adce55debd57ba9311721d8270ff875a7c16355`.
+Current APK: 6,554,945 bytes, SHA-256
+`241c794ef0d7cb391e79c944e069df6bd2506d787307da6ae85e05f1687040c4`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5402,3 +5402,29 @@ Android task/UI/network coordination or installed-provider behavior. Those
 remain in progress; public Android/provider/framework/device qualification is
 false and phone/WebView checks remain deferred. No release or device change
 was made.
+
+### E149/E150: original UI ownership and fresh frame inventory
+
+The full development APK contains the same reviewed E149/E150 component and
+reader as the Windows archive. Native creation, recovery, polling, controls,
+quotations and cleanup check their original UI owner. The independent native
+dispatcher remains task-owned; an initializing pane does not advertise a ready
+Agent dispatcher. Only a fresh, unpinned read can discard a navigation-invalidated
+inventory and repeat under its existing deadline. Pinned document/element
+operations retain stale rejection.
+
+Fresh deterministic regressions reproduce 18 actual-component failures and four
+inventory failures before their fixes. Full JS 466, Python 174/176 (two existing
+Windows privilege skips), actual Windows C/JS/native SDK popup tests, native
+transport/worker 7,530 checks, product creation 848, popup 110/25/7 and save 47
+pass. Windows frame 301/six-cycle and packed runtime 12 gates pass. Both previews
+are rebuilt; all 751 Windows payloads and 60 APK DEX definition groups are
+verified against current inputs and their shared source archive. The unchanged
+E146 world/document/profile/budget gate remains scoped reuse with eight exact
+input hashes, not a new provider execution.
+
+The original E149 blank-popup failure and its `stale_frame` receipt are retained;
+E150's successful actual SDK run follows the targeted read-only fix. Evidence is
+under `.mdo/E149-*` and `.mdo/E150-*`. No Android install, ADB/provider probe or
+WebView update was attempted. Device/framework/public automation remain false;
+protected-popup network/UI adoption and the other full-goal gaps remain open.
