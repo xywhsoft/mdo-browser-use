@@ -2,15 +2,20 @@
     private final Set<WebView> nativeRetiringViews=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
     private final Map<WebView,NativeDestruction> nativeDestructions=new IdentityHashMap<>();
     private boolean bulkNativeDestruction;
-    private void nativeCreationAdmission(){nativeCreationAdmission(false);}
-    private void nativeCreationAdmission(boolean protectedCreation){
+    private void nativeCreationAdmission(){
+        nativeOwnerAdmission();
+        if(protocolPopupCreationBlocked())throw new IllegalStateException("native_popup_protection_busy");
+    }
+    /** Common cleanup barriers also apply to typed existing-owner operations.
+     * Process-wide protection fences unrelated construction, not handoff of an
+     * already allocated/proved child. Those callers validate their own receipts. */
+    private void nativeOwnerAdmission(){
         if(stopped)throw new IllegalStateException("native_browser_closed");
         MdoBrowserCdpPopupNative.reconcileRetirements();
         if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
         if(!nativeRetiringViews.isEmpty())throw new IllegalStateException("native_view_retirement_busy");
         if(networkCleanupFailed)throw new IllegalStateException("network_cleanup_failed");
         if(networkRetiring()!=0||downloadRetiring()!=0)throw new IllegalStateException("native_view_retirement_busy");
-        if(!protectedCreation&&protocolPopupCreationBlocked())throw new IllegalStateException("native_popup_protection_busy");
     }
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();

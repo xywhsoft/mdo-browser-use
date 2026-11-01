@@ -176,7 +176,8 @@ def main():
                  'transfer-world-root','transfer-world-local','transfer-world-ancestor','transfer-world-pending','transfer-world-recover','transfer-world-unrelated',
                  'source-complete','source-pass','source-cancel','source-epoch','source-controller','source-race','source-nonempty','source-changed','source-unsupported','source-activated','source-captured-epoch','source-replay','source-stream-epoch','source-stream-cancel','source-stream-owner',
                  'preparation-ready','preparation-restart','preparation-cancel','preparation-owner','preparation-channel','preparation-epoch','preparation-failure','preparation-throw','preparation-reentrant','preparation-rpc','preparation-rpc-invalid','preparation-protection','preparation-protection-failure','preparation-timeout',
-                 'preparation-input-unready','preparation-input-invalid','preparation-input-retired'):
+                 'preparation-input-unready','preparation-input-invalid','preparation-input-retired',
+                 'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))
         if (not popup_worker.get('passed') or popup_worker.get('mode')!=mode or not popup_worker.get('one_original_executor')
@@ -185,6 +186,7 @@ def main():
                 or popup_worker.get('retained_target_marker_scope_tested') is not mode.startswith('native-proof')
                 or popup_worker.get('product_disposer_join_tested') is not mode.startswith('product-disposal')
                 or popup_worker.get('product_popup_preparation_tested') is not mode.startswith('preparation')
+                or popup_worker.get('product_prepared_admission_tested') is not mode.startswith('prepared-admission')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
                 or popup_worker.get('transport_quiescence_tested') is not mode.startswith('quiescence')
                 or popup_worker.get('protected_document_binding_tested') is not mode.startswith('document')

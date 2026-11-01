@@ -1,7 +1,8 @@
             if("create".equals(command)) {
-                nativeCreationAdmission();
+                if(web==null)nativeCreationAdmission();else nativeOwnerAdmission();
                 final boolean networkRequired=request.optBoolean("automation")||request.optBoolean("intercept_downloads");
                 if(web!=null){
+                    if(!views.owns(key,web))throw new IllegalStateException("native_view_owner_changed");
                     networkAttach(key,web,networkRequired);
                     PopupLink link=popupLinks.get(key);
                     if(request.has("popup")&&(link==null||link.view!=web||!link.id.equals(request.optString("popup"))||!link.opener.equals(request.optString("opener"))))

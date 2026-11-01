@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E142)
+## Complete development host APK (current: E143)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,546,753 bytes, SHA-256
-`eb224dff61c0174b0027553be2e13b3cacd747ba928ab90d88d454b9520e7dee`.
+`3a67270d71647754ecfe8dfccca1f3fcd5f3418872d2f74bff3eded467d9334d`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5153,3 +5153,44 @@ an installed Android provider or enable the public Android automation gate.
 Complete native popup adoption, task policy/UI, profile inheritance,
 physical-vs-document navigation lifetime, OOPIF/multi-child/process recovery and
 deferred phone/WebView verification remain required.
+
+
+### E143: existing native owners remain usable under popup protection
+
+Two controlled regressions against E142 reproduced native_popup_protection_busy:
+the actual preparation component retained its active source while the product
+attempted a proved child handoff, and the exact product create route attempted
+to reattach an existing native view. The original creation check ran in both
+paths even though neither operation constructed an unrelated WebView.
+
+Separate nativeOwnerAdmission (all original host/native/network/download
+cleanup barriers) from nativeCreationAdmission (those barriers plus the active
+process-protection fence). Typed protected construction, handoff/promotion,
+activation and document/physical-source helpers use the common barriers and
+still validate their exact native receipts. The ordinary create route uses
+construction admission only when no view already exists. Existing popup identity
+checks, no-reload reattachment behavior, new-constructor rejection and cleanup
+uncertainty remain intact. No generic boolean bypass is needed.
+
+Five cases join the actual E142 preparation component, original process worker,
+protected native allocation, transport consumption, child proof, handoff,
+activation and independent cleanup. They pass 159 assertions, including three
+cleanup barriers at handoff and later operations plus foreign source/document/
+activation receipts. The test-only fixture reflects the actual component's
+original source/request instead of forging worker receipts or adding production
+getters. The exact product create fixture adds nine reattachment assertions, including
+closure during original-owner reconciliation. Recheck exact view ownership after
+that callback boundary before touching bounds or reporting attachment.
+Neither fixture claims an installed Android framework/provider result.
+
+Full native passes 128 current inputs and 192 worker modes/7,428 checks, retaining
+all 187 E142 mode counts. Product creation passes 798, saving passes 47 and
+Python passes 174/176 with two existing privilege skips. Rebuilt APK passes
+signing/layout/JNI/source/archive and 57 actual definition groups, including
+nativeOwnerAdmission. E142 Windows real-frame, packed-runtime, JS and popup
+results are explicitly scoped unchanged reuse. E143-red.json/log and
+E143-reattach-red.json/log retain both original failures; E143-final-identities.py
+binds their source hashes to E142 evidence and checks current sources/artifacts.
+The public Android gate remains disabled. Actual popup create/policy/UI/profile
+coordination, physical/document navigation lifetime, OOPIF/multi-child/process
+recovery and deferred phone/WebView qualification still require work.

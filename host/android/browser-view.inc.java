@@ -2,7 +2,7 @@
      * navigated, granted a document world or sent to its native transport. */
     private MdoBrowserCdpPopupNative.Created constructProtocolPopup(MdoBrowserCdpPopupNative source,
             MdoBrowserCdpPopupWorker.Allocation allocation,String key)throws java.io.IOException {
-        nativeCreationAdmission(true);
+        nativeOwnerAdmission();
         if(source==null)throw new java.io.IOException("cdp_popup_native_source_invalid");
         MdoBrowserCdpPopupNative.Created created=source.construct(allocation,views,key,(exactKey,exactView)->{
             WebView current=views.get(exactKey);
@@ -40,21 +40,21 @@
     /** Queue fixed debugger/request flow only for the committed native owner.
      * This neither publishes a tab nor grants document/world/body access. */
     private void activateProtocolPopup(MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff)throws java.io.IOException {
-        nativeCreationAdmission();if(handoff==null||!handoff.owns(owner)||!owner.current())throw new java.io.IOException("cdp_popup_activation_unavailable");handoff.activate();
+        nativeOwnerAdmission();if(handoff==null||!handoff.owns(owner)||!owner.current())throw new java.io.IOException("cdp_popup_activation_unavailable");handoff.activate();
     }
     private MdoBrowserCdpMarker protocolDocumentMarker(String key,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff){
-        nativeCreationAdmission();if(owner==null||handoff==null||!handoff.owns(owner)||!handoff.current())throw new IllegalStateException("cdp_popup_document_owner_invalid");
+        nativeOwnerAdmission();if(owner==null||handoff==null||!handoff.owns(owner)||!handoff.current())throw new IllegalStateException("cdp_popup_document_owner_invalid");
         final WebView exact=owner.view();final long epoch=views.epoch(key,exact);if(!views.owns(key,exact)||epoch<=0)throw new IllegalStateException("cdp_popup_document_owner_invalid");
         return cdpViews.marker(key,exact,epoch,handoff,()->!stopped&&!browserPaused&&!pageClosed.contains(key)&&views.owns(key,exact)&&views.epoch(key,exact)==epoch&&handoff.current());
     }
     private MdoBrowserCdpView protocolSourceAdapter(String key,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff){
-        nativeCreationAdmission();if(owner==null||handoff==null||!handoff.owns(owner)||!handoff.current())throw new IllegalStateException("cdp_popup_source_owner_invalid");
+        nativeOwnerAdmission();if(owner==null||handoff==null||!handoff.owns(owner)||!handoff.current())throw new IllegalStateException("cdp_popup_source_owner_invalid");
         final WebView exact=owner.view();if(!views.owns(key,exact))throw new IllegalStateException("cdp_popup_source_owner_invalid");
         return MdoBrowserCdpView.network(exact,v->v==exact&&!stopped&&!browserPaused&&!pageClosed.contains(key)&&views.owns(key,exact)&&handoff.current(),new MdoBrowserCdpMarker.DocumentQuota());
     }
     private MdoBrowserCdpPopupNative.Promotion transferProtocolPopup(String key,MdoBrowserCdpPopupNative source,
             MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof,boolean protectedAttachment)throws java.io.IOException {
-        nativeCreationAdmission();
+        nativeOwnerAdmission();
         if(source==null||original==null)throw new java.io.IOException("cdp_popup_native_promotion_unavailable");
         WebView exact;try{exact=original.view();}catch(IllegalStateException stale){throw new java.io.IOException("cdp_popup_native_promotion_unavailable");}
         if(!views.owns(key,exact)||popupLinks.containsKey(key))throw new java.io.IOException("cdp_popup_native_promotion_unavailable");

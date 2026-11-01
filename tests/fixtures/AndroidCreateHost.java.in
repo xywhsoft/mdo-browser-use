@@ -7,7 +7,8 @@ import java.util.function.LongSupplier;
 /** Exact product creation/binding/retirement methods; UI/provider peers below
  * are controlled. This does not exercise an installed Android framework. */
 final class AndroidCreateHost {
-    boolean protocolPopupCreationBlocked(){return false;}
+    boolean protocolPopupBusy; // controlled process-protection peer
+    boolean protocolPopupCreationBlocked(){return protocolPopupBusy;}
     void retireProtocolPopupPreparation(String key,WebView view,String reason){}
     static final class JSONException extends Exception {}
     static final class JSONObject {
@@ -203,7 +204,8 @@ final class AndroidCreateHost {
         static int retainedUiOwners(){return 0;}
         static int pendingRetirements(){return 0;}
         static int promotedUiOwners(){return 0;}
-        static void reconcileRetirements(){}
+        static Runnable beforeReconcile;
+        static void reconcileRetirements(){Runnable original=beforeReconcile;beforeReconcile=null;if(original!=null)original.run();}
         interface Destruction {boolean ready();void destroy();}
         static boolean registerDestruction(WebView view,Destruction destruction){
             if(!view.host.deferredDestruction.contains(view))return false;
@@ -256,7 +258,8 @@ final class AndroidCreateHost {
             public boolean key(boolean down,long started,long now,String key,int modifiers){return true;}public boolean text(String value){return true;}
         },new MdoBrowserInput.Scheduler(){public long now(){return 100;}public void post(Runnable task,long delay){}public void remove(Runnable task){}});
     });
-    void bounds(WebView view,JSONObject request){if(fault.equals("bounds"))throw new IllegalStateException("fixture bounds failure");}
+    int boundsCalls;
+    void bounds(WebView view,JSONObject request){boundsCalls++;if(fault.equals("bounds"))throw new IllegalStateException("fixture bounds failure");}
     String url(String value){return value;}void bindDialogs(String key,WebView view){dialogs.put(key,new MdoBrowserDialogTarget(view));if(fault.equals("dialog"))throw new IllegalStateException("fixture dialog binding failure");}
     Runnable beforeConfigured;
     void cancelCapture(String key){}void cancelPopup(String key){}void cancelDialog(String key){}boolean dialogReady(String key,WebView view){return true;}

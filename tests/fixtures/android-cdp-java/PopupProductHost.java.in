@@ -35,6 +35,9 @@ final class PopupProductHost {
     boolean preparationReady(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.ready();}
     boolean preparationSettled(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.settled();}
     String preparationCode(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null?null:row.preparation.failure();}
+    // Inspect the actual UI component's retained originals, never forge a
+    // worker/source receipt or add a production escape hatch for this test.
+    <T>T preparationOriginal(String name,Class<T> type)throws Exception{java.lang.reflect.Field field=MdoBrowserCdpPopupPreparation.class.getDeclaredField(name);field.setAccessible(true);return type.cast(field.get(protocolPopupPreparations.get("root").preparation));}
     void preparationRpc(JSONObject request)throws Exception{executePopupPreparation("root","preparation",views.get("root"),request);}
     void requirePreparation()throws Exception{requireProtocolPopupPreparation("root",views.get("root"));}
     void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}

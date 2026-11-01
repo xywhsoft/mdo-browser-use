@@ -15,6 +15,20 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E143:** fix two confirmed false refusals introduced by preparation:
+  an active process-protection fence blocked proved child handoff/activation/
+  source/document operations, and also blocked reattaching an existing view.
+  Separate common cleanup barriers from unrelated native construction admission;
+  keep exact typed ownership checks and the new-view fence. Actual preparation
+  joined through native transport, proof, handoff and activation passes five
+  modes/159 assertions, including cleanup faults and foreign receipts. Full
+  native passes 128 inputs, 192 worker modes/7,428 checks; the product creation
+  gate adds nine reattachment checks and passes 798, including closure during
+  reconciliation. Saving and Python 174/176
+  pass; two existing privilege skips remain. Rebuilt APK passes 57 actual
+  definition groups. E142 Windows/JS/popup evidence is reused only after scoped
+  hashes match. Public Android/provider qualification stays disabled; complete
+  product popup policy/UI/profile/lifetime integration and device checks remain.
 - **Android E142:** join popup preparation to the actual product RPC, shared
   dispatcher and native input/frame gates. A separate bounded acknowledgment
   precedes isolated evaluation, target scrolling, native input and selection;
@@ -11377,3 +11391,30 @@ Native API references: [CDP Input](https://chromedevtools.github.io/devtools-pro
   alongside the remaining Windows focus/dialog and delivery qualification.
   Public protected Android admission and installed-provider/framework/automation
   qualification remain false. Phone/WebView verification is still deferred.
+
+
+### E143 — preserve proved existing owners under active process protection
+
+- Preserve two reproduced E142 failures before changing product admission:
+  E143-red.json/log records the real prepared-source handoff refusal;
+  E143-reattach-red.json/log records existing-view reattachment refusal.
+- Split common cleanup admission from unrelated construction admission. Typed
+  source/proof checks remain in every protected helper. Existing-view create
+  reattachment keeps its identity/bounds path and never loads a URL again.
+- Five joined actual-preparation/native-owner cases pass 159 assertions. Full
+  native passes 128 inputs, 192 modes/7,428 checks; all prior E142 modes retain
+  their counts. Product creation adds nine checks (798 total); fresh saving and
+  Python 174/176 pass. Two existing Windows symlink privilege cases stay skipped.
+- Reapply only the single deployment. Rebuild Android and inspect 57 actual
+  definition groups, including common owner admission. APK is 6,546,753 bytes,
+  SHA-256 3a67270d71647754ecfe8dfccca1f3fcd5f3418872d2f74bff3eded467d9334d.
+  Windows program and paired plugin bytes remain unchanged. The final identity
+  verifier permits E142 Windows/JS/popup and E105 world evidence only after each
+  scoped hash still matches. No production/publication, phone/WebView, model,
+  external-page or account/configuration change occurred.
+- Goal remains active. Next integrate prepared popup create with task policy,
+  profile inheritance before transport, original-session network/document
+  ownership and published UI lifetime. Continue navigation, OOPIF, multi-child
+  and process recovery plus outstanding Windows focus/dialog/delivery checks.
+  Public Android automation and installed-provider qualification remain false;
+  phone/WebView checks remain deferred at the user's request.

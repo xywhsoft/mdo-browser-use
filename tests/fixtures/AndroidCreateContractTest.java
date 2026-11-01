@@ -5,6 +5,29 @@ public final class AndroidCreateContractTest {
     static int checks;
     static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
     static AndroidCreateHost.JSONObject request(boolean automation)throws Exception{return new AndroidCreateHost.JSONObject().put("automation",automation).put("url","https://fixture.invalid/");}
+    static void existingProtectedReattach()throws Exception{
+        AndroidCreateHost host=new AndroidCreateHost();host.create("retained",request(false));AndroidCreateHost.WebView original=host.views.get("retained");
+        host.protocolPopupBusy=true;host.create("retained",request(false));
+        check(host.views.get("retained")==original&&host.created.size()==1&&original.loads==1&&Boolean.TRUE.equals(host.lastReply.data.get("attached")),"Active popup protection blocked/replaced/reloaded existing native view");
+        try{host.create("unrelated",request(false));throw new AssertionError("Unrelated constructor entered protected process");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("native_popup_protection_busy"),"Wrong protected construction refusal");}
+        check(host.views.size()==1&&host.created.size()==1,"Protected construction refusal consumed native capacity");
+        try{host.create("retained",request(false).put("popup","foreign-popup").put("opener","foreign-opener"));throw new AssertionError("Existing view accepted another popup binding");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("popup_binding_mismatch"),"Reattachment skipped original popup ownership");}
+        check(host.views.get("retained")==original&&original.loads==1&&host.created.size()==1,"Refused reattachment modified original browser");
+        host.protocolPopupBusy=false;host.create("later",request(false));check(host.views.size()==2&&host.created.size()==2,"Released process protection prevented explicit later creation");
+        host.closeCommand("retained");host.closeCommand("later");
+    }
+    static void reattachReconciliation()throws Exception{
+        AndroidCreateHost host=new AndroidCreateHost();host.create("retained",request(false));AndroidCreateHost.WebView original=host.views.get("retained");
+        int bounds=host.boundsCalls;int[] afterClose={-1};
+        AndroidCreateHost.MdoBrowserCdpPopupNative.beforeReconcile=()->{host.closeCommand("retained");afterClose[0]=host.replies;};
+        try{host.create("retained",request(false));throw new AssertionError("Closed original view was reported attached");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("native_view_owner_changed"),"Reconciliation lost original view identity");}
+        finally{AndroidCreateHost.MdoBrowserCdpPopupNative.beforeReconcile=null;}
+        check(host.views.get("retained")==null&&original.destroys==1&&host.boundsCalls==bounds,"Stale view was resized, recreated or retained after reconciliation");
+        check(host.replies==afterClose[0],"Closed view published a successful create receipt");
+    }
     static void deferredHostDestruction()throws Exception{
         AndroidCreateHost host=new AndroidCreateHost();host.create("tab",request(false));AndroidCreateHost.WebView view=host.views.get("tab");
         AndroidCreateHost.MdoBrowserDocument original=host.documents.get("tab");host.deferredDestruction.add(view);
@@ -580,9 +603,9 @@ public final class AndroidCreateContractTest {
             if(mode==2)check(Boolean.TRUE.equals(host.loading.get("tab"))&&host.errors.get("tab").equals("human-page-error"),"Old result restored the manually opened page");
             host.closeCommand("tab");
         }
-        deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
+        existingProtectedReattach();reattachReconciliation();deferredHostDestruction();protocolConfiguration();profileFailure();ordinaryFailures();manualAndPopup();failedCleanup();reentrantCleanup();cleanupFaultsAndQuota();inputRetirementCallback();
         networkReadinessAndClose();networkCancellationAndTimeout();networkUncertaintyAndScope();downloadRetirementAndServiceFailure();orderlyNetworkTakeover();originalPopupActionOwner();rearmFailuresKeepManualPage();nativeNavigationRecords();nativeNavigationScopeAndCancel();originalNavigationReadProof();sameDocumentProof();nativeControlRecords();
         int asyncCloseChecks=AndroidCloseContractTest.run();checks+=asyncCloseChecks;
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"async_close_checks\":"+asyncCloseChecks+",\"existing_protected_reattach\":true,\"exact_product_fragments\":true,\"native_control_ui_join\":true,\"native_async_close_receipts\":true,\"framework_verified\":false,\"network_calls\":0}");
     }
 }

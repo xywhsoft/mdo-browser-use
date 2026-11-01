@@ -1604,6 +1604,69 @@ public final class CdpPopupWorkerProbe {
             }
         }
     }
+    private static void preparedAdmission(String mode)throws Exception {
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=host.source();host.ready(network);try(NativeSource source=new NativeSource(host,network)){
+                PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,network.adapter,source.core,host.worker);
+                AtomicInteger effects=new AtomicInteger();product.prepare(effects::incrementAndGet,(code,effect)->{throw new AssertionError("Preparation failed "+code);});
+                waitFor(()->effects.get()==1,host,true);check(product.preparationReady());
+                MdoBrowserCdpPopupNative original=product.preparationOriginal("source",MdoBrowserCdpPopupNative.class);
+                MdoBrowserCdpPopupWorker.Request request=product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class);
+                source.open();backend.wire.add(attached("proof-real","owned"));
+                java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpPopupWorker.Allocation> captured=new java.util.concurrent.atomic.AtomicReference<>();
+                waitFor(()->{try{captured.set(request.allocateNative(original));return true;}catch(IOException waiting){
+                    if(!java.util.Arrays.asList("cdp_popup_native_capture_pending","cdp_popup_interception_required").contains(waiting.getMessage()))throw new AssertionError(waiting);return false;}},host,true);
+                try{product.checkCreation();throw new AssertionError("Unrelated construction bypassed active preparation");}catch(IllegalStateException expected){check(expected.getMessage().equals("native_popup_protection_busy"));}
+                int before=WebView.constructions;MdoBrowserCdpPopupNative.Created created=product.construct(original,captured.get(),"owned");WebView view=created.view();
+                check(WebView.constructions==before+1&&product.preparationReady());source.adopting=view;
+                MdoBrowserPopups.Adoption adoption=original.adopt(created);source.ack();check(adoption.ok()&&adoption.nativeConsumed()&&source.sends==1);
+                try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(view,v->v==view,new MdoBrowserCdpMarker.DocumentQuota());
+                    MdoBrowserCdpPopupNative.Child child=original.child(adoption,created,adapter)){
+                    backend.nativeTargets.put("target-proof-real",proofPeer(view,"success",null,null));check(request.proveNative(child));
+                    waitFor(()->child.proof()!=null,host,true);check(child.proof().ok&&child.handoff()!=null);
+                    if(mode.equals("prepared-admission-view"))product.nativeViewCleanupFailed=true;
+                    if(mode.equals("prepared-admission-network"))product.networkCleanupFailed=true;
+                    if(mode.equals("prepared-admission-retiring"))product.nativeRetiringViews.add(source.view);
+                    if(!mode.equals("prepared-admission")&&!mode.equals("prepared-admission-mismatch")){
+                        try{product.handoff("owned",original,created,child);throw new AssertionError("Cleanup fence was bypassed");}
+                        catch(IllegalStateException expected){check(expected.getMessage().equals(mode.endsWith("view")?"native_view_cleanup_failed":mode.endsWith("network")?"network_cleanup_failed":"native_view_retirement_busy"));}
+                        check(!child.handoff().transferred()&&view.destroyed==0&&source.sends==1);
+                        product.nativeViewCleanupFailed=false;product.networkCleanupFailed=false;product.nativeRetiringViews.clear(); // controlled receipt peers only
+                    }
+                    if(mode.equals("prepared-admission-mismatch")){
+                        failure("cdp_popup_handoff_unavailable",()->product.handoff("owned",source.source,created,child));
+                        check(!child.handoff().transferred()&&product.preparationReady());
+                    }
+                    MdoBrowserCdpPopupBroker.Handoff handoff=child.handoff();MdoBrowserCdpPopupNative.Promotion promoted=product.handoff("owned",original,created,child);
+                    check(promoted.current()&&handoff.current()&&product.preparationReady()&&source.sends==1&&WebView.constructions==before+1);
+                    try{product.checkCreation();throw new AssertionError("Handoff removed unrelated creation fence");}catch(IllegalStateException expected){check(expected.getMessage().equals("native_popup_protection_busy"));}
+                    if(java.util.Arrays.asList("prepared-admission-view","prepared-admission-network","prepared-admission-retiring").contains(mode)){
+                        if(mode.endsWith("view"))product.nativeViewCleanupFailed=true;
+                        else if(mode.endsWith("network"))product.networkCleanupFailed=true;
+                        else product.nativeRetiringViews.add(source.view);
+                        String refusal=mode.endsWith("view")?"native_view_cleanup_failed":mode.endsWith("network")?"network_cleanup_failed":"native_view_retirement_busy";
+                        try{product.activate(promoted,handoff);throw new AssertionError("Activation bypassed cleanup");}catch(IllegalStateException expected){check(expected.getMessage().equals(refusal));}
+                        try{product.documentMarker("owned",promoted,handoff);throw new AssertionError("Document bypassed cleanup");}catch(IllegalStateException expected){check(expected.getMessage().equals(refusal));}
+                        try{product.sourceAdapter("owned",promoted,handoff);throw new AssertionError("Source bypassed cleanup");}catch(IllegalStateException expected){check(expected.getMessage().equals(refusal));}
+                        check(backend.resumes.get()==0&&handoff.current()&&promoted.current());
+                        product.nativeViewCleanupFailed=false;product.networkCleanupFailed=false;product.nativeRetiringViews.clear(); // controlled receipt peers only
+                    }
+                    if(mode.equals("prepared-admission-mismatch")){
+                        failure("cdp_popup_activation_unavailable",()->product.activate(promoted,null));
+                        try{product.documentMarker("root",promoted,handoff);throw new AssertionError("Foreign document owner admitted");}catch(IllegalStateException expected){check(expected.getMessage().equals("cdp_popup_document_owner_invalid"));}
+                        try{product.sourceAdapter("root",promoted,handoff);throw new AssertionError("Foreign physical owner admitted");}catch(IllegalStateException expected){check(expected.getMessage().equals("cdp_popup_source_owner_invalid"));}
+                        check(handoff.activationResult()==null&&handoff.current()&&promoted.current()&&source.sends==1);
+                    }
+                    MdoBrowserCdpMarker document=product.documentMarker("owned",promoted,handoff);check(promoted.document(document).current());
+                    try(MdoBrowserCdpView physical=product.sourceAdapter("owned",promoted,handoff)){check(promoted.source(physical.marker()).current());}
+                    backend.managedResumeMode="normal";product.activate(promoted,handoff);waitFor(()->handoff.activationResult()!=null,host,true);check(handoff.activationResult().ok&&backend.resumes.get()==1);
+                    product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);check(handoff.current()&&promoted.current());
+                    handoff.close();waitFor(promoted::ended,host,true);check(view.destroyed==1&&source.sends==1&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);product.checkCreation();
+                    check(backend.opens.get()==1&&backend.closes.get()==1&&backend.detaches.get()==0);
+                }finally{product.retirePreparation("cdp_popup_preparation_cancelled");}
+            }
+        }
+    }
     private static void productPreparation(String mode)throws Exception {
         Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context network=host.source();host.ready(network);try(NativeSource source=new NativeSource(host,network)){
@@ -1677,7 +1740,8 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("preparation"))productPreparation(mode);
+        if(mode.startsWith("prepared-admission"))preparedAdmission(mode);
+        else if(mode.startsWith("preparation"))productPreparation(mode);
         else if(mode.startsWith("source"))managedSource(mode,args[1]);
         else if(mode.startsWith("transfer"))managedTransfers(mode,args[1]);
         else if(mode.startsWith("response"))managedResponse(mode,args[1]);
@@ -1702,6 +1766,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_network_source_tested\":"+mode.startsWith("source")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_popup_preparation_tested\":"+mode.startsWith("preparation")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_network_source_tested\":"+mode.startsWith("source")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_prepared_admission_tested\":"+mode.startsWith("prepared-admission")+",\"product_popup_preparation_tested\":"+mode.startsWith("preparation")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }
