@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E141)
+## Complete development host APK (current: E142)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,542,657 bytes, SHA-256
-`52d4a9a1aaa9a3e57fe3abe0834ec69dabab7256f361cfe49fba3822b28033ea`.
+Current APK: 6,546,753 bytes, SHA-256
+`eb224dff61c0174b0027553be2e13b3cacd747ba928ab90d88d454b9520e7dee`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -5110,3 +5110,46 @@ Windows and E105 world evidence. The rebuilt APK passes signing/ARM64/JNI/
 These results do not qualify installed Android or enable public automation.
 The next integration remains product preparation/action/task policy and UI
 lifetime, followed by original-navigation, OOPIF and multi-child recovery.
+
+
+### E142: explicit preparation before original-page operations
+
+The actual MdoBrowser now owns a bounded preparation scope per original physical
+view, document epoch, network entry and UI channel. The shared dispatcher asks
+for `popup_prepare` before isolated evaluation (which may scroll or invoke page
+events), native input and option selection. Preparation returns an independent
+acknowledgment; the dispatcher rechecks the originating task, deadline, document
+and manual-control state before page work. An absent or malformed acknowledgment
+never dispatches input. A cancelled second preparation preserves an earlier
+focus effect rather than reporting the whole action as unsent. Hosts without
+the advertised requirement keep their existing route.
+
+The existing native worker/process broker performs preparation. Its event
+forwarder holds only a weak reference to the UI component. A ready scope can be
+reused without another physical connection; stop, navigation, takeover and
+network retirement revoke it. Replacements require actual original-source
+release, not the historical stop confirmation. Terminal worker failure causes
+survive derived owner-loss observations. Uncoordinated native view construction
+is fenced while this process-wide protection is active; the existing typed,
+single-use protected constructor still checks its original allocation proof.
+Native agent input and the frame evaluation route reject missing preparation.
+
+Seventeen joined cases pass 192 assertions, including actual product RPC and
+input refusal, cancellation, original-channel/document changes, reentrancy,
+callback failure, unsupported guards, timeout and explicit restart. Existing
+chooser/upload/download harnesses retain controlled admission/state peers;
+those seams do not qualify preparation or an Android framework. Full native
+passes 128 inputs and 187 worker modes/7,269 checks, retaining every E141 mode's
+count. Shared JS passes 377 tests. Fresh product, popup and saving gates pass;
+Python passes 174/176 with two existing Windows symlink privilege skips.
+
+Both development programs were rebuilt. Windows passes twelve packed runtime
+checks and fresh real WebView2 passes 301 assertions/six input cycles. Actual
+Android DEX inspection verifies 57 definition groups and the weak-only forwarder;
+APK signing, ARM64/JNI, 16-KiB layout and ZIP checks pass. Evidence is retained in
+`.mdo/E142-*.log`, `E142-dex-methods.json` and `E142-final-identities.py/log`.
+These are transport/controlled-JVM/build and Windows results. They do not qualify
+an installed Android provider or enable the public Android automation gate.
+Complete native popup adoption, task policy/UI, profile inheritance,
+physical-vs-document navigation lifetime, OOPIF/multi-child/process recovery and
+deferred phone/WebView verification remain required.

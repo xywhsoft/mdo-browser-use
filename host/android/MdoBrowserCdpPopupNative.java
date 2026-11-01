@@ -433,6 +433,10 @@ final class MdoBrowserCdpPopupNative {
     }
     boolean rejectionPending(){MdoBrowserPopups.Stop value=stop;return disposing.get()!=0||rejecting.get()!=0||retiring.get()!=0||!rejectStarted.get()&&(failure!=null||!creationConfirmed())||value!=null&&value.pending();}
     boolean confirmed(){MdoBrowserPopups.Stop value=stop;return failure==null&&!rejectionPending()&&value!=null&&value.confirmed();}
+    /** UI receipt after the original Stop has actually released its scope.
+     * confirmed() intentionally describes the still-retained Stop, not this
+     * historical release state once finish() has removed that Stop. */
+    boolean released(){thread();return released&&!claimed&&scope==null&&stop==null&&failure==null&&!rejectionPending();}
     String failure(){
         if(failure!=null)return failure;MdoBrowserPopups.Stop value=stop;
         if(value==null||value.pending()||value.confirmed())return null;

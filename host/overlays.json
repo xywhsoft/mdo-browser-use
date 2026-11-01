@@ -3,7 +3,7 @@
     {
       "path": "tools/android/browser_overlay.py",
       "before": "    source=directory/'org/xserver/android/XsActivity.java'",
-      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpResponse.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpNetworkRequests.java','MdoBrowserCdpNetworkFrames.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpPopupBroker.java','MdoBrowserCdpPopupWorker.java','MdoBrowserCdpPopupNative.java','MdoBrowserCdpPopupSource.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java','MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserPrivatePicker.java','MdoBrowserPrivatePickerReply.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
+      "after": "    source=directory/'org/xserver/android/XsActivity.java'\n    for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpResponse.java','MdoBrowserCdpSession.java','MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpNetworkRequests.java','MdoBrowserCdpNetworkFrames.java','MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpPopupBroker.java','MdoBrowserCdpPopupWorker.java','MdoBrowserCdpPopupNative.java','MdoBrowserCdpPopupSource.java','MdoBrowserCdpPopupPreparation.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java','MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserPrivatePicker.java','MdoBrowserPrivatePickerReply.java'):\n        shutil.copy2(Path(__file__).with_name(name),source.with_name(name))"
     },
     {
       "path": "app/src/application/ui.c",
@@ -685,7 +685,7 @@
     {
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "\"upload\",\"chooser\",\"downloads\"].includes(request.command)",
-      "after": "\"upload\",\"chooser\",\"downloads\",\"frames\"].includes(request.command)"
+      "after": "\"upload\",\"chooser\",\"downloads\",\"frames\",\"popup_prepare\"].includes(request.command)"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -1470,6 +1470,17 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "if(\"close\".equals(command)) {boolean worldClean=web==null?closeDocument(key):true;if(web!=null){worldClean=closeAndDestroyDocument(key,web);}manual.remove(key);loading.remove(key);errors.remove(key);errorCodes.remove(key);crashed.remove(key);locations.remove(key);reply(id,new JSONObject().put(\"world_cleanup_confirmed\",worldClean).put(\"native_view_cleanup_failed\",nativeViewCleanupFailed).put(\"native_view_retiring\",nativeRetiringViews.size()).put(\"network_cleanup_failed\",networkCleanupFailed).put(\"network_retiring\",networkRetiring()),null);return;}",
       "after": "if(\"close\".equals(command)) {executeBrowserClose(key,id);return;}"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "    private void nativeInputResult(",
+      "after_file": "host/android/browser-popup-preparation.inc.java",
+      "suffix": "    private void nativeInputResult("
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "else if(\"frames\".equals(command)){executeFrames(key,id,web,request);return;}",
+      "after": "else if(\"popup_prepare\".equals(command)){executePopupPreparation(key,id,web,request);return;}\n            else if(\"frames\".equals(command)){executeFrames(key,id,web,request);return;}"
     }
   ],
   "files": [
@@ -1868,6 +1879,10 @@
     {
       "source": "host/android/MdoBrowserCdpPopupSource.java",
       "target": "tools/android/MdoBrowserCdpPopupSource.java"
+    },
+    {
+      "source": "host/android/MdoBrowserCdpPopupPreparation.java",
+      "target": "tools/android/MdoBrowserCdpPopupPreparation.java"
     }
   ]
 }

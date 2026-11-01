@@ -44,8 +44,9 @@
         if(entry.ready||entry.retired)return;
         if(!Arrays.asList("state","bounds","close","takeover","stop").contains(command))throw new IllegalStateException("network_starting");
     }
-    private void networkStop(String key,WebView view){NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
+    private void networkStop(String key,WebView view){retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
     private void networkTakeover(String key,WebView view){
+        retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.draining)return;
         if(!entry.ready||entry.marker==null||entry.downloads==null){networkRetire(entry,"network_user_takeover");return;}
         entry.draining=true;entry.ready=false;entry.retiredAt=android.os.SystemClock.elapsedRealtime();entry.code="network_user_takeover";
@@ -191,6 +192,7 @@
     }
     private void networkRetire(NetworkEntry entry,String reason){
         if(networkViews.get(entry.key)!=entry)return;
+        retireProtocolPopupPreparation(entry.key,entry.view,"cdp_popup_preparation_owner_changed");
         nativeNavigationRetire(entry);
         entry.draining=false;
         if(!entry.retired){entry.retired=true;entry.ready=false;entry.code=reason;entry.retiredAt=android.os.SystemClock.elapsedRealtime();}

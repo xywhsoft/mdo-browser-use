@@ -7,6 +7,8 @@ import org.json.*;
 /** Exact product command fragment, actual native controller and file worker;
  * UI view/channel peers are controlled and do not qualify Android framework. */
 final class DownloadCommandHost {
+    // State serialization seam; preparation behavior uses PopupProductHost.
+    JSONObject popupPreparationState(String key)throws JSONException{return new JSONObject().put("ready",false).put("phase","none");}
     static final class WebMessagePort {}
     static final class MdoBrowserChannel<T> {
         final class Lease {boolean active=true;}

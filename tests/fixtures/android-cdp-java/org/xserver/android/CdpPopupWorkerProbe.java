@@ -40,6 +40,7 @@ public final class CdpPopupWorkerProbe {
         final Map<String,CdpBindingProbe.Factory> nativeTargets=new ConcurrentHashMap<>();final AtomicInteger nativeOpens=new AtomicInteger(),barriers=new AtomicInteger();
         final Set<String> proofTargets=ConcurrentHashMap.newKeySet();{proofTargets.add("target-proof-real");}
         volatile String barrierMode="normal";volatile Runnable proofConfirmed,closeHook;volatile boolean closeFailure;
+        volatile boolean unsupportedArm;
         volatile String guardMode="inline";volatile Runnable guardTimeout;volatile CountDownLatch guardEntered,guardRelease;
         volatile String managedResumeMode,managedFlowMode="normal";volatile Runnable managedResumeHook,managedFlowHook;
         final AtomicInteger continues=new AtomicInteger();final ConcurrentLinkedQueue<String> continuedIds=new ConcurrentLinkedQueue<>();
@@ -112,6 +113,7 @@ public final class CdpPopupWorkerProbe {
                         }add(new JSONObject().put("id",id).put("sessionId",child).put("result",value));return;
                     }
                     if(method.equals("Target.setAutoAttach")){
+                        if(unsupportedArm&&command.getJSONObject("params").getBoolean("autoAttach")){add(new JSONObject().put("id",id).put("error",new JSONObject().put("code",-32601).put("message","synthetic-unread")));return;}
                         if(command.getJSONObject("params").getBoolean("autoAttach")){enables.incrementAndGet();if(armEntered!=null){armEntered.countDown();if(!armRelease.await(3,TimeUnit.SECONDS))throw new IOException("fixture_arm_wait_expired");}}
                         else disables.incrementAndGet();add(ack(id,null));
                     }else if(method.equals("Fetch.enable")){
@@ -1602,9 +1604,81 @@ public final class CdpPopupWorkerProbe {
             }
         }
     }
+    private static void productPreparation(String mode)throws Exception {
+        Backend backend=new Backend();try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
+            CdpNetworkBindingProbe.Context network=host.source();host.ready(network);try(NativeSource source=new NativeSource(host,network)){
+                PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,network.adapter,source.core,host.worker);
+                AtomicInteger effects=new AtomicInteger(),failures=new AtomicInteger();java.util.concurrent.atomic.AtomicReference<String> reason=new java.util.concurrent.atomic.AtomicReference<>();
+                java.util.concurrent.atomic.AtomicBoolean possible=new java.util.concurrent.atomic.AtomicBoolean();
+                MdoBrowserCdpPopupPreparation.Failure failed=(code,effect)->{check(host.ui.onThread());failures.incrementAndGet();reason.set(code);possible.set(effect);};
+                if(mode.equals("preparation-rpc-invalid")){
+                    for(JSONObject request:new JSONObject[]{new JSONObject().put("navigation",1),new JSONObject().put("agent",true).put("navigation",0),new JSONObject().put("agent",true).put("navigation","1")}){
+                        try{product.preparationRpc(request);throw new AssertionError("Invalid popup preparation admitted");}catch(IllegalArgumentException expected){check(expected.getMessage().equals("popup_preparation_scope_invalid"));}
+                    }
+                    failure("cdp_popup_preparation_required",product::requirePreparation);check(backend.creates.get()==0&&backend.opens.get()==0);return;
+                }
+                if(mode.equals("preparation-input-unready")){
+                    product.inputRpc(new JSONObject().put("agent",true).put("navigation",1));
+                    check(product.preparationReplies==1&&!product.preparationReply.getBoolean("accepted")&&!product.preparationReply.getBoolean("effect_may_have_occurred"));
+                    check(product.preparationReply.getJSONObject("error").getString("code").equals("cdp_popup_preparation_required")&&backend.creates.get()==0&&backend.opens.get()==0);return;
+                }
+                boolean held=java.util.Arrays.asList("preparation-cancel","preparation-owner","preparation-channel","preparation-epoch","preparation-timeout").contains(mode);
+                if(held){backend.armEntered=new CountDownLatch(1);backend.armRelease=new CountDownLatch(1);}
+                backend.unsupportedArm=mode.equals("preparation-failure");
+                Runnable effect=()->{check(host.ui.onThread());effects.incrementAndGet();
+                    if(mode.equals("preparation-throw"))throw new IllegalStateException("synthetic effect outcome unavailable");
+                    if(mode.equals("preparation-reentrant"))product.prepare(effects::incrementAndGet,failed);
+                };
+                if(mode.equals("preparation-rpc"))product.preparationRpc(new JSONObject().put("agent",true).put("navigation",1));else product.prepare(effect,failed);
+                check(effects.get()==0); // The original UI has not delivered readiness.
+                if(held){waitFor(()->backend.armEntered.getCount()==0,host,false);
+                    if(mode.equals("preparation-cancel"))product.retirePreparation("cdp_popup_preparation_cancelled");
+                    else if(mode.equals("preparation-owner"))product.browserPaused=true;
+                    else if(mode.equals("preparation-channel"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+                    else if(mode.equals("preparation-epoch"))check(source.views.navigation("root",source.view));
+                    else host.time.addAndGet(4000);
+                    backend.armRelease.countDown();
+                }
+                if(held||mode.equals("preparation-failure")||mode.equals("preparation-throw")){
+                    waitFor(()->failures.get()==1,host,true);check(effects.get()==(mode.equals("preparation-throw")?1:0)&&possible.get()==mode.equals("preparation-throw"));
+                    if(mode.equals("preparation-timeout")){waitFor(()->!product.preparationReady(),host,true);check(reason.get()!=null);}
+                    else waitFor(product::preparationSettled,host,true);
+                    int before=backend.receives.get();waitFor(()->backend.receives.get()>before+2||backend.closes.get()>0,host,true);check(failures.get()==1&&effects.get()==(mode.equals("preparation-throw")?1:0));
+                }else{
+                    if(mode.equals("preparation-rpc")){waitFor(()->product.preparationReplies==1,host,true);check(product.preparationReply.getBoolean("ok")&&product.preparationReply.getBoolean("ready")&&product.preparationReply.getInt("navigation")==1);}
+                    else waitFor(()->effects.get()==1,host,true);
+                    check(product.preparationReady());product.requirePreparation();
+                    if(mode.equals("preparation-reentrant"))check(failures.get()==1&&reason.get().equals("cdp_popup_preparation_busy")&&!possible.get());else check(failures.get()==0);
+                    try{product.checkCreation();throw new AssertionError("Uncoordinated native creation entered protected process");}catch(IllegalStateException expected){check(expected.getMessage().equals("native_popup_protection_busy"));}
+                    if(mode.equals("preparation-input-invalid")||mode.equals("preparation-input-retired")){
+                        boolean retired=mode.endsWith("retired");if(retired)product.retirePreparation("cdp_popup_preparation_cancelled");
+                        int inputs=backend.nativeOpens.get();product.inputRpc(new JSONObject().put("agent",true).put("navigation",0));
+                        check(product.preparationReplies==1&&!product.preparationReply.getBoolean("accepted")&&!product.preparationReply.getBoolean("effect_may_have_occurred"));
+                        check(product.preparationReply.getJSONObject("error").getString("code").equals(retired?"cdp_popup_preparation_required":"cdp_input_frame_changed"));
+                        check(backend.nativeOpens.get()==inputs&&product.preparationReply.getInt("delivered_steps")==0);
+                    }
+                    if(mode.startsWith("preparation-protection")){
+                        backend.guardMode=mode.equals("preparation-protection-failure")?"unsupported":"inline";source.open();backend.wire.add(attached("preparation-child","owned"));waitFor(()->backend.guards.get()==1,host,true);
+                        if(mode.equals("preparation-protection-failure")){waitFor(()->source.sends==1,host,true);check(!product.preparationReady());}
+                        else{check(product.preparationReady());product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(()->source.sends==1,host,true);}
+                        source.ack();backend.wire.add(detached("preparation-child"));
+                    }else{
+                        int before=backend.opens.get();if(!mode.equals("preparation-input-retired")){product.prepare(effects::incrementAndGet,failed);check(effects.get()==(mode.equals("preparation-rpc")?1:2)&&backend.opens.get()==before);}
+                        product.retirePreparation("cdp_popup_preparation_cancelled");
+                    }
+                    waitFor(product::preparationSettled,host,true);check(backend.opens.get()==1&&backend.resumes.get()==0&&backend.detaches.get()==0);
+                    if(mode.equals("preparation-protection-failure"))check(product.preparationCode().equals("cdp_popup_interception_unsupported"));
+                    if(mode.equals("preparation-restart")){int before=effects.get();product.prepare(effects::incrementAndGet,failed);waitFor(()->effects.get()==before+1,host,true);check(backend.opens.get()==2);product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);}
+                }
+                check(backend.resumes.get()==0&&backend.detaches.get()==0&&backend.nativeOpens.get()==0);
+                if(product.preparationReady())product.retirePreparation("cdp_popup_preparation_cancelled");
+            }
+        }
+    }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
-        if(mode.startsWith("source"))managedSource(mode,args[1]);
+        if(mode.startsWith("preparation"))productPreparation(mode);
+        else if(mode.startsWith("source"))managedSource(mode,args[1]);
         else if(mode.startsWith("transfer"))managedTransfers(mode,args[1]);
         else if(mode.startsWith("response"))managedResponse(mode,args[1]);
         else if(mode.startsWith("document"))managedDocument(mode);
@@ -1628,6 +1702,6 @@ public final class CdpPopupWorkerProbe {
         else if(mode.equals("suite")){suite();cooperative();candidates();queued(false);queued(true);armingCancellation();callbackFailure();nativeJoin(false);nativeJoin(true);nativeTerminalBeforeUiClose();nativeOwnerChanged();}
         else if(mode.startsWith("native-")&&!mode.equals("native-cancel"))nativeFailure(mode);
         else poison(mode);
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_network_source_tested\":"+mode.startsWith("source")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"mode\":\""+mode+"\",\"one_original_executor\":true,\"ui_delivery\":true,\"cooperative_popup_pump\":true,\"native_ui_promotion_tested\":"+mode.startsWith("promotion")+",\"protected_network_source_tested\":"+mode.startsWith("source")+",\"attached_download_controller_tested\":"+mode.startsWith("transfer")+",\"protected_response_routing_tested\":"+mode.startsWith("response")+",\"protected_document_binding_tested\":"+mode.startsWith("document")+",\"protected_attachment_activation_tested\":"+mode.startsWith("activation")+",\"protected_attachment_handoff_tested\":"+mode.startsWith("handoff")+",\"protocol_promotion_qualified\":false,\"transport_quiescence_tested\":"+mode.startsWith("quiescence")+",\"retirement_delivery_scope_tested\":"+mode.startsWith("delivery-loss")+",\"product_popup_preparation_tested\":"+mode.startsWith("preparation")+",\"product_disposer_join_tested\":"+mode.startsWith("product-disposal")+",\"protective_interception_scope_tested\":"+mode.startsWith("protection")+",\"retained_target_marker_scope_tested\":"+mode.startsWith("native-proof")+",\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
 }

@@ -2,7 +2,7 @@
      * navigated, granted a document world or sent to its native transport. */
     private MdoBrowserCdpPopupNative.Created constructProtocolPopup(MdoBrowserCdpPopupNative source,
             MdoBrowserCdpPopupWorker.Allocation allocation,String key)throws java.io.IOException {
-        nativeCreationAdmission();
+        nativeCreationAdmission(true);
         if(source==null)throw new java.io.IOException("cdp_popup_native_source_invalid");
         MdoBrowserCdpPopupNative.Created created=source.construct(allocation,views,key,(exactKey,exactView)->{
             WebView current=views.get(exactKey);

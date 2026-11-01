@@ -2,13 +2,15 @@
     private final Set<WebView> nativeRetiringViews=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
     private final Map<WebView,NativeDestruction> nativeDestructions=new IdentityHashMap<>();
     private boolean bulkNativeDestruction;
-    private void nativeCreationAdmission(){
+    private void nativeCreationAdmission(){nativeCreationAdmission(false);}
+    private void nativeCreationAdmission(boolean protectedCreation){
         if(stopped)throw new IllegalStateException("native_browser_closed");
         MdoBrowserCdpPopupNative.reconcileRetirements();
         if(nativeViewCleanupFailed)throw new IllegalStateException("native_view_cleanup_failed");
         if(!nativeRetiringViews.isEmpty())throw new IllegalStateException("native_view_retirement_busy");
         if(networkCleanupFailed)throw new IllegalStateException("network_cleanup_failed");
         if(networkRetiring()!=0||downloadRetiring()!=0)throw new IllegalStateException("native_view_retirement_busy");
+        if(!protectedCreation&&protocolPopupCreationBlocked())throw new IllegalStateException("native_popup_protection_busy");
     }
     private final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     private final Map<String,String> documentFailures=new HashMap<>();
@@ -125,6 +127,7 @@
     }
     private void documentNavigation(String key,WebView view){
         if(!views.owns(key,view))return;
+        retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_owner_changed");
         nativeNavigationPageStarted(key,view);
         navigationRequests.remove(key);
         cancelPopup(key);

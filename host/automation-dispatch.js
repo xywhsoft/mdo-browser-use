@@ -69,7 +69,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   if (exclusive && (writers.has(writer) || downloadSaveState(writer)) || captures && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
   if (exclusive) writers.add(writer);
   if (captures) capturing = true;
-  let lastReceipt = -Infinity, navigation;
+  let lastReceipt = -Infinity, navigation, popupPreparationRequired=false;
   const dialogBoundary = async () => ({ handled: true, result: { ok: true,
     outcome: "dialog_open", completed: false, dispatched, action: action.id,
     dialogs: (await view.execute("dialog", { action: "list", agent: true })).dialogs || [] } });
@@ -87,7 +87,26 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     }
     return null;
   };
+  const armPopups = async (initial=null) => {
+    const before=initial||await guard(true);if(before.handled)return before;
+    if(before.state.popup_preparation_required!==true)return null;
+    if(before.state.popup_preparation_capability!==true)return fail('unsupported_capability','This host cannot prepare native popup protection; no page input was sent');
+    const originalNavigation=before.state.navigation;
+    const prepared=await view.execute('popup_prepare',{agent:true,navigation:originalNavigation,timeout_ms:Math.max(1,Math.min(3000,Math.ceil(deadline-performance.now())))});
+    // Preparation grants no page effect. Cancellation, deadline and original
+    // task/page ownership must be checked again after this asynchronous wait.
+    const after=await guard(true);if(after.handled)return after;
+    if(after.state.navigation!==originalNavigation)return fail('stale_document','The original document changed while popup protection was preparing');
+    if(prepared?.ok!==true||prepared.ready!==true||prepared.navigation!==originalNavigation)
+      return fail('popup_protection_unavailable','Native popup protection was not confirmed; inspect the original browser before further input');
+    return null;
+  };
   const read = async (method, options, navigationRef=null) => {
+    // Isolated evaluation may scroll or run page event handlers even while
+    // locating a target. The Android frame router cannot treat arbitrary
+    // evaluation as read-only, so protect it before any page script. Selection
+    // prepares separately before the dispatch uncertainty flag is set.
+    if(method!=='selectOptions'&&popupPreparationRequired){const preparation=await armPopups();if(preparation)throw Object.assign(new Error('Popup preparation stopped the original evaluation'),{browserBoundary:preparation});}
     navigationRef ||= method==='observe'?initialNavigationReference:null;
     if(navigationRef===initialNavigationReference&&navigationRef&&!initialNavigationDocument)
       return{ok:false,error:{code:'navigation_unproven',message:'The original initial navigation has not proved its committed document',effect_may_have_occurred:false}};
@@ -123,6 +142,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       if (!alive()) return fail("context_changed", "The displaying device or window changed");
       if (performance.now() >= deadline) return fail("timed_out", "The browser action deadline expired");
       state = { ...snapshot, loading: snapshot.initial_navigation_pending && typeof snapshot.loading === "boolean" ? true : snapshot.loading };
+      popupPreparationRequired=state.popup_preparation_required===true;
       if(state.creating!==true)break;
       if(state.error||state.process_failed)return fail('browser_unavailable',state.error||'The browser process stopped during creation');
       if(state.manual)return fail('manual_control','The user currently controls the browser');
@@ -240,6 +260,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     let stopped = await guard(true); if (stopped.handled) return stopped;
     if(inputFrameSnapshot&&stopped.state.input_busy)return fail('browser_busy','Native input started after visual validation; request a fresh image before another attempt');
     while (stopped.state.input_busy) { await pause(20); stopped = await guard(true); if (stopped.handled) return stopped; }
+    const preparation=await armPopups(stopped);if(preparation)return preparation;
     const previouslyDispatched=dispatched;
     dispatched = true;
     if(parameters.kind==='focus'&&canOpenDownload)downloadCheckpointUntil=Math.min(deadline,performance.now()+1100);
@@ -614,6 +635,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
         inputTarget={input_document:fresh.native_target.document,input_ref:fresh.native_target.ref};
       if (params.op === "select") {
         const checked = await guard(true);if(checked.handled)return checked;
+        const preparation=await armPopups(checked);if(preparation)return preparation;
         dispatched = true;
         const selected = await read("selectOptions",pinned);
         if (!selected.ok) { if(selected.error?.effect_may_have_occurred===false)dispatched=false;return {handled:true,result:selected}; }

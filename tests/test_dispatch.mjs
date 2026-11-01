@@ -28,6 +28,76 @@ function keyboardDriver({prepare=()=>({}),verify=()=>({ok:true,focused:true,veri
   }};
 }
 
+function popupPreparationFixture(mode='ready',op='key'){
+  const calls=[],inputs=[],mutations=[],reads=[];let preparations=0,cancelled=false,current=true,navigation=1,manual=false;
+  const base=keyboardDriver();
+  const options={command:'act',params:{op,document:'doc',target:{ref:keyboardRef},key:'Enter',values:['one'],timeout_ms:500},
+    action:{id:'popup-preparation-'+mode+'-'+op},alive:()=>current,api:{async call(){return{state:cancelled?'cancelled':'pending'};}},
+    pageDriver:{async read(method,params,control){
+      if(method==='selectOptions'){await control.checkpoint();mutations.push(params);return{ok:true,dispatched:true};}
+      reads.push(method);return base.read(method,params,control);
+    }},view:{async execute(command,params){calls.push(command);
+      if(command==='state')return{loading:false,automation:true,frame_target_keyboard:true,navigation,manual,
+        chooser_capability:true,chooser_upload_capability:true,chooser_armed:true,
+        ...(mode==='legacy'?{}:{popup_preparation_required:true,popup_preparation_capability:mode!=='unsupported'})};
+      if(command==='popup_prepare'){
+        preparations++;assert.equal(params.agent,true);assert.equal(params.navigation,1);assert(params.timeout_ms>=1&&params.timeout_ms<=500);
+        if(mode==='cancel'||mode==='second-cancel'&&inputs.length===1)cancelled=true;
+        if(mode==='owner')current=false;
+        if(mode==='navigation')navigation=2;
+        if(mode==='manual')manual=true;
+        if(mode==='deadline')await new Promise(resolve=>setTimeout(resolve,550));
+        if(mode==='transport')throw Error('Original preparation transport ended');
+        return mode==='malformed'?undefined:mode==='refused'?{ok:false,ready:false}:
+          {ok:true,ready:true,navigation:mode==='foreign-ack'?2:1};
+      }
+      if(command==='input'){inputs.push(params);return{accepted:true,trusted_input:true,target_focused:params.kind==='focus'};}
+      throw Error('Unexpected popup preparation command '+command);
+    }}};
+  return{options,calls,inputs,mutations,reads,preparations:()=>preparations};
+}
+
+test('popup preparation acknowledges before every native input and before a select mutation',async()=>{
+  for(const op of ['key','select']){
+    const f=popupPreparationFixture('ready',op),out=await executeBrowserAutomation(f.options);assert.equal(out.result.ok,true);
+    assert(f.preparations()>=(op==='key'?2:1));assert.equal(f.mutations.length,op==='select'?1:0);
+    assert.deepEqual(f.inputs.map(row=>row.kind),op==='key'?['focus','key']:[]);
+    for(let i=0;i<f.calls.length;i++)if(f.calls[i]==='input')assert(f.calls.slice(0,i).filter(x=>x==='popup_prepare').length>f.calls.slice(0,i).filter(x=>x==='input').length);
+  }
+});
+
+test('preparation rechecks original cancellation, deadline, owner and document before page effects',async()=>{
+  for(const op of ['key','select'])for(const [mode,code] of [['cancel','cancelled'],['owner','context_changed'],['navigation','stale_document'],['manual','manual_control'],
+      ['deadline','timed_out'],['unsupported','unsupported_capability'],['malformed','popup_protection_unavailable'],['refused','popup_protection_unavailable'],
+      ['foreign-ack','popup_protection_unavailable'],['transport','browser_unavailable']]){
+    const f=popupPreparationFixture(mode,op),out=await executeBrowserAutomation(f.options);
+    assert.equal(out.result.ok,false,mode+'/'+op);assert.equal(out.result.error.code,code,mode+'/'+op);
+    assert.equal(out.result.error.effect_may_have_occurred,false,mode+'/'+op);assert.equal(f.inputs.length,0);assert.equal(f.mutations.length,0);
+    assert.equal(f.preparations(),mode==='unsupported'?0:1);
+  }
+});
+
+test('isolated observation prepares before page evaluation and cancellation leaves scripts untouched',async()=>{
+  for(const mode of ['ready','cancel','unsupported']){
+    const f=popupPreparationFixture(mode);f.options.command='observe';f.options.params={timeout_ms:500};
+    const out=await executeBrowserAutomation(f.options);
+    assert.equal(f.inputs.length,0);assert.equal(f.mutations.length,0);
+    if(mode==='ready'){assert.equal(out.result.ok,true);assert.deepEqual(f.reads,['observe']);assert.equal(f.preparations(),1);}
+    else{assert.equal(out.result.error.effect_may_have_occurred,false);assert.equal(f.reads.length,0);}
+  }
+});
+
+test('second preparation cannot erase an earlier focus effect or replay the key',async()=>{
+  const f=popupPreparationFixture('second-cancel'),out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.error.code,'cancelled');assert.equal(out.result.error.effect_may_have_occurred,true);
+  assert(f.preparations()>=2);assert.deepEqual(f.inputs.map(row=>row.kind),['focus']);
+});
+
+test('hosts without the preparation contract retain their existing direct input route',async()=>{
+  const f=popupPreparationFixture('legacy'),out=await executeBrowserAutomation(f.options);
+  assert.equal(out.result.ok,true);assert.equal(f.preparations(),0);assert.deepEqual(f.inputs.map(row=>row.kind),['focus','key']);
+});
+
 function nativeNavigationFixture(mode){
   const calls=[],reference='nv-original';let sent=false,states=0;
   const options={command:'navigate_to',params:{action:'goto',url:'https://fixture.invalid/',timeout_ms:500},action:{id:'native-navigation-'+mode},

@@ -15,6 +15,22 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E142:** join popup preparation to the actual product RPC, shared
+  dispatcher and native input/frame gates. A separate bounded acknowledgment
+  precedes isolated evaluation, target scrolling, native input and selection;
+  recheck task cancellation, deadline, original channel/document and manual
+  control after the wait. Reuse a ready original scope, refuse unrelated native
+  creation while process protection is active, and retire on stop, navigation,
+  takeover or network loss. Worker forwarding holds only a weak UI handle;
+  replacement waits for actual source release. Seventeen joined preparation/RPC/
+  input-guard modes pass 192 assertions; full native passes 128 inputs and 187
+  worker modes/7,269 checks. Shared JS passes 377 tests, Python 174/176 with two
+  existing skips, fresh product/popup/save pass, and real Windows WebView2 passes
+  301 assertions/six input cycles. Rebuilt Windows passes twelve packed-program
+  checks; rebuilt Android passes signing and 57 actual definition groups.
+  Public Android automation and provider qualification remain disabled. Complete
+  popup adoption/policy/UI, profile/navigation lifetime, OOPIF/multi-child/process
+  recovery and deferred device verification remain outstanding.
 - **Android E141:** fix confirmed stale download provenance after isolated-world
   destruction. Revoke old node/descendant epoch fences before minting replacement
   document references; rebuilding a world cannot reactivate the old download.

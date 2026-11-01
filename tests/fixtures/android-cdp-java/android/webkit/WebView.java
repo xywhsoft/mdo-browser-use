@@ -23,6 +23,10 @@ public final class WebView {
     private final WebSettings settings=new WebSettings();
     public boolean defer,throwAfterRetain,badReply,shown=true;public int evaluations,cleanup;
     public boolean isShown(){return shown;}
+    public int getPaddingLeft(){return 0;}public int getPaddingTop(){return 0;}
+    public int getPaddingRight(){return 0;}public int getPaddingBottom(){return 0;}
+    public int getWidth(){return 800;}public int getHeight(){return 600;}
+    public int getScrollX(){return 0;}public int getScrollY(){return 0;}
     public Runnable beforeReply;
     public WebSettings getSettings(){return settings;}
     public void evaluateJavascript(String source,ValueCallback<String> reply) {

@@ -7,6 +7,8 @@ import java.util.function.LongSupplier;
 /** Exact product creation/binding/retirement methods; UI/provider peers below
  * are controlled. This does not exercise an installed Android framework. */
 final class AndroidCreateHost {
+    boolean protocolPopupCreationBlocked(){return false;}
+    void retireProtocolPopupPreparation(String key,WebView view,String reason){}
     static final class JSONException extends Exception {}
     static final class JSONObject {
         static final Object NULL=new Object();

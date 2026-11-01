@@ -2,6 +2,8 @@ package org.xserver.android;
 
 import android.webkit.WebView;
 import java.util.*;
+import org.json.JSONObject;
+import org.json.JSONException;
 
 /** Exact product constructor/disposer/physical teardown joined to the actual
  * native source. Document/network/UI peers are controlled, not qualified. */
@@ -17,6 +19,27 @@ final class PopupProductHost {
     final Map<String,Object> popupLinks=new HashMap<>(),navigationRequests=new HashMap<>();
     final Map<String,String> documentFailures=new HashMap<>();final Set<String> pageClosed=new HashSet<>();
     final Root root=new Root();final CdpViews cdpViews=new CdpViews();int configured,retired,networkDestroyed;
+    MdoBrowserCdpWorker cdpWorker;
+    final Set<String> manual=new HashSet<>();
+    static final class WebMessagePort {}
+    final MdoBrowserChannel<WebMessagePort> channel=new MdoBrowserChannel<>();
+    static final class Host {String getUrl(){return "http://127.0.0.1/development";}}
+    final Host host=new Host();int preparationReplies;JSONObject preparationReply;String preparationReplyError;
+    void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject value,String error){if(channel.active(lease,host.getUrl())){preparationReplies++;preparationReply=value;preparationReplyError=error;}}
+    private static final class NetworkEntry {final WebView view;final MdoBrowserCdpView adapter;final MdoBrowserChannel<WebMessagePort>.Lease lease;boolean ready=true,retired,draining;NetworkEntry(WebView view,MdoBrowserCdpView adapter,MdoBrowserChannel<WebMessagePort>.Lease lease){this.view=view;this.adapter=adapter;this.lease=lease;}}
+    private final Map<String,NetworkEntry> networkViews=new HashMap<>();
+    boolean networkCurrent(NetworkEntry entry){return !stopped&&!browserPaused&&networkReady&&views.owns("root",entry.view)&&channel.current()==entry.lease&&channel.active(entry.lease,host.getUrl());}
+    void bindPreparation(WebView view,MdoBrowserCdpView adapter,MdoBrowserPopups<WebView> core,MdoBrowserCdpWorker worker){windows.put("root",core);networkViews.put("root",new NetworkEntry(view,adapter,channel.current()));cdpWorker=worker;cdpViews.worker=worker;}
+    void prepare(Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction("root",views.get("root"),effect,failure);}
+    void retirePreparation(String reason){retireProtocolPopupPreparation("root",views.get("root"),reason);}
+    boolean preparationReady(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.ready();}
+    boolean preparationSettled(){PopupPreparation row=protocolPopupPreparations.get("root");return row!=null&&row.preparation.settled();}
+    String preparationCode(){PopupPreparation row=protocolPopupPreparations.get("root");return row==null?null:row.preparation.failure();}
+    void preparationRpc(JSONObject request)throws Exception{executePopupPreparation("root","preparation",views.get("root"),request);}
+    void requirePreparation()throws Exception{requireProtocolPopupPreparation("root",views.get("root"));}
+    void inputRpc(JSONObject request)throws Exception{executeNativeInput("root","input",views.get("root"),request);}
+    boolean dialogReady(String key,WebView view){return true;}
+    MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}
     static final class Root {int removes;Runnable callback;void removeView(WebView exact){removes++;Runnable work=callback;callback=null;if(work!=null)work.run();}}
     static final class CdpViews {
         int invalidations;MdoBrowserCdpWorker worker;
@@ -27,9 +50,9 @@ final class PopupProductHost {
     static final class MdoBrowserDocument {static final int BACKGROUND=1;int closes,destroyed;boolean cleanupConfirmed(){return true;}void close(){closes++;}void viewDestroyed(WebView exact){destroyed++;}}
     static final class Dialogs {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
-    static final class Capture {void close(){}void viewDestroyed(){}}
+    static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
-    PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;}
+    PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());}
     int networkRetiring(){return networkReady?0:1;}int downloadRetiring(){return 0;}
     boolean networkClean(){return networkReady&&!networkCleanupFailed;}
     void networkRetire(String key,WebView exact,String reason){}void networkDestroyed(WebView exact){networkDestroyed++;}
@@ -50,4 +73,6 @@ final class PopupProductHost {
     @@CREATION_GUARD@@
     @@DESTRUCTION@@
     @@CONSTRUCT@@
+    @@PREPARATION@@
+    @@INPUT@@
 }

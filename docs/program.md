@@ -22,12 +22,16 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview (E106 shared dispatcher, including
-W4/W3b/W3a/W2/W1/E66/F21) is **6,937,880 bytes**, SHA-256
-`35bdd50f041729a2002e9e15b81b540fe9a5ed11461dea41da0e9b0e5d034179`.
-E107/E108 change private Android Java components and reuse these unchanged
-Windows app bytes only after archive/source/hash verification. Current evidence
-is recorded in `docs/progress.md` and the adjacent artifact receipt.
+The current verified Windows preview (E142 shared dispatcher, including
+E106/W4/W3b/W3a/W2/W1/E66/F21) is **6,938,317 bytes**, SHA-256
+`17771ec5da278d36834db2e0bd3386fa017e0659bcd7257c919dcef206684db2`.
+E142 adds an internal popup preparation handshake only for hosts declaring that
+requirement. Preparation cannot hide an asynchronous wait inside native input:
+the dispatcher rechecks cancellation, deadline and original ownership after its
+acknowledgment. Windows does not declare that requirement and retains its direct
+input route. This rebuilt artifact passes twelve packed-program runtime checks
+and fresh WebView2 regression passes 301 assertions with six input cycles.
+Current evidence is recorded in `docs/progress.md` and the adjacent receipt.
 Its native inventory contains 750 files, including runtime 20, the shared
 document/capture driver, E12/E16's native input/capture failure handling and E17's
 lossless-source privacy fix, N1's explicit page-error navigation recovery and

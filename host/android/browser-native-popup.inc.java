@@ -48,6 +48,8 @@
     private JSONObject popupState(String key,JSONObject state)throws JSONException {
         MdoBrowserPopups<WebView> core=windows.get(key);PopupLink link=popupLinks.get(key);boolean requested=pageClosed.contains(key);
         state.put("popup_capability",core!=null&&!pageClosed.contains(key)).put("popup_pending",core!=null&&core.busy())
+            .put("popup_preparation_required",true).put("popup_preparation_capability",true)
+            .put("popup_preparation",popupPreparationState(key))
             .put("popup_cleanup_failed",core!=null&&!core.clean()).put("popup_budget_used",popupBudget.used())
             .put("popup_budget_limit",popupBudget.limit).put("close_requested",requested)
             .put("closed_by_page",requested&&downloadPageCloseReady(key));
