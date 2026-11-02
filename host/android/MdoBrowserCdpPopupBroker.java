@@ -150,6 +150,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private DocumentPeer(MdoBrowserCdpPopupBroker host,Candidate candidate,MdoBrowserCdpPopupNative.Document document){this.host=host;this.candidate=candidate;handoff=candidate.handoff;this.document=document;}
         private void guard()throws IOException{host.guard();if(fault!=null)throw problem(fault);if(closed.get()||!handoff.current()||!document.current())throw problem("cdp_popup_document_retired");}
         boolean matches(MdoBrowserCdpPopupNative.Document original){return document==original;}
+        boolean belongsTo(Handoff original)throws IOException{guard();return handoff==original&&original.owns(document);}
         String target()throws IOException{guard();return candidate.original.target;}
         void observe(MdoBrowserCdpSession.Events next)throws IOException{guard();if(next==null||receiver!=null)throw problem("cdp_controller_busy");receiver=next;}
         void controller(MdoBrowserCdpBinding bound)throws IOException{guard();if(bound==null||binding!=null)throw problem("cdp_controller_busy");binding=bound;}

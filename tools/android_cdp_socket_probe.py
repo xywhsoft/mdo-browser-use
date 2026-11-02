@@ -183,6 +183,14 @@ def main():
             or not attached.get('native_resume_then_detach') or attached.get('task_or_popup_ownership_proved') is not False or attached.get('provider_qualified') is not False):
         raise RuntimeError('The fixed original attached-target release gate did not pass')
     result['jvm_attached_release']=attached
+    attached_navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpAttachedNavigationProbe'],cwd=ROOT,env=environment,text=True,timeout=60))
+    if (not attached_navigation.get('passed') or attached_navigation.get('original_attachment_navigation_receipts') is not True
+            or attached_navigation.get('independent_source_quarantine') is not True or attached_navigation.get('late_receipts_drained') is not True
+            or attached_navigation.get('real_jvm_jni_json') is not True or attached_navigation.get('native_frame_or_ownership_proved') is not False
+            or attached_navigation.get('provider_qualified') is not False):
+        raise RuntimeError('Original protected attachment navigation receipts lost scope, retirement or bounded routing')
+    result['jvm_attached_navigation']=attached_navigation
     popup_results=[]
     for mode in ('suite','capture','expiry','owner-loss','disable-failure','disable-race','waiting-type','host-cancel','partial-arm','candidate-limit'):
         popup=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
@@ -211,6 +219,7 @@ def main():
                  'transfer-complete','transfer-cancel','transfer-limit','transfer-epoch','transfer-detach','transfer-pass','transfer-budget','transfer-other-controller','transfer-rebind','transfer-pending-limit','transfer-pending-epoch','transfer-close-retain','transfer-frame-epoch','transfer-ancestor','transfer-retired-binding',
                  'transfer-world-root','transfer-world-local','transfer-world-ancestor','transfer-world-pending','transfer-world-recover','transfer-world-unrelated',
                  'source-complete','source-pass','source-cancel','source-epoch','source-controller','source-race','source-nonempty','source-changed','source-unsupported','source-activated','source-captured-epoch','source-replay','source-stream-epoch','source-stream-cancel','source-stream-owner',
+                 'source-navigation-flow','source-navigation-cancel','source-navigation-rejected','source-navigation-no-commit','source-navigation-pending',
                  'preparation-ready','preparation-restart','preparation-cancel','preparation-owner','preparation-channel','preparation-epoch','preparation-failure','preparation-throw','preparation-reentrant','preparation-rpc','preparation-rpc-invalid','preparation-protection','preparation-protection-failure','preparation-timeout',
                  'preparation-input-unready','preparation-input-invalid','preparation-input-retired',
                  'preparation-child-ready','preparation-child-delayed','preparation-child-timeout','preparation-child-owner','preparation-child-channel','preparation-child-request','preparation-child-replaced','preparation-child-timer',
@@ -458,6 +467,14 @@ def main():
                     or preserved and (evidence.get('native_detach_confirmed') is not True or evidence.get('effects_preserved') is not True)
                     or evidence.get('provider_qualified') is not False or evidence.get('ui_published') is not False):
                 raise RuntimeError('Original document retirement isolation was not proved')
+        if mode.startswith('source-navigation-'):
+            proof=popup_worker.get('source_navigation');commands=4 if mode.endswith('-flow') else 0 if mode.endswith('-pending') else 1
+            if (not isinstance(proof,dict) or proof.get('original_source') is not True or proof.get('shared_ledgers') is not True
+                    or proof.get('navigation_commands')!=commands or proof.get('commit_proved') is not mode.endswith('-flow')
+                    or proof.get('guard_replacements')!=0 or proof.get('scope_denials_checked') is not True
+                    or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1
+                    or proof.get('ui_navigation_enabled') is not False or proof.get('provider_qualified') is not False):
+                raise RuntimeError('Protected source navigation replaced its original scope, guard or commit proof')
         popup_worker_results.append(popup_worker)
     result['jvm_popup_worker']=popup_worker_results
     popup_native=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
@@ -661,7 +678,7 @@ def main():
             'host/android/browser-network-navigation.inc.java','host/android/browser-destroy.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-popup-preparation.inc.java','host/android/browser-close.inc.java','host/android/browser-native-input.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserPopups.java','host/android/browser-native-popup.inc.java','host/android/popup-protocol.json',
-            'tools/android_cdp_socket_probe.py','tests/fixtures/android-cdp-java/PopupProductHost.java.in','host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
+            'tools/android_cdp_socket_probe.py','tests/fixtures/android-cdp-java/PopupProductHost.java.in','tests/fixtures/android-cdp-java/org/xserver/android/CdpAttachedNavigationProbe.java','host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
             'tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c',
             *[p.relative_to(ROOT).as_posix() for p in javas])
     result.update(source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},

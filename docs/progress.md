@@ -13265,3 +13265,73 @@ admission, deferred phone checks, overall Windows completion audit and final
 deliverables remain open. Public Android automation remains disabled; no ADB,
 provider update, live model, external site or production action was used. The
 overall goal remains active.
+
+### E172 original protected-source navigation receipts
+
+The original Browser session now admits fixed native goto/history/reload commands
+on retained, protected and activated attachments. An immutable original attachment
+selects the session envelope; no caller-selected session route is added. At most
+eight attachment receipts, one per original source, can be outstanding, with the
+existing session lifetime command limit. Navigation leaves the worker available
+for other owners and download/body controls instead of blocking for its reply.
+
+Cancellation, source retirement/owner loss, timeout and clock rollback quarantine
+only the affected attachment. Its bounded original ID/session row drains a late
+reply without upgrading its terminal outcome. Other original sources can continue.
+Malformed/foreign replies and real partial-send/transport failures retain their
+existing shared-wire failure semantics. UI cancellation signals stop data only.
+
+A navigation-only view of a proved popup Source reuses its original frame/request
+ledgers, download controller, physical marker and network protection. It neither
+transfers physical ownership nor enables/disables Fetch; closing this borrowed
+view is rejected. Fixed empty-argument frame/history proof reads are allowed;
+Runtime/DOM/world/caller-routed commands remain unavailable. Common native commit,
+history/destination and request-association algorithms are reused. Document joins
+also require the exact original Handoff, rather than matching raw frame IDs alone.
+
+The new session/JNI receipt gate passes566 reported checks, covering concurrent
+original attachments/out-of-order ACKs, bounded admission, cancellation, late
+receipts, scope loss, malformed replies and real send loss. Five integrated
+original-source cases pass: four-command goto/back/forward/reload completion,
+cancel, explicit rejection, ACK without commit, and pending-download denial.
+Each uses the one original Browser worker/connection and native-marker proof;
+neither an ordinary network Slot nor a replacement Fetch guard is constructed.
+These controlled peers do not qualify an installed Android provider or UI
+navigation/document rearm. The existing product navigation/takeover denials stay.
+
+Initial focused checks exposed fixture errors (a missing existing probe directory
+argument, checked JSON construction and a5ms receive slice below the10ms API
+minimum). They were corrected; the focused receipts and failure logs remain in
+`.mdo/E172-focused*.log`. The complete final native gate passes452 popup-worker
+modes/17,475 reported checks, all132 current input hashes, JNI/transport,
+ASan/UBSan and API26 compilation. See `.mdo/E172-native.log`.
+
+Comparison with E171 preserves all earlier asserted behavior. One loading-timeout
+case has two differing diagnostic fields: transport close call site and whether
+the worker had already observed cleanup. Three targeted replays reproduce both
+allowed orders while all final original detach/native destruction/source release/
+creation-unblocked receipts remain confirmed. These reviewed timing differences
+are retained in `.mdo/E172-semantic-differences.json` and
+`.mdo/E172-loading-results.json`; they are not hidden as an empty comparison.
+
+Fresh Python178/180 pass with the same two Windows symlink-privilege skips. The
+actual JS dispatcher/driver/reader to JVM product recovery gate passes its four
+cases again, with current source/class/library hashes. The single reviewed
+deployment is updated and HTTP200 readiness verifies. See `.mdo/E172-python.log`,
+`.mdo/E172-native-frontend.log`, `.mdo/E172-apply.log` and
+`.mdo/E172-verification.json` / `.mdo/E172-verification.log`.
+
+The fresh signed full Android development APK is6,583,617 bytes, SHA-256
+`09465c492229778936aefbdc9c395c9f1b8f3eba3951c41c4ac65c72c074fb1b`.
+Actual DEX definitions verify the session/Source/navigation-view methods, not
+just descriptor strings. The existing QA package/signer and public Android
+`available:false`/automation-disabled state are unchanged. The exact E169
+exercised Windows archive and unchanged paired plugin remain current-source/hash
+verified reuse; this phase does not claim a fresh Windows runtime check.
+See `.mdo/E172-apk.log` and `.mdo/E172-dex-methods.json`.
+
+Next is the UI admission/commit/document rearm join on this original source,
+then protected takeover/release. Overall Android admission, deferred phone/
+provider checks, Windows completion audit and final deliverables remain open.
+No phone/ADB/WebView update, live model, external site or production operation
+was used. The overall goal remains active.

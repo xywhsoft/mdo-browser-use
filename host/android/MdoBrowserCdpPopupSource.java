@@ -43,6 +43,22 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     String frame()throws IOException {guard();return root;}
     String loader()throws IOException {guard();return initialLoader;}
     String target()throws IOException {guard();return attachment.target;}
+    void navigationCurrent()throws IOException {guard();if(!ready)throw new IOException("cdp_popup_source_bootstrap_required");if(!attachment.resumeConfirmed())throw new IOException("cdp_popup_activation_required");}
+    MdoBrowserCdpNetworkFrames navigationFrames()throws IOException {navigationCurrent();return frames;}
+    MdoBrowserCdpNetworkRequests navigationRequests()throws IOException {navigationCurrent();return requests;}
+    boolean ownsDocument(MdoBrowserCdpBinding.Peer document)throws IOException {navigationCurrent();return document instanceof MdoBrowserCdpPopupBroker.DocumentPeer&&((MdoBrowserCdpPopupBroker.DocumentPeer)document).belongsTo(handoff);}
+    private void admitNavigation()throws IOException {
+        navigationCurrent();if(connection==null)throw new IOException("cdp_popup_navigation_network_unavailable");if(!connection.navigationAllowed())throw new IOException("cdp_navigation_download_pending");
+    }
+    public MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException {
+        admitNavigation();if(!root.equals(frame))throw new IOException("cdp_popup_navigation_root_invalid");return session.navigateAttached(attachment,scope,handoff::draining,url,root,timeout);
+    }
+    public MdoBrowserCdpSession.Navigation historyRoot(String frame,int entry,int timeout)throws IOException {
+        admitNavigation();if(!root.equals(frame))throw new IOException("cdp_popup_navigation_root_invalid");return session.historyAttached(attachment,scope,handoff::draining,root,entry,timeout);
+    }
+    public MdoBrowserCdpSession.Navigation reloadRoot(String frame,String loader,int timeout)throws IOException {
+        admitNavigation();if(!root.equals(frame)||!frames.rootLoader().equals(loader))throw new IOException("cdp_history_snapshot_changed");return session.reloadAttached(attachment,scope,handoff::draining,root,loader,timeout);
+    }
     void observe(MdoBrowserCdpSession.Events next)throws IOException {guard();if(next==null||receiver!=null)throw new IOException("cdp_controller_busy");receiver=next;}
     private int remaining(long born,int timeout)throws IOException {
         guard();long used=android.os.SystemClock.elapsedRealtime()-born;if(used<0||used>timeout-10)throw new IOException("cdp_popup_source_timeout");return timeout-(int)used;
@@ -92,9 +108,13 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         guard();if(!ready||next==null)throw new IOException("cdp_popup_source_bootstrap_required");if(connection!=null&&connection!=next)throw new IOException("cdp_controller_busy");next.attach(handoff);connection=next;
     }
     boolean turn(int timeout)throws IOException {guard();return connection!=null&&connection.attachedTurn(handoff,this,timeout);}
-    // This typed binding grants no arbitrary protocol or execution RPC.
-    public JSONObject call(String method,JSONObject params,int timeout)throws IOException {guard();throw new IOException("cdp_network_scope_invalid");}
-    public JSONObject call(String method,JSONObject params,String child,int timeout,boolean effect)throws IOException {return call(method,params,timeout);}
+    // Only fixed native navigation proof reads are added. The original Fetch
+    // protection remains untouched; no Runtime, world, DOM or caller RPC route.
+    public JSONObject call(String method,JSONObject params,int timeout)throws IOException {
+        guard();if(params==null||params.length()!=0||!"Page.getFrameTree".equals(method)&&!"Page.getNavigationHistory".equals(method))throw new IOException("cdp_network_scope_invalid");
+        navigationCurrent();JSONObject reply=session.callAttachedDocument(attachment,scope,handoff::draining,method,params,null,timeout,false);navigationCurrent();return reply;
+    }
+    public JSONObject call(String method,JSONObject params,String child,int timeout,boolean effect)throws IOException {if(child!=null||effect){guard();throw new IOException("cdp_network_scope_invalid");}return call(method,params,timeout);}
     public boolean poll(int timeout)throws IOException {guard();boolean progress=session.poll(timeout);guard();return progress;}
     public boolean poll(int receive,int timeout)throws IOException {guard();boolean progress=session.poll(receive,timeout);guard();return progress;}
     public boolean idle()throws IOException {guard();return session.idle();}

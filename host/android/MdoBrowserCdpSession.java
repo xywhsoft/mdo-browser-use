@@ -85,9 +85,17 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     static final class Navigation {
         private final int id,timeout;private final long born;private final String frame;
+        private final AttachedTarget attachment;private final BooleanSupplier sourceOwner,retiring;
+        private volatile boolean cancelled;
         final boolean receiptOnly;
         private final AtomicReference<NavigationResult> outcome=new AtomicReference<>();private volatile boolean issued;private volatile String loader;
-        private Navigation(int id,String frame,long born,int timeout,boolean receiptOnly){this.id=id;this.frame=frame;this.born=born;this.timeout=timeout;this.receiptOnly=receiptOnly;}
+        private Navigation(int id,String frame,long born,int timeout,boolean receiptOnly){this(id,frame,born,timeout,receiptOnly,null,null,null);}
+        private Navigation(int id,String frame,long born,int timeout,boolean receiptOnly,AttachedTarget attachment,BooleanSupplier sourceOwner,BooleanSupplier retiring){
+            this.id=id;this.frame=frame;this.born=born;this.timeout=timeout;this.receiptOnly=receiptOnly;this.attachment=attachment;this.sourceOwner=sourceOwner;this.retiring=retiring;
+        }
+        /** Stop data only. The original worker retains/drains the wire receipt;
+         * a UI cancellation cannot acknowledge or replay its possible effect. */
+        void cancelAttached(){if(attachment==null)throw new IllegalStateException("An attached navigation receipt is required");cancelled=true;}
         NavigationResult result(){return outcome.get();}
         boolean pending(){return result()==null;}
         boolean effectMayHaveOccurred(){NavigationResult result=result();return result==null?issued:result.effectMayHaveOccurred;}
@@ -246,6 +254,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         private final MdoBrowserCdpSession owner;
         private final String session;private final boolean valid;private boolean used;
         private volatile boolean resumed,detached;private boolean managedResumeAttempted;
+        private String navigationFault;
         private boolean protectionAttempted;private volatile boolean protectionConfirmed;
         private final java.util.List<PausedEvent> initialRequests=new ArrayList<>();private volatile int retainedRequests;
         private final java.util.List<PausedEvent> protectedResponses=new ArrayList<>();private volatile int retainedResponses;
@@ -307,6 +316,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private BooleanSupplier attachmentCommandOwner;
     private AttachedTarget attachmentRetirementTarget;private BooleanSupplier attachmentRetirement;private String attachmentRetirementCode;
     private Navigation navigation;private int navigationCount;
+    private final Navigation[] attachedNavigations=new Navigation[8];
     private volatile Wire wire;
     private volatile CloseBarrier closeBarrier;
     private int serial,bodyCursor,offerCursor;private boolean busy;
@@ -392,6 +402,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private void retireChildData(String child){
         children.remove(child);
         synchronized(controlGate){if(heldAttachments!=null){AttachedTarget original=heldAttachments.remove(child);if(original!=null)original.clearRequests();}
+        for(int i=0;i<attachedNavigations.length;i++)if(attachedNavigations[i]!=null&&Objects.equals(child,attachedNavigations[i].attachment.session)){
+            attachedNavigations[i].finish(navigationFailure("cdp_popup_navigation_retired",attachedNavigations[i].issued));attachedNavigations[i]=null;
+        }
         for(int i=0;i<controls.length;i++)if(controls[i]!=null&&Objects.equals(child,controls[i].session)){
             Control row=controls[i];
             // Detach does not acknowledge an original stream/abort operation.
@@ -828,10 +841,78 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         if(expired){if(controlFault==null)controlFault="cdp_control_timeout";close();throw failure(controlFault,effect);}
     }
     private void expireNavigation(boolean effect)throws Failure {
-        synchronized(controlGate){if(navigation==null)return;
-            long elapsed=clock.now()-navigation.born;
-            if(elapsed<0||elapsed>=navigation.timeout){navigation.finish(NAVIGATION_TIMED_OUT);close();throw failure("cdp_navigation_timeout",effect);}
+        synchronized(controlGate){
+            if(navigation!=null){long elapsed=clock.now()-navigation.born;
+                if(elapsed<0||elapsed>=navigation.timeout){navigation.finish(NAVIGATION_TIMED_OUT);close();throw failure("cdp_navigation_timeout",effect);}
+            }
+            for(int i=0;i<attachedNavigations.length;i++){
+                Navigation original=attachedNavigations[i];if(original==null)continue;
+                if(original.attachment.detached){original.finish(navigationFailure("cdp_popup_navigation_retired",original.issued));attachedNavigations[i]=null;continue;}
+                if(original.result()!=null)continue;
+                long elapsed=clock.now()-original.born;String code;
+                try{code=original.cancelled?"cdp_navigation_cancelled":original.retiring.getAsBoolean()?"cdp_popup_navigation_retired":
+                    !owned(original.sourceOwner)?"cdp_navigation_owner_changed":elapsed<0||elapsed>=original.timeout?"cdp_navigation_timeout":null;}
+                catch(RuntimeException|Error invalid){code="cdp_popup_navigation_owner_invalid";}
+                if(code!=null){
+                    original.finish(navigationFailure(code,original.issued));original.attachment.navigationFault=code;
+                    // Keep the bounded original id/session association until
+                    // its reply or native detach. Other attachments keep using
+                    // this Browser wire; this source cannot issue another nav.
+                }
+            }
         }
+    }
+    /** Native source supplies the proved original physical root. The retained
+     * attachment, never a caller session/target id, selects the wire route. */
+    Navigation navigateAttached(AttachedTarget original,BooleanSupplier sourceOwner,BooleanSupplier retiring,String url,String frame,int timeout)throws IOException {
+        guard(false);
+        if(!navigationUrl(url)||!MdoBrowserCdpNetworkFrames.identity(frame)||timeout<100||timeout>600000)throw failure("cdp_navigation_arguments_invalid",false);
+        try{return attachedNavigationCommand(original,sourceOwner,retiring,"Page.navigate",new JSONObject().put("url",url).put("frameId",frame),frame,timeout,false);}
+        catch(org.json.JSONException invalid){throw failure("cdp_navigation_arguments_invalid",false);}
+    }
+    Navigation historyAttached(AttachedTarget original,BooleanSupplier sourceOwner,BooleanSupplier retiring,String frame,int entry,int timeout)throws IOException {
+        guard(false);
+        if(!MdoBrowserCdpNetworkFrames.identity(frame)||timeout<100||timeout>600000)throw failure("cdp_navigation_arguments_invalid",false);
+        try{return attachedNavigationCommand(original,sourceOwner,retiring,"Page.navigateToHistoryEntry",new JSONObject().put("entryId",entry),frame,timeout,true);}
+        catch(org.json.JSONException invalid){throw failure("cdp_navigation_arguments_invalid",false);}
+    }
+    Navigation reloadAttached(AttachedTarget original,BooleanSupplier sourceOwner,BooleanSupplier retiring,String frame,String loader,int timeout)throws IOException {
+        guard(false);
+        if(!MdoBrowserCdpNetworkFrames.identity(frame)||!MdoBrowserCdpNetworkFrames.identity(loader)||timeout<100||timeout>600000)throw failure("cdp_navigation_arguments_invalid",false);
+        try{return attachedNavigationCommand(original,sourceOwner,retiring,"Page.reload",new JSONObject().put("loaderId",loader),frame,timeout,true);}
+        catch(org.json.JSONException invalid){throw failure("cdp_navigation_arguments_invalid",false);}
+    }
+    private void requireNavigationActive(BooleanSupplier retiring)throws Failure {
+        boolean stopping;try{stopping=retiring.getAsBoolean();}catch(RuntimeException|Error invalid){throw failure("cdp_popup_navigation_owner_invalid",false);}
+        if(stopping)throw failure("cdp_popup_navigation_retired",false);
+    }
+    private Navigation attachedNavigationCommand(AttachedTarget original,BooleanSupplier sourceOwner,BooleanSupplier retiring,String method,JSONObject params,String frame,int timeout,boolean receiptOnly)throws IOException {
+        if(retiring==null)throw failure("cdp_popup_navigation_owner_invalid",false);
+        requireNavigationActive(retiring);
+        admitProtectedCommand(original,sourceOwner,Math.min(5000,timeout));if(!original.resumeConfirmed())throw failure("cdp_popup_activation_required",false);
+        enter(Math.min(5000,timeout));byte[] bytes=null;Navigation ticket=null;boolean attempted=false;
+        try{
+            synchronized(controlGate){
+                guard(false);protectedAttachment(original,true);
+                requireNavigationActive(retiring);
+                if(!owned(sourceOwner))throw failure("cdp_attach_owner_changed",false);
+                if(original.navigationFault!=null)throw failure(original.navigationFault,false);
+                int slot=-1;for(int i=0;i<attachedNavigations.length;i++){
+                    if(attachedNavigations[i]==null){if(slot<0)slot=i;}
+                    else if(attachedNavigations[i].attachment==original)throw failure("cdp_navigation_pending",false);
+                }
+                if(slot<0||navigationCount>=4096)throw failure("cdp_navigation_limit",false);
+                if(serial==Integer.MAX_VALUE){close();throw failure("cdp_id_exhausted",false);}
+                int id=serial+1;bytes=MdoBrowserCdpJson.encode(id,method,params,original.session);
+                if(!owned(sourceOwner))throw failure("cdp_attach_owner_changed",false);
+                ticket=new Navigation(id,frame,clock.now(),timeout,receiptOnly,original,sourceOwner,retiring);
+                serial=id;navigationCount++;attachedNavigations[slot]=ticket;ticket.issued=true;attempted=true;
+            }
+            wire.send(bytes,Math.min(100,timeout));connectionGuard(true);expireNavigation(true);return ticket;
+        }catch(Failure failure){if(attempted){if(ticket!=null)ticket.finish(NAVIGATION_SEND_FAILED);close();}throw failure;}
+        catch(IOException|RuntimeException|Error failure){if(attempted){if(ticket!=null)ticket.finish(NAVIGATION_SEND_FAILED);close();}
+            throw failure(attempted?"cdp_navigation_send_failed":"cdp_navigation_dispatch_failed",attempted);
+        }finally{if(bytes!=null)Arrays.fill(bytes,(byte)0);busy=false;}
     }
     /** Fixed root-only native command. One asynchronous receipt leaves the
      * worker free to service paused offers/body cleanup before its reply.
@@ -901,12 +982,15 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     private boolean navigationReply(MdoBrowserCdpJson.Message message,boolean effect)throws Failure {
         synchronized(controlGate){
-            Navigation original=navigation;if(original==null||message.id!=original.id)return false;
-            if(message.session!=null){original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_mismatch",effect);}
-            if(message.failed){original.finish(new NavigationResult(true,false,false,false,message.error==-32601?"cdp_navigation_unsupported":"cdp_navigation_rejected",message.error!=-32601));navigation=null;return true;}
+            Navigation original=navigation;int attachedSlot=-1;
+            if(original==null||message.id!=original.id){original=null;for(int i=0;i<attachedNavigations.length;i++)if(attachedNavigations[i]!=null&&attachedNavigations[i].id==message.id){original=attachedNavigations[i];attachedSlot=i;break;}}
+            if(original==null)return false;
+            if(!Objects.equals(message.session,original.attachment==null?null:original.attachment.session)){original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_mismatch",effect);}
+            if(attachedSlot>=0&&original.result()!=null){attachedNavigations[attachedSlot]=null;return true;}
+            if(message.failed){original.finish(new NavigationResult(true,false,false,false,message.error==-32601?"cdp_navigation_unsupported":"cdp_navigation_rejected",message.error!=-32601));if(attachedSlot<0)navigation=null;else attachedNavigations[attachedSlot]=null;return true;}
             if(original.receiptOnly){
                 if(message.value.length()!=0){original.finish(NAVIGATION_REPLY_INVALID);close();throw failure("cdp_navigation_reply_invalid",effect);}
-                original.finish(new NavigationResult(true,true,false,false,null,true));navigation=null;return true;
+                original.finish(new NavigationResult(true,true,false,false,null,true));if(attachedSlot<0)navigation=null;else attachedNavigations[attachedSlot]=null;return true;
             }
             JSONObject value=message.value;Object frame=value.opt("frameId"),loader=value.opt("loaderId"),download=value.opt("isDownload"),error=value.opt("errorText");
             if(!original.frame.equals(frame)||value.has("loaderId")&&!MdoBrowserCdpNetworkFrames.identity(loader)||
@@ -917,7 +1001,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             boolean failed=error instanceof String&&!((String)error).isEmpty()&&!(isDownload&&error.equals("net::ERR_ABORTED"));
             String code=failed?(!known&&"net::ERR_ABORTED".equals(error)?"cdp_navigation_download_unproven":"cdp_navigation_failed"):null;
             if(!failed&&loader instanceof String)original.loader=(String)loader;
-            original.finish(new NavigationResult(true,!failed,known,isDownload,code,true,navigationError(error),value.has("loaderId")));navigation=null;return true;
+            original.finish(new NavigationResult(true,!failed,known,isDownload,code,true,navigationError(error),value.has("loaderId")));if(attachedSlot<0)navigation=null;else attachedNavigations[attachedSlot]=null;return true;
         }
     }
     private static String navigationError(Object error){
@@ -955,7 +1039,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 if(row.kind==ATTACH_RESUME&&result.ok){
                     controls[i]=null;controlCount--;row.attachment.resumed=true;resumed=row;break;
                 }
-                if(row.kind==ATTACH_DETACH&&result.ok){row.attachment.detached=true;children.remove(row.attachment.session);}
+                if(row.kind==ATTACH_DETACH&&result.ok){row.attachment.detached=true;children.remove(row.attachment.session);
+                    for(int n=0;n<attachedNavigations.length;n++)if(attachedNavigations[n]!=null&&attachedNavigations[n].attachment==row.attachment){attachedNavigations[n].finish(navigationFailure("cdp_popup_navigation_retired",attachedNavigations[n].issued));attachedNavigations[n]=null;}
+                }
                 if(row.kind>=BODY_READ&&Objects.equals(row.session,message.session)){
                     controls[i]=null;controlCount--;row.receipt.finish(result);
                     bodyReply(row,message,result,effect);return true;
@@ -984,7 +1070,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     int pendingControls()throws Failure {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
-        synchronized(controlGate){return controlCount+(navigation==null?0:1);}
+        synchronized(controlGate){int count=controlCount+(navigation==null?0:1);for(Navigation original:attachedNavigations)if(original!=null)count++;return count;}
     }
     int pendingBodies()throws Failure {
         if(Thread.currentThread()!=owner)throw failure("cdp_wrong_worker",false);
@@ -1319,6 +1405,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             first=closed.compareAndSet(false,true);
             if(!first)return; // the first close owns its durable native outcome
             if(navigation!=null){navigation.finish(navigation.issued?NAVIGATION_CLOSED:NAVIGATION_NOT_SENT);navigation=null;}
+            for(int i=0;i<attachedNavigations.length;i++)if(attachedNavigations[i]!=null){attachedNavigations[i].finish(attachedNavigations[i].issued?NAVIGATION_CLOSED:NAVIGATION_NOT_SENT);attachedNavigations[i]=null;}
             for(int i=0;i<controls.length;i++)if(controls[i]!=null){controls[i].receipt.finish(CONTROL_CANCELLED);controls[i]=null;}
             controlCount=0;controlKeys.clear();
             if(heldAttachments!=null){for(AttachedTarget original:heldAttachments.values())original.clearRequests();heldAttachments.clear();}

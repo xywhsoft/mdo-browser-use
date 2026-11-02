@@ -158,7 +158,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
         void network(){network=true;armed=null;contexts.clear();identities.clear();seen.clear();}
     }
     private final Peer peer;private final MdoBrowserCdpMarker.Lease lease;private final Contexts contexts;private final String target;
-    private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;
+    private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;private Network sourceNavigation;
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean cleanupFailed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean closeFinished=new java.util.concurrent.atomic.AtomicBoolean();
@@ -326,7 +326,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
         boolean physicalCurrent(){return !retiring&&!bound.closed.get()&&bound.lease.current()&&!bound.contexts.dirty;}
         boolean matchesPopup(MdoBrowserCdpSession.AttachedTarget original){return original!=null&&bound.target.equals(original.target)&&physicalCurrent();}
         String sourceFrame(){return bound.rootFrame;}String sourceLoader(){return bound.rootLoader;}
-        PopupSource popupSource()throws IOException{active();if(retiring)throw problem("cdp_network_retiring");if(popupSource==null)popupSource=new PopupSource(this);return popupSource;}
+        PopupSource popupSource()throws IOException{ordinary();active();if(retiring)throw problem("cdp_network_retiring");if(popupSource==null)popupSource=new PopupSource(this);return popupSource;}
         /** Ephemeral native selection, not a public entry-ID or URL lookup. */
         private static final class Selection {
             final int current,entry;final byte[] currentDestination,destination;final String action;
@@ -375,11 +375,13 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
             boolean pending(){return result()==null;}
             boolean receiptOnly(){return original!=null&&original.receiptOnly;}
             boolean sameDocument(){MdoBrowserCdpNetworkFrames.Traversal completed=proven;return selection!=null?completed!=null&&completed.sameDocument:original!=null&&original.matchesSameDocument(owner.bound.rootFrame);}
+            void cancelAttached(){if(owner.attachedSource==null)throw new IllegalStateException("An attached navigation source is required");if(original!=null)original.cancelAttached();}
             private boolean matchesDocument(String frame,String loader){
                 if(selection!=null){MdoBrowserCdpNetworkFrames.Traversal completed=proven;return completed!=null&&completed.origin.current()&&owner.bound.rootFrame.equals(frame)&&completed.loader.equals(loader);}
                 return sameDocument()?previous.current()&&owner.bound.rootFrame.equals(frame)&&previousLoader.equals(loader):original!=null&&original.matchesCommittedLoader(frame,loader);}
             void checkDocument(MdoBrowserCdpBinding document,MdoBrowserCdpWorker.Deadline deadline)throws IOException {
                 owner.active();document.current();
+                if(owner.attachedSource!=null&&!owner.attachedSource.ownsDocument(document.peer))throw problem("cdp_navigation_owner_changed");
                 if(selection!=null){
                     MdoBrowserCdpNetworkFrames.Traversal completed=proven;if(completed==null)throw problem("cdp_navigation_document_unproven");
                     if(!owner.bound.target.equals(document.target)||!matchesDocument(document.rootFrame,document.rootLoader))throw problem("cdp_navigation_document_changed");
@@ -408,13 +410,21 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
                 owner.active();document.current();
             }
         }
-        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private final MdoBrowserCdpNetworkRequests requests;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
+        private final MdoBrowserCdpBinding bound;private final MdoBrowserCdpNetworkFrames frames;private final MdoBrowserCdpNetworkRequests requests;private final MdoBrowserCdpPopupSource attachedSource;private boolean enableAttempted,responsesAttempted,enabled,retiring,disableAttempted,responsesDisabled;
         private Network(MdoBrowserCdpBinding bound)throws IOException {
-            this.bound=bound;frames=new MdoBrowserCdpNetworkFrames(bound.rootFrame,bound.rootLoader);requests=new MdoBrowserCdpNetworkRequests(bound.rootFrame);
+            this.bound=bound;attachedSource=null;frames=new MdoBrowserCdpNetworkFrames(bound.rootFrame,bound.rootLoader);requests=new MdoBrowserCdpNetworkRequests(bound.rootFrame);
             final MdoBrowserCdpNetworkFrames ancestry=frames;final MdoBrowserCdpNetworkRequests lineage=requests;
             bound.observe((method,child,params)->{ancestry.event(method,child,params);lineage.event(method,child,params);});bound.lease.transfer(bound,this);
         }
+        /** Navigation-only view of the original proved physical source. Its
+         * existing ledgers, response guard and lease ownership are retained;
+         * never enable/disable Fetch or promote a document binding. */
+        private Network(MdoBrowserCdpBinding bound,MdoBrowserCdpPopupSource source)throws IOException {
+            this.bound=bound;attachedSource=source;frames=source.navigationFrames();requests=source.navigationRequests();enabled=true;
+        }
+        private void ordinary()throws IOException {if(attachedSource!=null)throw problem("cdp_network_scope_invalid");}
         void enableResponses(int timeoutMs)throws IOException {
+            ordinary();
             bound.current();if(enableAttempted)throw problem("cdp_network_enable_replayed");
             if(timeoutMs<10||timeoutMs>5000)throw problem("cdp_arguments_invalid");
             enableAttempted=true;
@@ -438,7 +448,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
         boolean poll(int timeoutMs)throws IOException {active();return bound.poll(timeoutMs);}
         boolean poll(int receiveMs,int timeoutMs)throws IOException {active();return bound.peer.poll(receiveMs,timeoutMs);}
         boolean idle()throws IOException {active();return bound.peer.idle();}
-        private void active()throws IOException {bound.current();if(!enabled)throw problem("cdp_network_not_enabled");}
+        private void active()throws IOException {bound.current();if(!enabled)throw problem("cdp_network_not_enabled");if(attachedSource!=null)attachedSource.navigationCurrent();}
         private void control()throws IOException {bound.current();if(!responsesAttempted)throw problem("cdp_network_not_enabled");}
         MdoBrowserCdpSession.ControlReceipt continuePausedRequest()throws IOException {control();return bound.peer.continuePausedRequest();}
         MdoBrowserCdpSession.ControlReceipt abortPausedRequest()throws IOException {control();return bound.peer.abortPausedRequest();}
@@ -530,22 +540,24 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
             catch(IOException failure){if(Arrays.asList("cdp_binding_timeout","cdp_navigation_document_unproven","cdp_navigation_destination_invalid").contains(failure.getMessage())){bound.current();return null;}throw failure;}
         }
         boolean responsesMayHaveOccurred(){return responsesAttempted;}
-        void cancelTransfers()throws IOException {active();retiring=true;bound.peer.cancelTransfers();}
+        void cancelTransfers()throws IOException {ordinary();active();retiring=true;bound.peer.cancelTransfers();}
         boolean transfersDrained()throws IOException {active();return bound.peer.pendingOffers()==0&&bound.peer.pendingBodies()==0&&bound.peer.pendingControls()==0;}
         void disableResponses(int timeoutMs)throws IOException {
+            ordinary();
             active();if(timeoutMs<10||timeoutMs>5000)throw problem("cdp_arguments_invalid");
             if(disableAttempted)throw problem("cdp_network_disable_replayed");
             if(!transfersDrained())throw problem("cdp_network_transfers_pending");disableAttempted=true;
             bound.call("Fetch.disable",new JSONObject(),null,timeoutMs,true);bound.current();responsesDisabled=true;enabled=false;
         }
         void drainDisabledControls(int receiveMs,int timeoutMs)throws IOException {
+            ordinary();
             bound.current();if(!responsesDisabled)throw problem("cdp_network_disable_unconfirmed");bound.peer.poll(receiveMs,timeoutMs);
         }
         boolean responsesDisabled(){return responsesDisabled;}
         int cleanupState(){if(!bound.closed.get())return 0;if(!bound.closeFinished.get())return 1;if(bound.cleanupFailed.get())return 3;return bound.peer.closeState();}
         boolean cleanupConfirmed(){return cleanupState()==2;}
         boolean cleanupPending(){return cleanupState()==1;}
-        @Override public void close(){frames.close();requests.close();bound.lease.untrack(this);bound.close();}
+        @Override public void close(){if(attachedSource!=null)throw new IllegalStateException("Navigation view does not own the physical source");frames.close();requests.close();bound.lease.untrack(this);bound.close();}
     }
     private static Context match(Peer peer,Contexts contexts,MdoBrowserCdpMarker.Ticket ticket,long started,int timeout,MdoBrowserCdpMarker.Lease lease) throws IOException,JSONException {
         peer.call("Runtime.enable",new JSONObject(),remaining(started,timeout,lease));
@@ -605,6 +617,11 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     }
     void attachDownloads(MdoBrowserCdpDownloads.Connection downloads)throws IOException {
         current();if(peer instanceof MdoBrowserCdpPopupSource){((MdoBrowserCdpPopupSource)peer).downloads(downloads);return;}if(!(peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer))throw problem("cdp_attached_binding_required");((MdoBrowserCdpPopupBroker.DocumentPeer)peer).downloads(downloads);
+    }
+    Network sourceNavigation()throws IOException {
+        current();if(!lease.physicalNetwork()||!(peer instanceof MdoBrowserCdpPopupSource))throw problem("cdp_popup_navigation_source_required");
+        MdoBrowserCdpPopupSource original=(MdoBrowserCdpPopupSource)peer;original.navigationCurrent();
+        if(sourceNavigation==null)sourceNavigation=new Network(this,original);return sourceNavigation;
     }
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){
