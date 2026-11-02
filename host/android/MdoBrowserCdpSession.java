@@ -253,13 +253,14 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         final String target,type,opener;final boolean waiting;
         private final MdoBrowserCdpSession owner;
         private final String session;private final boolean valid;private boolean used;
-        private volatile boolean resumed,detached,retirementAcknowledged;private boolean managedResumeAttempted,retirementAttempted;
+        private volatile boolean resumed,detached,retirementAcknowledged,autoAttachStopConfirmed;private boolean managedResumeAttempted,retirementAttempted,autoAttachStopAttempted;
         private String navigationFault;
         private boolean protectionAttempted;private volatile boolean protectionConfirmed;
         private final java.util.List<PausedEvent> initialRequests=new ArrayList<>();private volatile int retainedRequests;
         private final java.util.List<PausedEvent> protectedResponses=new ArrayList<>();private volatile int retainedResponses;
         boolean resumeConfirmed(){return resumed;}boolean detachConfirmed(){return detached;}
         boolean retirementAcknowledged(){return retirementAcknowledged;}
+        boolean autoAttachStopConfirmed(){return autoAttachStopConfirmed;}
         boolean protectionConfirmed(){return protectionConfirmed;}int retainedRequestCount(){return retainedRequests;}
         int retainedResponseCount(){return retainedResponses;}
         private void clearRequests(){initialRequests.clear();protectedResponses.clear();retainedRequests=retainedResponses=0;}
@@ -318,6 +319,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private PausedEvent paused;private AttachedTarget attached;private long activeStarted;private int activeTimeout;private String controlFault;
     private BooleanSupplier attachmentCommandOwner;
     private AttachedTarget attachmentRetirementTarget;private BooleanSupplier attachmentRetirement;private String attachmentRetirementCode;
+    /** One fixed root-only cleanup RPC. It never grants ordinary admission or
+     * survives its serialized call. The reply ID is bound before wire send. */
+    private static final class AutoAttachRetirement {
+        final AttachedTarget original;final JSONObject params;private int commandId;
+        private AutoAttachRetirement(AttachedTarget original,JSONObject params){this.original=original;this.params=params;}
+    }
+    private AutoAttachRetirement autoAttachRetirement;
     private Navigation navigation;private int navigationCount;
     private final Navigation[] attachedNavigations=new Navigation[8];
     private volatile Wire wire;
@@ -433,6 +441,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     }
     private boolean retiringReceipt(MdoBrowserCdpJson.Message message){
         if(message.event())return false;
+        AutoAttachRetirement fixed=autoAttachRetirement;
+        if(fixed!=null&&fixed.commandId!=0&&fixed.commandId==message.id)return true;
         synchronized(controlGate){
             if(retiredBodyReads.containsKey(message.id))return true;
             for(Control row:controls)if(row!=null&&row.id==message.id&&(row.offer!=null||row.body!=null))return true;
@@ -549,7 +559,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
      * document/source RPC or body admission. Native end removes its identity. */
     private void admitProtectedRetirement(AttachedTarget original,BooleanSupplier quiesced,int timeout)throws IOException{
         guard(false);synchronized(controlGate){
-            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||original.detached||original.retirementAttempted||
+            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||original.detached||original.retirementAttempted||nativeDetachedChildren.contains(original.session)||
                 heldAttachments==null||heldAttachments.get(original.session)!=original||!children.contains(original.session)&&!cleanupChildren.contains(original.session))throw failure("cdp_attach_event_invalid",false);
         }
         if(timeout<10||timeout>5000||quiesced==null)throw failure("cdp_arguments_invalid",false);
@@ -591,6 +601,27 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             if(reply.length()!=0){close();throw failure("cdp_attach_detach_reply_invalid",true);}
             guard(true);original.retirementAcknowledged=true;
         }finally{attachmentCommandOwner=null;}
+    }
+    /** Disable only this original root's automatic child attachment after data
+     * authority ends. The matching ACK is independent of every descendant's
+     * native detach and each paused request/body receipt. No arbitrary method,
+     * target, parameter or Browser-global command is accepted; never replay. */
+    void disableProtectedAutoAttach(AttachedTarget original,BooleanSupplier quiesced,int timeout)throws IOException {
+        guard(false);
+        if(original!=null&&original.owner==this&&original.autoAttachStopAttempted)throw failure("cdp_attach_autoattach_replayed",false);
+        admitProtectedRetirement(original,quiesced,timeout);
+        if(!original.resumed)throw failure("cdp_attach_resume_unconfirmed",false);
+        final JSONObject params;
+        try{params=new JSONObject().put("autoAttach",false).put("waitForDebuggerOnStart",false).put("flatten",true);}
+        catch(org.json.JSONException error){throw failure("cdp_arguments_invalid",false);}
+        AutoAttachRetirement fixed=new AutoAttachRetirement(original,params);
+        fenceChild(original.session);original.autoAttachStopAttempted=true;
+        attachmentCommandOwner=quiesced;autoAttachRetirement=fixed;
+        try{
+            JSONObject reply=call("Target.setAutoAttach",params,original.session,timeout,true,fixed);
+            if(reply.length()!=0){close();throw failure("cdp_attach_autoattach_reply_invalid",true);}
+            guard(true);original.autoAttachStopConfirmed=true;
+        }finally{autoAttachRetirement=null;attachmentCommandOwner=null;}
     }
     private boolean protectedRetirementBusy(AttachedTarget original){
         synchronized(controlGate){
@@ -1368,12 +1399,17 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     /** Serialized RPC. A sent effect may have occurred even if its reply is
      * lost. Failure never retries. Rejected caller arguments leave I/O alone. */
     JSONObject call(String method,JSONObject params,String session,int timeoutMs,boolean effect) throws IOException {
+        return call(method,params,session,timeoutMs,effect,null);
+    }
+    private JSONObject call(String method,JSONObject params,String session,int timeoutMs,boolean effect,AutoAttachRetirement fixed) throws IOException {
         enter(timeoutMs);byte[] outgoing=null;boolean attempted=false,replied=false;
         try {
             long started=clock.now();activeStarted=started;activeTimeout=timeoutMs;int packetsSeen=0;
-            if(!admitted(session))throw failure("cdp_session_invalid",false);
+            if(fixed==null?!admitted(session):fixed!=autoAttachRetirement||fixed.params!=params||
+                    !"Target.setAutoAttach".equals(method)||!Objects.equals(fixed.original.session,session))throw failure("cdp_session_invalid",false);
             if(serial==Integer.MAX_VALUE){close();throw failure("cdp_id_exhausted",false);}
-            final int commandId=++serial;outgoing=MdoBrowserCdpJson.encode(commandId,method,params,session);
+            final int commandId=++serial;if(fixed!=null)fixed.commandId=commandId;
+            outgoing=MdoBrowserCdpJson.encode(commandId,method,params,session);
             int budget=remaining(started,timeoutMs,false);attempted=true;wire.send(outgoing,budget);
             Arrays.fill(outgoing,(byte)0);outgoing=null;
             for(;;) {
@@ -1397,7 +1433,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                         else if(message.id!=commandId||!Objects.equals(message.session,session))throw failure("cdp_reply_mismatch",effect);
                     }
                 }finally{attachmentCommandOwner=commandOwner;}
-                if(!admitted(session)){
+                if(fixed==null&&!admitted(session)){
                     Failure detached=failure("cdp_session_detached",effect);
                     try{if(attachmentRetirementTarget!=null&&attachmentRetirement!=null&&attachmentRetirement.getAsBoolean())detached.attachedCommandCancelled=true;}catch(RuntimeException|Error ignored){}
                     throw detached;

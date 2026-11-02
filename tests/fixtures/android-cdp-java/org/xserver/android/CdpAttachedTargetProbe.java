@@ -312,10 +312,100 @@ public final class CdpAttachedTargetProbe {
             failure("cdp_attach_event_invalid",()->test.client.detachProtectedAttachment(original,()->true,100));check(test.wire.sent.size()==sent);
         }
     }
+    private static void protectedAutoAttachRetirement()throws Exception{
+        String[] modes={"ack","native-first","native-after","late-attach","pause-retained","native-end-before","rejected","unsupported","malformed","wrong-session","unknown-session","wrong-id","timeout","send-failure","owner-loss","owner-during-event","global-loss","reentry"};
+        for(boolean dataRetired:new boolean[]{false,true})for(String mode:modes)try(Case test=new Case()){
+            AtomicBoolean permitted=new AtomicBoolean(true);int[] nativeEvents={0},rootData={0},peerData={0},lateAttach={0};
+            test.action=(method,child,params)->{
+                if(method.equals("Target.attachedToTarget")&&child==null)test.metadata.add(test.client.retainAttachedTarget());
+                else if(method.equals("Target.attachedToTarget")){
+                    check("auto-owned".equals(child)&&"auto-late".equals(params.optString("sessionId")));lateAttach[0]++;
+                    test.client.admitChild("auto-late");test.client.fenceChild("auto-late");
+                }else if(method.equals("Target.detachedFromTarget")){
+                    check("auto-owned".equals(child)&&"auto-leaf".equals(params.optString("sessionId")));nativeEvents[0]++;
+                    test.client.nativeChildDetached("auto-leaf");test.client.retireChild("auto-leaf");
+                    if(mode.equals("owner-during-event"))permitted.set(false);
+                }else if(method.equals("Fetch.requestPaused"))test.client.retainAttachedRequest(test.metadata.get(0));
+                else if(method.equals("Runtime.executionContextCreated")){
+                    if("auto-owned".equals(child))rootData[0]++;else if("auto-peer".equals(child))peerData[0]++;else throw new IOException("cdp_fixture_event_invalid");
+                }else throw new IOException("cdp_fixture_event_invalid");
+            };
+            test.wire.after=command->{String method=command.getString("method");int id=command.getInt("id");String child=command.optString("sessionId",null);
+                if(method.equals("Fetch.enable")||method.equals("Runtime.runIfWaitingForDebugger")||method.equals("Runtime.enable")){test.wire.add(ack(id,child));return;}
+                check(method.equals("Target.setAutoAttach")&&command.length()==4&&"auto-owned".equals(child));
+                JSONObject params=command.getJSONObject("params");check(params.length()==3&&Boolean.FALSE.equals(params.opt("autoAttach"))&&Boolean.FALSE.equals(params.opt("waitForDebuggerOnStart"))&&Boolean.TRUE.equals(params.opt("flatten")));
+                if(mode.equals("send-failure"))throw new IOException("private-unreported-transport-detail");
+                if(mode.equals("timeout"))return;
+                if(mode.equals("owner-loss"))permitted.set(false);
+                if(mode.equals("global-loss"))test.alive.set(false);
+                test.wire.add(new JSONObject().put("method","Runtime.executionContextCreated").put("sessionId","auto-owned").put("params",new JSONObject()));
+                test.wire.add(ack(id-1,"auto-owned")); // old data reply cannot satisfy this cleanup
+                test.wire.add(new JSONObject().put("method","Runtime.executionContextCreated").put("sessionId","auto-peer").put("params",new JSONObject()));
+                JSONObject nativeEnd=new JSONObject().put("method","Target.detachedFromTarget").put("sessionId","auto-owned").put("params",new JSONObject().put("sessionId","auto-leaf"));
+                if(mode.equals("native-first")||mode.equals("owner-during-event"))test.wire.add(nativeEnd);
+                if(mode.equals("late-attach"))test.wire.add(attached("auto-late").put("sessionId","auto-owned"));
+                if(mode.equals("reentry")){
+                    try{failure("cdp_reentry_forbidden",()->test.client.disableProtectedAutoAttach(test.metadata.get(1),()->true,100));}
+                    catch(IOException error){throw error;}catch(Exception error){throw new IOException("cdp_fixture_reentry_invalid");}
+                }
+                JSONObject reply=ack(mode.equals("wrong-id")?id+1:id,mode.equals("wrong-session")?"auto-peer":mode.equals("unknown-session")?"unseen-native-session":"auto-owned");
+                if(mode.equals("malformed"))reply.getJSONObject("result").put("unexpected",true);
+                if(mode.equals("rejected")||mode.equals("unsupported")){reply.remove("result");reply.put("error",new JSONObject().put("code",mode.equals("unsupported")?-32601:-32000).put("message","private-unreported-provider-detail"));}
+                test.wire.add(reply);if(mode.equals("native-after"))test.wire.add(nativeEnd);
+            };
+            test.wire.add(attached("auto-owned"));test.wire.add(attached("auto-peer"));check(test.client.poll(10,100)&&test.client.poll(10,100));
+            MdoBrowserCdpSession.AttachedTarget original=test.metadata.get(0),peer=test.metadata.get(1);
+            test.client.protectAttachedTarget(original,100);int sent=test.wire.sent.size();
+            failure("cdp_attach_resume_unconfirmed",()->test.client.disableProtectedAutoAttach(original,()->true,100));check(test.wire.sent.size()==sent&&!original.autoAttachStopConfirmed());
+            test.client.resumeProtectedAttachment(original,()->true,100);test.client.protectAttachedTarget(peer,100);test.client.resumeProtectedAttachment(peer,()->true,100);
+            test.client.admitChild("auto-leaf");test.client.fenceChild("auto-leaf");
+            if(mode.equals("pause-retained")){
+                test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","auto-owned").put("params",new JSONObject().put("requestId","original-pending")));
+                check(test.client.poll(10,100)&&original.retainedRequestCount()==1);
+            }
+            if(dataRetired)test.client.fenceChild("auto-owned");
+            sent=test.wire.sent.size();failure("cdp_arguments_invalid",()->test.client.disableProtectedAutoAttach(original,null,100));
+            failure("cdp_arguments_invalid",()->test.client.disableProtectedAutoAttach(original,()->true,9));
+            failure("cdp_attach_owner_changed",()->test.client.disableProtectedAutoAttach(original,()->false,100));
+            try(Case foreign=new Case()){failure("cdp_attach_event_invalid",()->foreign.client.disableProtectedAutoAttach(original,()->true,100));check(foreign.wire.sent.isEmpty());}
+            check(test.wire.sent.size()==sent);
+            if(mode.equals("native-end-before")){
+                test.client.nativeChildDetached("auto-owned");
+                failure("cdp_attach_event_invalid",()->test.client.disableProtectedAutoAttach(original,()->true,100));check(test.wire.sent.size()==sent);continue;
+            }
+            boolean success=Arrays.asList("ack","native-first","native-after","late-attach","pause-retained","reentry").contains(mode);
+            if(success){
+                test.client.disableProtectedAutoAttach(original,permitted::get,100);
+                check(original.autoAttachStopConfirmed()&&!original.retirementAcknowledged()&&!original.detachConfirmed());
+                check(rootData[0]==0&&peerData[0]==1&&nativeEvents[0]==(mode.equals("native-first")?1:0)&&lateAttach[0]==(mode.equals("late-attach")?1:0));
+                check(test.wire.closes==0&&test.wire.sent.size()==sent+1);
+                if(mode.equals("native-after")){check(test.client.poll(10,100));check(nativeEvents[0]==1);}
+                if(mode.equals("pause-retained")){
+                    check(original.retainedRequestCount()==1);
+                    failure("cdp_attach_retirement_busy",()->test.client.detachProtectedAttachment(original,()->true,100));check(test.wire.sent.size()==sent+1);
+                }
+                failure("cdp_session_invalid",()->test.client.call("Runtime.enable",new JSONObject(),"auto-owned",100,false));
+                failure("cdp_attach_event_invalid",()->test.client.callAttachedDocument(original,()->true,()->false,"Runtime.enable",new JSONObject(),null,100,false));
+                test.client.call("Runtime.enable",new JSONObject(),"auto-peer",100,false);check(test.wire.closes==0);
+                failure("cdp_attach_autoattach_replayed",()->test.client.disableProtectedAutoAttach(original,()->true,100));
+            }else{
+                String code=mode.equals("malformed")?"cdp_attach_autoattach_reply_invalid":mode.equals("rejected")?"cdp_command_rejected":mode.equals("unsupported")?"cdp_method_unsupported":mode.equals("timeout")||mode.equals("wrong-id")?"cdp_command_timeout":mode.startsWith("owner-")||mode.equals("global-loss")?"cdp_owner_changed":mode.endsWith("session")?"cdp_reply_mismatch":"cdp_transport_failed";
+                try{test.client.disableProtectedAutoAttach(original,permitted::get,100);throw new AssertionError("Auto-attach cleanup failure was lost");}
+                catch(MdoBrowserCdpSession.Failure error){check(code.equals(error.getMessage())&&error.getCause()==null&&error.effectMayHaveOccurred!=mode.equals("unsupported"));}
+                check(!original.autoAttachStopConfirmed()&&!original.retirementAcknowledged()&&test.wire.sent.size()==sent+1);
+                try{test.client.disableProtectedAutoAttach(original,()->true,100);throw new AssertionError("Auto-attach cleanup replayed");}catch(IOException expected){}
+                check(test.wire.sent.size()==sent+1);
+                if(mode.equals("rejected")||mode.equals("unsupported")){
+                    check(test.wire.closes==0);test.client.call("Runtime.enable",new JSONObject(),"auto-peer",100,false);check(test.wire.closes==0);
+                    failure("cdp_session_invalid",()->test.client.call("Runtime.enable",new JSONObject(),"auto-owned",100,false));
+                }else check(test.wire.closes==1);
+            }
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();java.util.concurrent.ExecutorService worker=Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{protectedDetach();dataRetirementPending();responseStreamScopes();protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{protectedAutoAttachRetirement();protectedDetach();dataRetirementPending();responseStreamScopes();protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"scoped_protected_retirement\":true,\"retirement_ack_is_not_native_event\":true,\"other_attachment_body_retained\":true,\"no_detach_replay\":true,\"data_retired_native_identity\":true,\"data_retired_rpc_denied\":true,\"data_retired_pauses_retained\":true,\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"scoped_protected_retirement\":true,\"retirement_ack_is_not_native_event\":true,\"other_attachment_body_retained\":true,\"no_detach_replay\":true,\"data_retired_native_identity\":true,\"data_retired_rpc_denied\":true,\"data_retired_pauses_retained\":true,\"fixed_root_autoattach_retirement\":true,\"autoattach_ack_not_native_end\":true,\"autoattach_cleanup_reply_isolated\":true,\"autoattach_failure_no_replay\":true,\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
     }
 }

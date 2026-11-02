@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E190)
+## Complete development host APK (current: E191)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`5e2b2dedd0bf248ec5c3911b21ad748c354a79a7e7a274e0ca5ecc4d49176299`.
+`60502c5e18cc470dec8212e0cd87ab42ff9286ab1449f2a181f44f3522f40423`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6379,3 +6379,38 @@ actual DEX/source/payload/signature checks. Root-specific auto-attach disable,
 remaining descendant/control/public teardown joins and full Activity/provider/
 device qualification remain open. Automation/takeover gates and the deferred
 phone/WebView arrangement remain in force.
+
+### Fixed original-root auto-attach retirement primitive (E191)
+
+The native Session now has one private, fixed Target.setAutoAttach(false) cleanup
+operation addressed to the exact retained original root, after ordinary data
+admission is fenced. Its typed command context binds the native original,
+internally constructed parameters, original session and serialized command ID.
+Only its matching reply can cross the data fence; ordinary Runtime/DOM/source
+RPC stays unavailable, and another original page retains its separate admission.
+It does not send a Browser-global disable. Wrong/reused native identities,
+reentry and replay are rejected; actual native end also forbids a new dispatch.
+
+The fixed ACK is not a descendant detach, source abort/stream close or final root
+detach receipt. Existing native pauses stay charged after success and still
+prevent premature root retirement. Thirty-six new direct worker cases cover both
+live-data and already-fenced originals, ACK/native-event ordering, late original
+data and child attachment events, peer isolation, ownership loss, protocol/send/
+timeout failures and no replay. The direct control gate now passes 4,639 checks
+(1,434 added); its two real native transport sessions are unchanged.
+
+Fresh full native verification passes 562 modes / 23,523 reported popup checks,
+generic worker 300, 134 current input hashes, API26/JNI/transport and ASan/UBSan.
+All prior 562 business results match with no semantic or timing differences in
+this run. Actual frontend/JVM 20 and Python 178/180 pass (two existing Windows
+symlink-privilege skips). The rebuilt signed APK above has the actual fixed
+cleanup method, native context class/private constructor and original/params/ID
+fields, with source/payload/package/signature checks. This is controlled worker
+coverage, not Android framework/provider/device qualification.
+
+The broker has not yet adopted this primitive in its human-retirement path.
+Joining all original descendants and retiring raw paused requests/in-flight
+continuation receipts remain required before that path can be enabled. Public
+protected takeover and overall Android automation stay gated; phone/current
+WebView checks remain deferred. Windows/shared resources are unchanged and their
+prior verified results are explicitly reused. The overall goal remains active.

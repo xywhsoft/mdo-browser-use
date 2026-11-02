@@ -14804,3 +14804,66 @@ the full public input/capture/chooser teardown join remain required. Primary
 Chromium review is saved privately for that next implementation; it does not
 qualify the installed WebView. Public takeover/Android automation stay gated,
 phone/current WebView stays deferred, and the full goal remains active.
+
+## E191 — fixed root-only auto-attach retirement after data loss
+
+Added a private native Session primitive that disables automatic attachment only
+on the exact retained original root. It uses the existing serialized dispatcher
+and a typed, temporary command context binding original native object, internal
+fixed parameters, session and command ID. Ordinary data admission is revoked
+before dispatch; only this original command's reply can cross that fence. No
+generic cleanup RPC, caller-selected protocol parameters or Browser-global
+disable is exposed. A native-ended original cannot dispatch; reentry and replay
+are rejected. Timeout/corruption/ownership loss retain the existing fail-closed
+behavior. A terminal protocol rejection preserves the other page's live wire
+without restoring the old root's data authority or replaying its cleanup.
+
+Actual ACK, descendant native events, paused request/body receipts and final root
+detach remain independent. ACK success leaves retained native pauses charged and
+root detach blocked until their cleanup is proved. The primitive is intentionally
+not wired into the broker's public/human-retirement coordinator yet: raw paused
+requests and cancelled synchronous continuation receipts still require qualified
+retirement before that integration.
+
+Thirty-six new direct original-worker cases cover both initially admitted and
+already-data-fenced roots, fixed command scope/parameters, ACK before/after native
+child end, late native child attachment and old data/replies, peer admission,
+pending-pause retention, native end before dispatch, bad/unsupported replies,
+wrong session/ID, send/timeout/ownership failures, foreign identity, reentry and
+no replay. The control gate passes 4,639 checks versus 3,205 (+1,434); two real
+native transport sessions remain unchanged. Preserve
+`.mdo/E191-retirement-controls.log`.
+
+Fresh native verification passes 562 modes / 23,523 reported popup checks,
+generic worker 300, 134 current hashes, API26/JNI/kernel transport and ASan/UBSan.
+All 562 previous business outputs were compared with no semantic or timing
+differences in this run. Fresh actual frontend/JVM 20 and Python 178/180 pass
+(two existing Windows symlink-privilege skips). Evidence:
+`.mdo/E191-native.log`, `.mdo/E191-review-native.log`,
+`.mdo/E191-verification.json` and the original E190 baseline saved as
+`.mdo/E191-baseline-native.json`.
+
+The signed APK remains 6,591,809 bytes, SHA-256
+`60502c5e18cc470dec8212e0cd87ab42ff9286ab1449f2a181f44f3522f40423`.
+Actual DEX verifies disableProtectedAutoAttach, autoAttachStopConfirmed and the
+fixed context's native original/params/command-ID fields and private constructor,
+in addition to existing lifecycle/source/payload/package/signature checks. The
+first private DEX check incorrectly searched for a constructor as an ordinary
+method; inspecting the actual XML proved it is a separate constructor element.
+Only that private checker was corrected, then DEX and complete verification
+passed without rebuilding or changing product inputs. Preserve the initial
+`.mdo/E191-dex.log`, corrected `.mdo/E191-dex-fixed.log` and
+`.mdo/E191-dex-methods.json`; the finish wrapper's exit 1 was this checker error,
+not a product/build failure.
+
+The E190 local instance remained healthy before deployment (PID/path/config/
+listener/HTTP verified). Exact-stop, reviewed apply and start reused the same
+development deployment; the replacement instance passed those identity checks.
+Windows/shared host/page/plugin/SDK and the E184 archive are unchanged; JS 505,
+mounted control 22, public SDK/visual and packed runtime results are current-hash
+reuse. No extra source/Home/app/dependency copy, model request, phone/provider
+change, installation or publication was used. These are controlled native-worker
+checks, not framework/provider/device qualification. Full raw-pause/continuation/
+descendant and public UI/input/capture/chooser teardown joins remain open;
+automation/takeover gates and the deferred phone/current-WebView arrangement
+stay in force. The overall goal remains active.
