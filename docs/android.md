@@ -6261,3 +6261,19 @@ Windows native success/fault-injected UI checks pass. The signed APK contains
 this updated UI; Android Activity/provider/device verification remains deferred.
 The E183 native 529/frontend 20 evidence is unchanged hash-checked reuse. Public
 Android automation and protected takeover gates remain unavailable.
+
+
+### Pre-acknowledgement startup cancellation (E185)
+
+Ten additional product/native-worker cases cancel the same-view return while
+native marker proof or Fetch.enable acknowledgement is still pending. Stop,
+close, channel loss, queued late ACK, retained bytes, explicit fresh retry and
+uncertain native close are covered. No product defect was reproduced; existing
+code preserves manual control and denies retry when exact source cleanup is
+unconfirmed. Native close receipts do not fabricate a Fetch.disable ACK.
+
+Fresh native 539 and frontend 20 gates pass. E184 product/artifacts and Windows
+runtime checks are unchanged hash-checked reuse; the APK above stays current.
+Controlled peers do not qualify an installed Android provider. Public protected
+takeover/in-flight/descendant integration and Activity/device checks remain open;
+the phone/current WebView stay deferred and Android automation remains unavailable.

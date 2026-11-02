@@ -2722,7 +2722,7 @@ public final class CdpPopupWorkerProbe {
         int before=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.preparationReplies==before+1,host,true);
         check(product.preparationReply.optBoolean("ok"));JSONObject oldFrame=product.preparationReply.getJSONArray("frames").getJSONObject(0);
         boolean retry=name.equals("retry")||name.equals("complete-retry")||name.equals("cancel-retry"),expectFailure=name.startsWith("failure-"),preflight=name.startsWith("preflight-");
-        if(name.startsWith("complete")){
+        if(name.startsWith("complete")||name.equals("startup-enable-complete-stop-retry")){
             backend.wire.add(responsePaused("response-extra-return","source-complete"));waitFor(()->{try{return downloads.list().length==1;}catch(IOException error){throw new AssertionError(error);}},host,true);file=downloads.list()[0].id;
             downloads.accept(file,65536,3000);final String selected=file;waitFor(()->{try{return downloads.get(selected).terminal();}catch(IOException error){throw new AssertionError(error);}},host,true);check(downloads.get(file).verified);
         }
@@ -2732,6 +2732,7 @@ public final class CdpPopupWorkerProbe {
         // Controlled native user navigation changes the physical document;
         // no mdo URL command or replacement view performs this transition.
         view.nativeUrl="https://private.invalid/manual-page#retained";check(product.views.navigation("owned",view));product.loading.put("owned",false);long epoch=product.views.epoch("owned",view);
+        if(name.startsWith("startup-"))return startupPopupReturn(name.substring("startup-".length()),host,backend,product,view,renderer,owner,handoff,downloads,file,worlds,constructions,epoch);
         CdpNetworkBindingProbe.Context[] fresh={null};MdoBrowserCdpMarker[] freshMarker={null};JSONObject[] enabled={null};CdpBindingProbe.Wire[] enabledWire={null};
         AtomicInteger attempts=new AtomicInteger();String refusal=null;
         product.networkStartHook=(marker,exact,quota)->{
@@ -2829,6 +2830,71 @@ public final class CdpPopupWorkerProbe {
             product.loading.put("owned",false);if(fresh[0]!=null&&enabled[0]!=null&&product.manualControl("owned"))enabledWire[0].queue(enabled[0]);
             product.retireOrdinaryNetwork("owned");product.retire("owned",view);
             waitFor(()->{product.pollNetwork("owned");return !product.hasPhysicalNetwork("owned")&&product.downloadBudget.used()==0;},host,true);
+        }
+    }
+    /** Cancel the actual product rearm while its native Fetch acknowledgement
+     * is still withheld, rather than cancelling a queued ready UI callback. */
+    private static JSONObject startupPopupReturn(String name,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer,
+        MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpDownloads downloads,String file,int worlds,int constructions,long epoch)throws Exception {
+        CdpNetworkBindingProbe.Context[] fresh={null};JSONObject[] enable={null};CdpBindingProbe.Wire[] wire={null};AtomicInteger attempts=new AtomicInteger();
+        MdoBrowserCdpMarker[] originalMarker={null};
+        boolean proof=name.startsWith("proof-"),closed=name.endsWith("-close"),channel=name.endsWith("-channel"),retry=name.endsWith("-retry"),queued=name.equals("enable-queued-ack-stop-retry"),uncertain=name.equals("enable-cleanup-failure");
+        check(java.util.Arrays.asList("enable-stop","enable-stop-retry","enable-complete-stop-retry","enable-close","proof-stop","proof-stop-retry","proof-close","enable-channel","enable-queued-ack-stop-retry","enable-cleanup-failure").contains(name));
+        CountDownLatch released=new CountDownLatch(1);int evaluated=view.evaluations;view.defer=proof;
+        product.networkStartHook=(marker,exact,quota)->{
+            check(exact==view&&product.manualControl("owned"));if(attempts.incrementAndGet()==1)originalMarker[0]=marker;CdpNetworkBindingProbe.Context context=host.source(exact,quota);fresh[0]=context;host.sources.put(marker,context);
+            context.peer.rootLoader="load-manual-return";context.peer.rootUrl=view.nativeUrl;CdpBindingProbe.Factory.Extra original=context.peer.extra;
+            context.peer.extra=new CdpBindingProbe.Factory.Extra(){
+                public boolean send(JSONObject request,CdpBindingProbe.Wire source)throws Exception {
+                    boolean accepted=original.send(request,source);if(request.getString("method").equals("Fetch.enable")){
+                        byte[] packet=source.replies.pollLast();check(packet!=null);enable[0]=new JSONObject(new String(packet,StandardCharsets.UTF_8));java.util.Arrays.fill(packet,(byte)0);wire[0]=source;
+                        if(queued&&attempts.get()==1&&!released.await(5,TimeUnit.SECONDS))throw new AssertionError("Queued ACK startup barrier expired");
+                    }return accepted;
+                }
+                public void closed(CdpBindingProbe.Wire source){original.closed(source);if(uncertain)throw new IllegalStateException("controlled_native_startup_close_failure");}
+            };
+        };
+        try{
+            check(product.returnControl("owned","return-startup",false));
+            waitFor(()->proof?view.evaluations>evaluated:enable[0]!=null,host,true);CdpNetworkBindingProbe.Context original=fresh[0];
+            check(product.manualControl("owned")&&!product.ordinaryNetworkReady("owned")&&!product.publicCounts.containsKey("return-startup"));
+            check(!proof||original.peer.wires.isEmpty());
+            if(queued){wire[0].queue(enable[0]);enable[0]=null;}
+            if(uncertain)host.uncertainCleanup=true;
+            if(closed)product.retire("owned",view);
+            else if(channel){product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());product.pollNetwork("owned");}
+            else product.stopNetwork("owned");
+            // The original late proof/ACK cannot complete the cancelled UI
+            // grant. Cancellation closes its exact source before worker exit.
+            released.countDown();if(proof){view.defer=false;view.finish("null");Handler.drain();}
+            waitFor(()->channel?product.ordinaryNetworkReplySent("owned"):product.publicCounts.containsKey("return-startup"),host,true);
+            JSONObject failed=product.publicReplies.get("return-startup");String code=channel?product.physicalNetworkCode("owned"):failed.getJSONObject("error").getString("code");
+            if(channel)check(failed==null&&!product.publicCounts.containsKey("return-startup"));
+            else check(!failed.getBoolean("ok")&&failed.getBoolean("manual")&&failed.getBoolean("network_cleanup_confirmed")==!uncertain&&product.publicCounts.get("return-startup")==1);
+            check(code.equals(channel?"network_owner_changed":closed?"network_view_closed":"network_start_cancelled"));
+            check(!product.hasPhysicalNetwork("owned")||!product.ordinaryNetworkReady("owned"));
+            check(closed||product.manualControl("owned"));check(proof?original.peer.wires.isEmpty():original.wire().closed.get());
+            check(original.methods.stream().filter("Fetch.enable"::equals).count()==(proof?0:1)&&original.methods.stream().noneMatch("Fetch.disable"::equals));
+            check(host.worker.networkPending(originalMarker[0])==uncertain);
+            check(view.destroyed==(closed?1:0)&&WebView.constructions==constructions&&view.nativeUrl.equals("https://private.invalid/manual-page#retained"));
+            check(closed||product.views.epoch("owned",view)==epoch);check(!owner.current()&&!handoff.current()&&renderer.worlds.created==worlds&&backend.nativeNavigationCommands.get()==0&&attempts.get()==1);
+            if(!closed){check(product.physicalDownloads("owned")==downloads);if(file!=null){check(downloads.get(file).verified&&product.downloadBudget.used()==1);
+                MdoBrowserDownloadQueue.Read read=downloads.read(file,0,10);waitFor(read::finished,host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);}}
+            if(uncertain){check(product.networkCleanupFailed&&!product.ordinaryNetworkRetired("owned"));try{product.returnControl("owned","unsafe-retry",false);throw new AssertionError("Unconfirmed startup cleanup admitted retry");}catch(IllegalStateException expected){check(expected.getMessage().equals("network_retiring"));}}
+            if(retry){
+                check(product.ordinaryNetworkRetired("owned")&&!product.networkCleanupFailed);enable[0]=null;check(product.returnControl("owned","startup-retry",false));
+                waitFor(()->enable[0]!=null,host,true);check(product.manualControl("owned")&&attempts.get()==2);wire[0].queue(enable[0]);enable[0]=null;
+                waitFor(()->product.publicCounts.containsKey("startup-retry"),host,true);check(!product.manualControl("owned")&&product.ordinaryNetworkReady("owned")&&product.publicCounts.get("startup-retry")==1);
+                check(product.physicalDownloads("owned")==downloads&&(file==null||downloads.get(file).verified));
+            }
+            return new JSONObject().put("actual_startup_cancel",true).put("phase",proof?"native-proof":"fetch-enable").put("original_ack_received",false).put("queued_ack_drained",queued)
+                .put("manual_until_terminal",true).put("cleanup_confirmed",!uncertain).put("uncertain_retry_denied",uncertain).put("page_preserved",!closed).put("physical_close",closed)
+                .put("reply_delivered",!channel).put("code",code).put("new_networks",attempts.get()).put("explicit_retry",retry).put("completed_bytes",file!=null)
+                .put("original_enable_dispatches",proof?0:1).put("original_disable_dispatches",0).put("retained_uncertain_sources",uncertain?1:0)
+                .put("old_authority_revoked",true).put("native_effects",0).put("provider_qualified",false).put("ui_published",false);
+        }finally{
+            released.countDown();view.defer=false;view.finish("null");product.networkStartHook=null;product.retireOrdinaryNetwork("owned");if(!closed)product.retire("owned",view);
+            waitFor(()->{product.pollNetwork("owned");return (uncertain?product.hasPhysicalNetwork("owned")&&product.networkCleanupFailed:!product.hasPhysicalNetwork("owned"))&&product.downloadBudget.used()==0;},host,true);
         }
     }
     private static JSONObject naturalPopupProduct(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {

@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E185 qualification:** cancel the actual same-page return before
+  native marker proof or Fetch.enable acknowledgement. Ten new cases cover stop,
+  close, channel loss, queued late ACK, retained bytes, explicit fresh retry and
+  uncertain native close. No product defect reproduced. Fresh native 539 and
+  frontend 20 pass; all earlier 529 business outcomes are compared. Product,
+  Windows/Android artifacts and E184 runtime checks are unchanged hash-checked
+  reuse. Public protected takeover and installed-provider/device checks remain open.
+
 - **Shared UI E184:** validate native takeover/return receipts before changing
   UI ownership. Keep structured control errors separate from page errors, show
   bounded recovery/cleanup messages, serialize controls and ignore old/pending
@@ -14371,3 +14379,60 @@ publication was used. Android public protected takeover, in-flight/descendant
 cleanup and installed-provider/full Activity/device qualification remain open,
 as do the broader final requirements and delivery audit. Phone/current WebView
 verification remains deferred; no unqualified capability is enabled.
+
+### E185 cancellation before native startup acknowledgement
+
+The earlier E183 stop/retry cases cancelled after native readiness, before UI
+delivery. This stage adds ten controlled product/native-worker/lifecycle cases
+that stop earlier: native marker proof still awaiting its original callback, or
+Fetch.enable dispatched with its original native ACK withheld. The actual
+networkReleaseControl/networkStop/networkRetire/networkResult and physical view
+destruction paths execute. Product code is unchanged; these cases did not
+reproduce a product defect and are regression qualification, not a claimed fix.
+
+The cases cover stop, exact physical close, a changed UI channel, an ACK queued
+behind a worker barrier before cancellation, explicit user retry after each
+startup phase, original completed bytes through cancellation/retry and a real
+binding-close failure injected at the controlled native wire seam. A stopped
+return cannot clear manual state or publish readiness from a late proof/ACK.
+A changed channel receives no original-channel reply. Successful cleanup permits
+only a new explicit proof on the same physical view; it does not replay the old
+enable or create/navigate another page. Completed data retains its controller,
+ID/quota and verified bytes. Old protected ownership stays revoked. The delayed
+marker callback uses an invalid sentinel after cancellation; a valid-token late
+provider callback remains a distinct qualification, not proved by that case.
+
+Native startup cleanup and Fetch policy acknowledgements remain independent.
+Proof-stage cancellation dispatches no Fetch.enable; enable-stage cancellation
+dispatches exactly one. Neither invents a Fetch.disable ACK. The original bound
+source reports its native close receipt; an uncertain close retains that exact
+source and the global cleanup fence, returns cleanup=false and denies retry.
+Later physical destruction independently frees native/cache resources without
+claiming protocol cleanup. An unrelated opener connection is not required to
+disappear: assertions identify the exact cancelled marker instead of counting
+all sources as if the browser had only one connection.
+
+All ten final native modes pass 621 reported checks.
+The fresh full gate passes 539 modes / 22,110
+reported popup checks, all 134 current selected hashes, API26 compilation,
+existing JNI/transport and ASan/UBSan. Every earlier 529 business outcome is
+compared; only already-reviewed loading-timeout diagnostic timing fields may
+vary. The current native evidence is `.mdo/E185-native.log` and
+`.mdo/E185-verification.json`. Fresh 20 actual frontend/driver-to-JVM flows and
+Python 178/180 pass, with the same two Windows symlink-privilege skips. The full
+gate includes all ten cases after the final source assertions were added.
+
+All host/page/plugin/SDK product hashes and both development artifacts remain
+identical to E184. Its JS 505, actual mounted WebView2 control 22, public C/JS SDK,
+visual, packed runtime and APK/DEX/signature evidence are explicit unchanged
+reuse, not fresh E185 execution. The actual native-fragment fixture/compiler
+and frontend class hashes are refreshed. No app/Home copy, provider change,
+phone installation, model call or publication was used.
+
+These are controlled UI/renderer/native wire seams, not installed-provider Fetch
+or full Android Activity qualification. Public protected takeover still needs
+its complete outer-command integration, in-flight navigation/input/capture/
+chooser joins and descendant retirement. Full provider/device, broader remote/
+permissions/lifetime/OOM/performance/ecosystem/final delivery audit remain open.
+Phone/current WebView verification stays deferred; public Android automation
+remains unavailable and the full goal stays active.
