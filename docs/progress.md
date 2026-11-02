@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E196:** connect actual resource cancellation to the staged native
+  human-control coordinator. Recheck original bindings after every callback;
+  real capture-core/worker/budget cases wait through retained visual/encoding
+  resources and refuse failed cleanup. Actual input, private picker and upload
+  scope/data-owner checks join fourteen new modes. Fresh native 622/frontend 20,
+  Python 178/180 and signed APK/DEX pass; ordinary create850 is current-hash reuse.
+  Framework pixels/provider/device and the public outer request remain open.
+
+
 - **Android E195:** reserve a bounded, typed original human-control handoff;
   retire the attachment before cancelling its document and input work, then
   commit only the same clean physical owner. Sixteen new staged cases cover
@@ -15185,3 +15194,79 @@ capture encoder, upload and chooser callbacks, independent protocol cleanup and
 guarded final manual/reply publication; ongoing native-origin readiness and
 Activity/provider/device plus broader requirements/delivery audit remain open.
 The full Browser Use goal stays active.
+
+
+## E196 — cancel the original real resources before native handoff
+
+Add PopupNetwork.beginControlAndCancel and requireControlResources. Capture the
+original capture/dialog/popup/upload UI associations before starting the bounded
+native receipt. Reject a foreign native-view association without revoking the
+current document. Retire the exact original Handoff before CDP/document/source
+fences, then invalidate the original CDP registry, stop native input and cancel
+capture, transient upload, chooser and pending popup resources. Before and after
+each callback, require the same physical view/profile/channel, original receipt
+and captured resource objects. After cancelling the original upload scope, expect
+its map entry to be removed. A replacement or lost channel cancels only this
+attempt and stops subsequent effects. No old authority or deadline is renewed.
+
+Keep cancellation and release separate. An actual capture can return its failed
+client result while a visual callback or encoder still holds its native lease.
+Only the original core's cleanupConfirmed/busy/budget result can unblock native
+handoff. Shared protocol root ACK, native detach event and source/body/descendant
+cleanup remain independent and unchanged. Adopted upload data retains its physical
+native owner; no takeover path calls retireUploadData. Existing JS-dialog manual
+handling is retained rather than introducing a new broad dialog cancellation.
+
+The existing JNI/product fixture now extracts actual product cancelCapture and
+cancelChooser methods. Its optional capture wrapper delegates to the real
+MdoBrowserCapture for new modes; old explicitly controlled peers remain for old
+cases. New native visual/raster dispatch peers hold the real core's resource slot,
+including a real encoder thread with bounded joins. They do not simulate an
+installed Android Bitmap/provider/Activity pass. The initial compile failed
+because Scheduler.remove and Worker.remove were implemented twice in one peer;
+a separate Worker adapter corrects the fixture. Preserve the original
+E196-resources-focused.log and passing focused/data-fence logs.
+
+Fourteen new modes cover guard/visual/queued/running/encoded/final-guard capture,
+raster-release failure, expiry/close while encoding, channel loss, reentrant
+capture replacement, a foreign capture binding, actual input DOWN/CANCEL and an
+original private-picker callback. They report 642 checks.
+Late original callbacks cannot draw, re-encode or deliver success after cancel.
+Queued work is removed by exact identity and closes its raster once; held work
+keeps its budget slot until original encode/close. Cancelled private bytes are
+actually zeroed. Failed cleanup remains poisoned with one reserved slot and never
+grants manual control. Capture budget, cleanup and native ownership fields in
+the strict proof are read from the original core, not success flags.
+
+The same cases exercise actual transient upload scope cancellation and physical
+upload-data owner lifetime. They do not stage a fresh renderer-adopted URI/file
+payload; the existing protected file-flow modes remain separate coverage.
+Original chooser/private-picker cores and callback are real, with native provider
+responses controlled. The foreign-binding refusal preserves the original marker,
+native owner, upload scope and physical data owner before test-only cleanup.
+
+Fresh complete verification: 622 modes / 26,419 reported
+popup checks, original cleanup 7,137, generic worker300, 134 current input hashes,
+API26/JNI/kernel sockets plus ASan/UBSan. Strictly compare all previous608 business
+schemas/values (assertion counters excluded); only existing loading-timeout timing
+snapshots, if present, are separately listed. No prior business change is allowed.
+Actual frontend/JVM twenty and Python178/180 pass, with two existing Windows
+symlink privilege skips. Ordinary create/control850 including77 asynchronous-close
+checks is explicitly reused from E195 after every current source hash matches.
+All build/check handles are terminal before this documentation change.
+
+Signed development APK: 6,595,905 bytes, SHA-256
+`c9b8068866aadda267e71802c7d7e59c61c8b4b11df1183ca990a7ac97cd73fc`. Actual DEX must define beginControlAndCancel and
+requireControlResources in PopupNetwork, alongside all prior immutable/private
+control receipt classes, methods, fields, APK payload/source/package/signature
+gates. No qualification flags are lifted. Exact runtime identity is verified
+around same-deployment stop/apply/start and after integration checks. Product
+changes are one Android fragment; overlays and Windows/shared UI/plugin payloads
+are unchanged. Windows/JS505/control22/SDK/navigation/wait/visual/packed evidence
+remains explicit current-hash E184/E169 reuse. No extra app/Home/source/dependency
+copy, phone/provider update, install, model request, external website or online
+publication occurred. Next implement the actual bounded outer public native
+control request, exclude conflicting commands, await independent protocol cleanup
+and publish manual/profile/reply only for that original live owner. Ongoing native
+origin readiness, Activity/provider/device and broader requirements/delivery audit
+remain open; the complete Browser Use goal stays active.

@@ -405,6 +405,34 @@
                 !stopped&&!browserPaused&&views.owns(entry.key,entry.view)&&documents.get(entry.key)==entry.profile&&entry.profile.profileAssigned()&&
                 channel.current()==entry.channelLease&&channel.active(entry.channelLease,host.getUrl())&&!pageClosed.contains(entry.key);
         }
+        /** Cancel only the resources captured before this original attempt.
+         * Each callback may replace a binding, close the view or lose its
+         * channel; never continue cancelling resources under a reused key. */
+        MdoBrowserCdpPopupNative.HumanControl beginControlAndCancel()throws java.io.IOException {
+            CaptureEntry capture=captures.get(entry.key);MdoBrowserDialogTarget dialog=dialogs.get(entry.key);
+            MdoBrowserPopups<WebView> popup=windows.get(entry.key);UploadEntry upload=uploadOwners.get(entry.key);
+            if(capture!=null&&capture.view!=entry.view||dialog!=null&&dialog.view!=entry.view||upload!=null&&upload.view!=entry.view)
+                throw new java.io.IOException("cdp_popup_human_owner_invalid");
+            MdoBrowserCdpPopupNative.HumanControl original=beginControl();
+            try{
+                requireControlResources(original,capture,dialog,popup,upload);
+                cdpViews.invalidate(entry.key,entry.view,views.epoch(entry.key,entry.view),"input_cancelled");
+                requireControlResources(original,capture,dialog,popup,upload);views.stop(entry.key,entry.view);
+                requireControlResources(original,capture,dialog,popup,upload);cancelCapture(entry.key);
+                requireControlResources(original,capture,dialog,popup,upload);cancelUpload(entry.key,entry.view);
+                requireControlResources(original,capture,dialog,popup,null);cancelChooser(entry.key);
+                requireControlResources(original,capture,dialog,popup,null);cancelPopup(entry.key);
+                requireControlResources(original,capture,dialog,popup,null);return original;
+            }catch(java.io.IOException failure){original.close();throw failure;}
+            catch(RuntimeException|Error failure){original.close();throw new java.io.IOException("cdp_popup_human_resource_cancel_failed");}
+        }
+        private void requireControlResources(MdoBrowserCdpPopupNative.HumanControl original,CaptureEntry capture,MdoBrowserDialogTarget dialog,
+                MdoBrowserPopups<WebView> popup,UploadEntry upload)throws java.io.IOException {
+            original.expire();if(original.failure()!=null)throw new java.io.IOException(original.failure());
+            if(controlScope(original)&&original.current()&&captures.get(entry.key)==capture&&dialogs.get(entry.key)==dialog&&
+                windows.get(entry.key)==popup&&uploadOwners.get(entry.key)==upload)return;
+            original.close();throw new java.io.IOException("cdp_popup_human_owner_invalid");
+        }
         boolean controlReady(MdoBrowserCdpPopupNative.HumanControl original){
             MdoBrowserPopups<WebView> popup=windows.get(entry.key);MdoBrowserDialogTarget dialog=dialogs.get(entry.key);
             return controlScope(original)&&

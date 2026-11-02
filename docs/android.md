@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E195)
+## Complete development host APK (current: E196)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,595,905 bytes, SHA-256
-`d5a154c121daa251e3a009d74f78d8e65cecfff1c1f1ae067eb74e04e8124f89`.
+`c9b8068866aadda267e71802c7d7e59c61c8b4b11df1183ca990a7ac97cd73fc`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6551,3 +6551,36 @@ Its actual outer resource cancellation and final UI/reply publication are not
 yet wired to this staged coordinator. No Activity/provider/device qualification
 or Android automation capability is inferred. The current phone/WebView checks
 remain deferred by the user.
+
+
+### Actual original resource cancellation (E196)
+
+The internal PopupNetwork.beginControlAndCancel coordinator captures its original
+capture/dialog/popup/upload bindings before starting the typed human receipt.
+After original Handoff retirement and document/source fencing, it invalidates the
+original CDP registry, stops native input and cancels capture, transient upload,
+chooser and pending popup resources. It rechecks the exact physical owner,
+profile/channel, deadline and every captured resource binding before each effect.
+Reentrant replacement or channel loss stops further cancellation. A foreign
+capture/dialog/upload binding is refused before revoking document authority.
+No adopted file-data owner is retired by takeover; only physical destruction does
+that. JS dialogs retain the existing manual-user handling behavior.
+
+Cancellation does not assert cleanup. The existing controlReady gate still
+requires original worker jobs, native input, actual capture busy/cleanup status,
+upload/chooser/popup receipts and native ownership. Real MdoBrowserCapture core
+cases now exercise pending guards, visual callbacks, queued/running encoders,
+encoded bytes, final guard, failed raster release and expiry/close while encoding.
+A held original encoder keeps its real capture-budget slot through cancellation;
+late encoded bytes are zeroed and the original callback stays terminal once.
+A failed raster release remains unconfirmed and its budget slot stays reserved.
+Actual input DOWN/CANCEL, private-picker callback cancellation and transient upload
+scope versus physical data-owner lifetime are joined in the same product harness.
+
+Only Target/Raster/native callback timing is controlled; there are no framework
+pixels or installed provider guarantees. New upload checks prove actual scope and
+owner flags, not a new combined renderer-assigned URI/byte grant. Existing file
+flows remain separate evidence. The public main-button route still refuses
+protected takeover; next work is the bounded outer request, command exclusion,
+independent protocol retirement and guarded final manual/reply publication.
+Global Android automation and Activity/provider/device qualification stay open.

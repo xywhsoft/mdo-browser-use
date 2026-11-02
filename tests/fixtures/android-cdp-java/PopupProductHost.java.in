@@ -171,6 +171,7 @@ final class PopupProductHost {
     void closePopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.close();}
     void takePopupControl(String key)throws Exception{PopupNetwork value=network(key);value.takeControl();manual.add(key);value.entry.profile.block(MdoBrowserDocument.MANUAL,true);}
     MdoBrowserCdpPopupNative.HumanControl beginPopupControl(String key)throws Exception{return network(key).beginControl();}
+    MdoBrowserCdpPopupNative.HumanControl beginPopupControlAndCancel(String key)throws Exception{return network(key).beginControlAndCancel();}
     boolean popupControlReady(String key,MdoBrowserCdpPopupNative.HumanControl original){return network(key).controlReady(original);}
     void completePopupControl(String key,MdoBrowserCdpPopupNative.HumanControl original)throws Exception{PopupNetwork value=network(key);value.completeControl(original);manual.add(key);value.entry.profile.block(MdoBrowserDocument.MANUAL,true);}
     void pollPopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.watch();}
@@ -258,7 +259,8 @@ final class PopupProductHost {
     @@FRAME_ENVIRONMENT@@
     @@FRAME_ROUTER@@
     boolean dialogReady(String key,WebView view){MdoBrowserDialogTarget target=dialogs.get(key);return target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);}
-    void cancelCapture(String key){CaptureEntry entry=captures.get(key);if(entry!=null)entry.capture.close();}
+    @@CANCEL_CAPTURE@@
+    @@CANCEL_CHOOSER@@
     void cancelPopup(String key){MdoBrowserPopups<WebView> core=windows.get(key);if(core!=null)core.cancel();}
     void cancelDialog(String key){MdoBrowserDialogTarget target=dialogs.get(key);if(target!=null)target.dialogs.cancel();}
     @@ORDINARY_MARKER@@
@@ -318,6 +320,11 @@ final class PopupProductHost {
         WebView view=views.get(key);if(view==null)throw new AssertionError("Original popup missing");MdoBrowserDialogTarget old=dialogs.get(key);if(old!=null)old.close();dialogs.put(key,new MdoBrowserChooserTarget(key,view));uploadQualified=true;
     }
     void uploadRpc(String key,String id,JSONObject request)throws Exception{executeUpload(key,id,views.get(key),request);}
+    MdoBrowserUploadStore.Scope retainUploadScope(String key){
+        WebView view=views.get(key);UploadEntry original=new UploadEntry(view,views.epoch(key,view),uploadData(key,view));
+        if(uploadOwners.put(key,original)!=null)throw new AssertionError("Existing upload scope replaced");return original.scope;
+    }
+    boolean retainedUploadDataLive(String key){UploadDataEntry original=uploadDataOwners.get(key);return original!=null&&original.owner.live();}
     MdoBrowserUploadUris fileUris(){return new MdoBrowserUploadUris(uploads,android.os.SystemClock::elapsedRealtime);}
     int uploadFiles(){return uploads==null?0:uploads.activeFiles();}
     int uploadBooks(){return uploadBooks.size();}
@@ -339,8 +346,20 @@ final class PopupProductHost {
         // directory. No per-case cache copies or directory replacement.
         verifyFileDirectory(directory);
     }
-    static final class Capture {boolean active,clean=true;boolean busy(){return active;}boolean cleanupConfirmed(){return clean;}void close(){active=false;clean=true;}void viewDestroyed(){close();}}
-    static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
+    static final class Capture {
+        boolean active,clean=true;final MdoBrowserCapture original;
+        Capture(MdoBrowserCapture original){this.original=original;}
+        boolean busy(){return original==null?active:original.busy();}
+        boolean cleanupConfirmed(){return original==null?clean:original.cleanupConfirmed();}
+        void cancel(){if(original==null)close();else original.cancel();}
+        void close(){if(original==null){active=false;clean=true;}else original.close();}
+        void viewDestroyed(){if(original==null)close();else original.viewDestroyed();}
+    }
+    static final class CaptureEntry {
+        final WebView view;final Capture capture;
+        CaptureEntry(WebView view){this(view,null);}
+        CaptureEntry(WebView view,MdoBrowserCapture original){this.view=view;capture=new Capture(original);}
+    }
     PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());WebView root=views.get("root");if(root!=null){MdoBrowserDocument original=new MdoBrowserDocument(root);original.assigned=true;documents.put("root",original);}}
     int networkRetiring(){int count=networkReady?0:1;for(NetworkEntry row:networkViews.values())if(row.draining||row.retired&&!row.protocolDrained)count++;return count;}
     int downloadRetiring(){int count=0;for(NetworkEntry row:networkViews.values())if(row.downloads!=null)count+=row.downloads.retiringFiles();return count;}

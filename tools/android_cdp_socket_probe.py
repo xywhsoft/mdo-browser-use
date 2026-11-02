@@ -39,8 +39,8 @@ def prepare_popup_product(output):
     network=(ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8')
     dialog=(ROOT/'host/android/browser-native-dialog.inc.java').read_text(encoding='utf-8')
     capture=(ROOT/'host/android/browser-native-capture.inc.java').read_text(encoding='utf-8')
-    chooser=(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8')
-    chooser=chooser[:chooser.index('    private void cancelChooser')].replace('private boolean chooserReady(', 'private boolean productChooserReady(',1)
+    chooser_source=(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8')
+    chooser=chooser_source[:chooser_source.index('    private void cancelChooser')].replace('private boolean chooserReady(', 'private boolean productChooserReady(',1)
     # Preserve the pre-existing controlled close-failure/counter seams while
     # running the real upload lifetime and physical native destruction hooks.
     if upload.count('private void cancelUpload(String key,WebView expected){')!=1 or upload.count('private void retireUploadData(WebView view){')!=1:
@@ -91,6 +91,8 @@ def prepare_popup_product(output):
         '@@UPLOAD@@':popup_upload,
         '@@ASSIGNMENT@@':(ROOT/'host/android/browser-upload-assignment.inc.java').read_text(encoding='utf-8'),
         '@@CAPTURE_FENCE@@':capture[capture.index('    private boolean captureMutationReady'):capture.index('    private CaptureEntry captureEntry')],
+        '@@CANCEL_CAPTURE@@':capture[capture.index('    private void cancelCapture(String'):capture.index('    private void cancelCaptures')],
+        '@@CANCEL_CHOOSER@@':chooser_source[chooser_source.index('    private void cancelChooser(String'):chooser_source.index('    private void cancelChoosers')],
         '@@RESUME@@':lifecycle[lifecycle.index('    void resume()'):lifecycle.index('    void destroy()')],
     }
     for marker,value in fragments.items():
@@ -281,6 +283,7 @@ def main():
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
                   *['preparation-page-human-stage-'+variant for variant in ('prepared-cancel','prepared-expire','prepared-resume','duplicate','wrong-view','timer-rejected','cancel-started','expire-started','resume-started','close-started','flow','input','read','complete','capture-pending','channel-changed')],
+                  *['preparation-page-human-resources-'+variant for variant in ('guard','visual','queued','running','encoded','postguard','cleanup-failed','expire-running','close-running','channel-lost','capture-replaced','foreign-capture','input','chooser')],
                   'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
                   'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-root-read','preparation-page-human-network-root-effect','preparation-page-human-network-root-complete','preparation-page-human-network-root-pending','preparation-page-human-network-root-held-body','preparation-page-human-network-descendants','preparation-page-human-network-descendants-inflight',
                   'preparation-page-human-network-late-pause',
@@ -675,6 +678,14 @@ def main():
                     raise RuntimeError('Document cancellation discarded the original native descendants')
                 if variant in {'descendants','descendants-inflight'} and (not proof.get('native_descendants_joined') or proof.get('root_autoattach_stops')!=1):
                     raise RuntimeError('Human detach skipped original descendant retirement')
+        elif mode.startswith('preparation-page-human-resources-'):
+            name=mode[len('preparation-page-human-resources-'):]
+            foreign=name=='foreign-capture';replaced=name=='capture-replaced';channel=name=='channel-lost';failed=name=='cleanup-failed'
+            aborted=name in {'expire-running','close-running','cleanup-failed','capture-replaced','channel-lost'}
+            codes={'expire-running':'cdp_popup_human_control_expired','close-running':'cdp_popup_human_owner_invalid','cleanup-failed':'cdp_popup_human_control_cancelled','channel-lost':'cdp_popup_human_owner_invalid','capture-replaced':'cdp_popup_human_owner_invalid','foreign-capture':'cdp_popup_human_owner_invalid'}
+            expected={'actual_resource_cancellation':True,'variant':name,'actual_capture_core':True,'capture_callback_once':not foreign,'resource_waited':name in {'visual','running','expire-running','close-running','cleanup-failed'},'capture_clean':not failed and not foreign,'retained_budget':int(failed or foreign),'manual_committed':not foreign and not aborted,'old_document_preserved':foreign,'native_destroyed':int(aborted),'code':codes.get(name),'replacement_untouched':replaced,'upload_scope_cancelled':not foreign and not replaced and not channel,'upload_data_preserved':not aborted,'actual_input_cancelled':name=='input','actual_picker_cancelled':name=='chooser','new_views':0,'new_worlds':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}
+            if popup_worker.get('product_frame_route')!=expected:
+                raise RuntimeError('Original resource cancellation lost actual capture retention, original callbacks or exact UI bindings')
         elif mode.startswith('preparation-page-human-stage-'):
             name=mode[len('preparation-page-human-stage-'):]
             prepared=name in {'prepared-cancel','prepared-expire','prepared-resume','duplicate','wrong-view','timer-rejected'}
