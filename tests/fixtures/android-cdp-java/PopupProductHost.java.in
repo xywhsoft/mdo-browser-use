@@ -116,6 +116,8 @@ final class PopupProductHost {
     MdoBrowserCdpDownloads popupDownloads(String key){return network(key).entry.downloads;}
     MdoBrowserCdpPopupNative.Promotion popupOwner(String key){return network(key).owner;}
     MdoBrowserCdpPopupBroker.Handoff popupHandoff(String key){return network(key).handoff;}
+    MdoBrowserCdpNetworks.Navigation navigatePopupSource(String key)throws java.io.IOException {PopupNetwork row=network(key);return cdpWorker.navigatePopup(row.entry.marker,row.handoff,row.sourceProof,"https://private.invalid/destination",null,1000);}
+    void invalidatePopupSource(String key){network(key).entry.marker.lease().invalidate();}
     String popupNetworkCode(String key){return network(key).entry.code;}
     boolean popupNetworkExpired(String key){return network(key).entry.cleanupObservationExpired;}
     boolean popupProtocolDrained(String key){return network(key).entry.protocolDrained;}

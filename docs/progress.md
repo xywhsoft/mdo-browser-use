@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E174:** fix original-source navigation racing native/UI closure.
+  Snapshot navigation metadata, publish deliberate retirement before stop or
+  blocking cleanup, and require exact-source typed retirement receipts. Six new
+  regressions prove zero-send closure, issued receipts, real UI/worker ordering,
+  second-source navigation and rejection of forged error text. Full native469 /
+  18,509 checks, API26, JNI/transport, ASan/UBSan, Python178/180 (two existing
+  symlink-privilege skips), four JS-to-JVM recovery modes and rebuilt APK/DEX
+  verification pass. Public Android automation remains disabled; actual device
+  and installed-provider checks remain deferred, not passed.
+
 - **Android E162:** recognize only original source-guard
   retirement receipts after a close races with event/capture admission. Keep the
   shared original wire and retain paused requests without replay; a renderer
@@ -13418,3 +13428,55 @@ protected takeover/release, overall Android/provider/OS admission, deferred
 phone checks, Windows completion audit and final deliverables remain open.
 No ADB/provider update, live model, external site or production action was used.
 The overall goal remains active.
+
+### E174 navigation closure and exact-source retirement
+
+Reproduced a product defect before changing production code: invalidating the
+original physical Source lease while its navigation was being serviced cleared
+the shared navigation fields. The next read raised `NullPointerException`; on
+the normal pump this closed the shared Browser wire. A separate UI/worker
+interleaving proved that source stop could become visible before its deliberate
+retirement authority. These are controlled real-product-fragment/JVM tests, not
+installed Android provider qualification. Failing evidence is retained in
+`.mdo/E174-close-before-second.log`, `.mdo/E174-pump-before.log` and
+`.mdo/E174-ui-before-runtime.log`.
+
+The Source now snapshots its paired navigation metadata under a short monitor,
+uses that original request throughout the turn and conditionally clears only
+that same request. It holds no source monitor during protocol I/O or navigation
+cleanup. Deliberate retirement is published before the stop flag or blocking
+cleanup. Closed bindings and their own closed ledgers issue an exact-source,
+data-only retirement receipt. Broker recovery checks its issuer and a healthy
+shared session; an IOException with identical text still fails closed. Navigation
+rechecks terminal state after the clock read, preserves issued uncertainty, and
+records an own pre-mutation guard retirement without inventing a sent operation.
+
+Six new modes cover direct and normal-pump closure, an issued navigation,
+forged retirement text, actual UI/protocol-worker close ordering, and a second
+original protected source successfully navigating on the same Browser connection.
+The initial 468-mode full run predates the UI-order strengthening and is retained
+as `.mdo/E174-native-first-result.json` / `.mdo/E174-native-first.log`.
+The final current-source native gate passes 469 modes / 18,509 reported checks,
+all 133 selected hashes, API26 compilation, JNI/transport and ASan/UBSan. Final
+semantic comparison with all earlier 463 modes is empty. See
+`.mdo/E174-focused-final.log`, `.mdo/E174-native.log`,
+`.mdo/E174-native-review.log` and `.mdo/E174-semantic-differences.json`.
+
+Fresh Python178/180 passes with the same two Windows symlink-privilege skips;
+the four existing actual JS dispatcher/driver/reader-to-JVM recovery modes pass
+with current source/class/library identities. This is not new complete JS
+goto/wait/read qualification. The single development deployment is updated and
+HTTP200 readiness verifies. The signed Android development APK is6,583,617 bytes,
+SHA-256 `40fe20c86ab783c86fc4f5bb2cff0ff1a60263a83f06205dde437064be84cb62`.
+Actual DEX definitions include the changed Source close, binding retirement and
+issuer-check methods. Windows app/plugin reuse remains source/hash verified,
+not a new Windows runtime run. See `.mdo/E174-python.log`,
+`.mdo/E174-native-frontend.log`, `.mdo/E174-apply.log`, `.mdo/E174-apk.log`,
+`.mdo/E174-dex-methods.json` and `.mdo/E174-verification.json`.
+
+Natural link/form/script navigation recovery, complete JS goto/wait/read,
+product same-document/BFCache/early/overlapping transitions, protected takeover,
+broader Android/provider/OS admission and final Windows/deliverable audit remain
+open. Phone and installed-WebView checks remain deferred at the user's request.
+No ADB/provider update, live model, external website or production action was
+used. Public Android automation remains disabled. The overall goal stays active.

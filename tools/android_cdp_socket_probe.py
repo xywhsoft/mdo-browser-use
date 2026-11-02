@@ -230,6 +230,8 @@ def main():
                  'source-complete','source-pass','source-cancel','source-epoch','source-controller','source-race','source-nonempty','source-changed','source-unsupported','source-activated','source-captured-epoch','source-replay','source-stream-epoch','source-stream-cancel','source-stream-owner',
                  'source-navigation-flow','source-navigation-cancel','source-navigation-rejected','source-navigation-no-commit','source-navigation-pending',
                  'source-navigation-ui-flow','source-navigation-ui-queued-cancel','source-navigation-ui-late-cancel','source-navigation-ui-queued-timeout','source-navigation-ui-pending',
+                 'source-navigation-close-direct','source-navigation-close-pump','source-navigation-close-sent','source-navigation-close-spoof','source-navigation-close-ui',
+                 'preparation-network-concurrent-navigation-close',
                  'preparation-ready','preparation-restart','preparation-cancel','preparation-owner','preparation-channel','preparation-epoch','preparation-failure','preparation-throw','preparation-reentrant','preparation-rpc','preparation-rpc-invalid','preparation-protection','preparation-protection-failure','preparation-timeout',
                  'preparation-input-unready','preparation-input-invalid','preparation-input-retired',
                  'preparation-child-ready','preparation-child-delayed','preparation-child-timeout','preparation-child-owner','preparation-child-channel','preparation-child-request','preparation-child-replaced','preparation-child-timer',
@@ -478,7 +480,17 @@ def main():
                     or preserved and (evidence.get('native_detach_confirmed') is not True or evidence.get('effects_preserved') is not True)
                     or evidence.get('provider_qualified') is not False or evidence.get('ui_published') is not False):
                 raise RuntimeError('Original document retirement isolation was not proved')
-        if mode.startswith('source-navigation-'):
+        if mode.startswith('source-navigation-close-'):
+            proof=popup_worker.get('source_navigation');sent=mode.endswith('-sent');spoof=mode.endswith('-spoof');ui=mode.endswith('-ui')
+            if (not isinstance(proof,dict) or proof.get('original_source') is not True or proof.get('scope_invalidated') is not True
+                    or proof.get('scoped_close') is not (not spoof) or proof.get('navigation_commands')!=int(sent)
+                    or not ui and (proof.get('effect_may_have_occurred') is not sent or proof.get('unsent') is not (not sent))
+                    or proof.get('wire_closed')!=int(spoof) or proof.get('retiring') is not True or proof.get('provider_qualified') is not False):
+                raise RuntimeError('Navigation closure lost exact source retirement or unsent/sent effect accounting')
+            if ui and (proof.get('ui_retired_before_unlock') is not True or not isinstance(proof.get('effect_may_have_occurred'),bool)
+                       or proof.get('unsent') is not (not proof['effect_may_have_occurred'])):
+                raise RuntimeError('UI closure published stop before native retirement authority')
+        elif mode.startswith('source-navigation-'):
             proof=popup_worker.get('source_navigation');commands=4 if mode.endswith('-flow') else 0 if mode.endswith('-pending') else 1
             if (not isinstance(proof,dict) or proof.get('original_source') is not True or proof.get('shared_ledgers') is not True
                     or proof.get('navigation_commands')!=commands or proof.get('commit_proved') is not mode.endswith('-flow')
@@ -488,6 +500,13 @@ def main():
                 raise RuntimeError('Protected source navigation replaced its original scope, guard or commit proof')
             if mode.startswith('source-navigation-ui-') and (proof.get('native_ui_ticket') is not True or proof.get('queued_recovery') is not ('-queued-' in mode)):
                 raise RuntimeError('Native UI navigation admission lost its non-owning queue or recovery receipt')
+        if mode=='preparation-network-concurrent-navigation-close':
+            proof=popup_worker.get('source_navigation')
+            if (not isinstance(proof,dict) or proof.get('original_source') is not True or proof.get('scoped_close') is not True
+                    or proof.get('other_original_navigation') is not True or proof.get('first_navigation_commands')!=0
+                    or proof.get('second_navigation_commands')!=1 or proof.get('browser_connections')!=1
+                    or proof.get('native_proof_connections')!=2 or proof.get('provider_qualified') is not False):
+                raise RuntimeError('Closing a navigation source disrupted the second original attachment')
         if mode.startswith('preparation-page-navigation-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-navigation-'):]
             worlds={'flow':4,'callback':2,'mismatch':0,'cancel':0,'rejected':1,'no-commit':0}[variant]

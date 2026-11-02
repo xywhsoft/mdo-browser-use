@@ -1764,6 +1764,61 @@ public final class CdpPopupWorkerProbe {
             MdoBrowserCdpDownloads.Release release=downloads.release(pending.id);waitFor(release::finished,c.host,true);check(release.released());
         }
     }
+    @SuppressWarnings("unchecked") private static <E extends Throwable> long failingNavigationClock(Throwable failure)throws E {throw (E)failure;}
+    private static void sourceNavigationClose(String mode,OwnershipCase c,MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source)throws Exception {
+        java.util.concurrent.atomic.AtomicReference<Throwable> caught=new java.util.concurrent.atomic.AtomicReference<>();java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> done=new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicBoolean invalidated=new java.util.concurrent.atomic.AtomicBoolean(),servicing=new java.util.concurrent.atomic.AtomicBoolean();
+        boolean spoof=mode.endsWith("-spoof"),sent=mode.endsWith("-sent"),uiRace=mode.endsWith("-ui");
+        CountDownLatch closing=new CountDownLatch(1);java.util.concurrent.atomic.AtomicReference<java.util.concurrent.atomic.AtomicBoolean> sourceClosed=new java.util.concurrent.atomic.AtomicReference<>();
+        java.util.concurrent.atomic.AtomicBoolean retiredBeforeUnlock=new java.util.concurrent.atomic.AtomicBoolean();
+        if(uiRace){
+            c.host.worker.submitSource(marker,handoff,source,3000,(binding,deadline)->{
+                try{
+                java.lang.reflect.Field field=MdoBrowserCdpBinding.class.getDeclaredField("peer");field.setAccessible(true);Object original=field.get(binding);
+                java.lang.reflect.Field stop=MdoBrowserCdpPopupSource.class.getDeclaredField("closed");stop.setAccessible(true);sourceClosed.set((java.util.concurrent.atomic.AtomicBoolean)stop.get(original));return new byte[]{1};
+                }catch(ReflectiveOperationException error){throw new AssertionError(error);}
+            },done::set);waitFor(()->done.get()!=null,c.host,true);check(done.get().code==null);
+        }
+        LongSupplier clock=()->{if(servicing.get()&&invalidated.compareAndSet(false,true)){
+            if(uiRace){
+                closing.countDown();long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+                while(!sourceClosed.get().get()){if(System.nanoTime()>end)throw new AssertionError("UI did not close original source");Thread.yield();}
+                retiredBeforeUnlock.set(handoff.draining());
+            }else marker.lease().invalidate();
+            if(spoof)return CdpPopupWorkerProbe.<RuntimeException>failingNavigationClock(new IOException("cdp_popup_source_retired"));
+        }return c.host.time.get();};
+        MdoBrowserCdpNetworks.Navigation ticket;boolean direct=mode.endsWith("-direct")||sent;
+        if(direct){
+            MdoBrowserCdpNetworks.Navigation original=MdoBrowserCdpNetworks.Navigation.attached("https://private.invalid/destination",null,1000,clock);ticket=original;
+            c.host.worker.submitSource(marker,handoff,source,3000,(binding,deadline)->{
+                binding.startSourceNavigation(original);servicing.set(!sent);
+                try{
+                    java.lang.reflect.Field field=MdoBrowserCdpBinding.class.getDeclaredField("peer");field.setAccessible(true);MdoBrowserCdpPopupSource peer=(MdoBrowserCdpPopupSource)field.get(binding);peer.turn(1000);
+                    if(sent){check(c.backend.sourceRenderer.navigations==1);invalidated.set(true);marker.lease().invalidate();binding.current();}
+                }
+                catch(Throwable failure){caught.set(failure);}return new byte[]{1};
+            },done::set);waitFor(()->done.get()!=null,c.host,true);
+        }else{
+            CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);java.lang.reflect.Field executor=MdoBrowserCdpWorker.class.getDeclaredField("executor");executor.setAccessible(true);
+            ((java.util.concurrent.ThreadPoolExecutor)executor.get(c.host.worker)).execute(()->{entered.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new AssertionError("Source close barrier expired");}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+            int before=c.backend.receives.get();
+            try{
+                waitFor(()->entered.getCount()==0,c.host,true);ticket=c.host.worker.navigatePopup(marker,handoff,source,"https://private.invalid/destination",null,1000);
+                java.lang.reflect.Field timer=MdoBrowserCdpNetworks.Navigation.class.getDeclaredField("attachedClock");timer.setAccessible(true);timer.set(ticket,clock);servicing.set(true);
+            }finally{release.countDown();}
+            if(uiRace){waitFor(()->closing.getCount()==0,c.host,true);marker.lease().invalidate();}
+            waitFor(()->invalidated.get()&&(c.backend.closes.get()!=0||c.backend.receives.get()>before+4),c.host,true);
+        }
+        Throwable failure=caught.get();
+        JSONObject witness=new JSONObject().put("boundary",mode).put("scope_invalidated",invalidated.get()).put("caught",failure==null?JSONObject.NULL:failure.getClass().getName())
+            .put("navigation_commands",c.backend.sourceRenderer.navigations).put("wire_closed",c.backend.closes.get()).put("retiring",handoff.retiring());
+        System.err.println("Source navigation close witness: "+witness);
+        if(direct&&!(failure instanceof MdoBrowserCdpPopupSource.Retired)||!direct&&c.backend.closes.get()!=(spoof?1:0))throw new AssertionError("Own source closure did not yield its native scoped receipt: "+witness);
+        check(invalidated.get()&&!source.current()&&handoff.retiring()&&c.backend.sourceRenderer.navigations==(sent?1:0)&&c.backend.closes.get()==(spoof?1:0));
+        if(uiRace&&!retiredBeforeUnlock.get())throw new AssertionError("Source stop was visible before its deliberate retirement receipt");
+        check(ticket.result()!=null&&!ticket.result().ok&&ticket.result().code.equals("cdp_navigation_connection_closed")&&(uiRace||ticket.result().effectMayHaveOccurred==sent));
+        navigationEvidence=witness.put("original_source",true).put("scoped_close",!spoof).put("unsent",!ticket.result().effectMayHaveOccurred).put("effect_may_have_occurred",ticket.result().effectMayHaveOccurred).put("ui_retired_before_unlock",retiredBeforeUnlock.get()).put("provider_qualified",false);
+    }
     private static void managedSource(String mode,String directory)throws Exception {
         try(OwnershipCase c=new OwnershipCase()){
             PopupProductHost product=new PopupProductHost(c.source.views);product.cdpViews.worker=c.host.worker;
@@ -1811,7 +1866,8 @@ public final class CdpPopupWorkerProbe {
                             product.activate(promoted,handoff);
                             if(mode.startsWith("source-navigation-")){
                                 waitFor(()->{try{return mode.endsWith("-pending")?downloads.list().length==1:c.backend.responsePasses.get()==1;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
-                                if(mode.startsWith("source-navigation-ui-"))sourceNavigationUi(mode,c,marker,handoff,source,downloads);else sourceNavigation(mode,c,marker,handoff,source,downloads);
+                                if(mode.startsWith("source-navigation-close-"))sourceNavigationClose(mode,c,marker,handoff,source);
+                                else if(mode.startsWith("source-navigation-ui-"))sourceNavigationUi(mode,c,marker,handoff,source,downloads);else sourceNavigation(mode,c,marker,handoff,source,downloads);
                             }else if(mode.equals("source-pass")){waitFor(()->c.backend.responsePasses.get()==1,c.host,true);check(downloads.list().length==0&&c.backend.bodyClaims.get()==0);}
                             else{
                                 waitFor(()->{try{return downloads.list().length==1;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
@@ -1841,7 +1897,7 @@ public final class CdpPopupWorkerProbe {
                                 else{check(done.verified&&done.sourceCleanupConfirmed&&done.received==3);MdoBrowserDownloadQueue.Read read=downloads.read(id,0,10);waitFor(read::finished,c.host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);}
                                 if(!mode.equals("source-stream-owner")){MdoBrowserCdpDownloads.Release released=downloads.release(id);waitFor(released::finished,c.host,true);check(released.released()&&budget.used()==0);}
                             }
-                            check(c.backend.documentRenderer==null&&candidate.retainedResponseCount()==0&&handoff.current()!=mode.equals("source-stream-owner"));
+                            check(c.backend.documentRenderer==null&&candidate.retainedResponseCount()==0&&handoff.current()!= (mode.equals("source-stream-owner")||mode.startsWith("source-navigation-close-")));
                         }
                         check(c.backend.opens.get()==opens&&c.backend.nativeOpens.get()==nativeOpens&&c.backend.detaches.get()==0);
                         closeHandoff(c.host,c.backend,handoff,promoted);check(view.destroyed==1&&c.backend.closes.get()==1);
@@ -3332,7 +3388,7 @@ public final class CdpPopupWorkerProbe {
     }
     private static void productNetworkConcurrent(String mode,String directory)throws Exception {
         Backend backend=new Backend();android.os.SystemClock.now=1000;
-        boolean proofQueued=mode.endsWith("-proof"),detachBusy=mode.endsWith("-detach");
+        boolean proofQueued=mode.endsWith("-proof"),detachBusy=mode.endsWith("-detach"),navigationClose=mode.endsWith("-navigation-close");
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
                 java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
@@ -3342,8 +3398,8 @@ public final class CdpPopupWorkerProbe {
                     AtomicInteger prepared=new AtomicInteger(),accepted=new AtomicInteger(),failed=new AtomicInteger();String[] reason={null};
                     WebView[] exact=new WebView[2];AutoCloseable[] handles=new AutoCloseable[2];boolean[] detached=new boolean[2];
                     String[] keys={"owned","second"},sessions={"proof-real","proof-second"};
-                    Backend.SourceRenderer first=new Backend.SourceRenderer("source-complete");first.holdFirst=true;
-                    Backend.SourceRenderer second=new Backend.SourceRenderer("source-complete","proof-second");second.holdFirst=detachBusy;
+                    Backend.SourceRenderer first=new Backend.SourceRenderer(navigationClose?"source-navigation-flow":"source-complete");first.holdFirst=true;
+                    Backend.SourceRenderer second=new Backend.SourceRenderer(navigationClose?"source-navigation-flow":"source-complete","proof-second");second.holdFirst=detachBusy;
                     backend.sourceRenderers.put(sessions[0],first);backend.sourceRenderers.put(sessions[1],second);backend.proofTargets.add("target-proof-second");
                     MdoBrowserCdpPopupPreparation.Failure failure=(code,effect)->{check(host.ui.onThread());failed.incrementAndGet();reason[0]=code;};
                     source.beforeSend=child->{int index=source.sends;check(index<2&&host.ui.onThread()&&child==source.views.get(keys[index]));exact[index]=child;source.adopting=child;backend.nativeTargets.put("target-"+sessions[index],proofPeer(child,"success",null,null));};
@@ -3378,6 +3434,31 @@ public final class CdpPopupWorkerProbe {
                         check(failed.get()==0&&product.popupNetworkCount()==(detachBusy?1:2)&&product.pendingHandoffs()==0&&first.calls==3&&second.calls==3);
                         check((detachBusy||product.popupNetworkReady(keys[0]))&&product.popupNetworkReady(keys[1])&&backend.guards.get()==2&&backend.nativeOpens.get()==2&&backend.barriers.get()==2);
                         check(backend.resumes.get()==0&&backend.continues.get()==0&&backend.bodyClaims.get()==0&&backend.detaches.get()==0);
+                        if(navigationClose){
+                            backend.managedResumeMode="normal";backend.responseMode="source-pass";
+                            product.activate(product.popupOwner(keys[0]),product.popupHandoff(keys[0]));product.activate(product.popupOwner(keys[1]),product.popupHandoff(keys[1]));
+                            waitFor(()->backend.resumes.get()==2&&product.popupHandoff(keys[0]).activationResult()!=null&&product.popupHandoff(keys[1]).activationResult()!=null,host,true);
+                            check(product.popupHandoff(keys[0]).activationResult().ok&&product.popupHandoff(keys[1]).activationResult().ok);
+                            CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);java.lang.reflect.Field executor=MdoBrowserCdpWorker.class.getDeclaredField("executor");executor.setAccessible(true);
+                            ((java.util.concurrent.ThreadPoolExecutor)executor.get(host.worker)).execute(()->{entered.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new AssertionError("Concurrent navigation barrier expired");}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+                            java.util.concurrent.atomic.AtomicBoolean invalidated=new java.util.concurrent.atomic.AtomicBoolean();MdoBrowserCdpNetworks.Navigation retiring;
+                            try{
+                                waitFor(()->entered.getCount()==0,host,true);retiring=product.navigatePopupSource(keys[0]);
+                                java.lang.reflect.Field timer=MdoBrowserCdpNetworks.Navigation.class.getDeclaredField("attachedClock");timer.setAccessible(true);
+                                timer.set(retiring,(LongSupplier)()->{if(invalidated.compareAndSet(false,true))product.invalidatePopupSource(keys[0]);return host.time.get();});
+                            }finally{release.countDown();}
+                            waitFor(()->invalidated.get()||retiring.result()!=null||!product.popupNetworkReady(keys[0])||backend.closes.get()!=0,host,true);
+                            if(!invalidated.get()){
+                                java.lang.reflect.Field problem=MdoBrowserCdpPopupBroker.class.getDeclaredField("failure");problem.setAccessible(true);
+                                throw new AssertionError("Concurrent navigation was not serviced: receipt="+(retiring.result()==null?null:retiring.result().code)+", source="+product.popupNetworkCode(keys[0])+", wire_closed="+backend.closes.get()+", broker="+problem.get(backend.originalBroker));
+                            }
+                            waitFor(()->retiring.result()!=null,host,true);
+                            check(!retiring.dispatched()&&first.navigations==0&&backend.closes.get()==0);
+                            MdoBrowserCdpNetworks.Navigation survivor=product.navigatePopupSource(keys[1]);waitNavigation(survivor,true,host);
+                            check(survivor.result().ok&&second.navigations==1&&backend.closes.get()==0&&product.popupOwner(keys[1]).current());
+                            navigationEvidence=new JSONObject().put("original_source",true).put("scoped_close",true).put("other_original_navigation",true).put("first_navigation_commands",0).put("second_navigation_commands",1)
+                                .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+                        }
                         product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);
                         if(!detached[0]){product.closePopupNetwork(keys[0]);backend.wire.add(detached(sessions[0]));detached[0]=true;}
                         waitFor(()->{product.pollPopupNetwork(keys[0]);return product.popupNetworkCount()==1;},host,true);

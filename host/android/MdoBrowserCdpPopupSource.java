@@ -14,7 +14,9 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     /** Only this scope guard can issue a retirement receipt. A renderer crash
      * or a listener/protocol error with the same text is not this receipt. */
     static final class Retired extends IOException {
-        private Retired(){super("cdp_popup_source_retired");}
+        private final Object original;
+        private Retired(Object original){super("cdp_popup_source_retired");this.original=original;}
+        boolean issuedBy(MdoBrowserCdpPopupSource source){return source!=null&&original==source.authority;}
     }
     private final MdoBrowserCdpSession session;
     private final MdoBrowserCdpSession.AttachedTarget attachment;
@@ -22,13 +24,14 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     private final MdoBrowserCdpPopupNative.Source proof;
     private final String root,initialLoader;
     private final AtomicBoolean closed=new AtomicBoolean();
+    private final Object authority=new Object();
     private final BooleanSupplier scope;
     private final MdoBrowserCdpNetworkFrames frames;
     private final MdoBrowserCdpNetworkRequests requests;
-    private MdoBrowserCdpSession.Events receiver;
-    private MdoBrowserCdpDownloads.Connection connection;
+    private volatile MdoBrowserCdpSession.Events receiver;
+    private volatile MdoBrowserCdpDownloads.Connection connection;
     private MdoBrowserCdpNetworks.Navigation navigation;private MdoBrowserCdpBinding.Network navigationView;
-    private boolean started,ready;
+    private boolean started;private volatile boolean ready;
 
     MdoBrowserCdpPopupSource(MdoBrowserCdpSession session,MdoBrowserCdpSession.AttachedTarget attachment,
             MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source proof,String root,String loader)throws IOException {
@@ -39,7 +42,11 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         final AtomicBoolean stop=closed;final MdoBrowserCdpPopupBroker.Handoff physical=handoff;final MdoBrowserCdpPopupNative.Source original=proof;
         scope=()->!stop.get()&&physical.current()&&original.current()&&physical.owns(original);
     }
-    private void guard()throws IOException {if(!scope.getAsBoolean())throw new Retired();}
+    private void guard()throws IOException {if(!scope.getAsBoolean())throw new Retired(authority);}
+    // Binding closure may race its protocol worker. Revoke this exact source
+    // before issuing its data-only retirement receipt; dirty protocol contexts
+    // without an independently closed owner do not enter this path.
+    void bindingClosed()throws IOException {close();guard();}
     boolean matches(MdoBrowserCdpPopupNative.Source original){return proof==original;}
     String frame()throws IOException {guard();return root;}
     String loader()throws IOException {guard();return initialLoader;}
@@ -51,7 +58,7 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     private void admitNavigation()throws IOException {
         navigationCurrent();if(connection==null)throw new MdoBrowserCdpSession.Failure("cdp_popup_navigation_network_unavailable",0,false);if(!connection.navigationAllowed())throw new MdoBrowserCdpSession.Failure("cdp_navigation_download_pending",0,false);
     }
-    void startNavigation(MdoBrowserCdpBinding.Network view,MdoBrowserCdpNetworks.Navigation next)throws IOException {
+    synchronized void startNavigation(MdoBrowserCdpBinding.Network view,MdoBrowserCdpNetworks.Navigation next)throws IOException {
         navigationCurrent();if(view==null||next==null)throw new IOException("cdp_navigation_arguments_invalid");
         if(navigation!=null&&navigation.result()==null)throw new MdoBrowserCdpSession.Failure("cdp_navigation_pending",0,false);
         next.bindAttached(view);navigationView=view;navigation=next;
@@ -94,13 +101,13 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         guard();try{
             frames.event(method,null,params);requests.event(method,null,params);
             MdoBrowserCdpSession.Events action=receiver;if(action==null)throw new IOException("cdp_popup_source_listener_missing");action.event(method,null,params);
-        }catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired();throw ended;}
-        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired();throw ended;}
+        }catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired(authority);throw ended;}
+        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired(authority);throw ended;}
     }
     void capture()throws IOException {
         guard();try{session.retainSourceRequest(attachment,frames,requests,root);}
-        catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired();throw ended;}
-        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired();throw ended;}
+        catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired(authority);throw ended;}
+        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired(authority);throw ended;}
     }
     public MdoBrowserCdpSession.AttachedResponse next()throws IOException {
         guard();if(!ready)throw new IOException("cdp_popup_source_bootstrap_required");
@@ -114,12 +121,18 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         guard();if(!ready||next==null)throw new IOException("cdp_popup_source_bootstrap_required");if(connection!=null&&connection!=next)throw new IOException("cdp_controller_busy");next.attach(handoff);connection=next;
     }
     boolean turn(int timeout)throws IOException {
-        guard();boolean progress=connection!=null&&connection.attachedTurn(handoff,this,timeout);
-        if(navigation!=null){
-            progress=navigation.serviceAttached(navigationView,connection!=null&&connection.navigationAllowed(),handoff.draining())||progress;
-            MdoBrowserCdpSession.NavigationResult result=navigation.result();
-            if(result!=null&&(!result.ok||navigation.pageCommitted()||result.downloadKnown&&result.download)){navigation=null;navigationView=null;}
-        }return progress;
+        guard();MdoBrowserCdpDownloads.Connection original=connection;
+        boolean progress=original!=null&&original.attachedTurn(handoff,this,timeout);
+        final MdoBrowserCdpNetworks.Navigation selected;final MdoBrowserCdpBinding.Network view;
+        synchronized(this){guard();selected=navigation;view=navigationView;}
+        try{
+            if(selected!=null){
+                progress=selected.serviceAttached(view,original!=null&&original.navigationAllowed(),handoff.draining())||progress;
+                guard();MdoBrowserCdpSession.NavigationResult result=selected.result();
+                if(result!=null&&(!result.ok||selected.pageCommitted()||result.downloadKnown&&result.download))synchronized(this){if(navigation==selected){navigation=null;navigationView=null;}}
+            }guard();return progress;
+        }catch(MdoBrowserCdpNetworkFrames.Closed ended){if(closed.get()&&ended.issuedBy(frames))throw new Retired(authority);throw ended;}
+        catch(MdoBrowserCdpNetworkRequests.Closed ended){if(closed.get()&&ended.issuedBy(requests))throw new Retired(authority);throw ended;}
     }
     // Only fixed native navigation proof reads are added. The original Fetch
     // protection remains untouched; no Runtime, world, DOM or caller RPC route.
@@ -131,5 +144,13 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     public boolean poll(int timeout)throws IOException {guard();boolean progress=session.poll(timeout);guard();return progress;}
     public boolean poll(int receive,int timeout)throws IOException {guard();boolean progress=session.poll(receive,timeout);guard();return progress;}
     public boolean idle()throws IOException {guard();return session.idle();}
-    @Override public void close(){if(closed.compareAndSet(false,true)){ready=false;receiver=null;frames.close();requests.close();if(navigation!=null)navigation.disconnected();navigation=null;navigationView=null;MdoBrowserCdpDownloads.Connection original=connection;connection=null;if(original!=null)original.disconnect();handoff.close();}}
+    @Override public void close(){
+        // Publish deliberate retirement before stop is visible or any monitor
+        // can block native cleanup. The shared pump may observe this concurrently.
+        handoff.retireAuthority();if(closed.compareAndSet(false,true)){
+        ready=false;receiver=null;frames.close();requests.close();final MdoBrowserCdpNetworks.Navigation selected;
+        synchronized(this){selected=navigation;navigation=null;navigationView=null;}
+        // Never hold this source monitor while taking the navigation monitor.
+        if(selected!=null)selected.disconnected();MdoBrowserCdpDownloads.Connection original=connection;connection=null;if(original!=null)original.disconnect();handoff.close();
+    }}
 }

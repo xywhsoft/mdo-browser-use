@@ -73,6 +73,9 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             synchronized(this){
                 if(result()!=null||issued)return;
                 long now=clock.getAsLong();
+                // UI retirement/cancellation may run while reading the clock.
+                // A completed unsent receipt must never become an issued job.
+                if(result()!=null||issued)return;
                 long age=now-born;
                 if(cancelled||retiring){cancel();return;}
                 if(age<0||age>timeout-100){url=null;finish(TIMED_OUT);return;}
@@ -81,6 +84,7 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
             }
             // Never hold a UI decision/observation monitor during socket I/O.
             try{source=action==null?connection.navigateRoot(target,budget):connection.traverseRoot(action,budget);if(attachedClock!=null&&cancelled)source.cancelAttached();result();}
+            catch(MdoBrowserCdpPopupSource.Retired ended){finish(CLOSED_UNSENT);}
             catch(MdoBrowserCdpSession.Failure failure){finish(MdoBrowserCdpSession.navigationFailure(failure.getMessage(),failure.effectMayHaveOccurred));}
             catch(IOException|RuntimeException|Error failure){finish(MdoBrowserCdpSession.navigationFailure("cdp_navigation_dispatch_failed",true));}
         }

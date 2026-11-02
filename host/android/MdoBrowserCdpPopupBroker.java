@@ -298,11 +298,11 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 MdoBrowserCdpPopupSource source=candidate.sourcePeer;
                 if("Fetch.requestPaused".equals(method)){
                     try{if(source!=null)source.capture();else session.retainAttachedRequest(candidate.original);}
-                    catch(MdoBrowserCdpPopupSource.Retired ended){if(!retiringCandidate(candidate))throw ended;session.retainAttachedRequest(candidate.original);}
+                    catch(MdoBrowserCdpPopupSource.Retired ended){if(!ended.issuedBy(source)||!retiringCandidate(candidate))throw ended;session.retainAttachedRequest(candidate.original);}
                     return;
                 }
                 if(source!=null)try{source.event(method,params);}
-                    catch(MdoBrowserCdpPopupSource.Retired ended){if(!retiringCandidate(candidate))throw ended;return;}
+                    catch(MdoBrowserCdpPopupSource.Retired ended){if(!ended.issuedBy(source)||!retiringCandidate(candidate))throw ended;return;}
                 DocumentPeer document=candidate.documentPeer;if(document!=null)document.event(method,null,params);
                 else if(source==null||!(method.startsWith("Page.")||method.startsWith("Network.")||method.startsWith("Inspector.")))throw fail("cdp_popup_broker_child_unproven");return;
             }
@@ -419,7 +419,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 MdoBrowserCdpSession.ControlResult result=new MdoBrowserCdpSession.ControlResult(false,error instanceof IOException?safe(error.getMessage()):"cdp_popup_activation_failed",protocol,effect);
                 handoff.activationResult.compareAndSet(null,result);handoff.flowFailure.compareAndSet(null,result);
                 boolean cancelled=error instanceof MdoBrowserCdpSession.Failure&&((MdoBrowserCdpSession.Failure)error).attachedCommandCancelled||
-                    java.util.Arrays.asList("cdp_attach_owner_changed","cdp_attach_response_unavailable","cdp_popup_source_retired","cdp_popup_document_retired","cdp_download_owner_changed","cdp_download_connection_closed").contains(result.code);
+                    error instanceof MdoBrowserCdpPopupSource.Retired&&((MdoBrowserCdpPopupSource.Retired)error).issuedBy(candidate.sourcePeer)||
+                    java.util.Arrays.asList("cdp_attach_owner_changed","cdp_attach_response_unavailable","cdp_popup_document_retired","cdp_download_owner_changed","cdp_download_connection_closed").contains(result.code);
                 boolean idle=false;if(cancelled&&handoff.draining())try{idle=session.idle();}catch(IOException ignored){/* a failed shared wire is never recovered here */}
                 if(idle){if(candidate.documentPeer!=null)candidate.documentPeer.retire();managedTurn=(index+1)%count;return true;}throw error;
             }

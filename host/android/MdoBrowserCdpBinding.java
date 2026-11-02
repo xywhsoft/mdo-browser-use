@@ -587,7 +587,11 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     }
     void current()throws IOException {
         if(Thread.currentThread()!=owner)throw problem("cdp_wrong_worker");
-        if(closed.get()||!lease.current()||contexts.dirty){close();throw problem("cdp_binding_owner_changed");}
+        if(closed.get()||!lease.current()||contexts.dirty){
+            boolean retired=closed.get()||!lease.current();close();
+            if(retired&&peer instanceof MdoBrowserCdpPopupSource)((MdoBrowserCdpPopupSource)peer).bindingClosed();
+            throw problem("cdp_binding_owner_changed");
+        }
     }
     JSONObject call(String method,JSONObject params,String child,int timeoutMs,boolean effect)throws IOException {
         current();return peer.call(method,params,child,timeoutMs,effect);
