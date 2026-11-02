@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E187:** fix a deterministic terminal-source leak when worker
+  exit finishes before the UI drops delivery. Always revisit guarded release
+  after delivery abandonment; active or failed native cleanup stays retained.
+  Actual public shutdown/reentry witness fails on old code, passes the repair
+  and preserves a failed source. Fresh native 545/generic-worker 300/frontend 20,
+  Python 178/180 and signed APK/DEX pass; Windows/shared UI are E184 reuse.
+  This fixes a proven matching-order defect without claiming the original
+  single UI-loss observation had no other cause. Public/provider work stays open.
+
 - **Android E186:** fix a reproduced stuck UI navigation reservation after
   protected human takeover. Revoke the exact unfinished native operation's UI
   authority and release its loading reservation, preserving its original result.
@@ -14518,3 +14527,66 @@ failure, ongoing native-origin readiness, full Activity/UI/provider/device and
 broader remote/permissions/lifetime/OOM/performance/ecosystem/final delivery audit
 remain open. Current WebView/phone checks stay deferred, public Android automation
 stays unavailable and the full goal remains active.
+
+### E187 release confirmed terminal sources after UI delivery abandonment
+
+Follow-up to E186's retained generic sources found a deterministic lifecycle
+defect. Network Slot.drop marked terminal delivery abandoned but invoked release
+only when it removed a still-queued task. If the original worker exit had already
+finished that source, release previously saw terminalDelivered=false. The later
+UI drop changed it to true without revisiting release; no worker remained to
+remove the confirmed terminal row. Both native close and Session close could be
+confirmed while networkPending still retained that source indefinitely.
+
+The witness uses the actual public worker shutdown, the existing original
+executor and a one-shot controlled Ui.remove callback. That callback reenters
+shutdown and waits for the actual worker-exit finally before the outer shutdown
+continues to its second source. It does not set private product state or create
+another protocol worker. Old code fails with stage=3/TERMINAL, cancelled=true,
+cleanupFailed=false, terminalDelivered=true, connectionClose=2 and sessionClose=2.
+See `.mdo/E187-terminal-drop-red.log`. This proves a real ordering defect with
+the same retained-source symptom as the earlier UI-loss observation. The older
+failure did not record per-slot state, so this is not an exclusive historical
+root-cause claim.
+
+Slot.drop now invokes the existing guarded release after marking delivery
+abandoned and removing its callback, including when worker exit already made it
+terminal. Queued removal still makes only an unexecuted task terminal. The
+release predicate still requires TERMINAL plus abandoned/delivered completion
+and no cleanup failure; active I/O, closing/native-pending state and failed
+native cleanup are not freed or reported successful. A concurrent later finish
+also revisits the same predicate, covering both orders without reconnect/retry.
+
+Two deterministic shutdown variants add 32 checks: both native connections close
+successfully and all rows disappear, or one native close fails and exactly that
+source remains fenced. Each native close runs once; no late UI completion is
+invented. Five focused two-case invocations pass, the complete generic network
+worker passes 300 checks versus the prior 268, and the old quiescence-ui-loss
+case passes ten targeted invocations after the fix. Earlier pending-close and
+failure receipt cases remain active in that same generic worker gate.
+
+Fresh complete native verification passes 545 popup modes /
+22,449 reported popup checks, the generic-worker
+300 checks, all 134 current selected hashes, API26/JNI/transport and ASan/UBSan.
+Every earlier popup business outcome is compared. Fresh actual frontend/JVM 20
+and Python 178/180 pass (two existing Windows symlink-privilege skips). See
+`.mdo/E187-native.log`, `.mdo/E187-network-worker-fixed.log`,
+`.mdo/E187-quiescence-after-fix.log` and `.mdo/E187-verification.json`.
+The signed APK is 6,591,809 bytes, SHA-256
+`c7899fa1517bef097428a7b1485952f584c467d54cbeadc7b8f540a371aeb352`. Its actual DEX definitions include Slot.drop/release/finish,
+with current native source/payload/package/signature checks.
+
+The Windows/shared host/page/plugin/SDK payload remains unchanged from E184;
+JS 505, actual control toolbar 22, public C/JS SDK, visual and packed runtime
+results are explicit current-hash reuse, not fresh E187 executions. The Android
+APK contains that exact app archive and this new Java lifecycle fix. No extra
+application/Home, model, phone/provider update or online publication was used.
+
+The repair does not enable Android automation. Full public protected takeover,
+other in-flight input/capture/chooser joins, descendant native detachment,
+provider autoattach/native-origin readiness and full Activity/UI/provider/device
+qualification remain open. Continue monitoring the earlier UI-loss scenario;
+the deterministic defect is fixed, but the missing original timing evidence
+cannot establish a sole cause for that one observation. Broader remote/
+permissions/lifetime/OOM/performance/ecosystem/final delivery audit and the full
+goal stay active. Current phone/WebView verification remains deferred.

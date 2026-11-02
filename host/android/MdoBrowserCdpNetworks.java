@@ -344,7 +344,11 @@ final class MdoBrowserCdpNetworks implements AutoCloseable {
         void drop(){
             cancel();synchronized(this){complete=null;events=null;terminalDelivered=true;}
             try{ui.remove(delivery);}catch(RuntimeException|Error ignored){}
-            if(stage==QUEUED&&executor.remove(this)){stage=TERMINAL;release();}
+            if(stage==QUEUED&&executor.remove(this))stage=TERMINAL;
+            // Worker exit may finish this source before UI cancellation drops
+            // its delivery. That last transition must also release a confirmed
+            // terminal row; release() retains active or failed native cleanup.
+            release();
         }
     }
 }

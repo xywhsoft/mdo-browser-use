@@ -731,7 +731,7 @@ def main():
     result['jvm_network_binding']=network_binding
     network_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNetworkWorkerProbe'],cwd=ROOT,env=environment,text=True,timeout=45))
-    if not network_worker.get('passed') or not network_worker.get('shared_protocol_worker') or not network_worker.get('cooperative_page_wait') or network_worker.get('provider_qualified') is not False:
+    if not network_worker.get('passed') or not network_worker.get('shared_protocol_worker') or not network_worker.get('cooperative_page_wait') or not network_worker.get('terminal_drop_after_exit') or not network_worker.get('uncertain_cleanup_retained') or network_worker.get('provider_qualified') is not False:
         raise RuntimeError('The private cooperative physical-network worker gate did not pass')
     result['jvm_network_worker']=network_worker
     registry=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

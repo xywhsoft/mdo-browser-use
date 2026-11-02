@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E186)
+## Complete development host APK (current: E187)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`a988baa1908b912d7c643ef043d5dcc82cd045e59e49d6d9810a62ef9fe53074`.
+`c7899fa1517bef097428a7b1485952f584c467d54cbeadc7b8f540a371aeb352`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6295,3 +6295,19 @@ passes; its failure and additional exit diagnostics remain preserved. This is
 not claimed fixed by the navigation repair. Public protected takeover, other
 in-flight/descendant joins and full Activity/provider/device qualification remain
 open; the phone/current WebView stay deferred and Android automation stays gated.
+
+
+### Confirmed terminal-source release after UI shutdown (E187)
+
+An actual worker-shutdown/reentry witness reproduces a confirmed connection row
+left behind when native worker exit finishes before the UI abandons delivery.
+The UI drop now always revisits the existing guarded release predicate. Active
+or failed native cleanup stays retained; two deterministic success/failure
+variants, old pending-close cases and the complete generic worker gate pass.
+
+Fresh native 545/generic-worker 300/frontend 20 and signed APK/DEX checks pass.
+Windows/shared UI results remain E184 reuse. This fixes a proven defect matching
+the earlier retained-source symptom, without an exclusive cause claim for that
+single uninstrumented observation. Public takeover/descendant/provider/device
+qualification and the full goal remain open; Android automation stays gated and
+the phone/current WebView stay deferred.

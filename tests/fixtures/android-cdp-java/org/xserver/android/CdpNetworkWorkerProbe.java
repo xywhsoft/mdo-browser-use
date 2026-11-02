@@ -37,7 +37,8 @@ public final class CdpNetworkWorkerProbe {
         final Thread owner=Thread.currentThread();final ConcurrentLinkedQueue<Runnable> tasks=new ConcurrentLinkedQueue<>();boolean reject;final AtomicInteger rejectNext=new AtomicInteger();
         public boolean onThread(){return Thread.currentThread()==owner;}
         public boolean post(Runnable task){if(reject||rejectNext.getAndUpdate(count->count>0?count-1:0)>0)return false;tasks.add(task);return true;}
-        public void remove(Runnable task){tasks.remove(task);}
+        Runnable removed;
+        public void remove(Runnable task){tasks.remove(task);Runnable callback=removed;removed=null;if(callback!=null)callback.run();}
         void drain(){Runnable task;while((task=tasks.poll())!=null)task.run();}
     }
     static final class Case implements AutoCloseable {
@@ -240,8 +241,28 @@ public final class CdpNetworkWorkerProbe {
             await(()->c.worker.networkPending()==(fail?1:0));check(c.worker.networkPending()==(fail?1:0));
         }
     }
-    public static void main(String[] ignored)throws Exception{
-        Looper.getMainLooper();System.loadLibrary("xs");closeReceipts();activationAndIdle();cooperativeDocumentWait();queueAndCapacity();failuresAndClose();
-        System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"shared_protocol_worker\":true,\"cooperative_page_wait\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
+    private static void terminalDropAfterExit()throws Exception {
+        for(boolean failed:new boolean[]{false,true})try(Case c=new Case()){
+            CdpNetworkBindingProbe.Context one=c.source(),two=c.source();c.ready(one);c.ready(two);c.uncertainCleanup=failed;
+            AtomicInteger reentries=new AtomicInteger(),nativeCloses=new AtomicInteger();AtomicReference<Throwable> reentryFailure=new AtomicReference<>();
+            CdpBindingProbe.Factory.Extra original=one.peer.extra;one.peer.extra=new CdpBindingProbe.Factory.Extra(){
+                public boolean send(JSONObject command,CdpBindingProbe.Wire wire)throws Exception{return original.send(command,wire);}
+                public void closed(CdpBindingProbe.Wire wire){nativeCloses.incrementAndGet();if(failed)throw new IllegalStateException("controlled_reentrant_native_close_failure");}
+            };
+            c.ui.removed=()->{try{
+                check(c.ui.onThread());reentries.incrementAndGet();c.worker.close();await(c.worker::terminated);
+            }catch(Exception|Error problem){reentryFailure.set(problem);}};
+            c.worker.close();if(reentryFailure.get()!=null)throw new AssertionError("Controlled UI shutdown reentry failed",reentryFailure.get());
+            check(c.worker.terminated()&&reentries.get()==1&&one.network.cleanupConfirmed()!=failed&&two.network.cleanupConfirmed()&&nativeCloses.get()==1);
+            if(c.worker.networkPending()!=(failed?1:0))throw new AssertionError("Incorrect terminal source retirement after UI delivery drop: "+c.retainedNetworkState());
+            check(c.worker.networkPending()==(failed?1:0));c.ui.drain();check(c.states.size()==2&&one.wire().closed.get()&&two.wire().closed.get());
+        }
+    }
+    public static void main(String[] arguments)throws Exception{
+        Looper.getMainLooper();System.loadLibrary("xs");
+        if(arguments.length==0){closeReceipts();activationAndIdle();cooperativeDocumentWait();queueAndCapacity();failuresAndClose();}
+        else if(arguments.length!=1||!arguments[0].equals("shutdown-reentry"))throw new IllegalArgumentException("Unknown worker probe mode");
+        terminalDropAfterExit();
+        System.out.println("{\"passed\":true,\"checks\":"+checks.get()+",\"real_jvm_jni_json\":true,\"shared_protocol_worker\":true,\"cooperative_page_wait\":true,\"terminal_drop_after_exit\":true,\"uncertain_cleanup_retained\":true,\"native_ui_calls_doubled\":true,\"provider_qualified\":false,\"product_downloads_activated\":false}");
     }
 }
