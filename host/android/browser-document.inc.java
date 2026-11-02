@@ -96,22 +96,24 @@
     /** Both single-view and whole-host close use this physical teardown once.
      * Captured resources cannot later be replaced through a reused tab key. */
     private final class NativeDestruction implements MdoBrowserCdpPopupNative.Destruction {
-        final String key;final WebView view;final MdoBrowserPopups<WebView> popup;final MdoBrowserDialogTarget dialog;final CaptureEntry capture;final MdoBrowserDocument document;
+        final String key;final WebView view;final MdoBrowserPopups<WebView> popup;final MdoBrowserDialogTarget dialog;final CaptureEntry capture;final MdoBrowserDocument document,previousDocument;
         boolean prepared,running,destroyed,complete,failed,clean,controlled;
-        NativeDestruction(String key,WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){this.key=key;this.view=view;this.popup=popup;this.dialog=dialog;this.capture=capture;this.document=document;}
-        public boolean ready(){return prepared&&!running&&!failed&&(document==null||!document.initializing());}
+        NativeDestruction(String key,WebView view,MdoBrowserPopups<WebView> popup,MdoBrowserDialogTarget dialog,CaptureEntry capture,MdoBrowserDocument document){this.key=key;this.view=view;this.popup=popup;this.dialog=dialog;this.capture=capture;this.document=document;previousDocument=popupControlDocument(view,document);}
+        public boolean ready(){return prepared&&!running&&!failed&&(document==null||!document.initializing())&&(previousDocument==null||!previousDocument.initializing());}
         public boolean failed(){return failed;}
         public void destroy(){
             if(complete||running)return;if(!ready())throw new IllegalStateException("native_view_retirement_busy");running=true;
             try{
+                if(previousDocument!=null)previousDocument.close();
                 if(!destroyed){root.removeView(view);view.destroy();destroyed=true;}
                 retireUploadData(view);
                 if(popup!=null)popup.viewDestroyed(view);
                 if(dialog!=null&&dialog.view==view)dialog.viewDestroyed();
                 if(capture!=null&&capture.view==view)capture.capture.viewDestroyed();
                 if(document!=null)document.viewDestroyed(view);
+                if(previousDocument!=null)previousDocument.viewDestroyed(view);
                 networkDestroyed(view);
-                boolean documentClean=document==null||document.cleanupConfirmed();if(!documentClean)nativeViewCleanupFailed=true;
+                boolean documentClean=(document==null||document.cleanupConfirmed())&&(previousDocument==null||previousDocument.cleanupConfirmed());if(!documentClean)nativeViewCleanupFailed=true;
                 clean=documentClean&&networkClean();complete=true;
             }catch(RuntimeException|Error failure){failed=true;nativeViewCleanupFailed=true;throw failure;}
             finally{

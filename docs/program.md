@@ -22,18 +22,19 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview includes E184's native control receipt
-validation and W6's recovery when a task dispatcher supersedes a pending pane.
-Control failures retain the displayed webpage with useful recovery/cleanup text;
-pending control and stale state reads cannot grant UI ownership. No failed
-control operation automatically recreates or navigates the webpage.
-It is **6,943,692 bytes**, SHA-256
-`525daa817e571ed6d52069ca5ac069ea84cd69f858e67241a7398cf69d1f57ea`.
-Fresh mounted WebView2 control 22, public C/JS SDK, visual permissions and twelve
-packed runtime checks pass; 505 JS tests and the signed Android archive are
-current. E183's native 529/frontend 20 are explicit unchanged hash-checked reuse,
-not an Android device/provider pass. See the adjacent receipt and
-[current progress](progress.md). The overall Browser Use goal remains active.
+The current verified Windows preview includes E197's specific native-control
+failure guidance, E184's receipt validation and W6's superseded-pane recovery.
+Control failures retain the displayed webpage; pending operations and stale
+state cannot grant UI ownership or automatically recreate/navigate a page.
+It is **6,943,880 bytes**, SHA-256
+`abf4836c3b00a8de17a500ec6b83bb7f708178a63108ff593bf4e103ee81074f`.
+Fresh actual WebView2 control 22, public C/JS SDK (19 actions, four navigation
+and five wait conditions), visual permissions and twelve packed runtime checks
+pass. All 510 JS tests pass. The matching signed Android archive passes native
+647 and frontend/JVM20 modes, ordinary create/control850 and actual DEX checks;
+these Android controlled-peer results do not qualify a device/provider.
+See the adjacent receipt and [current progress](progress.md). The overall Browser
+Use goal remains active; no official update/store publication occurred.
 
 W5 fixes actual managed read-only screenshots timing out during panel mounting:
 the panel retains its browser's original run/workspace, while the action keeps

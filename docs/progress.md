@@ -15,13 +15,13 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
-- **Android E196:** connect actual resource cancellation to the staged native
-  human-control coordinator. Recheck original bindings after every callback;
-  real capture-core/worker/budget cases wait through retained visual/encoding
-  resources and refuse failed cleanup. Actual input, private picker and upload
-  scope/data-owner checks join fourteen new modes. Fresh native 622/frontend 20,
-  Python 178/180 and signed APK/DEX pass; ordinary create850 is current-hash reuse.
-  Framework pixels/provider/device and the public outer request remain open.
+- **Android/shared E197:** connect protected takeover to the actual main-request
+  coordinator with one original elapsed budget, original-channel reply and real
+  resource/protocol joins. Preserve actual manual ownership on late failure;
+  retain original-profile destruction acknowledgement after identity replacement.
+  Fresh native647/frontend20/create850, JS510, WebView2 control22, public SDK,
+  visual, packed runtime12, Windows and signed Android/DEX checks pass. Android
+  Activity/provider/device qualification and the broader goal remain open.
 
 
 - **Android E195:** reserve a bounded, typed original human-control handoff;
@@ -15270,3 +15270,87 @@ control request, exclude conflicting commands, await independent protocol cleanu
 and publish manual/profile/reply only for that original live owner. Ongoing native
 origin readiness, Activity/provider/device and broader requirements/delivery audit
 remain open; the complete Browser Use goal stays active.
+
+
+## E197 — bounded main native takeover and truthful original-owner completion
+
+The actual Android takeover branch now consumes a protected request through
+networkTakeoverRequest before the ordinary fallback admission. An eight-entry
+UI-owned coordinator captures original view/profile/channel/resources, admits
+its timer before effects, blocks conflicting commands and shares one original
+five-second suspend-inclusive budget through resource cancellation, physical
+handoff and protocol retirement. It returns success only after the original
+root ACK, native detach event and source/body/descendant cleanup join. Ordinary
+fallback refusal and Android global unavailable admission are preserved.
+
+Physical handoff and network cleanup are distinct. A late rejection/timeout/
+stop/pause reports failure with actual manual/cleanup facts and cannot revive
+old Agent authority. Lost/reused channel/view/profile cannot receive old success;
+cleanup targets only captured original resources. A completed takeover repeat
+is idempotent and never creates another view/world/navigation. Remove the actor
+before one original-channel reply attempt; do not retry a possibly delivered reply.
+
+A red profile-replacement test exposed loss of the original profile's destruction
+acknowledgement. NativeDestruction now retains its immutable previousDocument,
+waits for both profiles, closes it after bulk-destruction registration and delivers
+the exact physical viewDestroyed receipt to both. Preserve
+E197-profile-retirement-red.log and the passing focused logs. A separate first
+view-replacement fixture reused a retiring identity; it now closes the old owner
+before inserting a pre-existing foreign replacement. The combined file fixture
+initially retained the older zero-detach expectation; scope its one legitimate
+detach to the new mode. Neither fixture adjustment invents provider success.
+
+Twenty-four new main-request modes cover actual capture-core waiting/failure,
+input, chooser, duplicate/conflicting commands, scheduler rejection, stop/close/
+pause/timeouts, independently held ACK/event, rejected detach and postcommit
+channel/profile/view/lifecycle changes. A twenty-fifth uses the real file store,
+picker/assignment/URI route: 131,075 original bytes plus an empty file survive
+transient-scope cancellation and detach, and are released only by physical close.
+The pause fixture drives the actual cancellation helper with paused state; it
+does not claim a full installed Activity lifecycle test.
+
+Fresh complete native gate: 647 modes / 27,506 reported
+popup checks, new request 1,039 and combined-file
+63 checks. Strictly compare all old622 modes: only
+three prior takeover refusal proofs intentionally become accepted main-route
+proofs; their exact new schema is independently enforced. Other619 old business
+schemas/values remain identical, excluding assertion counters and separately
+reported existing loading-timeout scheduling snapshots. Original cleanup7137,
+generic worker300, current134 source hashes, API26/JNI/kernel sockets and
+ASan/UBSan pass. Ordinary create/control850 includes77 async-close checks, fresh.
+
+Fresh Python178/180 (two existing Windows symlink privilege skips), all510 JS,
+frontend/JVM20, mounted actual WebView2 control22, public SDK19/navigation4/wait5,
+visual permissions and packed runtime12 pass. The first component-only run read
+the old deployed JS; after reviewed same-deployment stop/apply/start all53
+component cases pass. This stale-deployment result is retained, not called a
+product defect. The first full native run exposed a generic driver expectation
+for startup failure callbacks in the new post-startup detach-rejection mode.
+Startup had already succeeded; the subsequent control failure correctly replies
+once without a second creation callback. Preserve the red full log and exact
+startup-gate reproduction; only this new mode joins the existing later-human-
+failure rule, and failing driver assertions now name the mode. A second full
+run caught the new held-ACK fixture checking native detach as soon as the backend
+stored the ACK, before its independently queued native event was processed.
+The fixture now waits for that real event while still withholding the original
+ACK; it does not synthesize either receipt. Preserve E197-native-held-ack-red.log.
+All25 new and four changed/unchanged control cases also pass the exact full-driver
+validators in a separate focused run before the final complete run.
+All authoritative inputs stayed frozen while each test/build
+handle was live; every handle is terminal before this documentation update.
+
+Fresh Windows executable: 6,943,880 bytes, SHA-256
+`abf4836c3b00a8de17a500ec6b83bb7f708178a63108ff593bf4e103ee81074f`.
+Fresh complete signed lite-edition Android host: 6,600,001 bytes, SHA-256
+`face2e922f4707276336c4f317b9130570f1f5b723e572703b3bfb995cf87512`.
+Android reuses this exact verified Windows source archive; actual DEX requires
+the main coordinator methods, immutable request fields and previousDocument,
+alongside prior cleanup/ownership/private class gates. Package/signature/native
+payload checks pass. Portable plugin remains unchanged E169 hash-verified.
+Exact runtime identity is checked before explicit build stop and after runtime
+restoration in the same Home. No extra application/source/Home/dependency copy,
+phone/provider upgrade, install, model call, external website or online/store
+publication occurred. Native main-branch peers are controlled; Android global
+framework/provider/device/automation qualification remains false. Ongoing native
+origin readiness and whole-feature permissions, remote/lifetime/resource and
+delivery audit remain open. The full Browser Use goal stays active.

@@ -36,6 +36,9 @@
     }
     private void networkCommand(String key,WebView view,String command,boolean agent){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
+        PopupControlRequest control=popupControls.get(key);
+        if(control!=null&&control.entry==entry&&!Arrays.asList("state","bounds","close","stop","downloads").contains(command))
+            throw new IllegalStateException("browser_control_pending");
         if("downloads".equals(command)&&entry.downloads!=null)return;
         if(entry.navigation!=null&&entry.navigation.ticket!=null&&entry.navigation.ticket.result()==null&&(agent||!manual.contains(key))&&Arrays.asList("navigate","back","forward","reload","automation","input","wheel","drag","upload").contains(command))throw new IllegalStateException("navigation_pending");
         if(entry.retired&&(agent||Arrays.asList("automation","frames","input","wheel","drag","upload").contains(command)))throw new IllegalStateException("network_owner_unavailable");
@@ -45,7 +48,132 @@
         if(entry.ready||entry.retired)return;
         if(!Arrays.asList("state","bounds","close","takeover","stop").contains(command))throw new IllegalStateException("network_starting");
     }
-    private void networkStop(String key,WebView view){retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
+    private void networkStop(String key,WebView view){PopupControlRequest control=popupControls.get(key);if(control!=null&&control.entry.view==view)popupControlCancel(control,"network_control_cancelled");retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
+    /** One bounded UI request for this original physical owner. Native manual
+     * ownership and original protocol retirement are separate terminal facts. */
+    private final Map<String,PopupControlRequest> popupControls=new HashMap<>();
+    private final class PopupControlRequest {
+        final NetworkEntry entry;final PopupNetwork popup;final String id;
+        final CaptureEntry capture;final MdoBrowserDialogTarget dialog;final MdoBrowserPopups<WebView> windowsOwner;
+        final long epoch,born=android.os.SystemClock.elapsedRealtime();final Runnable watch=()->popupControlPoll(this);
+        MdoBrowserCdpPopupNative.HumanControl control;boolean starting=true,done,manualPublished;String cancellation;
+        PopupControlRequest(NetworkEntry entry,String id){this.entry=entry;popup=entry.popup;this.id=id;capture=captures.get(entry.key);dialog=dialogs.get(entry.key);windowsOwner=windows.get(entry.key);epoch=views.epoch(entry.key,entry.view);}
+        boolean timely(){long age=android.os.SystemClock.elapsedRealtime()-born;return age>=0&&age<5000;}
+    }
+    private boolean popupControlIdentity(NetworkEntry entry){
+        return networkViews.get(entry.key)==entry&&!entry.destroyed&&views.owns(entry.key,entry.view)&&
+            documents.get(entry.key)==entry.profile&&entry.profile.profileAssigned()&&!pageClosed.contains(entry.key)&&
+            channel.current()==entry.channelLease&&channel.active(entry.channelLease,host.getUrl());
+    }
+    private boolean popupControlOwner(NetworkEntry entry){return !stopped&&!browserPaused&&popupControlIdentity(entry);}
+    private String popupControlCode(String code){return code!=null&&code.length()<=80&&code.matches("(?:cdp|download_frame|network|browser_control)_[a-z_]{1,80}")?code:"network_control_unconfirmed";}
+    private boolean networkTakeoverRequest(String key,WebView view,String id)throws java.io.IOException {
+        NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.popup==null)return false;
+        if(id==null||id.isEmpty()||id.length()>512||popupControls.containsKey(key)||popupControls.size()>=8)throw new java.io.IOException("browser_control_pending");
+        for(PopupControlRequest old:popupControls.values())if(old.id.equals(id))throw new java.io.IOException("browser_control_pending");
+        if(!popupControlOwner(entry))throw new java.io.IOException("network_owner_changed");
+        if(entry.popup.owner.humanTransferred()&&manual.contains(key)){
+            if(!entry.popup.returnable())throw new java.io.IOException("network_retiring");
+            try{reply(entry.channelLease,id,new JSONObject().put("manual",true).put("network_cleanup_confirmed",true),null);}
+            catch(JSONException error){throw new java.io.IOException("network_control_unconfirmed");}return true;
+        }
+        PopupControlRequest operation=new PopupControlRequest(entry,id);
+        // Scheduler admission precedes all data/input effects, including the
+        // typed native receipt's own independently bounded preparation.
+        final boolean scheduled;try{scheduled=networkHandler.postDelayed(operation.watch,50);}catch(RuntimeException|Error unavailable){throw new java.io.IOException("network_control_scheduler_unavailable");}
+        if(!scheduled)throw new java.io.IOException("network_control_scheduler_unavailable");
+        try{
+            popupControls.put(key,operation);
+            try{operation.control=operation.popup.beginControlAndCancel();}
+            catch(java.io.IOException|RuntimeException|Error failure){if(operation.cancellation==null)operation.cancellation=popupControlCode(failure.getMessage());}
+            finally{operation.starting=false;}
+            popupControlPoll(operation);return true;
+        }catch(RuntimeException|Error failure){popupControlDone(operation);if(operation.control!=null)operation.control.close();throw failure;}
+    }
+    private void popupControlManual(PopupControlRequest operation)throws java.io.IOException {
+        if(!popupControlIdentity(operation.entry))throw new java.io.IOException("network_owner_changed");
+        if(operation.manualPublished)return;
+        operation.entry.profile.block(MdoBrowserDocument.MANUAL,true);
+        if(!popupControlIdentity(operation.entry))throw new java.io.IOException("network_owner_changed");
+        manual.add(operation.entry.key);operation.manualPublished=true;
+    }
+    private void popupControlPoll(PopupControlRequest operation){
+        if(operation.done||operation.starting||popupControls.get(operation.entry.key)!=operation)return;
+        networkHandler.removeCallbacks(operation.watch);
+        try{
+            if(operation.cancellation!=null){popupControlFinish(operation,operation.cancellation);return;}
+            if(!operation.timely()){popupControlFinish(operation,"network_control_timeout");return;}
+            if(!popupControlOwner(operation.entry)){popupControlFinish(operation,"network_owner_changed");return;}
+            MdoBrowserCdpPopupNative.HumanControl control=operation.control;
+            if(control==null){popupControlFinish(operation,"network_control_unconfirmed");return;}
+            if(!control.committed()){
+                control.expire();if(control.failure()!=null)throw new java.io.IOException(control.failure());
+                if(!control.current())throw new java.io.IOException("cdp_popup_human_owner_invalid");
+                if(operation.popup.controlReady(control))operation.popup.completeControl(control);
+            }
+            if(control.committed()){
+                popupControlManual(operation);operation.popup.watch();
+                if(!popupControlOwner(operation.entry))throw new java.io.IOException("network_owner_changed");
+                MdoBrowserCdpSession.ControlResult transfer=operation.popup.handoff.humanDetachResult();
+                if(transfer!=null&&!transfer.ok)throw new java.io.IOException(transfer.code==null?"network_control_unconfirmed":transfer.code);
+                if(operation.entry.protocolDrained&&operation.popup.handoff.humanDetached()&&!networkCleanupFailed){popupControlFinish(operation,null);return;}
+                if(networkCleanupFailed||operation.entry.cleanupObservationExpired)throw new java.io.IOException("network_control_cleanup_unconfirmed");
+            }
+            if(!networkHandler.postDelayed(operation.watch,50))popupControlFinish(operation,"network_control_scheduler_unavailable");
+        }catch(java.io.IOException|RuntimeException|Error failure){popupControlFinish(operation,popupControlCode(failure.getMessage()));}
+    }
+    private void popupControlDone(PopupControlRequest operation){operation.done=true;popupControls.remove(operation.entry.key,operation);networkHandler.removeCallbacks(operation.watch);}
+    private MdoBrowserDocument popupControlDocument(WebView view,MdoBrowserDocument current){
+        if(popupControls.isEmpty())return null;
+        for(PopupControlRequest operation:popupControls.values())if(operation.entry.view==view&&operation.entry.profile!=current)return operation.entry.profile;
+        return null;
+    }
+    private void popupControlCancel(PopupControlRequest operation,String reason){if(operation.done)return;if(operation.cancellation==null)operation.cancellation=reason;if(!operation.starting)popupControlFinish(operation,operation.cancellation);}
+    private void cancelPopupControls(){for(PopupControlRequest operation:new ArrayList<>(popupControls.values()))popupControlCancel(operation,"network_control_cancelled");}
+    private void popupControlDispose(PopupControlRequest operation){
+        NetworkEntry entry=operation.entry;if(views.nativeDestroyed(entry.view))return;
+        if(views.owns(entry.key,entry.view))retireNativeDocument(entry.key,entry.view);
+        else{
+            // A reused key cannot supply any of the replacement's resources.
+            NativeDestruction row=prepareNativeDestruction(entry.key,entry.view,operation.windowsOwner,operation.dialog,operation.capture,entry.profile);
+            cdpViews.invalidate(entry.key,entry.view,operation.epoch,"input_closed");
+            if(operation.windowsOwner!=null){windows.remove(entry.key,operation.windowsOwner);operation.windowsOwner.close();}
+            if(operation.dialog!=null){dialogs.remove(entry.key,operation.dialog);operation.dialog.close();}
+            if(operation.capture!=null){captures.remove(entry.key,operation.capture);operation.capture.capture.close();}
+            documents.remove(entry.key,entry.profile);entry.profile.close();row.prepared=true;executeNativeDestruction(row);
+        }
+        if(views.nativeDestroyed(entry.view)){operation.popup.destroyed();if(entry.downloads!=null)entry.downloads.close();}
+        if(views.get(entry.key)==null){manual.remove(entry.key);loading.remove(entry.key);errors.remove(entry.key);errorCodes.remove(entry.key);crashed.remove(entry.key);locations.remove(entry.key);}
+    }
+    private void popupControlFinish(PopupControlRequest operation,String failure){
+        if(operation.done)return;operation.done=true;networkHandler.removeCallbacks(operation.watch);
+        MdoBrowserCdpPopupNative.HumanControl control=operation.control;boolean committed=control!=null&&control.committed();
+        try{
+            if(committed){
+                if(popupControlIdentity(operation.entry))popupControlManual(operation);else popupControlDispose(operation);
+            }else{
+                if(control!=null)control.close();
+                if(operation.popup.human&&operation.popup.handoff.retiring()&&!popupControlIdentity(operation.entry))popupControlDispose(operation);
+            }
+        }catch(java.io.IOException|RuntimeException|Error cleanup){failure="network_control_cleanup_unconfirmed";try{popupControlDispose(operation);}catch(RuntimeException|Error unconfirmed){nativeViewCleanupFailed=true;}}
+        popupControlDone(operation);NetworkEntry entry=operation.entry;
+        if(channel.current()!=entry.channelLease||!channel.active(entry.channelLease,host.getUrl()))return;
+        JSONObject result;
+        try{
+            boolean actualManual=committed&&operation.popup.owner.humanTransferred()&&!operation.popup.owner.nativeDestroyed()&&
+                views.owns(entry.key,entry.view)&&documents.get(entry.key)==entry.profile&&manual.contains(entry.key);
+            boolean clean=entry.protocolDrained&&!networkCleanupFailed;
+            if(failure==null&&!operation.timely())failure="network_control_timeout";
+            if(failure==null&&!popupControlOwner(entry))failure="network_owner_changed";
+            if(failure==null&&(!actualManual||!clean))failure="network_control_cleanup_unconfirmed";
+            result=new JSONObject().put("ok",failure==null).put("manual",actualManual);
+            if(operation.popup.human||control!=null)result.put("network_cleanup_confirmed",clean);
+            if(failure!=null)result.put("error",new JSONObject().put("code",failure));
+        }catch(JSONException|RuntimeException|Error unavailable){return;}
+        // Mark terminal before attempting original-channel delivery. A throw
+        // after native delivery must never cause a second reply or handoff.
+        try{reply(entry.channelLease,operation.id,result,null);}catch(RuntimeException|Error unavailable){/* original outcome is terminal */}
+    }
     /** Admission must precede document/input cancellation. A refused control
      * request leaves the original Agent page and outstanding read untouched. */
     private void networkTakeoverAdmission(String key,WebView view){

@@ -1,4 +1,4 @@
-    void pause(){browserPaused=true;cancelPopups();cancelDialogs();blockDocuments(MdoBrowserDocument.BACKGROUND,true);views.background(true);}
+    void pause(){browserPaused=true;cancelPopupControls();cancelPopups();cancelDialogs();blockDocuments(MdoBrowserDocument.BACKGROUND,true);views.background(true);}
     void resume(){browserPaused=false;MdoBrowserCdpPopupNative.reconcileRetirements();views.background(false);blockDocuments(MdoBrowserDocument.BACKGROUND,false);resumePopupNetworks();}
     void destroy(){
         stopped=true;cancelBrowserCloses();
@@ -18,7 +18,7 @@
                 CaptureEntry capture=null;for(CaptureEntry entry:captureRetiring)if(entry.view==web){capture=entry;break;}
                 closing.add(prepareNativeDestruction(null,web,popupRetiring.get(web),dialog,capture,retiring.get(web)));
             }
-            manualChooser.close();cancelUploads();networkRetireAll("network_host_closed");cdpWorker.close();cdpViews.close();channel.close();if(port!=null)port.close();
+            cancelPopupControls();manualChooser.close();cancelUploads();networkRetireAll("network_host_closed");cdpWorker.close();cdpViews.close();channel.close();if(port!=null)port.close();
             for(MdoBrowserPopups<WebView> popup:new ArrayList<>(windows.values()))popup.close();
             for(MdoBrowserDialogTarget target:dialogRetiring)target.close();
             for(CaptureEntry entry:captureRetiring)entry.capture.close();

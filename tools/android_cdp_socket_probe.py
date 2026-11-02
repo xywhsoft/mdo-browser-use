@@ -283,6 +283,7 @@ def main():
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
                   *['preparation-page-human-stage-'+variant for variant in ('prepared-cancel','prepared-expire','prepared-resume','duplicate','wrong-view','timer-rejected','cancel-started','expire-started','resume-started','close-started','flow','input','read','complete','capture-pending','channel-changed')],
+                  *['preparation-page-human-request-'+variant for variant in ('capture-visual', 'capture-running', 'capture-postguard', 'capture-failure', 'input', 'chooser', 'pending-duplicate', 'timer', 'stop', 'close', 'channel', 'pause', 'timeout', 'held-event', 'held-ack', 'rejected', 'channel-after', 'profile-after', 'view-after', 'stop-after', 'timeout-after', 'close-after', 'pause-after', 'foreign-capture')],
                   *['preparation-page-human-resources-'+variant for variant in ('guard','visual','queued','running','encoded','postguard','cleanup-failed','expire-running','close-running','channel-lost','capture-replaced','foreign-capture','input','chooser')],
                   'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
                   'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-root-read','preparation-page-human-network-root-effect','preparation-page-human-network-root-complete','preparation-page-human-network-root-pending','preparation-page-human-network-root-held-body','preparation-page-human-network-descendants','preparation-page-human-network-descendants-inflight',
@@ -330,7 +331,7 @@ def main():
                   'preparation-page-input-afterdown','preparation-page-input-focus-timeout','preparation-page-input-channel','preparation-page-input-focus-retired',
                   'preparation-publication-ready',
                   'preparation-publication-files-upload','preparation-publication-files-nested','preparation-publication-files-cancel',
-                  'preparation-publication-files-clear','preparation-publication-files-clear-cancel','preparation-publication-files-retention','preparation-publication-files-page-close',
+                  'preparation-publication-files-public-takeover','preparation-publication-files-clear','preparation-publication-files-clear-cancel','preparation-publication-files-retention','preparation-publication-files-page-close',
                   'preparation-publication-continuation-ready','preparation-publication-continuation-loss',
                   'preparation-publication-continuation-parent','preparation-publication-continuation-restore',
                   'preparation-publication-hidden',
@@ -427,7 +428,7 @@ def main():
                 raise RuntimeError('A source-ledger fault or ordinary listener error was swallowed as retirement')
         if mode.startswith('preparation-publication-files-'):
             receipt=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-'):]
-            clearing=variant.startswith('files-clear');granted=variant in {'files-upload','files-nested','files-retention'}
+            clearing=variant.startswith('files-clear');granted=variant in {'files-upload','files-nested','files-retention','files-public-takeover'}
             if (not isinstance(receipt,dict) or receipt.get('actual_product_file_flow') is not True or receipt.get('original_file_worker') is not True
                     or receipt.get('native_grants')!=int(granted) or receipt.get('native_responses')!=int(granted)
                     or receipt.get('opens')!=int(not clearing) or receipt.get('commits')!=int(granted) or receipt.get('clears')!=int(clearing)
@@ -435,6 +436,7 @@ def main():
                     or receipt.get('staging_expiry_tested') is not (variant=='files-retention')
                     or receipt.get('framework_grant_qualified') is not False or receipt.get('provider_qualified') is not False):
                 raise RuntimeError('Protected popup upload/clear did not retain exact original native file and document ownership')
+            if variant=='files-public-takeover' and (receipt.get('public_takeover') is not True or receipt.get('native_close_released_files') is not True):raise RuntimeError('Main native takeover lost renderer-assigned original file bytes or released them before physical close')
         if mode.startswith('preparation-publication-continuation-'):
             receipt=popup_worker.get('product_frame_route')
             if (not isinstance(receipt,dict) or receipt.get('original_document_continuation') is not True
@@ -512,13 +514,13 @@ def main():
                 raise RuntimeError('Protected native input lost its exact document, cancellation, no-replay or original connection scope')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
-            human_failure=(mode in {'preparation-page-human-network-'+name for name in ('rejected','unsupported','malformed','wrong-event','complete-rejected','descendants-stop-rejected','descendants-stop-unsupported','descendants-stop-malformed','descendants-stop-no-ack','descendants-stop-send','descendants-missing-child','descendants-wrong-parent')}
+            human_failure=(mode in ({'preparation-page-human-network-'+name for name in ('rejected','unsupported','malformed','wrong-event','complete-rejected','descendants-stop-rejected','descendants-stop-unsupported','descendants-stop-malformed','descendants-stop-no-ack','descendants-stop-send','descendants-missing-child','descendants-wrong-parent')}|{'preparation-page-human-request-rejected'})
                            and popup_worker.get('product_frame_route',{}).get('actual_human_network') is True
                            and popup_worker.get('product_frame_route',{}).get('wire_failed') is True)
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool
                     or evidence.get('ui_published') is not False or evidence.get('provider_qualified') is not False
                     or not evidence['cleanup_confirmed'] and (evidence.get('unconfirmed_creation_fenced') is not True or evidence.get('failure_callbacks')!=(0 if human_failure else 1))):
-                raise RuntimeError('Protected page startup lost its actual cleanup/publication evidence')
+                raise RuntimeError('Protected page startup lost its actual cleanup/publication evidence: '+mode)
             if mode=='preparation-page-loading-timeout':
                 retirement=popup_worker.get('loading_retirement')
                 if (evidence['cleanup_confirmed'] is not True or evidence.get('unconfirmed_creation_fenced') is not False
@@ -637,12 +639,22 @@ def main():
                 raise RuntimeError('A real human page close poisoned the shared wire or invented an unsent detach ACK')
         elif mode.startswith('preparation-page-control-'):
             variant=mode[len('preparation-page-control-'):]
-            expected={'original_control_branch':True,'command':'release' if variant=='release' else 'takeover','refusal_count':2,
-                'old_document_preserved':True,'native_owner_preserved':True,'manual_unchanged':True,'profile_unchanged':True,'input_clean':True,
-                'control_side_effects':0,'pending_read_preserved':variant=='takeover-read','completed_bytes':variant=='takeover-complete',
-                'new_worlds':0,'new_views':0,'navigation_commands':0,'detach_commands':0,'provider_qualified':False,'ui_published':False}
+            if variant!='release':
+                expected={'actual_public_takeover':True,'original_control_branch':True,'manual_committed':True,'root_ack':True,'native_event':True,'cleanup_confirmed':True,'old_authority_revoked':True,'reply_once':True,'idempotent_without_replay':True,'completed_bytes':variant=='takeover-complete','original_read_cancelled':variant=='takeover-read','new_views':0,'new_worlds':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}
+            else:
+                expected={'original_control_branch':True,'command':'release' if variant=='release' else 'takeover','refusal_count':2,
+                    'old_document_preserved':True,'native_owner_preserved':True,'manual_unchanged':True,'profile_unchanged':True,'input_clean':True,
+                    'control_side_effects':0,'pending_read_preserved':variant=='takeover-read','completed_bytes':variant=='takeover-complete',
+                    'new_worlds':0,'new_views':0,'navigation_commands':0,'detach_commands':0,'provider_qualified':False,'ui_published':False}
             if popup_worker.get('product_frame_route')!=expected:
-                raise RuntimeError('Refused native control changed original document, read, bytes, profile or ownership')
+                raise RuntimeError('Exact native main control lost original ownership, retained bytes/read cancellation or cleanup confirmation')
+        elif mode.startswith('preparation-page-human-request-'):
+            name=mode[len('preparation-page-human-request-'):];timer=name=='timer';lost=name in {'channel','channel-after'}
+            pre=name in {'stop','close','channel','pause','timeout','capture-failure','foreign-capture'}
+            codes={'timer':'network_control_scheduler_unavailable','stop':'network_control_cancelled','close':'network_owner_changed','channel':'network_owner_changed','pause':'network_control_cancelled','timeout':'network_control_timeout','capture-failure':'network_control_timeout','stop-after':'network_control_cancelled','channel-after':'network_owner_changed','profile-after':'network_owner_changed','view-after':'network_owner_changed','rejected':'cdp_command_rejected','timeout-after':'network_control_timeout','close-after':'network_owner_changed','pause-after':'network_control_cancelled','foreign-capture':'cdp_popup_human_owner_invalid'}
+            expected={'actual_public_request':True,'variant':name,'original_control_branch':True,'actual_capture_core':not timer,'physical_committed':not timer and not pre,'reply_once':not timer and not lost,'reply_ok':name not in codes,'reply_manual':name not in codes or name in {'stop-after','timeout-after','pause-after','rejected'},'old_authority_revoked':not timer and name!='foreign-capture','code':codes.get(name),'actual_human_network':True,'wire_failed':name=='rejected','provider_qualified':False,'ui_published':False}
+            if popup_worker.get('product_frame_route')!=expected:
+                raise RuntimeError('Original public control request lost bounded ownership, resource/protocol join or original-channel reply truth')
         elif mode.startswith('preparation-page-human-network-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-network-'):]
             if variant.startswith('descendants-') and variant!='descendants-inflight':

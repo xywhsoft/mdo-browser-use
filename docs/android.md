@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E196)
+## Complete development host APK (current: E197)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,595,905 bytes, SHA-256
-`c9b8068866aadda267e71802c7d7e59c61c8b4b11df1183ca990a7ac97cd73fc`.
+Current APK: 6,600,001 bytes, SHA-256
+`face2e922f4707276336c4f317b9130570f1f5b723e572703b3bfb995cf87512`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,10 +72,26 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the verified W6 Windows
+key is included. The app archive is extracted from the fresh verified E197 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
+
+E197 connects the actual native main-request takeover branch to a bounded
+original-owner coordinator. It cancels real in-flight resources, waits for the
+independent root command acknowledgement, native detach and source cleanup, and
+returns once on the original channel. A physical manual handoff remains true
+even when later protocol cleanup fails; it never restores old Agent authority.
+Stop, pause, close, elapsed timeout and replaced channel/view/profile cannot
+publish stale success or destroy a replacement page. Physical destruction also
+retains the original profile until its native destruction acknowledgement.
+Assigned original upload bytes survive takeover until actual native view close.
+The packaged DEX must define this coordinator, immutable request identity and
+previous-profile destruction field alongside all prior native gates. Native
+main-branch/JNI tests use controlled Activity/provider peers; fresh shared UI and
+Windows tests do not qualify Android framework/provider/device automation.
+Overall Android admission remains disabled, and the phone/current WebView are
+unchanged. See the current verification scope in [progress](progress.md).
 
 E163 routes a protected popup's native screenshot fences through its original
 attached document and shared connection. The native capture transaction obtains

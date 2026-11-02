@@ -167,6 +167,8 @@ test(`failed native return keeps the webpage and its manual control, cleanup=${c
 });
 
 for(const [code,text] of [['network_retiring',/仍在清理/],['network_rearm_page_loading',/加载结束/],['network_return_blocked',/文件选择/],
+  ['network_control_timeout',/接管确认超时/],['network_control_cancelled',/接管已停止/],['network_control_cleanup_unconfirmed',/清理尚未确认/],
+  ['cdp_popup_human_owner_invalid',/控制通道已变化/],['cdp_popup_human_resource_cancel_failed',/尚未完成清理/],
   ['popup_takeover_unqualified',/暂不支持接管此弹出页/],['unknown_private_reason',/控制结果未确认/]])
 test(`scalar control rejection has a bounded useful message: ${code}`,async()=>{
   const f=fixture();await f.start();await f.flush();f.trace.length=0;

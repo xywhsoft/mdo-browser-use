@@ -85,6 +85,10 @@ final class PopupProductHost {
         if(networkViews.get(key)==original)throw new AssertionError("Original release branch did not retain a fresh network owner");return true;
     }
     boolean manualControl(String key){return manual.contains(key);}
+    boolean publicControlPending(String key){return popupControls.containsKey(key);}
+    void pollPublicControl(String key){PopupControlRequest original=popupControls.get(key);if(original!=null)popupControlPoll(original);}
+    void requireNetworkCommand(String key,String command,boolean agent){networkCommand(key,views.get(key),command,agent);}
+    void pausePublicControls(){browserPaused=true;cancelPopupControls();}
     boolean ordinaryNetworkReady(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.ready&&!entry.retired&&networkCurrent(entry);}
     boolean ordinaryNetworkRetired(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.retired&&entry.protocolDrained;}
     boolean ordinaryNetworkReplySent(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.replySent;}

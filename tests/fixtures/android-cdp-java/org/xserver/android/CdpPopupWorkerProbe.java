@@ -2629,6 +2629,7 @@ public final class CdpPopupWorkerProbe {
         if(commit)backend.wire.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId","proof-real").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId",loader).put("url",url))));
     }
     private static JSONObject rejectedPopupControl(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        if(!variant.equals("release"))return acceptedPopupControl(variant,host,backend,product,view,renderer);
         boolean complete=variant.equals("takeover-complete"),read=variant.equals("takeover-read");String command=variant.equals("release")?"release":"takeover";
         MdoBrowserCdpPopupNative.Promotion owner=product.popupOwner("owned");MdoBrowserCdpPopupBroker.Handoff handoff=product.popupHandoff("owned");
         MdoBrowserCdpDownloads downloads=product.popupDownloads("owned");String file=null;
@@ -2658,6 +2659,30 @@ public final class CdpPopupWorkerProbe {
         return new JSONObject().put("original_control_branch",true).put("command",command).put("refusal_count",2).put("old_document_preserved",true).put("native_owner_preserved",true)
             .put("manual_unchanged",true).put("profile_unchanged",true).put("input_clean",true).put("control_side_effects",0).put("pending_read_preserved",read).put("completed_bytes",complete)
             .put("new_worlds",0).put("new_views",0).put("navigation_commands",0).put("detach_commands",0).put("provider_qualified",false).put("ui_published",false);
+    }
+    private static JSONObject acceptedPopupControl(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        boolean complete=variant.equals("takeover-complete"),read=variant.equals("takeover-read");
+        MdoBrowserCdpPopupNative.Promotion owner=product.popupOwner("owned");MdoBrowserCdpPopupBroker.Handoff handoff=product.popupHandoff("owned");
+        MdoBrowserCdpMarker marker=product.popupDocumentMarker("owned");MdoBrowserCdpDownloads downloads=product.popupDownloads("owned");String file=null;
+        int worlds=renderer.worlds.created,constructions=WebView.constructions;AtomicInteger callbacks=new AtomicInteger();
+        java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> operation=new java.util.concurrent.atomic.AtomicReference<>();
+        if(complete){backend.wire.add(responsePaused("response-extra-public-human","source-complete"));waitFor(()->{try{return downloads.list().length==1;}catch(IOException error){throw new AssertionError(error);}},host,true);file=downloads.list()[0].id;final String selected=file;downloads.accept(file,65536,3000);waitFor(()->{try{return downloads.get(selected).verified;}catch(IOException error){throw new AssertionError(error);}},host,true);}
+        if(read){renderer.holdMethod="Runtime.evaluate";renderer.holdExpression="({ok:true,text:'managed'})";product.runPopupPage("owned",false,false,result->{callbacks.incrementAndGet();operation.set(result);});waitFor(()->renderer.held!=null,host,true);}
+        backend.humanDetachMode="flow";
+        try{
+            product.publicControl("owned","main-takeover","takeover",false);
+            check(!marker.lease().current()&&!owner.current()&&!handoff.current());
+            if(read){waitFor(()->operation.get()!=null,host,true);check(callbacks.get()==1&&operation.get().code!=null&&operation.get().bytes==null);renderer.release(backend.wire);}
+            waitFor(()->{product.pollPublicControl("owned");return product.publicCounts.containsKey("main-takeover");},host,true);
+            JSONObject receipt=product.publicReplies.get("main-takeover");check(receipt!=null&&receipt.getBoolean("ok")&&receipt.getBoolean("manual")&&receipt.getBoolean("network_cleanup_confirmed"));
+            check(product.publicCounts.get("main-takeover")==1&&!product.publicControlPending("owned")&&owner.humanTransferred()&&product.manualControl("owned")&&handoff.humanDetached()&&product.popupProtocolDrained("owned")&&view.destroyed==0);
+            int detaches=backend.detaches.get();product.publicControl("owned","repeated-takeover","takeover",false);check(product.publicCounts.get("repeated-takeover")==1&&product.publicReplies.get("repeated-takeover").getBoolean("manual")&&backend.detaches.get()==detaches);
+            if(file!=null){check(downloads.get(file).verified);MdoBrowserDownloadQueue.Read bytes=downloads.read(file,0,10);waitFor(bytes::finished,host,true);byte[] actual=bytes.take();check(java.util.Arrays.equals(actual,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(actual,(byte)0);}
+            check(renderer.worlds.created==worlds&&WebView.constructions==constructions&&backend.nativeNavigationCommands.get()==0);
+            return new JSONObject().put("actual_public_takeover",true).put("original_control_branch",true).put("manual_committed",true).put("root_ack",true).put("native_event",true)
+                .put("cleanup_confirmed",true).put("old_authority_revoked",true).put("reply_once",true).put("idempotent_without_replay",true).put("completed_bytes",complete).put("original_read_cancelled",read)
+                .put("new_views",0).put("new_worlds",0).put("navigation_commands",0).put("provider_qualified",false).put("ui_published",false);
+        }finally{if(renderer.held!=null)renderer.release(backend.wire);}
     }
     /** Real capture core and budget; only its native visual/raster callbacks and
      * dispatch timing are controlled. No bitmap/framework qualification. */
@@ -2744,6 +2769,80 @@ public final class CdpPopupWorkerProbe {
             capture.release.countDown();capture.finishWorker();capture.core.cancel();if(capture.ready!=null)capture.ready.run();capture.drain();
             if(foreign)product.captures.remove("owned",original);
             if(chooser){if(view.destroyed==0&&product.views.owns("owned",view))product.retire("owned",view);waitFor(()->view.destroyed==1,host,true);product.stopUpload(files);}
+        }
+    }
+    private static JSONObject publicHumanRequest(String name,String directory,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer,InputSurface surface)throws Exception {
+        MdoBrowserCdpPopupNative.Promotion owner=product.popupOwner("owned");MdoBrowserCdpPopupBroker.Handoff handoff=product.popupHandoff("owned");MdoBrowserCdpMarker marker=product.popupDocumentMarker("owned");
+        PopupProductHost.MdoBrowserDocument originalProfile=product.documents.get("owned");WebView replacementView=name.equals("view-after")?new WebView():null;
+        boolean timer=name.equals("timer"),foreign=name.equals("foreign-capture"),input=name.equals("input"),chooser=name.equals("chooser"),running=name.equals("capture-running"),postguard=name.equals("capture-postguard"),failed=name.equals("capture-failure");
+        boolean pre=java.util.Arrays.asList("stop","close","channel","pause","timeout").contains(name);
+        boolean after=name.endsWith("-after"),heldEvent=name.equals("held-event"),heldAck=name.equals("held-ack"),rejected=name.equals("rejected");
+        boolean visual=pre||name.equals("pending-duplicate")||name.equals("capture-visual");
+        ControlCapture capture=new ControlCapture();java.nio.file.Path files=java.nio.file.Paths.get(directory).resolveSibling("popup-upload-files");
+        AtomicInteger inputReplies=new AtomicInteger(),pickerReplies=new AtomicInteger();int worlds=renderer.worlds.created,constructions=WebView.constructions;String code=null;
+        if(chooser){product.enableUpload("owned",files);product.openPicker("owned",(value,current)->{check(value==null);pickerReplies.incrementAndGet();});}
+        if(!timer){product.captures.put("owned",new PopupProductHost.CaptureEntry(foreign?product.views.get("root"):view,capture.core));capture.begin();if(visual)capture.visual();else if(running)capture.running();else if(postguard){capture.queued();capture.work.run();capture.drain();check(capture.guards.size()==2);}else if(failed){capture.queued();capture.failClose=true;}}
+        if(input){product.views.input("owned",view).tap(20,30,result->{check(!result.ok&&result.cleanupConfirmed);inputReplies.incrementAndGet();});surface.pump();}
+        backend.humanDetachMode=rejected?"rejected":after||heldEvent?"ack-only":heldAck?"no-ack":"flow";
+        try{
+            if(timer){Handler.fail=true;try{failure("network_control_scheduler_unavailable",()->product.publicControl("owned","main-request","takeover",false));}finally{Handler.fail=false;}check(marker.lease().current()&&owner.current()&&handoff.current()&&!product.publicControlPending("owned")&&!product.manualControl("owned"));code="network_control_scheduler_unavailable";}
+            else if(foreign){product.publicControl("owned","main-request","takeover",false);JSONObject result=product.publicReplies.get("main-request");check(result!=null&&!result.getBoolean("ok")&&!result.getBoolean("manual")&&!result.has("network_cleanup_confirmed"));check(result.getJSONObject("error").getString("code").equals("cdp_popup_human_owner_invalid")&&marker.lease().current()&&owner.current()&&capture.results.isEmpty()&&capture.core.busy());code="cdp_popup_human_owner_invalid";}
+            else{
+                product.publicControl("owned","main-request","takeover",false);capture.assertCancelled();check(!marker.lease().current()&&!owner.current());
+                if(input)check(inputReplies.get()==1&&surface.events.get(view).equals(java.util.Arrays.asList("touch:0","touch:3")));
+                if(chooser)check(pickerReplies.get()==1);
+                if(visual||running||failed){check(product.publicControlPending("owned")&&!owner.humanTransferred()&&!product.manualControl("owned")&&!product.publicCounts.containsKey("main-request"));}
+                if(name.equals("pending-duplicate")){
+                    for(String command:new String[]{"takeover","release","navigate","reload","frames","input","upload","capture"})try{product.requireNetworkCommand("owned",command,false);throw new AssertionError("Pending human control admitted "+command);}catch(IllegalStateException error){check(error.getMessage().equals("browser_control_pending"));}
+                    product.requireNetworkCommand("owned","state",false);product.requireNetworkCommand("owned","downloads",false);
+                }
+                if(name.equals("stop")){product.stopNetwork("owned");code="network_control_cancelled";}
+                else if(name.equals("close")){product.publicClose("owned","other-close");code="network_owner_changed";}
+                else if(name.equals("channel")){product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());code="network_owner_changed";}
+                else if(name.equals("pause")){product.pausePublicControls();code="network_control_cancelled";}
+                else if(name.equals("timeout")||failed){android.os.SystemClock.now+=5000;code="network_control_timeout";}
+                if(after||heldEvent||heldAck||rejected){
+                    waitFor(()->{product.pollPublicControl("owned");return owner.humanTransferred();},host,true);
+                    check(product.manualControl("owned"));
+                    if(after||heldEvent){waitFor(()->handoff.humanDetachResult()!=null,host,true);check(handoff.humanDetachResult().ok&&!handoff.detached()&&!product.publicCounts.containsKey("main-request"));}
+                    if(heldAck){waitFor(()->backend.heldHumanDetach!=null&&handoff.detached(),host,true);check(!product.publicCounts.containsKey("main-request"));backend.wire.add(backend.heldHumanDetach);}
+                    if(heldEvent)backend.wire.add(detached("proof-real"));
+                    if(name.equals("stop-after")){product.stopNetwork("owned");code="network_control_cancelled";}
+                    else if(name.equals("timeout-after")){android.os.SystemClock.now+=5000;code="network_control_timeout";}
+                    else if(name.equals("close-after")){product.publicClose("owned","late-close");code="network_owner_changed";}
+                    else if(name.equals("pause-after")){product.pausePublicControls();code="network_control_cancelled";}
+                    else if(name.equals("channel-after")){product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());code="network_owner_changed";}
+                    else if(name.equals("profile-after")){PopupProductHost.MdoBrowserDocument replacement=new PopupProductHost.MdoBrowserDocument(view);replacement.assigned=true;product.documents.put("owned",replacement);code="network_owner_changed";}
+                    else if(name.equals("view-after")){product.publicClose("owned","replacement-close");waitFor(()->view.destroyed==1,host,true);product.views.put("owned",replacementView);PopupProductHost.MdoBrowserDocument replacement=new PopupProductHost.MdoBrowserDocument(replacementView);replacement.assigned=true;product.documents.put("owned",replacement);product.root.addView(replacementView);code="network_owner_changed";}
+                }
+                if(visual&&capture.ready!=null)capture.ready.run();if(running)capture.finishWorker();else {if(capture.work!=null)capture.work.run();capture.drain();}
+                boolean lost=name.equals("channel")||name.equals("channel-after");
+                waitFor(()->{product.pollPublicControl("owned");return !product.publicControlPending("owned");},host,true);
+                if(lost)check(!product.publicCounts.containsKey("main-request"));
+                else{
+                    check(product.publicCounts.getOrDefault("main-request",0)==1);JSONObject result=product.publicReplies.get("main-request");check(result!=null);
+                    boolean successful=code==null&&!rejected;
+                    if(successful)check(result.getBoolean("ok")&&result.getBoolean("manual")&&result.getBoolean("network_cleanup_confirmed"));
+                    else{check(!result.getBoolean("ok"));String actual=result.getJSONObject("error").getString("code");if(rejected){check(actual.equals("cdp_command_rejected"));code=actual;}else check(actual.equals(code));}
+                    if(java.util.Arrays.asList("stop-after","timeout-after","pause-after").contains(name)||rejected)check(result.getBoolean("manual"));
+                }
+                if(capture.bytes!=null)for(byte value:capture.bytes)check(value==0);
+                if(after&&code!=null&&!java.util.Arrays.asList("stop-after","timeout-after","pause-after").contains(name)){waitFor(()->view.destroyed==1,host,true);check(!product.views.owns("owned",view));}
+                if(pre||failed)check(!owner.humanTransferred());
+                if(name.equals("view-after"))check(product.views.get("owned")==replacementView&&replacementView.destroyed==0&&product.views.get("root").destroyed==0);
+                if(name.equals("profile-after"))check(originalProfile.closed&&originalProfile.destroyed==1);
+                if(heldEvent||heldAck||name.equals("stop-after")){if(!handoff.detached())backend.wire.add(detached("proof-real"));waitFor(handoff::detached,host,true);product.pollPopupNetwork("owned");}
+            }
+            check(renderer.worlds.created==worlds&&WebView.constructions==constructions&&backend.nativeNavigationCommands.get()==0);
+            boolean replied=product.publicCounts.getOrDefault("main-request",0)==1;JSONObject result=product.publicReplies.get("main-request");
+            return new JSONObject().put("actual_public_request",true).put("variant",name).put("original_control_branch",true).put("actual_capture_core",!timer)
+                .put("physical_committed",owner.humanTransferred()).put("reply_once",replied).put("reply_ok",result!=null&&result.optBoolean("ok"))
+                .put("reply_manual",result!=null&&result.optBoolean("manual")).put("old_authority_revoked",!marker.lease().current()).put("code",code==null?JSONObject.NULL:code)
+                .put("actual_human_network",true).put("wire_failed",backend.closes.get()>0).put("provider_qualified",false).put("ui_published",false);
+        }finally{
+            Handler.fail=false;capture.release.countDown();capture.finishWorker();capture.core.cancel();if(capture.ready!=null)capture.ready.run();capture.drain();
+            if(replacementView!=null&&product.views.owns("owned",replacementView))product.retire("owned",replacementView);
+            product.browserPaused=false;if(chooser){if(view.destroyed==0&&product.views.owns("owned",view))product.retire("owned",view);waitFor(()->view.destroyed==1,host,true);product.stopUpload(files);}
         }
     }
     private static JSONObject stagedHumanControl(String name,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer,InputSurface surface)throws Exception {
@@ -3320,7 +3419,7 @@ public final class CdpPopupWorkerProbe {
         boolean download=variant.startsWith("download")||variant.equals("route-download")||variant.equals("navigation-from-download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
         boolean worldHeld=java.util.Arrays.asList("world-document-change","world-channel-change","cancel-world","cancel-world-isolated","parent-before-world").contains(variant);
         CountDownLatch worldEntered=new CountDownLatch(1),worldRelease=new CountDownLatch(1);
-        boolean navigating=variant.startsWith("navigation-")||variant.startsWith("natural-")||variant.startsWith("human-");PopupProductHost[] originalProduct={null};
+        boolean navigating=variant.startsWith("navigation-")||variant.startsWith("natural-")||variant.startsWith("human-")||variant.startsWith("control-");PopupProductHost[] originalProduct={null};
         InputSurface inputSurface=variant.startsWith("input-")||navigating?new InputSurface():null;
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original,inputSurface,navigating?(key,view,epoch,reason)->{PopupProductHost product=originalProduct[0];if(product!=null)product.lifecycleInvalidated(key,view,epoch,reason);}:null)){
@@ -3410,7 +3509,8 @@ public final class CdpPopupWorkerProbe {
                             if(variant.startsWith("opener-"))frameRouteEvidence=preparePopupOpener(variant,host,backend,product,exact[0],renderer[0],source.source);
                             if(variant.startsWith("input-"))frameRouteEvidence=inputPopup(variant,host,backend,product,exact[0],renderer[0],inputSurface);
                             if(variant.startsWith("navigation-"))frameRouteEvidence=navigatePopupProduct(variant,host,backend,product,exact[0],renderer[0]);
-                            if(variant.startsWith("human-resources-"))frameRouteEvidence=humanResourceControl(variant.substring("human-resources-".length()),directory,host,backend,product,exact[0],renderer[0],inputSurface);
+                            if(variant.startsWith("human-request-"))frameRouteEvidence=publicHumanRequest(variant.substring("human-request-".length()),directory,host,backend,product,exact[0],renderer[0],inputSurface);
+                            else if(variant.startsWith("human-resources-"))frameRouteEvidence=humanResourceControl(variant.substring("human-resources-".length()),directory,host,backend,product,exact[0],renderer[0],inputSurface);
                             else if(variant.startsWith("human-"))frameRouteEvidence=humanPopupTransfer(variant,host,backend,product,exact[0],renderer[0],inputSurface);
                             if(variant.startsWith("control-"))frameRouteEvidence=rejectedPopupControl(variant.substring("control-".length()),host,backend,product,exact[0],renderer[0]);
                             if(variant.startsWith("natural-"))frameRouteEvidence=naturalPopupProduct(variant,host,backend,product,exact[0],renderer[0]);
@@ -3461,19 +3561,19 @@ public final class CdpPopupWorkerProbe {
                                     .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get())
                                     .put("native_effects",renderer[0].worlds.evaluations).put("provider_qualified",false).put("ui_published",false);
                             }
-                            if(!variant.startsWith("human-")&&!variant.equals("route-channel")&&!variant.equals("natural-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.equals("navigation-no-commit")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
+                            if(!variant.startsWith("human-")&&!variant.startsWith("control-")&&!variant.equals("route-channel")&&!variant.equals("natural-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.equals("navigation-no-commit")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
                         }
                         check(source.sends==1&&product.configured==1&&product.popupLinks.isEmpty());
                     }catch(Exception|Error error){primary=error;System.err.println("Product page "+variant+" accepted="+accepted.get()+" failed="+failed.get()+" code="+reason[0]);throw error;}
                     finally{
                         try{
                             worldRelease.countDown();Handler.fail=false;if(handle[0]!=null)handle[0].close();product.closePopupNetwork("owned");
-                            if(variant.startsWith("human-")&&exact[0]!=null&&exact[0].destroyed==0&&product.views.owns("owned",exact[0]))product.retire("owned",exact[0]);
+                            if((variant.startsWith("human-")||variant.startsWith("control-"))&&exact[0]!=null&&exact[0].destroyed==0&&product.views.owns("owned",exact[0]))product.retire("owned",exact[0]);
                             product.retirePreparation("cdp_popup_preparation_cancelled");
                             waitFor(()->{
                                 if(!acknowledged[0]&&source.consumed!=null){source.ack();acknowledged[0]=true;}
                                 if(!detachSent[0]&&exact[0]!=null&&exact[0].destroyed>0&&backend.closes.get()==0){try{backend.wire.add(detached("proof-real"));detachSent[0]=true;}catch(Exception error){throw new AssertionError(error);}}
-                                product.resume();product.pollPopupPage("owned");product.pollPopupNetwork("owned");
+                                product.resume();product.pollPopupPage("owned");product.pollPopupNetwork("owned");product.pollPublicClose();
                                 if(frameRouteEvidence!=null&&frameRouteEvidence.optBoolean("actual_human_network")&&frameRouteEvidence.optBoolean("wire_failed")&&backend.closes.get()!=0){
                                     MdoBrowserCdpPopupWorker.Result receipt=request.result();return receipt!=null&&receipt.terminal&&exact[0]!=null&&exact[0].destroyed==1&&product.downloadBudget.used()==0&&queue.retainedTickets()==0;
                                 }
@@ -3835,6 +3935,7 @@ public final class CdpPopupWorkerProbe {
      * original proved popup worker and wire. DOM and native UI callbacks are
      * controlled, so Android framework/provider grants remain unqualified. */
     private static JSONObject protectedFiles(String variant,String directory,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        boolean publicTakeover=variant.equals("files-public-takeover");
         java.nio.file.Path files=java.nio.file.Paths.get(directory).resolveSibling("popup-upload-files");product.enableUpload("owned",files);
         MdoBrowserCdpMarker marker=product.continueDocument("owned",view,product.views.epoch("owned",view),product.channel.current());
         CdpOwnerProbe.Server owners=new CdpOwnerProbe.Server(renderer.worlds,()->host.time.addAndGet(20000));
@@ -3892,6 +3993,13 @@ public final class CdpPopupWorkerProbe {
                     check(!receipt.getBoolean("events_trusted")&&grants.get()==1&&responses.get()==1&&picker.opens==1&&picker.commits==1);
                     check(fileCall(host,product,"assign-repeat",assign).getBoolean("completed")&&picker.opens==1&&picker.commits==1);
                     if(variant.equals("files-retention"))android.os.SystemClock.now+=120001;
+                    if(publicTakeover){
+                        backend.humanDetachMode="flow";int worlds=renderer.worlds.created,views=WebView.constructions;
+                        product.publicControl("owned","file-takeover","takeover",false);
+                        waitFor(()->{product.pollPublicControl("owned");return product.publicCounts.containsKey("file-takeover");},host,true);
+                        JSONObject control=product.publicReplies.get("file-takeover");check(control.getBoolean("ok")&&control.getBoolean("manual")&&control.getBoolean("network_cleanup_confirmed"));
+                        check(product.publicCounts.get("file-takeover")==1&&!marker.lease().current()&&product.manualControl("owned")&&view.destroyed==0&&renderer.worlds.created==worlds&&WebView.constructions==views&&uris.grants()==2);
+                    }
                     java.util.concurrent.atomic.AtomicReference<Throwable> readFailure=new java.util.concurrent.atomic.AtomicReference<>();
                     Thread reader=new Thread(()->{try{
                         for(int i=0;i<tokens.length;i++){
@@ -3903,15 +4011,17 @@ public final class CdpPopupWorkerProbe {
                         }
                     }catch(Throwable error){readFailure.set(error);}},"popup-original-file-reader");reader.start();reader.join(7000);check(!reader.isAlive()&&readFailure.get()==null&&uris.descriptors()==0);
                     JSONObject status=fileCall(host,product,"upload-status",new JSONObject().put("action","status").put("ticket",ticket));check(status.getBoolean("retained")&&status.getBoolean("completed"));
-                    JSONObject released=fileCall(host,product,"release",new JSONObject().put("action","release").put("ticket",ticket).put("confirmed",true));check(released.getBoolean("released")&&!released.getBoolean("retained"));
+                    if(publicTakeover){product.publicClose("owned","file-native-close");waitFor(()->{product.pollPublicClose();return view.destroyed==1&&product.uploadFiles()==0&&uris.grants()==0;},host,true);check(product.publicCounts.get("file-native-close")==1&&product.publicReplies.get("file-native-close").getBoolean("world_cleanup_confirmed"));}
+                    else {JSONObject released=fileCall(host,product,"release",new JSONObject().put("action","release").put("ticket",ticket).put("confirmed",true));check(released.getBoolean("released")&&!released.getBoolean("retained"));}
                     check(uris.grants()==0&&product.uploadFiles()==0&&nodes.objects.isEmpty()&&nodes.groups.isEmpty()&&owners.objects.isEmpty());
                 }
             }
             if(callbackFailure.get()!=null)throw new AssertionError("Original popup callback failed",callbackFailure.get());
             check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0);
-            return new JSONObject().put("actual_product_file_flow",true).put("original_file_worker",true).put("native_grants",grants.get()).put("native_responses",responses.get())
+            JSONObject proof=new JSONObject().put("actual_product_file_flow",true).put("original_file_worker",true).put("native_grants",grants.get()).put("native_responses",responses.get())
                 .put("opens",picker.opens).put("commits",picker.commits).put("clears",clear.clears).put("retained_read_verified",!clearing&&!variant.equals("files-cancel")&&!variant.equals("files-page-close"))
                 .put("staging_expiry_tested",variant.equals("files-retention")).put("nested",variant.equals("files-nested")).put("framework_grant_qualified",false).put("provider_qualified",false);
+            if(publicTakeover)proof.put("public_takeover",true).put("native_close_released_files",true);return proof;
         }finally{uris.close();}
     }
     /** The product upload/clear/chooser routes must continue the already bound
@@ -4122,7 +4232,7 @@ public final class CdpPopupWorkerProbe {
                             if(read)check(lateSent[0]&&parentClosed[0]);
                             check(product.root.children.isEmpty()&&product.popupLinks.isEmpty()&&product.pendingHandoffs()==0&&MdoBrowserCdpPopupNative.promotedUiOwners()==0);if(unconfirmed)check(MdoBrowserCdpPopupNative.retainedUiOwners()<=1&&MdoBrowserCdpPopupBroker.creationBlocked());else check(MdoBrowserCdpPopupNative.retainedUiOwners()==0);
                             check(source.sends==1&&nullConsumed[0]==(invalid||variant.equals("close-before-allocation")));
-                            check(exact[0]==null||exact[0].destroyed==1);check(product.downloadBudget.used()==0&&queue.retainedTickets()==0&&backend.detaches.get()==0&&backend.threads.size()==1);
+                            check(exact[0]==null||exact[0].destroyed==1);check(product.downloadBudget.used()==0&&queue.retainedTickets()==0&&backend.detaches.get()==(variant.equals("files-public-takeover")?1:0)&&backend.threads.size()==1);
                             if(restoring)check(product.retirementBoundaryChecks>=1);
                             publicationEvidence=new JSONObject().put("actual_product_creation",true).put("controlled_ui_publication_confirmed",positive).put("controlled_ui_adds",product.root.adds).put("create_replies",product.publicCounts.getOrDefault("create",0)).put("close_replies",product.publicCounts.getOrDefault("close",0))
                                 .put("cleanup_confirmed",!unconfirmed).put("unconfirmed_creation_fenced",unconfirmed).put("active_stream_tested",claim||read).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("no_url_replay",true).put("framework_qualified",false).put("provider_qualified",false)
