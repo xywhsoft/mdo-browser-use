@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E180:** add the fixed original-protocol detach primitive needed
+  to retain a popup for human takeover. Drain checks are per attachment; a busy
+  unrelated page stays usable. A matching empty ACK is separate from native
+  detach/source/stream receipts; no uncertain operation is resent. New denial,
+  failure and two-page body tests pass with native480, fresh frontend20/JS482/
+  Python178/180 and a rebuilt signed APK/DEX. Windows is unchanged W6 reuse.
+  This is the protocol foundation; protected takeover/release is not enabled.
+
 - **Android E179 coverage:** qualify overlapping guarded native navigation
   and download-only-popup to HTML through the actual product worker/fragments.
   Unacknowledged navigation and undecided downloads admit no second send;
@@ -13953,3 +13961,70 @@ ongoing native origin readiness and the final full-requirements/delivery audit
 remain open. Public Android automation/framework/provider/device qualification
 stays false. Phone/current WebView remain deferred. No live model, external site
 or online publication was used. Overall Browser Use goal remains active.
+
+### E180 fixed original attachment retirement for human-control integration
+
+Current protected-popup disposal waits for native destruction/detach. Human
+takeover must keep the actual page alive instead. Added the internal Session
+primitive needed for an explicit protocol detach of that original attachment;
+it is not a public command, a native ownership grant or a completed takeover
+coordinator. `popup_takeover_unqualified` and public Android automation remain
+unchanged until the entire physical-owner/source/return-control join is proved.
+
+`detachProtectedAttachment` accepts only the Session's retained, protected,
+activated original event and a live internal quiescence permit. There is no
+caller-supplied target ID, URL, script or general RPC. It rejects unactivated,
+foreign, stale, invalid-budget, lost-permit and reentrant scopes before sending.
+Pending original requests/responses, offers, body streams, cleanup controls and
+navigation prevent detachment. These checks use the original attachment's scope,
+so another attachment's independent body need not be cancelled or awaited.
+The caller must still prove physical human ownership and descendant cleanup;
+this primitive cannot establish either fact by itself.
+
+One attempted fixed `Target.detachFromTarget` command consumes the attempt.
+Ordinary protected commands cannot reuse that attachment afterward. A matching
+empty command reply records only `retirementAcknowledged`; it does not invent a
+native `Target.detachedFromTarget` event, source release or body/stream cleanup.
+Malformed replies, provider rejection/unsupported, timeout, transport failure and
+lost ownership retain their sanitized original cause and possible-effect flag.
+No failed or uncertain attempt is resent. The coordinator must separately join
+its authentic native event and original transfer cleanup before rearm.
+
+Expanded the actual Session probe with ACK-only and native-event-before-ACK
+ordering, malformed/provider/unsupported/time/transport/owner failures, foreign
+session and invalid preconditions, and no-resend checks. Active own streams and
+pending cleanup refuse detach; after one page drains, its detach succeeds while
+the other page's original body remains usable. Every retained protocol buffer
+still clears on final close. The new cases use a controlled protocol wire; the
+existing two JNI native-socket sessions retain their earlier coverage and do
+not by themselves qualify the new operation on an Android provider.
+
+Fresh full native verification passes480 popup modes /19,009 reported
+popup checks, the expanded attachment probe's2,922 checks, all133 selected
+input hashes, API26 compilation, JNI/transport and ASan/UBSan. All480 earlier
+serialized popup business outcomes are compared in
+`.mdo/E180-semantic-differences.json`; only previously reviewed loading-timeout
+diagnostics may vary if explicitly recorded there. Fresh20 actual existing
+frontend/JVM flows pass with exact source/class/native-library hashes. All482
+JS tests and Python178/180 pass (two existing Windows symlink-privilege skips).
+See `.mdo/E180-native.log`, `.mdo/E180-native-review.log`,
+`.mdo/E180-native-frontend.log`, `.mdo/E180-javascript.log`,
+`.mdo/E180-python.log` and `.mdo/E180-verification.json`.
+
+Windows host/page/plugin/SDK inputs remain unchanged and rehashed. Its actual
+SDK/visual/packed-runtime qualification and executable are explicit W6 reuse,
+not fresh E180 Windows executions. The fresh signed APK is
+6,587,713 bytes, SHA-256
+`1e774e11399672fc87a287a4e6d68355710e35af765b3694d1ad31892c8da85e`. It reuses the exact W6 app archive with the
+current Android Session source; actual DEX definitions include the detach,
+scope-drain and acknowledgement methods. Package/signer/serial and false
+framework/provider/device/automation qualification are retained. See
+`.mdo/E180-apk.log` and `.mdo/E180-dex-methods.json`.
+
+Next integrate physical human ownership, original Handoff/source cleanup and its
+authenticated detach event, preserve native page/download receipts, and return
+through fresh exact-view network proof without replaying a URL or reviving old
+popup/DOM authority. Broader UI/provider/device, ongoing native-origin readiness
+and final full-requirements/delivery work remain open. Phone/current WebView stay
+deferred. Single deployment only; no live model, external page or publication.
+Overall Browser Use goal remains active.

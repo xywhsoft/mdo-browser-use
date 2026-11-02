@@ -253,12 +253,13 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         final String target,type,opener;final boolean waiting;
         private final MdoBrowserCdpSession owner;
         private final String session;private final boolean valid;private boolean used;
-        private volatile boolean resumed,detached;private boolean managedResumeAttempted;
+        private volatile boolean resumed,detached,retirementAcknowledged;private boolean managedResumeAttempted,retirementAttempted;
         private String navigationFault;
         private boolean protectionAttempted;private volatile boolean protectionConfirmed;
         private final java.util.List<PausedEvent> initialRequests=new ArrayList<>();private volatile int retainedRequests;
         private final java.util.List<PausedEvent> protectedResponses=new ArrayList<>();private volatile int retainedResponses;
         boolean resumeConfirmed(){return resumed;}boolean detachConfirmed(){return detached;}
+        boolean retirementAcknowledged(){return retirementAcknowledged;}
         boolean protectionConfirmed(){return protectionConfirmed;}int retainedRequestCount(){return retainedRequests;}
         int retainedResponseCount(){return retainedResponses;}
         private void clearRequests(){initialRequests.clear();protectedResponses.clear();retainedRequests=retainedResponses=0;}
@@ -511,7 +512,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private void protectedAttachment(AttachedTarget original)throws IOException {protectedAttachment(original,false);}
     private void protectedAttachment(AttachedTarget original,boolean allowResumed)throws IOException {
         guard(false);synchronized(controlGate){
-            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||!allowResumed&&original.resumed||original.detached||
+            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||!allowResumed&&original.resumed||original.detached||original.retirementAttempted||
                 heldAttachments==null||heldAttachments.get(original.session)!=original||!children.contains(original.session))throw failure("cdp_attach_event_invalid",false);
         }
     }
@@ -540,6 +541,36 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         admitProtectedCommand(original,owner,timeout);
         original.managedResumeAttempted=true;
         protectedCall(original,owner,retiring,"Runtime.runIfWaitingForDebugger",new JSONObject(),timeout);original.resumed=true;
+    }
+    /** One fixed detach of the original protected session. The caller must
+     * separately prove human/native ownership and descendant cleanup. This ACK
+     * is not the native detach event or a source/stream cleanup receipt. */
+    void detachProtectedAttachment(AttachedTarget original,BooleanSupplier quiesced,int timeout)throws IOException {
+        guard(false);
+        if(original!=null&&original.owner==this&&original.retirementAttempted)throw failure("cdp_attach_detach_replayed",false);
+        admitProtectedCommand(original,quiesced,timeout);
+        if(!original.resumed)throw failure("cdp_attach_resume_unconfirmed",false);
+        if(protectedRetirementBusy(original))throw failure("cdp_attach_retirement_busy",false);
+        final JSONObject params;
+        try{params=new JSONObject().put("sessionId",original.session);}
+        catch(org.json.JSONException error){throw failure("cdp_arguments_invalid",false);}
+        original.retirementAttempted=true;
+        attachmentCommandOwner=()->quiesced.getAsBoolean()&&!protectedRetirementBusy(original);
+        try{
+            JSONObject reply=call("Target.detachFromTarget",params,null,timeout,true);
+            if(reply.length()!=0){close();throw failure("cdp_attach_detach_reply_invalid",true);}
+            guard(true);original.retirementAcknowledged=true;
+        }finally{attachmentCommandOwner=null;}
+    }
+    private boolean protectedRetirementBusy(AttachedTarget original){
+        synchronized(controlGate){
+            if(!original.initialRequests.isEmpty()||!original.protectedResponses.isEmpty())return true;
+            for(Control row:controls)if(row!=null&&Objects.equals(row.session,original.session))return true;
+            for(Offer offer:offers)if(offer!=null&&Objects.equals(offer.original.session,original.session))return true;
+            for(Body body:bodies)if(body!=null&&Objects.equals(body.original.session,original.session))return true;
+            for(Navigation value:attachedNavigations)if(value!=null&&value.attachment==original)return true;
+            return false;
+        }
     }
     /** A proved document peer may retire only its original closing attachment.
      * Abandon its wait/result; effects may already have occurred. Native detach

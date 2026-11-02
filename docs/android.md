@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: W6)
+## Complete development host APK (current: E180)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,587,713 bytes, SHA-256
-`1591c4e689fa5b861fca215b3e5983ccfee55f15b09413f9fd1a20b587334d0a`.
+`1e774e11399672fc87a287a4e6d68355710e35af765b3694d1ad31892c8da85e`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6152,3 +6152,19 @@ this navigation path. These two acceptance cases required no product change.
 The fresh native480 matrix and existing20 frontend/JVM paths pass. Runtime,
 Windows and signed APK qualification is unchanged hash-verified W6 reuse;
 device/provider/framework checks and public Android automation remain deferred.
+
+
+### Original protocol detach primitive (E180)
+
+The internal Session can now issue one fixed detach for its exact retained,
+protected, activated attachment under an internal quiescence permit. Outstanding
+requests/responses, offers, streams, cleanup controls or navigation on that
+attachment block it; an unrelated page's independent body does not. The matching
+empty ACK is recorded separately from native detach/source/stream cleanup.
+Uncertain or failed commands are not resent, and old protected authority cannot
+be reused. The caller must separately prove physical human ownership and
+descendant cleanup. This is the foundation for protected popup takeover/release,
+which remains unqualified; this change does not enable public Android automation.
+Fresh controlled Session and existing full JNI/transport/product regressions,
+the actual signed APK and DEX checks pass. Installed-provider/framework/device
+qualification and phone/current WebView checks remain deferred.
