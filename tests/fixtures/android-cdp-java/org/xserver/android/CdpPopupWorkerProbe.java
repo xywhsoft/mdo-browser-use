@@ -81,6 +81,7 @@ public final class CdpPopupWorkerProbe {
         final Map<String,SourceRenderer> sourceRenderers=new ConcurrentHashMap<>();
         static final class SourceRenderer {
             final String mode,session;volatile int calls,trees;Runnable beforeFirst;boolean holdFirst;volatile JSONObject held;
+            boolean holdNavigation;volatile JSONObject heldNavigation;
             int navigations,index;String loader="load-owned",url="https://private.invalid/initial";
             JSONObject frame()throws JSONException{return new JSONObject().put("id","frame-owned").put("loaderId",loader).put("url",url);}
             void navigation(JSONObject command,Wire output)throws Exception{
@@ -96,7 +97,8 @@ public final class CdpPopupWorkerProbe {
                     output.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId",session).put("params",new JSONObject().put("frame",frame())));
                 }
                 if(method.equals("Page.navigate"))result.put("frameId","frame-owned").put("loaderId",loader).put("isDownload",false);
-                output.add(ack(command.getInt("id"),session).put("result",result));
+                JSONObject reply=ack(command.getInt("id"),session).put("result",result);
+                if(holdNavigation){check(heldNavigation==null);heldNavigation=reply;}else output.add(reply);
             }
             SourceRenderer(String mode){this(mode,"proof-real");}
             SourceRenderer(String mode,String session){if(!session.equals("proof-real")&&!session.equals("proof-second"))throw new AssertionError("Unregistered source fixture");this.mode=mode;this.session=session;}
@@ -128,11 +130,12 @@ public final class CdpPopupWorkerProbe {
             final CdpFramesProbe.Plan frames=new CdpFramesProbe.Plan();final CdpWorldsProbe.Engine worlds;
             final CdpBindingProbe.Wire wire;final String root,prefix;int resets,runtime;boolean binding=true;Runnable beforeWorld;
             String holdMethod,holdExpression;volatile JSONObject held;
+            final CdpBindingProbe.Factory context;volatile SourceRenderer navigationPeer;boolean wrongNavigationDocument;
             DocumentRenderer(WebView view)throws Exception{this(view,"proof-real","");}
             DocumentRenderer(WebView view,String root)throws Exception{this(view,root,root.equals("proof-real")?"first-":"second-");}
             private DocumentRenderer(WebView view,String root,String prefix)throws Exception{
                 if(!root.equals("proof-real")&&!root.equals("proof-second"))throw new AssertionError("Unregistered document renderer");
-                this.root=root;this.prefix=prefix;worlds=new CdpWorldsProbe.Engine();worlds.evaluation=(context,expression)->{check(expression.equals("({ok:true,text:'managed'})"));return new JSONObject().put("ok",true).put("text","managed");};frames.extra=worlds;CdpBindingProbe.Factory factory=new CdpBindingProbe.Factory(view);wire=new CdpBindingProbe.Wire(factory,"owned");
+                this.root=root;this.prefix=prefix;worlds=new CdpWorldsProbe.Engine();worlds.evaluation=(context,expression)->{check(expression.equals("({ok:true,text:'managed'})"));return new JSONObject().put("ok",true).put("text","managed");};frames.extra=worlds;context=new CdpBindingProbe.Factory(view);wire=new CdpBindingProbe.Wire(context,"owned");
             }
             boolean owns(String session){return root.equals(session)||!prefix.isEmpty()&&session.startsWith(prefix);}
             void release(Wire output){JSONObject original=held;if(original==null)throw new AssertionError("No original document reply");held=null;output.add(original);}
@@ -142,6 +145,10 @@ public final class CdpPopupWorkerProbe {
                 output.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId",root).put("params",new JSONObject().put("executionContextId",original.id)));
             }
             void command(JSONObject command,Wire output)throws Exception{
+                String nativeMethod=command.getString("method");SourceRenderer navigator=navigationPeer;
+                if(navigator!=null&&command.optString("sessionId").equals(root)&&java.util.Arrays.asList("Page.navigate","Page.navigateToHistoryEntry","Page.reload","Page.getNavigationHistory").contains(nativeMethod)){
+                    navigator.command(command,output);frames.rootLoader=context.rootLoader=wrongNavigationDocument?"foreign-navigation-loader":navigator.loader;frames.rootUrl=context.rootUrl=navigator.url;return;
+                }
                 JSONObject request=new JSONObject(command.toString());String original=request.getString("sessionId");
                 if(original.equals(root))request.remove("sessionId");else{
                     String local=original;if(!prefix.isEmpty()){if(!local.startsWith(prefix))throw new AssertionError("Foreign renderer session");local=local.substring(prefix.length());}
@@ -383,7 +390,10 @@ public final class CdpPopupWorkerProbe {
             this(host,network,null);
         }
         NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network,MdoBrowserLifecycle.Factory<WebView> inputs)throws Exception{
-            views=inputs==null?PopupLifecycleFixture.registry(()->allocationFail,()->{if(allocationHook!=null)allocationHook.run();}):new MdoBrowserLifecycle<>(inputs);
+            this(host,network,inputs,null);
+        }
+        NativeSource(CdpNetworkWorkerProbe.Case host,CdpNetworkBindingProbe.Context network,MdoBrowserLifecycle.Factory<WebView> inputs,MdoBrowserLifecycle.Invalidated<WebView> invalidated)throws Exception{
+            views=inputs==null?PopupLifecycleFixture.registry(()->allocationFail,()->{if(allocationHook!=null)allocationHook.run();}):invalidated==null?new MdoBrowserLifecycle<>(inputs):new MdoBrowserLifecycle<>(inputs,invalidated);
             this.host=host;view=network.view;views.put("root",view);
             core=new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
                 public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}
@@ -1708,6 +1718,52 @@ public final class CdpPopupWorkerProbe {
             MdoBrowserCdpDownloads.Release release=downloads.release(pending.id);waitFor(release::finished,c.host,true);check(release.released());
         }
     }
+    private static void waitNavigation(MdoBrowserCdpNetworks.Navigation ticket,boolean commit,CdpNetworkWorkerProbe.Case host)throws Exception {waitFor(()->ticket.result()!=null&&(!commit||ticket.pageCurrent()),host,true);}
+    private static void sourceNavigationUi(String mode,OwnershipCase c,MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,MdoBrowserCdpDownloads downloads)throws Exception {
+        String variant=mode.substring("source-navigation-ui-".length());Backend.SourceRenderer renderer=c.backend.sourceRenderer;
+        failure("cdp_popup_source_owner_invalid",()->c.host.worker.navigatePopup(marker,handoff,null,"https://private.invalid/destination",null,1000));
+        failure("cdp_navigation_arguments_invalid",()->c.host.worker.navigatePopup(marker,handoff,source,"file:///private",null,1000));
+        MdoBrowserCdpNetworks.Navigation ticket;boolean recovered=false;
+        if(variant.equals("queued-cancel")||variant.equals("queued-timeout")){
+            CountDownLatch entered=new CountDownLatch(1),release=new CountDownLatch(1);java.lang.reflect.Field field=MdoBrowserCdpWorker.class.getDeclaredField("executor");field.setAccessible(true);
+            ((java.util.concurrent.ThreadPoolExecutor)field.get(c.host.worker)).execute(()->{entered.countDown();try{if(!release.await(5,TimeUnit.SECONDS))throw new AssertionError("Admission queue barrier expired");}catch(InterruptedException interrupted){Thread.currentThread().interrupt();}});
+            try{
+                waitFor(()->entered.getCount()==0,c.host,true);
+                ticket=c.host.worker.navigatePopup(marker,handoff,source,"https://private.invalid/destination",null,1000);
+                if(variant.equals("queued-cancel"))ticket.cancel();else c.host.time.addAndGet(1000);
+                check(!ticket.dispatched()&&renderer.navigations==0&&(variant.equals("queued-cancel")||ticket.result()==null));
+            }finally{release.countDown();}
+            waitNavigation(ticket,false,c.host);check(!ticket.dispatched()&&renderer.navigations==0&&ticket.result().code.equals(variant.equals("queued-cancel")?"cdp_navigation_cancelled":"cdp_navigation_timeout"));
+            waitFor(()->!c.host.worker.pending(marker),c.host,true);
+            MdoBrowserCdpNetworks.Navigation recovery=c.host.worker.navigatePopup(marker,handoff,source,"https://private.invalid/destination",null,1000);waitNavigation(recovery,true,c.host);
+            check(recovery.result().ok&&renderer.navigations==1&&source.current()&&handoff.current());recovered=true;
+        }else{
+            renderer.holdNavigation=variant.equals("late-cancel");
+            ticket=c.host.worker.navigatePopup(marker,handoff,source,"https://private.invalid/destination",null,1000);
+            if(variant.equals("late-cancel")){
+                waitFor(()->renderer.heldNavigation!=null,c.host,true);check(ticket.result()==null&&ticket.dispatched());ticket.cancel();waitNavigation(ticket,false,c.host);
+                MdoBrowserCdpSession.NavigationResult terminal=ticket.result();check(terminal.code.equals("cdp_navigation_cancelled")&&terminal.effectMayHaveOccurred&&!terminal.acknowledged&&!ticket.pageCommitted());
+                int before=c.backend.receives.get();c.backend.wire.add(renderer.heldNavigation);renderer.heldNavigation=null;waitFor(()->c.backend.receives.get()>before+2,c.host,true);
+                check(ticket.result()==terminal&&source.current()&&handoff.current()&&c.backend.closes.get()==0&&renderer.navigations==1);
+            }else if(variant.equals("pending")){
+                waitNavigation(ticket,false,c.host);check(ticket.result().code.equals("cdp_navigation_download_pending")&&!ticket.dispatched()&&renderer.navigations==0);
+            }else{
+                waitNavigation(ticket,true,c.host);check(ticket.result().ok&&ticket.pageCommitted()&&ticket.pageDocument()!=null&&renderer.navigations==1);
+                for(String action:new String[]{"back","forward","reload"}){
+                    MdoBrowserCdpNetworks.Navigation previous=ticket;
+                    ticket=c.host.worker.navigatePopup(marker,handoff,source,null,action,1000);
+                    MdoBrowserCdpNetworks.Navigation next=ticket;waitFor(()->next.result()!=null&&next.pageCurrent(),c.host,true);check(next.result().ok&&!previous.pageCurrent());
+                }check(renderer.navigations==4);
+            }
+        }
+        navigationEvidence=new JSONObject().put("original_source",true).put("shared_ledgers",true).put("native_ui_ticket",true).put("queued_recovery",recovered).put("navigation_commands",renderer.navigations)
+            .put("commit_proved",variant.equals("flow")).put("guard_replacements",0).put("scope_denials_checked",true).put("browser_connections",c.backend.opens.get())
+            .put("native_proof_connections",c.backend.nativeOpens.get()).put("ui_navigation_enabled",false).put("provider_qualified",false);
+        if(variant.equals("pending")){
+            MdoBrowserCdpDownloads.Snapshot pending=downloads.list()[0];downloads.cancel(pending.id);waitFor(()->{try{return downloads.get(pending.id).terminal();}catch(IOException error){throw new AssertionError(error);}},c.host,true);
+            MdoBrowserCdpDownloads.Release release=downloads.release(pending.id);waitFor(release::finished,c.host,true);check(release.released());
+        }
+    }
     private static void managedSource(String mode,String directory)throws Exception {
         try(OwnershipCase c=new OwnershipCase()){
             PopupProductHost product=new PopupProductHost(c.source.views);product.cdpViews.worker=c.host.worker;
@@ -1755,7 +1811,7 @@ public final class CdpPopupWorkerProbe {
                             product.activate(promoted,handoff);
                             if(mode.startsWith("source-navigation-")){
                                 waitFor(()->{try{return mode.endsWith("-pending")?downloads.list().length==1:c.backend.responsePasses.get()==1;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
-                                sourceNavigation(mode,c,marker,handoff,source,downloads);
+                                if(mode.startsWith("source-navigation-ui-"))sourceNavigationUi(mode,c,marker,handoff,source,downloads);else sourceNavigation(mode,c,marker,handoff,source,downloads);
                             }else if(mode.equals("source-pass")){waitFor(()->c.backend.responsePasses.get()==1,c.host,true);check(downloads.list().length==0&&c.backend.bodyClaims.get()==0);}
                             else{
                                 waitFor(()->{try{return downloads.list().length==1;}catch(IOException error){throw new AssertionError(error);}},c.host,true);
@@ -2338,17 +2394,68 @@ public final class CdpPopupWorkerProbe {
         return new JSONObject().put("success",success).put("native_steps",sent.size()).put("terminal_callbacks",name.equals("channel")?0:product.publicCounts.get("input"))
             .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
     }
+    private static JSONObject navigatePopupProduct(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        String name=variant.substring("navigation-".length());
+        Backend.SourceRenderer navigator=new Backend.SourceRenderer(name.equals("rejected")?"source-navigation-rejected":name.equals("no-commit")?"source-navigation-no-commit":"source-navigation-flow");
+        renderer.frames.rootUrl=renderer.context.rootUrl=navigator.url;renderer.navigationPeer=navigator;renderer.wrongNavigationDocument=name.equals("mismatch");navigator.holdNavigation=name.equals("cancel");
+        long epoch=product.views.epoch("owned",view);int worlds=renderer.worlds.created;
+        String[] actions=name.equals("flow")?new String[]{"goto","back","forward","reload"}:new String[]{"goto"};String reference=null;int staleReferences=0;
+        for(String action:actions){
+            String previousReference=reference;
+            JSONObject accepted=product.navigate("owned",action);check(accepted.optBoolean("accepted"));reference=accepted.getString("navigation_ref");
+            if(name.equals("cancel")){
+                waitFor(()->navigator.heldNavigation!=null,host,true);product.cancelNavigation("owned",reference);
+            }
+            if(name.equals("no-commit")){
+                waitFor(()->{try{return product.inspectNavigation("owned").optBoolean("acknowledged");}catch(JSONException error){throw new AssertionError(error);}},host,true);android.os.SystemClock.now+=4000;
+            }
+            waitFor(()->{product.pollNavigation("owned");return product.navigationSettled("owned");},host,true);
+            JSONObject state=product.inspectNavigation("owned");
+            if(name.equals("mismatch")){
+                check(!state.isNull("page_error")&&!product.popupPageDocumentReady("owned")&&renderer.worlds.created==worlds);break;
+            }
+            if(name.equals("cancel")){
+                check(state.optBoolean("scope_revoked")&&state.optBoolean("dispatched")&&!state.optBoolean("ok")&&!product.popupPageDocumentReady("owned"));
+                backend.wire.add(navigator.heldNavigation);navigator.heldNavigation=null;int before=backend.receives.get();waitFor(()->backend.receives.get()>before+2,host,true);
+                product.pollNavigation("owned");check(!product.popupPageDocumentReady("owned")&&renderer.worlds.created==worlds&&navigator.navigations==1);break;
+            }
+            if(name.equals("no-commit")){check(!state.optBoolean("page_committed")&&!state.isNull("page_error"));break;}
+            if(name.equals("rejected")){
+                check(state.optBoolean("acknowledged")&&!state.optBoolean("ok")&&product.views.epoch("owned",view)==epoch);
+                int before=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.preparationReplies==before+1,host,true);
+                check(product.preparationReply.optBoolean("ok")&&product.popupPageDocumentReady("owned")&&navigator.navigations==1);break;
+            }
+            check(state.optBoolean("ok")&&state.optBoolean("page_committed")&&state.optBoolean("page_current")&&state.isNull("page_error")&&product.popupPageDocumentReady("owned"));
+            int before=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list").put("navigation_ref",reference));waitFor(()->product.preparationReplies==before+1,host,true);
+            if(!product.preparationReply.optBoolean("ok"))throw new AssertionError("Protected navigation "+action+" frame join: "+product.preparationReply);
+            if(previousReference!=null){
+                int prior=product.preparationReplies,queries=renderer.frames.snapshotCount;
+                product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list").put("navigation_ref",previousReference));
+                waitFor(()->product.preparationReplies==prior+1,host,true);check(!product.preparationReply.optBoolean("ok")&&product.preparationReply.getJSONObject("error").getString("native_code").equals("cdp_navigation_cancelled")&&renderer.frames.snapshotCount==queries);staleReferences++;
+            }
+            check(product.views.epoch("owned",view)>epoch);epoch=product.views.epoch("owned",view);
+        }
+        if(name.equals("callback")){
+            product.nativePageCallback("owned");check(!product.popupPageDocumentReady("owned"));
+            waitFor(()->{product.pollNavigation("owned");return product.popupPageDocumentReady("owned")&&product.navigationSettled("owned");},host,true);check(navigator.navigations==1&&product.views.epoch("owned",view)>epoch);
+        }
+        check(renderer.worlds.evaluations==0&&backend.opens.get()==1&&backend.nativeOpens.get()==1);
+        return new JSONObject().put("actual_product_navigation",true).put("guarded_new_document",true).put("navigation_commands",navigator.navigations)
+            .put("new_worlds",renderer.worlds.created-worlds).put("stale_references_refused",staleReferences).put("ready",product.popupPageDocumentReady("owned")).put("late_callback",name.equals("callback"))
+            .put("native_effects",0).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+    }
     private static void productPage(String mode,String directory)throws Exception {
         String variant=mode.substring("preparation-page-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         boolean download=variant.startsWith("download")||variant.equals("route-download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
         boolean worldHeld=java.util.Arrays.asList("world-document-change","world-channel-change","cancel-world","cancel-world-isolated","parent-before-world").contains(variant);
         CountDownLatch worldEntered=new CountDownLatch(1),worldRelease=new CountDownLatch(1);
-        InputSurface inputSurface=variant.startsWith("input-")?new InputSurface():null;
+        boolean navigating=variant.startsWith("navigation-");PopupProductHost[] originalProduct={null};
+        InputSurface inputSurface=variant.startsWith("input-")||navigating?new InputSurface():null;
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
-            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original,inputSurface)){
+            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original,inputSurface,navigating?(key,view,epoch,reason)->{PopupProductHost product=originalProduct[0];if(product!=null)product.lifecycleInvalidated(key,view,epoch,reason);}:null)){
                 java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
                 try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),host.time::get)){
-                    PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,original.adapter,source.core,host.worker);
+                    PopupProductHost product=new PopupProductHost(source.views);originalProduct[0]=product;product.bindPreparation(source.view,original.adapter,source.core,host.worker);
                     product.downloadQueue=queue;product.downloadBudget=new MdoBrowserCdpDownloads.Budget();product.loading.put("owned",true);
                     AtomicInteger prepared=new AtomicInteger(),accepted=new AtomicInteger(),failed=new AtomicInteger();String[] reason={null};
                     WebView[] exact={null};Backend.DocumentRenderer[] renderer={null};Backend.SourceRenderer initial=new Backend.SourceRenderer("source-complete");
@@ -2431,6 +2538,7 @@ public final class CdpPopupWorkerProbe {
                             if(variant.startsWith("capture-"))frameRouteEvidence=capturePopup(variant,host,backend,product,exact[0],renderer[0]);
                             if(variant.startsWith("opener-"))frameRouteEvidence=preparePopupOpener(variant,host,backend,product,exact[0],renderer[0],source.source);
                             if(variant.startsWith("input-"))frameRouteEvidence=inputPopup(variant,host,backend,product,exact[0],renderer[0],inputSurface);
+                            if(variant.startsWith("navigation-"))frameRouteEvidence=navigatePopupProduct(variant,host,backend,product,exact[0],renderer[0]);
                             if(variant.equals("document-change")){check(source.views.navigation("owned",exact[0]));check(!product.popupPageDocumentReady("owned")&&product.popupNetworkReady("owned")&&exact[0].destroyed==0);}
                             if(variant.startsWith("route-")){
                                 int queries=0;boolean success=!java.util.Arrays.asList("route-stale","route-channel","route-hidden","route-manual","route-download","route-effect","route-malformed","route-late","route-late-hidden").contains(variant);
@@ -2477,7 +2585,7 @@ public final class CdpPopupWorkerProbe {
                                     .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get())
                                     .put("native_effects",renderer[0].worlds.evaluations).put("provider_qualified",false).put("ui_published",false);
                             }
-                            if(!variant.equals("route-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
+                            if(!variant.equals("route-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.equals("navigation-no-commit")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
                         }
                         check(source.sends==1&&product.configured==1&&product.popupLinks.isEmpty());
                     }catch(Exception|Error error){primary=error;System.err.println("Product page "+variant+" accepted="+accepted.get()+" failed="+failed.get()+" code="+reason[0]);throw error;}

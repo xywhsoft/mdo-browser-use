@@ -21,7 +21,7 @@ final class PopupProductHost {
     static final class Manual {boolean ready(){return true;}}
     final Manual manualChooser=new Manual();boolean uploadQualified;
     private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",uploadQualified);}
-    final Map<String,PopupLink> popupLinks=new HashMap<>();final Map<String,Object> navigationRequests=new HashMap<>();
+    final Map<String,PopupLink> popupLinks=new HashMap<>();
     final Map<String,String> documentFailures=new HashMap<>();final Set<String> pageClosed=new HashSet<>();
     static final class WorldBudget {int used(){return 0;}int limit(){return 32;}}
     final WorldBudget worldBudget=new WorldBudget();
@@ -58,7 +58,21 @@ final class PopupProductHost {
     static final class Host {String getUrl(){return "http://127.0.0.1/development";}}
     final Host host=new Host();int preparationReplies;JSONObject preparationReply;String preparationReplyError;
     void reply(MdoBrowserChannel<WebMessagePort>.Lease lease,String id,JSONObject value,String error){if(channel.active(lease,host.getUrl())){preparationReplies++;preparationReply=value;preparationReplyError=error;publicReplies.put(id,value);publicCounts.put(id,publicCounts.getOrDefault(id,0)+1);}}
-    private static final class NativeNavigation {}
+    void reply(String id,JSONObject value,String error){reply(channel.current(),id,value,error);}
+    @@NAVIGATION_RESERVATION@@
+    @@NAVIGATION@@
+    @@DOCUMENT_NAVIGATION@@
+    @@NETWORK_COMMAND@@
+    JSONObject navigate(String key,String action)throws Exception {
+        WebView view=views.get(key);networkCommand(key,view,action.equals("goto")?"navigate":action,true);
+        if(action.equals("goto"))networkNavigate(key,view,"navigate","https://private.invalid/destination",true,3000);else networkTraverse(key,view,"navigate",action,true,3000);
+        return publicReplies.get("navigate");
+    }
+    void pollNavigation(String key){NetworkEntry owner=networkViews.get(key);if(owner!=null&&owner.navigation!=null)nativeNavigationPoll(owner.navigation);}
+    JSONObject inspectNavigation(String key)throws JSONException{return networkNavigationState(key);}
+    boolean navigationSettled(String key){NetworkEntry owner=networkViews.get(key);return owner!=null&&owner.navigation!=null&&owner.navigation.settled;}
+    void cancelNavigation(String key,String reference)throws JSONException{executeNavigationCancel(key,"cancel-navigation",views.get(key),new JSONObject().put("navigation_ref",reference));}
+    void nativePageCallback(String key){WebView view=views.get(key);documentNavigation(key,view);views.navigation(key,view);loading.put(key,false);documentLoaded(key,view);}
     @@NETWORK_ENTRY@@
     private final Map<String,NetworkEntry> networkViews=new HashMap<>();
     final android.os.Handler networkHandler=new android.os.Handler(android.os.Looper.getMainLooper());
@@ -157,6 +171,7 @@ final class PopupProductHost {
     MdoBrowserCdpCapture.Session captureSession(String key,MdoBrowserCdpCapture operation,MdoBrowserCdpCapture.Current current)throws Exception{return captureDocumentSession(key,views.get(key),operation,current);}
     @@CAPTURE_SESSION@@
     void invalidatePopupDocument(String key,String reason){WebView view=views.get(key);inputInvalidated(key,view,views.epoch(key,view),reason);}
+    void lifecycleInvalidated(String key,WebView view,long epoch,String reason){inputInvalidated(key,view,epoch,reason);}
     boolean popupDocumentPending(String key){PopupNetwork owner=network(key);return owner!=null&&owner.page!=null&&cdpWorker.pending(owner.page.marker);}
     void observeNativeProofRevocation(WebView view){
         for(NetworkEntry entry:networkViews.values())if(entry.view==view&&entry.popup!=null){
@@ -165,14 +180,13 @@ final class PopupProductHost {
     }
     boolean chooserAllowed=true;
     boolean chooserReady(MdoBrowserDialogTarget target){return chooserAllowed&&productChooserReady(target);}
-    MdoBrowserCdpNetworks.Navigation navigationReadProof(String key,WebView view,String reference)throws java.io.IOException {
-        if(reference!=null)throw new java.io.IOException("cdp_navigation_document_unproven");return null;
-    }
     @@CHOOSER@@
     @@FRAME_ENVIRONMENT@@
     @@FRAME_ROUTER@@
     boolean dialogReady(String key,WebView view){MdoBrowserDialogTarget target=dialogs.get(key);return target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);}
     void cancelCapture(String key){CaptureEntry entry=captures.get(key);if(entry!=null)entry.capture.close();}
+    void cancelPopup(String key){MdoBrowserPopups<WebView> core=windows.get(key);if(core!=null)core.cancel();}
+    void cancelDialog(String key){MdoBrowserDialogTarget target=dialogs.get(key);if(target!=null)target.dialogs.cancel();}
     MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}
     static final class Root {
         int removes,adds;Runnable callback,adding;boolean failAdd;final Set<WebView> children=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
@@ -192,8 +206,9 @@ final class PopupProductHost {
         interface Completion {void complete(Result result);}
     }
     static final class MdoBrowserDocument {
-        static final int BACKGROUND=1,CHOOSER=2;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
-        void block(int reason,boolean value){if(reason!=CHOOSER)throw new AssertionError("Unexpected controlled document block");}
+        static final int BACKGROUND=1,CHOOSER=2,NAVIGATION=16;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
+        void block(int reason,boolean value){if(reason!=CHOOSER&&reason!=NAVIGATION)throw new AssertionError("Unexpected controlled document block");}
+        void navigation(){}void committed(){}void loaded(){}
         boolean worldInstalled(){worldQueries++;return assigned&&!closed;}boolean ready(){worldQueries++;return assigned&&!closed;}
         String phase(){worldQueries++;return ready()?"ready":"world_unavailable";}int pending(){worldQueries++;return 0;}int outstanding(){worldQueries++;return 0;}String identity(){worldQueries++;return "fd-00000000-0000-4000-8000-000000000001";}
         void evaluate(String expected,String expression,long timeout,MdoBrowserWorld.Completion callback)throws MdoBrowserWorld.Failure {worldQueries++;throw new MdoBrowserWorld.Failure("controlled_legacy_evaluation");}
@@ -208,7 +223,7 @@ final class PopupProductHost {
         }
         boolean cleanupConfirmed(){return !working;}void close(){closes++;closed=true;}void viewDestroyed(WebView exact){if(exact!=view||working)throw new AssertionError("Unsettled/foreign profile owner");destroyed++;}
     }
-    static final class Dialogs {boolean clean(){return true;}Object snapshot(){return null;}}
+    static final class Dialogs {boolean clean(){return true;}Object snapshot(){return null;}void cancel(){}}
     static class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
     final class MdoBrowserChooserTarget extends MdoBrowserDialogTarget {
         final MdoBrowserChoosers choosers;final MdoBrowserPrivatePicker privatePicker;
@@ -256,7 +271,7 @@ final class PopupProductHost {
     int downloadRetiring(){int count=0;for(NetworkEntry row:networkViews.values())if(row.downloads!=null)count+=row.downloads.retiringFiles();return count;}
     boolean networkClean(){return networkReady&&!networkCleanupFailed&&networkRetiring()==0&&downloadRetiring()==0;}
     MdoBrowserCdpDownloads newNetworkDownloads(){Runnable hook=downloadFactoryHook;if(hook!=null)hook.run();if(downloadQueue==null||downloadBudget==null)throw new IllegalStateException("controlled_download_backend_missing");return new MdoBrowserCdpDownloads(downloadQueue,downloadBudget);}
-    void nativeNavigationRetire(NetworkEntry row){}void networkReplyFailure(NetworkEntry row){}void networkDiscardUnsent(NetworkEntry row){}
+    void networkReplyFailure(NetworkEntry row){}void networkDiscardUnsent(NetworkEntry row){}
     @@NETWORK_LIFETIME@@
     @@NETWORK_DESTROY@@
     @@UPLOAD@@

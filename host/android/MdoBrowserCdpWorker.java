@@ -92,6 +92,25 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     MdoBrowserCdpNetworks.Navigation traverseNetwork(MdoBrowserCdpMarker.Lease lease,String action,int timeout)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");return networks.traverse(lease,action,timeout);
     }
+    /** UI admission only. The original source pump issues once and retains
+     * native ACK/commit state; no ordinary Slot, second worker or UI I/O. */
+    MdoBrowserCdpNetworks.Navigation navigatePopup(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,String url,String action,int timeout)throws IOException {
+        thread();MdoBrowserCdpNetworks.Navigation ticket=MdoBrowserCdpNetworks.Navigation.attached(url,action,timeout,clock);
+        if(marker==null||handoff==null||source==null||marker.lease()!=source.lease||!source.current()||!handoff.current()||!handoff.owns(source))throw new IOException("cdp_popup_source_owner_invalid");
+        MdoBrowserCdpBinding existing=bindings.get(marker.lease());if(existing==null||!existing.matchesSource(source))throw new IOException("cdp_worker_binding_unavailable");
+        PopupNavigation admission=new PopupNavigation(ticket);
+        submit(marker,Math.min(timeout,5000),false,admission,admission,existing,null,handoff,null,source);return ticket;
+    }
+    /** This exact private operation only registers stop/receipt data. A queued
+     * timeout must not retire the physical source whose wire it never touches. */
+    private static final class PopupNavigation implements Operation,Completion {
+        private final MdoBrowserCdpNetworks.Navigation ticket;
+        PopupNavigation(MdoBrowserCdpNetworks.Navigation ticket){this.ticket=ticket;}
+        public byte[] run(MdoBrowserCdpBinding binding,Deadline deadline)throws IOException {
+            try{binding.startSourceNavigation(ticket);}catch(MdoBrowserCdpSession.Failure denied){ticket.admissionFailed(denied.getMessage());}return new byte[]{1};
+        }
+        public void done(Result result){if(result.code!=null)ticket.admissionFailed(result.code.equals("cdp_worker_timeout")?"cdp_navigation_timeout":result.code.equals("cdp_worker_cancelled")?"cdp_navigation_cancelled":result.code);}
+    }
 
     int networkPending(){thread();return networks.pending();}
     boolean networkPending(MdoBrowserCdpMarker marker){thread();return marker!=null&&networks.pending(marker.lease());}
@@ -109,6 +128,10 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     void submitDocument(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,int timeout,boolean effect,Operation operation,Completion complete)throws IOException{
         thread();if(marker==null||handoff==null||document==null||marker.lease()!=document.lease||!document.current()||!handoff.current()||!handoff.owns(document))throw new IOException("cdp_popup_document_owner_invalid");
         submit(marker,timeout,effect,operation,complete,null,null,handoff,document);
+    }
+    void submitDocumentGuarded(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,int timeout,boolean effect,Guard guard,Operation operation,Completion complete)throws IOException{
+        thread();if(guard==null||marker==null||handoff==null||document==null||marker.lease()!=document.lease||!document.current()||!handoff.current()||!handoff.owns(document))throw new IOException("cdp_popup_document_owner_invalid");
+        submit(marker,timeout,effect,operation,complete,null,guard,handoff,document);
     }
     void submitSource(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,int timeout,Operation operation,Completion complete)throws IOException {
         thread();if(marker==null||handoff==null||source==null||marker.lease()!=source.lease||!source.current()||!handoff.current()||!handoff.owns(source))throw new IOException("cdp_popup_source_owner_invalid");
@@ -176,7 +199,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     @Override public void close(){thread();shutdown();}
     private final class Job implements Runnable {
         final WeakReference<MdoBrowserCdpMarker> marker;final MdoBrowserCdpMarker.Lease lease;
-        final int timeout;final long started;final boolean effect;
+        final int timeout;final long started;final boolean effect,admissionOnly;
         final MdoBrowserCdpBinding existing;
         final MdoBrowserCdpPopupBroker.Handoff handoff;final MdoBrowserCdpPopupNative.Document document;final MdoBrowserCdpPopupNative.Source source;
         final AtomicBoolean cancelled=new AtomicBoolean();final AtomicReference<Completion> callback;
@@ -186,6 +209,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         Job(MdoBrowserCdpMarker marker,int timeout,boolean effect,Operation operation,Completion callback,MdoBrowserCdpBinding existing,Guard guard,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,MdoBrowserCdpPopupNative.Source source){
             this.marker=new WeakReference<>(marker);lease=marker.lease();this.timeout=timeout;this.effect=effect;
             this.operation=operation;this.guard=guard;this.callback=new AtomicReference<>(callback);started=clock.getAsLong();this.existing=existing;
+            admissionOnly=existing!=null&&operation instanceof PopupNavigation;
             this.handoff=handoff;this.document=document;this.source=source;
         }
         int remaining(int minimum)throws IOException {
@@ -218,7 +242,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
             catch(RuntimeException|Error error){failure="cdp_worker_failed";}
             finally{
                 synchronized(this){operation=null;guard=null;}
-                if(failure!=null){retireBinding();clear(value);value=null;}
+                if(failure!=null){if(!admissionOnly)retireBinding();clear(value);value=null;}
                 finish(value,failure);
             }
         }

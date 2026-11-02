@@ -37,7 +37,8 @@
         try{
             loading.put(key,true);owner.profile.block(MdoBrowserDocument.NAVIGATION,true);
             if(!networkCurrent(owner)||owner.retired||manual.contains(key)||views.epoch(key,view)!=epoch)throw new IllegalStateException("network_owner_changed");
-            operation.ticket=operation.control?cdpWorker.traverseNetwork(owner.marker.lease(),action,(int)timeout):cdpWorker.navigateNetwork(owner.marker.lease(),target,(int)timeout);
+            operation.ticket=owner.popup!=null?cdpWorker.navigatePopup(owner.marker,owner.popup.handoff,owner.popup.sourceProof,target,operation.control?action:null,(int)timeout):
+                operation.control?cdpWorker.traverseNetwork(owner.marker.lease(),action,(int)timeout):cdpWorker.navigateNetwork(owner.marker.lease(),target,(int)timeout);
             if(!networkHandler.postDelayed(operation.watch,20)){
                 operation.ticket.cancel();networkRetire(owner,"cdp_navigation_scheduler_failed");throw new IllegalStateException("cdp_navigation_scheduler_failed");
             }
@@ -95,7 +96,7 @@
         // Unknown dispatched effects never release its input admission fence.
         // A target opened from the native warmup is cross-document. Even a
         // non-download ACK without loader metadata cannot prove that transition.
-        boolean committedControl=operation.control&&!operation.revoked&&result.acknowledged&&result.ok&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent();
+        boolean committedControl=(operation.control||owner.popup!=null)&&!operation.revoked&&result.acknowledged&&result.ok&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent();
         if(committedControl){
             // A native commit can precede WebView callbacks, including BFCache.
             // Rotate document/input references before releasing realm admission;
@@ -116,6 +117,7 @@
         if(!result.effectMayHaveOccurred||result.acknowledged&&(!result.ok||result.downloadKnown&&result.download)||
            sameDocument&&operation.ticket.pageCommitted()&&operation.ticket.pageCurrent()){
             cancelNavigationRequest(owner.key,owner.view);
+            if(owner.popup!=null&&owner.popup.page!=null)owner.popup.page.navigationRejected(operation);
             if(!operation.revoked&&result.acknowledged&&!result.ok)errors.put(owner.key,result.nativeError==null?result.code:result.nativeError);
         }
     }
@@ -140,6 +142,15 @@
                     if(age<0||age>=operation.timeout){operation.pageError="cdp_navigation_commit_timeout";networkRetire(operation.owner,operation.pageError);}
                     else{if(!networkHandler.postDelayed(operation.watch,20)){operation.pageError="cdp_navigation_commit_timeout";nativeNavigationRevoke(operation);networkRetire(operation.owner,"cdp_navigation_scheduler_failed");operation.settled=true;}return;}
                 }else operation.pageJoined=true;
+            }
+            if(needsCommit&&!operation.revoked&&operation.pageError==null&&operation.owner.popup!=null){
+                PopupPage page=operation.owner.popup.page;
+                if(page==null){operation.pageError="cdp_popup_page_document_unavailable";}
+                else if(!page.joinNavigation(operation)){
+                    if(operation.pageError!=null){operation.settled=true;return;}
+                    if(age<0||age>=operation.timeout){operation.pageError="cdp_navigation_document_timeout";page.restoreFailed(page.marker);operation.settled=true;return;}
+                    if(!networkHandler.postDelayed(operation.watch,20)){operation.pageError="cdp_navigation_scheduler_failed";nativeNavigationRevoke(operation);operation.settled=true;}return;
+                }
             }
             operation.settled=true;return;
         }

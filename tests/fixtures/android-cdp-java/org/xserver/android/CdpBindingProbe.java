@@ -39,6 +39,7 @@ public final class CdpBindingProbe {
         interface Extra {boolean send(JSONObject request,Wire wire)throws Exception;default void closed(Wire wire){}}
         final WebView owned;final List<Wire> wires=new ArrayList<>();
         Extra extra;volatile AssertionError dispatchDefect;
+        String rootLoader,rootUrl;
         boolean ignoreUnique,wrongProof,cleanupFails,missingUnique,emptyFirst,loseContext,failOpen,changedLoader,unsupportedLexical;
         Factory(WebView owned){this.owned=owned;}
         public MdoBrowserCdpBinding.Peer open(String id,int timeout,java.util.function.BooleanSupplier current,MdoBrowserCdpSession.Events events) throws IOException {
@@ -99,7 +100,8 @@ public final class CdpBindingProbe {
                     }
                 } else if("Page.getFrameTree".equals(method)) {
                     frameQueries++;String loader="load-"+id+(factory.changedLoader&&frameQueries>1?"-changed":"");
-                    reply.put("frameTree",new JSONObject().put("frame",new JSONObject().put("id","frame-"+id).put("loaderId",loader)));
+                    JSONObject frame=new JSONObject().put("id","frame-"+id).put("loaderId",factory.rootLoader==null?loader:factory.rootLoader);if(factory.rootUrl!=null)frame.put("url",factory.rootUrl);
+                    reply.put("frameTree",new JSONObject().put("frame",frame));
                 }
                 else if("Runtime.globalLexicalScopeNames".equals(method)) {
                     check(params.length()==1&&params.getInt("executionContextId")==1);

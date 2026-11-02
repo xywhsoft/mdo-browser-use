@@ -41,7 +41,7 @@
             };
             if(popup!=null){
                 if(continuation)cdpWorker.submitExisting(marker,operation.timeout,operation.effect,operation::run,complete);
-                else if(proof!=null)throw new java.io.IOException("cdp_popup_navigation_unqualified");
+                else if(proof!=null)cdpWorker.submitDocumentGuarded(marker,popup.network.handoff,popup.proof,operation.timeout,operation.effect,proof,operation::run,complete);
                 else cdpWorker.submitDocument(marker,popup.network.handoff,popup.proof,operation.timeout,operation.effect,operation::run,complete);
             }
             else if(proof!=null)cdpWorker.submitGuarded(marker,operation.timeout,operation.effect,proof,operation::run,complete);

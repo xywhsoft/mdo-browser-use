@@ -36,7 +36,6 @@
     }
     private void networkCommand(String key,WebView view,String command,boolean agent){
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return;
-        if(entry.popup!=null&&Arrays.asList("navigate","back","forward","reload").contains(command))throw new UnsupportedOperationException("popup_navigation_unqualified");
         if("downloads".equals(command)&&entry.downloads!=null)return;
         if(entry.navigation!=null&&entry.navigation.ticket!=null&&entry.navigation.ticket.result()==null&&(agent||!manual.contains(key))&&Arrays.asList("navigate","back","forward","reload","automation","input","wheel","drag","upload").contains(command))throw new IllegalStateException("navigation_pending");
         if(entry.retired&&(agent||Arrays.asList("automation","frames","input","wheel","drag","upload").contains(command)))throw new IllegalStateException("network_owner_unavailable");

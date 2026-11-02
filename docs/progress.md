@@ -13335,3 +13335,86 @@ then protected takeover/release. Overall Android admission, deferred phone/
 provider checks, Windows completion audit and final deliverables remain open.
 No phone/ADB/WebView update, live model, external site or production operation
 was used. The overall goal remains active.
+
+### E173 protected popup explicit navigation and document rearm
+
+Protected popup goto/back/forward/reload now use the existing shared worker and
+original Source/Handoff instead of attempting ordinary network Slot admission.
+A viewless navigation ticket queues only metadata registration against the
+already-cached Source binding. Its original pump issues the command once,
+collects ACK/native commitment and services the original downloads. Cancellation
+remains stop data. A late receipt never upgrades a cancelled operation.
+
+The metadata registration operation is explicitly non-owning: a queued timeout
+or cancellation cannot close a healthy physical Source binding whose wire that
+operation never touched. Deterministic barriers on the same existing executor
+prove both queued paths, zero original navigation commands and successful new
+navigation on the retained connection. There is no second executor, reconnect,
+replacement native view or Fetch guard. Waiting for native replies yields to
+the shared receive pump; claiming progress on every pending turn had starved
+receipts in the initial implementation and was corrected before this commit.
+
+The actual UI navigation record now reconciles original native commitment with
+the current UI epoch/profile/channel. A fresh document marker and exact Handoff
+proof are checked against the native frame, loader and destination before world
+inventory and again afterwards. A late WebView page callback can revalidate a
+new UI epoch against that same commit; it does not repeat navigation. Definite
+no-effect/negative-ACK outcomes permit explicit original-page inventory recovery.
+Unknown sent effects remain uncertain. The frame command route now supports the
+guarded document read for this original navigation reference; older references
+are refused before metadata I/O. The explicit popup navigation denials are removed;
+protected takeover/release remains unavailable pending its lifecycle join.
+
+Integration also caught a shared history-read bug: the default frame job has a
+10-second budget, while each native RPC accepts at most5 seconds. History
+document verification forwarded the whole remaining budget and rejected valid
+reads as `cdp_arguments_invalid`. That fixed proof read now caps its RPC slice
+without changing the enclosing deadline. Product goto/back/forward/reload followed
+by default-budget, navigation-pinned frame reads exercises the correction.
+
+Eleven added cases cover native UI ticket flow, deterministic queued cancellation/
+timeout and recovery, sent cancellation/late ACK, pending-download denial, actual
+product four-command document rearm, late page callback, mismatched loader,
+cancel, rejection/inventory recovery and ACK without native commitment. The flow
+also rejects all three older navigation references before protocol snapshots.
+No Agent evaluation is performed by these metadata/world qualification cases.
+The native source/worker/reservation/navigation/frame/document fragments are
+actual product code; UI/profile/renderer surroundings remain controlled.
+
+The final complete native gate passes463 popup-worker modes/18,158 reported
+checks, JNI/transport, ASan/UBSan and API26 compilation. All133 selected input
+hashes verify, including the network fragment read by the product harness. The
+pinned UI navigation reservation fragment has a separately verified identity.
+Earlier452 asserted outcomes remain unchanged; only the two already-investigated
+loading-timeout close-order diagnostic fields vary. The first full run preceded
+the deterministic queue test strengthening and had132 selected hashes plus its
+exact network/generated-fragment supplement; its evidence is preserved rather
+than presented as the final gate. See `.mdo/E173-native-first-result.json`,
+`.mdo/E173-native.log`, `.mdo/E173-network-input.json` and
+`.mdo/E173-semantic-differences.json`.
+
+Fresh final Python178/180 pass with the same two Windows symlink-privilege skips.
+The four existing actual JS dispatcher/driver/reader to JVM product recovery
+cases pass with current source/class/library identities. Those cases verify
+existing observation/wait/cancellation recovery, not the new complete JS goto
+flow. The single deployment is updated and HTTP200 readiness verifies. See
+`.mdo/E173-focused-final.log`, `.mdo/E173-python.log`,
+`.mdo/E173-native-frontend.log`, `.mdo/E173-apply.log` and
+`.mdo/E173-verification.json` / `.mdo/E173-verification.log`.
+
+The final fresh signed Android development APK is6,583,617 bytes, SHA-256
+`0aebd749117bfcfa867a0c826fa1d580f718d652bcbe1348ce2ab130ebafdb54`.
+The builder now requires the actual new navigation-forwarder/registration class
+definitions; the additional DEX method check confirms the UI rearm, guarded
+document dispatch and Source service methods. The QA identity/signer and public
+Android automation-disabled state are unchanged. The existing Windows app
+archive and paired plugin remain verified current-source/hash reuse, not a new
+Windows runtime qualification for this Java change. See `.mdo/E173-apk.log`,
+`.mdo/E173-dex-methods.json` and `.mdo/E173-finish.log`.
+
+Natural link/form/script navigation recovery, complete JS goto/wait/read
+integration, product same-document/BFCache/adversarial transition qualification,
+protected takeover/release, overall Android/provider/OS admission, deferred
+phone checks, Windows completion audit and final deliverables remain open.
+No ADB/provider update, live model, external site or production action was used.
+The overall goal remains active.

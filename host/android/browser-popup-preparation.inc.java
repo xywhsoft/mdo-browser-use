@@ -87,11 +87,16 @@
     /** One UI-owned startup on the original guarded network. Download-only
      * popups do not need a document world. A ready world certifies only its
      * captured native document epoch, never a later navigation. */
+    private static final class PopupPageNavigationForward implements MdoBrowserCdpWorker.Completion {
+        private final java.lang.ref.WeakReference<PopupPage> owner;private final java.lang.ref.WeakReference<NativeNavigation> navigation;private final java.lang.ref.WeakReference<MdoBrowserCdpMarker> marker;
+        PopupPageNavigationForward(PopupPage owner,NativeNavigation navigation,MdoBrowserCdpMarker marker){this.owner=new java.lang.ref.WeakReference<>(owner);this.navigation=new java.lang.ref.WeakReference<>(navigation);this.marker=new java.lang.ref.WeakReference<>(marker);}
+        public void done(MdoBrowserCdpWorker.Result result){PopupPage value=owner.get();NativeNavigation original=navigation.get();MdoBrowserCdpMarker document=marker.get();if(value!=null&&original!=null&&document!=null)value.navigationCompleted(original,document,result);}
+    }
     private final class PopupPage implements AutoCloseable {
         final PopupNetwork network;final Runnable watch=this::poll;
         ProtocolPopupPageReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
         MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;
-        int phase;long epoch;boolean inFlight,downloadOnly,worldReady,suspended,restoring;
+        int phase;long epoch;boolean inFlight,downloadOnly,worldReady,suspended,restoring;NativeNavigation navigating;
         // An original onCreateWindow callback revokes document execution, but
         // its exact prepared native transport must still be consumable once.
         // UI-only receipt: it never keeps a DOM marker or input reference alive.
@@ -112,6 +117,50 @@
             // navigation, manual takeover and channel changes remain terminal.
             suspended=(ownPopup||"input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"popup_preparation_retired".equals(reason))&&current()&&
                 views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;
+            NativeNavigation originalNavigation=navigating;
+            if("frame_changed".equals(reason)&&originalNavigation!=null&&nativeNavigationScope(originalNavigation)&&!originalNavigation.revoked&&originalNavigation.pageError==null&&originalNavigation.ticket!=null&&originalNavigation.ticket.pageCurrent()){
+                originalNavigation.settled=false;
+                if(!networkHandler.postDelayed(originalNavigation.watch,20)){originalNavigation.pageError="cdp_navigation_scheduler_failed";nativeNavigationRevoke(originalNavigation);}
+            }
+        }
+        /** A different UI epoch requires this original source's native commit;
+         * document/loader/destination proof runs before world inventory. */
+        boolean joinNavigation(NativeNavigation operation){
+            if(!current()||operation.owner!=network.entry||!nativeNavigationScope(operation)||operation.revoked||operation.ticket==null||!operation.ticket.pageCurrent()){
+                operation.pageError="cdp_navigation_document_changed";return false;
+            }
+            if(navigating==operation&&documentReady())return true;
+            String key=network.entry.key;WebView view=network.entry.view;long observed=views.epoch(key,view);
+            if(!cdpEnvironmentCurrent(key,view,observed,network.entry.channelLease)||!chooserReady(dialogs.get(key))||views.inputBusy(key,view)||!views.inputClean(key,view))return false;
+            if(inFlight||cdpWorker.pending(marker))return false;
+            try{
+                long used=android.os.SystemClock.elapsedRealtime()-operation.born;if(used<0||used>operation.timeout-100)throw new java.io.IOException("cdp_navigation_document_timeout");
+                if(navigating!=operation||!documentCurrent()||!restoring){
+                    epoch=observed;marker=protocolDocumentMarker(key,network.owner,network.handoff);proof=network.owner.document(marker);
+                    navigating=operation;worldReady=false;restoring=true;suspended=false;pendingPreparation=null;downloadOnly=false;
+                }
+                inFlight=true;
+                cdpWorker.submitDocumentGuarded(marker,network.handoff,proof,Math.min(3000,(int)(operation.timeout-used)),false,operation.ticket,new PopupPageWarmup(),new PopupPageNavigationForward(this,operation,marker));
+            }catch(java.io.IOException|RuntimeException|Error failure){inFlight=false;operation.pageError=reason(failure);restoreFailed(marker);}
+            return false;
+        }
+        void navigationCompleted(NativeNavigation operation,MdoBrowserCdpMarker original,MdoBrowserCdpWorker.Result result){
+            if(navigating!=operation||marker!=original)return;inFlight=false;
+            if(!nativeNavigationScope(operation)||operation.revoked||!current())return;
+            if(!documentCurrent()){
+                worldReady=false;restoring=false;
+                if(views.epoch(network.entry.key,network.entry.view)==epoch)operation.pageError="cdp_navigation_document_changed";return;
+            }
+            if(result.code!=null||operation.ticket==null||!operation.ticket.pageCurrent()||!cdpEnvironmentCurrent(network.entry.key,network.entry.view,epoch,network.entry.channelLease)){
+                operation.pageError=result.code==null?"cdp_navigation_document_changed":result.code;restoreFailed(original);return;
+            }
+            if(result.bytes==null||result.bytes.length!=1||(result.bytes[0]!=0&&result.bytes[0]!=1)){operation.pageError="cdp_popup_page_result_invalid";restoreFailed(original);return;}
+            if(result.bytes[0]==1){worldReady=true;restoring=false;pendingPreparation=null;}
+        }
+        void navigationRejected(NativeNavigation operation){
+            if(current()&&operation.owner==network.entry&&network.entry.navigation==operation&&!downloadOnly&&views.epoch(network.entry.key,network.entry.view)==operation.reservation.epoch){
+                navigating=null;worldReady=false;restoring=false;suspended=true;pendingPreparation=null;
+            }
         }
         void restoreFailed(MdoBrowserCdpMarker original){
             if(marker!=original||!restoring)return;
@@ -183,7 +232,7 @@
             failure=null;
         }
         void retired(String code){
-            if(phase==3)return;phase=3;inFlight=false;worldReady=false;restoring=false;suspended=false;pendingPreparation=null;networkHandler.removeCallbacks(watch);ready=null;
+            if(phase==3)return;phase=3;inFlight=false;worldReady=false;restoring=false;suspended=false;pendingPreparation=null;navigating=null;networkHandler.removeCallbacks(watch);ready=null;
             if(marker!=null){
                 try{marker.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
                 try{cdpWorker.cancel(marker.lease());}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}

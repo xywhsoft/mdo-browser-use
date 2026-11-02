@@ -27,6 +27,7 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     private final MdoBrowserCdpNetworkRequests requests;
     private MdoBrowserCdpSession.Events receiver;
     private MdoBrowserCdpDownloads.Connection connection;
+    private MdoBrowserCdpNetworks.Navigation navigation;private MdoBrowserCdpBinding.Network navigationView;
     private boolean started,ready;
 
     MdoBrowserCdpPopupSource(MdoBrowserCdpSession session,MdoBrowserCdpSession.AttachedTarget attachment,
@@ -48,7 +49,12 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     MdoBrowserCdpNetworkRequests navigationRequests()throws IOException {navigationCurrent();return requests;}
     boolean ownsDocument(MdoBrowserCdpBinding.Peer document)throws IOException {navigationCurrent();return document instanceof MdoBrowserCdpPopupBroker.DocumentPeer&&((MdoBrowserCdpPopupBroker.DocumentPeer)document).belongsTo(handoff);}
     private void admitNavigation()throws IOException {
-        navigationCurrent();if(connection==null)throw new IOException("cdp_popup_navigation_network_unavailable");if(!connection.navigationAllowed())throw new IOException("cdp_navigation_download_pending");
+        navigationCurrent();if(connection==null)throw new MdoBrowserCdpSession.Failure("cdp_popup_navigation_network_unavailable",0,false);if(!connection.navigationAllowed())throw new MdoBrowserCdpSession.Failure("cdp_navigation_download_pending",0,false);
+    }
+    void startNavigation(MdoBrowserCdpBinding.Network view,MdoBrowserCdpNetworks.Navigation next)throws IOException {
+        navigationCurrent();if(view==null||next==null)throw new IOException("cdp_navigation_arguments_invalid");
+        if(navigation!=null&&navigation.result()==null)throw new MdoBrowserCdpSession.Failure("cdp_navigation_pending",0,false);
+        next.bindAttached(view);navigationView=view;navigation=next;
     }
     public MdoBrowserCdpSession.Navigation navigateRoot(String url,String frame,int timeout)throws IOException {
         admitNavigation();if(!root.equals(frame))throw new IOException("cdp_popup_navigation_root_invalid");return session.navigateAttached(attachment,scope,handoff::draining,url,root,timeout);
@@ -107,7 +113,14 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     void downloads(MdoBrowserCdpDownloads.Connection next)throws IOException {
         guard();if(!ready||next==null)throw new IOException("cdp_popup_source_bootstrap_required");if(connection!=null&&connection!=next)throw new IOException("cdp_controller_busy");next.attach(handoff);connection=next;
     }
-    boolean turn(int timeout)throws IOException {guard();return connection!=null&&connection.attachedTurn(handoff,this,timeout);}
+    boolean turn(int timeout)throws IOException {
+        guard();boolean progress=connection!=null&&connection.attachedTurn(handoff,this,timeout);
+        if(navigation!=null){
+            progress=navigation.serviceAttached(navigationView,connection!=null&&connection.navigationAllowed(),handoff.draining())||progress;
+            MdoBrowserCdpSession.NavigationResult result=navigation.result();
+            if(result!=null&&(!result.ok||navigation.pageCommitted()||result.downloadKnown&&result.download)){navigation=null;navigationView=null;}
+        }return progress;
+    }
     // Only fixed native navigation proof reads are added. The original Fetch
     // protection remains untouched; no Runtime, world, DOM or caller RPC route.
     public JSONObject call(String method,JSONObject params,int timeout)throws IOException {
@@ -118,5 +131,5 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     public boolean poll(int timeout)throws IOException {guard();boolean progress=session.poll(timeout);guard();return progress;}
     public boolean poll(int receive,int timeout)throws IOException {guard();boolean progress=session.poll(receive,timeout);guard();return progress;}
     public boolean idle()throws IOException {guard();return session.idle();}
-    @Override public void close(){if(closed.compareAndSet(false,true)){ready=false;receiver=null;frames.close();requests.close();MdoBrowserCdpDownloads.Connection original=connection;connection=null;if(original!=null)original.disconnect();handoff.close();}}
+    @Override public void close(){if(closed.compareAndSet(false,true)){ready=false;receiver=null;frames.close();requests.close();if(navigation!=null)navigation.disconnected();navigation=null;navigationView=null;MdoBrowserCdpDownloads.Connection original=connection;connection=null;if(original!=null)original.disconnect();handoff.close();}}
 }

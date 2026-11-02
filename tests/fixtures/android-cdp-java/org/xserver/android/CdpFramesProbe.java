@@ -42,13 +42,13 @@ public final class CdpFramesProbe {
     static final class Plan implements CdpBindingProbe.Factory.Extra {
         CdpBindingProbe.Factory.Extra extra;
         final Set<String> armed=new HashSet<>();final ArrayDeque<JSONObject> pending=new ArrayDeque<>();final List<String> methods=new ArrayList<>();
-        String childLoader="child-load",leafParent="child-local",attachType="iframe";
+        String childLoader="child-load",leafParent="child-local",attachType="iframe",rootLoader="load-owned",rootUrl;
         boolean badChildRoot,badParent,duplicateTree,rootWithParent,includeLocal=true,extraSource,omitChild,navigateDuringSnapshot,detachDuringSnapshot,cycle;
         int extraFrames,extraSessions,depth;int snapshotCount;boolean treeRaced;
         public void closed(CdpBindingProbe.Wire wire){if(extra!=null)extra.closed(wire);}
         JSONObject tree(String source)throws Exception {
             if(source==null){
-                JSONObject tree=frame("frame-owned",rootWithParent?"foreign":null,"load-owned");JSONArray children=new JSONArray();
+                JSONObject tree=frame("frame-owned",rootWithParent?"foreign":null,rootLoader);if(rootUrl!=null)tree.getJSONObject("frame").put("url",rootUrl);JSONArray children=new JSONArray();
                 if(includeLocal)children.put(frame("root-local","frame-owned","local-load"));
                 for(int i=0;i<extraFrames;i++)children.put(frame("extra-"+i,"frame-owned","extra-load"));
                 if(duplicateTree)children.put(frame("root-local","frame-owned","local-load"));

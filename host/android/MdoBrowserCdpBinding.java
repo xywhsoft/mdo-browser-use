@@ -385,7 +385,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
                 if(selection!=null){
                     MdoBrowserCdpNetworkFrames.Traversal completed=proven;if(completed==null)throw problem("cdp_navigation_document_unproven");
                     if(!owner.bound.target.equals(document.target)||!matchesDocument(document.rootFrame,document.rootLoader))throw problem("cdp_navigation_document_changed");
-                    Selection current=Selection.read(document.call("Page.getNavigationHistory",new JSONObject(),null,deadline.remaining(),false),"reload");
+                    Selection current=Selection.read(document.call("Page.getNavigationHistory",new JSONObject(),null,Math.min(5000,deadline.remaining()),false),"reload");
                     try{
                         JSONObject root=frame(document.peer,android.os.SystemClock.elapsedRealtime(),deadline.remaining(),document.lease);
                         if(current.current!=selection.entry||!java.security.MessageDigest.isEqual(current.currentDestination,committedDestination)||!matchesDocument(root.optString("id"),root.optString("loaderId")))throw problem("cdp_navigation_document_changed");
@@ -623,6 +623,10 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
         MdoBrowserCdpPopupSource original=(MdoBrowserCdpPopupSource)peer;original.navigationCurrent();
         if(sourceNavigation==null)sourceNavigation=new Network(this,original);return sourceNavigation;
     }
+    void startSourceNavigation(MdoBrowserCdpNetworks.Navigation navigation)throws IOException {
+        Network view=sourceNavigation();((MdoBrowserCdpPopupSource)peer).startNavigation(view,navigation);
+    }
+    boolean matchesSource(MdoBrowserCdpPopupNative.Source proof){return !closed.get()&&peer instanceof MdoBrowserCdpPopupSource&&((MdoBrowserCdpPopupSource)peer).matches(proof);}
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){
         Throwable problem=null;
