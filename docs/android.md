@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E194)
+## Complete development host APK (current: E195)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,591,809 bytes, SHA-256
-`abc2f0eee81f9f6a1da00ea50b4945b352bfe410360d1d4efdf3739b302eeaa0`.
+Current APK: 6,595,905 bytes, SHA-256
+`d5a154c121daa251e3a009d74f78d8e65cecfff1c1f1ae067eb74e04e8124f89`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6515,3 +6515,39 @@ These are controlled native/product checks, not Activity/provider qualification.
 Accepted protected takeover still needs the full outer input/capture/upload/
 chooser cancellation and original-cleanup join. Its public gate and overall
 Android automation remain unavailable; phone/current WebView checks stay deferred.
+
+
+### Bounded original human-control preparation (E195)
+
+A private UI-only HumanControl receipt now reserves a single native handoff
+before revoking the original attachment. Reservation does not close document
+leases or cancel user work. Start retires that exact Handoff before the real
+PopupNetwork coordinator fences its document/source leases. Commit requires
+its same physical view and clean original input; it cannot be replayed.
+The receipt retains only a weak native view and has one suspend-inclusive
+five-second budget, including preparation, cancellation and commit. A rejected
+timer leaves the original page live. Cancellation before start releases only
+the reservation; after start it retires the original owner instead of restoring
+old Agent authority. Direct late start reports the original expiry even when
+its uptime callback has not run; resume reconciliation observes the same budget.
+
+The page coordinator exposes internal beginControl/controlReady/completeControl
+steps. It preserves completed download bytes, cancels original reads and waits
+for its own worker/input/capture/upload/chooser cleanup plus the exact physical
+owner, profile and channel before native commit. Protocol retirement still
+requires its original root command acknowledgement, native detach event and
+source/body/descendant receipts independently; a native transfer is no substitute.
+
+Sixteen new JNI/product cases cover preparation cancellation/expiry/resume,
+duplicate or wrong-view reservation, timer rejection, cancellation/expiry/close
+or channel loss after start, actual input DOWN/CANCEL, in-flight original reads,
+retained file bytes and a controlled pending capture peer. The last peer tests
+the gate only, not a real retained encoder lease. No new view, execution world
+or navigation is introduced by these tests. Existing immediate internal callers
+retain their clean-native-input requirement and independent protocol cleanup.
+
+The public main-button protected takeover remains popup_takeover_unqualified.
+Its actual outer resource cancellation and final UI/reply publication are not
+yet wired to this staged coordinator. No Activity/provider/device qualification
+or Android automation capability is inferred. The current phone/WebView checks
+remain deferred by the user.

@@ -170,6 +170,9 @@ final class PopupProductHost {
     boolean popupNetworkReady(String key){PopupNetwork value=network(key);return value!=null&&value.phase==1&&value.current();}
     void closePopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.close();}
     void takePopupControl(String key)throws Exception{PopupNetwork value=network(key);value.takeControl();manual.add(key);value.entry.profile.block(MdoBrowserDocument.MANUAL,true);}
+    MdoBrowserCdpPopupNative.HumanControl beginPopupControl(String key)throws Exception{return network(key).beginControl();}
+    boolean popupControlReady(String key,MdoBrowserCdpPopupNative.HumanControl original){return network(key).controlReady(original);}
+    void completePopupControl(String key,MdoBrowserCdpPopupNative.HumanControl original)throws Exception{PopupNetwork value=network(key);value.completeControl(original);manual.add(key);value.entry.profile.block(MdoBrowserDocument.MANUAL,true);}
     void pollPopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.watch();}
     int popupNetworkCount(){int count=0;for(NetworkEntry row:networkViews.values())if(row.popup!=null)count++;return count;}
     MdoBrowserCdpDownloads popupDownloads(String key){return network(key).entry.downloads;}

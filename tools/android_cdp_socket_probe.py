@@ -280,6 +280,7 @@ def main():
                   'preparation-page-ready','preparation-page-parent-close','preparation-page-download','preparation-page-download-stream','preparation-page-document-change',
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
+                  *['preparation-page-human-stage-'+variant for variant in ('prepared-cancel','prepared-expire','prepared-resume','duplicate','wrong-view','timer-rejected','cancel-started','expire-started','resume-started','close-started','flow','input','read','complete','capture-pending','channel-changed')],
                   'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
                   'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-root-read','preparation-page-human-network-root-effect','preparation-page-human-network-root-complete','preparation-page-human-network-root-pending','preparation-page-human-network-root-held-body','preparation-page-human-network-descendants','preparation-page-human-network-descendants-inflight',
                   'preparation-page-human-network-late-pause',
@@ -674,6 +675,17 @@ def main():
                     raise RuntimeError('Document cancellation discarded the original native descendants')
                 if variant in {'descendants','descendants-inflight'} and (not proof.get('native_descendants_joined') or proof.get('root_autoattach_stops')!=1):
                     raise RuntimeError('Human detach skipped original descendant retirement')
+        elif mode.startswith('preparation-page-human-stage-'):
+            name=mode[len('preparation-page-human-stage-'):]
+            prepared=name in {'prepared-cancel','prepared-expire','prepared-resume','duplicate','wrong-view','timer-rejected'}
+            aborted=name in {'cancel-started','expire-started','resume-started','close-started','channel-changed'}
+            codes={'prepared-cancel':'cdp_popup_human_control_cancelled','prepared-expire':'cdp_popup_human_control_expired','prepared-resume':'cdp_popup_human_control_expired','duplicate':'cdp_popup_human_owner_invalid','wrong-view':'cdp_popup_human_owner_invalid','timer-rejected':'cdp_popup_human_timer_unavailable','cancel-started':'cdp_popup_human_control_cancelled','expire-started':'cdp_popup_human_control_expired','resume-started':'cdp_popup_human_control_expired','close-started':'cdp_popup_human_owner_invalid','channel-changed':'cdp_popup_human_owner_invalid'}
+            terminal=None if name in {'wrong-view','timer-rejected'} else 'cdp_popup_human_control_cancelled' if name in {'duplicate','channel-changed'} else codes.get(name)
+            expected={'native_human_stage':True,'variant':name,'prepared_without_data_loss':prepared,'data_fenced':not prepared,'manual_committed':not prepared and not aborted,
+                'native_destroyed':int(aborted),'observed_code':codes.get(name),'receipt_failure':terminal,'native_input_cancelled':name=='input','original_read_cancelled':name=='read','completed_bytes':name=='complete','capture_gate_controlled':name=='capture-pending',
+                'native_event':not prepared,'root_command_ack':not prepared and not aborted,'new_worlds':0,'new_views':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}
+            if popup_worker.get('product_frame_route')!=expected:
+                raise RuntimeError('Original staged human control lost its data fence, native identity, deadline, cleanup or single-use outcome')
         elif mode.startswith('preparation-page-human-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-'):];lost=variant=='view-lost'
             if (not isinstance(proof,dict) or proof.get('actual_human_transfer') is not True or proof.get('committed') is not (not lost)

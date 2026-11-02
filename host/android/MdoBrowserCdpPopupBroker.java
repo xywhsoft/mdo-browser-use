@@ -87,6 +87,9 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         void takeControl(MdoBrowserCdpPopupNative.Promotion original)throws IOException {
             if(!committed.get()||!owns(original))throw problem("cdp_popup_human_owner_invalid");original.takeControl(this);
         }
+        MdoBrowserCdpPopupNative.HumanControl prepareControl(MdoBrowserCdpPopupNative.Promotion original,android.webkit.WebView exact)throws IOException {
+            if(!committed.get()||!owns(original))throw problem("cdp_popup_human_owner_invalid");return original.prepareControl(this,exact);
+        }
         /** Request only the original human-owned attachment's retirement.
          * Source/body/descendant readiness is independently checked by its
          * existing worker, never asserted by a UI boolean or target string. */

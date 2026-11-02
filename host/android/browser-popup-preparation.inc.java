@@ -350,7 +350,7 @@
         final NetworkEntry entry;final MdoBrowserCdpPopupNative.Promotion owner;final MdoBrowserCdpPopupBroker.Handoff handoff;
         MdoBrowserCdpPopupNative.Source sourceProof;
         final long deadline;ProtocolPopupNetworkReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
-        int phase;boolean disposing,downloadsClosed,human;PopupPage page;
+        int phase;boolean disposing,downloadsClosed,human;PopupPage page;MdoBrowserCdpPopupNative.HumanControl humanControl;
         PopupNetwork(NetworkEntry entry,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff,long deadline,
                 ProtocolPopupNetworkReady ready,MdoBrowserCdpPopupPreparation.Failure failure){
             this.entry=entry;this.owner=owner;this.handoff=handoff;this.deadline=deadline;this.ready=ready;this.failure=failure;
@@ -385,19 +385,51 @@
             }catch(java.io.IOException|RuntimeException|Error error){retire(reason(error));}
         }
         void schedule(){networkHandler.removeCallbacks(entry.watch);if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_scheduler_unavailable");}
-        /** Internal protected-page coordinator. The public route is still
-         * gated until same-view return and descendant retirement qualify. */
-        void takeControl()throws java.io.IOException {
+        /** Begin on this original UI owner before cancelling input/capture.
+         * The reserved native receipt supplies its own deadline and cannot
+         * grant manual control while any original cleanup remains pending. */
+        MdoBrowserCdpPopupNative.HumanControl beginControl()throws java.io.IOException {
             if(phase!=1||page==null||page.phase!=2||!current())throw new java.io.IOException("cdp_popup_human_owner_invalid");
-            try{if(owner.view()!=entry.view)throw new IllegalStateException("popup_child_owner_lost");}
-            catch(RuntimeException error){throw new java.io.IOException("cdp_popup_human_owner_invalid");}
+            MdoBrowserCdpPopupNative.HumanControl control=handoff.prepareControl(owner,entry.view);
             // Quiesce before revoking the source, preserving user cancellation
             // and original completed bytes rather than connection-loss text.
-            entry.downloads.quiesce();handoff.takeControl(owner);human=true;
-            // The native outcome remains retained, but its exact UI loading
-            // reservation must not outlive a committed human transfer.
-            nativeNavigationRetire(entry);cancelNavigationRequest(entry.key,entry.view);
-            retire("network_user_takeover");handoff.detachForHuman(owner);
+            boolean quiesced=false;
+            try{
+                entry.downloads.quiesce();quiesced=true;control.start();humanControl=control;human=true;
+                nativeNavigationRetire(entry);cancelNavigationRequest(entry.key,entry.view);
+                retire("network_user_takeover");return control;
+            }catch(java.io.IOException|RuntimeException|Error failure){control.close();if(quiesced)retire("network_human_prepare_failed");throw failure;}
+        }
+        private boolean controlScope(MdoBrowserCdpPopupNative.HumanControl original){
+            return original!=null&&humanControl==original&&phase==2&&human&&!entry.destroyed&&networkViews.get(entry.key)==entry&&
+                !stopped&&!browserPaused&&views.owns(entry.key,entry.view)&&documents.get(entry.key)==entry.profile&&entry.profile.profileAssigned()&&
+                channel.current()==entry.channelLease&&channel.active(entry.channelLease,host.getUrl())&&!pageClosed.contains(entry.key);
+        }
+        boolean controlReady(MdoBrowserCdpPopupNative.HumanControl original){
+            MdoBrowserPopups<WebView> popup=windows.get(entry.key);MdoBrowserDialogTarget dialog=dialogs.get(entry.key);
+            return controlScope(original)&&
+                (page==null||!cdpWorker.pending(page.marker))&&(entry.marker==null||!cdpWorker.pending(entry.marker))&&
+                views.inputClean(entry.key,entry.view)&&captureMutationReady(entry.key,entry.view)&&!uploadBusy(entry.key,entry.view)&&
+                (dialog==null||dialog.view==entry.view)&&chooserClean(dialog)&&(popup==null||popup.clean()&&popup.snapshot()==null)&&original.ready();
+        }
+        void completeControl(MdoBrowserCdpPopupNative.HumanControl original)throws java.io.IOException {
+            if(original==null||humanControl!=original)throw new java.io.IOException("cdp_popup_human_owner_invalid");
+            original.expire();if(original.failure()!=null)throw new java.io.IOException(original.failure());
+            if(!controlScope(original)){original.close();humanControl=null;throw new java.io.IOException("cdp_popup_human_owner_invalid");}
+            if(!controlReady(original))throw new java.io.IOException("cdp_popup_human_cleanup_pending");
+            commitControl(original);
+        }
+        private void commitControl(MdoBrowserCdpPopupNative.HumanControl original)throws java.io.IOException {
+            if(original==null||humanControl!=original)throw new java.io.IOException("cdp_popup_human_owner_invalid");
+            original.commit();humanControl=null;handoff.detachForHuman(owner);watch();
+        }
+        /** Synchronous internal callers require already clean native input.
+         * The public coordinator must use begin/wait/complete instead. */
+        void takeControl()throws java.io.IOException {
+            try{if(owner.view()!=entry.view)throw new IllegalStateException("popup_child_owner_lost");}
+            catch(RuntimeException error){throw new java.io.IOException("cdp_popup_human_owner_invalid");}
+            MdoBrowserCdpPopupNative.HumanControl control=beginControl();
+            try{commitControl(control);}finally{control.close();}
         }
         /** Historical retirement permits only a fresh same-view network
          * proof. It never revives this popup's document or native authority. */

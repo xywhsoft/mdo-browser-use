@@ -40,6 +40,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         boolean current(){return birth.independent==this&&!retired.get()&&!birth.destroyed.get()&&birth.owner.get()!=null&&birth.view.get()!=null;}
         boolean destroyed(){return birth.destroyed();}boolean humanOwned(){return birth.humanOwned();}
         T view(){MdoBrowserLifecycle<T> core=birth.owner.get();if(core==null)throw new IllegalStateException("popup_child_owner_lost");return core.independentView(this);}
+        boolean ownsControl(T exact){MdoBrowserLifecycle<T> core=birth.owner.get();return core!=null&&core.independentControlCurrent(this,exact);}
         void takeControl(){MdoBrowserLifecycle<T> core=birth.owner.get();if(core==null)throw new IllegalStateException("popup_child_owner_lost");core.takeIndependentControl(this);}
     }
     /** UI-only capacity/key reservation, allocated before native construction.
@@ -165,6 +166,13 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     private T independentView(Independent<T> original){
         thread();Fresh<T> birth=original.birth;T exact=birth.view.get();Entry entry=current(birth.key,exact);
         if(!original.current()||entry==null||entry.fresh!=birth||entry.failed||entry.hidden||entry.manual||background||!entry.input.cleanupConfirmed())throw new IllegalStateException("popup_child_owner_lost");return exact;
+    }
+    /** Physical identity only, allowing its own unfinished input to be cancelled
+     * after typed retirement starts. This never returns a view or grants input. */
+    private boolean independentControlCurrent(Independent<T> original,T exact){
+        thread();if(original==null||exact==null)return false;Fresh<T> birth=original.birth;Entry entry=current(birth.key,exact);
+        return original.current()&&birth.view.get()==exact&&entry!=null&&entry.fresh==birth&&!entry.failed&&!entry.hidden&&!entry.manual&&!background&&
+            (entry.input.busy()||entry.input.cleanupConfirmed());
     }
     private void takeIndependentControl(Independent<T> original){
         thread();if(original==null||original.birth.humanOwned())throw new IllegalStateException("popup_child_owner_lost");

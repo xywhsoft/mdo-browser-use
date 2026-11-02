@@ -42,7 +42,10 @@ final class MdoBrowserCdpPopupNative {
     static int retainedUiOwners(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null)count++;return count;}
     static int pendingRetirements(){thread();int count=0;for(UiRetention owner:UI_OWNERS)if(owner!=null&&owner.retirement.pending())count++;return count;}
     static int promotedUiOwners(){thread();int count=0;for(Created child:PROMOTED)if(child!=null)count++;return count;}
-    private static void reconcilePromoted(Retirement original){for(Created child:PROMOTED)if(child!=null&&child.promotion!=null&&(original==null||child.promotion.parent==original)&&(!child.promotion.live.get()||child.promotion.parent.quiescenceRequested()))try{child.close();}catch(IOException failure){/* exact failed owner remains retained */}}
+    private static void reconcilePromoted(Retirement original){for(Created child:PROMOTED)if(child!=null&&child.promotion!=null&&(original==null||child.promotion.parent==original)){
+        HumanControl control=child.promotion.humanControl;if(control!=null)control.expire();
+        if(!child.promotion.live.get()||child.promotion.parent.quiescenceRequested())try{child.close();}catch(IOException failure){/* exact failed owner remains retained */}
+    }}
     static void reconcileRetirements(){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.retirement.deliver();reconcilePromoted(null);}
     static void viewDestroyed(WebView exact){thread();for(UiRetention owner:UI_OWNERS)if(owner!=null)owner.destroyed(exact);for(Created child:PROMOTED)if(child!=null&&child.view==exact&&child.construction.destroyed())try{child.close();}catch(IOException failure){/* retained cleanup uncertainty */}}
     private static boolean destructionAllowed(WebView exact){
@@ -167,12 +170,56 @@ final class MdoBrowserCdpPopupNative {
             }finally{try{original.ending();}finally{notifyDelivered();}}
         }
     }
+    /** UI-only, single original human-control attempt. Preparing reserves a
+     * bounded timer without revoking data; start retires the original handoff
+     * before the page coordinator fences document leases and cancels input;
+     * commit still requires the same clean native owner. No protocol receipt. */
+    static final class HumanControl implements AutoCloseable {
+        private final Promotion owner;private final MdoBrowserCdpPopupBroker.Handoff original;
+        private final WeakReference<WebView> view;private final long born;
+        private final Runnable expiry=this::expire;private int state;private String failure; // 0 prepared, 1 started, 2 committed, 3 cancelled
+        private HumanControl(Promotion owner,MdoBrowserCdpPopupBroker.Handoff original,WebView exact){this.owner=owner;this.original=original;view=new WeakReference<>(exact);born=android.os.SystemClock.elapsedRealtime();}
+        private boolean timely(){long age=android.os.SystemClock.elapsedRealtime()-born;return age>=0&&age<5000;}
+        private void removeTimer(){try{PROMOTION_UI.removeCallbacks(expiry);}catch(RuntimeException|Error ignored){/* bounded stale timer has no live authority */}}
+        boolean current(){thread();WebView exact=view.get();return state<2&&timely()&&owner.humanControl==this&&original.owns(owner)&&exact!=null&&owner.nativeOwner.ownsControl(exact)&&
+            (state==0?owner.humanTransfer.get()==4&&owner.current()&&original.current():owner.humanTransfer.get()==1&&original.draining());}
+        boolean started(){thread();return state==1;}
+        boolean committed(){thread();return state==2;}
+        String failure(){thread();return failure;}
+        void expire(){thread();if(state<2&&!timely())cancel("cdp_popup_human_control_expired");}
+        void start()throws IOException{
+            thread();expire();if(state!=0)throw new IOException(failure==null?"cdp_popup_human_control_replayed":failure);
+            if(!current()){cancel("cdp_popup_human_owner_invalid");throw new IOException(failure);}
+            owner.humanTransfer.set(1);state=1;original.retireAuthority();owner.live.set(false);
+        }
+        boolean ready(){thread();if(state!=1||!current())return false;try{return owner.nativeOwner.view()==view.get();}catch(RuntimeException unavailable){return false;}}
+        void commit()throws IOException{
+            thread();if(state!=1)throw new IOException(failure!=null?failure:state>=2?"cdp_popup_human_control_replayed":"cdp_popup_human_control_not_started");
+            if(!timely()){cancel("cdp_popup_human_control_expired");throw new IOException(failure);}
+            if(!current()){cancel("cdp_popup_human_owner_invalid");throw new IOException(failure);}
+            if(!ready())throw new IOException("cdp_popup_human_cleanup_pending");
+            // Suppress reentrant close until native ownership has its real
+            // result. Neither a timer nor an old callback may replay commit.
+            state=3;removeTimer();
+            try{owner.nativeOwner.takeControl();owner.humanTransfer.set(2);state=2;}
+            catch(RuntimeException|Error error){owner.humanTransfer.set(3);failure="cdp_popup_human_takeover_failed";throw new IOException(failure);}
+            finally{owner.humanControl=null;owner.live.set(false);view.clear();owner.notifyClose();}
+        }
+        private void cancel(String code){
+            thread();if(state>=2)return;boolean started=state==1;state=3;failure=code;removeTimer();view.clear();
+            if(owner.humanControl!=this)return;owner.humanControl=null;
+            owner.humanTransfer.set(started?3:0);
+            if(started){original.retireAuthority();owner.live.set(false);owner.notifyClose();}
+        }
+        @Override public void close(){cancel("cdp_popup_human_control_cancelled");}
+    }
     /** Native ownership only, not a protocol/session/world promotion. Workers
      * retain weak UI notification and data-only registry/dependency receipts. */
     static final class Promotion implements AutoCloseable {
         private final MdoBrowserLifecycle.Independent<WebView> nativeOwner;private final Retirement parent;private final Object proofIdentity;
         private final WeakReference<Runnable> closer;private final AtomicBoolean live=new AtomicBoolean(true),ended=new AtomicBoolean(),failed=new AtomicBoolean();
-        private final AtomicInteger humanTransfer=new AtomicInteger(); // 0 unused, 1 UI transaction, 2 committed, 3 failed
+        private final AtomicInteger humanTransfer=new AtomicInteger(); // 0 unused, 1 retiring, 2 committed, 3 failed, 4 prepared
+        private HumanControl humanControl;
         private Promotion(MdoBrowserLifecycle.Independent<WebView> owner,Retirement parent,Object proof,Runnable closer){nativeOwner=owner;this.parent=parent;proofIdentity=proof;this.closer=new WeakReference<>(closer);}
         boolean current(){CloseGate gate=parent.closeGate.get();return creationConfirmed()&&live.get()&&!ended.get()&&!failed.get()&&!nativeOwner.humanOwned()&&nativeOwner.current()&&gate!=null&&gate.accepting();}
         boolean matches(Child original){return original!=null&&original.identity==proofIdentity;}
@@ -187,6 +234,15 @@ final class MdoBrowserCdpPopupNative {
         boolean ended(){return ended.get();}boolean failed(){return failed.get();}boolean nativeDestroyed(){return nativeOwner.destroyed();}
         boolean humanTransferred(){return humanTransfer.get()==2;}
         private boolean humanPending(){return humanTransfer.get()==1;}
+        boolean controlEligible(MdoBrowserCdpPopupBroker.Handoff original,WebView exact){thread();return original!=null&&original.owns(this)&&original.current()&&current()&&nativeOwner.ownsControl(exact)&&humanTransfer.get()==0;}
+        HumanControl prepareControl(MdoBrowserCdpPopupBroker.Handoff original,WebView exact)throws IOException {
+            thread();if(!controlEligible(original,exact))throw new IOException("cdp_popup_human_owner_invalid");
+            HumanControl prepared=new HumanControl(this,original,exact);
+            final boolean scheduled;try{scheduled=PROMOTION_UI.postDelayed(prepared.expiry,5000);}catch(RuntimeException|Error error){throw new IOException("cdp_popup_human_timer_unavailable");}
+            if(!scheduled)throw new IOException("cdp_popup_human_timer_unavailable");
+            if(!humanTransfer.compareAndSet(0,4)){prepared.removeTimer();throw new IOException("cdp_popup_human_control_replayed");}
+            humanControl=prepared;return prepared;
+        }
         /** Exact UI transaction: publish typed retirement before dropping
          * native ownership, but defer old close notifications until the
          * registry has irrevocably assigned this same view to its human. */
@@ -194,12 +250,8 @@ final class MdoBrowserCdpPopupNative {
             thread();
             if(original==null||!original.owns(this)||!original.current()||!current())throw new IOException("cdp_popup_human_owner_invalid");
             try{nativeOwner.view();}catch(RuntimeException error){throw new IOException("cdp_popup_human_owner_invalid");}
-            if(!humanTransfer.compareAndSet(0,1))throw new IOException("cdp_popup_human_takeover_replayed");
-            try{
-                original.retireAuthority();live.set(false);
-                nativeOwner.takeControl();humanTransfer.set(2);
-            }catch(RuntimeException|Error error){humanTransfer.set(3);throw new IOException("cdp_popup_human_takeover_failed");}
-            finally{live.set(false);notifyClose();}
+            HumanControl control=prepareControl(original,nativeOwner.view());
+            try{control.start();control.commit();}finally{control.close();}
         }
         WebView view(){thread();if(!current())throw new IllegalStateException("cdp_popup_native_promotion_unavailable");return nativeOwner.view();}
         private void notifyClose(){if(humanPending())return;Runnable action=closer.get();if(action!=null)try{action.run();}catch(RuntimeException|Error ignored){/* retained UI owner is reconciled on recovery */}}

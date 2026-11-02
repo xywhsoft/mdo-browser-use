@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E195:** reserve a bounded, typed original human-control handoff;
+  retire the attachment before cancelling its document and input work, then
+  commit only the same clean physical owner. Sixteen new staged cases cover
+  cancellation, suspend-inclusive expiry, duplicate/wrong owner, real input/read
+  cancellation and retained bytes. Fresh native 608/frontend 20/ordinary create
+  850/Python 178/180 and signed APK/DEX pass. Pending capture uses a controlled
+  peer; public outer integration and Activity/provider/device checks remain open.
+
+
 - **Android E187:** fix a deterministic terminal-source leak when worker
   exit finishes before the UI drops delivery. Always revisit guarded release
   after delivery abandonment; active or failed native cleanup stays retained.
@@ -15104,3 +15113,75 @@ still needs full outer input/capture/upload/chooser cleanup joins, ongoing nativ
 origin readiness and Activity/provider/device plus the final broader requirements/
 delivery audit. Android automation stays unavailable, the phone/current-WebView
 arrangement remains deferred, and the full goal stays active.
+
+
+## E195 — reserve and complete the original native human handoff in stages
+
+Add a private-constructed UI-only HumanControl receipt tied to its original
+Promotion/Handoff and weak physical WebView. It reserves a single timer before
+download cancellation, then retires that exact attachment before the page
+coordinator cancels its original document/source work. Its five-second elapsed
+budget is never renewed. An unstarted cancellation releases the reservation
+without losing the old document. Started cancellation, expiry, lost channel or
+actual close never restores Agent access or grants manual control. Native commit
+is single-use, rejects pending native input and suppresses reentrant replay.
+Independent.ownsControl supplies only a physical identity predicate permitting
+its own busy input to be cancelled; it never returns a view or grants data/input.
+
+PopupNetwork now supplies internal begin/wait/complete gates around the same
+native receipt. Completion checks original worker jobs, native input, capture,
+upload, chooser/popup cleanup, view/profile/channel and the receipt deadline.
+Completed download bytes remain in their original catalog. The existing immediate
+internal API retains its already-clean native input precondition and independent
+protocol cleanup. Original root ACK, native event and source/body/descendant
+cleanup remain separate facts; no selector, fake ACK, new view/world/navigation,
+ordinary target fallback or automatic replay is added. The public protected
+control-button admission and Android automation capability are unchanged.
+
+Sixteen new cases report 672 checks. Preparation cases
+prove no old marker/document/native ownership loss and fresh explicit reservation
+after cancellation. Started failures require real native destruction and the
+controlled original native event without inventing a human root command ACK.
+Success cases use the real page coordinator, native lifecycle and input sequencer
+(DOWN then CANCEL), cancel an actual held original read, preserve original
+completed file bytes and require independent detach/cleanup before the test's
+existing manual publication. Capture-pending uses a controlled capture peer,
+explicitly not real retained encoder or outer public UI qualification.
+
+The first started-cancel fixture incorrectly expected the low-level native receipt
+to retire page marker leases. It now invokes the actual page coordinator, which
+owns those leases; preserve E195-stage-negative.log and the passing corrected log.
+A further deterministic resume witness reproduced inaccurate owner-invalid text
+for a prepared receipt whose elapsed deadline passed before its timer ran.
+start now expires that original receipt first. Preserve E195-resume-start-red.log
+and E195-focused-final.log; this fixes the terminal cause without granting stale
+control. No other existing business outcome was intentionally changed.
+
+Fresh complete native verification passes 608 modes / 25,783
+reported popup checks, direct original cleanup 7,137, generic worker 300, 134
+current input hashes, API26/JNI/kernel transport and ASan/UBSan. Every prior 592
+output schema and business value is compared; assertion counters alone are
+excluded. Existing loading-timeout scheduling differences, if observed, are
+separately listed in E195-verification.json. Ordinary creation/control passes
+850 checks including 77 asynchronous-close checks. Actual frontend/JVM twenty
+and Python 178/180 pass (two existing Windows symlink privilege skips).
+All build/check handles are terminal before this documentation update.
+
+Complete signed development APK: 6,595,905 bytes, SHA-256
+`d5a154c121daa251e3a009d74f78d8e65cecfff1c1f1ae067eb74e04e8124f89`. Actual DEX verification requires the private HumanControl
+constructor, immutable original owner/Handoff/weak-view/deadline fields and its
+staged methods, plus Promotion/Handoff preparation, Lifecycle ownership predicate
+and PopupNetwork begin/scope/ready/complete/commit definitions. All prior fixed
+cleanup classes, APK payload/source/package/signature checks remain enforced.
+
+Exact runtime path/config/hash/listener/HTTP identity passed before stop/apply/
+start in the same deployment and after integration checks. Windows app/executable,
+shared UI, SDK and plugin payload remain current-hash-verified E184/E169 reuse;
+no fresh Windows result is claimed. Product changes are four Android sources;
+overlay definitions are unchanged from E194. No extra app/Home/source/dependency
+copy, phone/provider update, install, model request, external website or online/
+store publication occurred. Next: actual outer public cancellation of retained
+capture encoder, upload and chooser callbacks, independent protocol cleanup and
+guarded final manual/reply publication; ongoing native-origin readiness and
+Activity/provider/device plus broader requirements/delivery audit remain open.
+The full Browser Use goal stays active.
