@@ -82,6 +82,9 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private boolean retirementCurrent(long now){Long born=closeBorn.get();MdoBrowserCdpPopupNative.Promotion original=nativeOwner.get();
             return born!=null&&now-born>=0&&now-born<5000&&original!=null&&!original.failed();}
         boolean owns(MdoBrowserCdpPopupNative.Promotion original){return original!=null&&nativeOwner.get()==original;}
+        void takeControl(MdoBrowserCdpPopupNative.Promotion original)throws IOException {
+            if(!committed.get()||!owns(original))throw problem("cdp_popup_human_owner_invalid");original.takeControl(this);
+        }
         boolean owns(MdoBrowserCdpPopupNative.Document original){return original!=null&&original.matches(nativeOwner.get());}
         boolean owns(MdoBrowserCdpPopupNative.Source original){return original!=null&&original.matches(nativeOwner.get());}
         void admitNetwork(){networkAdmitted.set(true);}

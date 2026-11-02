@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E180)
+## Complete development host APK (current: E181)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,587,713 bytes, SHA-256
-`1e774e11399672fc87a287a4e6d68355710e35af765b3694d1ad31892c8da85e`.
+`0a2b1049bfec4b4752fbcdab344498de9f34a5e81a0b5a30a57729d5f67a4917`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6168,3 +6168,21 @@ which remains unqualified; this change does not enable public Android automation
 Fresh controlled Session and existing full JNI/transport/product regressions,
 the actual signed APK and DEX checks pass. Installed-provider/framework/device
 qualification and phone/current WebView checks remain deferred.
+
+
+### Exact physical human-transfer transaction (E181)
+
+The committed original Handoff can now transfer only its exact native Promotion
+to human ownership on the UI thread. Typed retirement precedes manual assignment;
+old automation authority is revoked. Both new and already-queued native close
+notifications are deferred during that transaction. Success preserves the actual
+page while ending the old Promotion; an explicit host destruction can still win
+and yields failure rather than a fabricated successful handover. Old authority
+never revives after reversing a manual flag.
+
+Eight controlled actual native/product/worker/JNI paths and the full488-mode
+matrix pass, including UI notification failure and final explicit human-page
+close. This is physical-ownership integration, not yet the public protected
+takeover/return coordinator. Protocol/descendant/source cleanup, authentic detach
+event and fresh return proof remain required. Provider/framework/device checks
+and public Android automation remain unavailable; preserve the current WebView.

@@ -40,6 +40,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         boolean current(){return birth.independent==this&&!retired.get()&&!birth.destroyed.get()&&birth.owner.get()!=null&&birth.view.get()!=null;}
         boolean destroyed(){return birth.destroyed();}boolean humanOwned(){return birth.humanOwned();}
         T view(){MdoBrowserLifecycle<T> core=birth.owner.get();if(core==null)throw new IllegalStateException("popup_child_owner_lost");return core.independentView(this);}
+        void takeControl(){MdoBrowserLifecycle<T> core=birth.owner.get();if(core==null)throw new IllegalStateException("popup_child_owner_lost");core.takeIndependentControl(this);}
     }
     /** UI-only capacity/key reservation, allocated before native construction.
      * Unknown constructors retain their slot; known failed views stay enumerable. */
@@ -164,6 +165,13 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     private T independentView(Independent<T> original){
         thread();Fresh<T> birth=original.birth;T exact=birth.view.get();Entry entry=current(birth.key,exact);
         if(!original.current()||entry==null||entry.fresh!=birth||entry.failed||entry.hidden||entry.manual||background||!entry.input.cleanupConfirmed())throw new IllegalStateException("popup_child_owner_lost");return exact;
+    }
+    private void takeIndependentControl(Independent<T> original){
+        thread();if(original==null||original.birth.humanOwned())throw new IllegalStateException("popup_child_owner_lost");
+        T exact=independentView(original);Fresh<T> birth=original.birth;
+        manual(birth.key,exact,true);Entry entry=current(birth.key,exact);
+        if(entry==null||entry.fresh!=birth||!entry.manual||!birth.humanOwned()||birth.destroyed()||entry.failed)
+            throw new IllegalStateException("popup_child_owner_lost");
     }
     /** A native post-destroy acknowledgement, not registry removal. The caller
      * invokes it only after destroying this exact returned framework instance. */

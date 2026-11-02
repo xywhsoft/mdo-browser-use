@@ -252,6 +252,7 @@ def main():
                   'preparation-network-concurrent-ready','preparation-network-concurrent-proof','preparation-network-concurrent-detach',
                   'preparation-page-ready','preparation-page-parent-close','preparation-page-download','preparation-page-download-stream','preparation-page-document-change',
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
+                  'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
                   'preparation-page-activation-unsupported','preparation-page-activation-malformed','preparation-page-world-unique','preparation-page-world-metadata','preparation-page-callback-throw',
                   'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
@@ -526,6 +527,15 @@ def main():
         if mode=='host-close-late-transport':
             proof=popup_worker.get('host_close')
             if proof!={'original_close_raced':True,'code':'cdp_worker_closed','cleanup_confirmed':False,'source_released':False,'wire_closes':1,'disables':0,'worker_terminated':True}:raise RuntimeError('Original host close lost its authoritative cause or invented cleanup')
+        if mode.startswith('preparation-page-human-'):
+            proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-'):];lost=variant=='view-lost'
+            if (not isinstance(proof,dict) or proof.get('actual_human_transfer') is not True or proof.get('committed') is not (not lost)
+                    or proof.get('old_authority_revoked') is not True or proof.get('physical_view_preserved') is not (not lost)
+                    or proof.get('native_destroyed')!=(1 if lost else 0) or proof.get('original_native_ended') is not True
+                    or proof.get('raced_closure')!=(1 if variant in {'late-close','queued-close','reentrant','view-lost'} else 0)
+                    or any(proof.get(key)!=0 for key in ('new_worlds','native_effects','navigation_commands','detach_commands'))
+                    or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1 or proof.get('provider_qualified') is not False):
+                raise RuntimeError('Exact human transfer revived authority, destroyed a human page or lost its deferred native closer')
         if mode.startswith('preparation-page-natural-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-natural-'):]
             denied=variant in {'hidden','manual','channel'};retry=variant in {'mismatch','pending','changed','late'}

@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E181:** join exact native popup ownership to a UI human-transfer
+  transaction. Publish typed retirement before manual assignment; defer old and
+  already-queued native closers until the transaction ends. Eight new cases
+  preserve human pages, reject reentry/stale authority, recover a lost UI post
+  and honor an actual host close. Guard-removal witness reproduces the race.
+  Fresh native488/frontend20/JS482/Python178/180 and APK/DEX pass. Protocol
+  detach/return coordinator and device admission remain open; Windows W6 reuse.
+
 - **Android E180:** add the fixed original-protocol detach primitive needed
   to retain a popup for human takeover. Drain checks are per attachment; a busy
   unrelated page stays usable. A matching empty ACK is separate from native
@@ -14028,3 +14036,77 @@ popup/DOM authority. Broader UI/provider/device, ongoing native-origin readiness
 and final full-requirements/delivery work remain open. Phone/current WebView stay
 deferred. Single deployment only; no live model, external page or publication.
 Overall Browser Use goal remains active.
+
+### E181 exact native human-transfer transaction
+
+Added the physical ownership join needed before connecting protected popup
+takeover to protocol retirement. The existing public `popup_takeover_unqualified`
+gate remains: protocol detach/event/transfer cleanup, complete return-control and
+installed-provider qualification still need their own product integration.
+
+The original Handoff accepts only its exact committed native Promotion.
+Promotion validates its UI thread, live Handoff, physical registry view, visible
+state and clean input before opening a one-use transaction. It first publishes
+the Handoff's typed retirement, then revokes original automation authority and
+assigns that exact independent registry entry to the human. No DOM marker,
+opener proof or old popup permission is revived. A committed human-transfer
+receipt is historical physical-ownership data, not document/input authority or
+proof of protocol/source cleanup. `manual(false)` cannot make the old Promotion
+or Handoff current again.
+
+Native close notifications are deferred while the transaction is pending.
+Created.close also checks the transaction so an earlier queued notification
+cannot bypass this deferral. Completion or failure releases that deferral and
+notifies the original closer; actual human ownership lets the old Promotion end
+without destroying the page. Explicit host destruction keeps its independent
+destruction receipt and can supersede the transaction; a lost physical view
+reports failure without fabricating successful human transfer. The state uses
+atomics and the existing weak native-owner links, with no new rooted UI owner.
+
+Eight actual native/product-fragment/common-worker/JVM/JNI paths cover normal
+transfer, a close inside the typed-retirement/manual-assignment gap, an already
+queued closer, reentry, hidden preflight denial followed by explicit retry,
+rejected UI notification with retained-owner reconciliation, actual host view
+loss, and manual flag reversal without reviving old authority. After a successful
+transfer the original physical view remains alive, its native Promotion ends,
+original popup frame and legacy routes remain denied, and no world, page evaluation,
+navigation or protocol detach is sent by this physical ownership operation.
+The test then explicitly closes the human-owned page to qualify final teardown;
+expecting old automatic disposal to destroy it would contradict takeover.
+
+The eight focused paths pass 352 reported checks. A controlled in-place
+guard-removal witness proves the already-queued-close regression: with only the
+Created transaction check removed, the same actual path fails with
+`cdp_popup_human_takeover_failed`. The helper verified and restored the exact
+source bytes before the full current-code build. No app/Home/source checkout
+copy was used. See `.mdo/E181-human-focused.log`,
+`.mdo/E181-guard-removed.log` and `.mdo/E181-guard-witness.log`.
+
+Fresh full native verification passes 488 modes / 19,361 reported popup
+checks, all 133 selected input hashes, API26 compilation, JNI/transport and
+ASan/UBSan. All 480 earlier serialized business outcomes are compared in
+`.mdo/E181-semantic-differences.json`; any accepted variation is restricted to
+previously reviewed loading-timeout diagnostic fields. Fresh 20 actual existing
+frontend/JVM flows, JS482 and Python178/180 pass (two existing Windows symlink
+privilege skips). See `.mdo/E181-native.log`, `.mdo/E181-native-review.log`,
+`.mdo/E181-native-frontend.log`, `.mdo/E181-javascript.log`,
+`.mdo/E181-python.log` and `.mdo/E181-verification.json`.
+
+The fresh signed APK is 6,587,713 bytes, SHA-256
+`0a2b1049bfec4b4752fbcdab344498de9f34a5e81a0b5a30a57729d5f67a4917`. Actual DEX methods include the registry,
+Promotion/Handoff transfer and Created close paths. The exact W6 Windows app
+archive and non-Android host/page/plugin/SDK inputs are unchanged and rehashed;
+Windows public SDK/visual/packed runtime are explicit W6 reuse, not fresh E181
+runs. Public Android automation/framework/provider/device qualification remains
+false. The controlled transaction tests do not qualify native-provider event
+ordering, page pixels or complete user takeover/return.
+
+Next connect the physical transaction to original source/descendant quiescence,
+E180's fixed detach ACK and the authentic native detached event, retain human
+page/download ownership, and return via fresh exact-view network proof. The
+[official Target protocol](https://chromedevtools.github.io/devtools-protocol/tot/Target/)
+documents native detach events separately; actual installed-provider behavior,
+including auto-attach interactions, still needs explicit qualification.
+Broader UI/provider/OS, native-origin readiness and final full-requirements/
+delivery work stay open. Phone/current WebView remain deferred. No live model,
+external test page or online publication. Overall goal remains active.
