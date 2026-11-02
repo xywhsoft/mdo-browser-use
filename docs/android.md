@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E192)
+## Complete development host APK (current: E193)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`ce831502b225a4a4587a887a27cf1e4a5656f63b027cf696063664126fbb5a3c`.
+`3b76ffd779c52a017166635f2fac4f333c492be85a060ac4e9dfb240d715e743`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6454,3 +6454,39 @@ control receipts in the coordinator, public input/capture/chooser teardown and
 Activity/provider/device qualification remain open. Android automation and
 public protected takeover remain unavailable; phone/current WebView verification
 is still deferred. The overall goal remains active.
+
+
+### Original human-root retirement joins (E193)
+
+The internal human-retirement coordinator now joins the original source and
+transfer cleanup, fixed root auto-attach stop, authentic descendant ends, fixed
+raw-pause aborts, root detach ACK and native root end. It preserves the manual
+physical view, original profile/catalog/quota and completed file bytes. Pending
+bodies still require their original abort/stream-close receipts; no DOM, body,
+world or navigation authority is reopened. The public takeover gate remains.
+
+Two reproduced defects are repaired. A valid raw pause arriving during fixed
+root detach no longer invents owner loss: initial busy admission stays strict,
+root data is fenced before sending, and the pause remains until authentic native
+end. Conversely, native root end immediately revokes data but cannot acknowledge
+an outstanding original Fetch/body/offer control. The broker waits those actual
+receipts before reporting detached; root ACK remains independent too.
+
+Twenty new controlled product modes cover those orders and child-retirement
+ACKs, late children, pending bodies, raw pauses, rejected/missing/malformed stops
+and incorrect ancestry. Two previously unqualified internal descendant cases now
+finish with their genuine stop/child/root receipts. Exact prior business outputs
+are compared, allowing only those intended changes. The direct cleanup gate has
+7,137 checks, including two new late-pause cases, with two native transports.
+
+A frontend fixture race was separately proved and repaired without changing
+product recovery behavior. Its old receive counter advanced before dispatch
+and even on empty polling. The test now holds the exact native context event,
+proves that premature condition, releases it and waits actual event dispatch.
+Seven context-loss modes and the complete twenty-mode frontend gate pass with
+explicit dispatch-join proof; earlier failure logs remain available privately.
+
+Full Activity/input/capture/chooser/profile teardown, ongoing native-origin
+readiness and provider/device qualification remain outstanding. These controlled
+native-worker/product checks do not qualify Android automation. The current
+WebView and deferred-phone arrangement remain unchanged; the full goal is active.

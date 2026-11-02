@@ -140,7 +140,7 @@ async function run(mode){
       const proof=report.product_frame_route;assert.equal(proof.actual_product_frontend,true);assert.equal(proof.browser_connections,1);assert.equal(proof.native_proof_connections,1);
       const refused=mode==='navigation-mismatch'||mode==='navigation-no-commit';
       assert.equal(proof.provider_qualified,false);assert.equal(proof.worlds,mode==='old-order'||refused?1:mode==='navigation-controls'?5:transition?6:contextLoss?(mode==='context-cleared-unproven'?2:4):2);
-      if(contextLoss){assert.equal(proof.context_losses,1);assert.equal(proof.same_ui_epoch,true);}
+      if(contextLoss){assert.equal(proof.context_losses,1);assert.equal(proof.same_ui_epoch,true);assert.equal(proof.context_dispatch_join,true);assert.equal(proof.raw_receive_not_dispatch,!duringRead);}
       assert.equal(proof.native_navigation_commands,navigation?(mode==='navigation-controls'||transition?4:1):0);
       if(navigation&&!refused&&!transition){assert(proof.readiness_waits>=2);assert.equal(proof.original_world_released,true);}
       if(transition){assert.equal(proof.same_document_transitions,same?3:0);assert.equal(proof.cache_restores,same?0:2);assert.equal(proof.early_commits,4);assert.equal(proof.deferred_preparations,4);assert.equal(proof.transition_network_requests,same?1:2);assert.equal(staleNavigationReferences,3);}

@@ -374,7 +374,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             Object id=params.opt("sessionId");
             DocumentPeer nested=nativeDocuments.get(id);if(nested!=null){nested.event(method,nested.nativeChildren.get(id),params);finishDetached(nested.candidate);return;}
             for(int i=candidates.size()-1;i>=0;i--){Candidate candidate=candidates.get(i);if(candidate.original.matchesNativeSession(id)){
-                candidate.rootDetached=true;candidate.retired();finishDetached(candidate);
+                candidate.rootDetached=true;session.nativeAttachedTargetDetached(candidate.original);candidate.retired();finishDetached(candidate);
             }}return;
         }
         if("Fetch.requestPaused".equals(method)&&child!=null){
@@ -387,7 +387,9 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
     private boolean descendants(Candidate original){for(DocumentPeer peer:nativeDocuments.values())if(peer.candidate==original)return true;return false;}
     private void finishDetached(Candidate original)throws IOException{
         if(!original.rootDetached||descendants(original))return;
-        session.retireAttachedTarget(original.original);if(original.handoff!=null)original.handoff.detached.set(true);candidates.remove(original);
+        session.retireAttachedTarget(original.original);
+        if(session.originalCleanupPending(original.original))return;
+        if(original.handoff!=null)original.handoff.detached.set(true);candidates.remove(original);
     }
     MdoBrowserCdpBinding bindDocument(Handoff handoff,MdoBrowserCdpPopupNative.Document proof,MdoBrowserCdpMarker marker,int timeout)throws IOException{
         guard();prune();if(handoff==null||proof==null||marker==null||marker.lease()!=proof.lease||!handoff.current()||!handoff.owns(proof)||!proof.current()||timeout<100||timeout>15000)throw problem("cdp_popup_document_owner_invalid");long born=now();
@@ -425,6 +427,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         if(!closing.retirementCurrent(now()))throw fail("cdp_popup_handoff_cleanup_unconfirmed");return true;
     }
     private void prune()throws IOException{
+        for(int i=candidates.size()-1;i>=0;i--){Candidate original=candidates.get(i);if(original.rootDetached)finishDetached(original);}
         long time=now();for(Candidate candidate:candidates){long age=time-candidate.born;
             candidate.reconcileHandoff();
             boolean live=candidate.current();if(retiringCandidate(candidate))continue;
@@ -476,10 +479,9 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             }
         }return false;
     }
-    /** Leaf-only native detach. In-flight original bodies keep their independent
-     * cleanup pump; neither a source close nor an ACK manufactures that proof.
-     * Related document sessions stay fenced until their own retirement is
-     * qualified. The public takeover route remains unavailable meanwhile. */
+    /** Retire only this original human-owned root: disable its child attachment,
+     * await authentic descendant ends, drain exact pauses and existing sources,
+     * then require root ACK AND native end. No data authority is reacquired. */
     private boolean retireHuman(Candidate candidate,int timeout)throws IOException {
         Handoff handoff=candidate.handoff;
         if(!handoff.humanDetachRequested.get()||handoff.humanDetachResult.get()!=null)return false;
@@ -490,13 +492,16 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         if(owner.nativeDestroyed()||candidate.rootDetached)return false;
         if(!owner.ended())return false;
         DocumentPeer document=candidate.documentPeer;
-        if(document!=null)document.close();
-        if(descendants(candidate)){
-            handoff.humanDetachResult.set(new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_human_descendants_unqualified",0,false));throw problem("cdp_popup_human_descendants_unqualified");}
+        if(document!=null)document.retire();
         MdoBrowserCdpPopupSource source=candidate.sourcePeer;if(source!=null)source.close();
         MdoBrowserCdpDownloads.Connection transfers=candidate.downloads;
         if(source!=null&&!source.retirementQuiescent()||transfers!=null&&!transfers.retirementQuiescent()||source!=null&&!source.downloadsRetired())return false;
         try{
+            if((document!=null||descendants(candidate))&&!candidate.original.autoAttachStopConfirmed()){
+                session.disableProtectedAutoAttach(candidate.original,handoff::draining,timeout);return true;
+            }
+            if(owner.nativeDestroyed()||candidate.rootDetached||descendants(candidate))return false;
+            if(session.abortProtectedPause(candidate.original,handoff::draining,timeout))return true;
             session.detachProtectedAttachment(candidate.original,handoff::draining,timeout);
             handoff.humanDetachResult.set(new MdoBrowserCdpSession.ControlResult(true,null,0,true));return true;
         }catch(MdoBrowserCdpSession.Failure error){

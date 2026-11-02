@@ -14944,3 +14944,83 @@ Final original control/descendant joins in the human coordinator, public UI/inpu
 capture/chooser teardown and full platform qualification remain open. Public
 takeover/automation gates and deferred phone/current-WebView checks remain in
 force; the overall goal stays active.
+
+
+## E193 — join original human-root and native flow retirement
+
+Reproduced two actual defects before repair. A valid raw Fetch pause between
+fixed detach dispatch and ACK/native end caused cdp_owner_changed, because the
+live owner predicate incorrectly rechecked pre-send quiescence. Native root end
+could also mark the handoff detached while an original Fetch control remained
+unacknowledged. Preserve `.mdo/E193-late-pause-red.log` and
+`.mdo/E193-original-flow-join-red.log` as the explicit failing witnesses.
+
+Session retains strict pre-send busy/native ownership checks and fences root
+data before dispatch. During serialized detach the independent original owner,
+not a newly arrived frozen pause, controls admission. Broker-matched authentic
+root end immediately revokes data and clears raw pauses, retaining native ancestry
+and issued receipt rows. The new local originalCleanupPending query remains valid
+after native end. Broker finish/prune revisits original roots and waits their
+actual controls/bodies/offers/auto-attach command before setting detached; the
+fixed root ACK is still independently required for humanDetached. Nothing is
+replayed or upgraded from a cancelled data result to successful data.
+
+The human coordinator now retires document authority, closes the original Source,
+waits transfer/body cleanup, disables only this root's child auto-attachment once,
+waits authentic descendant ends, aborts frozen raw pauses and then joins original
+root ACK/native end. A physical close can still win safely. Original completed
+bytes/catalog/quota/profile and the human page are preserved. No Browser-global
+stop, arbitrary cleanup RPC, new DOM/world/body access or replacement view is used.
+
+Added twenty actual controlled product modes: two native-root-before-flow-ACK
+orders, one late raw pause, and seventeen descendant cases covering ACK/end order,
+late attachments, held ACK/child/body, completed/pending files, raw request/response
+pauses, rejected/unsupported/malformed/missing/send-failed stops, missing child
+and incorrect parent. Their new checks total 986.
+Direct original cleanup passes 7,137 checks (+89), including two late pause cases;
+the existing 42 cancelled-flow, 22 fixed-abort and three unsent cases remain.
+Two real native transport sessions are unchanged. Two old descendant/in-flight
+product modes intentionally change from unqualified failure to genuine successful
+retirement. All prior 562 business results were compared; only their exact expected
+fields changed in the final run, with no unreviewed semantic changes.
+
+Some old fixtures assumed simultaneous completion: transfer-detach now waits the
+actual independent wire-close receipt; unconfirmed-download and publication cases
+no longer wait a false detached flag before releasing their own held original
+ACK. Initial logs and focused passes are preserved. The first private native
+review also used a nonexistent network-ready mode name; it was corrected to the
+actual registered network-flow case after inspecting both identical result maps.
+No assertion or product behavior was relaxed to accommodate an unknown mode.
+
+Two fresh full frontend attempts exposed an existing test synchronization error
+at context-cleared (document_retired / binding_owner_changed). The raw receive
+counter advanced before polling/dispatch, including empty reads. A controlled
+native event held at the receive hook now proves that condition can become true
+before dispatch. Only the exact original event is released; the fixture waits a
+post-dispatch counter before fresh recovery. During-read recovery also joins that
+actual receipt. Product recovery code is unchanged. Preserve initial/confirm logs,
+`.mdo/E193-context-dispatch-join.log` (all seven modes) and final frontend evidence;
+explicit context_dispatch_join/raw_receive_not_dispatch proof is required.
+
+Final fresh native verification passes 582 modes / 24,570
+reported popup checks, generic worker 300, 134 current source hashes, API26/JNI/
+kernel transport and ASan/UBSan. Fresh actual frontend/JVM twenty and Python
+178/180 pass (two existing Windows symlink-privilege skips). All check/build handles
+are terminal. Evidence includes `.mdo/E193-native-receipts-final.log`,
+`.mdo/E193-review-native.log`, `.mdo/E193-verification.json`, the original E192
+baseline and retained semantic-difference report. Signed complete APK: 6,591,809
+bytes, SHA-256 `3b76ffd779c52a017166635f2fac4f333c492be85a060ac4e9dfb240d715e743`. Actual DEX verifies originalCleanupPending,
+nativeAttachedTargetDetached, broker prune/finishDetached/retireHuman and all prior
+fixed control/class/constructor/field, lifecycle/source/payload/package/signature
+requirements. Final frontend proof hashes the actual compiled classes/library.
+
+Exact old PID/path/config/listener/HTTP identity passed before stop; reviewed apply
+and start reused the same single development deployment, with replacement identity
+and HTTP checks passing. Windows/shared host/page/plugin/SDK and E184 executable
+are unchanged; JS505/control22/SDK/visual/packed12 results are current-hash reuse,
+not newly run. No app/Home/source/dependency copy, phone/provider change, install,
+model request, external website or online/store publication was used. Full outer
+UI/input/capture/upload/chooser/profile joins, ongoing native-origin readiness,
+Activity/provider/device and final broader requirements/delivery audit remain.
+Public protected takeover and Android automation gates stay unavailable; the
+phone/current-WebView checks remain deferred. The overall goal remains active.

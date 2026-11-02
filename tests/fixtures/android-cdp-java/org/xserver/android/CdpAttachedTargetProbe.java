@@ -14,7 +14,7 @@ import org.json.JSONObject;
 
 /** Fixed original-event release, not task ownership or installed popup support. */
 public final class CdpAttachedTargetProbe {
-    private static int checks,realSessions,nativeFlowCases,abortCases,unsentCases;
+    private static int checks,realSessions,nativeFlowCases,abortCases,unsentCases,lateDetachCases;
     private interface Work {void run()throws Exception;}
     private interface Send {void sent(JSONObject command)throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Attached release check "+(checks+1));checks++;}
@@ -242,7 +242,8 @@ public final class CdpAttachedTargetProbe {
         }
     }
     private static void protectedDetach()throws Exception {
-        for(boolean dataRetired:new boolean[]{false,true})for(String mode:new String[]{"ack","event-first","malformed","rejected","unsupported","timeout","owner-loss","send-failure"})try(Case test=new Case()){
+        for(boolean dataRetired:new boolean[]{false,true})for(String mode:new String[]{"late-pause","ack","event-first","malformed","rejected","unsupported","timeout","owner-loss","send-failure"})try(Case test=new Case()){
+            if(mode.equals("late-pause"))lateDetachCases++;
             AtomicBoolean permitted=new AtomicBoolean(true);int[] nativeEvents={0};
             test.action=(method,child,params)->{
                 if(method.equals("Target.attachedToTarget"))test.metadata.add(test.client.retainAttachedTarget());
@@ -257,8 +258,10 @@ public final class CdpAttachedTargetProbe {
                 if(mode.equals("timeout"))return;
                 if(mode.equals("owner-loss"))permitted.set(false);
                 if(mode.equals("event-first"))test.wire.add(new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId","detach-owned")));
+                if(mode.equals("late-pause"))test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","detach-owned").put("params",new JSONObject().put("requestId","native-late-pause")));
                 if(mode.equals("rejected")||mode.equals("unsupported")){test.wire.add(new JSONObject().put("id",id).put("error",new JSONObject().put("code",mode.equals("unsupported")?-32601:-32000).put("message","private-unreported-provider-detail")));return;}
                 JSONObject reply=ack(id,null);if(mode.equals("malformed"))reply.getJSONObject("result").put("unexpected",true);test.wire.add(reply);
+                if(mode.equals("late-pause"))test.wire.add(new JSONObject().put("method","Target.detachedFromTarget").put("params",new JSONObject().put("sessionId","detach-owned")));
             };
             test.wire.add(attached("detach-owned"));check(test.client.poll(10,100));MdoBrowserCdpSession.AttachedTarget original=test.metadata.get(0);
             test.client.protectAttachedTarget(original,100);int before=test.wire.sent.size();
@@ -276,11 +279,16 @@ public final class CdpAttachedTargetProbe {
             failure("cdp_attach_owner_changed",()->test.client.detachProtectedAttachment(original,()->false,100));
             try(Case foreign=new Case()){failure("cdp_attach_event_invalid",()->foreign.client.detachProtectedAttachment(original,()->true,100));check(foreign.wire.sent.isEmpty());}
             check(test.wire.sent.size()==before);
-            if(mode.equals("ack")||mode.equals("event-first")){
+            if(mode.equals("ack")||mode.equals("event-first")||mode.equals("late-pause")){
                 test.client.detachProtectedAttachment(original,permitted::get,100);
                 check(original.retirementAcknowledged()&&!original.detachConfirmed()&&nativeEvents[0]==(mode.equals("event-first")?1:0));
+                if(mode.equals("late-pause")){
+                    check(original.retainedRequestCount()==1&&test.wire.closes==0);check(test.client.poll(10,100));
+                    check(nativeEvents[0]==1&&original.retainedRequestCount()==0&&test.wire.closes==0);
+                }
                 failure("cdp_attach_detach_replayed",()->test.client.detachProtectedAttachment(original,()->true,100));
                 failure("cdp_attach_event_invalid",()->test.client.resumeProtectedAttachment(original,()->true,100));
+                failure("cdp_session_invalid",()->test.client.call("Runtime.enable",new JSONObject(),"detach-owned",100,false));
             }else{
                 String code=mode.equals("malformed")?"cdp_attach_detach_reply_invalid":mode.equals("rejected")?"cdp_command_rejected":mode.equals("unsupported")?"cdp_method_unsupported":mode.equals("timeout")?"cdp_command_timeout":mode.equals("owner-loss")?"cdp_owner_changed":"cdp_transport_failed";
                 try{test.client.detachProtectedAttachment(original,permitted::get,100);throw new AssertionError("Detach failure was lost");}
@@ -543,6 +551,6 @@ public final class CdpAttachedTargetProbe {
         Looper.getMainLooper();java.util.concurrent.ExecutorService worker=Executors.newSingleThreadExecutor();
         try{worker.submit(()->{try{unsentFlowRetirement();retiredPauseAbort();cancelledOriginalFlow();protectedAutoAttachRetirement();protectedDetach();dataRetirementPending();responseStreamScopes();protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"scoped_protected_retirement\":true,\"retirement_ack_is_not_native_event\":true,\"other_attachment_body_retained\":true,\"no_detach_replay\":true,\"data_retired_native_identity\":true,\"data_retired_rpc_denied\":true,\"data_retired_pauses_retained\":true,\"fixed_root_autoattach_retirement\":true,\"autoattach_ack_not_native_end\":true,\"autoattach_cleanup_reply_isolated\":true,\"autoattach_failure_no_replay\":true,\"cancelled_flow_native_receipt\":true,\"fixed_original_pause_abort\":true,\"late_pause_retained_without_data\":true,\"cancelled_flow_cases\":"+nativeFlowCases+",\"native_pause_abort_cases\":"+abortCases+",\"unsent_flow_cases\":"+unsentCases+",\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"scoped_protected_retirement\":true,\"retirement_ack_is_not_native_event\":true,\"other_attachment_body_retained\":true,\"no_detach_replay\":true,\"data_retired_native_identity\":true,\"data_retired_rpc_denied\":true,\"data_retired_pauses_retained\":true,\"fixed_root_autoattach_retirement\":true,\"autoattach_ack_not_native_end\":true,\"autoattach_cleanup_reply_isolated\":true,\"autoattach_failure_no_replay\":true,\"cancelled_flow_native_receipt\":true,\"fixed_original_pause_abort\":true,\"late_pause_retained_without_data\":true,\"cancelled_flow_cases\":"+nativeFlowCases+",\"native_pause_abort_cases\":"+abortCases+",\"unsent_flow_cases\":"+unsentCases+",\"late_detach_pause_preserved\":true,\"late_detach_cases\":"+lateDetachCases+",\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
     }
 }

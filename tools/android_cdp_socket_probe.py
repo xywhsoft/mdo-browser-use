@@ -202,7 +202,8 @@ def main():
     if (not attached.get('passed') or attached.get('real_native_sessions')!=2 or not attached.get('fixed_original_release')
             or not attached.get('native_resume_then_detach') or attached.get('task_or_popup_ownership_proved') is not False or attached.get('provider_qualified') is not False
             or any(attached.get(flag) is not True for flag in ('scoped_protected_retirement','retirement_ack_is_not_native_event','other_attachment_body_retained','no_detach_replay','data_retired_native_identity','data_retired_rpc_denied','data_retired_pauses_retained','fixed_root_autoattach_retirement','autoattach_ack_not_native_end','autoattach_cleanup_reply_isolated','autoattach_failure_no_replay','cancelled_flow_native_receipt','fixed_original_pause_abort','late_pause_retained_without_data'))
-            or attached.get('cancelled_flow_cases')!=42 or attached.get('native_pause_abort_cases')!=22 or attached.get('unsent_flow_cases')!=3):
+            or attached.get('cancelled_flow_cases')!=42 or attached.get('native_pause_abort_cases')!=22 or attached.get('unsent_flow_cases')!=3
+            or attached.get('late_detach_pause_preserved') is not True or attached.get('late_detach_cases')!=2):
         raise RuntimeError('The fixed original attached-target release gate did not pass')
     result['jvm_attached_release']=attached
     attached_navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
@@ -267,6 +268,8 @@ def main():
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
                   'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
                   'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-root-read','preparation-page-human-network-root-effect','preparation-page-human-network-root-complete','preparation-page-human-network-root-pending','preparation-page-human-network-root-held-body','preparation-page-human-network-descendants','preparation-page-human-network-descendants-inflight',
+                  'preparation-page-human-network-late-pause',
+                  *['preparation-page-human-network-descendants-'+variant for variant in ('ack-first','parent-first','late-attach','held-ack','held-child','complete','pending','held-body','raw-request','raw-response','stop-rejected','stop-unsupported','stop-malformed','stop-no-ack','stop-send','missing-child','wrong-parent')],
                   'preparation-page-human-network-close-before-detach',
                   'preparation-page-human-return-flow','preparation-page-human-return-complete','preparation-page-human-return-retry','preparation-page-human-return-complete-retry','preparation-page-human-return-double-return','preparation-page-human-return-cancel-retry','preparation-page-human-return-new-download',
                   'preparation-page-human-return-preflight-agent','preparation-page-human-return-preflight-loading','preparation-page-human-return-preflight-paused','preparation-page-human-return-preflight-channel','preparation-page-human-return-preflight-profile','preparation-page-human-return-preflight-chooser','preparation-page-human-return-preflight-capture','preparation-page-human-return-preflight-detach','preparation-page-human-return-preflight-native-failed',
@@ -352,6 +355,7 @@ def main():
                   'preparation-isolated-foreign','preparation-isolated-expired','preparation-isolated-reset-attach','preparation-isolated-reset-runtime',
                   'preparation-isolated-receive-other','preparation-isolated-receive-foreign','preparation-isolated-receive-detach',
                   'preparation-isolated-control-resume','preparation-isolated-control-request','preparation-isolated-control-response',
+                  'preparation-isolated-control-request-root-first','preparation-isolated-control-response-root-first',
                   'preparation-isolated-grandchild-read','preparation-isolated-grandchild-effect','preparation-isolated-native-root-first','preparation-isolated-native-parent-first','preparation-isolated-native-leaf-first','preparation-isolated-native-late-attach','preparation-isolated-native-duplicate','preparation-isolated-native-wrong-parent','preparation-isolated-native-wrong-ancestry','preparation-isolated-native-limit','preparation-isolated-native-retired-parent-attach',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
@@ -488,7 +492,7 @@ def main():
                 raise RuntimeError('Protected native input lost its exact document, cancellation, no-replay or original connection scope')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
-            human_failure=(mode in {'preparation-page-human-network-'+name for name in ('rejected','unsupported','malformed','wrong-event','complete-rejected','descendants','descendants-inflight')}
+            human_failure=(mode in {'preparation-page-human-network-'+name for name in ('rejected','unsupported','malformed','wrong-event','complete-rejected','descendants-stop-rejected','descendants-stop-unsupported','descendants-stop-malformed','descendants-stop-no-ack','descendants-stop-send','descendants-missing-child','descendants-wrong-parent')}
                            and popup_worker.get('product_frame_route',{}).get('actual_human_network') is True
                            and popup_worker.get('product_frame_route',{}).get('wire_failed') is True)
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool
@@ -524,6 +528,10 @@ def main():
                         or evidence.get('native_limit_enforced') is not mode.endswith('-limit')
                         or evidence.get('retired_parent_attach_denied') is not mode.endswith('-retired-parent-attach')):
                     raise RuntimeError('Original native ancestry, detach obligations or resource limits were not proved')
+            if mode.endswith('-root-first') and mode.startswith('preparation-isolated-control-'):
+                if (not evidence.get('native_root_waited_for_original_flow') or not evidence.get('original_fetch_ack_after_native_end')
+                        or evidence.get('pause_receipt_before_native_detach') is not False or not evidence.get('cancelled_flow_native_ack_drained') or not evidence.get('startup_outcome_once')):
+                    raise RuntimeError('Native root end acknowledged an outstanding original Fetch control')
         if mode.startswith('source-navigation-close-'):
             proof=popup_worker.get('source_navigation');sent=mode.endswith('-sent');spoof=mode.endswith('-spoof');ui=mode.endswith('-ui')
             if (not isinstance(proof,dict) or proof.get('original_source') is not True or proof.get('scope_invalidated') is not True
@@ -605,27 +613,39 @@ def main():
                 raise RuntimeError('A real human page close poisoned the shared wire or invented an unsent detach ACK')
         elif mode.startswith('preparation-page-human-network-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-network-'):]
-            if variant.startswith('root-'):
-                if (not isinstance(proof,dict) or proof.get('data_root_retirement') is not True or proof.get('original_rpc_retired') is not True
-                        or proof.get('original_rpc_effect') is not (variant=='root-effect') or proof.get('original_rpc_callbacks')!=1
-                        or proof.get('old_reply_discarded') is not True or proof.get('ordinary_rpc_denied') is not True):
-                    raise RuntimeError('Data-retired root lost its native cleanup identity or regained ordinary RPC admission')
-                variant={'root-read':'ready','root-effect':'ready','root-complete':'complete','root-pending':'pending','root-held-body':'held-body'}[variant]
-            failed=variant in {'rejected','unsupported','malformed','no-ack','wrong-event','complete-rejected','descendants','descendants-inflight'}
-            codes={'rejected':'cdp_command_rejected','complete-rejected':'cdp_command_rejected','unsupported':'cdp_method_unsupported','malformed':'cdp_attach_detach_reply_invalid','no-ack':'cdp_command_timeout','descendants':'cdp_popup_human_descendants_unqualified','descendants-inflight':'cdp_popup_human_descendants_unqualified'}
-            if (not isinstance(proof,dict) or proof.get('actual_human_network') is not True or proof.get('detach_commands')!=(0 if variant.startswith('descendants') else 1)
-                    or proof.get('acknowledged') is not (not failed or variant=='wrong-event') or proof.get('native_event') is not (not failed or variant=='no-ack')
-                    or proof.get('cleanup_confirmed') is not (not failed) or proof.get('page_preserved') is not True or proof.get('wire_failed') is not failed
-                    or proof.get('catalog_preserved') is not True or proof.get('old_authority_revoked') is not True
-                    or proof.get('retained_downloads')!=int(variant in {'complete','complete-rejected','pending','held-body'})
-                    or proof.get('verified_original_bytes') is not variant.startswith('complete') or proof.get('cancelled_sources') is not (variant in {'pending','held-body'})
-                    or proof.get('held_source_cleanup') is not (variant in {'pending','held-body'}) or proof.get('code')!=codes.get(variant)
-                    or proof.get('protocol_code')!=(-32000 if variant.endswith('rejected') else -32601 if variant=='unsupported' else 0)
-                    or proof.get('effect_may_have_occurred') is not (variant not in {'unsupported','descendants','descendants-inflight'})
-                    or proof.get('new_worlds')!=0 or proof.get('navigation_commands')!=0 or proof.get('provider_qualified') is not False or proof.get('ui_published') is not False):
-                raise RuntimeError('Human popup cleanup confused ACK/native/source/cache receipts, discarded original bytes or revived old authority')
-            if variant=='descendants-inflight' and not (proof.get('inflight_document_cancelled') and proof.get('native_descendants_retained')):
-                raise RuntimeError('Document cancellation discarded the original native descendants')
+            if variant.startswith('descendants-') and variant!='descendants-inflight':
+                name=variant[len('descendants-'):];failed=name.startswith('stop-') or name in {'missing-child','wrong-parent'}
+                codes={'stop-rejected':'cdp_command_rejected','stop-unsupported':'cdp_method_unsupported','stop-malformed':'cdp_attach_autoattach_reply_invalid','stop-no-ack':'cdp_command_timeout','stop-send':'cdp_transport_failed','missing-child':'cdp_popup_handoff_cleanup_unconfirmed','wrong-parent':'cdp_event_failed'}
+                expected={'actual_human_network':True,'descendant_retirement_join':True,'variant':name,'root_autoattach_stops':1,
+                    'detach_commands':int(not failed),'acknowledged':not failed,'native_event':not failed,'cleanup_confirmed':not failed,
+                    'outcome_present':name!='missing-child','code':codes.get(name),'wire_failed':failed,'page_preserved':True,'old_authority_revoked':True,'ordinary_frame_denied':True,
+                    'native_descendants_joined':not failed,'catalog_preserved':True,'retained_downloads':int(name in {'complete','pending','held-body'}),'verified_original_bytes':name=='complete',
+                    'cancelled_sources':name in {'pending','held-body'},'raw_pauses_aborted':name.startswith('raw-'),'wrong_parent_denied':name=='wrong-parent','new_worlds':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}
+                if proof!=expected:raise RuntimeError('Original descendant retirement lost its stop, native/source/control receipts, data fence or preserved human page')
+            else:
+                if variant.startswith('root-'):
+                    if (not isinstance(proof,dict) or proof.get('data_root_retirement') is not True or proof.get('original_rpc_retired') is not True
+                            or proof.get('original_rpc_effect') is not (variant=='root-effect') or proof.get('original_rpc_callbacks')!=1
+                            or proof.get('old_reply_discarded') is not True or proof.get('ordinary_rpc_denied') is not True):
+                        raise RuntimeError('Data-retired root lost its native cleanup identity or regained ordinary RPC admission')
+                    variant={'root-read':'ready','root-effect':'ready','root-complete':'complete','root-pending':'pending','root-held-body':'held-body'}[variant]
+                failed=variant in {'rejected','unsupported','malformed','no-ack','wrong-event','complete-rejected'}
+                codes={'rejected':'cdp_command_rejected','complete-rejected':'cdp_command_rejected','unsupported':'cdp_method_unsupported','malformed':'cdp_attach_detach_reply_invalid','no-ack':'cdp_command_timeout'}
+                if (not isinstance(proof,dict) or proof.get('actual_human_network') is not True or proof.get('detach_commands')!=1
+                        or proof.get('acknowledged') is not (not failed or variant=='wrong-event') or proof.get('native_event') is not (not failed or variant=='no-ack')
+                        or proof.get('cleanup_confirmed') is not (not failed) or proof.get('page_preserved') is not True or proof.get('wire_failed') is not failed
+                        or proof.get('catalog_preserved') is not True or proof.get('old_authority_revoked') is not True
+                        or proof.get('retained_downloads')!=int(variant in {'complete','complete-rejected','pending','held-body'})
+                        or proof.get('verified_original_bytes') is not variant.startswith('complete') or proof.get('cancelled_sources') is not (variant in {'pending','held-body'})
+                        or proof.get('held_source_cleanup') is not (variant in {'pending','held-body'}) or proof.get('code')!=codes.get(variant)
+                        or proof.get('protocol_code')!=(-32000 if variant.endswith('rejected') else -32601 if variant=='unsupported' else 0)
+                        or proof.get('effect_may_have_occurred') is not (variant!='unsupported')
+                        or proof.get('new_worlds')!=0 or proof.get('navigation_commands')!=0 or proof.get('provider_qualified') is not False or proof.get('ui_published') is not False):
+                    raise RuntimeError('Human popup cleanup confused ACK/native/source/cache receipts, discarded original bytes or revived old authority')
+                if variant=='descendants-inflight' and not (proof.get('inflight_document_cancelled') and proof.get('native_descendants_retained')):
+                    raise RuntimeError('Document cancellation discarded the original native descendants')
+                if variant in {'descendants','descendants-inflight'} and (not proof.get('native_descendants_joined') or proof.get('root_autoattach_stops')!=1):
+                    raise RuntimeError('Human detach skipped original descendant retirement')
         elif mode.startswith('preparation-page-human-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-'):];lost=variant=='view-lost'
             if (not isinstance(proof,dict) or proof.get('actual_human_transfer') is not True or proof.get('committed') is not (not lost)

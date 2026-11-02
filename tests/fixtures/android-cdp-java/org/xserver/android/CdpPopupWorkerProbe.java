@@ -51,7 +51,7 @@ public final class CdpPopupWorkerProbe {
         .put("targetInfo",new JSONObject().put("targetId","target-"+child).put("type","page").put("openerId",opener)).put("waitingForDebugger",true));}
     private static JSONObject ack(int id,String child)throws Exception{JSONObject reply=new JSONObject().put("id",id).put("result",new JSONObject());if(child!=null)reply.put("sessionId",child);return reply;}
     private static final class Backend implements MdoBrowserCdpPopupWorker.Factory {
-        final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger(),guards=new AtomicInteger();
+        final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger(),guards=new AtomicInteger(),contextEvents=new AtomicInteger();
         final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile CountDownLatch armEntered,armRelease;
         volatile java.util.function.Consumer<byte[]> receivedHook;
         final Map<String,CdpBindingProbe.Factory> nativeTargets=new ConcurrentHashMap<>();final AtomicInteger nativeOpens=new AtomicInteger(),barriers=new AtomicInteger();
@@ -151,6 +151,7 @@ public final class CdpPopupWorkerProbe {
             final CdpFramesProbe.Plan frames=new CdpFramesProbe.Plan();final CdpWorldsProbe.Engine worlds;
             final CdpBindingProbe.Wire wire;final String root,prefix;int resets,runtime;boolean binding=true;Runnable beforeWorld;
             String holdMethod,holdExpression;volatile JSONObject held;
+            volatile String retirementMode;volatile int childStops;volatile JSONObject heldStop;
             final CdpBindingProbe.Factory context;volatile SourceRenderer navigationPeer;boolean wrongNavigationDocument;
             DocumentRenderer(WebView view)throws Exception{this(view,"proof-real","");}
             DocumentRenderer(WebView view,String root)throws Exception{this(view,root,root.equals("proof-real")?"first-":"second-");}
@@ -190,7 +191,23 @@ public final class CdpPopupWorkerProbe {
                 if(method.equals("Page.enable")&&!request.has("sessionId"))binding=false;
                 if(binding&&(method.equals("Runtime.enable")||method.equals("Runtime.globalLexicalScopeNames")||method.equals("Runtime.evaluate")||method.equals("Page.getFrameTree"))){if(method.equals("Runtime.enable"))runtime++;byte[] bytes=request.toString().getBytes(StandardCharsets.UTF_8);try{wire.send(bytes,1000);}finally{java.util.Arrays.fill(bytes,(byte)0);}}
                 else if(method.equals("Runtime.disable")){check(!request.has("sessionId")&&params.length()==0);resets++;binding=true;worlds.namespaces.remove(wire);wire.queue(ack(request.getInt("id"),null));}
-                else if(method.equals("Target.setAutoAttach")&&!params.getBoolean("autoAttach")){check(!request.has("sessionId")&&!params.getBoolean("waitForDebuggerOnStart")&&params.getBoolean("flatten")&&params.length()==3);detachNativeChildren(output);frames.armed.clear();wire.queue(ack(request.getInt("id"),null));}
+                else if(method.equals("Target.setAutoAttach")&&!params.getBoolean("autoAttach")){
+                    check(!request.has("sessionId")&&!params.getBoolean("waitForDebuggerOnStart")&&params.getBoolean("flatten")&&params.length()==3);childStops++;
+                    String mode=retirementMode;JSONObject stopped=ack(request.getInt("id"),root);
+                    if("stop-send".equals(mode))throw new IOException("controlled-stop-send-failed");
+                    if("stop-rejected".equals(mode)||"stop-unsupported".equals(mode)){stopped.remove("result");stopped.put("error",new JSONObject().put("code",mode.equals("stop-unsupported")?-32601:-32000).put("message","private-provider-detail"));output.add(stopped);return;}
+                    if("stop-malformed".equals(mode)){stopped.getJSONObject("result").put("unexpected",true);output.add(stopped);return;}
+                    if("stop-no-ack".equals(mode)){heldStop=stopped;return;}
+                    if("held-child".equals(mode)||"missing-child".equals(mode)){output.add(stopped);return;}
+                    if("late-attach".equals(mode)){nativeSessions.put("late-retiring-child",root);output.add(new JSONObject().put("method","Target.attachedToTarget").put("sessionId",root).put("params",new JSONObject().put("sessionId","late-retiring-child").put("waitingForDebugger",false).put("targetInfo",new JSONObject().put("type","iframe").put("targetId","late-retiring-target"))));}
+                    if("raw-request".equals(mode)||"raw-response".equals(mode)){JSONObject pause=new JSONObject().put("requestId","response-extra-raw-human");if(mode.equals("raw-response"))pause.put("responseStatusCode",200).put("resourceType","Image");output.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId",root).put("params",pause));}
+                    if("wrong-parent".equals(mode)){String child=nativeSessions.keySet().iterator().next();output.add(new JSONObject().put("method","Target.detachedFromTarget").put("sessionId",child).put("params",new JSONObject().put("sessionId",child)));return;}
+                    if("ack-first".equals(mode))output.add(stopped);
+                    if("parent-first".equals(mode)){while(!nativeSessions.isEmpty()){String parent=nativeSessions.keySet().iterator().next();for(String candidate:nativeSessions.keySet())if(nativeSessions.containsValue(candidate)){parent=candidate;break;}detachNative(parent,output);}}
+                    else detachNativeChildren(output);frames.armed.clear();
+                    if("held-ack".equals(mode)){heldStop=stopped;return;}
+                    if(!"ack-first".equals(mode))output.add(stopped);return;
+                }
                 else if(!frames.send(request,wire))throw new AssertionError("Unapproved document command");
                 byte[] bytes;while((bytes=wire.replies.pollFirst())!=null){JSONObject packet=new JSONObject(new String(bytes,StandardCharsets.UTF_8));java.util.Arrays.fill(bytes,(byte)0);
                     if(!packet.has("sessionId"))packet.put("sessionId",root);else packet.put("sessionId",prefix+(resets>0?"generation-"+resets+"-":"")+packet.getString("sessionId"));
@@ -215,7 +232,7 @@ public final class CdpPopupWorkerProbe {
                 return clock.getAsLong();
             };
             return originalBroker=new MdoBrowserCdpPopupBroker(current,originalClock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,(method,child,params)->{
-                try{events.event(method,child,params);}catch(IOException|RuntimeException|Error error){eventFailure=method+":"+error.getClass().getSimpleName()+":"+error.getMessage();StringBuilder site=new StringBuilder();for(StackTraceElement frame:error.getStackTrace())if(frame.getClassName().startsWith("org.xserver.android.MdoBrowser"))site.append(frame.getClassName()).append('.').append(frame.getMethodName()).append('>');eventFailureSite=site.toString();throw error;}
+                try{events.event(method,child,params);if(method.equals("Runtime.executionContextsCleared")||method.equals("Runtime.executionContextDestroyed"))contextEvents.incrementAndGet();}catch(IOException|RuntimeException|Error error){eventFailure=method+":"+error.getClass().getSimpleName()+":"+error.getMessage();StringBuilder site=new StringBuilder();for(StackTraceElement frame:error.getStackTrace())if(frame.getClassName().startsWith("org.xserver.android.MdoBrowser"))site.append(frame.getClassName()).append('.').append(frame.getMethodName()).append('>');eventFailureSite=site.toString();throw error;}
             },clock::getAsLong);},
                 (target,timeout,alive,events)->{threads.add(Thread.currentThread());nativeOpens.incrementAndGet();CdpBindingProbe.Factory peer=nativeTargets.get(target);
                     if(peer==null)throw new IOException("cdp_fixture_unregistered_target");return peer.open(proofTargets.contains(target)?"owned":"other",timeout,alive,events);});}
@@ -311,6 +328,7 @@ public final class CdpPopupWorkerProbe {
                         if(mode.equals("malformed")){reply.getJSONObject("result").put("unexpected",true);add(reply);return;}
                         if(mode.equals("event-first")){add(detached("proof-real"));add(reply);return;}
                         if(mode.equals("no-ack")){heldHumanDetach=reply;add(detached("proof-real"));return;}
+                        if(mode.equals("late-pause"))add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","proof-real").put("params",new JSONObject().put("requestId","late-root-detach-pause")));
                         add(reply);if(mode.equals("ack-only"))return;
                         add(detached(mode.equals("wrong-event")?"foreign-human-session":"proof-real"));
                     }
@@ -1266,6 +1284,7 @@ public final class CdpPopupWorkerProbe {
                             }else check(c.backend.bodyClaims.get()==0&&queue.retainedTickets()==0&&done.error.equals(pendingEpoch||pendingWorld?"download_frame_changed":limit?"download_limit":"cancelled"));
                         }else if(mode.equals("transfer-detach")){
                             waitFor(promoted::ended,c.host,true);
+                            waitFor(()->handoff.detached()&&c.backend.closes.get()==1&&c.backend.disables.get()==1&&!MdoBrowserCdpPopupBroker.creationBlocked(),c.host,true);
                             if(done.verified||!done.sourceCleanupConfirmed||!done.cacheCleanupConfirmed||handoff.current()||c.backend.closes.get()!=1||c.backend.disables.get()!=1)
                                 throw new AssertionError("Detached original transfer cleanup: source="+done.sourceCleanupConfirmed+" cache="+done.cacheCleanupConfirmed+" wire="+c.backend.closes.get()+" abort="+c.backend.responseAborts.get()+" stream="+c.backend.bodyCloses.get());
                             check(!done.verified&&done.sourceCleanupConfirmed&&done.cacheCleanupConfirmed&&!handoff.current()&&c.backend.closes.get()==1&&c.backend.disables.get()==1);
@@ -2662,6 +2681,7 @@ public final class CdpPopupWorkerProbe {
     }
     private static JSONObject humanPopupNetwork(String name,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
         if(name.equals("close-before-detach"))return humanCloseBeforeDetach(host,backend,product,view,renderer);
+        if(name.startsWith("descendants-")&&!name.equals("descendants-inflight"))return humanDescendantRetirement(name.substring("descendants-".length()),host,backend,product,view,renderer);
         MdoBrowserCdpPopupNative.Promotion owner=product.popupOwner("owned");MdoBrowserCdpPopupBroker.Handoff handoff=product.popupHandoff("owned");
         MdoBrowserCdpDownloads downloads=product.popupDownloads("owned");int worlds=renderer.worlds.created;
         failure("cdp_popup_human_owner_invalid",()->handoff.detachForHuman(owner));
@@ -2688,13 +2708,13 @@ public final class CdpPopupWorkerProbe {
         if(!inflight)failure("cdp_popup_human_detach_replayed",()->handoff.detachForHuman(owner));
         if(pending||body){waitFor(()->backend.heldAbortReply!=null,host,true);product.pollPopupNetwork("owned");check(backend.detaches.get()==0&&!product.popupProtocolDrained("owned")&&!downloads.sourcesClean());backend.holdAbort=false;backend.wire.add(backend.heldAbortReply);}
         if(rootCall){waitFor(()->backend.detaches.get()==1||handoff.humanDetachResult()!=null,host,true);if(backend.detaches.get()!=1)throw new AssertionError("Data-only root retirement rejected the original native attachment: "+handoff.humanDetachResult().code);}
-        waitFor(()->descendants?backend.closes.get()>0:backend.detaches.get()==1,host,true);check(owner.ended()&&view.destroyed==0&&!owner.nativeDestroyed());
+        waitFor(()->backend.detaches.get()==1,host,true);check(owner.ended()&&view.destroyed==0&&!owner.nativeDestroyed());
         if(name.equals("no-ack")){
             waitFor(()->backend.heldHumanDetach!=null&&handoff.detached(),host,true);
             check(!handoff.humanDetached()&&!product.popupProtocolDrained("owned"));host.time.addAndGet(300);
         }
         if(name.equals("wrong-event")){waitFor(()->handoff.humanDetachResult()!=null,host,true);check(handoff.humanDetachResult().ok&&!handoff.detached());host.time.addAndGet(5000);}
-        boolean failed=name.endsWith("rejected")||name.equals("unsupported")||name.equals("malformed")||name.equals("no-ack")||name.equals("wrong-event")||descendants;
+        boolean failed=name.endsWith("rejected")||name.equals("unsupported")||name.equals("malformed")||name.equals("no-ack")||name.equals("wrong-event");
         if(failed){
             waitFor(()->backend.closes.get()>0,host,true);check(!handoff.humanDetached()&&view.destroyed==0&&!owner.nativeDestroyed());
             product.pollPopupNetwork("owned");check(!product.popupProtocolDrained("owned"));
@@ -2722,7 +2742,7 @@ public final class CdpPopupWorkerProbe {
         if(name.endsWith("rejected")||name.equals("unsupported"))check(!outcome.ok&&outcome.code.equals(name.equals("unsupported")?"cdp_method_unsupported":"cdp_command_rejected")&&outcome.protocolCode==(name.equals("unsupported")?-32601:-32000));
         if(name.equals("malformed"))check(!outcome.ok&&outcome.code.equals("cdp_attach_detach_reply_invalid"));
         if(name.equals("no-ack"))check(!outcome.ok&&outcome.code.equals("cdp_command_timeout")&&outcome.effectMayHaveOccurred);
-        if(descendants)check(!outcome.ok&&outcome.code.equals("cdp_popup_human_descendants_unqualified")&&!outcome.effectMayHaveOccurred);
+        if(descendants)check(outcome.ok&&renderer.nativeSessions.isEmpty()&&renderer.childStops==1);
         if(complete&&failed){MdoBrowserCdpDownloads.Snapshot record=downloads.get(file);check(record.verified&&record.state.equals("completed")&&record.received==3&&product.downloadBudget.used()==1);
             MdoBrowserDownloadQueue.Read read=downloads.read(file,0,10);waitFor(read::finished,host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);}
         if(name.equals("no-ack")){MdoBrowserCdpSession.ControlResult receipt=handoff.humanDetachResult();backend.wire.add(backend.heldHumanDetach);host.ui.drain();check(handoff.humanDetachResult()==receipt&&!handoff.humanDetached());}
@@ -2732,15 +2752,83 @@ public final class CdpPopupWorkerProbe {
             int replies=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
             waitFor(()->product.preparationReplies==replies+1,host,true);check(!product.preparationReply.optBoolean("ok")&&product.preparationReply.getJSONObject("error").getString("native_code").equals("cdp_popup_page_document_unavailable"));
         }
-        check(backend.detaches.get()==(descendants?0:1)&&backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.nativeNavigationCommands.get()==0&&renderer.worlds.created==worlds&&renderer.worlds.evaluations==(inflight?1:0));
+        check(backend.detaches.get()==1&&backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.nativeNavigationCommands.get()==0&&renderer.worlds.created==worlds&&renderer.worlds.evaluations==(inflight?1:0));
         JSONObject evidence=new JSONObject().put("actual_human_network",true).put("detach_commands",backend.detaches.get()).put("acknowledged",handoff.humanDetachResult()!=null&&handoff.humanDetachResult().ok)
             .put("native_event",handoff.detached()).put("cleanup_confirmed",product.popupProtocolDrained("owned")).put("page_preserved",view.destroyed==0)
             .put("wire_failed",failed).put("catalog_preserved",product.popupDownloads("owned")==downloads).put("old_authority_revoked",!owner.current()&&!handoff.current())
             .put("retained_downloads",file==null?0:1).put("verified_original_bytes",complete).put("cancelled_sources",pending||body).put("held_source_cleanup",pending||body)
             .put("code",outcome.code==null?JSONObject.NULL:outcome.code).put("protocol_code",outcome.protocolCode).put("effect_may_have_occurred",outcome.effectMayHaveOccurred)
             .put("new_worlds",renderer.worlds.created-worlds).put("navigation_commands",0).put("provider_qualified",false).put("ui_published",false);
+        if(descendants)evidence.put("native_descendants_joined",true).put("root_autoattach_stops",renderer.childStops);
         if(descendants&&inflight)evidence.put("inflight_document_cancelled",true).put("native_descendants_retained",true);
         if(rootCall)evidence.put("data_root_retirement",true).put("original_rpc_retired",true).put("original_rpc_effect",rootEffect).put("original_rpc_callbacks",operationCallbacks.get()).put("old_reply_discarded",oldReplyObserved.get()).put("ordinary_rpc_denied",true);return evidence;
+    }
+    private static JSONObject humanDescendantRetirement(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        check(renderer.nativeSessions.size()>0);int worlds=renderer.worlds.created;
+        MdoBrowserCdpPopupNative.Promotion owner=product.popupOwner("owned");MdoBrowserCdpPopupBroker.Handoff handoff=product.popupHandoff("owned");
+        MdoBrowserCdpDownloads downloads=product.popupDownloads("owned");String file=null;
+        boolean complete=variant.equals("complete"),pending=variant.equals("pending"),body=variant.equals("held-body");
+        boolean failed=variant.startsWith("stop-")||variant.equals("missing-child")||variant.equals("wrong-parent");
+        if(complete||pending||body){
+            backend.wire.add(responsePaused("response-extra-descendant-human","source-complete"));waitFor(()->{try{return downloads.list().length==1;}catch(IOException error){throw new AssertionError(error);}},host,true);file=downloads.list()[0].id;
+            if(complete||body){backend.holdRead=body;downloads.accept(file,65536,3000);final String id=file;
+                if(complete){waitFor(()->{try{return downloads.get(id).terminal();}catch(IOException error){throw new AssertionError(error);}},host,true);check(downloads.get(file).verified);}
+                else waitFor(()->backend.lateRead.get()>0,host,true);
+            }if(pending||body)backend.holdAbort=true;
+        }
+        renderer.retirementMode=variant;backend.humanDetachMode="flow";
+        product.takePopupControl("owned");check(owner.humanTransferred()&&handoff.retiring()&&!owner.current()&&!handoff.current()&&view.destroyed==0);
+        if(pending||body){waitFor(()->backend.heldAbortReply!=null,host,true);product.pollPopupNetwork("owned");
+            check(renderer.childStops==0&&backend.detaches.get()==0&&!product.popupProtocolDrained("owned")&&!downloads.sourcesClean());
+            backend.holdAbort=false;backend.wire.add(backend.heldAbortReply);
+        }
+        waitFor(()->renderer.childStops==1||backend.closes.get()!=0,host,true);check(renderer.childStops==1);
+        if(variant.equals("held-ack")||variant.equals("stop-no-ack")){
+            waitFor(()->renderer.heldStop!=null,host,true);product.pollPopupNetwork("owned");
+            check(backend.detaches.get()==0&&!handoff.detached()&&!handoff.humanDetached()&&!product.popupProtocolDrained("owned"));
+            if(variant.equals("held-ack"))backend.wire.add(renderer.heldStop);else host.time.addAndGet(300);
+        }
+        if(variant.equals("held-child")||variant.equals("missing-child")){
+            int observed=backend.receives.get();waitFor(()->backend.receives.get()>observed+2,host,true);product.pollPopupNetwork("owned");
+            check(!renderer.nativeSessions.isEmpty()&&backend.detaches.get()==0&&!handoff.detached()&&!product.popupProtocolDrained("owned"));
+            if(variant.equals("held-child"))renderer.detachNativeChildren(backend.wire);else host.time.addAndGet(5001);
+        }
+        int replies=product.preparationReplies;
+        product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+        waitFor(()->product.preparationReplies==replies+1,host,true);
+        check(!product.preparationReply.optBoolean("ok")&&product.preparationReply.getJSONObject("error").getString("native_code").equals("cdp_popup_page_document_unavailable"));
+        MdoBrowserCdpSession.ControlResult outcome;
+        String code=null;
+        if(failed){
+            waitFor(()->backend.closes.get()!=0,host,true);product.pollPopupNetwork("owned");
+            check(!handoff.humanDetached()&&!product.popupProtocolDrained("owned")&&backend.detaches.get()==0&&view.destroyed==0&&!owner.nativeDestroyed());
+            failure("download_connection_retiring",downloads::rearm);outcome=handoff.humanDetachResult();
+            if(variant.equals("missing-child")){
+                check(outcome==null);code=product.preparationWorkerCode();check(code.equals("cdp_popup_handoff_cleanup_unconfirmed"));
+            }else if(variant.equals("wrong-parent")){
+                check(outcome!=null&&!outcome.ok&&outcome.code.equals("cdp_event_failed")&&backend.eventFailure!=null&&backend.eventFailure.endsWith(":cdp_popup_document_session_invalid"));code=outcome.code;
+            }else{
+                check(outcome!=null&&!outcome.ok);code=outcome.code;
+                check(code.equals(variant.equals("stop-rejected")?"cdp_command_rejected":variant.equals("stop-unsupported")?"cdp_method_unsupported":variant.equals("stop-malformed")?"cdp_attach_autoattach_reply_invalid":variant.equals("stop-send")?"cdp_transport_failed":"cdp_command_timeout"));
+                check(outcome.effectMayHaveOccurred!=variant.equals("stop-unsupported"));
+            }
+            if(renderer.heldStop!=null){backend.wire.add(renderer.heldStop);host.ui.drain();check(handoff.humanDetachResult()==outcome&&!handoff.humanDetached());}
+        }else{
+            waitFor(handoff::humanDetached,host,true);product.pollPopupNetwork("owned");outcome=handoff.humanDetachResult();
+            check(outcome!=null&&outcome.ok&&handoff.detached()&&product.popupProtocolDrained("owned")&&renderer.nativeSessions.isEmpty()&&backend.detaches.get()==1&&backend.closes.get()==0&&downloads.sourcesClean());
+            if(file!=null){MdoBrowserCdpDownloads.Snapshot retained=downloads.get(file);check(retained.id.equals(file)&&retained.sourceCleanupConfirmed&&product.downloadBudget.used()==1);
+                if(complete){check(retained.verified&&retained.state.equals("completed"));MdoBrowserDownloadQueue.Read read=downloads.read(file,0,10);waitFor(read::finished,host,true);byte[] bytes=read.take();check(java.util.Arrays.equals(bytes,new byte[]{0,1,(byte)255}));java.util.Arrays.fill(bytes,(byte)0);}
+                else check(!retained.verified&&retained.state.equals("cancelled")&&retained.error.equals("cancelled")&&retained.failureSource.equals("user"));
+            }
+            check(downloads.rearm()!=null&&!owner.current()&&!handoff.current());
+        }
+        check(renderer.childStops==1&&renderer.worlds.created==worlds&&renderer.worlds.evaluations==0&&backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.nativeNavigationCommands.get()==0&&view.destroyed==0&&product.popupDownloads("owned")==downloads);
+        if(variant.startsWith("raw-"))check(backend.responseAborts.get()==1&&backend.bodyClaims.get()==0&&backend.bodyReads.get()==0);
+        return new JSONObject().put("actual_human_network",true).put("descendant_retirement_join",true).put("variant",variant).put("root_autoattach_stops",renderer.childStops)
+            .put("detach_commands",backend.detaches.get()).put("acknowledged",outcome!=null&&outcome.ok).put("native_event",handoff.detached()).put("cleanup_confirmed",product.popupProtocolDrained("owned"))
+            .put("outcome_present",outcome!=null).put("code",code==null?JSONObject.NULL:code).put("wire_failed",failed).put("page_preserved",true).put("old_authority_revoked",true).put("ordinary_frame_denied",true)
+            .put("native_descendants_joined",!failed).put("catalog_preserved",true).put("retained_downloads",file==null?0:1).put("verified_original_bytes",complete).put("cancelled_sources",pending||body)
+            .put("raw_pauses_aborted",variant.startsWith("raw-")).put("wrong_parent_denied",variant.equals("wrong-parent")).put("new_worlds",0).put("navigation_commands",0).put("provider_qualified",false).put("ui_published",false);
     }
     private static JSONObject humanCloseBeforeDetach(CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
         MdoBrowserCdpPopupNative.Promotion owner=product.popupOwner("owned");MdoBrowserCdpPopupBroker.Handoff handoff=product.popupHandoff("owned");
@@ -3463,7 +3551,7 @@ public final class CdpPopupWorkerProbe {
     }
     private static JSONObject frontendRecovery(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
         boolean navigation=variant.startsWith("frontend-navigation-"),cancel=variant.equals("frontend-navigation-cancel"),natural=variant.startsWith("frontend-natural-"),contextLoss=variant.startsWith("frontend-context-");
-        long originalEpoch=product.views.epoch("owned",view);int contextLosses=0;boolean contextArmed=false;
+        long originalEpoch=product.views.epoch("owned",view);int contextLosses=0;boolean contextArmed=false,contextDispatchJoined=false,rawReceiveNotDispatch=false;
         boolean transition=variant.equals("frontend-navigation-same")||variant.equals("frontend-navigation-bfcache");
         Backend.SourceRenderer navigator=navigation?new Backend.SourceRenderer(transition?"source-"+variant.substring("frontend-".length()):variant.equals("frontend-navigation-no-commit")?"source-navigation-no-commit":"source-navigation-flow"):null;
         if(navigation){renderer.navigationPeer=navigator;renderer.frames.rootUrl=renderer.context.rootUrl=navigator.url;renderer.wrongNavigationDocument=variant.equals("frontend-navigation-mismatch");}
@@ -3499,16 +3587,22 @@ public final class CdpPopupWorkerProbe {
                 if(scope.equals("hidden"))view.shown=false;else if(scope.equals("manual"))product.manual.add("owned");else {check(scope.equals("restore"));view.shown=true;product.manual.remove("owned");}
                 result=new JSONObject().put("ok",true).put("worlds",renderer.worlds.created);
             }else if(contextLoss&&command.equals("fixture_context_loss")){
-                check(product.popupPageDocumentReady("owned")&&contextLosses==0);int receives=backend.receives.get();
+                check(product.popupPageDocumentReady("owned")&&contextLosses==0);int receives=backend.receives.get(),events=backend.contextEvents.get();
+                CountDownLatch received=new CountDownLatch(1),release=new CountDownLatch(1);
+                backend.receivedHook=bytes->{try{String method=new JSONObject(new String(bytes,StandardCharsets.UTF_8)).optString("method");if(!method.equals("Runtime.executionContextsCleared")&&!method.equals("Runtime.executionContextDestroyed"))return;received.countDown();if(!release.await(5,TimeUnit.SECONDS))throw new AssertionError("Native context fixture release expired");}catch(InterruptedException error){Thread.currentThread().interrupt();throw new AssertionError(error);}catch(JSONException error){throw new AssertionError(error);}};
+                try{
                 if(variant.contains("-cleared")){renderer.worlds.contexts.clear();backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId",renderer.root).put("params",new JSONObject()));}
                 else {CdpWorldsProbe.Context exact=observedContext[0];check(exact!=null&&exact.source==null&&exact.frame.equals("frame-owned"));renderer.worlds.contexts.values().removeIf(value->value==exact);backend.wire.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId",renderer.root).put("params",new JSONObject().put("executionContextId",exact.id)));}
-                waitFor(()->backend.receives.get()>receives,host,true);contextLosses++;
+                waitFor(()->received.getCount()==0,host,true);
+                check(backend.receives.get()>receives&&backend.contextEvents.get()==events);rawReceiveNotDispatch=true;
+                }finally{release.countDown();backend.receivedHook=null;}
+                waitFor(()->backend.contextEvents.get()>events,host,true);contextDispatchJoined=true;contextLosses++;
                 check(product.views.epoch("owned",view)==originalEpoch&&product.popupPageDocumentReady("owned"));result=new JSONObject().put("ok",true).put("navigation",originalEpoch);
             }else if(contextLoss&&command.equals("fixture_context_arm")){
                 check(product.popupPageDocumentReady("owned")&&!contextArmed&&contextLosses==0);contextArmed=true;
                 if(variant.contains("-cleared"))renderer.worlds.clearDuringEval=true;else renderer.worlds.destroyDuringEval=true;result=new JSONObject().put("ok",true);
             }else if(contextLoss&&command.equals("fixture_context_disarm")){
-                check(contextArmed&&contextLosses==0);renderer.worlds.clearDuringEval=renderer.worlds.destroyDuringEval=false;contextLosses++;result=new JSONObject().put("ok",true).put("navigation",product.views.epoch("owned",view));
+                check(contextArmed&&contextLosses==0);renderer.worlds.clearDuringEval=renderer.worlds.destroyDuringEval=false;waitFor(()->backend.contextEvents.get()>0,host,true);contextDispatchJoined=true;contextLosses++;result=new JSONObject().put("ok",true).put("navigation",product.views.epoch("owned",view));
             }else if((navigation||contextLoss)&&command.equals("state"))result=product.frontendState("owned");
             else if(navigation&&java.util.Arrays.asList("navigate","back","forward","reload").contains(command)){if(transition&&product.deferOwnedPreparationWatch("owned"))deferredPreparations++;result=product.frontendNavigate("owned",command,request.getJSONObject("params"));if(transition){long end=System.nanoTime()+TimeUnit.SECONDS.toNanos(8);while(!product.frontendCommitPublished("owned")){if(System.nanoTime()>=end)throw new AssertionError("Original native transition did not commit before UI delivery");Thread.sleep(1);}earlyCommits++;}}
             else if((navigation||contextLoss)&&command.equals("downloads"))result=product.frontendDownloads("owned",request.getJSONObject("params"));
@@ -3537,7 +3631,7 @@ public final class CdpPopupWorkerProbe {
         return new JSONObject().put("actual_product_frontend",true).put("worlds",renderer.worlds.created).put("expressions",scripts.get()).put("preparations",preparations.get())
             .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false)
             .put("native_navigation_commands",backend.nativeNavigationCommands.get()).put("readiness_waits",readyWaits).put("original_world_released",released).put("navigation_reads",navigationReads)
-            .put("context_losses",contextLosses).put("same_ui_epoch",!contextLoss||product.views.epoch("owned",view)==originalEpoch)
+            .put("context_losses",contextLosses).put("same_ui_epoch",!contextLoss||product.views.epoch("owned",view)==originalEpoch).put("context_dispatch_join",contextDispatchJoined).put("raw_receive_not_dispatch",rawReceiveNotDispatch)
             .put("same_document_transitions",navigator==null?0:navigator.sameDocumentTransitions).put("cache_restores",navigator==null?0:navigator.cacheRestores).put("deferred_preparations",deferredPreparations).put("early_commits",earlyCommits).put("transition_network_requests",navigator==null?0:navigator.transitionNetworkRequests);
     }
     private static JSONObject fileCall(CdpNetworkWorkerProbe.Case host,PopupProductHost product,String id,JSONObject request)throws Exception {
@@ -3807,10 +3901,13 @@ public final class CdpPopupWorkerProbe {
                                 if(sourceFault&&backend.closes.get()>0&&!negativeExpired[0]){negativeExpired[0]=true;android.os.SystemClock.now+=5001;host.time.addAndGet(5001);}
                                 if(exact[0]==null&&!nullConsumed[0]&&source.consumed!=null){nullConsumed[0]=true;source.ack();}
                                 if(!detachSent[0]&&exact[0]!=null&&exact[0].destroyed>0&&backend.closes.get()==0){try{backend.wire.add(detached("proof-real"));detachSent[0]=true;}catch(Exception error){throw new AssertionError(error);}}
-                                if(detachSent[0]&&product.network("owned")!=null&&product.popupHandoff("owned").detached()){
+                                // Queue the held receipt after the authentic
+                                // native end event; that event cannot itself
+                                // acknowledge this still-held claim/abort.
+                                if(detachSent[0]&&product.network("owned")!=null){
                                     if(claim&&!claimDelivered[0]&&backend.heldClaimReply!=null){claimDelivered[0]=true;backend.wire.add(backend.heldClaimReply);}
                                     if(delayed&&!abortDelivered[0]&&backend.heldAbortReply!=null){
-                                        check(!product.popupDownloads("owned").sourcesClean()&&product.publicCounts.getOrDefault("close",0)==0&&MdoBrowserCdpPopupBroker.creationBlocked());abortDelivered[0]=true;
+                                        check(!product.popupDownloads("owned").sourcesClean()&&!product.popupHandoff("owned").detached()&&product.publicCounts.getOrDefault("close",0)==0&&MdoBrowserCdpPopupBroker.creationBlocked());abortDelivered[0]=true;
                                         try{
                                             JSONObject receipt=new JSONObject(backend.heldAbortReply.toString());
                                             if(variant.equals("download-abort-mismatch"))receipt.put("sessionId","foreign-original");
@@ -3855,6 +3952,7 @@ public final class CdpPopupWorkerProbe {
         boolean nativeLedger=variant.startsWith("native-"),grandchild=variant.startsWith("grandchild-");backend.holdNativeDescendants=nativeLedger||grandchild;
         boolean receiveRace=variant.startsWith("receive-");
         boolean control=variant.startsWith("control-");
+        boolean flowRootFirst=control&&variant.endsWith("-root-first");String controlKind=flowRootFirst?variant.substring(0,variant.length()-"-root-first".length()):variant;
         boolean rebind=variant.equals("reset-attach")||variant.equals("reset-runtime");
         boolean nested=variant.equals("nested")||variant.equals("detach-nested")||rebind||nativeLedger||grandchild;
         boolean operation=variant.equals("read")||variant.equals("effect")||variant.equals("detach-nested")||rebind||receiveRace||nativeLedger||grandchild;
@@ -3890,7 +3988,7 @@ public final class CdpPopupWorkerProbe {
                             backend.wire.add(attached(sessions[i],"owned"));waitFor(()->source.sends==index+1,host,true);source.ack();waitFor(()->networked.get()==index+1,host,true);
                         }
                         check(backend.opens.get()==1&&backend.guards.get()==2&&backend.nativeOpens.get()==2);
-                        if(control)backend.holdControlMethod=variant.equals("control-resume")?"Runtime.runIfWaitingForDebugger":variant.equals("control-request")?"Fetch.continueRequest":"response:Fetch.continueRequest";
+                        if(control)backend.holdControlMethod=controlKind.equals("control-resume")?"Runtime.runIfWaitingForDebugger":controlKind.equals("control-request")?"Fetch.continueRequest":"response:Fetch.continueRequest";
                         else if(!operation)renderers[0].holdMethod="Page.createIsolatedWorld";
                         for(int i=0;i<2;i++){final int index=i;product.beginPopupPage(keys[i],ready[i]::incrementAndGet,(code,possible)->{check(host.ui.onThread()&&possible);failed[index].incrementAndGet();});}
                         if(operation){
@@ -3902,7 +4000,7 @@ public final class CdpPopupWorkerProbe {
                         waitFor(()->{for(String key:keys)product.pollPopupPage(key);return control?backend.heldControl!=null:renderers[0].held!=null;},host,true);
                         MdoBrowserCdpPopupBroker.Handoff firstHandoff=product.popupHandoff(keys[0]);
                         MdoBrowserCdpPopupBroker.Candidate originalFlowCandidate=null;
-                        if(control&&!variant.equals("control-resume")){
+                        if(control&&!controlKind.equals("control-resume")){
                             java.lang.reflect.Field candidates=MdoBrowserCdpPopupBroker.class.getDeclaredField("candidates");candidates.setAccessible(true);
                             java.lang.reflect.Field attachment=MdoBrowserCdpPopupBroker.Candidate.class.getDeclaredField("original");attachment.setAccessible(true);
                             for(Object value:(java.util.List<?>)candidates.get(backend.originalBroker)){
@@ -3947,11 +4045,17 @@ public final class CdpPopupWorkerProbe {
                         else if(peerDetach){backend.wire.add(detached(sessions[0]));detachedSent[0]=true;}
                         else product.closePopupPage(keys[0]);
                         if(variant.equals("expired"))host.time.addAndGet(5001);
+                        if(flowRootFirst){
+                            int observed=backend.receives.get();backend.wire.add(detached(sessions[0]));detachedSent[0]=true;
+                            waitFor(()->backend.receives.get()>observed+2,host,true);
+                            if(firstHandoff.detached())throw new AssertionError("Native root end acknowledged an outstanding original Fetch command");
+                            check(backend.heldControl!=null&&backend.closes.get()==0&&product.popupNetworkCount()==2&&!product.popupProtocolDrained(keys[0]));
+                        }
                         if(control)backend.releaseControl();else if(!grandchild)renderers[0].release(backend.wire);
                         if(!broken){
                             waitFor(()->exact[0].destroyed==1||backend.closes.get()!=0,host,true);check(backend.closes.get()==0&&failed[1].get()==0);
-                            if(flowCandidate!=null){
-                                waitFor(()->flowCandidate.retainedRequestCount()==0&&flowCandidate.retainedResponseCount()==(variant.equals("control-request")?1:0),host,true);
+                            if(flowCandidate!=null&&!flowRootFirst){
+                                waitFor(()->flowCandidate.retainedRequestCount()==0&&flowCandidate.retainedResponseCount()==(controlKind.equals("control-request")?1:0),host,true);
                                 check(!firstHandoff.detached()&&!detachedSent[0]&&backend.closes.get()==0);
                             }
                             if(!detachedSent[0]){backend.wire.add(detached(sessions[0]));detachedSent[0]=true;}
@@ -4003,7 +4107,7 @@ public final class CdpPopupWorkerProbe {
                             check(secondResult.get().code==null&&secondResult.get().bytes!=null&&secondResult.get().bytes.length==1&&secondResult.get().bytes[0]==0&&!secondResult.get().effectMayHaveOccurred&&renderers[1].worlds.evaluations==(grandchild?2:1));
                             if(variant.equals("receive-other"))check(renderers[1].worlds.created==2);
                             if(operation){waitFor(()->firstResult.get()!=null,host,true);check(firstResult.get().code!=null&&firstResult.get().bytes==null&&firstResult.get().effectMayHaveOccurred==effect&&renderers[0].worlds.evaluations==(rebind?0:1));}
-                            check(backend.opens.get()==1&&backend.resumes.get()==2&&backend.continues.get()==(variant.equals("control-resume")?1:2)&&backend.detaches.get()==0);
+                            check(backend.opens.get()==1&&backend.resumes.get()==2&&backend.continues.get()==(controlKind.equals("control-resume")?1:2)&&backend.detaches.get()==0);
                             if(control)check(firstHandoff.flowFailure()!=null&&firstHandoff.flowFailure().effectMayHaveOccurred);
                         }else check(!product.popupPageReady(keys[1])&&!product.popupPageReady(keys[0])&&backend.disables.get()==0);
                         isolationEvidence=new JSONObject().put("shared_wire_preserved",backend.closes.get()==0).put("other_original_document_verified",secondResult.get()!=null&&secondResult.get().code==null).put("effects_preserved",!operation||firstResult.get()!=null&&firstResult.get().effectMayHaveOccurred==effect)
@@ -4011,7 +4115,8 @@ public final class CdpPopupWorkerProbe {
                             .put("late_nested_sessions_tested",nested).put("native_detach_confirmed",firstHandoff.detached()).put("provider_qualified",false).put("ui_published",false);
                         if(nativeLedger)isolationEvidence.put("native_descendant_ledger_tested",true).put("root_receipt_waited_for_descendants",true).put("wrong_parent_denied",variant.startsWith("native-wrong-")).put("native_limit_enforced",variant.equals("native-limit")).put("retired_parent_attach_denied",variant.equals("native-retired-parent-attach"));
                         if(grandchild)isolationEvidence.put("grandchild_rpc_retired",true).put("root_owner_preserved_until_close",true).put("late_reply_during_peer_rpc_discarded",true).put("original_effect_may_have_occurred",effect).put("original_callbacks",grandchildCallbacks.get()).put("leaf_native_receipt_required",true);
-                        if(flowCandidate!=null)isolationEvidence.put("cancelled_flow_native_ack_drained",true).put("pause_receipt_before_native_detach",true).put("startup_outcome_once",true);
+                        if(flowCandidate!=null)isolationEvidence.put("cancelled_flow_native_ack_drained",true).put("pause_receipt_before_native_detach",!flowRootFirst).put("startup_outcome_once",true);
+                        if(flowRootFirst)isolationEvidence.put("native_root_waited_for_original_flow",true).put("original_fetch_ack_after_native_end",true);
                     }catch(Exception|Error error){primary=error;System.err.println("Document isolation "+variant+" wireClosed="+backend.closes.get()+" first="+failed[0].get()+" secondReady="+ready[1].get()+" secondFailed="+failed[1].get()+" event="+backend.eventFailure+" send="+backend.sendFailure+" close="+backend.closeSite);throw error;}
                     finally{
                         try{
@@ -4205,7 +4310,11 @@ public final class CdpPopupWorkerProbe {
                                 }
                             }
                             product.closePopupNetwork("owned");waitFor(owner::ended,host,true);check(exact[0].destroyed==1&&!handoff.current()&&!product.popupNetworkReady("owned"));
-                            if(!variant.equals("close-timeout")){backend.wire.add(detached("proof-real"));detached[0]=true;waitFor(handoff::detached,host,true);}
+                            if(!variant.equals("close-timeout")){
+                                int observed=backend.receives.get();backend.wire.add(detached("proof-real"));detached[0]=true;
+                                if(!uncertain)waitFor(handoff::detached,host,true);
+                                else{waitFor(()->backend.receives.get()>observed+2,host,true);check(!handoff.detached()&&!product.popupProtocolDrained("owned")&&backend.heldAbortReply!=null);}
+                            }
                             if(uncertain){android.os.SystemClock.now+=5000;host.time.addAndGet(5000);product.pollPopupNetwork("owned");check(product.popupNetworkExpired("owned")&&!product.popupProtocolDrained("owned")&&product.networkCleanupFailed);}
                             else{waitFor(()->{product.pollPopupNetwork("owned");return product.popupNetworkCount()==0;},host,true);check(!product.networkCleanupFailed);}
                         }

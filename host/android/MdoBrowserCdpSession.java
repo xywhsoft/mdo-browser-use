@@ -435,6 +435,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         connectionGuard(false);if(!seenChildren.contains(child))throw failure("cdp_session_invalid",false);
         nativeDetachedChildren.add(child);fenceChild(child);
     }
+    /** The broker has matched this root's authentic native event. Revoke data
+     * immediately, while descendant routes and issued control receipts remain. */
+    void nativeAttachedTargetDetached(AttachedTarget original)throws IOException{
+        connectionGuard(false);if(original==null||original.owner!=this||!original.used)throw failure("cdp_attach_event_invalid",false);
+        nativeChildDetached(original.session);synchronized(controlGate){original.clearRequests();}
+    }
     private void retireChildData(String child){retireChildData(child,true);}
     private void retireChildData(String child,boolean nativeEnd){
         children.remove(child);
@@ -637,8 +643,11 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         final JSONObject params;
         try{params=new JSONObject().put("sessionId",original.session);}
         catch(org.json.JSONException error){throw failure("cdp_arguments_invalid",false);}
-        original.retirementAttempted=true;
-        attachmentCommandOwner=()->quiesced.getAsBoolean()&&!protectedRetirementBusy(original);
+        fenceChild(original.session);original.retirementAttempted=true;
+        // The pre-send busy check remains strict. A late frozen raw pause
+        // cannot create a body/control while this call is serialized; retain
+        // it until actual native root end instead of inventing owner loss.
+        attachmentCommandOwner=quiesced;
         try{
             JSONObject reply=call("Target.detachFromTarget",params,null,timeout,true);
             if(reply.length()!=0){close();throw failure("cdp_attach_detach_reply_invalid",true);}
@@ -675,6 +684,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
             for(Navigation value:attachedNavigations)if(value!=null&&value.attachment==original)return true;
             return false;
         }
+    }
+    /** Local native cleanup observation only, valid after native root end too.
+     * Physical detach does not acknowledge a sent Fetch/stream/fixed command. */
+    boolean originalCleanupPending(AttachedTarget original)throws IOException{
+        connectionGuard(false);if(original==null||original.owner!=this||!original.used)throw failure("cdp_attach_event_invalid",false);
+        return protectedRetirementBusy(original)||autoAttachRetirement!=null&&autoAttachRetirement.original==original;
     }
     /** A proved document peer may retire only its original closing attachment.
      * Abandon its wait/result; effects may already have occurred. Native detach
