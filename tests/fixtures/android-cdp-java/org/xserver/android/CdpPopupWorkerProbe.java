@@ -2711,6 +2711,97 @@ public final class CdpPopupWorkerProbe {
         return new JSONObject().put("actual_product_frontend",true).put("worlds",renderer.worlds.created).put("expressions",scripts.get()).put("preparations",preparations.get())
             .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
     }
+    private static JSONObject fileCall(CdpNetworkWorkerProbe.Case host,PopupProductHost product,String id,JSONObject request)throws Exception {
+        int count=product.publicCounts.getOrDefault(id,0);product.uploadRpc("owned",id,request);
+        waitFor(()->product.publicCounts.getOrDefault(id,0)==count+1,host,true);JSONObject reply=product.publicReplies.get(id);
+        if(reply==null)throw new AssertionError("Original popup file reply missing: "+product.preparationReplyError);return reply;
+    }
+    private static String fileDigest(byte[] bytes)throws Exception {
+        StringBuilder value=new StringBuilder();for(byte item:java.security.MessageDigest.getInstance("SHA-256").digest(bytes))value.append(String.format(java.util.Locale.ROOT,"%02x",item&255));return value.toString();
+    }
+    /** Actual product upload/clear/coordinator/picker/file/URI core, on this
+     * original proved popup worker and wire. DOM and native UI callbacks are
+     * controlled, so Android framework/provider grants remain unqualified. */
+    private static JSONObject protectedFiles(String variant,String directory,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        java.nio.file.Path files=java.nio.file.Paths.get(directory).resolveSibling("popup-upload-files");product.enableUpload("owned",files);
+        MdoBrowserCdpMarker marker=product.continueDocument("owned",view,product.views.epoch("owned",view),product.channel.current());
+        CdpOwnerProbe.Server owners=new CdpOwnerProbe.Server(renderer.worlds,()->host.time.addAndGet(20000));
+        CdpFileInputProbe.Nodes nodes=new CdpFileInputProbe.Nodes(owners,()->host.time.addAndGet(20000),marker::close);
+        java.util.concurrent.atomic.AtomicReference<String> inventory=new java.util.concurrent.atomic.AtomicReference<>();
+        host.worker.submitExisting(marker,5000,false,(binding,deadline)->{
+            try{org.json.JSONArray rows=binding.frames().inventory(deadline).getJSONArray("frames");for(int i=0;i<rows.length();i++){
+                JSONObject row=rows.getJSONObject(i);nodes.nodes.put(binding.frames().select(row.getString("id"),row.getString("document")).raw,row);
+            }return new byte[]{1};}catch(JSONException error){throw new IOException("cdp_fixture_inventory_invalid",error);}
+        },result->{inventory.set(result.code==null?"ok":result.code);});waitFor(()->inventory.get()!=null,host,true);check("ok".equals(inventory.get()));
+        CdpUploadProbe.Picker picker=new CdpUploadProbe.Picker(nodes,new java.util.concurrent.atomic.AtomicLong(1000));picker.selected=false;
+        CdpFileClearProbe.Peer clear=new CdpFileClearProbe.Peer(nodes,picker);renderer.frames.extra=clear;
+        JSONObject raw=nodes.request(variant.equals("files-nested")?"leaf-frame":"frame-owned"),target=new JSONObject().put("document",raw.get("local_document")).put("ref",raw.get("ref")).put("frame_chain",raw.getJSONArray("frame_chain"));
+        long epoch=product.views.epoch("owned",view);AtomicInteger grants=new AtomicInteger(),responses=new AtomicInteger();String[] tokens=new String[2];
+        MdoBrowserUploadUris uris=product.fileUris();java.util.concurrent.atomic.AtomicReference<Throwable> callbackFailure=new java.util.concurrent.atomic.AtomicReference<>();
+        try{
+            picker.onOpen=()->{
+                if(variant.equals("files-cancel")||variant.equals("files-page-close"))return;
+                new Handler(Looper.getMainLooper()).post(()->{try{product.openPicker("owned",(readers,current)->{
+                    responses.incrementAndGet();if(readers==null)return;if(!current.getAsBoolean()||readers.length!=2)throw new AssertionError("Foreign popup file grant");
+                    try{for(int i=0;i<readers.length;i++)tokens[i]=uris.publish(readers[i]);}catch(IOException error){callbackFailure.set(error);throw new IllegalStateException("Controlled URI publication failed",error);}grants.incrementAndGet();picker.selected=true;
+                });}catch(Throwable error){callbackFailure.set(error);}});
+            };
+            boolean clearing=variant.startsWith("files-clear");JSONObject receipt;byte[] bytes=new byte[131075];for(int i=0;i<bytes.length;i++)bytes[i]=(byte)(i*17+3);
+            if(clearing){
+                JSONObject request=new JSONObject(target.toString()).put("action","clear").put("upload_key","popup-clear").put("navigation",epoch);
+                if(variant.equals("files-clear-cancel")){
+                    renderer.holdMethod="DOM.setFileInputFiles";product.uploadRpc("owned","clear",request);waitFor(()->renderer.held!=null,host,true);
+                    JSONObject pending=fileCall(host,product,"clear-status",new JSONObject().put("action","clear_status").put("upload_key","popup-clear"));check(pending.getBoolean("pending")&&clear.clears==1);
+                    fileCall(host,product,"clear-cancel",new JSONObject().put("action","clear_cancel").put("upload_key","popup-clear"));renderer.release(backend.wire);
+                    waitFor(()->product.publicReplies.get("clear")!=null,host,true);receipt=product.publicReplies.get("clear");check(!receipt.getBoolean("ok")&&receipt.getBoolean("dispatched")&&!receipt.getBoolean("verified"));
+                }else{
+                    receipt=fileCall(host,product,"clear",request);if(!receipt.getBoolean("ok"))throw new AssertionError("Protected clear failed: "+receipt);
+                    check(receipt.getBoolean("cleared")&&receipt.getBoolean("verified")&&receipt.getBoolean("native_job_drained")&&receipt.getBoolean("cleanup_confirmed"));
+                    check(fileCall(host,product,"clear-repeat",request).getString("ticket").equals(receipt.getString("ticket"))&&clear.clears==1&&clear.verified==1);
+                }
+                check(product.uploadFiles()==0&&grants.get()==0&&picker.opens==0&&picker.commits==0);
+            }else{
+                JSONObject begin=new JSONObject(target.toString()).put("action","begin").put("navigation",epoch).put("upload_key","popup-upload").put("timeout_ms",120000)
+                    .put("files",new org.json.JSONArray().put(new JSONObject().put("name","native-\u5185\u5bb9 #% +.bin").put("size",bytes.length).put("sha256",fileDigest(bytes)))
+                        .put(new JSONObject().put("name","empty.bin").put("size",0).put("sha256",fileDigest(new byte[0]))));
+                JSONObject staged=fileCall(host,product,"begin",begin);check(staged.getBoolean("ok")&&staged.getBoolean("assignment_supported"));String ticket=staged.getString("ticket");
+                for(int at=0;at<bytes.length;at+=65536)check(fileCall(host,product,"chunk",new JSONObject().put("action","chunk").put("ticket",ticket).put("navigation",epoch).put("file",0).put("offset",at)
+                    .put("base64",java.util.Base64.getEncoder().encodeToString(java.util.Arrays.copyOfRange(bytes,at,Math.min(bytes.length,at+65536))))).getBoolean("ok"));
+                check(fileCall(host,product,"seal",new JSONObject().put("action","seal").put("ticket",ticket).put("navigation",epoch)).getBoolean("sealed"));
+                JSONObject assign=new JSONObject(target.toString()).put("action","assign").put("ticket",ticket).put("navigation",epoch).put("timeout_ms",120000);
+                if(variant.equals("files-cancel")||variant.equals("files-page-close")){
+                    product.uploadRpc("owned","assign",assign);waitFor(()->picker.opens==1||callbackFailure.get()!=null,host,true);
+                    if(variant.equals("files-page-close"))product.publicClose("owned");else fileCall(host,product,"cancel",new JSONObject().put("action","cancel").put("ticket",ticket));
+                    waitFor(()->product.publicReplies.get("assign")!=null,host,true);receipt=product.publicReplies.get("assign");
+                    check(!receipt.getBoolean("ok")&&!receipt.getBoolean("accepted")&&!receipt.getBoolean("verified")&&grants.get()==0&&picker.commits==0);
+                }else{
+                    receipt=fileCall(host,product,"assign",assign);if(!receipt.getBoolean("ok"))throw new AssertionError("Protected upload failed: "+receipt);
+                    check(receipt.getBoolean("accepted")&&receipt.getBoolean("completed")&&receipt.getBoolean("verified")&&receipt.getBoolean("retained")&&receipt.getBoolean("cleanup_confirmed"));
+                    check(!receipt.getBoolean("events_trusted")&&grants.get()==1&&responses.get()==1&&picker.opens==1&&picker.commits==1);
+                    check(fileCall(host,product,"assign-repeat",assign).getBoolean("completed")&&picker.opens==1&&picker.commits==1);
+                    if(variant.equals("files-retention"))android.os.SystemClock.now+=120001;
+                    java.util.concurrent.atomic.AtomicReference<Throwable> readFailure=new java.util.concurrent.atomic.AtomicReference<>();
+                    Thread reader=new Thread(()->{try{
+                        for(int i=0;i<tokens.length;i++){
+                            MdoBrowserUploadUris.Session session=uris.reserve(tokens[i]);try{
+                                if(!session.enter()||!session.returned())throw new AssertionError("Original URI read admission failed");
+                                byte[] output=new byte[i==0?bytes.length:1];int count=session.read(0,output.length,output,5000);
+                                if(count!=(i==0?bytes.length:0)||i==0&&!java.util.Arrays.equals(output,bytes))throw new AssertionError("Original popup upload bytes changed");
+                            }finally{session.released();}
+                        }
+                    }catch(Throwable error){readFailure.set(error);}},"popup-original-file-reader");reader.start();reader.join(7000);check(!reader.isAlive()&&readFailure.get()==null&&uris.descriptors()==0);
+                    JSONObject status=fileCall(host,product,"upload-status",new JSONObject().put("action","status").put("ticket",ticket));check(status.getBoolean("retained")&&status.getBoolean("completed"));
+                    JSONObject released=fileCall(host,product,"release",new JSONObject().put("action","release").put("ticket",ticket).put("confirmed",true));check(released.getBoolean("released")&&!released.getBoolean("retained"));
+                    check(uris.grants()==0&&product.uploadFiles()==0&&nodes.objects.isEmpty()&&nodes.groups.isEmpty()&&owners.objects.isEmpty());
+                }
+            }
+            if(callbackFailure.get()!=null)throw new AssertionError("Original popup callback failed",callbackFailure.get());
+            check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0);
+            return new JSONObject().put("actual_product_file_flow",true).put("original_file_worker",true).put("native_grants",grants.get()).put("native_responses",responses.get())
+                .put("opens",picker.opens).put("commits",picker.commits).put("clears",clear.clears).put("retained_read_verified",!clearing&&!variant.equals("files-cancel")&&!variant.equals("files-page-close"))
+                .put("staging_expiry_tested",variant.equals("files-retention")).put("nested",variant.equals("files-nested")).put("framework_grant_qualified",false).put("provider_qualified",false);
+        }finally{uris.close();}
+    }
     /** The product upload/clear/chooser routes must continue the already bound
      * popup document, whose registry owner is its native handoff. The old UI
      * channel lookup rejects this exact live document. This tests routing, not
@@ -2780,7 +2871,7 @@ public final class CdpPopupWorkerProbe {
                         if(child==null){check(invalid||variant.equals("close-before-allocation"));source.adopting=null;return;}
                         check(host.ui.onThread()&&child==source.views.get("owned"));exact[0]=child;source.adopting=child;child.nativeUrl="https://original.invalid/page";
                         backend.nativeTargets.put("target-proof-real",proofPeer(child,"success",null,null));backend.sourceRenderer=initial;
-                        try{renderer[0]=new Backend.DocumentRenderer(child);renderer[0].frames.omitChild=true;renderer[0].frames.includeLocal=false;}catch(Exception error){throw new AssertionError(error);}
+                        try{renderer[0]=new Backend.DocumentRenderer(child);renderer[0].frames.omitChild=!variant.equals("files-nested");renderer[0].frames.includeLocal=variant.equals("files-nested");}catch(Exception error){throw new AssertionError(error);}
                         if(variant.equals("state-starting"))try{check(product.inspectFrameRouting("owned"));startup[0]=product.inspectDocumentState("owned");failure("cdp_popup_document_route_required",()->product.legacyRpc("owned"));check(product.documents.get("owned").worldQueries==0);}catch(Exception error){throw new AssertionError(error);}
                         if(variant.equals("close-world"))renderer[0].holdMethod="Page.createIsolatedWorld";
                         backend.managedResumeMode="normal";
@@ -2833,6 +2924,7 @@ public final class CdpPopupWorkerProbe {
                                 if(variant.startsWith("state-"))frameRouteEvidence=popupDocumentState(variant,host,product,exact[0],backend,renderer[0],startup[0]);
                                 if(variant.startsWith("frontend-"))frameRouteEvidence=frontendRecovery(host,backend,product,exact[0],renderer[0]);
                                 if(variant.startsWith("continuation-"))frameRouteEvidence=uploadContinuation(variant,host,backend,product,exact[0],renderer[0]);
+                                if(variant.startsWith("files-"))frameRouteEvidence=protectedFiles(variant,directory,host,backend,product,exact[0],renderer[0]);
                                 if(sourceCrash){
                                     backend.wire.add(new JSONObject().put("method","Inspector.targetCrashed").put("sessionId","proof-real").put("params",new JSONObject()));
                                     waitFor(()->backend.closes.get()>0,host,true);
@@ -2920,6 +3012,7 @@ public final class CdpPopupWorkerProbe {
                                 .put("cleanup_confirmed",!unconfirmed).put("unconfirmed_creation_fenced",unconfirmed).put("active_stream_tested",claim||read).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("no_url_replay",true).put("framework_qualified",false).put("provider_qualified",false)
                                 .put("document_restore",restoration[0]==null?JSONObject.NULL:restoration[0]).put("protected_retirement_boundaries",product.retirementBoundaryChecks)
                                 .put("concurrent_retirement",variant.startsWith("retirement-")).put("source_crash_contained",sourceCrash).put("ledger_fault_contained",ledgerFault);
+                            product.stopUpload(java.nio.file.Paths.get(directory).resolveSibling("popup-upload-files"));
                             if(renderer[0]!=null)renderer[0].wire.close();
                         }catch(Exception|Error error){System.err.println("Publication cleanup "+variant+" prep="+product.preparationSettled()+" child="+product.popupDiagnostic("owned")+" close="+product.publicReplies.get("close")+" closed="+backend.closes.get()+" abort="+backend.responseAborts.get()+" pass="+backend.responsePasses.get()+" site="+backend.closeSite+" worker="+product.preparationWorkerCode());if(primary!=null)primary.addSuppressed(error);else throw error;}
                     }
@@ -3389,6 +3482,7 @@ public final class CdpPopupWorkerProbe {
         report.put("product_document_state_tested",mode.startsWith("preparation-publication-state-"));
         report.put("product_frontend_recovery_tested",mode.startsWith("preparation-publication-frontend-"));
         report.put("product_upload_continuation_tested",mode.startsWith("preparation-publication-continuation-"));
+        report.put("product_protected_file_flow_tested",mode.startsWith("preparation-publication-files-"));
         if(frameRouteEvidence!=null)report.put("product_frame_route",frameRouteEvidence);
         report.put("product_publication_tested",mode.startsWith("preparation-publication-")||mode.startsWith("preparation-restore-"));
         report.put("product_document_restore_tested",mode.startsWith("preparation-restore-"));

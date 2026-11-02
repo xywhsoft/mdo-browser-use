@@ -29,22 +29,14 @@ public final class CdpUploadProbe {
         return new MdoBrowserUploadStore.Spec[]{new MdoBrowserUploadStore.Spec("native-\u5185\u5bb9 #% +.bin",131075,new String(new char[64]).replace('\0','a')),
             new MdoBrowserUploadStore.Spec("empty.bin",0,new String(new char[64]).replace('\0','b'))};
     }
-    static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
-        final CdpFileInputProbe.Case peer;final AtomicLong time=new AtomicLong(1000);
-        final List<String> calls=new ArrayList<>();final MdoBrowserCdpUpload upload;
+    static class Picker implements CdpBindingProbe.Factory.Extra {
+        final CdpFileInputProbe.Nodes node;final AtomicLong time;
+        final List<String> calls=new ArrayList<>();
         final java.util.Set<String> events=new java.util.HashSet<>();
         String failure="",hookAt="",nativeKey,source,realm;boolean selected=true,opened,assigned,cleaned;
         int installs,prepared,opens,statuses,commits,disposals,disabled;boolean failureCleanup;
         Runnable onOpen,onCommit;
-        Case(String frame)throws Exception {this(frame,true);}
-        Case(String frame,boolean initialize)throws Exception {
-            peer=new CdpFileInputProbe.Case(initialize);
-            peer.peer.host.plan.extra=this;peer.peer.server.worlds.evaluation=this::evaluate;
-            if(!initialize){upload=null;return;}
-            JSONObject request=peer.request(frame);MdoBrowserCdpFileInput target=MdoBrowserCdpFileInput.parse(request);MdoBrowserUploadStore.Spec[] specs=manifest();
-            upload=new MdoBrowserCdpUpload(target,specs,120000,time::get);
-            request.put("ref","e8");specs[0]=null; // Neither caller mutation changes the captured target/manifest.
-        }
+        Picker(CdpFileInputProbe.Nodes node,AtomicLong time){this.node=node;this.time=time;node.server.worlds.evaluation=this::evaluate;}
         private static JSONObject arguments(String expression)throws Exception {
             int start=expression.lastIndexOf("})(");check(start>=0&&expression.endsWith(")"));return new JSONObject(expression.substring(start+3,expression.length()-1));
         }
@@ -73,7 +65,7 @@ public final class CdpUploadProbe {
                 result=metadata("prepared").put("nonce",NONCE);
                 if(failure.equals("nonce"))result.put("nonce",NONCE+"x");if(failure.equals("ref"))result.put("ref","e8");
                 if(failure.equals("prepare_failure"))result=new JSONObject().put("ok",false).put("error",new JSONObject().put("code","upload_target_changed"));
-                if(failure.equals("prepare_multiple_changed"))peer.failure="single";
+                if(failure.equals("prepare_multiple_changed"))node.failure="single";
             }else{
                 if(action.equals("dispose")&&nativeKey==null)return new JSONObject().put("ok",false).put("error",new JSONObject().put("code","upload_picker_changed"));
                 check(params.length()==1&&params.getString("key").equals(nativeKey));
@@ -94,8 +86,8 @@ public final class CdpUploadProbe {
                 }
             }
             if(action.equals(hookAt)){
-                if(failure.equals("timeout"))peer.peer.host.clockOffset.addAndGet(20000);
-                if(failure.equals("cancel"))peer.peer.host.marker.close();
+                if(failure.equals("timeout"))node.onTimeout.run();
+                if(failure.equals("cancel"))node.onCancel.run();
                 if(failure.equals("lease_expired"))time.set(121001);
                 if(failure.equals("clock_regression"))time.set(999);
             }
@@ -113,16 +105,28 @@ public final class CdpUploadProbe {
                 if(uploadExpression){
                     String currentSource=request.optString("sessionId",null),unique=params.getString("uniqueContextId");
                     check(!params.has("contextId")&&!params.has("executionContextId")&&!unique.isEmpty());
-                    CdpWorldsProbe.Context context=null;for(CdpWorldsProbe.Context row:peer.peer.server.worlds.contexts.values())if(unique.equals(row.unique)&&Objects.equals(currentSource,row.source))context=row;
-                    check(context!=null&&context.frame.equals(peer.raw));
+                    CdpWorldsProbe.Context context=null;for(CdpWorldsProbe.Context row:node.server.worlds.contexts.values())if(unique.equals(row.unique)&&Objects.equals(currentSource,row.source))context=row;
+                    check(context!=null&&context.frame.equals(node.raw));
                     if(realm==null){realm=unique;source=currentSource;}else check(realm.equals(unique)&&Objects.equals(source,currentSource));
                     boolean opening=expression.contains("?b.open(p):");check(opening?Boolean.TRUE.equals(params.opt("userGesture")):!params.has("userGesture"));
                     check(params.getBoolean("returnByValue")&&!params.getBoolean("awaitPromise")&&!params.getBoolean("throwOnSideEffect"));
                 }else check(!params.has("userGesture"));
             }
-            return peer.send(request,wire);
+            return node.send(request,wire);
         }
-        @Override public void closed(CdpBindingProbe.Wire wire){peer.closed(wire);}
+        @Override public void closed(CdpBindingProbe.Wire wire){node.closed(wire);}
+    }
+    static final class Case extends Picker implements AutoCloseable {
+        final CdpFileInputProbe.Case peer;final MdoBrowserCdpUpload upload;
+        Case(String frame)throws Exception {this(frame,true);}
+        Case(String frame,boolean initialize)throws Exception {this(new CdpFileInputProbe.Case(initialize),frame,initialize);}
+        private Case(CdpFileInputProbe.Case peer,String frame,boolean initialize)throws Exception {
+            super(peer,new AtomicLong(1000));this.peer=peer;peer.peer.host.plan.extra=this;
+            if(!initialize){upload=null;return;}
+            JSONObject request=peer.request(frame);MdoBrowserCdpFileInput target=MdoBrowserCdpFileInput.parse(request);MdoBrowserUploadStore.Spec[] specs=manifest();
+            upload=new MdoBrowserCdpUpload(target,specs,120000,time::get);
+            request.put("ref","e8");specs[0]=null; // Neither caller mutation changes the captured target/manifest.
+        }
         JSONObject run(boolean effect,Operation operation)throws Exception {
             return peer.peer.host.run(effect,(binding,deadline)->operation.run(upload,binding,deadline));
         }

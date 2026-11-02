@@ -4,6 +4,7 @@ import android.webkit.WebView;
 import java.util.*;
 import org.json.JSONObject;
 import org.json.JSONException;
+import org.json.JSONArray;
 
 /** Exact product constructor/disposer/physical teardown joined to the actual
  * native source. Document/network/UI peers are controlled, not qualified. */
@@ -16,6 +17,10 @@ final class PopupProductHost {
     final Map<String,MdoBrowserDocument> documents=new HashMap<>();
     final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();
     final Map<String,CaptureEntry> captures=new HashMap<>();
+    final Object activity=new Object();
+    static final class Manual {boolean ready(){return true;}}
+    final Manual manualChooser=new Manual();boolean uploadQualified;
+    private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",uploadQualified);}
     final Map<String,PopupLink> popupLinks=new HashMap<>();final Map<String,Object> navigationRequests=new HashMap<>();
     final Map<String,String> documentFailures=new HashMap<>();final Set<String> pageClosed=new HashSet<>();
     static final class WorldBudget {int used(){return 0;}int limit(){return 32;}}
@@ -44,7 +49,7 @@ final class PopupProductHost {
     boolean publicClosePending(){return !browserCloses.isEmpty();}
     boolean publicLinkReady(String key){PopupLink link=popupLinks.get(key);return link!=null&&link.ready;}
     void pollPublicClose(){for(BrowserClose row:new ArrayList<>(browserCloses.values()))browserClosePoll(row);}
-    boolean chooserClean(MdoBrowserDialogTarget target){return true;}
+    boolean chooserClean(MdoBrowserDialogTarget target){return productChooserReady(target);}
     boolean closeDocument(String key){return true;}
     @@BROWSER_CLOSE@@
 
@@ -158,18 +163,16 @@ final class PopupProductHost {
             if(!entry.popup.handoff.retiring())throw new AssertionError("Native proof revoked before original attachment retirement");retirementBoundaryChecks++;
         }
     }
-    boolean uploadBusy(String key,WebView view){return false;}
     boolean chooserAllowed=true;
-    boolean chooserReady(MdoBrowserDialogTarget target){return chooserAllowed;}
-    boolean chooserContinuationReady(String key,WebView view){return false;}
+    boolean chooserReady(MdoBrowserDialogTarget target){return chooserAllowed&&productChooserReady(target);}
     MdoBrowserCdpNetworks.Navigation navigationReadProof(String key,WebView view,String reference)throws java.io.IOException {
         if(reference!=null)throw new java.io.IOException("cdp_navigation_document_unproven");return null;
     }
-    void cancelTargetedUpload(String key,WebView view,long epoch){}
-    @@INPUT_INVALIDATION@@
+    @@CHOOSER@@
     @@FRAME_ENVIRONMENT@@
     @@FRAME_ROUTER@@
-    boolean dialogReady(String key,WebView view){return true;}
+    boolean dialogReady(String key,WebView view){MdoBrowserDialogTarget target=dialogs.get(key);return target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null&&chooserReady(target);}
+    void cancelCapture(String key){CaptureEntry entry=captures.get(key);if(entry!=null)entry.capture.close();}
     MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}
     static final class Root {
         int removes,adds;Runnable callback,adding;boolean failAdd;final Set<WebView> children=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
@@ -189,7 +192,8 @@ final class PopupProductHost {
         interface Completion {void complete(Result result);}
     }
     static final class MdoBrowserDocument {
-        static final int BACKGROUND=1;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
+        static final int BACKGROUND=1,CHOOSER=2;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
+        void block(int reason,boolean value){if(reason!=CHOOSER)throw new AssertionError("Unexpected controlled document block");}
         boolean worldInstalled(){worldQueries++;return assigned&&!closed;}boolean ready(){worldQueries++;return assigned&&!closed;}
         String phase(){worldQueries++;return ready()?"ready":"world_unavailable";}int pending(){worldQueries++;return 0;}int outstanding(){worldQueries++;return 0;}String identity(){worldQueries++;return "fd-00000000-0000-4000-8000-000000000001";}
         void evaluate(String expected,String expression,long timeout,MdoBrowserWorld.Completion callback)throws MdoBrowserWorld.Failure {worldQueries++;throw new MdoBrowserWorld.Failure("controlled_legacy_evaluation");}
@@ -205,7 +209,46 @@ final class PopupProductHost {
         boolean cleanupConfirmed(){return !working;}void close(){closes++;closed=true;}void viewDestroyed(WebView exact){if(exact!=view||working)throw new AssertionError("Unsettled/foreign profile owner");destroyed++;}
     }
     static final class Dialogs {boolean clean(){return true;}Object snapshot(){return null;}}
-    static final class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
+    static class MdoBrowserDialogTarget {final WebView view;final Dialogs dialogs=new Dialogs();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
+    final class MdoBrowserChooserTarget extends MdoBrowserDialogTarget {
+        final MdoBrowserChoosers choosers;final MdoBrowserPrivatePicker privatePicker;
+        MdoBrowserChooserTarget(String key,WebView view){super(view);android.os.Handler handler=new android.os.Handler(android.os.Looper.getMainLooper());
+            choosers=new MdoBrowserChoosers(view,new MdoBrowserChoosers.Scheduler(){public long now(){return android.os.SystemClock.elapsedRealtime();}public void at(Runnable task,long due){handler.postDelayed(task,Math.max(0,due-now()));}public void remove(Runnable task){handler.removeCallbacks(task);}},
+                ()->views.owns(key,view),()->views.epoch(key,view),blocked->chooserBlocked(key,view,blocked));
+            privatePicker=new MdoBrowserPrivatePicker(view,choosers,new MdoBrowserPrivatePicker.Scheduler(){public long now(){return android.os.SystemClock.elapsedRealtime();}public void at(Runnable task,long due){handler.postDelayed(task,Math.max(0,due-now()));}public void remove(Runnable task){handler.removeCallbacks(task);}},
+                ()->views.owns(key,view),()->views.epoch(key,view));
+        }
+        @Override void close(){privatePicker.close();choosers.close();}
+        @Override void viewDestroyed(){privatePicker.viewDestroyed(view);choosers.viewDestroyed(view);}
+    }
+    void enableUpload(String key,java.nio.file.Path directory)throws Exception {
+        if(uploads!=null)throw new AssertionError("Duplicate shared file worker");
+        if(java.nio.file.Files.exists(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))verifyFileDirectory(directory);else java.nio.file.Files.createDirectory(directory);
+        uploads=new MdoBrowserUploadQueue(()->{MdoBrowserUploadFiles files=new MdoBrowserUploadFiles(directory);files.acquireCacheLease();return files;},task->new android.os.Handler(android.os.Looper.getMainLooper()).post(task),android.os.SystemClock::elapsedRealtime);
+        WebView view=views.get(key);if(view==null)throw new AssertionError("Original popup missing");MdoBrowserDialogTarget old=dialogs.get(key);if(old!=null)old.close();dialogs.put(key,new MdoBrowserChooserTarget(key,view));uploadQualified=true;
+    }
+    void uploadRpc(String key,String id,JSONObject request)throws Exception{executeUpload(key,id,views.get(key),request);}
+    MdoBrowserUploadUris fileUris(){return new MdoBrowserUploadUris(uploads,android.os.SystemClock::elapsedRealtime);}
+    int uploadFiles(){return uploads==null?0:uploads.activeFiles();}
+    int uploadBooks(){return uploadBooks.size();}
+    private static void verifyFileDirectory(java.nio.file.Path directory)throws Exception {
+        if(java.nio.file.Files.isSymbolicLink(directory)||!java.nio.file.Files.isDirectory(directory,java.nio.file.LinkOption.NOFOLLOW_LINKS))throw new AssertionError("Unknown popup cache preserved");
+        try(java.nio.file.DirectoryStream<java.nio.file.Path> rows=java.nio.file.Files.newDirectoryStream(directory)){
+            for(java.nio.file.Path row:rows){if(!row.getFileName().toString().equals(MdoBrowserUploadFiles.OWNER_FILE)||java.nio.file.Files.isSymbolicLink(row)||
+                    !java.util.Arrays.equals(java.nio.file.Files.readAllBytes(row),"mdo-browser-use-private-upload-cache-v1\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)))throw new AssertionError("Unknown popup cache file preserved");}
+        }
+    }
+    void openPicker(String key,MdoBrowserPrivatePicker.Response response)throws Exception {
+        MdoBrowserChooserTarget target=(MdoBrowserChooserTarget)dialogs.get(key);
+        if(!target.privatePicker.open(views.get(key),new Object(),response,1,new String[]{"application/x-mdo-browseruse-00000000000000000000000000000001"},false))throw new AssertionError("Original popup picker callback was not claimed");
+    }
+    void stopUpload(java.nio.file.Path directory)throws Exception {
+        if(uploads==null)return;cancelUploads();uploads.close();if(!uploads.awaitStopped(5000))throw new AssertionError("Original popup file worker did not retire");android.os.Handler.drain();
+        if(uploadFiles()!=0||uploadBooks()!=0)throw new AssertionError("Popup file authority retained after native destruction");
+        // Keep only the verified ownership marker in this one reusable QA
+        // directory. No per-case cache copies or directory replacement.
+        verifyFileDirectory(directory);
+    }
     static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
     PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());WebView root=views.get("root");if(root!=null){MdoBrowserDocument original=new MdoBrowserDocument(root);original.assigned=true;documents.put("root",original);}}
@@ -216,8 +259,9 @@ final class PopupProductHost {
     void nativeNavigationRetire(NetworkEntry row){}void networkReplyFailure(NetworkEntry row){}void networkDiscardUnsent(NetworkEntry row){}
     @@NETWORK_LIFETIME@@
     @@NETWORK_DESTROY@@
-    void cancelUpload(String key,WebView exact){if(failClose)throw new IllegalStateException("controlled_logical_cleanup_failure");}
-    void retireUploadData(WebView view){@@POST_DESTROY@@ retired++;}
+    @@UPLOAD@@
+    @@ASSIGNMENT@@
+    @@CAPTURE_FENCE@@
     void configureBrowserView(String key,WebView view){configured++;dialogs.put(key,new MdoBrowserDialogTarget(view));if(failConfiguration)throw new IllegalStateException("controlled_product_configuration_failure");}
     MdoBrowserCdpPopupNative.Created construct(MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupWorker.Allocation allocation,String key)throws java.io.IOException{return constructProtocolPopup(source,allocation,key);}
     MdoBrowserCdpPopupNative.Promotion promote(String key,MdoBrowserCdpPopupNative source,MdoBrowserCdpPopupNative.Created original,MdoBrowserCdpPopupNative.Child proof)throws java.io.IOException{return promoteProtocolPopup(key,source,original,proof);}

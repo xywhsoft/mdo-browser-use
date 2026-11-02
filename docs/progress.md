@@ -13198,3 +13198,70 @@ protected navigation/takeover, overall Android admission and platform/final
 qualification remain open. Public Android automation stays disabled;
 phone/current WebView checks remain deferred. No ADB, live model, external site
 or production action was used, and the overall goal remains active.
+
+### E171 protected popup upload, clear and retained file integration
+
+E170 corrected document selection but had only proved the existing-marker route.
+The popup product harness now includes the actual upload staging/assignment,
+chooser readiness and invalidation, clear reservation, physical data teardown
+and capture mutation fence fragments. It uses actual upload queue/coordinator,
+private picker, retention and URI range-read cores on the original proved popup
+document and protocol worker. No new production patch was needed in the seven
+focused integrated flows; E170's continuation selection is exercised directly.
+
+Reusable controlled owner/file-node/picker/clear peers now accept the original
+document's world engine and cancellation hooks. Their ordinary-page tests still
+pass625/1,532/307 assertions. They do not construct a second protocol worker or
+view for the protected tests. Seven focused product cases/361 reported checks
+pass: root upload, nested-frame upload, upload cancellation, clear, clear after-send
+cancellation, exact retained URI reads after staging expiry and explicit release,
+and closing a popup while its upload is waiting for the native chooser. Each
+case has one original Browser connection and one native proof connection, no
+effect replay, and successful actual product close/detach/physical-view/file-worker
+cleanup receipts. Cancellation after clear dispatch is uncertain, not success.
+
+The native UI/renderer/framework surroundings are controlled. Real file staging,
+hash/chunk verification, native object-grant core, retention and URI range reads
+do not prove Android OS permission delivery, Binder descriptors or an installed
+provider's FileList. Public Android automation stays disabled. The one reusable
+QA upload cache retains only its verified ownership marker after queue shutdown;
+unknown files and links are rejected rather than replaced.
+
+Initial fixture compilation lacked checked JSON/I/O handling; the first runtime
+attempt incorrectly waited for a lazy file queue to be ready before its first
+begin. Those fixture errors were corrected without changing product code. The
+empty-directory cleanup shell command was rejected by automatic approval review;
+the harness now safely reuses its validated fixed QA directory and retains its
+ownership marker instead of requiring that removal. See
+`.mdo/E171-compile-first.log`, `.mdo/E171-focused-first.log` and the successful
+`.mdo/E171-focused.log` / `.mdo/E171-focused-result.json`.
+
+The final complete native matrix passes447 popup-worker modes/17,093 reported
+checks, including the seven integrated file cases, ordinary upload/clear/chooser
+and retention suites, real JNI/transport, ASan/UBSan and API26 compilation. All131
+native input hashes verify; actual `MdoBrowserUploadUris` source is now also part
+of this native gate. The earlier440 popup-worker semantic receipts are unchanged,
+excluding raw assertion counts rather than treating them as coverage invariants.
+See `.mdo/E171-native.log` and `.mdo/E171-semantic-differences.json` (empty).
+
+Fresh Python178 of180 checks pass with the same two Windows symlink-privilege
+skips. The actual shared JS dispatcher/driver/reader to product JVM recovery
+gate passes all four modes after the final compilation, with actual cleanup and
+current source/class/library hashes. Reviewed deployment source and HTTP200
+readiness verify. See `.mdo/E171-python.log`, `.mdo/E171-native-frontend.log`
+and `.mdo/E171-verification.json` / `.mdo/E171-verification.log`.
+
+Production host/plugin/builder sources are unchanged. The existing Windows
+6,941,992-byte archive (SHA-256
+`8503e6ad98aa9aa1501f6c57d7b00a05bb107b25b3b630fb40ec5d2273109c0e`)
+and Android6,579,521-byte APK (SHA-256
+`74a3ea15699e9654e7ad87c52d4663b9e5fb41700b0acab3bf915669d3e9e97d`)
+are source/hash verified reuse, not new builds or fresh platform qualification.
+The exact exercised app archive and paired plugin still match current sources.
+
+This completes the controlled product protected-popup upload/clear/file-retention
+integration gate. Protected navigation/takeover, Android OS/provider/permission
+admission, deferred phone checks, overall Windows completion audit and final
+deliverables remain open. Public Android automation remains disabled; no ADB,
+provider update, live model, external site or production action was used. The
+overall goal remains active.

@@ -6050,3 +6050,29 @@ does not qualify Android URI permission grants, an installed provider's FileList
 assignment or protected-popup upload end to end. Public Android automation stays
 disabled pending that integration and platform qualification. The phone and its
 current WebView remain deferred.
+
+### Protected popup file-flow integration (E171)
+
+The product popup harness now joins the actual upload staging and assignment
+fragments, original document continuation, upload coordinator, private picker,
+file queue, native data retention and URI read registry on the original proved
+popup worker/connection. The existing frame-owner, file-node, picker and clear
+protocol peers can attach to an already running document without constructing
+another protocol worker or a replacement view. Ordinary-page tests continue to
+use the same peers and assertions.
+
+Controlled integration cases cover root and nested-frame upload, cancellation
+before a native grant, native file-input clear, cancellation after clear dispatch,
+reading the exact granted bytes after staging expiry, explicit release, and
+closing the popup during a pending upload. Repeated assignment/clear requests
+must keep the original receipt and cannot send a second effect. Each case checks
+the original native create, connection, detach, physical-destruction and file
+worker cleanup receipts. Only the verified ownership marker remains in the one
+reused QA cache; no per-case application or Home is created.
+
+The framework view/controller, native chooser response and renderer DOM are
+still controlled peers. URI registry/proxy-range reads run the actual file queue,
+but this does not qualify Android URI permission delivery, a Binder descriptor,
+an installed provider's actual FileList or Android public automation. Those
+flags remain false. No provider upgrade, ADB or phone action is required by this
+test. Protected navigation/takeover and overall platform admission remain open.

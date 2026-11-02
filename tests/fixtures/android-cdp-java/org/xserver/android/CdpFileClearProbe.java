@@ -21,12 +21,12 @@ public final class CdpFileClearProbe {
         try{operation.run();throw new AssertionError("Missing file clear rejection");}
         catch(IOException error){if(code!=null&&!code.equals(error.getMessage()))throw new AssertionError("Expected "+code+" but got "+error.getMessage());check(true);}
     }
-    static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
-        final CdpFileInputProbe.Case node;
+    static class Peer implements CdpBindingProbe.Factory.Extra {
+        final CdpFileInputProbe.Nodes node;final CdpBindingProbe.Factory.Extra next;
         volatile int clears,verified;volatile Runnable onClear;String failure="";
         final java.util.Set<String> inspected=new java.util.HashSet<>(),described=new java.util.HashSet<>(),proven=new java.util.HashSet<>(),clearedGroups=new java.util.HashSet<>(),statusGroups=new java.util.HashSet<>();
-        Case()throws Exception {this(new CdpFileInputProbe.Case());}
-        Case(CdpFileInputProbe.Case node)throws Exception {this.node=node;node.peer.host.plan.extra=this;}
+        Peer(CdpFileInputProbe.Nodes node){this(node,node);}
+        Peer(CdpFileInputProbe.Nodes node,CdpBindingProbe.Factory.Extra next){this.node=node;this.next=next;}
         private void reply(CdpBindingProbe.Wire wire,JSONObject request,JSONObject value,boolean error)throws Exception {
             JSONObject packet=new JSONObject().put("id",request.getInt("id")).put(error?"error":"result",value);
             if(request.has("sessionId"))packet.put("sessionId",request.getString("sessionId"));wire.queue(packet);
@@ -48,8 +48,8 @@ public final class CdpFileClearProbe {
                 if(onClear!=null)onClear.run();
                 if(failure.equals("native_error")){reply(wire,request,new JSONObject().put("code",-32000).put("message","private native clear failure"),true);return true;}
                 if(failure.equals("native_navigate"))navigate(wire,request);
-                if(failure.equals("native_timeout"))node.peer.host.clockOffset.addAndGet(20000);
-                if(failure.equals("native_cancel"))node.peer.host.marker.close();
+                if(failure.equals("native_timeout"))node.onTimeout.run();
+                if(failure.equals("native_cancel"))node.onCancel.run();
                 reply(wire,request,failure.equals("native_reply")?new JSONObject().put("unexpected",true):new JSONObject(),false);return true;
             }
             if(method.equals("Runtime.callFunctionOn")&&params.optString("functionDeclaration").equals(MdoBrowserCdpFileInput.CLEAR_STATUS)){
@@ -64,7 +64,7 @@ public final class CdpFileClearProbe {
                 if(failure.equals("status_flag"))status.put("empty","true");if(failure.equals("status_failed"))status.put("ok",false);
                 JSONObject response=new JSONObject().put("result",new JSONObject().put("type","object").put("value",status));
                 if(failure.equals("status_exception"))response.put("exceptionDetails",new JSONObject().put("text","private script failure"));
-                if(failure.equals("status_cancel"))node.peer.host.marker.close();
+                if(failure.equals("status_cancel"))node.onCancel.run();
                 reply(wire,request,response,false);return true;
             }
             if(method.equals("DOM.describeNode")){
@@ -74,9 +74,14 @@ public final class CdpFileClearProbe {
                 if(params.optBoolean("throwOnSideEffect"))proven.add(params.getString("objectGroup"));
                 else if(params.optString("functionDeclaration").equals(MdoBrowserCdpFileInput.INFO))inspected.add(params.getString("objectGroup"));
             }
-            return node.send(request,wire);
+            return next.send(request,wire);
         }
-        @Override public void closed(CdpBindingProbe.Wire wire){node.closed(wire);}
+        @Override public void closed(CdpBindingProbe.Wire wire){next.closed(wire);}
+    }
+    static final class Case extends Peer implements AutoCloseable {
+        final CdpFileInputProbe.Case node;
+        Case()throws Exception {this(new CdpFileInputProbe.Case());}
+        Case(CdpFileInputProbe.Case node)throws Exception {super(node);this.node=node;node.peer.host.plan.extra=this;}
         JSONObject request(String raw)throws Exception {return node.request(raw).put("action","file_clear");}
         JSONObject clear(JSONObject request)throws Exception {
             MdoBrowserCdpFrameRequest operation=MdoBrowserCdpFrameRequest.parse(request);check(operation.effect&&!operation.chooserContinuation());

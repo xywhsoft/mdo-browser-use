@@ -21,6 +21,14 @@ def prepare_popup_product(output):
     lifecycle=(ROOT/'host/android/browser-destroy.inc.java').read_text(encoding='utf-8')
     network=(ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8')
     capture=(ROOT/'host/android/browser-native-capture.inc.java').read_text(encoding='utf-8')
+    chooser=(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8')
+    chooser=chooser[:chooser.index('    private void cancelChooser')].replace('private boolean chooserReady(', 'private boolean productChooserReady(',1)
+    # Preserve the pre-existing controlled close-failure/counter seams while
+    # running the real upload lifetime and physical native destruction hooks.
+    if upload.count('private void cancelUpload(String key,WebView expected){')!=1 or upload.count('private void retireUploadData(WebView view){')!=1:
+        raise RuntimeError('Popup upload lifetime fixture seam changed')
+    popup_upload=upload.replace('private void cancelUpload(String key,WebView expected){', 'private void cancelUpload(String key,WebView expected){if(failClose)throw new IllegalStateException("controlled_logical_cleanup_failure");',1)
+    popup_upload=popup_upload.replace('private void retireUploadData(WebView view){', 'private void retireUploadData(WebView view){retired++;',1)
     lifetime=network[network.index('    private void networkRetire(NetworkEntry'):network.index('    private void networkReplyFailure')]
     # The previously controlled root connection stays a fixture dependency;
     # the real popup registry/current/retire/watch/destruction paths run here.
@@ -39,14 +47,16 @@ def prepare_popup_product(output):
         '@@PREPARE_DOCUMENT@@':document[document.index('    private MdoBrowserDocument prepareDocument'):document.index('    private boolean closeDocument')],
         '@@CONSTRUCT@@':view[view.index('    private MdoBrowserCdpPopupNative.Created constructProtocolPopup'):view.index('    /** Common native policy')],
         '@@PREPARATION@@':(ROOT/'host/android/browser-popup-preparation.inc.java').read_text(encoding='utf-8'),
-        '@@INPUT_INVALIDATION@@':'    private void inputInvalidated'+(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8').split('    private void inputInvalidated',1)[1].split('    private void chooserBlocked',1)[0],
+        '@@CHOOSER@@':chooser,
         '@@FRAME_ENVIRONMENT@@':document[document.index('    private boolean cdpEnvironmentCurrent'):document.index('    private MdoBrowserCdpMarker cdpMarker')],
         '@@FRAME_ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
         '@@DOCUMENT_STATE@@':document[document.index('    private JSONObject documentState'):document.index('    private void documentFailure')]+network[network.index('    private JSONObject networkState'):],
         '@@LEGACY_DOCUMENT@@':document[document.index('    private void documentFailure'):],
         '@@CAPTURE_SESSION@@':capture[capture.index('    private MdoBrowserCdpCapture.Session captureDocumentSession'):capture.index('    private void executeNativeCapture')],
         '@@INPUT@@':(ROOT/'host/android/browser-native-input.inc.java').read_text(encoding='utf-8'),
-        '@@POST_DESTROY@@':upload[upload.index('        views.viewDestroyed(view);'):upload.index('        retireUploadTargets(view);')],
+        '@@UPLOAD@@':popup_upload,
+        '@@ASSIGNMENT@@':(ROOT/'host/android/browser-upload-assignment.inc.java').read_text(encoding='utf-8'),
+        '@@CAPTURE_FENCE@@':capture[capture.index('    private boolean captureMutationReady'):capture.index('    private CaptureEntry captureEntry')],
         '@@RESUME@@':lifecycle[lifecycle.index('    void resume()'):lifecycle.index('    void destroy()')],
     }
     for marker,value in fragments.items():
@@ -149,7 +159,7 @@ def main():
                     *[str(ROOT/'host/android'/name) for name in ('MdoBrowserCdpNative.java','MdoBrowserCdpJson.java','MdoBrowserCdpResponse.java','MdoBrowserCdpSession.java',
                                                                'MdoBrowserCdpMarker.java','MdoBrowserCdpView.java','MdoBrowserCdpBinding.java','MdoBrowserCdpNetworkFrames.java','MdoBrowserCdpNetworkRequests.java',
                                                                'MdoBrowserCdpRegistry.java','MdoBrowserCdpWorker.java','MdoBrowserCdpNetworks.java','MdoBrowserCdpPopupBroker.java','MdoBrowserCdpPopupWorker.java','MdoBrowserCdpPopupNative.java','MdoBrowserCdpPopupSource.java','MdoBrowserCdpPopupPreparation.java','MdoBrowserCdpFrames.java','MdoBrowserCdpWorlds.java',
-                                                               'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserNativeInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserUploadStore.java','MdoBrowserUploadFiles.java','MdoBrowserDownloadFiles.java','MdoBrowserDownloadQueue.java','MdoBrowserCdpDownloads.java','MdoBrowserUploadQueue.java','MdoBrowserChoosers.java','MdoBrowserPrivatePicker.java','MdoBrowserChannel.java','MdoBrowserCapture.java',
+                                                               'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserNativeInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserUploadStore.java','MdoBrowserUploadFiles.java','MdoBrowserUploadUris.java','MdoBrowserDownloadFiles.java','MdoBrowserDownloadQueue.java','MdoBrowserCdpDownloads.java','MdoBrowserUploadQueue.java','MdoBrowserChoosers.java','MdoBrowserPrivatePicker.java','MdoBrowserChannel.java','MdoBrowserCapture.java',
                                                                'MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java','MdoBrowserPopups.java')],
                     str(generated),str(upload_generated),str(download_generated),str(popup_product),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
@@ -248,6 +258,8 @@ def main():
                   'preparation-page-input-chooser','preparation-page-input-stale','preparation-page-input-cancel','preparation-page-input-late',
                   'preparation-page-input-afterdown','preparation-page-input-focus-timeout','preparation-page-input-channel','preparation-page-input-focus-retired',
                   'preparation-publication-ready',
+                  'preparation-publication-files-upload','preparation-publication-files-nested','preparation-publication-files-cancel',
+                  'preparation-publication-files-clear','preparation-publication-files-clear-cancel','preparation-publication-files-retention','preparation-publication-files-page-close',
                   'preparation-publication-continuation-ready','preparation-publication-continuation-loss',
                   'preparation-publication-continuation-parent','preparation-publication-continuation-restore',
                   'preparation-publication-hidden',
@@ -312,6 +324,7 @@ def main():
                 or popup_worker.get('product_protected_input_tested') is not mode.startswith('preparation-page-input-')
                 or popup_worker.get('product_nested_adoption_tested') is not mode.startswith('preparation-publication-nested-')
                 or popup_worker.get('product_upload_continuation_tested') is not mode.startswith('preparation-publication-continuation-')
+                or popup_worker.get('product_protected_file_flow_tested') is not mode.startswith('preparation-publication-files-')
                 or popup_worker.get('product_document_state_tested') is not mode.startswith('preparation-publication-state-')
                 or popup_worker.get('product_frontend_recovery_tested') is not mode.startswith('preparation-publication-frontend-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
@@ -339,6 +352,16 @@ def main():
                 raise RuntimeError('A renderer crash was incorrectly treated as deliberate retirement')
             if mode.startswith('preparation-publication-retirement-ledger-') and published.get('ledger_fault_contained') is not mode.endswith(('-fault','-listener')):
                 raise RuntimeError('A source-ledger fault or ordinary listener error was swallowed as retirement')
+        if mode.startswith('preparation-publication-files-'):
+            receipt=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-'):]
+            clearing=variant.startswith('files-clear');granted=variant in {'files-upload','files-nested','files-retention'}
+            if (not isinstance(receipt,dict) or receipt.get('actual_product_file_flow') is not True or receipt.get('original_file_worker') is not True
+                    or receipt.get('native_grants')!=int(granted) or receipt.get('native_responses')!=int(granted)
+                    or receipt.get('opens')!=int(not clearing) or receipt.get('commits')!=int(granted) or receipt.get('clears')!=int(clearing)
+                    or receipt.get('retained_read_verified') is not granted or receipt.get('nested') is not (variant=='files-nested')
+                    or receipt.get('staging_expiry_tested') is not (variant=='files-retention')
+                    or receipt.get('framework_grant_qualified') is not False or receipt.get('provider_qualified') is not False):
+                raise RuntimeError('Protected popup upload/clear did not retain exact original native file and document ownership')
         if mode.startswith('preparation-publication-continuation-'):
             receipt=popup_worker.get('product_frame_route')
             if (not isinstance(receipt,dict) or receipt.get('original_document_continuation') is not True
@@ -634,7 +657,7 @@ def main():
             'host/android/MdoBrowserCdpNative.java','host/android/MdoBrowserCdpJson.java','host/android/MdoBrowserCdpResponse.java','host/android/MdoBrowserCdpSession.java',
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java','host/android/MdoBrowserCdpNetworkRequests.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpPopupBroker.java','host/android/MdoBrowserCdpPopupWorker.java','host/android/MdoBrowserCdpPopupNative.java','host/android/MdoBrowserCdpPopupSource.java','host/android/MdoBrowserCdpPopupPreparation.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
-            'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserDownloadFiles.java','host/android/MdoBrowserDownloadQueue.java','host/android/MdoBrowserCdpDownloads.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
+            'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserUploadUris.java','host/android/MdoBrowserDownloadFiles.java','host/android/MdoBrowserDownloadQueue.java','host/android/MdoBrowserCdpDownloads.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
             'host/android/browser-network-navigation.inc.java','host/android/browser-destroy.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-popup-preparation.inc.java','host/android/browser-close.inc.java','host/android/browser-native-input.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserPopups.java','host/android/browser-native-popup.inc.java','host/android/popup-protocol.json',

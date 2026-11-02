@@ -28,10 +28,11 @@ public final class CdpOwnerProbe {
     static final class Server implements CdpBindingProbe.Factory.Extra {
         interface OwnerValue {JSONObject value(String child,JSONObject value)throws Exception;}
         OwnerValue ownerValue;
-        final CdpWorldsProbe.Engine worlds;final CdpFramesProbe.Case host;final Map<String,ObjectRef> objects=new HashMap<>();
+        final CdpWorldsProbe.Engine worlds;final Runnable advanceTimeout;final Map<String,ObjectRef> objects=new HashMap<>();
         final Map<Integer,String> backends=new HashMap<>();String pendingChild;int queries,resolves,negative,proofs,helpers,releases,disconnects;
         boolean badBackend,badNode,wrongRealm,ignoreUnique,helperException,badValue,resolveNavigation,parentNavigation,releaseFailure,timeout;
-        Server(CdpFramesProbe.Case host)throws Exception {this.host=host;worlds=new CdpWorldsProbe.Engine();}
+        Server(CdpFramesProbe.Case host)throws Exception {this(new CdpWorldsProbe.Engine(),()->host.clockOffset.addAndGet(20000));}
+        Server(CdpWorldsProbe.Engine worlds,Runnable advanceTimeout){this.worlds=worlds;this.advanceTimeout=advanceTimeout;}
         private String parent(String child){return child.equals("leaf-frame")?"child-local":child.equals("child-local")?"child-frame":"frame-owned";}
         private String parentSource(String child){return child.equals("leaf-frame")||child.equals("child-local")?"child-session":null;}
         private void result(CdpBindingProbe.Wire wire,JSONObject request,JSONObject reply)throws Exception {
@@ -85,7 +86,7 @@ public final class CdpOwnerProbe {
                     .put("painted",true).put("content",new JSONObject().put("x",10).put("y",20).put("width",300).put("height",200));}
                 else {check(args.length()==1&&declaration.contains(MdoBrowserCdpOwnerScripts.UPLOAD_POLICY));}
                 if(parentNavigation)wire.queue(event("Page.frameNavigated","child-session",new JSONObject().put("frame",new JSONObject().put("id","child-local").put("parentId","child-frame").put("loaderId","changed-parent-load"))));
-                if(timeout)host.clockOffset.addAndGet(20000);
+                if(timeout)advanceTimeout.run();
                 if(ownerValue!=null)value=ownerValue.value(object.child,value);
                 if(badValue)value.put("ok","ambiguous");JSONObject reply=new JSONObject().put("result",new JSONObject().put("type","object").put("value",value));
                 if(helperException)reply.put("exceptionDetails",new JSONObject().put("text","private owner detail"));result(wire,request,reply);return true;

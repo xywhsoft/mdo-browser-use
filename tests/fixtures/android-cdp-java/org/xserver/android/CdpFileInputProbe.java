@@ -27,18 +27,13 @@ public final class CdpFileInputProbe {
         final String group,source;final CdpWorldsProbe.Context context;
         ObjectRef(String group,String source,CdpWorldsProbe.Context context){this.group=group;this.source=source;this.context=context;}
     }
-    static final class Case implements AutoCloseable,CdpBindingProbe.Factory.Extra {
-        final CdpOwnerProbe.Case peer=new CdpOwnerProbe.Case();final Map<String,JSONObject> nodes=new HashMap<>();
+    /** Controlled DOM behavior reusable on an existing native document's wire;
+     * constructing this peer never creates another worker or connection. */
+    static class Nodes implements CdpBindingProbe.Factory.Extra {
+        final CdpOwnerProbe.Server server;final Runnable onTimeout,onCancel;final Map<String,JSONObject> nodes=new HashMap<>();
         final Map<String,ObjectRef> objects=new HashMap<>();final Set<String> groups=new HashSet<>();
         String failure="",navigationAt="",raw;int getters,proofs,helpers,describes,releases,disconnects,fileBackend=77;
-        Case()throws Exception {this(true);}
-        Case(boolean initialize)throws Exception {
-            peer.host.plan.extra=this;
-            if(initialize)peer.host.run((binding,deadline)->{MdoBrowserCdpFrames graph=binding.frames();JSONObject inventory=graph.inventory(deadline);
-                JSONArray rows=inventory.getJSONArray("frames");for(int i=0;i<rows.length();i++){
-                    JSONObject row=rows.getJSONObject(i);nodes.put(graph.select(row.getString("id"),row.getString("document")).raw,row);}
-                return new JSONObject().put("ok",true);});
-        }
+        Nodes(CdpOwnerProbe.Server server,Runnable onTimeout,Runnable onCancel){this.server=server;this.onTimeout=onTimeout;this.onCancel=onCancel;}
         private void result(CdpBindingProbe.Wire wire,JSONObject request,JSONObject reply)throws Exception {
             JSONObject packet=new JSONObject().put("id",request.getInt("id")).put("result",reply);
             if(request.has("sessionId"))packet.put("sessionId",request.getString("sessionId"));wire.queue(packet);
@@ -60,7 +55,7 @@ public final class CdpFileInputProbe {
                 getters++;String expression=params.getString("expression"),group=params.getString("objectGroup");
                 check(!params.getBoolean("returnByValue")&&!params.getBoolean("awaitPromise")&&params.getBoolean("silent")&&!params.getBoolean("throwOnSideEffect"));
                 check(!params.has("contextId")&&!params.has("executionContextId")&&group.matches("mdo-file-input-[a-f0-9-]{36}"));groups.add(group);
-                CdpWorldsProbe.Context context=null;for(CdpWorldsProbe.Context candidate:peer.server.worlds.contexts.values())
+                CdpWorldsProbe.Context context=null;for(CdpWorldsProbe.Context candidate:server.worlds.contexts.values())
                     if(candidate.unique.equals(params.getString("uniqueContextId"))&&Objects.equals(candidate.source,source))context=candidate;
                 check(context!=null&&context.frame.equals(raw));JSONObject pin=new JSONObject(expression.substring(MdoBrowserCdpFileInput.NODE.length()+1,expression.length()-1));
                 check(pin.getString("document").equals(DOC)&&pin.getString("ref").equals("e7"));
@@ -102,8 +97,8 @@ public final class CdpFileInputProbe {
                 if(failure.equals("flag"))info.put("hidden","false");
                 JSONObject reply=new JSONObject().put("result",new JSONObject().put("type","object").put("value",info));
                 if(failure.equals("helper_exception"))reply.put("exceptionDetails",new JSONObject().put("text","private DOM detail"));
-                if(failure.equals("timeout"))peer.host.clockOffset.addAndGet(20000);
-                if(failure.equals("cancel"))peer.host.marker.close();
+                if(failure.equals("timeout"))onTimeout.run();
+                if(failure.equals("cancel"))onCancel.run();
                 navigate(wire,"helper",source);result(wire,request,reply);return true;
             }
             if(method.equals("Runtime.releaseObjectGroup")&&params.optString("objectGroup").startsWith("mdo-file-input-")){
@@ -112,9 +107,9 @@ public final class CdpFileInputProbe {
                 if(failure.equals("release")){error(wire,request,-32000,"private release detail");return true;}
                 objects.entrySet().removeIf(row->row.getValue().group.equals(group));groups.remove(group);result(wire,request,new JSONObject());return true;
             }
-            return peer.server.send(request,wire);
+            return server.send(request,wire);
         }
-        @Override public void closed(CdpBindingProbe.Wire wire){disconnects++;objects.clear();groups.clear();peer.server.closed(wire);}
+        @Override public void closed(CdpBindingProbe.Wire wire){disconnects++;objects.clear();groups.clear();server.closed(wire);}
         JSONObject request(String raw)throws Exception {
             this.raw=raw;JSONObject leaf=nodes.get(raw);JSONArray chain=new JSONArray();JSONObject row=leaf;
             while(row!=null){chain.put(new JSONObject().put("frame",row.getString("id")).put("document",row.getString("document")));
@@ -123,6 +118,19 @@ public final class CdpFileInputProbe {
             }
             return new JSONObject().put("command","frames").put("agent",true).put("action","file_input").put("frame",leaf.getString("id"))
                 .put("document",leaf.getString("document")).put("local_document",DOC).put("ref","e7").put("frame_chain",chain);
+        }
+    }
+    static final class Case extends Nodes implements AutoCloseable {
+        final CdpOwnerProbe.Case peer;
+        Case()throws Exception {this(true);}
+        Case(boolean initialize)throws Exception {this(new CdpOwnerProbe.Case(),initialize);}
+        private Case(CdpOwnerProbe.Case peer,boolean initialize)throws Exception {
+            super(peer.server,()->peer.host.clockOffset.addAndGet(20000),()->peer.host.marker.close());this.peer=peer;
+            peer.host.plan.extra=this;
+            if(initialize)peer.host.run((binding,deadline)->{MdoBrowserCdpFrames graph=binding.frames();JSONObject inventory=graph.inventory(deadline);
+                JSONArray rows=inventory.getJSONArray("frames");for(int i=0;i<rows.length();i++){
+                    JSONObject row=rows.getJSONObject(i);nodes.put(graph.select(row.getString("id"),row.getString("document")).raw,row);}
+                return new JSONObject().put("ok",true);});
         }
         JSONObject inspect(JSONObject request)throws Exception {
             MdoBrowserCdpFrameRequest operation=MdoBrowserCdpFrameRequest.parse(request);check(!operation.effect);
