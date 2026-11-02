@@ -211,7 +211,7 @@ def main():
         popup_results.append(popup)
     result['jvm_popup_broker']=popup_results
     popup_worker_results=[]
-    for mode in ('suite','native-cancel','host-close','native-ack-timeout','native-detach-timeout','native-send-failure','protection','protection-limit','protection-response','protection-duplicate','protection-timeout','protection-send-failure','protection-reply','protection-nonempty',
+    for mode in ('suite','native-cancel','host-close','host-close-late-transport','native-ack-timeout','native-detach-timeout','native-send-failure','protection','protection-limit','protection-response','protection-duplicate','protection-timeout','protection-send-failure','protection-reply','protection-nonempty',
                  'native-proof','native-proof-missing','native-proof-unique','native-proof-owner','native-proof-cancel','native-proof-barrier','native-proof-detach','native-proof-no-guard','native-proof-marker','native-proof-late-ui','native-proof-between','native-proof-cooperative','native-proof-no-opener','native-proof-foreign-opener','native-proof-multiple','native-proof-post-birth','allocation','allocation-cleanup-failure','ownership','ownership-constructor-failure','ownership-disposal-failure','ownership-disposal-no-ack','retirement','retirement-disposal-failure','retirement-disposal-no-ack','retirement-no-consumption','retirement-opener-loss','admission-fence','owner-lifetime-unsent','owner-lifetime-sent',
                  'host-destruction','host-destruction-unsent','host-destruction-inline','host-destruction-human','host-destruction-human-inline','host-destruction-failure','host-destruction-nested-parent','host-destruction-nested-child',
                  'product-disposal','product-disposal-sent','product-disposal-consumed','product-disposal-configuration','product-disposal-network','product-disposal-failure','product-disposal-logical-failure','product-disposal-nested','product-disposal-reentrant',
@@ -518,6 +518,9 @@ def main():
                     or proof.get('late_callback') is not (variant=='callback') or proof.get('native_effects')!=0
                     or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1 or proof.get('provider_qualified') is not False):
                 raise RuntimeError('Product popup navigation lost commit/destination/document rearm, cancellation or stale-reference isolation')
+        if mode=='host-close-late-transport':
+            proof=popup_worker.get('host_close')
+            if proof!={'original_close_raced':True,'code':'cdp_worker_closed','cleanup_confirmed':False,'source_released':False,'wire_closes':1,'disables':0,'worker_terminated':True}:raise RuntimeError('Original host close lost its authoritative cause or invented cleanup')
         if mode.startswith('preparation-page-natural-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-natural-'):]
             denied=variant in {'hidden','manual','channel'};retry=variant in {'mismatch','pending','changed','late'}

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E177)
+## Complete development host APK (current: E178)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,587,713 bytes, SHA-256
-`11e0830f4a96d1bb783d254e443b271072d05471284e46116f9f6b21dae98ba8`.
+`47ac96fc9c90aa2ece5a296e0e10b17f89c13702af37c766f0bf83569fc8cca2`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,7 +72,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the verified E176 Windows
+key is included. The app archive is extracted from the verified E178 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -6099,3 +6099,28 @@ native matrix with controlled renderer/UI peers. These checks do not establish
 Android framework, installed provider, URI/Binder, gesture or device qualification.
 Public Android automation remains disabled; phone/current-WebView checks are
 deferred. See the current [progress and retained evidence](progress.md).
+
+
+### Same-document/history cleanup boundaries (E178)
+
+A native navigation retires the old action's popup preparation before invalidating
+its input/realm. Its new committed document waits for that original preparation
+to settle. This includes fragment/history transitions that keep the UI document
+epoch, and BFCache restores whose original loader can return without a new network
+request. Typed native document/destination proofs and stale navigation-reference
+denials still apply; no command is replayed.
+
+Fresh passive reads wait before their first inventory while the host explicitly
+reports preparation cleanup as unconfirmed. Once reading starts, a cleanup change
+discards successful data rather than restarting the read. A known native denial
+keeps its original cause while cancellation, owner and deadline checks still win.
+Preparation retirement during temporary admission loss leaves only retry intent;
+future inventory must prove the original retained Source and current document.
+
+The host-close regression also forces transport close to race its original
+worker. The unfinished receipt retains `cdp_worker_closed`; unconfirmed cleanup
+and source release remain unconfirmed. Current qualification includes 20 actual
+frontend/JVM paths and the 478-mode native matrix with controlled renderer/UI
+peers. Installed-provider/framework/device qualification, complete protected
+takeover/release and public Android automation remain unavailable. See
+[progress and evidence](progress.md).

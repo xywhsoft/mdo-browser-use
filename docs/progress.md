@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android/Windows E178:** order old popup-preparation retirement before
+  native navigation/read rearm. Qualify same-document goto/history and BFCache
+  history with early native commits, late UI preparation checks and stale refs.
+  Fresh passive reads wait for known cleanup before first inventory; mid-read
+  cleanup discards success without hiding a native denial or replaying work.
+  Preserve explicit host-close cause during transport teardown. Native478,
+  JS480, Python178/180,20 actual frontend/JVM paths, fresh Windows SDK/visual/
+  packed runtime and rebuilt APK/DEX pass. Android device admission stays deferred.
+
 - **Android E177:** recover lost native document contexts without a new UI
   navigation epoch on an explicit fresh read. Use data-only binding loss detection,
   original-source document proof and a new marker; retain settled original popup
@@ -13711,3 +13720,109 @@ provider/OS admission, deferred device checks and final Windows/requirements/
 deliverable audit remain open. Ongoing native-origin readiness beyond explicit
 fresh reads is not newly qualified here. No phone, provider update, live model,
 external website or production/store action was used. The overall goal stays active.
+
+### E178 navigation, passive recovery and authoritative cleanup boundaries
+
+Reproduced same-document navigation/history intermittently failing with
+`cdp_navigation_document_changed` after its actual native commit. The old action's
+popup preparation could retire after a replacement document marker had begun
+warming, and its original invalidation then revoked that new marker. The new
+fixture makes this deterministic: delay the old preparation watch, publish the
+actual native commit before delivering UI callbacks, and query the same real
+`popupPreparationState` getter used by the host. Original failure is retained in
+`.mdo/E178-same-early-commit-before.log`; earlier ordinary-order failures are in
+`.mdo/E178-transition-first.log` and `.mdo/E178-same-state.log`.
+
+Native navigation now retires the previous preparation before input/realm
+invalidation, including same-document transitions that do not call
+`documentNavigation`. PopupPage joins the committed document only after the
+previous preparation has settled, under the original navigation deadline.
+The physical Source, shared Browser connection and Fetch guard are retained;
+no navigation or page input is repeated. Two new actual dispatcher/driver/JVM/JNI
+flows cover fragment goto/back/forward and reload, plus goto/BFCache back/forward
+and reload. Each commits all four native operations before UI delivery, defers
+four original preparation watches, rejects three superseded navigation refs and
+then completes wait/observe. BFCache restores reuse native loader identities
+without a new request event; reload must still prove a new document. This is
+controlled protocol/UI evidence, not installed-provider BFCache qualification.
+
+The fixture now reads the real preparation state and drains the same original UI
+queue for context-recovery paths. This exposed a further fresh-read failure when
+preparation ended while manual admission was disabled. PopupPage now remembers
+only explicit-read retry intent for that admission loss. A later inventory must
+still prove the retained original physical Source, Handoff, frame/loader and
+settled current root. This does not implement the broader protected takeover/
+release lifecycle or restore a retired physical source.
+
+The common dispatcher waits for an explicitly unconfirmed retiring/terminal
+preparation before the first passive inventory or expression. It retains the
+whole-call deadline and rechecks cancellation, owner and manual boundaries.
+Once a read has started, cleanup cannot become an implicit replay: success is
+discarded, including the previously missing post-read check for wait results.
+Private driver/reader checkpoints identify only an authenticated native denial
+so that its original error is preserved rather than replaced by a generic busy
+message. Those checkpoints still enforce cancellation, owner, deadline and
+permanent world errors, and no stale payload is returned. Two new dispatcher
+tests cover observe/wait completion, timeout/cancellation/owner/manual admission,
+cleanup during/after reading and native-error preservation. Relevant97 JS tests
+pass, including all70 dispatcher tests. See `.mdo/E178-targeted-js.log`,
+`.mdo/E178-four-current.log` and `.mdo/E178-frontend-before-native.log`.
+
+The first full native run found an existing host-close race. Original shutdown
+could wake a protocol wait, allowing `cdp_session_closed` to win the unfinished
+request's terminal receipt before the explicit `cdp_worker_closed` was recorded.
+Ten ordinary targeted runs did not reproduce it; a real pending receive plus a
+blocked original transport close then deterministically reproduced the exact
+wrong code with cleanup/source-release both false. Job.finish now gives an
+already requested host close its intended cause, keeping completed receipts and
+both cleanup fields unchanged. New `host-close-late-transport` proves the original
+wire closes once, no disable acknowledgement is invented, cleanup/release stay
+false and the original worker terminates. The initial failure and forced witness
+are in `.mdo/E178-native-first.log` and `.mdo/E178-host-close-race-before.log`;
+`.mdo/E178-host-close-fixed.log` includes five current targeted cases.
+
+Full native passes478 modes /18,907 reported checks, all133 current input
+hashes, API26 compilation, JNI/transport and ASan/UBSan. Earlier477 outcomes are
+compared in `.mdo/E178-semantic-differences.json`; only any explicitly listed,
+previously reviewed loading-timeout close/cleanup diagnostic fields are permitted
+to vary. All20 real JS/driver/reader-to-JVM paths pass with exact source/class/
+library hashes, one original worker and Browser/proof connection each and final
+cleanup. All480 JS tests pass; Python178/180 pass with two existing Windows
+symlink-privilege skips. See `.mdo/E178-native.log`, `.mdo/E178-native-review.log`,
+`.mdo/E178-native-frontend.log`, `.mdo/E178-javascript.log`,
+`.mdo/E178-python.log` and `.mdo/E178-verification.json`.
+
+Because the common dispatcher and frame read layers changed, Windows is freshly
+built and exercised. The actual public C SDK passes19 actions/4 navigations/
+5 waits, visual permission checks pass, and the packed program passes12 checks
+including C/JS/native observation/input, network error recovery, paired-plugin
+integrity, official-update policy preservation and headless restoration. Its
+artifact is 6,942,483 bytes, SHA-256
+`bfc8996e85e78ce1bbb66e90ba18b7dcd50f9e7e0845c914e8ee0db43f59e03d`. See `.mdo/E178-sdk.log`,
+`.mdo/E178-visual.log`, `.mdo/E178-package.log` and
+`.mdo/E178-packed-runtime.log`.
+
+The first full Windows SDK run did fail in the JS client's second-popup sequence
+with `waiting_for_panel_mount`. Preserve `.mdo/E178-sdk-first-failure.log` and
+`.mdo/E178-finish-first-failure.log`; this was not converted into a pass. A
+diagnostic run of that same SDK sequence then passed, as did three sequential
+full JS-client popup/dialog/navigation/drag witnesses in the single deployment.
+See `.mdo/E178-sdk-diagnostic.log` and `.mdo/E178-popup-repeat.log`. Those successes
+do not establish the first failure's cause. The panel-mount/dispatcher publication
+race is the next focused investigation, and the Windows completion audit remains
+open. The finishing stages resumed separately in `.mdo/E178-resume.log`.
+
+The fresh signed APK is 6,587,713 bytes, SHA-256
+`47ac96fc9c90aa2ece5a296e0e10b17f89c13702af37c766f0bf83569fc8cca2`. It embeds that exact exercised application
+archive; actual DEX checks include the changed navigation, invalidation and
+worker terminal methods. The QA package/signer/serial are retained. The single
+service is restored with HTTP200 readiness. Public Android automation and device/
+framework/provider qualification remain false. See `.mdo/E178-apk.log`,
+`.mdo/E178-dex-methods.json` and `.mdo/E178-finish.log`.
+
+Overlapping/second navigation during guarded product transitions,
+download-only-to-HTML recovery, full protected takeover/release, ongoing native
+origin UI-readiness authority, broader Android/provider/OS admission, deferred
+phone checks and final Windows/full-requirements/deliverable audit remain open.
+No phone/provider update, live model, external site, production/store action or
+additional application/Home copy was used. The overall goal remains active.

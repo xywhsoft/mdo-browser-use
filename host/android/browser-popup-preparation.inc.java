@@ -114,6 +114,10 @@
                 (worldReady||continuingNativePreparation(original))&&current()&&views.epoch(network.entry.key,network.entry.view)==epoch&&original.preparation.originalNativePending()!=null;
             pendingPreparation=ownPopup?original:null;
             worldReady=false;restoring=false;restoringRead=null;
+            // Remember only retry intent when preparation ends under takeover
+            // or another admission loss. A later explicit inventory must still
+            // prove this original physical Source and its current document.
+            if("popup_preparation_retired".equals(reason)&&!current()&&views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch)naturalReadRecovery=true;
             // UI-only loss can rearm this exact epoch. A different document
             // additionally needs explicit inventory and an original-source guard;
             // pinned actions never create replacement authority here.
@@ -135,6 +139,11 @@
             String key=network.entry.key;WebView view=network.entry.view;long observed=views.epoch(key,view);
             if(!cdpEnvironmentCurrent(key,view,observed,network.entry.channelLease)||!chooserReady(dialogs.get(key))||views.inputBusy(key,view)||!views.inputClean(key,view))return false;
             if(inFlight||cdpWorker.pending(marker))return false;
+            // Old preparation may still deliver its original invalidation.
+            // Preserve this navigation's deadline; never warm a replacement
+            // marker while that previous action can retire it.
+            PopupPreparation previous=protocolPopupPreparations.get(key);
+            if(previous!=null&&!previous.preparation.settled())return false;
             try{
                 long used=android.os.SystemClock.elapsedRealtime()-operation.born;if(used<0||used>operation.timeout-100)throw new java.io.IOException("cdp_navigation_document_timeout");
                 if(navigating!=operation||!documentCurrent()||!restoring){

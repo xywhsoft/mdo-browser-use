@@ -69,7 +69,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
   if (exclusive && (writers.has(writer) || downloadSaveState(writer)) || captures && capturing) return fail("browser_busy", "Another action or screenshot is still completing; inspect its receipt before retrying");
   if (exclusive) writers.add(writer);
   if (captures) capturing = true;
-  let lastReceipt = -Infinity, navigation, popupPreparationRequired=false;
+  let lastReceipt = -Infinity, navigation, popupPreparationRequired=false,pageReadStarted=false;
   const dialogBoundary = async () => ({ handled: true, result: { ok: true,
     outcome: "dialog_open", completed: false, dispatched, action: action.id,
     dialogs: (await view.execute("dialog", { action: "list", agent: true })).dialogs || [] } });
@@ -102,6 +102,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     return null;
   };
   const read = async (method, options, navigationRef=null) => {
+    pageReadStarted=true;
     // Isolated evaluation may scroll or run page event handlers even while
     // locating a target. The Android frame router cannot treat arbitrary
     // evaluation as read-only, so protect it before any page script. Selection
@@ -119,14 +120,15 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if(navigationRef===initialNavigationReference&&navigationRef&&!initialNavigationDocument)
       return{ok:false,error:{code:'navigation_unproven',message:'The original initial navigation has not proved its committed document',effect_may_have_occurred:false}};
     if(pageDriver){const result=await pageDriver.read(method,{...options,timeout_ms:Math.max(1,Math.ceil(deadline-performance.now()))},{...(navigationRef?{navigation_ref:navigationRef}:{}),
-      ...(perExpression?{beforeEvaluate:prepareEvaluation,...(method==='selectOptions'?{onDispatch:()=>{dispatched=true;}}:{})}:{}),checkpoint:async()=>{
-      const checked=await guard(true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
+      ...(perExpression?{beforeEvaluate:prepareEvaluation,...(method==='selectOptions'?{onDispatch:()=>{dispatched=true;}}:{})}:{}),checkpoint:async(readState={})=>{
+      const checked=await guard(true,false,readState.native_failure===true);if(checked.handled)throw Object.assign(new Error('The browser operation reached a checkpoint'),{browserBoundary:checked});
     }});
       // A driver must not publish a payload after the initial record changed,
       // even if its last native subread completed before the UI transition.
-      if(navigationRef&&navigationRef===initialNavigationReference){const checked=await guard(true);
-        if(checked.handled)throw Object.assign(new Error('The initial navigation changed during observation'),{browserBoundary:checked});
-        if(checked.state.native_navigation?.page_ready===false)return{ok:false,error:{code:'stale_document',message:'The original initial page stopped being readable during observation',effect_may_have_occurred:false}};}
+      const initialRead=navigationRef&&navigationRef===initialNavigationReference;
+      if(initialRead||result.ok&&(command==='observe'||command==='wait_for')){const checked=await guard(true);
+        if(checked.handled)throw Object.assign(new Error('The original observation changed before publication'),{browserBoundary:checked});
+        if(initialRead&&checked.state.native_navigation?.page_ready===false)return{ok:false,error:{code:'stale_document',message:'The original initial page stopped being readable during observation',effect_may_have_occurred:false}};}
       return result;
     }
     if(navigationRef)return{ok:false,error:{code:'unsupported_capability',message:'This adapter cannot prove the original native navigation document',effect_may_have_occurred:false}};
@@ -138,7 +140,7 @@ export async function executeBrowserAutomation({ command, params, view, action, 
     if (result.value.blocked_by_popup) throw Object.assign(new Error("A new window interrupted page reading"), { popup: true });
     return result.value;
   };
-  const guard = async (force = false, waitingCapture = false) => {
+  const guard = async (force = false, waitingCapture = false, nativeReadFailed = false) => {
     let state;
     for (;;) {
       if (!alive()) return fail("context_changed", "The displaying device or window changed");
@@ -267,6 +269,19 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           initialNavigationDocument=initial.page_document;initialPageNavigation=state.navigation;
         }
       }
+    }
+    if((command==='observe'||command==='wait_for')&&state.isolated_world?.adapter==='android-native-frames-v1'&&
+       state.popup_preparation_required===true&&state.popup_preparation?.ready===false&&
+       ['retiring','terminal'].includes(state.popup_preparation.phase)&&state.popup_preparation.cleanup_confirmed===false){
+      // A fresh passive request can wait before any inventory or expression.
+      // Never turn cleanup during an existing read into an implicit replay.
+      if(pageReadStarted){
+        // A proved native denial has no payload to publish. Preserve its cause;
+        // cancellation/owner checks above still override an obsolete reply.
+        if(nativeReadFailed)return{state};
+        return fail('browser_busy','The original popup protection began retiring during observation; request a fresh observation after cleanup');
+      }
+      await pause(20);return guard(true,waitingCapture);
     }
     return { state };
   };

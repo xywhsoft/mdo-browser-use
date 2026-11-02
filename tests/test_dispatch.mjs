@@ -917,3 +917,45 @@ test('original creation observation uses the same exact download request identit
       dispatched:true,download_known:true,download:true,loader_present:true,request_association_supported:true,request_ref:nativeRequestRef}};}}});
   assert.equal(out.result.ok,true);assert.equal(out.result.source_association,'original_navigation');assert.deepEqual(out.result.downloads.map(row=>row.id),['original']);
 });
+
+
+function retiringObservationFixture(mode='ready',command='observe'){
+  const state={polls:0,reads:0,preparations:0,midRead:false};
+  const options={command,params:{timeout_ms:mode==='timeout'?140:600,...(command==='wait_for'?{until:'text',text:'Restored'}:{})},action:{id:'retiring-observation-'+mode+'-'+command},
+    alive:()=>mode!=='owner'||state.polls<3,api:{async call(){return{state:mode==='cancel'&&state.polls>=2?'cancelled':'pending'};}},
+    pageDriver:{evaluationPreparation:'per_expression',async read(method,params,control){
+      assert.equal(method,'observe');assert(state.polls>=6);state.reads++;
+      if(mode==='during'){state.midRead=true;await control.checkpoint();}
+      await control.beforeEvaluate();
+      if(mode==='after'||mode==='native-failure')state.midRead=true;
+      if(mode==='native-failure')return{ok:false,error:{code:'stale_frame',native_code:'cdp_frame_stale',message:'Original native failure',effect_may_have_occurred:false}};
+      return{ok:true,ready:'complete',document:'retiring-original',text:'Restored'};
+    }},view:{async execute(name){
+      if(name==='state'){
+        state.polls++;const retiring=state.midRead||mode==='timeout'||mode==='cancel'||mode==='owner'||mode==='manual'||state.polls<6;
+        return{loading:false,automation:true,navigation:1,manual:mode==='manual'&&state.polls>=3,
+          isolated_world:{adapter:'android-native-frames-v1'},popup_preparation_required:true,popup_preparation_capability:true,
+          popup_preparation:{phase:state.polls<3?'retiring':'terminal',ready:false,cleanup_confirmed:!retiring}};
+      }
+      if(name==='popup_prepare'){state.preparations++;assert(!state.midRead);return{ok:true,ready:true,navigation:1};}
+      throw Error('Unexpected retiring observation command '+name);
+    }}};
+  return{state,options};
+}
+
+test('fresh native observations wait for original preparation cleanup before reads and remain cancellable',async()=>{
+  for(const command of ['observe','wait_for'])for(const mode of ['ready','timeout','cancel','owner','manual']){
+    const fixture=retiringObservationFixture(mode,command),out=await executeBrowserAutomation(fixture.options);
+    if(mode==='ready'){assert.equal(out.result.ok,true,JSON.stringify(out));assert.equal(fixture.state.reads,1);assert.equal(fixture.state.preparations,1);}
+    else{assert.equal(out.result.ok,false);assert.equal(out.result.error.code,{timeout:'timed_out',cancel:'cancelled',owner:'context_changed',manual:'manual_control'}[mode]);assert.equal(fixture.state.reads,0);assert.equal(fixture.state.preparations,0);assert.equal(out.result.error.effect_may_have_occurred,false);}
+  }
+});
+
+test('cleanup that starts during or after an observation discards its payload without replay',async()=>{
+  for(const command of ['observe','wait_for'])for(const mode of ['during','after','native-failure']){
+    const fixture=retiringObservationFixture(mode,command),out=await executeBrowserAutomation(fixture.options);
+    assert.equal(out.result.ok,false,JSON.stringify(out));assert.equal(out.result.error.code,mode==='native-failure'?'stale_frame':'browser_busy');if(mode==='native-failure')assert.equal(out.result.error.native_code,'cdp_frame_stale');assert.equal(out.result.error.effect_may_have_occurred,false);
+    assert.equal(out.result.text,undefined);assert.equal(out.result.observation,undefined);assert.equal(fixture.state.reads,1);
+    assert.equal(fixture.state.preparations,mode==='during'?0:1);
+  }
+});

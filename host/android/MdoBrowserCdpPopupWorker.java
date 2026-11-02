@@ -256,7 +256,10 @@ final class MdoBrowserCdpPopupWorker {
             synchronized(this){if(stage!=READY||request.cancelled.get())return;if(nativeProofs.size()>=7){request.cancelled.set(true);return;}nativeProofs.add(child);}post();
         }
         void finish(String code,boolean released,boolean clean){
-            synchronized(this){if(stage==TERMINAL)return;stage=TERMINAL;candidates.clear();protections.clear();nativeProofs.clear();if(retirement!=null)retirement.request(released);request.terminal(new Result(false,true,code,enabled(),released,clean));active.decrementAndGet();}post();
+            // Closing the host can wake a protocol wait before close() records
+            // its terminal result. Keep that explicit cause without upgrading
+            // either the source-release or protocol-cleanup receipt.
+            synchronized(this){if(stage==TERMINAL)return;if(closed.get())code="cdp_worker_closed";stage=TERMINAL;candidates.clear();protections.clear();nativeProofs.clear();if(retirement!=null)retirement.request(released);request.terminal(new Result(false,true,code,enabled(),released,clean));active.decrementAndGet();}post();
         }
         private void post(){
             synchronized(this){if(events==null&&(retirement==null||!retirement.pending())){if(stage==TERMINAL)remove(this);return;}if(posted||delivering||terminalDelivered)return;posted=true;}

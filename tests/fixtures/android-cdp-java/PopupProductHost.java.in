@@ -79,7 +79,7 @@ final class PopupProductHost {
         boolean armed=row!=null&&row.downloads!=null&&row.ready&&!row.retired&&networkCurrent(row);
         return new JSONObject().put("automation",true).put("platform","android-webview").put("loading",Boolean.TRUE.equals(loading.get(key))).put("navigation",views.epoch(key,view))
             .put("frame_automation",inspectFrameRouting(key)).put("isolated_world",inspectDocumentState(key)).put("manual",manual.contains(key))
-            .put("popup_preparation_required",true).put("popup_preparation_capability",true).put("download_capability",armed).put("downloads_armed",armed)
+            .put("popup_preparation_required",true).put("popup_preparation_capability",true).put("popup_preparation",popupPreparationState(key)).put("download_capability",armed).put("downloads_armed",armed)
             .put("native_navigation_controls_supported",true).put("native_navigation",networkNavigationState(key)).put("initial_navigation_pending",networkInitialNavigationPending(key));
     }
     JSONObject frontendDownloads(String key,JSONObject params)throws Exception {
@@ -88,6 +88,7 @@ final class PopupProductHost {
     }
     void pollNavigation(String key){NetworkEntry owner=networkViews.get(key);if(owner!=null&&owner.navigation!=null)nativeNavigationPoll(owner.navigation);}
     JSONObject inspectNavigation(String key)throws JSONException{return networkNavigationState(key);}
+    boolean frontendCommitPublished(String key){NetworkEntry owner=networkViews.get(key);return owner!=null&&owner.navigation!=null&&owner.navigation.ticket!=null&&owner.navigation.ticket.pageCurrent();}
     boolean navigationSettled(String key){NetworkEntry owner=networkViews.get(key);return owner!=null&&owner.navigation!=null&&owner.navigation.settled;}
     void cancelNavigation(String key,String reference)throws JSONException{executeNavigationCancel(key,"cancel-navigation",views.get(key),new JSONObject().put("navigation_ref",reference));}
     void nativePageCallback(String key){WebView view=views.get(key);documentNavigation(key,view);views.navigation(key,view);loading.put(key,false);documentLoaded(key,view);}
@@ -148,6 +149,10 @@ final class PopupProductHost {
     void prepare(Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction("root",views.get("root"),effect,failure);}
     void prepareOwned(String key,Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction(key,views.get(key),effect,failure);}
     void retireOwnedPreparation(String key){retireProtocolPopupPreparation(key,views.get(key),"cdp_popup_preparation_cancelled");}
+    boolean deferOwnedPreparationWatch(String key)throws Exception {
+        PopupPreparation row=protocolPopupPreparations.get(key);if(row==null||!row.preparation.phase().equals("ready"))return false;
+        java.lang.reflect.Field field=MdoBrowserCdpPopupPreparation.class.getDeclaredField("watch");field.setAccessible(true);networkHandler.removeCallbacks((Runnable)field.get(row.preparation));return true;
+    }
     boolean ownedPreparationSettled(String key){PopupPreparation row=protocolPopupPreparations.get(key);return row==null||row.preparation.settled();}
     String ownedPreparationDiagnostic(String key)throws Exception{PopupPreparation row=protocolPopupPreparations.get(key);if(row==null)return "none";
         java.lang.reflect.Field request=MdoBrowserCdpPopupPreparation.class.getDeclaredField("request");request.setAccessible(true);

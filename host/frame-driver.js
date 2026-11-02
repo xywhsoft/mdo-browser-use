@@ -16,8 +16,8 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
   async function read(method,options={},control={}){
     let possibleEffect=false,interruption=null;
     const deadline=performance.now()+Math.min(60000,Math.max(1,Number(options.timeout_ms)||10000));
-    const check=async()=>{
-      try{await checkpoint();await control.checkpoint?.();}
+    const check=async(nativeFailure=false)=>{
+      try{await checkpoint();await control.checkpoint?.({native_failure:nativeFailure===true});}
       catch(error){interruption=error;throw error;}
       if(performance.now()>=deadline)throw issue('timed_out','The frame operation deadline expired');
     };
@@ -30,7 +30,9 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
     };
     const native=async(command,params)=>{
       await check();if(command==='frames'&&params.action==='evaluate')await beforeEvaluation();
-      try{return await execute(command,{...params,...(control.navigation_ref?{navigation_ref:control.navigation_ref}:{})});}finally{await check();}
+      let result;
+      try{result=await execute(command,{...params,...(control.navigation_ref?{navigation_ref:control.navigation_ref}:{})});return result;}
+      finally{await check(result?.ok===false&&typeof result.error?.code==='string');}
     };
     const reader=createFrameReader({execute:(command,params)=>native(command,params),checkpoint:check});
     const fromReader=async(name,args)=>{const result=await reader[name]({...args,timeout_ms:Math.max(1,deadline-performance.now())});if(interruption)throw interruption;return result;};
@@ -45,7 +47,7 @@ export function createFrameDriver({execute,checkpoint=async()=>{},nativeCapture=
       try{
         result=await execute('frames',request);
         if(!result?.ok&&result?.error?.evaluation_may_have_occurred===false)possibleEffect=false;
-      }finally{await check();}
+      }finally{await check(result?.ok===false&&typeof result.error?.code==='string');}
       if(!result?.ok){
         throw issue(result?.error?.code||'frame_unavailable','The pinned frame operation was not confirmed');
       }

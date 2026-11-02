@@ -28,6 +28,9 @@
         if(!owner.ready||owner.retired||!networkCurrent(owner)||owner.marker==null)throw new IllegalStateException("network_owner_unavailable");
         if(timeout<100||timeout>600000)throw new IllegalArgumentException("cdp_navigation_arguments_invalid");
         if(navigationRequests.containsKey(key)||owner.navigation!=null&&owner.navigation.ticket!=null&&owner.navigation.ticket.result()==null)throw new IllegalStateException("navigation_pending");
+        // Same-document commits do not enter documentNavigation(). Retire the
+        // old action's popup preparation before invalidating its input/realm.
+        retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_owner_changed");
         cancelPopup(key);cancelDialog(key);cancelCapture(key);views.stop(key,view);
         if(!networkCurrent(owner)||owner.retired||manual.contains(key)||views.epoch(key,view)!=epoch)throw new IllegalStateException("network_owner_changed");
         if(!dialogReady(key,view))throw new IllegalStateException("dialog_pending_or_unclean");

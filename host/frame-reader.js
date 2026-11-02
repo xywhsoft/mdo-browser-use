@@ -19,7 +19,7 @@ function parseReference(value){
 export function createFrameReader({execute,checkpoint=async()=>{}}){
   const call=async(command,params,scope)=>{
     await checkpoint();if(performance.now()>=scope.deadline)throw problem('timed_out','The combined frame read exceeded its deadline');
-    const value=await execute(command,params);await checkpoint();
+    const value=await execute(command,params);await checkpoint(value?.ok===false&&typeof value.error?.code==='string');
     if(performance.now()>=scope.deadline)throw problem('timed_out','The combined frame read exceeded its deadline');return value;
   };
   async function inventory(scope,freshObservation=false){
