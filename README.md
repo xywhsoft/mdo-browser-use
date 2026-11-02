@@ -2,6 +2,7 @@
 
 Official Browser Use plugin, shared C/JavaScript services, and the native browser
 enhancements needed by mdo. Development is active; see [progress](docs/progress.md).
+Current acceptance evidence and remaining gates are in [acceptance](docs/acceptance.md).
 
 ## Development deployment
 

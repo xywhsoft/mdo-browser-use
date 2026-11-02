@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Windows integration E198:** add one reproducible sequential acceptance command
+  binding source/deployed/log/receipt/native identities. Twelve fresh cases cover
+  package trust/recovery, managed tools/visual permissions, actual OOPIF transfers,
+  encoded capture privacy, owned renderer failure/reload, ask decisions, production
+  C remote bridge and durable restart. All pass; original package/runtime restore.
+  Preserve Android, rendered prompt and physical/account-device limits separately
+  in [acceptance](acceptance.md). Product and E197/E169 artifacts are unchanged.
+
 - **Android/shared E197:** connect protected takeover to the actual main-request
   coordinator with one original elapsed budget, original-channel reply and real
   resource/protocol joins. Preserve actual manual ownership on late failure;
@@ -15354,3 +15362,69 @@ publication occurred. Native main-branch peers are controlled; Android global
 framework/provider/device/automation qualification remains false. Ongoing native
 origin readiness and whole-feature permissions, remote/lifetime/resource and
 delivery audit remain open. The full Browser Use goal stays active.
+
+
+## E198 — current-source Windows integration and whole-goal acceptance audit
+
+Add `tools/acceptance_probe.py` and a requirement/evidence/remaining-work matrix
+in `docs/acceptance.md`. Derive the matrix from the full original objective,
+actual shared13-service/16-tool contracts, product sources and actual runtime
+checks. Keep code completion distinct from installed framework/account/device
+qualification; this stage does not declare the whole feature complete.
+
+Twelve sequential real integration cases pass: generated contracts; portable
+installation8; package lifetime/recovery10; managed C tools16; managed visual
+click/drag and owned read-only denials; public OOPIF26 operations/two renderer
+frames and complete file/directory hashes; six encoded capture privacy pairs;
+exact owned renderer failure and manual reload; nine ask-decision cases with
+187 reported assertions; current production
+C bridge build and eight real native remote workflows; same-Home restart without
+tab replay. The remote POST occurs once and saves131075 exact original bytes.
+Original known plugin revision is restored and every case uses the same Home.
+Live model/external-site/production-store requests and application copies are0.
+
+Reports bind 509 source inputs, 127
+applied host outputs, each log/receipt, remote bridge source/dependency/binary
+identity and exact running host/config/listener. Refuse changed inputs while a
+case is live and contradictory/nonterminal receipt flags. `--check` revalidates
+unchanged evidence and explicitly labels reuse. The first nine-case run passed;
+the final run includes the three historically under-bound frame/privacy/renderer
+cases. Both source snapshots remain private. No unreviewed source/deployment/docs
+change occurred during live handles; all are terminal before documentation edits.
+
+The old failed managed-only visual receipt is preserved before refreshing it.
+Fresh managed-only success independently supersedes it; the old empty error
+does not establish its original cause. Permission decisions cover real native
+effects and API approval, not the rendered prompt. The production C remote
+bridge runs against the actual headed native browser in this Home, not two
+physical devices or account-authenticated relay. Those flags remain false.
+
+Product implementation/portable allowlist unchanged. E197 native647/JVM20,
+create850/async77, JS510, SDK19/nav4/wait5, actual control22, visual and packed12
+remain current-source-hash-verified evidence, not new E198 executions. Current
+Windows6943880/abf4836c3b00a8de17a500ec6b83bb7f708178a63108ff593bf4e103ee81074f,
+Android6600001/face2e922f4707276336c4f317b9130570f1f5b723e572703b3bfb995cf87512
+and plugin247351/c6b74a2780f13d08570e61bdaf58cbcbc8c4678dc06ce0348de5e8a370ae5d41
+are unchanged checked artifacts. Android overall admission stays disabled; no
+phone/provider update, install or publication. Continue actual main UI/prompt,
+Android provider/Activity and broader delivery qualification. Goal stays active.
+
+
+E198 final capture qualification: a later rerun failed small fractional JPEG
+equality without recording second geometry. Preserve E198-privacy-failed-result/
+log and failed acceptance snapshot; its exact cause remains unproven. Five
+thumbnail pairs and eighteen full diagnostic pairs initially passed. The bounded
+instrumented original test then failed after viewport height695→673 and image
+width457→472, proving a public-scene change invalidated that comparison.
+Preserve E198-privacy-geometry-red.json/log and its two masked synthetic JPEGs.
+
+Add both regions/dimensions/hashes and fail explicitly on a geometry change;
+optional evidence retains only the failed synthetic masked pair. Make the privacy
+fixture's public scene fixed640×480 and capture that exact element. Byte equality
+is unchanged and no automatic retry is added. The original viewport diagnostic
+remains available. Thirty fixed-scene comparisons and the final twelve-case
+acceptance run pass. This is a test-precondition repair, not a claimed product
+privacy fix or a retroactive explanation of the first incomplete receipt.
+The runtime check also binds actual loopback config contents and original Home
+and requires the same executable/config/Home before and after all cases.
+No product implementation or shipped payload change; goal remains active.
