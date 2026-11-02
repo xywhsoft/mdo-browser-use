@@ -107,6 +107,7 @@ final class PopupProductHost {
     JSONObject inspectNavigation(String key)throws JSONException{return networkNavigationState(key);}
     boolean frontendCommitPublished(String key){NetworkEntry owner=networkViews.get(key);return owner!=null&&owner.navigation!=null&&owner.navigation.ticket!=null&&owner.navigation.ticket.pageCurrent();}
     boolean navigationSettled(String key){NetworkEntry owner=networkViews.get(key);return owner!=null&&owner.navigation!=null&&owner.navigation.settled;}
+    boolean navigationReserved(String key){return navigationRequests.containsKey(key);}
     void cancelNavigation(String key,String reference)throws JSONException{executeNavigationCancel(key,"cancel-navigation",views.get(key),new JSONObject().put("navigation_ref",reference));}
     void nativePageCallback(String key){WebView view=views.get(key);documentNavigation(key,view);views.navigation(key,view);loading.put(key,false);documentLoaded(key,view);}
     @@NETWORK_ENTRY@@

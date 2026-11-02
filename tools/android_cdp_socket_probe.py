@@ -273,6 +273,7 @@ def main():
                   'preparation-page-human-return-startup-enable-stop','preparation-page-human-return-startup-enable-stop-retry','preparation-page-human-return-startup-enable-complete-stop-retry','preparation-page-human-return-startup-enable-close',
                   'preparation-page-human-return-startup-proof-stop','preparation-page-human-return-startup-proof-stop-retry','preparation-page-human-return-startup-proof-close','preparation-page-human-return-startup-enable-channel',
                   'preparation-page-human-return-startup-enable-queued-ack-stop-retry','preparation-page-human-return-startup-enable-cleanup-failure',
+                  'preparation-page-human-navigation-sent','preparation-page-human-navigation-queued','preparation-page-human-navigation-sent-return','preparation-page-human-navigation-queued-return','preparation-page-human-navigation-complete-sent-return','preparation-page-human-navigation-settled-return',
                   'preparation-page-activation-unsupported','preparation-page-activation-malformed','preparation-page-world-unique','preparation-page-world-metadata','preparation-page-callback-throw',
                   'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
@@ -553,12 +554,19 @@ def main():
         if mode.startswith('preparation-page-human-return-startup-'):
             name=mode[len('preparation-page-human-return-startup-'):];proof=name.startswith('proof-');closed=name.endswith('-close');channel=name.endswith('-channel');retry=name.endswith('-retry');uncertain=name=='enable-cleanup-failure'
             expected={'actual_startup_cancel':True,'phase':'native-proof' if proof else 'fetch-enable','original_ack_received':False,'queued_ack_drained':name=='enable-queued-ack-stop-retry',
+                      'valid_late_original_proof':proof,
                       'manual_until_terminal':True,'cleanup_confirmed':not uncertain,'uncertain_retry_denied':uncertain,'page_preserved':not closed,'physical_close':closed,
                       'reply_delivered':not channel,'code':'network_owner_changed' if channel else 'network_view_closed' if closed else 'network_start_cancelled',
                       'new_networks':2 if retry else 1,'explicit_retry':retry,'completed_bytes':name=='enable-complete-stop-retry',
                       'original_enable_dispatches':0 if proof else 1,'original_disable_dispatches':0,'retained_uncertain_sources':1 if uncertain else 0,
                       'old_authority_revoked':True,'native_effects':0,'provider_qualified':False,'ui_published':False}
             if popup_worker.get('product_frame_route')!=expected:raise RuntimeError('Unacknowledged startup cancellation granted control, replayed a request or invented cleanup')
+        elif mode.startswith('preparation-page-human-navigation-'):
+            name=mode[len('preparation-page-human-navigation-'):];queued=name.startswith('queued');returning=name.endswith('-return')
+            expected={'actual_human_navigation':True,'dispatched':not queued,'reservation_released':True,'record_preserved':True,'settled_before_takeover':name=='settled-return',
+                      'fresh_return':returning,'old_reference_denied':returning,'completed_bytes':name=='complete-sent-return','manual_until_return':True,'page_preserved':True,
+                      'navigation_commands':0 if queued else 1,'new_views':0,'native_effects':0,'provider_qualified':False}
+            if popup_worker.get('product_frame_route')!=expected:raise RuntimeError('Human takeover retained navigation admission, lost its original receipt or replayed navigation')
         elif mode.startswith('preparation-page-human-return-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-return-'):]
             if not isinstance(proof,dict) or proof.get('provider_qualified') is not False or proof.get('ui_published') is not False:

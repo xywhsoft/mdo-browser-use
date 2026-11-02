@@ -74,11 +74,24 @@ public final class CdpNetworkWorkerProbe {
         void cancelled()throws Exception{await(()->{ui.drain();return worker.networkPending()==0;});}
         @Override public void close()throws Exception{
             worker.close();await(worker::terminated);ui.drain();Handler.drain();
-            if(worker.pending()!=0||!uncertainCleanup&&worker.networkPending()!=0)throw new AssertionError("Native worker cleanup retained jobs="+worker.pending()+", sources="+worker.networkPending());
+            if(worker.pending()!=0||!uncertainCleanup&&worker.networkPending()!=0)throw new AssertionError("Native worker cleanup retained jobs="+worker.pending()+", sources="+worker.networkPending()+" "+retainedNetworkState());
             check(worker.pending()==0&&worker.popupPending()==0&&(uncertainCleanup||worker.networkPending()==0));
             for(CdpNetworkBindingProbe.Context c:owned)c.close();
             for(Map.Entry<MdoBrowserCdpMarker,CdpBindingProbe.Factory> row:documents.entrySet()){row.getKey().close();row.getValue().balanced();}
             check(threads.size()<=1);
+        }
+        private String retainedNetworkState()throws Exception {
+            java.lang.reflect.Field field=MdoBrowserCdpWorker.class.getDeclaredField("networks");field.setAccessible(true);Object networks=field.get(worker);
+            field=networks.getClass().getDeclaredField("slots");field.setAccessible(true);Object[] slots=(Object[])field.get(networks);StringBuilder detail=new StringBuilder();
+            for(Object slot:slots)if(slot!=null){detail.append('[');
+                for(String name:new String[]{"stage","cancelled","cleanupFailed","terminalCode","terminalDelivered"}){field=slot.getClass().getDeclaredField(name);field.setAccessible(true);detail.append(name).append('=').append(field.get(slot)).append(' ');}
+                field=slot.getClass().getDeclaredField("connection");field.setAccessible(true);MdoBrowserCdpBinding.Network connection=(MdoBrowserCdpBinding.Network)field.get(slot);
+                if(connection!=null){detail.append("connectionClose=").append(connection.cleanupState()).append(' ');field=connection.getClass().getDeclaredField("bound");field.setAccessible(true);Object bound=field.get(connection);
+                    for(String name:new String[]{"closed","closeFinished","cleanupFailed"}){field=bound.getClass().getDeclaredField(name);field.setAccessible(true);detail.append("bound.").append(name).append('=').append(field.get(bound)).append(' ');}
+                    field=bound.getClass().getDeclaredField("peer");field.setAccessible(true);Object peer=field.get(bound);
+                    for(java.lang.reflect.Field candidate:peer.getClass().getDeclaredFields())if(candidate.getType()==MdoBrowserCdpSession.class){candidate.setAccessible(true);MdoBrowserCdpSession session=(MdoBrowserCdpSession)candidate.get(peer);detail.append("sessionClose=").append(session.closeState()).append(' ');}
+                }detail.append(']');
+            }return detail.toString();
         }
     }
     private static void activationAndIdle()throws Exception{

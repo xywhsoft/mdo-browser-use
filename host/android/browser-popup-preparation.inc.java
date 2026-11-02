@@ -394,6 +394,9 @@
             // Quiesce before revoking the source, preserving user cancellation
             // and original completed bytes rather than connection-loss text.
             entry.downloads.quiesce();handoff.takeControl(owner);human=true;
+            // The native outcome remains retained, but its exact UI loading
+            // reservation must not outlive a committed human transfer.
+            nativeNavigationRetire(entry);cancelNavigationRequest(entry.key,entry.view);
             retire("network_user_takeover");handoff.detachForHuman(owner);
         }
         /** Historical retirement permits only a fresh same-view network

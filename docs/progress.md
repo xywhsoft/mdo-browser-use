@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E186:** fix a reproduced stuck UI navigation reservation after
+  protected human takeover. Revoke the exact unfinished native operation's UI
+  authority and release its loading reservation, preserving its original result.
+  Six new queued/sent/settled and same-page-return cases preserve bytes and deny
+  old references. Deferred startup callbacks now return the valid original token.
+  Fresh native 545/frontend 20/Python 178/180 and signed APK/DEX pass; Windows and
+  shared UI are E184 reuse. An earlier unrelated UI-loss cleanup failure remains
+  unexplained after 50 targeted passes; retain its diagnostics and investigation.
+
 - **Android E185 qualification:** cancel the actual same-page return before
   native marker proof or Fetch.enable acknowledgement. Ten new cases cover stop,
   close, channel loss, queued late ACK, retained bytes, explicit fresh retry and
@@ -14436,3 +14445,76 @@ chooser joins and descendant retirement. Full provider/device, broader remote/
 permissions/lifetime/OOM/performance/ecosystem/final delivery audit remain open.
 Phone/current WebView verification stays deferred; public Android automation
 remains unavailable and the full goal stays active.
+
+### E186 retire exact UI navigation admission on protected human takeover
+
+A deterministic actual product-fragment case reproduced a stuck UI reservation:
+while the original Page.navigate acknowledgement was held, native human takeover
+closed the original navigation connection, but `navigationRequests` remained set,
+loading stayed true and the retained UI record was not marked revoked. The native
+result was `cdp_navigation_connection_closed`, with dispatched=true and no ACK.
+This could prevent subsequent same-page return at network_rearm_page_loading.
+The first diagnostic teardown masked the main assertion; a second witness preserves
+the primary failure with cleanup attached as suppressed evidence. See
+`.mdo/E186-navigation-red.log` and `.mdo/E186-navigation-red-cause.log`.
+
+After the exact physical human transfer commits, PopupNetwork.takeControl now
+calls nativeNavigationRetire and cancelNavigationRequest for that original entry.
+This mirrors the existing ordinary takeover's explicit UI retirement. It preserves
+the original native record/outcome, revokes unfinished authority and releases only
+the still-owned view/epoch reservation and its loading/document navigation block.
+It does not turn an uncertain sent navigation into success, cancel an already
+settled successful result, replay a command or recreate/navigate the human page.
+
+Six actual product/native-worker/lifecycle cases pass 336
+reported checks: sent and queued navigation takeover, fresh same-view return after
+each, retained completed bytes during sent takeover/return, and a navigation that
+settled before takeover. Queued work dispatches zero native navigations; sent work
+dispatches exactly one. The late original ACK cannot revive the revoked UI scope.
+Fresh return holds manual state until the new native frame/network/Fetch proof;
+the retained original result is unchanged, the old navigation reference is denied,
+and completed bytes retain their controller/ID/quota and remain readable. The
+controlled profile/UI seams are not full Android Activity/provider qualification.
+
+Also strengthened E185's three deferred marker-cancellation cases: they now
+capture the original valid marker token in memory before closing its owner and
+deliver that original JSON callback afterward, replacing the invalid sentinel.
+The valid token is neither logged nor persisted. Cancellation still creates no
+native source and cannot grant control; explicit fresh retry remains qualified.
+The ten startup cases now explicitly report valid_late_original_proof for that
+phase. This closes E185's disclosed sentinel-only callback coverage gap.
+
+The first complete E186 gate stopped in the existing quiescence-ui-loss case with
+zero jobs but two retained generic network owners at worker teardown. That case
+does not execute the changed protected takeover function. This observation does
+not establish its root cause or prove it harmless. Added bounded test-only exit
+diagnostics for each retained slot, native binding close state and Session close
+receipt; no production logging/API changed. Twenty original and thirty newly
+compiled diagnostic targeted invocations passed without reproducing it. Preserve
+`.mdo/E186-native.log`, `.mdo/E186-quiescence-diagnostics.log` and
+`.mdo/E186-quiescence-with-diagnostics.log`; the successful rerun is not a claim
+that this unexplained cleanup failure is fixed. Investigation remains open.
+
+Fresh final verification passes 545 modes / 22,449
+reported popup checks, all 134 current selected hashes, API26/JNI/transport and
+ASan/UBSan. Earlier 539 business outcomes are compared; the new original-valid-
+proof metadata is checked explicitly. The refreshed actual frontend/JVM 20 and
+Python 178/180 pass (two existing Windows symlink-privilege skips). Current evidence
+is `.mdo/E186-native-retry.log` and `.mdo/E186-verification.json`.
+The signed APK is 6,591,809 bytes, SHA-256
+`a988baa1908b912d7c643ef043d5dcc82cd045e59e49d6d9810a62ef9fe53074`; actual native DEX/package/source/signature checks pass.
+
+Windows/shared host/page/plugin/SDK source and the E184 Windows archive remain
+unchanged. Its JS 505, actual mounted WebView2 control 22, public C/JS SDK,
+visual and packed runtime checks are explicit hash-checked reuse, not fresh
+E186 execution. Android includes that same exercised app archive plus the
+new native Java fix. No extra app/Home, model, phone/provider change or online
+publication occurred.
+
+Public protected takeover is still gated: full outer-command integration,
+in-flight input/capture/chooser cancellation, descendant native detachment and
+provider autoattach behavior remain incomplete. The unexplained UI-loss cleanup
+failure, ongoing native-origin readiness, full Activity/UI/provider/device and
+broader remote/permissions/lifetime/OOM/performance/ecosystem/final delivery audit
+remain open. Current WebView/phone checks stay deferred, public Android automation
+stays unavailable and the full goal remains active.

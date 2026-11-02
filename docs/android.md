@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E184)
+## Complete development host APK (current: E186)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`f852449336afaab092f277e969a6c4cc71d8950888ff8d084e62a05739c9da23`.
+`a988baa1908b912d7c643ef043d5dcc82cd045e59e49d6d9810a62ef9fe53074`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6277,3 +6277,21 @@ runtime checks are unchanged hash-checked reuse; the APK above stays current.
 Controlled peers do not qualify an installed Android provider. Public protected
 takeover/in-flight/descendant integration and Activity/device checks remain open;
 the phone/current WebView stay deferred and Android automation remains unavailable.
+
+
+### Protected takeover releases its old UI navigation reservation (E186)
+
+After native human ownership commits, the protected page now explicitly retires
+its exact unfinished UI navigation authority and releases the owned loading/
+navigation reservation. The native result remains retained and is not upgraded.
+Six queued/sent/settled and same-view return cases preserve original data and
+reject old references. Deferred startup-cancellation callbacks also now return
+their genuine original token, held only in memory, rather than an invalid value.
+
+Fresh native 545, frontend 20, Python and the signed APK/DEX gates pass. Shared
+UI/Windows evidence is unchanged E184 reuse. The earlier existing UI-loss test's
+two retained generic network owners have not been explained despite 50 targeted
+passes; its failure and additional exit diagnostics remain preserved. This is
+not claimed fixed by the navigation repair. Public protected takeover, other
+in-flight/descendant joins and full Activity/provider/device qualification remain
+open; the phone/current WebView stay deferred and Android automation stays gated.
