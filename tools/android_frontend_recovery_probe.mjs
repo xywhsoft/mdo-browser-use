@@ -34,6 +34,8 @@ async function classHashes(directory){
   }return result;
 }
 async function run(mode){
+  const navigation=mode.startsWith('navigation-');
+  const natural=mode.startsWith('natural-');
   const args=[setup.java_home+'/bin/java','-Xcheck:jni','-Djava.library.path='+unix(qa),'-cp',unix(path.join(qa,'classes')),
     'org.xserver.android.CdpPopupWorkerProbe','preparation-publication-frontend-'+mode,unix(path.join(qa,'popup-files'))];
   const child=spawn(process.platform==='win32'?'wsl.exe':args.shift(),process.platform==='win32'?['--exec',...args]:args,{cwd:root,windowsHide:true,stdio:['pipe','pipe','pipe']});
@@ -67,14 +69,33 @@ async function run(mode){
     const prepareReplies=[];
     const execute=async(command,params)=>{calls.push(command==='frames'?'frames:'+params.action:command);const value=await rpc(command,params);
       if(command==='popup_prepare')prepareReplies.push(value?.error?.code||'ready');
-      if(mode==='cancel'&&command==='popup_prepare')cancelled=true;return value;};
+      if(mode==='cancel'&&command==='popup_prepare'||mode==='navigation-cancel'&&command==='state'&&value?.native_navigation?.page_current===true&&value.native_navigation.page_ready===false)cancelled=true;return value;};
     const page=createFrameDriver({execute,nativeCapture:{navigation:initial.navigation}});
     const pageDriver=mode==='old-order'?{read:page.read}:page;
-    result=await executeBrowserAutomation({command:mode==='wait'?'wait_for':'observe',params:{timeout_ms:8000,...(mode==='wait'?{until:'text',text:'Restored original native popup'}:{})},
-      browser:'native-frontend-'+mode,action:{id:'native-frontend-'+mode},api:{async call(){return{state:cancelled?'cancelled':'pending'};}},view:{execute},pageDriver});
+    const invoke=async(command,params,step='main')=>executeBrowserAutomation({command,params:{timeout_ms:8000,...params},
+      browser:'native-frontend-'+mode,action:{id:'native-frontend-'+mode+'-'+step},api:{async call(){return{state:cancelled?'cancelled':'pending'};}},view:{execute},pageDriver});
+    if(navigation){
+      result=await invoke('navigate_to',{action:'goto',url:'https://private.invalid/destination',...(mode==='navigation-no-commit'?{timeout_ms:500}:{})},'goto');
+      if(mode==='navigation-cancel'||mode==='navigation-mismatch'||mode==='navigation-no-commit'){
+        assert.equal(result.result.ok,false,JSON.stringify(result));assert.equal(result.result.error.effect_may_have_occurred,true);
+        assert.equal(result.result.error.code,mode==='navigation-cancel'?'cancelled':mode==='navigation-mismatch'?'navigation_uncertain':'timed_out');
+        if(mode==='navigation-mismatch')assert.equal(result.result.error.native_code,'cdp_navigation_document_changed');
+        assert.equal(calls.filter(item=>item==='navigation_cancel').length,1);assert.equal(calls.filter(item=>item==='frames:list').length,0);
+      }else{
+        assert(result.result.ok,JSON.stringify({result,diagnostic:stderr.slice(-6000),calls}));assert.equal(result.result.observation.text,'Original native navigation 1');assert.equal(result.result.url,'https://private.invalid/destination');
+        if(mode==='navigation-controls')for(const [index,action] of ['back','forward','reload'].entries()){
+          const traversed=await invoke('navigate_to',{action},action);assert(traversed.result.ok,JSON.stringify(traversed));assert.equal(traversed.result.observation.text,'Original native navigation '+(index+2));
+        }
+        const text='Original native navigation '+(mode==='navigation-controls'?4:1);
+        const waited=await invoke('wait_for',{until:'text',text},'wait');assert(waited.result.ok,JSON.stringify(waited));assert.equal(waited.result.matched,true);
+        const observed=await invoke('observe',{},'read');assert(observed.result.ok,JSON.stringify(observed));assert.equal(observed.result.text,text);
+        assert(calls.indexOf('navigate')<calls.indexOf('frames:list'));assert(calls.indexOf('frames:list')<calls.indexOf('popup_prepare'));
+      }
+      assert.equal(calls.filter(item=>item==='navigate').length,1);
+    }else result=await invoke(mode==='wait'||mode==='natural-wait'?'wait_for':'observe',mode==='wait'||mode==='natural-wait'?{until:'text',text:natural?'Natural original native popup':'Restored original native popup'}:{});
     if(mode==='old-order')assert.equal(result.result.error.code,'popup_protection_unavailable');
     else if(mode==='cancel')assert.equal(result.result.error.code,'cancelled');
-    else {assert(result.result.ok,JSON.stringify({result:result.result,prepareReplies}));assert.equal(mode==='wait'?result.result.observation.text:result.result.text,'Restored original native popup');
+    else if(!navigation){assert(result.result.ok,JSON.stringify({result:result.result,prepareReplies}));assert.equal(mode==='wait'||mode==='natural-wait'?result.result.observation.text:result.result.text,natural?'Natural original native popup':'Restored original native popup');
       assert(calls.indexOf('frames:list')<calls.indexOf('popup_prepare'));}
     if(mode==='old-order'||mode==='cancel')assert.equal(result.result.error.effect_may_have_occurred,false);
   }catch(error){primary=error;throw error;}
@@ -83,8 +104,12 @@ async function run(mode){
       assert.equal(ended.code,0,stderr);assert(finished&&report?.passed);assert.equal(report.product_frontend_recovery_tested,true);
       assert.equal(report.product_publication.cleanup_confirmed,true);assert.equal(report.product_publication.close_replies,1);
       const proof=report.product_frame_route;assert.equal(proof.actual_product_frontend,true);assert.equal(proof.browser_connections,1);assert.equal(proof.native_proof_connections,1);
-      assert.equal(proof.provider_qualified,false);assert.equal(proof.worlds,mode==='old-order'?1:2);
-      if(mode==='old-order'||mode==='cancel')assert.equal(proof.expressions,0);else assert(proof.expressions>=2);
+      const refused=mode==='navigation-mismatch'||mode==='navigation-no-commit';
+      assert.equal(proof.provider_qualified,false);assert.equal(proof.worlds,mode==='old-order'||refused?1:mode==='navigation-controls'?5:2);
+      assert.equal(proof.native_navigation_commands,navigation?(mode==='navigation-controls'?4:1):0);
+      if(navigation&&!refused){assert(proof.readiness_waits>=2);assert.equal(proof.original_world_released,true);}
+      if(mode==='old-order'||mode==='cancel'||refused||mode==='navigation-cancel')assert.equal(proof.expressions,0);else assert(proof.expressions>=2);
+      if(navigation&&!refused&&mode!=='navigation-cancel')assert(proof.navigation_reads>=2);
     }catch(error){if(primary)primary.message+='; cleanup: '+error.message;else throw error;}
   }
   return{mode,passed:true,actual_dispatcher:true,original_jvm_product:report.product_frame_route,native_cleanup_confirmed:true,provider_qualified:false};
@@ -95,7 +120,7 @@ try{
     'tests/fixtures/android-cdp-java/PopupProductHost.java.in','tests/fixtures/android-cdp-java/org/xserver/android/CdpPopupWorkerProbe.java',
     'host/android/browser-popup-preparation.inc.java','host/android/browser-document.inc.java','host/android/browser-frame-router.inc.java'];
   const source_sha256={},rows=[];for(const file of inputs)source_sha256[file]=await hash(path.join(root,file));
-  for(const mode of ['old-order','observe','wait','cancel']){rows.push(await run(mode));process.stderr.write('Native frontend recovery '+mode+' passed\n');}
+  for(const mode of (process.argv.slice(2).length?process.argv.slice(2):['old-order','observe','wait','cancel','navigation-goto','navigation-controls','navigation-cancel','navigation-mismatch','navigation-no-commit','natural-observe','natural-wait'])){rows.push(await run(mode));process.stderr.write('Native frontend recovery '+mode+' passed\n');}
   assert.deepEqual(await classHashes(path.join(qa,'classes')),classes);assert.equal(await hash(path.join(qa,'libxs.so')),native);
   for(const [file,digest] of Object.entries(source_sha256))assert.equal(await hash(path.join(root,file)),digest,file);
   const result={passed:true,rows,original_jvm_jni:true,framework_qualified:false,provider_qualified:false,source_sha256,class_sha256:classes,native_library_sha256:native};

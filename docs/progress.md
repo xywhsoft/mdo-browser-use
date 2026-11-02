@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android/Windows E176:** fix native commit racing UI document readiness.
+  Retain the original navigation and wait for its readable realm before frame
+  inventory; deny lost or malformed readiness before publishing page data.
+  Eleven actual JS/driver/JVM paths now include goto, back/forward/reload,
+  cancellation, missing/mismatched commits and natural-navigation observation.
+  Native477, JS478, Python178/180, fresh Windows C SDK/visual/packed runtime,
+  rebuilt APK/DEX and current-input checks pass. Device checks remain deferred.
+
 - **Android E175:** recover a protected popup after natural navigation only
   through explicit fresh inventory and its cached original Source. Fence the
   native root position, target/frame/loader and exact Handoff before world/read,
@@ -13550,3 +13558,76 @@ provider/OS admission, deferred device checks and final Windows/deliverable audi
 remain open. No phone/provider upgrade, live model, external site or production
 action was used. Public Android automation remains disabled. The overall goal
 remains active.
+
+### E176 native navigation waits for its original readable UI document
+
+The complete real JS dispatcher -> frame driver/reader -> JVM product/JNI flow
+reproduced a product race: the original native navigation was acknowledged,
+committed and current, while PopupPage was still restoring its isolated world.
+The dispatcher immediately requested frame inventory, received
+`cdp_popup_page_document_unavailable` and failed the navigation. The retained
+failure and native state are in `.mdo/E176-goto-first.log` and
+`.mdo/E176-goto-diagnostic.log`. The renderer and UI peers are controlled; this
+is not an installed Android WebView/framework qualification.
+
+Native navigation state now separately reports optional boolean `page_ready`,
+bound to that same settled navigation and current readable PopupPage. The JS
+initial-observation and native-navigation loops honor it under the existing
+whole-call deadline. They wait without replaying navigation or reading frames
+before readiness. Reference changes, cancellation and native errors still win.
+A malformed readiness value is denied, and a read whose original readiness is
+lost before publication returns no stale payload. Hosts that omit the optional
+field retain their existing contract. Cleanup targets only the original
+navigation reference and retains uncertainty for an already issued command.
+
+The existing shared JVM fixture now exposes actual product navigation/state/
+download snapshots to the same production dispatcher and frame driver. It uses
+the original Source, JNI, worker and one Browser/proof connection each, retaining
+the new world reply until two real pending-readiness polls and zero frame reads.
+Eleven frontend modes pass: the earlier old-order/observe/wait/cancel cases,
+goto -> wait -> observe, goto/back/forward/reload -> wait -> observe, cancellation
+during rearm, wrong committed identity, acknowledged navigation without commit,
+and real fresh inventory for natural-navigation observe and wait. Negative cases
+retain exact cancellation, no action replay and no stale payload. The fixture
+is explicitly marked provider/framework-unqualified. See
+`.mdo/E176-frontend-second.log`, `.mdo/E176-native-frontend.log` and
+`.mdo/android-frontend-recovery-result.json`.
+
+Two new dispatcher tests (68 total in that file) cover successful delayed UI
+readiness, malformed/lost readiness, post-read changes and the existing deadline,
+including each native traversal control. All478 JS tests pass. Python178/180 pass
+with the same two Windows symlink-privilege skips. Full native477 passes with
+18,898 reported checks,133 current input hashes, API26 compilation,
+JNI/transport and ASan/UBSan. Earlier serialized business outcomes are unchanged;
+only the known loading-timeout close-site/worker-cleanup diagnostic fields vary
+with scheduling. See `.mdo/E176-dispatch.log`, `.mdo/E176-javascript.log`,
+`.mdo/E176-python.log`, `.mdo/E176-native.log`, `.mdo/E176-native-review.log` and
+`.mdo/E176-semantic-differences.json`.
+
+Because the shared JS changed, Windows is freshly exercised rather than reusing
+an older runtime receipt. Actual public C SDK verification passes19 actions,
+4 navigations and5 waits; visual permission checks pass. The packed program
+passes12 runtime checks, including C/JS/native observation, trusted input,
+network reset reporting/recovery, paired plugin integrity and preservation of
+the existing official-update policy. It restores the single headless deployment
+and HTTP200 readiness. The fresh Windows artifact is
+6,942,129 bytes, SHA-256
+`45c7cbed616a1fbce66b60ac80cf6746797512499eb14363846bfb28ca36aafb`.
+See `.mdo/E176-sdk.log`, `.mdo/E176-visual.log`, `.mdo/E176-package.log` and
+`.mdo/E176-packed-runtime.log`.
+
+The signed Android development APK embeds that exact exercised application
+archive. It is 6,587,713 bytes, SHA-256
+`34ea5b62a1f2db197e80e6d2ec2e894cd3018cbffc8c899f3ade9a9f7ea18bb6`. Actual DEX definitions include the changed
+navigation-state method and existing original-document guards. The same QA
+package, serial and signer are retained. Public Android automation remains
+disabled and device/framework/provider qualification remains false. See
+`.mdo/E176-apk.log`, `.mdo/E176-dex-methods.json`,
+`.mdo/E176-verification.json` and `.mdo/E176-finish.log`.
+
+Product same-document/BFCache/early or overlapping transitions, native context
+loss without a new UI epoch, download-only-to-HTML recovery, protected takeover/
+release, broader Android/provider/OS admission, deferred phone checks and the
+final Windows/requirements/deliverable audit remain open. No ADB, provider update,
+live model, external website or production/store action was used. Development
+remains sequential in the one project deployment; the overall goal stays active.

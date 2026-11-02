@@ -125,7 +125,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
       // A driver must not publish a payload after the initial record changed,
       // even if its last native subread completed before the UI transition.
       if(navigationRef&&navigationRef===initialNavigationReference){const checked=await guard(true);
-        if(checked.handled)throw Object.assign(new Error('The initial navigation changed during observation'),{browserBoundary:checked});}
+        if(checked.handled)throw Object.assign(new Error('The initial navigation changed during observation'),{browserBoundary:checked});
+        if(checked.state.native_navigation?.page_ready===false)return{ok:false,error:{code:'stale_document',message:'The original initial page stopped being readable during observation',effect_may_have_occurred:false}};}
       return result;
     }
     if(navigationRef)return{ok:false,error:{code:'unsupported_capability',message:'This adapter cannot prove the original native navigation document',effect_may_have_occurred:false}};
@@ -259,6 +260,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
             return fail('navigation_unproven','The original initial navigation did not prove a current committed page for this observation');
           if(initialNavigationDocument&&initial.page_document!==initialNavigationDocument)
             return fail('stale_document','The original initial page proof changed during this observation');
+          if(Object.hasOwn(initial,'page_ready')){
+            if(typeof initial.page_ready!=='boolean')return fail('navigation_uncertain','The original initial page readiness record is invalid');
+            if(!initial.page_ready)return{state:{...state,loading:true}};
+          }
           initialNavigationDocument=initial.page_document;initialPageNavigation=state.navigation;
         }
       }
@@ -494,6 +499,10 @@ export async function executeBrowserAutomation({ command, params, view, action, 
             if(native.page_committed!==true){await pause(20);continue;}
             if(native.page_current!==true)return fail('stale_document','Native proof for the original page is no longer current; inspect its retained outcome before another input');
             if(typeof native.page_document!=='string'||!/^nd-[a-zA-Z0-9-]{1,96}$/.test(native.page_document))return fail('navigation_uncertain','The original committed page identity is invalid; inspect its original receipt');
+            if(Object.hasOwn(native,'page_ready')){
+              if(typeof native.page_ready!=='boolean')return fail('navigation_uncertain','The original native page readiness record is invalid; inspect its receipt');
+              if(!native.page_ready){await pause(20);continue;}
+            }
             nativeDocument=native.page_document;
           }
         }
@@ -504,7 +513,8 @@ export async function executeBrowserAutomation({ command, params, view, action, 
           if (observation.ok && observation.ready === "complete"){
             if(nativeReference){
               const final=await guard(true);if(final.handled)return final;
-              if(final.state.native_navigation?.id!==nativeReference||final.state.native_navigation?.page_current!==true||final.state.native_navigation?.page_document!==nativeDocument)return fail('stale_document','Native proof for the original page became stale during observation; request a fresh observation');
+              if(final.state.native_navigation?.id!==nativeReference||final.state.native_navigation?.page_current!==true||final.state.native_navigation?.page_document!==nativeDocument||
+                 Object.hasOwn(final.state.native_navigation,'page_ready')&&final.state.native_navigation.page_ready!==true)return fail('stale_document','Native proof for the original page became stale during observation; request a fresh observation');
             }
             retainNativeNavigation=true;return { handled: true, result: { ok: true, action: action.id, url: observation.url || (nativeControl&&nativeReference?undefined:sameDocument&&targetUrl?targetUrl:current.state.url), observation,...(sameDocument?{same_document:true}:{}) } };
           }

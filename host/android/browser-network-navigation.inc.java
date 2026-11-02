@@ -168,6 +168,8 @@
             .put("request_association_error",operation.ticket.requestAssociationError()==null?JSONObject.NULL:operation.ticket.requestAssociationError())
             .put("scope_revoked",operation.revoked||operation.owner!=owner).put("dispatched",operation.ticket.dispatched()).put("initial",operation.initial)
             .put("page_commit_supported",true).put("same_document_supported",true).put("same_document",operation.ticket.sameDocument()).put("page_committed",operation.ticket.pageCommitted()).put("page_current",operation.ticket.pageCurrent())
+            .put("page_ready",operation.settled&&!operation.revoked&&operation.pageError==null&&operation.ticket.pageCurrent()&&
+                (owner.popup==null||owner.popup.page!=null&&owner.popup.page.navigating==operation&&owner.popup.page.documentReady()))
             .put("page_document",operation.ticket.pageDocument()==null?JSONObject.NULL:operation.ticket.pageDocument()).put("page_error",operation.pageError==null?JSONObject.NULL:operation.pageError);
         if(result!=null)value.put("acknowledged",result.acknowledged).put("ok",result.ok).put("download_known",result.downloadKnown).put("download",result.download)
             .put("loader_present",result.loaderPresent).put("code",result.code==null?JSONObject.NULL:result.code).put("native_error",result.nativeError==null?JSONObject.NULL:result.nativeError);

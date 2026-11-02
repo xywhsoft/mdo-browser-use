@@ -159,6 +159,9 @@ function initialObservationFixture(mode='ready'){
       if(mode==='alias-reading'&&state.reads)native.page_document='nd-new-proof';
       if(mode==='proof-reading'&&state.reads||mode==='ordinary-later')native.page_current=false;
       if(mode==='unproven')native.page_committed=false;
+      if(mode==='ui-ready')native.page_ready=poll>=6;
+      if(mode==='ui-invalid')native.page_ready='invalid';
+      if(mode==='ui-revoked')native.page_ready=state.reads===0;
       if(mode==='unsupported-proof')native.page_commit_supported=false;
       if(mode==='download-retained'||mode==='download-missing')Object.assign(native,{phase:'acknowledged',acknowledged:true,ok:true,download_known:true,download:true,loader_present:false,page_current:false,page_committed:false,page_document:null});
       return{loading:false,automation:true,navigation:mode==='ui-reading'&&state.reads?'3':done?'2':'1',initial_navigation_pending:!done,
@@ -775,8 +778,8 @@ test('goto canonicalizes the destination before admission without accepting cred
 });
 
 function nativeControlFixture(action,mode='ready'){
-  const calls=[],controls=[];let sent=false,polls=0,reads=0,changed=false;
-  const options={command:'navigate_to',params:{action,timeout_ms:mode==='timeout'?160:700},action:{id:'control-'+action+'-'+mode},
+  const calls=[],controls=[];let sent=false,polls=0,reads=0,changed=false,uiChanged=false;
+  const options={command:'navigate_to',params:{action,timeout_ms:mode==='timeout'||mode==='ui-timeout'?160:700},action:{id:'control-'+action+'-'+mode},
     api:{async call(){return{state:'pending'};}},
     view:{async execute(command,params){calls.push([command,params]);
       if(command===action){sent=true;assert(!Object.hasOwn(params,'url'));assert(params.timeout_ms>=100);return{accepted:true,...(mode==='missing-ref'?{}:{navigation_ref:'nv-original'})};}
@@ -794,6 +797,11 @@ function nativeControlFixture(action,mode='ready'){
         if(mode==='replaced-record')native.id='nv-replacement';
         if(mode==='reload-same-document')native.same_document=true;
         if(mode==='native-rejected')Object.assign(native,{phase:'failed',ok:false,dispatched:false,code:'cdp_navigation_unsupported'});
+        if(mode==='ui-ready')native.page_ready=polls>=6;
+        if(mode==='ui-timeout')native.page_ready=false;
+        if(mode==='ui-invalid')native.page_ready='invalid';
+        if(mode==='ui-lost')native.page_ready=!uiChanged;
+        if(mode==='ui-malformed-after')native.page_ready=uiChanged?'invalid':true;
         return{automation:true,platform:'android-webview',native_navigation_controls_supported:mode!=='old-host',loading:mode==='loading'&&polls<4,navigation:'original-ui-epoch',
           url:'https://stale-toolbar.invalid/',can_go_back:false,can_go_forward:false,...(sent?{native_navigation:native}:{}),manual:sent&&mode==='manual'};
       }
@@ -801,6 +809,7 @@ function nativeControlFixture(action,mode='ready'){
     }},
     pageDriver:{async read(method,params,control){assert.equal(method,'observe');await control.checkpoint();reads++;controls.push(control.navigation_ref);
       assert(polls>=3);assert.equal(control.navigation_ref,'nv-original');if(mode==='during-read')changed=true;
+      if(mode==='ui-ready')assert(polls>=6);if(mode==='ui-lost'||mode==='ui-malformed-after')uiChanged=true;
       return{ok:true,ready:mode==='pending-dom'&&reads===1?'loading':'complete',document:'original-control-document',url:'https://observed-target.invalid/'};
     }}};
   return{options,calls,controls,get reads(){return reads;}};
@@ -836,6 +845,30 @@ test('native control post-read staleness takeover and timeout cancel only the or
     assert.equal(out.result.error.effect_may_have_occurred,true);assert.equal(out.result.observation,undefined);assert.equal(f.reads,mode==='during-read'?1:0);
     const cleanup=f.calls.filter(([command])=>command==='navigation_cancel');assert.equal(cleanup.length,1);assert.equal(cleanup[0][1].navigation_ref,'nv-original');
     assert(!f.calls.some(([command])=>['navigate','stop','close'].includes(command)));
+  }
+});
+
+test('native controls wait for original UI readiness after commit and reject invalid or lost readiness',async()=>{
+  for(const action of ['back','forward','reload']){
+    const ready=nativeControlFixture(action,'ui-ready'),done=await executeBrowserAutomation(ready.options);
+    assert.equal(done.result.ok,true);assert.equal(ready.reads,1);assert.equal(ready.calls.filter(([command])=>command===action).length,1);
+    for(const mode of ['ui-invalid','ui-lost','ui-malformed-after','ui-timeout']){
+      const fixture=nativeControlFixture(action,mode),out=await executeBrowserAutomation(fixture.options);
+      assert.equal(out.result.ok,false);assert.equal(out.result.error.code,mode==='ui-invalid'?'navigation_uncertain':mode==='ui-timeout'?'timed_out':'stale_document');
+      assert.equal(out.result.error.effect_may_have_occurred,true);assert.equal(out.result.observation,undefined);
+      assert.equal(fixture.reads,mode==='ui-lost'||mode==='ui-malformed-after'?1:0);
+      const cleanup=fixture.calls.filter(([command])=>command==='navigation_cancel');assert.equal(cleanup.length,1);assert.equal(cleanup[0][1].navigation_ref,'nv-original');
+      assert.equal(fixture.calls.filter(([command])=>command===action).length,1);assert(!fixture.calls.some(([command])=>['navigate','close','stop'].includes(command)));
+    }
+  }
+});
+
+test('initial observation waits for the original UI realm and never publishes a read after readiness loss',async()=>{
+  for(const mode of ['ui-ready','ui-invalid','ui-revoked']){
+    const fixture=initialObservationFixture(mode),out=await executeBrowserAutomation(fixture.options);
+    if(mode==='ui-ready'){assert.equal(out.result.ok,true);assert(fixture.state.polls>=6);assert.equal(fixture.state.reads,1);}
+    else{assert.equal(out.result.ok,false);assert.equal(out.result.error.code,mode==='ui-invalid'?'navigation_uncertain':'stale_document');assert.equal(out.result.text,undefined);assert.equal(fixture.state.reads,mode==='ui-invalid'?0:1);}
+    assert(!fixture.state.commands.some(command=>['navigate','reload','stop','close'].includes(command)));
   }
 });
 

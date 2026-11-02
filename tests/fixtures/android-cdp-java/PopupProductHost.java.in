@@ -68,6 +68,24 @@ final class PopupProductHost {
         if(action.equals("goto"))networkNavigate(key,view,"navigate","https://private.invalid/destination",true,3000);else networkTraverse(key,view,"navigate",action,true,3000);
         return publicReplies.get("navigate");
     }
+    JSONObject frontendNavigate(String key,String action,JSONObject params)throws Exception {
+        WebView view=views.get(key);networkCommand(key,view,action,true);
+        boolean accepted=action.equals("navigate")?networkNavigate(key,view,"frontend-navigation",params.getString("url"),true,params.getLong("timeout_ms")):
+            networkTraverse(key,view,"frontend-navigation",action,true,params.getLong("timeout_ms"));
+        if(!accepted)throw new AssertionError("Protected frontend navigation fell back to an ordinary route");return publicReplies.get("frontend-navigation");
+    }
+    JSONObject frontendState(String key)throws Exception {
+        pollNavigation(key);NetworkEntry row=networkViews.get(key);WebView view=views.get(key);
+        boolean armed=row!=null&&row.downloads!=null&&row.ready&&!row.retired&&networkCurrent(row);
+        return new JSONObject().put("automation",true).put("platform","android-webview").put("loading",Boolean.TRUE.equals(loading.get(key))).put("navigation",views.epoch(key,view))
+            .put("frame_automation",inspectFrameRouting(key)).put("isolated_world",inspectDocumentState(key)).put("manual",manual.contains(key))
+            .put("popup_preparation_required",true).put("popup_preparation_capability",true).put("download_capability",armed).put("downloads_armed",armed)
+            .put("native_navigation_controls_supported",true).put("native_navigation",networkNavigationState(key)).put("initial_navigation_pending",networkInitialNavigationPending(key));
+    }
+    JSONObject frontendDownloads(String key,JSONObject params)throws Exception {
+        if(!"list".equals(params.optString("action")))throw new AssertionError("Unexpected frontend download decision");
+        networkCommand(key,views.get(key),"downloads",true);JSONArray rows=new JSONArray();for(MdoBrowserCdpDownloads.Snapshot row:popupDownloads(key).list())rows.put(row.json());return new JSONObject().put("downloads",rows);
+    }
     void pollNavigation(String key){NetworkEntry owner=networkViews.get(key);if(owner!=null&&owner.navigation!=null)nativeNavigationPoll(owner.navigation);}
     JSONObject inspectNavigation(String key)throws JSONException{return networkNavigationState(key);}
     boolean navigationSettled(String key){NetworkEntry owner=networkViews.get(key);return owner!=null&&owner.navigation!=null&&owner.navigation.settled;}

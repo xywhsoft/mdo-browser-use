@@ -2968,7 +2968,12 @@ public final class CdpPopupWorkerProbe {
         if(!hidden&&!viewport&&!restoring)check(renderer.worlds.createCalls==calls);check(renderer.worlds.evaluations==effects&&backend.nativeOpens.get()==proofs&&backend.opens.get()==connections);
         return new JSONObject().put("native_adapter",true).put("read_only",true).put("legacy_world_queries",original.worldQueries-queries).put("phase_checked",phase).put("ready_checked",expectedReady).put("startup_checked",startup!=null).put("explicit_restore_checked",hidden||viewport||restoring).put("provider_qualified",false);
     }
-    private static JSONObject frontendRecovery(CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+    private static JSONObject frontendRecovery(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        boolean navigation=variant.startsWith("frontend-navigation-"),cancel=variant.equals("frontend-navigation-cancel"),natural=variant.startsWith("frontend-natural-");
+        Backend.SourceRenderer navigator=navigation?new Backend.SourceRenderer(variant.equals("frontend-navigation-no-commit")?"source-navigation-no-commit":"source-navigation-flow"):null;
+        if(navigation){renderer.navigationPeer=navigator;renderer.frames.rootUrl=renderer.context.rootUrl=navigator.url;renderer.wrongNavigationDocument=variant.equals("frontend-navigation-mismatch");}
+        int readyWaits=0,navigationReads=0;boolean released=false;
+        if(navigation)renderer.holdMethod="Page.createIsolatedWorld";
         final String document="d-00000000-0000-4000-8000-000000000169";AtomicInteger scripts=new AtomicInteger(),preparations=new AtomicInteger();
         product.windows.put("owned",new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}},
             new MdoBrowserPopups.Budget(8),()->product.views.owns("owned",view),()->product.views.epoch("owned",view),blocked->{if(blocked){product.views.input("owned",view).invalidate("popup_pending");product.invalidatePopupDocument("owned","popup_pending");}}));
@@ -2976,20 +2981,27 @@ public final class CdpPopupWorkerProbe {
             String prefix="({local_frame:true}).";int begin=expression.lastIndexOf(prefix);if(begin<0)throw new AssertionError("Unexpected frontend expression");
             String tail=expression.substring(begin+prefix.length()),method=tail.substring(0,tail.indexOf('('));
             if(!method.equals("describe")&&!method.equals("observe"))throw new AssertionError("Unexpected frontend method");scripts.incrementAndGet();
-            JSONObject result=new JSONObject().put("ok",true).put("document",document).put("ready","complete").put("url","https://original.invalid/page").put("title","Controlled popup")
+            String currentDocument=navigation?String.format(java.util.Locale.ROOT,"d-00000000-0000-4000-8000-%012d",176+navigator.navigations):natural?"d-00000000-0000-4000-8000-000000000276":document;
+            JSONObject result=new JSONObject().put("ok",true).put("document",currentDocument).put("ready","complete").put("url",navigation?navigator.url:natural?renderer.frames.rootUrl:"https://original.invalid/page").put("title","Controlled popup")
                 .put("viewport",new JSONObject().put("width",320).put("height",240));
-            if(method.equals("observe"))result.put("text","Restored original native popup").put("elements",new org.json.JSONArray()).put("frames",new org.json.JSONArray().put(new JSONObject().put("id","f0").put("dom",true))).put("visited",1).put("truncated",false);
+            if(method.equals("observe"))result.put("text",navigation?"Original native navigation "+navigator.navigations:natural?"Natural original native popup":"Restored original native popup").put("elements",new org.json.JSONArray()).put("frames",new org.json.JSONArray().put(new JSONObject().put("id","f0").put("dom",true))).put("visited",1).put("truncated",false);
             return result;
         };
         product.bounds(view,new JSONObject().put("browser","owned").put("visible",false));product.bounds(view,new JSONObject().put("browser","owned").put("visible",true));
+        if(natural){int received=backend.receives.get();naturalCommit(backend,renderer,"load-frontend-natural",true);waitFor(()->backend.receives.get()>received+2,host,true);product.nativePageCallback("owned");}
         check(!product.inspectDocumentState("owned").getBoolean("ready"));
         System.out.println(new JSONObject().put("event","ready").put("provider_qualified",false));System.out.flush();
         java.io.BufferedReader input=new java.io.BufferedReader(new java.io.InputStreamReader(System.in,StandardCharsets.UTF_8));String line;
         while((line=input.readLine())!=null){
             if(line.length()>300000)throw new AssertionError("Frontend fixture request limit");JSONObject request=new JSONObject(line);int id=request.getInt("id");String command=request.getString("command");
             JSONObject result=null;
+            if(navigation){Handler.drain();host.ui.drain();}
             if(command.equals("fixture_finish")){System.out.println(new JSONObject().put("id",id).put("result",new JSONObject().put("ok",true)));System.out.flush();break;}
-            if(command.equals("state"))result=new JSONObject().put("automation",true).put("platform","android-webview").put("loading",false).put("navigation",product.views.epoch("owned",view))
+            if(navigation&&command.equals("state"))result=product.frontendState("owned");
+            else if(navigation&&java.util.Arrays.asList("navigate","back","forward","reload").contains(command))result=product.frontendNavigate("owned",command,request.getJSONObject("params"));
+            else if(navigation&&command.equals("downloads"))result=product.frontendDownloads("owned",request.getJSONObject("params"));
+            else if(navigation&&command.equals("navigation_cancel")){product.cancelNavigation("owned",request.getJSONObject("params").getString("navigation_ref"));result=product.publicReplies.get("cancel-navigation");if(renderer.held!=null){renderer.release(backend.wire);released=true;}}
+            else if(command.equals("state"))result=new JSONObject().put("automation",true).put("platform","android-webview").put("loading",false).put("navigation",product.views.epoch("owned",view))
                 .put("frame_automation",product.inspectFrameRouting("owned")).put("isolated_world",product.inspectDocumentState("owned"))
                 .put("popup_preparation_required",true).put("popup_preparation_capability",true);
             else if(command.equals("popup_prepare")){
@@ -2997,13 +3009,22 @@ public final class CdpPopupWorkerProbe {
                 waitFor(()->product.publicCounts.getOrDefault("preparation",0)==count+1,host,true);result=product.publicReplies.get("preparation");
             }else if(command.equals("frames")){
                 int count=product.publicCounts.getOrDefault("frames",0);JSONObject params=request.getJSONObject("params");params.put("command","frames");product.frameRpc("owned",params);
+                if(navigation&&params.has("navigation_ref"))navigationReads++;
                 waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);result=product.publicReplies.get("frames");
+                if(navigation&&!result.optBoolean("ok"))System.err.println("Frontend inventory denial: action="+params.optString("action")+", code="+result.optJSONObject("error")+", document="+product.inspectDocumentState("owned")+", navigation="+product.inspectNavigation("owned"));
             }else throw new AssertionError("Unsupported frontend fixture command");
+            if(navigation&&command.equals("state")){
+                JSONObject originalNavigation=result.optJSONObject("native_navigation");
+                if(originalNavigation!=null&&originalNavigation.optBoolean("page_current")&&!originalNavigation.optBoolean("page_ready")){
+                    readyWaits++;if(!cancel&&readyWaits>=2&&renderer.held!=null){check(navigationReads==0);renderer.release(backend.wire);released=true;}
+                }
+            }
             System.out.println(new JSONObject().put("id",id).put("result",result));System.out.flush();
         }
         check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0&&view.destroyed==0);
         return new JSONObject().put("actual_product_frontend",true).put("worlds",renderer.worlds.created).put("expressions",scripts.get()).put("preparations",preparations.get())
-            .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+            .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false)
+            .put("native_navigation_commands",backend.nativeNavigationCommands.get()).put("readiness_waits",readyWaits).put("original_world_released",released).put("navigation_reads",navigationReads);
     }
     private static JSONObject fileCall(CdpNetworkWorkerProbe.Case host,PopupProductHost product,String id,JSONObject request)throws Exception {
         int count=product.publicCounts.getOrDefault(id,0);product.uploadRpc("owned",id,request);
@@ -3153,11 +3174,12 @@ public final class CdpPopupWorkerProbe {
         boolean sourceCrash=variant.equals("source-crash"),ledgerFault=variant.equals("retirement-ledger-fault")||variant.equals("retirement-ledger-listener"),sourceFault=sourceCrash||ledgerFault;
         boolean unconfirmed=sourceFault||variant.equals("download-abort-mismatch")||variant.equals("download-abort-missing")||variant.equals("download-abort-rejected");
         boolean delayed=variant.equals("download-delayed-abort")||unconfirmed&&!sourceFault,claim=variant.equals("download-close-claim"),read=variant.equals("download-close-read");
+        boolean frontendNavigation=variant.startsWith("frontend-navigation-")||variant.startsWith("frontend-natural-");PopupProductHost[] originalProduct={null};
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
-            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
+            CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original,frontendNavigation?new InputSurface():null,frontendNavigation?(key,view,epoch,reason)->{PopupProductHost current=originalProduct[0];if(current!=null)current.lifecycleInvalidated(key,view,epoch,reason);}:null)){
                 java.nio.file.Path root=java.nio.file.Paths.get(directory);java.nio.file.Files.createDirectories(root);
                 try(MdoBrowserDownloadQueue queue=new MdoBrowserDownloadQueue(()->new MdoBrowserDownloadFiles(root),host.time::get)){
-                    PopupProductHost product=new PopupProductHost(source.views);product.bindPreparation(source.view,original.adapter,source.core,host.worker);
+                    PopupProductHost product=new PopupProductHost(source.views);originalProduct[0]=product;product.bindPreparation(source.view,original.adapter,source.core,host.worker);
                     product.downloadQueue=queue;product.downloadBudget=new MdoBrowserCdpDownloads.Budget();product.loading.put("owned",true);
                     AtomicInteger prepared=new AtomicInteger();WebView[] exact={null};Backend.DocumentRenderer[] renderer={null};JSONObject[] restoration={null},startup={null};boolean[] detachSent={false},nullConsumed={false},abortDelivered={false},claimDelivered={false},parentClosed={!read},lateSent={false},negativeExpired={false};int[] afterLate={0};
                     Backend.SourceRenderer initial=new Backend.SourceRenderer("source-complete");Throwable primary=null;
@@ -3216,7 +3238,7 @@ public final class CdpPopupWorkerProbe {
                                 }
                                 if(variant.startsWith("nested-"))frameRouteEvidence=nestedPopup(variant,host,backend,product,exact[0],renderer[0]);
                                 if(variant.startsWith("state-"))frameRouteEvidence=popupDocumentState(variant,host,product,exact[0],backend,renderer[0],startup[0]);
-                                if(variant.startsWith("frontend-"))frameRouteEvidence=frontendRecovery(host,backend,product,exact[0],renderer[0]);
+                                if(variant.startsWith("frontend-"))frameRouteEvidence=frontendRecovery(variant,host,backend,product,exact[0],renderer[0]);
                                 if(variant.startsWith("continuation-"))frameRouteEvidence=uploadContinuation(variant,host,backend,product,exact[0],renderer[0]);
                                 if(variant.startsWith("files-"))frameRouteEvidence=protectedFiles(variant,directory,host,backend,product,exact[0],renderer[0]);
                                 if(sourceCrash){
