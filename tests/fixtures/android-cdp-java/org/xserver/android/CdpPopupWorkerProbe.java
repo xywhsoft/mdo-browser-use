@@ -2711,6 +2711,54 @@ public final class CdpPopupWorkerProbe {
         return new JSONObject().put("actual_product_frontend",true).put("worlds",renderer.worlds.created).put("expressions",scripts.get()).put("preparations",preparations.get())
             .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
     }
+    /** The product upload/clear/chooser routes must continue the already bound
+     * popup document, whose registry owner is its native handoff. The old UI
+     * channel lookup rejects this exact live document. This tests routing, not
+     * Android URI grants or a provider's actual FileList assignment. */
+    private static JSONObject uploadContinuation(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        long epoch=product.views.epoch("owned",view);MdoBrowserChannel<PopupProductHost.WebMessagePort>.Lease lease=product.channel.current();
+        MdoBrowserCdpMarker original=product.continueDocument("owned",view,epoch,lease);
+        try{product.ordinaryContinuation("owned",view,epoch);throw new AssertionError("Old channel lookup accepted native handoff");}
+        catch(IllegalStateException rejected){check("Original CDP binding unavailable".equals(rejected.getMessage()));}
+        check(original.lease().current()&&original.lease().busy()&&renderer.worlds.created==1);
+        if(variant.equals("continuation-loss")){
+            failure("cdp_binding_owner_changed",()->product.continueDocument("owned",view,epoch+1,lease));
+            failure("cdp_binding_owner_changed",()->product.continueDocument("owned",new WebView(),epoch,lease));
+            product.manual.add("owned");failure("cdp_binding_owner_changed",()->product.continueDocument("owned",view,epoch,lease));product.manual.remove("owned");
+            product.browserPaused=true;failure("cdp_binding_owner_changed",()->product.continueDocument("owned",view,epoch,lease));product.browserPaused=false;
+            product.loading.put("owned",true);failure("cdp_binding_owner_changed",()->product.continueDocument("owned",view,epoch,lease));product.loading.put("owned",false);
+            product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+            failure("cdp_binding_owner_changed",()->product.continueDocument("owned",view,epoch,lease));
+            check(renderer.worlds.created==1&&renderer.worlds.evaluations==0);
+        }else{
+            if(variant.equals("continuation-parent")){product.retirePreparation("cdp_popup_preparation_cancelled");waitFor(product::preparationSettled,host,true);}
+            if(variant.equals("continuation-restore")){
+                product.bounds(view,new JSONObject().put("browser","owned").put("visible",false));
+                failure("cdp_binding_owner_changed",()->product.continueDocument("owned",view,epoch,lease));
+                product.bounds(view,new JSONObject().put("browser","owned").put("visible",true));
+                failure("cdp_popup_page_document_unavailable",()->product.continueDocument("owned",view,epoch,lease));
+                check(renderer.worlds.created==1&&renderer.worlds.evaluations==0);
+                int count=product.publicCounts.getOrDefault("frames",0);product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+                waitFor(()->product.publicCounts.getOrDefault("frames",0)==count+1,host,true);
+                if(!product.publicReplies.get("frames").getBoolean("ok"))throw new AssertionError("Original continuation restore failed: "+product.publicReplies.get("frames"));checks.incrementAndGet();
+                check(!original.lease().current());original=product.continueDocument("owned",view,epoch,lease);check(renderer.worlds.created==2);
+            }
+            final MdoBrowserCdpMarker continued=original;java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> receipt=new java.util.concurrent.atomic.AtomicReference<>();
+            java.util.concurrent.atomic.AtomicReference<JSONObject> decoded=new java.util.concurrent.atomic.AtomicReference<>();
+            host.worker.submitExisting(continued,3000,false,(binding,deadline)->binding.frames().inventory(deadline).toString().getBytes(StandardCharsets.UTF_8),result->{
+                // Result bytes belong to the synchronous native completion and
+                // are wiped immediately on return. Retain only decoded data.
+                if(result.code==null)try{decoded.set(new JSONObject(new String(result.bytes,StandardCharsets.UTF_8)));}catch(JSONException error){throw new AssertionError(error);}receipt.set(result);
+            });
+            waitFor(()->receipt.get()!=null,host,true);check(receipt.get().code==null&&!receipt.get().effectMayHaveOccurred);
+            JSONObject inventory=decoded.get();check(inventory!=null&&inventory.getBoolean("ok")&&inventory.getJSONArray("frames").length()==1);
+            check(product.continueDocument("owned",view,epoch,lease)==continued&&renderer.worlds.evaluations==0);
+            if(variant.equals("continuation-ready")){product.invalidatePopupDocument("owned","input_cancelled");failure("cdp_popup_page_document_unavailable",()->product.continueDocument("owned",view,epoch,lease));}
+        }
+        check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0);
+        return new JSONObject().put("original_document_continuation",true).put("old_channel_lookup_refused",true)
+            .put("worlds",renderer.worlds.created).put("expressions",renderer.worlds.evaluations).put("provider_assignment_qualified",false);
+    }
     private static void productPublication(String mode,String directory)throws Exception {
         boolean restoring=mode.startsWith("preparation-restore-");String variant=mode.substring((restoring?"preparation-restore-":"preparation-publication-").length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         boolean hidden=restoring||variant.equals("hidden"),download=variant.startsWith("download")||variant.equals("state-download"),invalid=variant.equals("invalid-layout")||variant.equals("foreign-pending");
@@ -2784,6 +2832,7 @@ public final class CdpPopupWorkerProbe {
                                 if(variant.startsWith("nested-"))frameRouteEvidence=nestedPopup(variant,host,backend,product,exact[0],renderer[0]);
                                 if(variant.startsWith("state-"))frameRouteEvidence=popupDocumentState(variant,host,product,exact[0],backend,renderer[0],startup[0]);
                                 if(variant.startsWith("frontend-"))frameRouteEvidence=frontendRecovery(host,backend,product,exact[0],renderer[0]);
+                                if(variant.startsWith("continuation-"))frameRouteEvidence=uploadContinuation(variant,host,backend,product,exact[0],renderer[0]);
                                 if(sourceCrash){
                                     backend.wire.add(new JSONObject().put("method","Inspector.targetCrashed").put("sessionId","proof-real").put("params",new JSONObject()));
                                     waitFor(()->backend.closes.get()>0,host,true);
@@ -3339,6 +3388,7 @@ public final class CdpPopupWorkerProbe {
         report.put("product_nested_adoption_tested",mode.startsWith("preparation-publication-nested-"));
         report.put("product_document_state_tested",mode.startsWith("preparation-publication-state-"));
         report.put("product_frontend_recovery_tested",mode.startsWith("preparation-publication-frontend-"));
+        report.put("product_upload_continuation_tested",mode.startsWith("preparation-publication-continuation-"));
         if(frameRouteEvidence!=null)report.put("product_frame_route",frameRouteEvidence);
         report.put("product_publication_tested",mode.startsWith("preparation-publication-")||mode.startsWith("preparation-restore-"));
         report.put("product_document_restore_tested",mode.startsWith("preparation-restore-"));

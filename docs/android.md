@@ -6023,3 +6023,30 @@ Broader public Android document/input, protected navigation/takeover/nested
 preparation and platform qualification remain open; Windows end-to-end completion
 audit and final deliverables also remain open. Phone/current WebView checks stay
 deferred. No ADB, live model, external page or production action was used.
+
+### Existing native document continuations (E170)
+
+The upload target reservation, assignment, file-input clear and chooser
+continuation paths now share `existingDocumentMarker`. An ordinary document's
+registry owner is the UI channel; a protected popup's owner is its original
+native handoff. Looking up a popup with the channel always rejects its otherwise
+valid binding. The helper selects the exact prepared popup document, verifies
+its handoff registry entry, marker and document lease, and requires the original
+physical view, navigation, visible state and active UI channel. It never creates,
+discovers, restores or reconnects a document. A pending protected handoff cannot
+fall back to an ordinary document lookup.
+
+The upload and clear controllers recheck that same original marker through their
+UI lifecycle. Explicit observation may restore a suspended page, but the new
+marker cannot renew an older upload action's authority. Chooser continuation
+retains only an already bound original realm with no pending native job; other
+invalidations keep the existing cancellation behavior. Native operations still
+use `submitExisting`, so loss of the original binding cannot reconnect or replay
+an upload effect. Receipt/status and retained-file lifetime policies are unchanged.
+
+The popup continuation gate exercises actual product state, handoff, registry,
+worker and JNI envelope validation with controlled UI and renderer peers. It
+does not qualify Android URI permission grants, an installed provider's FileList
+assignment or protected-popup upload end to end. Public Android automation stays
+disabled pending that integration and platform qualification. The phone and its
+current WebView remain deferred.

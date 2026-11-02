@@ -248,6 +248,8 @@ def main():
                   'preparation-page-input-chooser','preparation-page-input-stale','preparation-page-input-cancel','preparation-page-input-late',
                   'preparation-page-input-afterdown','preparation-page-input-focus-timeout','preparation-page-input-channel','preparation-page-input-focus-retired',
                   'preparation-publication-ready',
+                  'preparation-publication-continuation-ready','preparation-publication-continuation-loss',
+                  'preparation-publication-continuation-parent','preparation-publication-continuation-restore',
                   'preparation-publication-hidden',
                   'preparation-publication-duplicate',
                   'preparation-publication-parent',
@@ -309,6 +311,7 @@ def main():
                 or popup_worker.get('product_protected_opener_tested') is not mode.startswith('preparation-page-opener-')
                 or popup_worker.get('product_protected_input_tested') is not mode.startswith('preparation-page-input-')
                 or popup_worker.get('product_nested_adoption_tested') is not mode.startswith('preparation-publication-nested-')
+                or popup_worker.get('product_upload_continuation_tested') is not mode.startswith('preparation-publication-continuation-')
                 or popup_worker.get('product_document_state_tested') is not mode.startswith('preparation-publication-state-')
                 or popup_worker.get('product_frontend_recovery_tested') is not mode.startswith('preparation-publication-frontend-')
                 or popup_worker.get('retirement_delivery_scope_tested') is not mode.startswith('delivery-loss')
@@ -336,6 +339,13 @@ def main():
                 raise RuntimeError('A renderer crash was incorrectly treated as deliberate retirement')
             if mode.startswith('preparation-publication-retirement-ledger-') and published.get('ledger_fault_contained') is not mode.endswith(('-fault','-listener')):
                 raise RuntimeError('A source-ledger fault or ordinary listener error was swallowed as retirement')
+        if mode.startswith('preparation-publication-continuation-'):
+            receipt=popup_worker.get('product_frame_route')
+            if (not isinstance(receipt,dict) or receipt.get('original_document_continuation') is not True
+                    or receipt.get('old_channel_lookup_refused') is not True or receipt.get('expressions')!=0
+                    or receipt.get('worlds')!=(2 if mode.endswith('-restore') else 1)
+                    or receipt.get('provider_assignment_qualified') is not False):
+                raise RuntimeError('Upload continuation did not retain its exact native document without restore or fallback')
         if mode.startswith('preparation-publication-nested-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-nested-'):]
             public=variant in {'ready','blocked','duplicate','foreign','old-pin','parent-close'}

@@ -22,6 +22,8 @@ final class PopupProductHost {
     final WorldBudget worldBudget=new WorldBudget();
     JSONObject inspectDocumentState(String key)throws JSONException{return documentState(key);}
     boolean inspectFrameRouting(String key){return protocolPopupFrameRouting(key);}
+    MdoBrowserCdpMarker continueDocument(String key,WebView view,long epoch,MdoBrowserChannel<WebMessagePort>.Lease lease)throws java.io.IOException{return existingDocumentMarker(key,view,epoch,lease);}
+    MdoBrowserCdpMarker ordinaryContinuation(String key,WebView view,long epoch){return cdpViews.existing(key,view,epoch,channel.current());}
     void inspectLegacyRoute(String key)throws java.io.IOException{requireLegacyDocumentRoute(key);}
     void legacyRpc(String key)throws Exception{executeDocument(key,"legacy",new JSONObject().put("script","0"));}
     @@DOCUMENT_STATE@@

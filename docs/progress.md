@@ -13135,3 +13135,66 @@ accounting phase. Protected upload/navigation/takeover, overall Android admissio
 and platform/final-deliverable qualification remain open. Phone/current WebView
 stay deferred; no ADB, live model, external site or production action was used.
 The overall goal remains active.
+
+### E170 original native document upload continuation
+
+Confirmed a separate ownership mismatch in the Android upload and file-clear
+routes: protected popup documents are registered under their native handoff,
+but these routes and the chooser-continuation hook used the UI channel for
+`cdpViews.existing`. The new product continuation test proves that the old
+lookup rejects the exact live popup and that the correctly owned marker can
+continue on its original connection. Upload reservation, assignment, clear and
+chooser retention now use a shared non-creating `existingDocumentMarker`; active
+upload/clear checks also require their original captured marker. The helper
+cannot restore a realm or fall back during protected handoff construction.
+
+Four focused controlled product modes pass (178 reported checks): live original
+continuation, view/navigation/manual/background/loading/channel loss, parent
+preparation retirement, and explicit document restoration invalidating the old
+marker. Inventory continuation uses the original worker and binding, zero page
+expressions, one Browser connection and one native proof connection; normal
+cases keep one realm, and only explicit restoration creates the second realm.
+All four actual product close/detach/native cleanup receipts pass. This is
+document-routing evidence, not full protected-popup upload or provider/URI-grant
+qualification. The existing ordinary upload/clear/chooser matrix remains part
+of the full regression gate.
+
+The first full run stopped in the new test because it retained worker result
+bytes beyond their synchronous callback, where production deliberately wipes
+them. The focused restoration test then exposed its missing required
+`agent:true` field. Both fixture mistakes were corrected without changing the
+production admission/worker grammar or the product fix. Preserve
+`.mdo/E170-native-first.log`, `.mdo/E170-focused-first.log`,
+`.mdo/E170-focused-second.log` and the successful `.mdo/E170-focused.log`.
+
+The final complete native matrix passes 440 popup-worker modes with16,732
+reported checks, the ordinary upload/coordinator/clear/chooser suites, real JNI
+envelope and transport gates, ASan/UBSan and API26 compilation. All130 native
+input hashes verify. The earlier436 modes retain their prior semantic receipts;
+raw check counts are excluded from that comparison and are not a coverage
+invariant. See `.mdo/E170-native.log` and
+`.mdo/E170-semantic-differences.json` (empty).
+
+Fresh Python178 of180 pass with the same two Windows symlink-privilege skips.
+The actual shared JS dispatcher/driver/reader to product JVM recovery gate passes
+all four old-order/observe/wait/cancel modes again, including actual native
+cleanup and current source/class/library identities. The single deployment's127
+reviewed overlays and HTTP200 readiness verify after applying the change.
+See `.mdo/E170-python.log`, `.mdo/E170-native-frontend.log` and
+`.mdo/E170-apply.log`.
+
+The fresh signed Android development APK is6,579,521 bytes, SHA-256
+`74a3ea15699e9654e7ad87c52d4663b9e5fb41700b0acab3bf915669d3e9e97d`.
+Actual DEX definitions verify the new continuation/current helpers and the
+reservation/assignment/clear/chooser invalidation methods. The QA identity and
+signer remain unchanged. It reuses the exact E169 exercised Windows app archive
+and unchanged paired plugin; their bytes and current archive-source match are
+verified, not a fresh Windows runtime claim for E170. See `.mdo/E170-apk.log`,
+`.mdo/E170-dex-methods.json` and `.mdo/E170-verification.json`.
+
+This completes original native document selection for upload/clear/chooser
+continuations. Full protected-popup upload/picker/URI-grant integration,
+protected navigation/takeover, overall Android admission and platform/final
+qualification remain open. Public Android automation stays disabled;
+phone/current WebView checks remain deferred. No ADB, live model, external site
+or production action was used, and the overall goal remains active.

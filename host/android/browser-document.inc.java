@@ -33,6 +33,18 @@
             (target==null||target.view==view&&target.dialogs.clean()&&target.dialogs.snapshot()==null)&&
             (!windows.containsKey(key)||windows.get(key).clean()&&windows.get(key).snapshot()==null);
     }
+    /** Continue the original bound document; never discover, restore or create
+     * a realm. Protected popups register their handoff as the registry owner,
+     * while ordinary documents register the UI channel. These owners are not
+     * interchangeable even when the physical view and navigation are equal. */
+    private MdoBrowserCdpMarker existingDocumentMarker(String key,WebView view,long epoch,MdoBrowserChannel<WebMessagePort>.Lease original)throws java.io.IOException {
+        if(!cdpEnvironmentCurrent(key,view,epoch,original))throw new java.io.IOException("cdp_binding_owner_changed");
+        PopupPage popup=protocolPopupDocument(key,view);
+        if(popup==null){requireLegacyDocumentRoute(key);return cdpViews.existing(key,view,epoch,original);}
+        MdoBrowserCdpMarker marker=cdpViews.existing(key,view,epoch,popup.network.handoff);
+        if(marker!=popup.marker||marker.lease()!=popup.proof.lease)throw new java.io.IOException("cdp_popup_document_owner_invalid");
+        return marker;
+    }
     private MdoBrowserCdpMarker cdpMarker(String key,WebView view){
         final long epoch=views.epoch(key,view);final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
         return cdpViews.marker(key,view,epoch,original,()->cdpEnvironmentCurrent(key,view,epoch,original)&&chooserReady(dialogs.get(key)));

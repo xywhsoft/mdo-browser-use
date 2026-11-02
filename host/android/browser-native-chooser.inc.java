@@ -16,8 +16,8 @@
     private void inputInvalidated(String key,WebView view,long epoch,String reason){
         cancelTargetedUpload(key,view,epoch);
         if("file_chooser_open".equals(reason)&&views.epoch(key,view)==epoch&&chooserContinuationReady(key,view)){
-            try{MdoBrowserCdpMarker original=cdpViews.existing(key,view,epoch,channel.current());if(!cdpWorker.pending(original))return;}
-            catch(IllegalStateException unavailable){/* No original bound realm: ordinary retirement remains mandatory. */}
+            try{MdoBrowserCdpMarker original=existingDocumentMarker(key,view,epoch,channel.current());if(!cdpWorker.pending(original))return;}
+            catch(java.io.IOException|IllegalStateException unavailable){/* No original bound realm: retirement remains mandatory. */}
         }
         cdpViews.invalidate(key,view,epoch,reason);
         protocolPopupDocumentInvalidated(key,view,reason);

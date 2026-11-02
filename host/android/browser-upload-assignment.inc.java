@@ -74,7 +74,7 @@
         MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();
         if(!cdpEnvironmentCurrent(key,source.view,source.scope.navigation,original)||!chooserReady(dialogs.get(key))||views.inputBusy(key,source.view)||!views.inputClean(key,source.view))
             throw new IllegalStateException("upload_document_unavailable");
-        MdoBrowserCdpMarker marker=cdpViews.existing(key,source.view,source.scope.navigation,original);
+        MdoBrowserCdpMarker marker=existingDocumentMarker(key,source.view,source.scope.navigation,original);
         if(cdpWorker.pending(marker)||uploadBusy(key,source.view))throw new IllegalStateException("upload_operation_busy");
         if(old!=null){if(old.target==null||old.source!=source||old.channel!=original||old.marker!=marker||!sameUploadTarget(old.target,target))throw new IllegalStateException("upload_target_changed");return old;}
         if(book==null){book=new UploadBook(source.view,source.data);uploadBooks.put(source.data,book);}
@@ -89,11 +89,15 @@
         UploadAction old=book.tickets.get(value.ticket);if(old!=null&&old!=action)throw new IllegalStateException("upload_ticket_changed");
         action.ticket=value.ticket;book.tickets.put(value.ticket,action);return action.target!=null;
     }
+    private boolean uploadMarkerCurrent(String key,WebView view,long epoch,MdoBrowserChannel<WebMessagePort>.Lease original,MdoBrowserCdpMarker marker){
+        try{return existingDocumentMarker(key,view,epoch,original)==marker;}
+        catch(java.io.IOException|RuntimeException unavailable){return false;}
+    }
     private boolean uploadCurrent(String key,UploadBook book,UploadAction action,MdoBrowserChannel<WebMessagePort>.Lease original){
         UploadDataEntry data=uploadDataOwners.get(key);MdoBrowserDialogTarget dialog=dialogs.get(key);
         return data!=null&&data.view==book.view&&data.owner==book.owner&&book.owner.live()&&book.active==action&&
             uploadOwners.get(key)==action.source&&action.source.scope.live()&&channel.current()==original&&action.channel==original&&
-            cdpEnvironmentCurrent(key,book.view,action.source.scope.navigation,original)&&manualChooser.ready()&&
+            uploadMarkerCurrent(key,book.view,action.source.scope.navigation,original,action.marker)&&manualChooser.ready()&&
             dialog instanceof MdoBrowserChooserTarget&&dialog.view==book.view&&((MdoBrowserChooserTarget)dialog).choosers.clean()&&
             ((MdoBrowserChooserTarget)dialog).choosers.snapshot()==null&&((MdoBrowserChooserTarget)dialog).privatePicker.clean()&&
             views.inputClean(key,book.view)&&!views.inputBusy(key,book.view);
@@ -158,7 +162,7 @@
         final MdoBrowserChannel<WebMessagePort>.Lease original=channel.current();final UploadAction operation=action;final UploadBook originalBook=book;
         if(uploadOwners.get(key)!=action.source||!action.source.scope.live()||action.channel!=original||
             !cdpEnvironmentCurrent(key,view,epoch,original)||!chooserReady(dialogs.get(key))||views.inputBusy(key,view)||!views.inputClean(key,view))throw new IllegalStateException("upload_owner_changed");
-        if(cdpViews.existing(key,view,epoch,original)!=action.marker||cdpWorker.pending(action.marker))throw new IllegalStateException("upload_target_changed");
+        if(existingDocumentMarker(key,view,epoch,original)!=action.marker||cdpWorker.pending(action.marker))throw new IllegalStateException("upload_target_changed");
         MdoBrowserDialogTarget dialog=dialogs.get(key);if(!(dialog instanceof MdoBrowserChooserTarget)||dialog.view!=view)throw new IllegalStateException("upload_picker_unavailable");
         int timeout=(int)(request.has("timeout_ms")?uploadNumber(request,"timeout_ms",100,120000):60000);
         android.os.Handler handler=new android.os.Handler(android.os.Looper.getMainLooper());
@@ -206,7 +210,7 @@
     private boolean clearCurrent(String key,UploadBook book,ClearAction clear,MdoBrowserChannel<WebMessagePort>.Lease channelLease){
         return uploadBook(key,book.view)==book&&book.clearing==clear&&book.clearKeys.get(clear.key)==clear&&!clear.cancelled&&clear.source.scope.live()&&
             uploadOwners.get(key)==clear.source&&channel.current()==channelLease&&clear.channel==channelLease&&
-            cdpEnvironmentCurrent(key,book.view,clear.source.scope.navigation,channelLease)&&chooserReady(dialogs.get(key))&&
+            uploadMarkerCurrent(key,book.view,clear.source.scope.navigation,channelLease,clear.marker)&&chooserReady(dialogs.get(key))&&
             !views.inputBusy(key,book.view)&&views.inputClean(key,book.view)&&captureMutationReady(key,book.view);
     }
     private boolean clearCommand(String key,String id,WebView view,JSONObject request)throws Exception {
@@ -248,7 +252,7 @@
         }
         if(!views.inputClean(key,view)||!captureMutationReady(key,view))throw new IllegalStateException("upload_capture_busy_or_unclean");
         if(!cdpEnvironmentCurrent(key,view,epoch,replyChannel)||!chooserReady(dialogs.get(key)))throw new IllegalStateException("upload_owner_changed");
-        MdoBrowserCdpMarker marker=cdpViews.existing(key,view,epoch,replyChannel);if(cdpWorker.pending(marker))throw new IllegalStateException("upload_operation_busy");
+        MdoBrowserCdpMarker marker=existingDocumentMarker(key,view,epoch,replyChannel);if(cdpWorker.pending(marker))throw new IllegalStateException("upload_operation_busy");
         UploadEntry source=uploadOwners.get(key);
         if(source==null||source.view!=view||source.scope.navigation!=epoch||!source.scope.live()){
             if(source!=null){source.scope.cancel();cancelUploadTargets(source);}source=new UploadEntry(view,epoch,uploadData(key,view));uploadOwners.put(key,source);

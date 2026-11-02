@@ -135,6 +135,7 @@ final class UploadAssignmentHost implements AutoCloseable {
         void restoreFailed(MdoBrowserCdpMarker marker){}
     }
     private PopupPage protocolPopupDocument(String key,WebView view){return null;}
+    private void requireLegacyDocumentRoute(String key){} // No protected owner in this ordinary-page fixture.
     private PopupPage protocolPopupDocument(String key,WebView view,boolean inventory){return null;}
     private void protocolPopupDocumentInvalidated(String key,WebView view,String reason){}
 @@ROUTER@@
