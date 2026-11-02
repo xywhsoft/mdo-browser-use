@@ -22,16 +22,18 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview includes W6's recovery when a task
-dispatcher supersedes a pending pane mount, E178's observation/cleanup boundary
-checks, and the earlier W5/E149/E150 original ownership and inventory recovery.
-It is **6,942,591 bytes**, SHA-256
-`a89d94aa95e4f9da71eb05d162496cdb244cb98e023dc8a16763447f5cdbbac7`.
-Fresh public C/JS SDK, visual permissions and twelve packed runtime checks pass;
-482 JS tests and the signed Android archive are current. The native Android
-matrix is hash-verified E178 reuse, not a device/provider pass. See the adjacent
-receipt and [current progress](progress.md). W6 preserves the task dispatcher
-and remounts only its preferred still-scoped UI; it does not replay page input.
+The current verified Windows preview includes E184's native control receipt
+validation and W6's recovery when a task dispatcher supersedes a pending pane.
+Control failures retain the displayed webpage with useful recovery/cleanup text;
+pending control and stale state reads cannot grant UI ownership. No failed
+control operation automatically recreates or navigates the webpage.
+It is **6,943,692 bytes**, SHA-256
+`525daa817e571ed6d52069ca5ac069ea84cd69f858e67241a7398cf69d1f57ea`.
+Fresh mounted WebView2 control 22, public C/JS SDK, visual permissions and twelve
+packed runtime checks pass; 505 JS tests and the signed Android archive are
+current. E183's native 529/frontend 20 are explicit unchanged hash-checked reuse,
+not an Android device/provider pass. See the adjacent receipt and
+[current progress](progress.md). The overall Browser Use goal remains active.
 
 W5 fixes actual managed read-only screenshots timing out during panel mounting:
 the panel retains its browser's original run/workspace, while the action keeps

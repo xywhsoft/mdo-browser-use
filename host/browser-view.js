@@ -14,16 +14,62 @@ function assertDisplayUrl(url) {
     throw new Error("此地址指向目标设备的本地服务。请先映射预览服务，或提供可访问的网址。");
 }
 
+function controlError(command, failure, cleanup) {
+  const reason = failure?.code || failure?.message || failure;
+  const code = typeof reason === "string" && /^[a-z][a-z0-9_]{1,79}$/.test(reason) ? reason : "browser_control_unconfirmed";
+  const messages = {
+    network_retiring: "上一轮浏览器操作仍在清理，请等待后再操作。",
+    network_starting: "浏览器正在确认控制权，请稍后再操作。",
+    network_rearm_page_loading: "请等待网页加载结束后再交还控制。",
+    network_return_blocked: "请先结束当前输入、文件选择或截图，再交还控制。",
+    network_owner_changed: "浏览器状态已变化，请检查原标签。",
+    network_owner_unavailable: "浏览器控制通道暂不可用，请检查原标签。",
+    network_start_timeout: "控制权确认超时，请检查原标签。",
+    network_start_cancelled: "已停止交还控制。",
+    popup_takeover_unqualified: "当前客户端暂不支持接管此弹出页。",
+    browser_control_result_invalid: "客户端未返回有效的控制权确认，请检查原标签。",
+    browser_control_pending: "控制权操作正在进行，请等待本次结果。",
+  };
+  const message = messages[code] || "控制结果未确认，请检查原标签，避免重复操作。";
+  const receipt = cleanup === true ? "本次网络操作已清理。" : cleanup === false ? "原生网络资源清理尚未确认，请先检查原标签。" : "";
+  return Object.assign(new Error(`${command === "release" ? "交还控制失败" : "接管失败"}：${message}${receipt}`),
+    { code, command, ...(typeof cleanup === "boolean" ? { network_cleanup_confirmed: cleanup } : {}) });
+}
+
 export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, clientId, shown, alive = () => !signal.aborted,
   canHide = () => false, onBind = () => true, onDispose, onRetired, updateTitle, openExternal, onEnd, addContext }) {
   const id = row.resource.id, scope = browserScopeKey(row);
   const execute = createNativeBrowserExecutor(bridge, id), view = { id, execute };
-  let disposed = false, retired = false, brokerInvalid = false, initialized = false;
+  let disposed = false, retired = false, brokerInvalid = false, initialized = false, controlPending = "", controlEpoch = 0, controlNotice;
   const current = () => !disposed && !retired && !brokerInvalid && !signal.aborted && alive();
   const check = () => { if (!current()) throw new DOMException("浏览器所属窗口或设备已改变", "AbortError"); };
   const ready = () => { check(); if (!initialized) throw new DOMException("浏览器正在初始化", "AbortError"); };
   const errorToast = error => { if (current() && error.name !== "AbortError") toast(error.message || String(error), "error"); };
-  const uiExecute = async (command, params) => { ready(); const result = await execute(command, params); check(); return result; };
+  const uiExecute = async (command, params) => {
+    ready();
+    const control = command === "takeover" || command === "release";
+    if (control && controlPending) throw controlError(command, "browser_control_pending");
+    if (control) { controlPending = command; controlEpoch++; controlNotice = undefined; paint(false); }
+    try {
+      const result = await execute(command, params); check();
+      if (control) {
+        if (result?.ok === false) throw controlError(command, result.error, result.network_cleanup_confirmed);
+        if (!result || Array.isArray(result) || typeof result !== "object" || result.manual !== (command === "takeover") ||
+            result.error || result.ok !== undefined && result.ok !== true) throw controlError(command, "browser_control_result_invalid");
+        // Control receipts are not page state. In particular, never merge a
+        // structured failure into state.error and hide the physical webpage.
+        state = { ...state, manual: result.manual };
+      }
+      return result;
+    } catch (error) {
+      if (!control || error?.name === "AbortError") throw error;
+      const failure = error?.command === command ? error : controlError(command, error);
+      if (current()) controlNotice = failure;
+      throw failure;
+    } finally {
+      if (control) { controlPending = ""; if (current()) paint(false); }
+    }
+  };
   const call = async (method, params) => { check(); const result = await sdk.call(method, params, { signal }); check(); return result; };
   const owned = (value, attached = true) => {
     if (!value || value.id !== id || browserScopeKey(value) !== scope || attached && value.client !== clientId)
@@ -44,7 +90,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   const action = (name, label, run) => iconButton(name, label, () => { check(); return run(); }, errorToast);
   const back = action("arrow-left", "后退", () => uiExecute("back")), forward = action("arrow-right", "前进", () => uiExecute("forward"));
   const reload = action("refresh", "刷新", () => state.loading ? uiExecute("stop") : recover());
-  const takeControl = async () => { const value = await uiExecute(state.manual ? "release" : "takeover"); state = { ...state, ...value }; paint(); };
+  const takeControl = () => uiExecute(state.manual ? "release" : "takeover");
   const manual = action("hand", "接管浏览器", takeControl);
   const viewport = make("div", "wb-viewport-toolbar"); viewport.hidden = row.type !== "mdo.preview";
   const size = make("select", "wb-viewport-size"); size.setAttribute("aria-label", "预览宽度");
@@ -68,7 +114,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   const openSystem = () => { check(); return openExternal(safeBrowserUrl(state.url === "about:blank" ? browserLocation(address.value) : state.url)); };
   const menu = popupMenu(more, () => [
     { label: "前进", execute: () => uiExecute("forward"), disabled: !state.can_go_forward },
-    { label: state.manual ? "交还给 Agent" : "接管浏览器", checked: Boolean(state.manual), execute: takeControl },
+    { label: state.manual ? "交还给 Agent" : "接管浏览器", checked: Boolean(state.manual), disabled: Boolean(controlPending), execute: takeControl },
     { label: "设备预览", checked: !viewport.hidden, execute: () => preview.click() },
     { label: "在系统浏览器打开", execute: openSystem, disabled: !state.url || state.url === "about:blank" },
     { label: "复制网址", execute: () => { check(); return navigator.clipboard.writeText(state.url); }, disabled: !state.url || state.url === "about:blank" },
@@ -77,7 +123,8 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
       if (!result.ok) throw new Error(result.error || "读取页面失败");
       addContext({ title: state.title || state.url, content: result.value.text, source: state.url, context: row.context });
     }, disabled: browserPhase(state) !== "ready" },
-    { label: "复制诊断信息", execute: () => { check(); return navigator.clipboard.writeText(JSON.stringify({ platform: state.platform, phase: browserPhase(state), loading: state.loading, visible: state.visible, bounds: state.bounds, viewport_attached: state.viewport_attached, viewport_topmost: state.viewport_topmost, controller_bounds: state.controller_bounds, error: state.error, error_code: state.error_code }, null, 2)); } },
+    { label: "复制诊断信息", execute: () => { check(); return navigator.clipboard.writeText(JSON.stringify({ platform: state.platform, phase: browserPhase(state), loading: state.loading, visible: state.visible, bounds: state.bounds, viewport_attached: state.viewport_attached, viewport_topmost: state.viewport_topmost, controller_bounds: state.controller_bounds, error: state.error, error_code: state.error_code,
+      control: controlNotice ? { command: controlNotice.command, code: controlNotice.code, network_cleanup_confirmed: controlNotice.network_cleanup_confirmed } : undefined }, null, 2)); } },
     { label: "结束浏览", execute: async () => {
       ready();
       await call("browser.close", { id });
@@ -89,19 +136,21 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   const paint = (sync = true) => {
     if (!current()) return;
     const phase = browserPhase(state); root.dataset.browserPhase = phase;
-    mount.status = { status: phase === "error" ? "error" : phase === "loading" ? "loading" : "ready", message: state.error || "" };
+    mount.status = { status: phase === "error" ? "error" : phase === "loading" ? "loading" : "ready", message: controlNotice?.message || state.error || "" };
     const empty = phase === "empty", failed = phase === "error";
     message.hidden = !empty && !failed; message.classList.toggle("wb-error", failed);
     title.textContent = failed ? "网页未能打开" : "浏览器";
     detail.textContent = failed ? `${state.error}${state.error_code === undefined ? "" : `（${state.platform || "浏览器"} ${state.error_code}）`}` : "粘贴或输入网址，按回车打开网页。";
     retry.hidden = !failed || !bridge.available(); system.hidden = !failed || !state.url || state.url === "about:blank";
-    status.textContent = phase === "loading" ? "正在加载…" : state.manual ? "已由你接管 · Agent 暂停操作" : "";
+    status.textContent = controlPending ? controlPending === "release" ? "正在交还控制…" : "正在接管浏览器…" :
+      controlNotice?.message || (phase === "loading" ? "正在加载…" : state.manual ? "已由你接管 · Agent 暂停操作" : "");
     status.hidden = !status.textContent;
     if (document.activeElement !== address && !state.initial_navigation_pending) address.value = state.url === "about:blank" || empty ? "" : state.url || address.value;
     back.disabled = !state.can_go_back; forward.disabled = !state.can_go_forward;
     reload.setAttribute("aria-label", state.loading ? "停止加载" : "刷新"); reload.title = state.loading ? "停止加载" : "刷新";
     reload.replaceChildren(icon(state.loading ? "stop" : "refresh"));
     manual.setAttribute("aria-pressed", String(Boolean(state.manual))); manual.title = state.manual ? "交还给 Agent" : "接管浏览器"; manual.setAttribute("aria-label", manual.title);
+    manual.disabled = Boolean(controlPending); manual.setAttribute("aria-busy", String(Boolean(controlPending)));
     if (sync) void syncVisible(shown());
   };
   const syncVisible = value => {
@@ -153,8 +202,13 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     clearTimeout(timer);
     if (polling || !current()) return;
     polling = true;
+    const epoch = controlEpoch;
     try {
-      state = await uiExecute("state"); await dialogs.refresh(state); check(); await choosers.refresh(state); check(); await downloads.refresh(state); check(); paint();
+      const next = await uiExecute("state");
+      // A state read dispatched before a control receipt cannot undo it. No
+      // polling response grants UI authority while that receipt is pending.
+      if (controlPending || epoch !== controlEpoch) return;
+      state = next; await dialogs.refresh(state); check(); await choosers.refresh(state); check(); await downloads.refresh(state); check(); paint();
       const location = /^https?:\/\//.test(state.url || "") ? state.url : "";
       const label = state.title || (location && new URL(location).hostname) || "浏览器";
       if (location && (location !== browser.url || label !== browser.title)) {
@@ -165,9 +219,9 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
       const report = { state: browserPhase(state), url: location.slice(0, 1024), title: label.slice(0, 256), loading: Boolean(state.loading), error: (state.error || "").slice(0, 512) };
       const identity = JSON.stringify(report);
       if (identity !== lastReport) { await call("browser.report", { id, client: clientId, value: report }); lastReport = identity; }
-      mount.status = { status: state.error ? "error" : state.loading ? "loading" : "ready", message: state.error || "" };
+      mount.status = { status: state.error ? "error" : state.loading ? "loading" : "ready", message: controlNotice?.message || state.error || "" };
     } catch (error) {
-      failure(error, "浏览器状态暂不可用：");
+      if (!controlPending && epoch === controlEpoch) failure(error, "浏览器状态暂不可用：");
     } finally {
       polling = false;
       if (current()) timer = setTimeout(() => { if (!current()) return; if (!root.hidden && !document.hidden) void poll(); else timer = setTimeout(poll, 1500); }, state.loading ? 400 : 1500);

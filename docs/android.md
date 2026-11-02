@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E183)
+## Complete development host APK (current: E184)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,587,713 bytes, SHA-256
-`648b9251ca99d2df241b6de798416f6d8a459017b20a373a563b7cf56a6c1d64`.
+Current APK: 6,591,809 bytes, SHA-256
+`f852449336afaab092f277e969a6c4cc71d8950888ff8d084e62a05739c9da23`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6248,3 +6248,16 @@ Public protected takeover, in-flight/descendant joins, structured toolbar error
 presentation, unacknowledged-startup cancellation recovery and full Activity/UI/
 device qualification remain open. Public Android automation remains unavailable;
 the phone and current WebView stay deferred. Overall feature goal remains active.
+
+
+### Shared control toolbar receipt handling (E184)
+
+The shared UI now treats failed network-return receipts as control notices,
+preserving the displayed page and manual ownership. Canonical refusals and typed
+network cleanup get useful bounded text. Malformed replies cannot grant control;
+pending original receipts and older polls cannot overwrite UI authority. Dialog
+and picker controls share the validation. Component bridge tests and actual
+Windows native success/fault-injected UI checks pass. The signed APK contains
+this updated UI; Android Activity/provider/device verification remains deferred.
+The E183 native 529/frontend 20 evidence is unchanged hash-checked reuse. Public
+Android automation and protected takeover gates remain unavailable.

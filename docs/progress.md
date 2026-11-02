@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Shared UI E184:** validate native takeover/return receipts before changing
+  UI ownership. Keep structured control errors separate from page errors, show
+  bounded recovery/cleanup messages, serialize controls and ignore old/pending
+  state reads. Real dialog/picker controls share the same validation. All 48
+  component cases/JS 505/Python 178/180 pass, plus actual mounted WebView2 control 22,
+  fresh public SDK 19/navigation 4/wait 5, visual and packed runtime 12. Fresh Windows
+  and signed Android artifacts; native 529/frontend 20 are explicit rehashed E183
+  reuse. Android protected takeover/provider/device qualification remains open.
+
 - **Android E183:** join protected human retirement to the existing same-view
   network rearm and fresh document proof. Preserve page/profile/catalog/bytes;
   keep manual control until fresh readiness and recheck input/modal/capture/
@@ -14303,3 +14312,62 @@ paths or the entire feature are complete. Ongoing native-origin readiness,
 broader remote/permissions/lifetime/OOM/performance/ecosystem/final delivery
 audit remain active. Current WebView and phone verification stay deferred;
 public Android automation/framework/provider/device admission stays false.
+
+### E184 native control receipts without blanking the webpage
+
+The toolbar previously merged any fulfilled takeover/return result into page
+state. Android's structured failed return therefore made `state.error` an object,
+hid the physical webpage, displayed an unhelpful object string and could break
+the subsequent browser report. The same unchecked fulfilled result allowed the
+file-picker/dialog helper to continue after a failed takeover.
+
+The shared trusted UI executor now validates both control commands. Only an
+explicit boolean `manual` matching the requested control direction, without a
+failure/error, changes UI ownership. Unrelated receipt fields cannot replace
+page URL/loading/error state. Canonical native refusals get bounded Chinese
+recovery text; structured network cleanup is reported independently as confirmed
+or unconfirmed. Diagnostics retain only the bounded control code/command/typed
+cleanup receipt. A control failure remains a control notice, never a page-load
+error, and sends no automatic retry, navigation, close or create.
+
+Toolbar/menu and real dialog/picker controls use that same executor. Pending
+control disables the toolbar and current menu entry, preserves original manual
+state and blocks duplicate native dispatch. A state read dispatched before a
+control command, or delivered while its original receipt is pending, cannot
+overwrite that receipt. This also suppresses stale rejected reads from turning
+a newer successful control change into a page error. Native ownership remains
+authoritative; UI validation does not expand Agent permission or Android gates.
+
+Twenty-three new actual component cases include 22 that fail on the previously
+deployed source; all 48 component cases pass with this implementation. They cover typed cleanup,
+canonical errors, malformed replies, duplicates, held delivery, stale successful
+and rejected polls, explicit successful retry, retired mounts and the actual
+dialog/picker modules refusing to continue after failed takeover. The component
+test DOM/bridge are controlled, not a real Android framework/provider.
+
+The additional `tools/control_ui_probe.py` mounts the actual component in the
+normal project WebView2 with the actual broker/native bridge. Its 22 checks
+perform real native takeover and release on the same retained page. Explicit
+bridge fault injection covers three failed reply types; these injected failures
+are not claimed as native Windows protocol errors. A held original native return
+receipt lets the native state poll arrive first and proves no early UI grant or
+duplicate native release. No new native diagnostics appear; headless mode is
+restored. See `.mdo/control-ui-result.json` and `.mdo/E184-control-ui.log`.
+
+Fresh full JS 505 and Python 178/180 pass (the same two Windows symlink-privilege
+skips). Fresh actual public C/JS SDK 19 actions/4 navigations/5 waits, visual
+permission checks and 12 packed-program checks pass. The E183 native 529 /21,489
+reported popup checks, API26/sanitizers/JNI and 20 existing frontend/JVM flows are
+unchanged scoped reuse: all selected source/class/native-library hashes are
+checked again, not a second execution. E184 verification is recorded in
+`.mdo/E184-verification.json`; the goal remains active.
+
+Fresh Windows development program: 6,943,692 bytes, SHA-256
+`525daa817e571ed6d52069ca5ac069ea84cd69f858e67241a7398cf69d1f57ea`. Fresh signed Android development APK: 6,591,809 bytes,
+SHA-256 `f852449336afaab092f277e969a6c4cc71d8950888ff8d084e62a05739c9da23`. The Android archive contains this exact Windows app
+archive; native DEX/package/signature checks pass. The paired plugin is unchanged.
+No extra application/Home, phone install, provider change, model or online
+publication was used. Android public protected takeover, in-flight/descendant
+cleanup and installed-provider/full Activity/device qualification remain open,
+as do the broader final requirements and delivery audit. Phone/current WebView
+verification remains deferred; no unqualified capability is enabled.

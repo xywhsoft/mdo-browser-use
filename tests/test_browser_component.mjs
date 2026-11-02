@@ -12,8 +12,11 @@ const factory=new Function('ensureNativeBrowser','createNativeBrowserExecutor','
   'browserLocation','browserPhase','safeBrowserUrl','browserScopeKey','make','icon','iconButton','popupMenu','toast','isRemoteTarget',
   'document','navigator','ResizeObserver','devicePixelRatio','setTimeout','clearTimeout',
   source.replace(/^import .+;\r?$/gm,'').replace('export async function','async function')+';return mountBrowserView;');
-function fixture(){
+const helperFactory=name=>new Function('document',readFileSync(new URL(`../host/${name==='Dialogs'?'dialog':'chooser'}-ui.js`,import.meta.url),'utf8')
+  .replace('export function','function')+`;return createBrowser${name};`);
+function fixture({realHelpers=false}={}){
   const trace=[],nodes=[],timers=new Map(),controller=new AbortController();let serial=0,current=true,cleanup=true,hook=()=>{},menu,options;
+  const responses=new Map();
   const node=(tag='',className='',text='')=>{
     const value={tag,className,textContent:text,hidden:false,style:{},dataset:{},children:[],value:'',
       classList:{add(){},toggle(){}},setAttribute(name,value){this[name]=value;},append(...values){this.children.push(...values);},
@@ -24,12 +27,15 @@ function fixture(){
   let browser={id:'browser',owner:row.owner,client:'display',context:{...row.context},revision:1,url:'https://example.test/',title:'Original'};
   let state={url:browser.url,title:browser.title,loading:false,visible:true,can_go_back:true,can_go_forward:true};
   const root=node('section'),mount={},sdk={async call(method,params){trace.push({method,params});await hook(method,params);return{...browser,context:{...browser.context}};}},
-    bridge={available:()=>true,async call(method,params){trace.push({method,params});await hook(method,params);
-      if(method==='state')return{...state};if(method==='snapshot')return{ok:true,value:{text:'Page contents'}};
+    bridge={available:()=>true,async call(method,params){trace.push({method,params});const sampled={...state};await hook(method,params);
+      if(responses.has(method))return responses.get(method);
+      if(method==='takeover'||method==='release')return{manual:method==='takeover'};
+      if(method==='state')return sampled;if(method==='snapshot')return{ok:true,value:{text:'Page contents'}};
       if(method==='create')return{created:true};if(method==='capabilities')return{initial_download_interception:true};return{};}};
   const helper=name=>value=>{const element=node('section');return{element,async refresh(){trace.push({method:name});await hook(name);},toggle(){return true;},dispose(){trace.push({method:name+'.dispose'});}};};
-  const document={hidden:false,activeElement:null,querySelectorAll:()=>[]};
-  const run=factory(ensureNativeBrowser,createNativeBrowserExecutor,helper('downloads'),helper('choosers'),helper('dialogs'),browserLocation,browserPhase,safeBrowserUrl,browserScopeKey,node,name=>node('span',name),
+  const document={hidden:false,activeElement:null,querySelectorAll:()=>[],createElement:tag=>node(tag)};
+  const run=factory(ensureNativeBrowser,createNativeBrowserExecutor,helper('downloads'),realHelpers?helperFactory('Choosers')(document):helper('choosers'),
+    realHelpers?helperFactory('Dialogs')(document):helper('dialogs'),browserLocation,browserPhase,safeBrowserUrl,browserScopeKey,node,name=>node('span',name),
     (name,label,action,onError)=>{const button=node('button','',label);button.onclick=()=>Promise.resolve().then(action).catch(onError);return button;},
     (button,items)=>{menu=items;return{dispose(){}};},(...values)=>trace.push({method:'toast',values}),()=>false,document,
     {clipboard:{async writeText(value){trace.push({method:'clipboard',value});}}},class{observe(){}},1,
@@ -40,6 +46,7 @@ function fixture(){
     onEnd:async id=>trace.push({method:'end',id}),addContext:value=>trace.push({method:'context',value})});
   return{trace,nodes,root,mount,controller,timers,start,row,options:()=>options,retire:()=>{current=false;},cleanup:value=>{cleanup=value;},
     hook:value=>{hook=value;},browser:value=>{browser={...browser,...value};},state:value=>{state={...state,...value};},
+    response:(method,value)=>{responses.set(method,value);},
     button:label=>nodes.find(n=>n.tag==='button'&&n.textContent===label),menu:label=>menu().find(item=>item.label===label),
     async flush(){for(let i=0;i<30;i++)await Promise.resolve();},async tick(){const entry=[...timers][0];if(entry){timers.delete(entry[0]);entry[1]();}await this.flush();}};
 }
@@ -139,4 +146,89 @@ test('initialization never advertises actionable UI before native creation compl
   const pending=f.start();await f.flush();assert(finish);f.trace.length=0;
   await f.button('后退').click();await f.button('刷新').click();await f.menu('结束浏览').execute().catch(()=>{});await f.flush();
   assert.equal(f.trace.length,0);finish();await pending;await f.flush();assert(f.trace.some(x=>x.method==='state'));
+});
+
+for(const cleanup of [true,false,undefined])
+test(`failed native return keeps the webpage and its manual control, cleanup=${cleanup}`,async()=>{
+  const f=fixture();f.state({manual:true});await f.start();await f.flush();f.trace.length=0;
+  f.response('release',{ok:false,manual:true,error:{code:'network_owner_changed'},network_cleanup_confirmed:cleanup,url:'https://foreign.test/'});
+  await f.button('接管浏览器').click();await f.flush();
+  assert.equal(f.button('接管浏览器')['aria-pressed'],'true');assert.equal(f.root.dataset.browserPhase,'ready');
+  assert.equal(f.nodes.find(n=>n.className==='wb-browser-message').hidden,true);
+  assert.match(f.nodes.find(n=>n.className==='wb-browser-status').textContent,/状态已变化/);
+  assert.equal(f.mount.status.status,'ready');assert.equal(typeof f.mount.status.message,'string');
+  const toast=f.trace.find(r=>r.method==='toast');assert.match(toast.values[0],/交还控制失败/);
+  if(cleanup===false)assert.match(toast.values[0],/清理尚未确认/);
+  if(cleanup===true)assert.match(toast.values[0],/本次网络操作已清理/);
+  await f.menu('复制诊断信息').execute();const diagnostic=JSON.parse(f.trace.at(-1).value);
+  assert.equal(diagnostic.control.code,'network_owner_changed');assert.equal(diagnostic.control.network_cleanup_confirmed,cleanup);
+  await f.tick();assert.equal(f.trace.filter(r=>r.method==='release').length,1);
+  assert(!f.trace.some(r=>['navigate','close','create'].includes(r.method)));assert.equal(f.root.dataset.browserPhase,'ready');
+});
+
+for(const [code,text] of [['network_retiring',/仍在清理/],['network_rearm_page_loading',/加载结束/],['network_return_blocked',/文件选择/],
+  ['popup_takeover_unqualified',/暂不支持接管此弹出页/],['unknown_private_reason',/控制结果未确认/]])
+test(`scalar control rejection has a bounded useful message: ${code}`,async()=>{
+  const f=fixture();await f.start();await f.flush();f.trace.length=0;
+  f.hook(method=>{if(method==='takeover')throw Error(code);});await f.button('接管浏览器').click();await f.flush();
+  assert.match(f.trace.find(r=>r.method==='toast').values[0],text);assert.equal(f.root.dataset.browserPhase,'ready');
+  assert.equal(f.button('接管浏览器')['aria-pressed'],'false');assert(!f.button('接管浏览器').disabled);
+});
+
+for(const value of [null,[],{},true,{manual:'false'},{manual:true},{manual:false,ok:'true'},{manual:false,error:{code:'bad_reply'}}])
+test(`malformed return cannot grant UI authority: ${JSON.stringify(value)}`,async()=>{
+  const f=fixture();f.state({manual:true});await f.start();await f.flush();f.trace.length=0;f.response('release',value);
+  await f.button('接管浏览器').click();await f.flush();assert.equal(f.button('接管浏览器')['aria-pressed'],'true');
+  assert.match(f.trace.find(r=>r.method==='toast').values[0],/未返回有效的控制权确认/);assert.equal(f.root.dataset.browserPhase,'ready');
+});
+
+test('control waits for its original receipt, serializes toolbar/menu and ignores polled early grants',async()=>{
+  const f=fixture();f.state({manual:true});await f.start();await f.flush();f.trace.length=0;let settle;
+  f.hook(method=>{if(method==='release')return new Promise(resolve=>{settle=resolve;});});
+  const pending=f.button('接管浏览器').click();await f.flush();const button=f.button('接管浏览器');
+  assert.equal(button['aria-pressed'],'true');assert(button.disabled);assert.equal(button['aria-busy'],'true');
+  assert.match(f.nodes.find(n=>n.className==='wb-browser-status').textContent,/正在交还控制/);
+  assert(f.menu('交还给 Agent').disabled);await assert.rejects(f.menu('交还给 Agent').execute(),/正在进行/);
+  f.state({manual:false});await f.tick();assert.equal(button['aria-pressed'],'true');
+  settle();await pending;await f.flush();assert.equal(button['aria-pressed'],'false');assert(!button.disabled);
+  assert.equal(f.trace.filter(r=>r.method==='release').length,1);assert(!f.trace.some(r=>r.method==='toast'));
+});
+
+for(const failedRead of [false,true])
+test(`stale poll cannot overwrite a newer control receipt, rejected read=${failedRead}`,async()=>{
+  const f=fixture();await f.start();await f.flush();let settle;f.trace.length=0;
+  f.hook(method=>{if(method==='state')return new Promise((resolve,reject)=>{settle=()=>failedRead?reject(Error('Old read failed')):resolve();});});
+  await f.tick();assert(settle);await f.button('接管浏览器').click();await f.flush();
+  assert.equal(f.button('接管浏览器')['aria-pressed'],'true');settle();await f.flush();
+  assert.equal(f.button('接管浏览器')['aria-pressed'],'true');assert.equal(f.root.dataset.browserPhase,'ready');
+  assert(!f.trace.some(r=>r.method==='toast'));assert.equal(f.trace.filter(r=>r.method==='takeover').length,1);
+});
+
+test('successful return clears only control notice and ignores unrelated receipt fields',async()=>{
+  const f=fixture();f.state({manual:true});await f.start();await f.flush();
+  f.response('release',{ok:false,manual:true,error:{code:'network_return_blocked'}});await f.button('接管浏览器').click();await f.flush();
+  f.response('release',{manual:false,url:'https://foreign.test/',loading:true,process_failed:true});
+  await f.button('接管浏览器').click();await f.flush();assert.equal(f.button('接管浏览器')['aria-pressed'],'false');
+  assert.equal(f.root.dataset.browserPhase,'ready');assert.equal(f.nodes.find(n=>n.className==='wb-address').value,'https://example.test/');
+  assert.equal(f.nodes.find(n=>n.className==='wb-browser-status').hidden,true);assert.equal(f.mount.status.message,'');
+});
+
+test('retired control delivery cannot repaint or toast into another mount',async()=>{
+  const f=fixture();f.state({manual:true});await f.start();await f.flush();let settle;
+  f.hook(method=>{if(method==='release')return new Promise(resolve=>{settle=resolve;});});
+  const pending=f.button('接管浏览器').click();await f.flush();const original=JSON.stringify(f.mount.status);
+  f.retire();f.response('release',{ok:false,manual:true,error:{code:'network_owner_changed'}});f.trace.length=0;settle();await pending;await f.flush();
+  assert.equal(JSON.stringify(f.mount.status),original);assert(!f.trace.some(r=>['toast','bounds','navigate','create'].includes(r.method)));
+});
+
+for(const kind of ['chooser','dialog'])
+test(`actual ${kind} UI does not continue after failed takeover`,async()=>{
+  const f=fixture({realHelpers:true});f.state({chooser_open:kind==='chooser',dialog_open:kind==='dialog'});
+  f.response(kind,kind==='chooser'?{choosers:[{id:'chooser-1'}]}:{dialogs:[{id:'dialog-1',kind:'confirm',message:'Confirm',url:'https://example.test/'}]});
+  await f.start();await f.flush();f.response('takeover',{ok:false,manual:false,error:{code:'popup_takeover_unqualified'}});f.trace.length=0;
+  const button=f.nodes.filter(n=>n.tag==='button'&&n.textContent===(kind==='chooser'?'接管浏览器':'确定')).at(-1);
+  await button.onclick();await f.flush();assert.equal(f.trace.filter(r=>r.method==='takeover').length,1);
+  assert(!f.trace.some(r=>r.method===kind&&r.params.action!=='list'));
+  assert.equal(f.button('接管浏览器')['aria-pressed'],'false');assert.match(f.trace.find(r=>r.method==='toast').values[0],/暂不支持接管/);
+  assert.equal(f.nodes.find(n=>n['aria-label']===(kind==='chooser'?'等待处理的文件选择器':'等待处理的网页对话框')).hidden,false);
 });
