@@ -307,6 +307,8 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     private final AtomicBoolean closed=new AtomicBoolean(),closeFinished=new AtomicBoolean(),closeFailed=new AtomicBoolean();
     private final Set<String> children=new HashSet<>();
     private final Set<String> seenChildren=new HashSet<>();
+    private final Set<String> cleanupChildren=new HashSet<>();
+    private final Set<String> nativeDetachedChildren=new HashSet<>();
     private Map<String,AttachedTarget> heldAttachments;
     private final Object controlGate=new Object();private final Control[] controls=new Control[CONTROL_LIMIT];
     private final Set<String> controlKeys=new HashSet<>();private int controlCount;
@@ -398,7 +400,20 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     void retireChild(String child) throws Failure {
         // Local bookkeeping remains possible while an attached command loses
         // its deliberately closing owner. It sends no protocol operation.
-        connectionGuard(false);retireChildData(child);
+        connectionGuard(false);retireChildData(child);cleanupChildren.remove(child);
+    }
+    /** Preserve only authenticated native ancestry events after document/data
+     * retirement. Late DOM events and ordinary RPC replies remain discarded. */
+    void fenceChild(String child)throws Failure{
+        connectionGuard(false);if(!seenChildren.contains(child))throw failure("cdp_session_invalid",false);
+        if(!children.contains(child)&&!cleanupChildren.contains(child))return;
+        retireChildData(child);cleanupChildren.add(child);
+    }
+    /** Exact native event receipt supplied by the ancestry-validating broker.
+     * It ends data/RPC authority, while descendants may still need this route. */
+    void nativeChildDetached(String child)throws Failure{
+        connectionGuard(false);if(!seenChildren.contains(child))throw failure("cdp_session_invalid",false);
+        nativeDetachedChildren.add(child);fenceChild(child);
     }
     private void retireChildData(String child){
         children.remove(child);
@@ -427,7 +442,9 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         try {
             guard(effect);
             MdoBrowserCdpJson.Message message=MdoBrowserCdpJson.decode(bytes);
-            if(!admitted(message.session)&&!retiringReceipt(message)) {
+            boolean cleanupEvent=cleanupChildren.contains(message.session)&&message.event()&&
+                ("Target.attachedToTarget".equals(message.method)||"Target.detachedFromTarget".equals(message.method));
+            if(!admitted(message.session)&&!retiringReceipt(message)&&!cleanupEvent) {
                 // Drain late traffic from an explicitly retired child; it
                 // cannot be rebound to a new target under the same ID.
                 if(seenChildren.contains(message.session))return null;
@@ -691,7 +708,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         seenChildren.add(original.session);original.used=true;
     }
     void retireAttachedTarget(AttachedTarget original)throws IOException {
-        connectionGuard(false);if(original==null||original.owner!=this||!original.used)throw failure("cdp_attach_event_invalid",false);retireChildData(original.session);
+        connectionGuard(false);if(original==null||original.owner!=this||!original.used)throw failure("cdp_attach_event_invalid",false);retireChildData(original.session);cleanupChildren.remove(original.session);
     }
     private ControlReceipt releaseAttachedTarget(AttachedTarget original)throws IOException {
         byte[] bytes=null;Control row;int budget;
@@ -1385,10 +1402,12 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 return message.value;
             }
         } catch(Failure failure) {
-            boolean retired=false;
+            // An authentic child detach can finish this original attached RPC
+            // before its reply without revoking another page on the wire.
+            boolean retired=attachmentRetirementTarget!=null&&nativeDetachedChildren.contains(session)&&"cdp_session_detached".equals(failure.getMessage());
             if(failure.attachedCommandCancelled&&attachmentRetirementTarget!=null){
                 AttachedTarget original=attachmentRetirementTarget;attachmentCommandOwner=null;
-                try{retireAttachedTarget(original);retired=true;}catch(IOException|RuntimeException|Error error){close();}
+                try{fenceChild(original.session);retired=true;}catch(IOException|RuntimeException|Error error){close();}
             }
             if(attempted&&!replied&&!retired)close();throw failure;
         } catch(IOException failure) {

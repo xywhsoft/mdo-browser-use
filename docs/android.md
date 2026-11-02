@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E187)
+## Complete development host APK (current: E188)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`c7899fa1517bef097428a7b1485952f584c467d54cbeadc7b8f540a371aeb352`.
+`f88c8e80193a0fa79236546f0f52b2972e0fff166843289fb9aebb2bec881a32`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6311,3 +6311,29 @@ the earlier retained-source symptom, without an exclusive cause claim for that
 single uninstrumented observation. Public takeover/descendant/provider/device
 qualification and the full goal remain open; Android automation stays gated and
 the phone/current WebView stay deferred.
+
+
+### Original native descendant cleanup (E188)
+
+Document cancellation and physical native detachment now have separate bounded
+records. The original native root receipt cannot release a protected attachment
+while any original iframe session still lacks its own native detach receipt.
+Parent-first events retain their cleanup routing until children also detach;
+late native attachments on a closing document gain no DOM/RPC authority. Invalid
+ancestry, attachments from a detached parent and the 64-session native limit fail
+closed. Authentic child detach can terminate its pending attached RPC without
+closing a different page's shared wire; stale replies cannot revive it.
+
+Ten new controlled cases pass 604 checks. The complete
+fresh native gate passes 555 modes / 23,053
+reported popup checks plus generic worker 300, API26/JNI/transport and ASan/UBSan;
+prior 545 business outcomes are unchanged. Actual frontend/JVM 20 and Python
+178/180 pass (two existing symlink-privilege skips). The complete signed current
+APK above includes the new Session and Broker implementations, with actual DEX,
+source, payload and signature checks. No phone/provider qualification is claimed.
+
+Human takeover still needs fixed original-root auto-attach disable/ACK joining
+after data cancellation and the public input/capture/chooser teardown join.
+The existing public takeover gate and overall Android automation unavailability
+remain. Current phone/WebView verification is deferred; this phase does not
+constitute a production release or device installation.

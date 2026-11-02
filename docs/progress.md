@@ -14590,3 +14590,81 @@ the deterministic defect is fixed, but the missing original timing evidence
 cannot establish a sole cause for that one observation. Broader remote/
 permissions/lifetime/OOM/performance/ecosystem/final delivery audit and the full
 goal stay active. Current phone/WebView verification remains deferred.
+
+### E188 require original native descendant receipts after document retirement
+
+The controlled original-worker witness reproduces premature cleanup in the old
+product: its root native detach sets Handoff.detached and releases the candidate
+while its two previously attached native iframe sessions have not supplied detach
+receipts. DocumentPeer.retire also erased the data-child map used by the old human
+descendant refusal. See `.mdo/E188-native-ledger-red.log`; it runs the actual old
+Session/Broker against the new fixture in the same fixed output directory. The
+reviewed sources were restored only after that check terminated.
+
+DocumentPeer now keeps bounded original native session/parent records separately
+from its document/data children. Data cancellation clears listeners and document/data-child admission while
+preserving those cleanup obligations. Session.fenceChild
+allows only the original native Target attachment/detachment events; ordinary
+late replies and DOM traffic stay retired. A parent detach is retained as a
+routing ancestor until its children also detach. The root receipt revokes the
+original authority immediately, but final Handoff.detached/candidate release
+requires every retained native descendant receipt. Unknown/duplicate receipts
+cannot clear another owner, incorrect parent/owner events fail closed, and a
+new attachment from a natively detached parent is rejected. The native registry
+is capped at 64; Session lifetime/seen-child bounds remain in force.
+
+Resetting a document no longer treats the fixed disable ACK as evidence that all
+native children detached. This separation follows the reviewed
+[official Target protocol](https://raw.githubusercontent.com/ChromeDevTools/devtools-protocol/master/pdl/domains/Target.pdl);
+the ACK and each original native notification remain independent receipts.
+Human takeover still refuses unqualified descendants, including after an
+in-flight original document call cancels and removes its data children.
+
+Full validation also exposed an adjacent shared-wire regression: a native child
+detach could end its pending attached RPC while its root was still live, causing
+the old generic incomplete-RPC path to close the wire for another page. The
+ancestry-validating broker now records that exact native child detach; only
+cdp_session_detached for that attached call may abandon its reply without closing
+the shared wire. Ordinary mismatches, transport failures and unproved detach
+claims retain failure behavior. Original effect/failure results are preserved,
+late replies cannot upgrade them, and no operation is replayed.
+
+The fixture now records actual outgoing native attachment ancestry and emits
+explicit native child-detach events for its controlled provider disable/root
+closure. The new delayed-receipt modes override that behavior and verify root-
+first, parent-first, leaf-first, late attachment, duplicate receipt, foreign
+owner, wrong ancestor, resource limit and retired-parent attachment. The tenth
+new mode holds an original child RPC across human transfer and verifies native
+obligations survive its cancellation. These ten modes pass 604
+checks; the related eleven-mode focused run passes 669.
+
+Fresh full native verification passes 555 popup modes /
+23,053 reported popup checks, generic network worker 300,
+134 selected current input hashes, API26/JNI/transport and ASan/UBSan. All prior
+545 business results compare with zero differences. Fresh actual frontend/JVM
+20 and Python 178/180 pass (two existing Windows symlink-privilege skips).
+Preserve `.mdo/E188-native.log` (new-mode validator omission),
+`.mdo/E188-native-final.log` (the authentic child-before-root RPC regression),
+`.mdo/E188-native-qualified.log` (final pass),
+`.mdo/E188-ledger-final-focused.log` and `.mdo/E188-verification.json`.
+The signed APK is 6,591,809 bytes, SHA-256 `f88c8e80193a0fa79236546f0f52b2972e0fff166843289fb9aebb2bec881a32`; actual DEX/source/payload/
+package/signature checks pass, including fenceChild/nativeChildDetached and the
+broker's original descendant/final-detach methods. The existing single local
+deployment was verified, stopped exactly, updated and restarted. Windows/shared
+host/page/plugin/SDK code and the E184 archive remain unchanged; JS 505, mounted
+WebView2 control 22, public C/JS SDK, visual and packed runtime results are
+explicit current-hash reuse, not fresh E188 executions.
+
+No extra application/Home/source/dependency checkout, model, phone/provider
+change or online publication was used. This is controlled native-worker,
+protocol and product-fragment coverage, not Activity/provider/device admission.
+The public protected takeover gate remains: its next implementation needs fixed
+one-shot auto-attach disable on the retained original root after data retirement,
+its actual ACK plus all descendant/body/control receipts, and the full public
+input/capture/chooser teardown join. Ongoing native-origin readiness, full
+Activity/UI/provider/device qualification and broader remote/permissions/
+lifetime/OOM/performance/ecosystem/final delivery audit remain open. Phone/current
+WebView verification stays deferred and the full goal remains active.
+A further targeted qualification must cover an in-flight grandchild RPC when
+its ancestor detaches while the root stays live; the current authentic
+child-before-root RPC witness targets the directly detached child.
