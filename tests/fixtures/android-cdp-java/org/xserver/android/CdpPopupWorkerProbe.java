@@ -2484,6 +2484,16 @@ public final class CdpPopupWorkerProbe {
         Backend.SourceRenderer navigator=new Backend.SourceRenderer(name.equals("rejected")?"source-navigation-rejected":name.equals("no-commit")?"source-navigation-no-commit":"source-navigation-flow");
         renderer.frames.rootUrl=renderer.context.rootUrl=navigator.url;renderer.navigationPeer=navigator;renderer.wrongNavigationDocument=name.equals("mismatch");navigator.holdNavigation=name.equals("cancel");
         long epoch=product.views.epoch("owned",view);int worlds=renderer.worlds.created;
+        if(name.equals("overlap"))return overlappingPopupNavigation(host,backend,product,view,renderer,navigator,worlds);
+        if(name.equals("from-download")){
+            check(product.popupPageDownloadOnly("owned")&&worlds==0);
+            try{product.navigate("owned","goto");throw new AssertionError("Pending download was silently replaced");}
+            catch(IllegalStateException expected){check(expected.getMessage().equals("download_pending"));}
+            check(navigator.navigations==0&&backend.nativeNavigationCommands.get()==0);
+            MdoBrowserCdpDownloads downloads=product.popupDownloads("owned");String original=downloads.list()[0].id;
+            downloads.cancel(original);waitFor(()->{try{return downloads.get(original).terminal()&&downloads.sourcesClean();}catch(IOException error){throw new AssertionError(error);}},host,true);
+            check(downloads.get(original).sourceCleanupConfirmed&&backend.bodyClaims.get()==0);
+        }
         String[] actions=name.equals("flow")?new String[]{"goto","back","forward","reload"}:new String[]{"goto"};String reference=null;int staleReferences=0;
         for(String action:actions){
             String previousReference=reference;
@@ -2525,9 +2535,37 @@ public final class CdpPopupWorkerProbe {
             waitFor(()->{product.pollNavigation("owned");return product.popupPageDocumentReady("owned")&&product.navigationSettled("owned");},host,true);check(navigator.navigations==1&&product.views.epoch("owned",view)>epoch);
         }
         check(renderer.worlds.evaluations==0&&backend.opens.get()==1&&backend.nativeOpens.get()==1);
-        return new JSONObject().put("actual_product_navigation",true).put("guarded_new_document",true).put("navigation_commands",navigator.navigations)
+        JSONObject evidence=new JSONObject().put("actual_product_navigation",true).put("guarded_new_document",true).put("navigation_commands",navigator.navigations)
             .put("new_worlds",renderer.worlds.created-worlds).put("stale_references_refused",staleReferences).put("ready",product.popupPageDocumentReady("owned")).put("late_callback",name.equals("callback"))
             .put("native_effects",0).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+        if(name.equals("from-download")){MdoBrowserCdpDownloads.Snapshot original=product.popupDownloads("owned").list()[0];check(original.terminal()&&original.sourceCleanupConfirmed&&backend.bodyClaims.get()==0&&!product.popupPageDownloadOnly("owned"));evidence.put("download_only_origin",true).put("pending_download_denied",true).put("original_download_retained",true).put("body_claims",0);}
+        return evidence;
+    }
+    private static JSONObject overlappingPopupNavigation(CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer,Backend.SourceRenderer navigator,int worlds)throws Exception {
+        navigator.holdNavigation=true;renderer.holdMethod="Page.createIsolatedWorld";
+        JSONObject first=product.navigate("owned","goto");String oldReference=first.getString("navigation_ref");
+        waitFor(()->navigator.heldNavigation!=null,host,true);
+        try{product.navigate("owned","goto");throw new AssertionError("Unacknowledged navigation was superseded");}
+        catch(IllegalStateException expected){check(expected.getMessage().equals("navigation_pending"));}
+        check(navigator.navigations==1&&backend.nativeNavigationCommands.get()==1);
+        navigator.holdNavigation=false;backend.wire.add(navigator.heldNavigation);navigator.heldNavigation=null;
+        waitFor(()->{product.pollNavigation("owned");return renderer.held!=null;},host,true);
+        JSONObject before=product.inspectNavigation("owned");check(before.optBoolean("page_current")&&!before.optBoolean("page_ready")&&!product.navigationSettled("owned"));
+        JSONObject second=product.navigate("owned","goto");String currentReference=second.getString("navigation_ref");check(second.optBoolean("accepted")&&!currentReference.equals(oldReference));
+        renderer.release(backend.wire);
+        waitFor(()->{product.pollNavigation("owned");return product.navigationSettled("owned");},host,true);
+        JSONObject state=product.inspectNavigation("owned");
+        if(!state.optBoolean("page_ready"))throw new AssertionError("Replacement navigation did not become readable: "+state+" document="+product.inspectDocumentState("owned"));
+        check(state.getString("id").equals(currentReference)&&state.optBoolean("page_current")&&state.isNull("page_error")&&product.popupPageDocumentReady("owned"));
+        int replies=product.preparationReplies,queries=renderer.frames.snapshotCount;
+        product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list").put("navigation_ref",oldReference));waitFor(()->product.preparationReplies==replies+1,host,true);
+        check(!product.preparationReply.optBoolean("ok")&&product.preparationReply.getJSONObject("error").getString("native_code").equals("cdp_navigation_cancelled")&&renderer.frames.snapshotCount==queries);
+        final int next=product.preparationReplies+1;
+        product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list").put("navigation_ref",currentReference));waitFor(()->product.preparationReplies==next,host,true);
+        check(product.preparationReply.optBoolean("ok")&&navigator.navigations==2&&backend.nativeNavigationCommands.get()==2&&renderer.worlds.evaluations==0&&backend.opens.get()==1&&backend.nativeOpens.get()==1);
+        return new JSONObject().put("actual_product_navigation",true).put("guarded_new_document",true).put("navigation_commands",2).put("new_worlds",renderer.worlds.created-worlds)
+            .put("stale_references_refused",1).put("ready",true).put("late_callback",false).put("pending_rejection",true).put("superseded_during_world_join",true)
+            .put("native_effects",0).put("browser_connections",1).put("native_proof_connections",1).put("provider_qualified",false);
     }
     private static void naturalCommit(Backend backend,Backend.DocumentRenderer renderer,String loader,boolean commit)throws JSONException {
         String url="https://private.invalid/natural";renderer.frames.rootLoader=renderer.context.rootLoader=loader;renderer.frames.rootUrl=renderer.context.rootUrl=url;
@@ -2583,7 +2621,7 @@ public final class CdpPopupWorkerProbe {
     }
     private static void productPage(String mode,String directory)throws Exception {
         String variant=mode.substring("preparation-page-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
-        boolean download=variant.startsWith("download")||variant.equals("route-download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
+        boolean download=variant.startsWith("download")||variant.equals("route-download")||variant.equals("navigation-from-download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
         boolean worldHeld=java.util.Arrays.asList("world-document-change","world-channel-change","cancel-world","cancel-world-isolated","parent-before-world").contains(variant);
         CountDownLatch worldEntered=new CountDownLatch(1),worldRelease=new CountDownLatch(1);
         boolean navigating=variant.startsWith("navigation-")||variant.startsWith("natural-");PopupProductHost[] originalProduct={null};

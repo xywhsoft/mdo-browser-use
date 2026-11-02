@@ -6136,3 +6136,19 @@ Fresh Windows and deterministic wrapper checks pass. All20 original JVM/frontend
 flows remain current, and the unchanged E178 native478 matrix is rehashed reuse.
 These are not installed Android provider/framework/device qualification; public
 automation remains disabled and the current phone/WebView checks stay deferred.
+
+
+### Guarded second navigation and download-only transition (E179 coverage)
+
+Controlled actual product-fragment/common-worker/JNI checks now include a second
+navigation while the first committed document still awaits its world. A second
+send before the native ACK is denied; after commit, a replacement navigation can
+finish without accepting the old world reply or old navigation reference.
+
+A download-only popup can transition to HTML after an explicit original download
+decision and confirmed source cleanup. An undecided offer blocks navigation;
+the terminal original receipt is retained and no response body is claimed by
+this navigation path. These two acceptance cases required no product change.
+The fresh native480 matrix and existing20 frontend/JVM paths pass. Runtime,
+Windows and signed APK qualification is unchanged hash-verified W6 reuse;
+device/provider/framework checks and public Android automation remain deferred.

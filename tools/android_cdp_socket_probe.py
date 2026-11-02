@@ -250,7 +250,7 @@ def main():
                  'preparation-network-unsupported','preparation-network-nonempty','preparation-network-frame-race','preparation-network-peer-detach','preparation-network-close-timeout','preparation-network-download-unconfirmed',
                   'preparation-network-concurrent-ready','preparation-network-concurrent-proof','preparation-network-concurrent-detach',
                   'preparation-page-ready','preparation-page-parent-close','preparation-page-download','preparation-page-download-stream','preparation-page-document-change',
-                  'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit',
+                  'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
                   'preparation-page-activation-unsupported','preparation-page-activation-malformed','preparation-page-world-unique','preparation-page-world-metadata','preparation-page-callback-throw',
                   'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
@@ -511,13 +511,17 @@ def main():
                 raise RuntimeError('Closing a navigation source disrupted the second original attachment')
         if mode.startswith('preparation-page-navigation-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-navigation-'):]
-            worlds={'flow':4,'callback':2,'mismatch':0,'cancel':0,'rejected':1,'no-commit':0}[variant]
+            worlds={'flow':4,'callback':2,'mismatch':0,'cancel':0,'rejected':1,'no-commit':0,'overlap':2,'from-download':1}[variant]
             if (not isinstance(proof,dict) or proof.get('actual_product_navigation') is not True or proof.get('guarded_new_document') is not True
-                    or proof.get('navigation_commands')!=(4 if variant=='flow' else 1) or proof.get('new_worlds')!=worlds
-                    or proof.get('stale_references_refused')!=(3 if variant=='flow' else 0) or proof.get('ready') is not (variant in {'flow','callback','rejected'})
+                    or proof.get('navigation_commands')!=(4 if variant=='flow' else 2 if variant=='overlap' else 1) or proof.get('new_worlds')!=worlds
+                    or proof.get('stale_references_refused')!=(3 if variant=='flow' else 1 if variant=='overlap' else 0) or proof.get('ready') is not (variant in {'flow','callback','rejected','overlap','from-download'})
                     or proof.get('late_callback') is not (variant=='callback') or proof.get('native_effects')!=0
                     or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1 or proof.get('provider_qualified') is not False):
                 raise RuntimeError('Product popup navigation lost commit/destination/document rearm, cancellation or stale-reference isolation')
+            if variant=='overlap' and (proof.get('pending_rejection') is not True or proof.get('superseded_during_world_join') is not True):
+                raise RuntimeError('Guarded navigation replayed an unacknowledged command or lost the replacement document')
+            if variant=='from-download' and (proof.get('download_only_origin') is not True or proof.get('pending_download_denied') is not True or proof.get('original_download_retained') is not True or proof.get('body_claims')!=0):
+                raise RuntimeError('Download-only navigation lost the explicit decision, original receipt or body admission')
         if mode=='host-close-late-transport':
             proof=popup_worker.get('host_close')
             if proof!={'original_close_raced':True,'code':'cdp_worker_closed','cleanup_confirmed':False,'source_released':False,'wire_closes':1,'disables':0,'worker_terminated':True}:raise RuntimeError('Original host close lost its authoritative cause or invented cleanup')

@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E179 coverage:** qualify overlapping guarded native navigation
+  and download-only-popup to HTML through the actual product worker/fragments.
+  Unacknowledged navigation and undecided downloads admit no second send;
+  replacing a committed-but-unreadable navigation preserves the new document
+  and denies the old reference. Fresh native480 /19,009 checks and all20 actual
+  frontend/JVM paths pass. Product/artifacts and JS482/Python178/180/Windows
+  qualification are unchanged, hash-verified W6 reuse. No device/provider pass.
+
 - **Windows/shared UI W6:** recover a pane whose pending native mount is
   superseded by its task dispatcher. Keep that dispatcher and ask only the
   preferred, still-scoped pane to mount again. Two deterministic baseline
@@ -13887,3 +13895,61 @@ false; preserve the current WebView. Full protected takeover/release,
 download-only-to-HTML recovery, overlapping guarded navigation, ongoing native
 origin readiness and final Windows/full-requirements/delivery audit remain open.
 The overall Browser Use goal stays active.
+
+### E179 guarded navigation overlap and download-only recovery coverage
+
+Added two actual product-fragment/common-worker/JVM/JNI acceptance paths; no
+product code change was needed. These are controlled renderer/UI peers, not
+Android framework, installed-provider or physical-device qualification.
+
+`preparation-page-navigation-overlap` holds the first original native ACK and
+verifies that a second navigation is rejected before sending. It then releases
+that ACK, holds the original isolated-world reply after its native commit, and
+starts a second accepted navigation. Releasing the old world reply cannot
+publish the old document or disturb the second navigation. The new document
+becomes readable, the old navigation reference is refused before new inventory,
+and the new reference remains usable. Exactly two navigation commands/two new
+worlds, zero page evaluations, one Browser connection and one native proof
+connection are checked. This path passes55 reported checks.
+
+`preparation-page-navigation-from-download` starts with the original protected
+popup accepted solely for its download offer: no document world exists. A new
+navigation while that offer is undecided is rejected with no native send. After
+an explicit cancel and confirmed original-source cleanup, the same physical
+popup navigates to its proved HTML document and completes frame inventory.
+The terminal original download receipt remains retained; body-claim count stays
+zero. Exactly one native navigation/one new world, zero page evaluations and the
+same Browser/proof connections are checked. This path passes47 reported checks.
+The existing four-navigation flow also passes117 focused checks. See
+`.mdo/E179-navigation-focused.log`.
+
+The first private helper run had a Java effectively-final local error; the next
+run omitted advancing the explicit fake UI navigation poll and timed out before
+the held world was reached. Fixing that harness scheduling produced the passing
+focused checks; neither event was reported as a product failure or fix. Preserve
+`.mdo/E179-overlap-first.log`, `.mdo/E179-overlap-first-run.log` and
+`.mdo/E179-overlap-scheduled.log`.
+
+Fresh full native verification passes480 modes /19,009 reported checks,
+all133 selected input hashes, API26 compilation, JNI/transport and ASan/UBSan.
+All478 earlier serialized business outcomes remain unchanged; the semantic
+difference record is empty.
+Fresh20 actual frontend/driver/reader-to-JVM flows pass with current source,
+class and native-library hashes. See `.mdo/E179-native.log`,
+`.mdo/E179-native-review.log`, `.mdo/E179-semantic-differences.json`,
+`.mdo/E179-native-frontend.log` and `.mdo/E179-verification.json`.
+
+Product host/page/plugin/SDK and generic test inputs are unchanged from W6 and
+rehashed. JS482, Python178/180 (two existing Windows symlink-privilege skips),
+the actual public C/JS SDK, visual permissions and packed Windows runtime are
+explicit unchanged W6 reuse, not fresh E179 executions. Windows and signed APK
+are unchanged, with current payload/signature/source identities and actual DEX
+definitions verified; no redundant app/package copy or build was made. The
+single existing development service retains HTTP200 readiness.
+
+This closes the two controlled native-product coverage gaps; broader frontend,
+actual UI/provider/device coverage and full protected human takeover/release,
+ongoing native origin readiness and the final full-requirements/delivery audit
+remain open. Public Android automation/framework/provider/device qualification
+stays false. Phone/current WebView remain deferred. No live model, external site
+or online publication was used. Overall Browser Use goal remains active.
