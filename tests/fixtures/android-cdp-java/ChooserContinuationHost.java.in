@@ -80,7 +80,7 @@ final class ChooserContinuationHost implements AutoCloseable {
     // by PopupProductHost using the actual original handoff/coordinator.
     static final class PopupNetwork {MdoBrowserCdpPopupBroker.Handoff handoff;}
     static final class PopupPage {
-        MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;PopupNetwork network;boolean restoring;
+        MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;PopupNetwork network;boolean restoring;MdoBrowserCdpWorker.DocumentRead restoringRead;
         boolean documentReady(){return false;}
         boolean documentCurrent(){return false;}boolean current(){return false;}
         void restored(MdoBrowserCdpMarker marker,JSONObject response)throws java.io.IOException{}

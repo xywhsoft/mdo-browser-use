@@ -97,6 +97,7 @@
         ProtocolPopupPageReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
         MdoBrowserCdpMarker marker;MdoBrowserCdpPopupNative.Document proof;
         int phase;long epoch;boolean inFlight,downloadOnly,worldReady,suspended,restoring;NativeNavigation navigating;
+        boolean naturalReadRecovery;MdoBrowserCdpWorker.DocumentRead restoringRead;
         // An original onCreateWindow callback revokes document execution, but
         // its exact prepared native transport must still be consumable once.
         // UI-only receipt: it never keeps a DOM marker or input reference alive.
@@ -112,9 +113,10 @@
             boolean ownPopup="popup_pending".equals(reason)&&original!=null&&original.protectedOwner==network&&original.epoch==epoch&&
                 (worldReady||continuingNativePreparation(original))&&current()&&views.epoch(network.entry.key,network.entry.view)==epoch&&original.preparation.originalNativePending()!=null;
             pendingPreparation=ownPopup?original:null;
-            worldReady=false;restoring=false;
-            // Only a known UI-only loss can rearm this exact epoch. Cancellation,
-            // navigation, manual takeover and channel changes remain terminal.
+            worldReady=false;restoring=false;restoringRead=null;
+            // UI-only loss can rearm this exact epoch. A different document
+            // additionally needs explicit inventory and an original-source guard;
+            // pinned actions never create replacement authority here.
             suspended=(ownPopup||"input_view_unavailable".equals(reason)||"input_viewport_changed".equals(reason)||"popup_preparation_retired".equals(reason))&&current()&&
                 views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;
             NativeNavigation originalNavigation=navigating;
@@ -137,7 +139,7 @@
                 long used=android.os.SystemClock.elapsedRealtime()-operation.born;if(used<0||used>operation.timeout-100)throw new java.io.IOException("cdp_navigation_document_timeout");
                 if(navigating!=operation||!documentCurrent()||!restoring){
                     epoch=observed;marker=protocolDocumentMarker(key,network.owner,network.handoff);proof=network.owner.document(marker);
-                    navigating=operation;worldReady=false;restoring=true;suspended=false;pendingPreparation=null;downloadOnly=false;
+                    navigating=operation;worldReady=false;restoring=true;suspended=false;pendingPreparation=null;downloadOnly=false;restoringRead=null;naturalReadRecovery=false;
                 }
                 inFlight=true;
                 cdpWorker.submitDocumentGuarded(marker,network.handoff,proof,Math.min(3000,(int)(operation.timeout-used)),false,operation.ticket,new PopupPageWarmup(),new PopupPageNavigationForward(this,operation,marker));
@@ -164,12 +166,13 @@
         }
         void restoreFailed(MdoBrowserCdpMarker original){
             if(marker!=original||!restoring)return;
-            worldReady=false;restoring=false;suspended=false;pendingPreparation=null;
+            worldReady=false;restoring=false;suspended=false;pendingPreparation=null;restoringRead=null;
             cdpViews.invalidate(network.entry.key,network.entry.view,epoch,"popup_restore_failed");
         }
         void restored(MdoBrowserCdpMarker original,JSONObject inventory)throws java.io.IOException {
             if(marker!=original||!restoring||!current()||!documentCurrent())throw new java.io.IOException("cdp_worker_cancelled");
-            if(PopupPageWarmup.inventoryState(inventory)==1){worldReady=true;restoring=false;pendingPreparation=null;}
+            if(restoringRead!=null&&!restoringRead.current())throw new java.io.IOException("cdp_navigation_document_changed");
+            if(PopupPageWarmup.inventoryState(inventory)==1){worldReady=true;restoring=false;pendingPreparation=null;restoringRead=null;naturalReadRecovery=false;}
             // Loading inventory is useful, but does not certify a world. A later
             // explicit read may continue the same marker; never poll or replay.
         }
@@ -232,7 +235,7 @@
             failure=null;
         }
         void retired(String code){
-            if(phase==3)return;phase=3;inFlight=false;worldReady=false;restoring=false;suspended=false;pendingPreparation=null;navigating=null;networkHandler.removeCallbacks(watch);ready=null;
+            if(phase==3)return;phase=3;inFlight=false;worldReady=false;restoring=false;suspended=false;pendingPreparation=null;navigating=null;restoringRead=null;naturalReadRecovery=false;networkHandler.removeCallbacks(watch);ready=null;
             if(marker!=null){
                 try{marker.close();}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
                 try{cdpWorker.cancel(marker.lease());}catch(RuntimeException|Error error){networkCleanupFailed=true;code="cdp_popup_page_cleanup_unconfirmed";}
@@ -290,8 +293,18 @@
     private PopupPage protocolPopupDocument(String key,WebView view,boolean inventory)throws java.io.IOException {
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.popup==null)return null;
         PopupNetwork network=entry.popup;PopupPage page=network.page;
-        if(entry.view!=view||network.entry!=entry||page==null||page.network!=network||page.phase!=2||page.downloadOnly||!page.current()||
-            views.epoch(key,view)!=page.epoch)throw new java.io.IOException("cdp_popup_page_document_unavailable");
+        if(entry.view!=view||network.entry!=entry||page==null||page.network!=network||page.phase!=2||page.downloadOnly||!page.current())throw new java.io.IOException("cdp_popup_page_document_unavailable");
+        long observed=views.epoch(key,view);
+        if(observed!=page.epoch||page.naturalReadRecovery&&!page.restoring){
+            if(!inventory||!cdpEnvironmentCurrent(key,view,observed,entry.channelLease)||!chooserReady(dialogs.get(key))||views.inputBusy(key,view)||!views.inputClean(key,view))throw new java.io.IOException("cdp_popup_page_document_unavailable");
+            if(page.inFlight||cdpWorker.pending(page.marker))throw new java.io.IOException("cdp_popup_page_restore_busy");
+            PopupPreparation pending=protocolPopupPreparations.get(key);if(pending!=null&&!pending.preparation.settled())throw new java.io.IOException("cdp_popup_page_restore_busy");
+            nativeOwnerAdmission();MdoBrowserCdpWorker.DocumentRead guard=cdpWorker.currentPopupDocument(entry.marker,network.handoff,network.sourceProof);
+            page.epoch=observed;page.worldReady=false;page.suspended=false;page.restoring=true;page.naturalReadRecovery=true;page.restoringRead=guard;page.navigating=null;page.pendingPreparation=null;
+            try{page.marker=protocolDocumentMarker(key,network.owner,network.handoff);page.proof=network.owner.document(page.marker);}
+            catch(java.io.IOException|RuntimeException|Error error){page.restoreFailed(page.marker);throw error;}
+            return page;
+        }
         if(page.documentReady()||inventory&&page.restoring){
             if(!page.documentCurrent()||page.proof==null||!network.handoff.owns(page.proof)||!page.proof.current())throw new java.io.IOException("cdp_popup_page_document_unavailable");
             return page;

@@ -118,6 +118,10 @@ final class PopupProductHost {
     MdoBrowserCdpPopupBroker.Handoff popupHandoff(String key){return network(key).handoff;}
     MdoBrowserCdpNetworks.Navigation navigatePopupSource(String key)throws java.io.IOException {PopupNetwork row=network(key);return cdpWorker.navigatePopup(row.entry.marker,row.handoff,row.sourceProof,"https://private.invalid/destination",null,1000);}
     void invalidatePopupSource(String key){network(key).entry.marker.lease().invalidate();}
+    void submitFreshReadEffect(String key)throws java.io.IOException {
+        PopupNetwork row=network(key);MdoBrowserCdpWorker.DocumentRead read=cdpWorker.currentPopupDocument(row.entry.marker,row.handoff,row.sourceProof);
+        cdpWorker.submitDocumentGuarded(row.page.marker,row.handoff,row.page.proof,3000,true,read,(binding,deadline)->{throw new AssertionError("Fresh inventory guard admitted an effect");},result->{throw new AssertionError("Fresh effect queued");});
+    }
     String popupNetworkCode(String key){return network(key).entry.code;}
     boolean popupNetworkExpired(String key){return network(key).entry.cleanupObservationExpired;}
     boolean popupProtocolDrained(String key){return network(key).entry.protocolDrained;}

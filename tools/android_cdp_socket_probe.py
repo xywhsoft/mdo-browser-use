@@ -232,6 +232,8 @@ def main():
                  'source-navigation-ui-flow','source-navigation-ui-queued-cancel','source-navigation-ui-late-cancel','source-navigation-ui-queued-timeout','source-navigation-ui-pending',
                  'source-navigation-close-direct','source-navigation-close-pump','source-navigation-close-sent','source-navigation-close-spoof','source-navigation-close-ui',
                  'preparation-network-concurrent-navigation-close',
+                 'preparation-page-natural-flow','preparation-page-natural-mismatch','preparation-page-natural-pending','preparation-page-natural-changed',
+                 'preparation-page-natural-late','preparation-page-natural-hidden','preparation-page-natural-manual','preparation-page-natural-channel',
                  'preparation-ready','preparation-restart','preparation-cancel','preparation-owner','preparation-channel','preparation-epoch','preparation-failure','preparation-throw','preparation-reentrant','preparation-rpc','preparation-rpc-invalid','preparation-protection','preparation-protection-failure','preparation-timeout',
                  'preparation-input-unready','preparation-input-invalid','preparation-input-retired',
                  'preparation-child-ready','preparation-child-delayed','preparation-child-timeout','preparation-child-owner','preparation-child-channel','preparation-child-request','preparation-child-replaced','preparation-child-timer',
@@ -338,7 +340,7 @@ def main():
                 or popup_worker.get('product_prepared_admission_tested') is not mode.startswith('prepared-admission')
                 or popup_worker.get('product_page_startup_tested') is not mode.startswith('preparation-page-')
                 or popup_worker.get('product_document_retirement_tested') is not mode.startswith('preparation-isolated-')
-                or popup_worker.get('product_frame_route_tested') is not mode.startswith('preparation-page-route-')
+                or popup_worker.get('product_frame_route_tested') is not mode.startswith(('preparation-page-route-','preparation-page-natural-'))
                 or popup_worker.get('product_publication_tested') is not mode.startswith(('preparation-publication-','preparation-restore-'))
                 or popup_worker.get('product_document_restore_tested') is not mode.startswith('preparation-restore-')
                 or popup_worker.get('product_capture_fence_tested') is not mode.startswith('preparation-page-capture-')
@@ -516,6 +518,22 @@ def main():
                     or proof.get('late_callback') is not (variant=='callback') or proof.get('native_effects')!=0
                     or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1 or proof.get('provider_qualified') is not False):
                 raise RuntimeError('Product popup navigation lost commit/destination/document rearm, cancellation or stale-reference isolation')
+        if mode.startswith('preparation-page-natural-'):
+            proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-natural-'):]
+            denied=variant in {'hidden','manual','channel'};retry=variant in {'mismatch','pending','changed','late'}
+            attempted=1 if variant in {'flow','changed','late'} else 0
+            codes={'flow':None,'mismatch':'cdp_navigation_document_changed','pending':'cdp_navigation_document_unproven',
+                   'changed':'cdp_frame_root_changed','late':'cdp_navigation_document_changed',
+                   'hidden':'cdp_popup_page_document_unavailable','manual':'cdp_popup_page_document_unavailable','channel':'cdp_popup_page_document_unavailable'}
+            if (not isinstance(proof,dict) or proof.get('actual_natural_navigation') is not True
+                    or proof.get('fresh_inventory') is not (not denied) or proof.get('first_read_ok') is not (variant=='flow')
+                    or proof.get('first_native_code')!=codes[variant]
+                    or proof.get('explicit_retry') is not retry or proof.get('stale_references_refused')!=int(not denied)
+                    or proof.get('pinned_rearm_refused') is not True or proof.get('effect_guard_refused') is not (not denied)
+                    or proof.get('new_worlds')!=attempted+int(retry) or proof.get('attempted_worlds')!=attempted
+                    or proof.get('native_navigation_commands')!=0 or proof.get('native_effects')!=0
+                    or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1 or proof.get('provider_qualified') is not False):
+                raise RuntimeError('Natural-navigation inventory lost native document fencing, explicit recovery or UI admission')
         popup_worker_results.append(popup_worker)
     result['jvm_popup_worker']=popup_worker_results
     popup_native=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

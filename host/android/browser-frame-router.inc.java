@@ -19,6 +19,7 @@
             if(blocked&&(!continuation||!chooserContinuationReady(key,view)||views.inputBusy(key,view)||!views.inputClean(key,view)))throw new java.io.IOException("cdp_chooser_scope_unavailable");
             final PopupPage popup=protocolPopupDocument(key,view,"list".equals(operation.action)&&proof==null);
             final boolean restoring=popup!=null&&popup.restoring;
+            final MdoBrowserCdpWorker.DocumentRead restoringRead=restoring?popup.restoringRead:null;
             final MdoBrowserCdpMarker marker;
             if(popup!=null){
                 if(continuation){if(!popup.marker.lease().busy())throw new java.io.IOException("cdp_worker_binding_unavailable");}
@@ -32,6 +33,7 @@
                         if(!views.owns(key,view)||views.epoch(key,view)!=epoch)throw new java.io.IOException("cdp_worker_cancelled");
                         if(popup!=null&&(popup.marker!=marker||!(restoring&&popup.restoring&&popup.current()&&popup.documentCurrent()||popup.documentReady())||!continuation&&!cdpEnvironmentCurrent(key,view,epoch,original)))throw new java.io.IOException("cdp_worker_cancelled");
                         if(proof!=null&&navigationReadProof(key,view,operation.navigationRef)!=proof)throw new java.io.IOException("cdp_navigation_cancelled");
+                        if(restoringRead!=null&&(popup.restoringRead!=restoringRead||result.code==null&&!restoringRead.current()))throw new java.io.IOException("cdp_navigation_document_changed");
                         response=MdoBrowserCdpFrameRequest.response(result);
                         if(restoring){if(response.optBoolean("ok"))popup.restored(marker,response);else popup.restoreFailed(marker);}
                     }catch(java.io.IOException changed){response=MdoBrowserCdpFrameRequest.failure(changed.getMessage(),result.effectMayHaveOccurred);}
@@ -42,6 +44,7 @@
             if(popup!=null){
                 if(continuation)cdpWorker.submitExisting(marker,operation.timeout,operation.effect,operation::run,complete);
                 else if(proof!=null)cdpWorker.submitDocumentGuarded(marker,popup.network.handoff,popup.proof,operation.timeout,operation.effect,proof,operation::run,complete);
+                else if(restoringRead!=null)cdpWorker.submitDocumentGuarded(marker,popup.network.handoff,popup.proof,operation.timeout,false,restoringRead,operation::run,complete);
                 else cdpWorker.submitDocument(marker,popup.network.handoff,popup.proof,operation.timeout,operation.effect,operation::run,complete);
             }
             else if(proof!=null)cdpWorker.submitGuarded(marker,operation.timeout,operation.effect,proof,operation::run,complete);

@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E175:** recover a protected popup after natural navigation only
+  through explicit fresh inventory and its cached original Source. Fence the
+  native root position, target/frame/loader and exact Handoff before world/read,
+  after work and before UI delivery. Reject pinned rearm, effects, unsettled or
+  mismatched documents and unavailable UI; permit an explicit guarded retry.
+  Eight new modes, full native477 /18,899 checks, API26/JNI/transport/sanitizers,
+  Python178/180 (two existing symlink skips), four JS/JVM recovery modes and
+  rebuilt APK/DEX checks pass. Device/provider qualification stays deferred.
+
 - **Android E174:** fix original-source navigation racing native/UI closure.
   Snapshot navigation metadata, publish deliberate retirement before stop or
   blocking cleanup, and require exact-source typed retirement receipts. Six new
@@ -13480,3 +13489,64 @@ broader Android/provider/OS admission and final Windows/deliverable audit remain
 open. Phone and installed-WebView checks remain deferred at the user's request.
 No ADB/provider update, live model, external website or production action was
 used. Public Android automation remains disabled. The overall goal stays active.
+
+### E175 fresh inventory after natural protected-page navigation
+
+Reproduced the existing limitation using actual product fragments, original
+worker/JNI and controlled renderer/UI peers: after a native root commit plus the
+real document callback advanced the UI epoch, fresh frame inventory still failed
+with `cdp_popup_page_document_unavailable`. See `.mdo/E175-natural-before.log`.
+This is controlled protocol evidence, not Android framework/provider validation.
+
+Explicit unpinned inventory can now rearm the new UI epoch through a guard from
+the cached matching original Source binding. The guard retains a weak binding
+and native atomic fences rather than a session/UI graph. It captures a settled
+root position and checks the original Handoff, target, frame and loader against
+the new document, including a bounded native frame snapshot. The same immutable
+proof runs before frame-world/inventory work and after work; UI completion also
+checks it before publishing a result. Another navigation invalidates the proof.
+There is no synthetic navigation acknowledgement, URL replay, ordinary Slot,
+new Browser connection or replacement Fetch protection.
+
+Only explicit fresh reads enter this recovery. Pinned references cannot rearm a
+document, a read guard cannot admit an effect, and hidden/manual/channel-changed
+views remain denied. A failed guarded read leaves no ready world; after the
+native document becomes provable a new explicit inventory may retry. No action
+or failed read is automatically replayed. Old references are rejected while
+the newly recovered page remains usable. Native denials retain specific codes
+instead of being collapsed into `cdp_worker_failed`. The old UI-only stale test
+still denies access; its expected reason is now native binding-owner loss rather
+than the earlier UI-only rejection.
+
+Eight new product modes cover success, mismatched and pending roots, a second
+navigation during world creation, native change after worker completion but
+before UI delivery, and hidden/manual/channel admission. They also check old
+references before/after recovery, zero navigation/model effects and exact original
+connection/protection counts. Fifteen targeted existing/new modes pass in
+`.mdo/E175-focused-sixth.log`. Full native passes477 modes /18,899 reported checks,
+all133 selected hashes, API26 compilation, JNI/transport and ASan/UBSan. Earlier
+469 serialized outcomes have no differences. The full compile initially exposed
+two minimal upload/chooser test stubs missing the shared router's new field;
+both are updated and the failure is retained in
+`.mdo/E175-native-compile-failure.log`. See `.mdo/E175-native.log`,
+`.mdo/E175-native-review.log` and `.mdo/E175-semantic-differences.json`.
+
+Fresh Python178/180 passes with the same two Windows symlink-privilege skips.
+The four existing actual JS-to-JVM recovery modes pass with current source/class/
+library hashes; they do not qualify the complete JS goto/wait/read or natural
+navigation flow. The single development deployment is updated and HTTP200
+readiness verifies. The signed development APK is6587713 bytes,
+SHA-256 `ce60afb26ef60428042789400851ad610b0c85f10a3825e8220ee86e7c4400d2`. Packaging requires the new native guard
+classes and actual DEX method checks verify the original-source proof and product
+dispatch. Windows app/plugin reuse is current-source/hash verified, not a new
+Windows runtime qualification. See `.mdo/E175-python.log`,
+`.mdo/E175-native-frontend.log`, `.mdo/E175-apply.log`, `.mdo/E175-apk.log`,
+`.mdo/E175-dex-methods.json` and `.mdo/E175-verification.json`.
+
+Complete JS goto/wait/read integration, product same-document/BFCache/early or
+overlapping transitions, native context loss without a new UI epoch,
+download-only-to-HTML recovery, protected takeover/release, broader Android/
+provider/OS admission, deferred device checks and final Windows/deliverable audit
+remain open. No phone/provider upgrade, live model, external site or production
+action was used. Public Android automation remains disabled. The overall goal
+remains active.

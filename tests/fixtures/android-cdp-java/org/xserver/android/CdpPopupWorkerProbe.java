@@ -79,6 +79,7 @@ public final class CdpPopupWorkerProbe {
         final Map<String,DocumentRenderer> documentRenderers=new ConcurrentHashMap<>();
         SourceRenderer sourceRenderer;boolean holdAbort,holdClaim;volatile JSONObject heldAbortReply,heldClaimReply;
         final Map<String,SourceRenderer> sourceRenderers=new ConcurrentHashMap<>();
+        final AtomicInteger nativeNavigationCommands=new AtomicInteger();
         static final class SourceRenderer {
             final String mode,session;volatile int calls,trees;Runnable beforeFirst;boolean holdFirst;volatile JSONObject held;
             boolean holdNavigation;volatile JSONObject heldNavigation;
@@ -192,6 +193,7 @@ public final class CdpPopupWorkerProbe {
             void add(JSONObject packet){JSONObject params=packet.optJSONObject("params");if("Fetch.requestPaused".equals(packet.optString("method"))&&params!=null&&(params.has("responseStatusCode")||params.has("responseErrorReason")))responseRequestKeys.add(packet.optString("sessionId")+"|"+params.optString("requestId"));incoming.add(packet.toString().getBytes(StandardCharsets.UTF_8));}
             public void send(byte[] bytes,int timeout)throws IOException{
                 threads.add(Thread.currentThread());try{JSONObject command=new JSONObject(new String(bytes,StandardCharsets.UTF_8));String method=command.getString("method");int id=command.getInt("id");
+                    if(method.equals("Page.navigate")||method.equals("Page.navigateToHistoryEntry")||method.equals("Page.reload"))nativeNavigationCommands.incrementAndGet();
                     if(command.has("sessionId")&&(method.equals("Page.enable")||method.equals("Page.getFrameTree")||method.equals("Network.enable")||method.equals("Page.getNavigationHistory")||method.equals("Page.navigate")||method.equals("Page.navigateToHistoryEntry")||method.equals("Page.reload"))){
                         SourceRenderer renderer=sourceRenderers.get(command.getString("sessionId"));if(renderer==null)renderer=sourceRenderer;
                         if(renderer!=null){renderer.command(command,this);return;}
@@ -2500,12 +2502,64 @@ public final class CdpPopupWorkerProbe {
             .put("new_worlds",renderer.worlds.created-worlds).put("stale_references_refused",staleReferences).put("ready",product.popupPageDocumentReady("owned")).put("late_callback",name.equals("callback"))
             .put("native_effects",0).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
     }
+    private static void naturalCommit(Backend backend,Backend.DocumentRenderer renderer,String loader,boolean commit)throws JSONException {
+        String url="https://private.invalid/natural";renderer.frames.rootLoader=renderer.context.rootLoader=loader;renderer.frames.rootUrl=renderer.context.rootUrl=url;
+        backend.wire.add(new JSONObject().put("method","Page.frameStartedNavigating").put("sessionId","proof-real").put("params",new JSONObject().put("frameId","frame-owned").put("loaderId",loader).put("navigationType","differentDocument").put("url",url)));
+        if(commit)backend.wire.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId","proof-real").put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId",loader).put("url",url))));
+    }
+    private static JSONObject naturalPopupProduct(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
+        String name=variant.substring("natural-".length());boolean denied=name.equals("hidden")||name.equals("manual")||name.equals("channel"),retry=name.equals("mismatch")||name.equals("pending")||name.equals("changed")||name.equals("late");
+        int worlds=renderer.worlds.created;long epoch=product.views.epoch("owned",view);
+        int before=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.preparationReplies==before+1,host,true);
+        check(product.preparationReply.optBoolean("ok"));JSONObject original=product.preparationReply.getJSONArray("frames").getJSONObject(0);
+        String loader="load-natural";int receives=backend.receives.get();naturalCommit(backend,renderer,loader,!name.equals("pending"));
+        backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId","proof-real").put("params",new JSONObject()));
+        waitFor(()->backend.receives.get()>receives+3,host,true);product.nativePageCallback("owned");
+        check(product.views.epoch("owned",view)>epoch&&!product.popupPageDocumentReady("owned")&&product.popupNetworkReady("owned"));
+        int pinned=product.preparationReplies,queries=renderer.frames.snapshotCount;
+        product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","capture_owner").put("frame",original.getString("id")).put("document",original.getString("document")));
+        waitFor(()->product.preparationReplies==pinned+1,host,true);check(!product.preparationReply.optBoolean("ok")&&renderer.frames.snapshotCount==queries&&renderer.worlds.created==worlds&&!product.popupPageDocumentReady("owned"));
+        if(name.equals("mismatch"))renderer.frames.rootLoader=renderer.context.rootLoader="foreign-document";
+        if(name.equals("hidden"))view.shown=false;if(name.equals("manual"))product.manual.add("owned");if(name.equals("channel"))product.channel.attach(product.host.getUrl(),new PopupProductHost.WebMessagePort());
+        if(name.equals("changed"))renderer.beforeWorld=()->{try{naturalCommit(backend,renderer,"load-natural-next",true);}catch(JSONException error){throw new AssertionError(error);}};
+        host.ui.drain();int replies=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+        if(name.equals("late")){
+            waitFor(()->!host.ui.tasks.isEmpty(),host,false);int read=backend.receives.get();naturalCommit(backend,renderer,"load-natural-next",true);waitFor(()->backend.receives.get()>read+2,host,false);check(product.preparationReplies==replies);
+        }
+        waitFor(()->product.preparationReplies==replies+1,host,true);boolean first=product.preparationReply.optBoolean("ok");
+        String firstCode=first?null:product.preparationReply.getJSONObject("error").getString("native_code");
+        check(first||!firstCode.equals("cdp_worker_failed"));
+        if(first!=(name.equals("flow")))throw new AssertionError("Natural-navigation inventory "+name+": "+product.preparationReply);
+        int attempted=renderer.worlds.created-worlds;
+        if(retry){
+            check(!product.popupPageDocumentReady("owned")&&backend.closes.get()==0&&product.popupOwner("owned").current());
+            if(name.equals("mismatch"))renderer.frames.rootLoader=renderer.context.rootLoader=loader;
+            if(name.equals("pending")){int read=backend.receives.get();naturalCommit(backend,renderer,loader,true);waitFor(()->backend.receives.get()>read+2,host,true);}
+            int prior=product.preparationReplies;product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.preparationReplies==prior+1,host,true);
+            if(!product.preparationReply.optBoolean("ok"))throw new AssertionError("Explicit natural inventory retry "+name+": "+product.preparationReply);
+        }
+        int stale=0;
+        if(!denied){
+            check(product.popupPageDocumentReady("owned")&&renderer.worlds.created==worlds+attempted+(retry?1:0));
+            JSONObject fresh=product.preparationReply.getJSONArray("frames").getJSONObject(0);check(!fresh.getString("document").equals(original.getString("document")));
+            int prior=product.preparationReplies,evaluations=renderer.worlds.evaluations;
+            product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","capture_owner").put("frame",original.getString("id")).put("document",original.getString("document")));
+            waitFor(()->product.preparationReplies==prior+1,host,true);check(!product.preparationReply.optBoolean("ok")&&renderer.worlds.evaluations==evaluations);stale++;
+            check(product.popupPageDocumentReady("owned")&&product.popupOwner("owned").current()&&backend.closes.get()==0);
+            failure("cdp_navigation_read_only",()->product.submitFreshReadEffect("owned"));
+        }else check(!product.popupPageDocumentReady("owned")&&attempted==0);
+        if(name.equals("hidden"))view.shown=true;if(name.equals("manual"))product.manual.remove("owned");
+        check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.guards.get()==1&&backend.nativeNavigationCommands.get()==0&&renderer.worlds.evaluations==0);
+        return new JSONObject().put("actual_natural_navigation",true).put("fresh_inventory",!denied).put("first_read_ok",first).put("first_native_code",firstCode==null?JSONObject.NULL:firstCode).put("explicit_retry",retry).put("stale_references_refused",stale).put("pinned_rearm_refused",true).put("effect_guard_refused",!denied)
+            .put("new_worlds",renderer.worlds.created-worlds).put("attempted_worlds",attempted).put("native_navigation_commands",backend.nativeNavigationCommands.get()).put("native_effects",renderer.worlds.evaluations)
+            .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+    }
     private static void productPage(String mode,String directory)throws Exception {
         String variant=mode.substring("preparation-page-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
         boolean download=variant.startsWith("download")||variant.equals("route-download"),held=java.util.Arrays.asList("cancel-activation","channel-activation","deadline-activation").contains(variant);
         boolean worldHeld=java.util.Arrays.asList("world-document-change","world-channel-change","cancel-world","cancel-world-isolated","parent-before-world").contains(variant);
         CountDownLatch worldEntered=new CountDownLatch(1),worldRelease=new CountDownLatch(1);
-        boolean navigating=variant.startsWith("navigation-");PopupProductHost[] originalProduct={null};
+        boolean navigating=variant.startsWith("navigation-")||variant.startsWith("natural-");PopupProductHost[] originalProduct={null};
         InputSurface inputSurface=variant.startsWith("input-")||navigating?new InputSurface():null;
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original,inputSurface,navigating?(key,view,epoch,reason)->{PopupProductHost product=originalProduct[0];if(product!=null)product.lifecycleInvalidated(key,view,epoch,reason);}:null)){
@@ -2595,6 +2649,7 @@ public final class CdpPopupWorkerProbe {
                             if(variant.startsWith("opener-"))frameRouteEvidence=preparePopupOpener(variant,host,backend,product,exact[0],renderer[0],source.source);
                             if(variant.startsWith("input-"))frameRouteEvidence=inputPopup(variant,host,backend,product,exact[0],renderer[0],inputSurface);
                             if(variant.startsWith("navigation-"))frameRouteEvidence=navigatePopupProduct(variant,host,backend,product,exact[0],renderer[0]);
+                            if(variant.startsWith("natural-"))frameRouteEvidence=naturalPopupProduct(variant,host,backend,product,exact[0],renderer[0]);
                             if(variant.equals("document-change")){check(source.views.navigation("owned",exact[0]));check(!product.popupPageDocumentReady("owned")&&product.popupNetworkReady("owned")&&exact[0].destroyed==0);}
                             if(variant.startsWith("route-")){
                                 int queries=0;boolean success=!java.util.Arrays.asList("route-stale","route-channel","route-hidden","route-manual","route-download","route-effect","route-malformed","route-late","route-late-hidden").contains(variant);
@@ -2633,7 +2688,8 @@ public final class CdpPopupWorkerProbe {
                                     }
                                 }else{
                                     String code=result.getJSONObject("error").getString("native_code");
-                                    check(code.equals(variant.equals("route-effect")?"cdp_popup_preparation_required":variant.equals("route-malformed")?"cdp_frame_request_invalid":variant.startsWith("route-late")?"cdp_worker_cancelled":"cdp_popup_page_document_unavailable"));
+                                    String expectedCode=variant.equals("route-effect")?"cdp_popup_preparation_required":variant.equals("route-malformed")?"cdp_frame_request_invalid":variant.equals("route-stale")?"cdp_binding_owner_changed":variant.startsWith("route-late")?"cdp_worker_cancelled":"cdp_popup_page_document_unavailable";
+                                    if(!code.equals(expectedCode))throw new AssertionError("Frame rejection "+variant+": "+code+" expected "+expectedCode);checks.incrementAndGet();
                                     check(!result.getJSONObject("error").getBoolean("evaluation_may_have_occurred")&&renderer[0].worlds.evaluations==0);
                                 }
                                 check(backend.nativeOpens.get()==1&&backend.opens.get()==1&&backend.closes.get()==0&&source.sends==1);
@@ -2641,7 +2697,7 @@ public final class CdpPopupWorkerProbe {
                                     .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get())
                                     .put("native_effects",renderer[0].worlds.evaluations).put("provider_qualified",false).put("ui_published",false);
                             }
-                            if(!variant.equals("route-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.equals("navigation-no-commit")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
+                            if(!variant.equals("route-channel")&&!variant.equals("natural-channel")&&!variant.equals("route-manual")&&!variant.equals("input-channel")&&!variant.equals("input-focus-retired")&&!variant.equals("navigation-no-commit")&&!variant.endsWith("source-close"))failure("cdp_popup_page_busy",()->product.duplicatePopupPage("owned"));
                         }
                         check(source.sends==1&&product.configured==1&&product.popupLinks.isEmpty());
                     }catch(Exception|Error error){primary=error;System.err.println("Product page "+variant+" accepted="+accepted.get()+" failed="+failed.get()+" code="+reason[0]);throw error;}
@@ -3737,7 +3793,7 @@ public final class CdpPopupWorkerProbe {
         if(loadingRetirementEvidence!=null)report.put("loading_retirement",loadingRetirementEvidence);
         report.put("product_document_retirement_tested",mode.startsWith("preparation-isolated-"));
         if(isolationEvidence!=null)report.put("product_document_retirement",isolationEvidence);
-        report.put("product_frame_route_tested",mode.startsWith("preparation-page-route-"));
+        report.put("product_frame_route_tested",mode.startsWith("preparation-page-route-")||mode.startsWith("preparation-page-natural-"));
         report.put("product_capture_fence_tested",mode.startsWith("preparation-page-capture-"));
         report.put("product_protected_opener_tested",mode.startsWith("preparation-page-opener-"));
         report.put("product_protected_input_tested",mode.startsWith("preparation-page-input-"));

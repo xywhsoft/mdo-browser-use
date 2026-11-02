@@ -111,6 +111,25 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
         }
         public void done(Result result){if(result.code!=null)ticket.admissionFailed(result.code.equals("cdp_worker_timeout")?"cdp_navigation_timeout":result.code.equals("cdp_worker_cancelled")?"cdp_navigation_cancelled":result.code);}
     }
+    /** Explicit fresh-read authority after natural navigation. It retains only
+     * weak source ownership and native atomic document fences, not a UI graph. */
+    static final class DocumentRead implements Guard {
+        private final WeakReference<MdoBrowserCdpBinding> source;private final MdoBrowserCdpPopupBroker.Handoff handoff;private final MdoBrowserCdpPopupNative.Source original;
+        private volatile MdoBrowserCdpBinding.CurrentDocument proof;
+        private DocumentRead(MdoBrowserCdpBinding source,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source original){this.source=new WeakReference<>(source);this.handoff=handoff;this.original=original;}
+        private boolean owned(){return handoff.current()&&handoff.owns(original)&&original.current();}
+        boolean current(){MdoBrowserCdpBinding.CurrentDocument current=proof;return owned()&&current!=null&&current.current();}
+        public void check(MdoBrowserCdpBinding document,Deadline deadline)throws IOException {
+            MdoBrowserCdpBinding binding=source.get();if(binding==null||!owned()||!binding.matchesSource(original))throw new IOException("cdp_popup_source_owner_invalid");
+            proof=binding.currentDocument(document,deadline,proof);if(!current())throw new IOException("cdp_navigation_document_changed");
+        }
+    }
+    DocumentRead currentPopupDocument(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source)throws IOException {
+        thread();if(closed.get())throw new IOException("cdp_worker_closed");
+        if(marker==null||handoff==null||source==null||marker.lease()!=source.lease||!source.current()||!handoff.current()||!handoff.owns(source))throw new IOException("cdp_popup_source_owner_invalid");
+        MdoBrowserCdpBinding binding=bindings.get(marker.lease());if(binding==null||!binding.matchesSource(source))throw new IOException("cdp_worker_binding_unavailable");
+        return new DocumentRead(binding,handoff,source);
+    }
 
     int networkPending(){thread();return networks.pending();}
     boolean networkPending(MdoBrowserCdpMarker marker){thread();return marker!=null&&networks.pending(marker.lease());}
@@ -131,6 +150,7 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
     }
     void submitDocumentGuarded(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Document document,int timeout,boolean effect,Guard guard,Operation operation,Completion complete)throws IOException{
         thread();if(guard==null||marker==null||handoff==null||document==null||marker.lease()!=document.lease||!document.current()||!handoff.current()||!handoff.owns(document))throw new IOException("cdp_popup_document_owner_invalid");
+        if(effect&&guard instanceof DocumentRead)throw new IOException("cdp_navigation_read_only");
         submit(marker,timeout,effect,operation,complete,null,guard,handoff,document);
     }
     void submitSource(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source,int timeout,Operation operation,Completion complete)throws IOException {

@@ -82,6 +82,12 @@ final class MdoBrowserCdpNetworkFrames implements MdoBrowserCdpSession.Events,Au
     private void current()throws IOException {if(Thread.currentThread()!=worker)throw fail("cdp_wrong_worker");if(closed)throw new Closed(authority);}
     long revision()throws IOException {current();return revision;}
     String rootLoader()throws IOException {origin(root);return frames.get(root).loader;}
+    /** A fresh document read needs a settled original root position. The
+     * immutable fence also expires when another navigation starts. */
+    Origin documentOrigin()throws IOException {
+        current();if(rootPending)throw fail("download_frame_unproven");
+        return origin(root).with(frames.get(root).position).with(quiet);
+    }
     private static byte[] location(JSONObject value){
         if(value.has("unreachableUrl")&&!"".equals(value.opt("unreachableUrl")))return null;
         try{return MdoBrowserCdpSession.navigationFrameDigest(value);}catch(IOException unsupported){return null;}

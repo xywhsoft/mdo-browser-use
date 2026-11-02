@@ -162,6 +162,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean cleanupFailed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean closeFinished=new java.util.concurrent.atomic.AtomicBoolean();
+    private final Object readAuthority=new Object();
     final String rootFrame,rootLoader,uniqueContext;final int contextId;
     // Fresh namespace per binding. Specific names belong to native frame/
     // loader proofs; old or possibly privileged worlds are never adopted.
@@ -629,6 +630,32 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     }
     void startSourceNavigation(MdoBrowserCdpNetworks.Navigation navigation)throws IOException {
         Network view=sourceNavigation();((MdoBrowserCdpPopupSource)peer).startNavigation(view,navigation);
+    }
+    /** Data-only fence on the original physical root, never a navigation ACK
+     * or ownership of a document binding/session/UI graph. */
+    static final class CurrentDocument {
+        private final Object owner;private final MdoBrowserCdpNetworkFrames.Origin origin;private final String loader;
+        private CurrentDocument(Object owner,MdoBrowserCdpNetworkFrames.Origin origin,String loader){this.owner=owner;this.origin=origin;this.loader=loader;}
+        boolean current(){return origin.current();}
+    }
+    CurrentDocument currentDocument(MdoBrowserCdpBinding document,MdoBrowserCdpWorker.Deadline deadline,CurrentDocument previous)throws IOException {
+        current();document.current();if(!(peer instanceof MdoBrowserCdpPopupSource))throw problem("cdp_popup_navigation_source_required");
+        MdoBrowserCdpPopupSource source=(MdoBrowserCdpPopupSource)peer;
+        if(!source.ownsDocument(document.peer)||!target.equals(document.target)||!rootFrame.equals(document.rootFrame))throw problem("cdp_navigation_owner_changed");
+        MdoBrowserCdpNetworkFrames original=source.navigationFrames();
+        CurrentDocument selected=previous;
+        if(selected==null)try{selected=new CurrentDocument(readAuthority,original.documentOrigin(),original.rootLoader());}
+        catch(IOException unavailable){
+            // Preserve a specific denial through the worker's bounded CDP
+            // error vocabulary; this does not grant recovery authority.
+            if("download_frame_unproven".equals(unavailable.getMessage())||"download_frame_parent_unproven".equals(unavailable.getMessage()))throw problem("cdp_navigation_document_unproven");throw unavailable;
+        }
+        if(selected.owner!=readAuthority||!selected.current()||!selected.loader.equals(original.rootLoader())||!selected.loader.equals(document.rootLoader))throw problem("cdp_navigation_document_changed");
+        try{
+            JSONObject root=frame(document.peer,android.os.SystemClock.elapsedRealtime(),deadline.remaining(),document.lease);
+            if(!rootFrame.equals(root.opt("id"))||!selected.loader.equals(root.opt("loaderId"))||root.has("unreachableUrl")&&!"".equals(root.opt("unreachableUrl")))throw problem("cdp_navigation_document_changed");
+        }catch(JSONException invalid){throw problem("cdp_navigation_document_unproven");}
+        current();document.current();source.navigationCurrent();if(!selected.current())throw problem("cdp_navigation_document_changed");return selected;
     }
     boolean matchesSource(MdoBrowserCdpPopupNative.Source proof){return !closed.get()&&peer instanceof MdoBrowserCdpPopupSource&&((MdoBrowserCdpPopupSource)peer).matches(proof);}
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
