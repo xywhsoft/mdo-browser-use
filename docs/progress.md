@@ -13677,19 +13677,19 @@ root. Successful paths prove a new DOM/document identity in the same UI epoch,
 rejection of the old pinned frame without script execution and later observe/wait
 usability. They use real native events and the exact context from the original
 successful expression. The renderer includes the settled root commit before
-context-loss tests; the unproven case intentionally withholds it. All18 actual
+context-loss tests; the unproven case intentionally withholds it. All 18 actual
 JS/driver/reader-to-JVM cases pass with current source/class/library hashes,
 one original worker and Browser/proof connection each, exact detach and physical
 cleanup, and zero navigation commands in context-loss modes. See
 `.mdo/E177-context-final.log`, `.mdo/E177-unproven.log` and
 `.mdo/E177-native-frontend.log`.
 
-Full native477 passes with 18,899 reported checks, all133 selected input
+Full native 477 passes with 18,899 reported checks, all 133 selected input
 hashes, Android API26 compilation, JNI/transport and ASan/UBSan. Serialized earlier
 business outcomes are unchanged; any differences listed in
 `.mdo/E177-semantic-differences.json` are restricted to the already reviewed
-loading-timeout close/cleanup diagnostic fields. All478 JS tests pass;
-Python178/180 pass with the same two Windows symlink-privilege skips. See
+loading-timeout close/cleanup diagnostic fields. All 478 JS tests pass;
+Python 178/180 pass with the same two Windows symlink-privilege skips. See
 `.mdo/E177-native.log`, `.mdo/E177-native-review.log`, `.mdo/E177-javascript.log`,
 `.mdo/E177-python.log` and `.mdo/E177-verification.json`.
 

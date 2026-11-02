@@ -6094,7 +6094,7 @@ resource quota. A settled original popup-protection continuation survives rearm;
 ongoing popup turns, hidden/manual views and unproven roots remain denied. A loss
 during an already running request is reported; that operation is not replayed.
 
-Current qualification includes18 actual JS/driver/JVM recovery paths and the477-mode
+Current qualification includes 18 actual JS/driver/JVM recovery paths and the 477-mode
 native matrix with controlled renderer/UI peers. These checks do not establish
 Android framework, installed provider, URI/Binder, gesture or device qualification.
 Public Android automation remains disabled; phone/current-WebView checks are
