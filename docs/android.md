@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E178)
+## Complete development host APK (current: W6)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,587,713 bytes, SHA-256
-`47ac96fc9c90aa2ece5a296e0e10b17f89c13702af37c766f0bf83569fc8cca2`.
+`1591c4e689fa5b861fca215b3e5983ccfee55f15b09413f9fd1a20b587334d0a`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,7 +72,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the verified E178 Windows
+key is included. The app archive is extracted from the verified W6 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -6124,3 +6124,15 @@ frontend/JVM paths and the 478-mode native matrix with controlled renderer/UI
 peers. Installed-provider/framework/device qualification, complete protected
 takeover/release and public Android automation remain unavailable. See
 [progress and evidence](progress.md).
+
+
+### Shared pane mounting recovery (W6)
+
+The app archive now includes the shared UI fix for a task dispatcher superseding
+a pending native pane mount. Only the preferred, still-scoped pane can request a
+fresh mount after registration loses ownership. The task dispatcher remains
+usable until the replacement UI binds; stale callbacks cannot hide/close it.
+Fresh Windows and deterministic wrapper checks pass. All20 original JVM/frontend
+flows remain current, and the unchanged E178 native478 matrix is rehashed reuse.
+These are not installed Android provider/framework/device qualification; public
+automation remains disabled and the current phone/WebView checks stay deferred.

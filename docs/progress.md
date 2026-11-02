@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Windows/shared UI W6:** recover a pane whose pending native mount is
+  superseded by its task dispatcher. Keep that dispatcher and ask only the
+  preferred, still-scoped pane to mount again. Two deterministic baseline
+  failures now complete a replacement mount without stale hide/close or replay.
+  JS482, Python178/180, fresh public C/JS SDK, visual permission checks, packed
+  runtime12,20 original JVM/frontend paths and current APK/DEX pass. The unchanged
+  E178 native478 matrix is rehashed reuse; phone/provider checks remain deferred.
+
 - **Android/Windows E178:** order old popup-preparation retirement before
   native navigation/read rearm. Qualify same-document goto/history and BFCache
   history with early native commits, late UI preparation checks and stale refs.
@@ -13826,3 +13834,56 @@ origin UI-readiness authority, broader Android/provider/OS admission, deferred
 phone checks and final Windows/full-requirements/deliverable audit remain open.
 No phone/provider update, live model, external site, production/store action or
 additional application/Home copy was used. The overall goal remains active.
+
+### W6 recover a pane superseded during native mounting
+
+E178's first actual Windows SDK run ended in `waiting_for_panel_mount` in the
+JS client's second-popup sequence. A diagnostic SDK rerun and three full JS
+popup/dialog/navigation/drag witnesses then passed. That first failure had no
+in-memory panel ownership snapshot, so its precise scheduling cause is still
+unknown; the later successes are not a root-cause finding for that instance.
+
+Review identified and deterministically reproduced a concrete matching failure
+path in the actual applied panel wrapper. A task can publish its ready native
+dispatcher while the UI awaits browser lookup or native creation. The original
+UI lifetime correctly stops accepting callbacks after that replacement, but its
+failed final registration was ignored. An early return can leave the panel
+mounted without a visible callback, so revealing it cannot initiate recovery.
+Two baseline regressions, before and after the UI bind, failed because no fresh
+mount was requested. Preserve `.mdo/W6-mount-red.log`.
+
+When registration fails, the existing scoped lifetime now permits only the
+preferred, still-mounted pane to request a fresh mount. No lifetime ownership
+rule was weakened. Keep the task dispatcher until the new UI finishes its own
+native bind and registration. A foreign scope, replaced resource/mount, device
+switch, aborted pane or stopped workbench cannot request this recovery. A retired
+secondary pane cannot supersede the preferred pane. No native navigation, page
+mutation or browser creation decision is replayed by this repair.
+
+The two regressions complete the second mount, prove its final registration and
+one reconciliation, and show that old callbacks cannot hide or close it. All37
+mount/reveal tests pass, including previous late-owner, preview, panel-update and
+viewport-denial cases. See `.mdo/W6-mount-fixed.log`. The first real SDK failure
+remains preserved separately; the deterministic path fixes a confirmed defect
+without claiming it was the only possible cause of that historical event.
+
+Fresh verification: all482 JS tests; Python178/180 with two existing Windows
+symlink-privilege skips; actual public C/JS SDK19 actions/4 navigations/5 waits;
+visual permission checks;12 packed-program runtime checks and headless restore;
+20 actual JS/driver/reader-to-JVM/JNI flows. The native478 /18,907-check E178
+matrix is unchanged scoped reuse, with all133 input hashes rechecked; it was
+not rerun. The actual frontend class/native-library/source hashes are current.
+See `.mdo/W6-javascript.log`, `.mdo/W6-python.log`, `.mdo/W6-sdk.log`,
+`.mdo/W6-visual.log`, `.mdo/W6-native-frontend.log`,
+`.mdo/W6-packed-runtime.log` and `.mdo/W6-verification.json`.
+
+Windows program: 6,942,591 bytes, SHA-256
+`a89d94aa95e4f9da71eb05d162496cdb244cb98e023dc8a16763447f5cdbbac7`. Android APK: 6,587,713 bytes, SHA-256
+`1591c4e689fa5b861fca215b3e5983ccfee55f15b09413f9fd1a20b587334d0a`. The signed APK contains that exact exercised app archive;
+current DEX/package/signature checks pass. Paired plugin payload is unchanged.
+No extra app/Home, phone/provider update, live model or online publication was
+used. Public Android automation/device/provider/framework qualification remains
+false; preserve the current WebView. Full protected takeover/release,
+download-only-to-HTML recovery, overlapping guarded navigation, ongoing native
+origin readiness and final Windows/full-requirements/delivery audit remain open.
+The overall Browser Use goal stays active.

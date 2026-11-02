@@ -14,5 +14,8 @@
       shown: () => preferred() && !root.hidden && layout.open && !document.hidden && navigation.get().view !== "settings",
       updateTitle: title => update(row.id, { title }, lifetime.current), openExternal: target => layoutApi.call("system.open", { target }), addContext,
       onEnd: lifetime.end });
-    lifetime.register(view);
+    // A task can publish its dispatcher while this pane awaits native startup.
+    // Keep that dispatcher; restart only the preferred, still-scoped UI mount
+    // so an early retirement cannot leave an empty pane without callbacks.
+    if (!lifetime.register(view) && preferred() && lifetime.canRemount()) remount(row.id);
   }

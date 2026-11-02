@@ -28,11 +28,29 @@ for(const cause of ['mount','target','scope','resource','stop'])test(`late nativ
   if(cause==='target')f.target('another-device');if(cause==='scope')f.entries.set('panel',{...f.row,context:{...f.row.context,session:'foreign'}});
   if(cause==='resource')f.entries.set('panel',{...f.row,resource:{id:'replacement'}});if(cause==='stop')f.stop();
   f.ready();await f.pending;assert.equal(f.views.size,0);assert.equal(f.reconciled.length,0);assert(!f.options().alive());
+  assert.deepEqual(f.remounted,[]);
 });
 
 test('late native mount preserves a newer view of the same task',async()=>{
   const f=fixture(),replacement={row:f.row,execute:async()=>({})};f.views.set('browser',replacement);f.ready();await f.pending;
   assert.equal(f.views.get('browser'),replacement);assert.equal(f.reconciled.length,0);
+});
+
+for(const timing of ['initializing','bound'])test(`a task dispatcher arriving during ${timing} mount requests a fresh scoped pane`,async()=>{
+  const f=fixture();if(timing==='bound')assert(f.options().onBind(f.view));
+  const dispatcher={row:{id:'browser',client:f.row.client,owner:f.row.owner,context:f.row.context},execute:async()=>({ready:'original-task'})};
+  f.views.set('browser',dispatcher);assert(!f.options().alive());
+  f.ready();await f.pending;
+  assert.equal(f.views.get('browser'),dispatcher);assert.deepEqual(f.reconciled,[]);assert.deepEqual(f.remounted,['panel']);
+  assert.equal((await dispatcher.execute('state')).ready,'original-task');assert(!f.options().canHide());
+  await f.options().onEnd('browser');assert.deepEqual(f.closed,[]);
+  const stale=f.options();f.controller.abort();stale.onDispose();
+  const next={abort:new AbortController()};f.mounts.set('panel',next);
+  const mounted=f.browserView({hidden:false},f.nativeRow,next.abort.signal,next);
+  assert(f.options().onBind(f.view));assert.equal(f.views.get('browser'),dispatcher);
+  f.ready();await mounted;
+  assert(f.options().alive());assert.equal(f.views.get('browser').row.id,'panel');assert.deepEqual(f.reconciled,['browser']);assert.deepEqual(f.remounted,['panel']);
+  await stale.onEnd('browser');assert.deepEqual(f.closed,[]);assert(!stale.canHide());
 });
 
 for(const cause of ['abort','mount','record','resource','scope','target','stop'])test(`stale end callback cannot close its ${cause} replacement`,async()=>{

@@ -22,11 +22,17 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview adds W5's original browser-panel context
-binding to E149 original component ownership and E150 fresh-inventory recovery
-(including E148/E147/E142/E106/W4/W3b/W3a/W2/W1/E66/F21).
-It is **6,941,635 bytes**, SHA-256
-`630cf63fe50306a943cd7cce9068aefbabf6b6365c2f8706459168414d6cef32`.
+The current verified Windows preview includes W6's recovery when a task
+dispatcher supersedes a pending pane mount, E178's observation/cleanup boundary
+checks, and the earlier W5/E149/E150 original ownership and inventory recovery.
+It is **6,942,591 bytes**, SHA-256
+`a89d94aa95e4f9da71eb05d162496cdb244cb98e023dc8a16763447f5cdbbac7`.
+Fresh public C/JS SDK, visual permissions and twelve packed runtime checks pass;
+482 JS tests and the signed Android archive are current. The native Android
+matrix is hash-verified E178 reuse, not a device/provider pass. See the adjacent
+receipt and [current progress](progress.md). W6 preserves the task dispatcher
+and remounts only its preferred still-scoped UI; it does not replay page input.
+
 W5 fixes actual managed read-only screenshots timing out during panel mounting:
 the panel retains its browser's original run/workspace, while the action keeps
 the current caller's permissions and admission context. Foreign namespace/member
