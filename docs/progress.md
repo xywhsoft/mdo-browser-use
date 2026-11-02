@@ -14867,3 +14867,80 @@ checks, not framework/provider/device qualification. Full raw-pause/continuation
 descendant and public UI/input/capture/chooser teardown joins remain open;
 automation/takeover gates and the deferred phone/current-WebView arrangement
 stay in force. The overall goal remains active.
+
+## E192 — preserve original Fetch receipts after data cancellation
+
+Reproduced an actual E191 Session defect with a sent original request, deliberate
+data cancellation and its actual late same-wire ACK. The old packet path dropped
+that ACK as retired data, leaving the original pause charged indefinitely. Keep
+the explicit red witness in `.mdo/E192-original-flow-red.log`. The repair separates
+native control receipts from the already-terminal data-call outcome; it neither
+turns cancellation into success nor replays a potentially effective continuation.
+
+The private PausedFlow identity binds the exact retained native attachment,
+frozen original pause, fixed internal parameters, operation and native receipt.
+The existing bounded Control[] dispatcher preserves its serial/session row across
+data and native attachment retirement. Only a matching empty native success
+releases that pause; a protocol rejection keeps it charged while another original
+page remains usable. Mismatched/corrupt traffic and expired original deadlines
+retain fail-closed behavior. No deadline is restarted or native receipt fabricated.
+Pre-send cancellation removes an unissued row and records NOT_SENT, so it cannot
+leave an indefinitely pending control or invent an actual send/ACK.
+
+Added the private fixed abortProtectedPause cleanup primitive. It derives only
+Fetch.failRequest/Aborted from a frozen original pause, accepts no request selector
+and grants no new continuation/body/source access. Pending original controls must
+finish first; a rejected continuation can be cleaned, while a sent abort cannot
+be replayed. Existing body/offer/stream receipts remain independent. Cleanup-only
+packet handling now retains bounded late Fetch pauses only on the exact original
+protected root that has not received native end; DOM/new data stays fenced.
+The broker has not adopted this primitive or E191's root auto-attach disable in
+its human-retirement coordinator yet; that integration remains required.
+
+Sixty-seven new direct cases pass: 42 cancelled request/pass/abort controls across
+idle/peer RPC and native result/order variants, 22 fixed original request/response
+abort cases, and three unsent cancellation cases. The direct gate passes 7,048
+checks versus 4,639 (+2,409), with two real native transport sessions unchanged.
+Preserve `.mdo/E192-final-controls.log` and the fresh native result with explicit
+case counters. Actual original-worker product control-request/control-response
+cases additionally observe the frozen candidate's pause receipt BEFORE emitting
+root native detach, while preserving the other original document. Their new
+proof flags are required by the final verifier; no product state is overwritten.
+
+Two fixture scheduling assumptions were strengthened. A response pass can still
+be pending after page startup was already accepted, so the original startup state
+is captured before close and exactly one ready/failure outcome is required, rather
+than demanding a failure after a legitimate acceptance. The first full run also
+stopped at transfer-pending-epoch: the worker could already complete frame-change
+abort before a second accept, which intentionally returns the terminal record.
+The fixture now requires either explicit download_frame_changed or that exact
+terminal error with zero bytes, no body claim/read and no verification; existing
+later assertions still require actual abort/cache/source cleanup. Download product
+code was unchanged. Preserve `.mdo/E192-native.log` and
+`.mdo/E192-fixture-ordering.log` for the initial failure and focused passes.
+
+Fresh final native verification passes 562 modes / 23,515 reported popup checks,
+generic worker 300, 134 current source hashes, API26/JNI/kernel transport and
+ASan/UBSan. All prior 562 business results were compared with no semantic/timing
+differences in this run; execution-dependent assertion counters are not business
+output. Evidence: `.mdo/E192-native-final.log`, `.mdo/E192-review-native.log`,
+`.mdo/E192-verification.json` and the preserved original E191 baseline
+`.mdo/E192-baseline-native.json`. Fresh actual frontend/JVM 20 and Python 178/180
+pass (two existing Windows symlink-privilege skips). All build/check handles are
+terminal. The complete signed APK is 6,591,809 bytes, SHA-256
+`ce831502b225a4a4587a887a27cf1e4a5656f63b027cf696063664126fbb5a3c`.
+Actual DEX verifies PausedFlow, its private constructor and immutable native
+identity/receipt/parameter fields, abortProtectedPause/protectedFlow and existing
+lifecycle/source/payload/package/signature requirements.
+
+The prior exact local runtime remained healthy; exact-stop/reviewed-apply/start
+reused the same deployment and its path/config/listener/HTTP checks passed.
+Windows/shared host/page/plugin/SDK and the E184 artifact are unchanged; JS 505,
+mounted WebView2 control 22, SDK/visual and packed runtime results are explicit
+current-hash reuse. No extra Home/source/app/dependency copy, model call, phone/
+provider change, installation or online publication was used. This controlled
+worker/product coverage is not Android framework/provider/device qualification.
+Final original control/descendant joins in the human coordinator, public UI/input/
+capture/chooser teardown and full platform qualification remain open. Public
+takeover/automation gates and deferred phone/current-WebView checks remain in
+force; the overall goal stays active.

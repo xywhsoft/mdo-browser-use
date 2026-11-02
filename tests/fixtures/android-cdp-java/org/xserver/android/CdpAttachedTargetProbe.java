@@ -14,7 +14,7 @@ import org.json.JSONObject;
 
 /** Fixed original-event release, not task ownership or installed popup support. */
 public final class CdpAttachedTargetProbe {
-    private static int checks,realSessions;
+    private static int checks,realSessions,nativeFlowCases,abortCases,unsentCases;
     private interface Work {void run()throws Exception;}
     private interface Send {void sent(JSONObject command)throws Exception;}
     private static void check(boolean value){if(!value)throw new AssertionError("Attached release check "+(checks+1));checks++;}
@@ -32,9 +32,9 @@ public final class CdpAttachedTargetProbe {
     }
     private static final class Wire implements MdoBrowserCdpSession.Wire,MdoBrowserCdpSession.Clock {
         final ArrayDeque<byte[]> queued=new ArrayDeque<>();final List<byte[]> buffers=new ArrayList<>();final List<JSONObject> sent=new ArrayList<>();
-        long now;int closes;Send after;
+        long now;int closes;Send after;Runnable beforeNow;
         void add(JSONObject packet){queued.add(packet.toString().getBytes(StandardCharsets.UTF_8));}
-        public long now(){return now;}
+        public long now(){Runnable action=beforeNow;if(action!=null){beforeNow=null;action.run();}return now;}
         public void send(byte[] bytes,int timeout)throws IOException{
             buffers.add(bytes);try{JSONObject value=new JSONObject(new String(bytes,StandardCharsets.UTF_8));sent.add(value);if(after!=null)after.sent(value);}
             catch(IOException error){throw error;}catch(RuntimeException|Error error){throw error;}catch(Exception error){throw new IOException("fixture_send_failed");}
@@ -402,10 +402,147 @@ public final class CdpAttachedTargetProbe {
             }
         }
     }
+    private static void cancelledOriginalFlow()throws Exception{
+        for(String kind:new String[]{"request","pass","abort"})for(boolean peerRpc:new boolean[]{false,true})
+        for(String nativeResult:new String[]{"ack","rejected","unsupported","malformed","wrong-session","no-ack","native-end"})try(Case test=new Case()){
+            nativeFlowCases++;
+            AtomicBoolean permitted=new AtomicBoolean(true);JSONObject[] late={null};
+            test.action=(method,child,params)->{
+                if(method.equals("Target.attachedToTarget"))test.metadata.add(test.client.retainAttachedTarget());
+                else if(method.equals("Fetch.requestPaused"))test.client.retainAttachedRequest(test.metadata.get(0));
+                else throw new IOException("cdp_fixture_event_invalid");
+            };
+            test.wire.after=command->{String method=command.getString("method");String child=command.optString("sessionId",null);
+                if(method.startsWith("Fetch.")&&!method.equals("Fetch.enable")){
+                    check(method.equals(kind.equals("abort")?"Fetch.failRequest":"Fetch.continueRequest")&&"flow-owned".equals(child));
+                    JSONObject params=command.getJSONObject("params");check(params.length()==(kind.equals("abort")?2:1)&&params.getString("requestId").equals("original-flow"));
+                    if(kind.equals("abort"))check(params.getString("errorReason").equals("Aborted"));
+                    late[0]=ack(command.getInt("id"),child);permitted.set(false);return;
+                }
+                check(method.equals("Fetch.enable")||method.equals("Runtime.runIfWaitingForDebugger")||method.equals("Runtime.enable"));test.wire.add(ack(command.getInt("id"),child));
+            };
+            test.wire.add(attached("flow-owned"));check(test.client.poll(10,100));test.wire.add(attached("flow-peer"));check(test.client.poll(10,100));
+            MdoBrowserCdpSession.AttachedTarget original=test.metadata.get(0),peer=test.metadata.get(1);
+            test.client.protectAttachedTarget(original,100);test.client.resumeProtectedAttachment(original,()->true,100);
+            test.client.protectAttachedTarget(peer,100);test.client.resumeProtectedAttachment(peer,()->true,100);
+            JSONObject params=new JSONObject().put("requestId","original-flow");if(!kind.equals("request"))params.put("responseStatusCode",200).put("resourceType","Document")
+                .put("request",new JSONObject().put("method","GET")).put("responseHeaders",new org.json.JSONArray().put(new JSONObject().put("name","Content-Type").put("value","text/html")));
+            test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","flow-owned").put("params",params));check(test.client.poll(10,100));
+            MdoBrowserCdpSession.AttachedResponse response=kind.equals("request")?null:test.client.nextAttachedResponse(original,permitted::get,()->true,()->true);
+            int sent=test.wire.sent.size();
+            try{
+                if(response==null)test.client.continueProtectedRequest(original,permitted::get,()->true,100);
+                else if(kind.equals("abort"))response.abort(100);else response.pass(100);
+                throw new AssertionError("Original cancelled flow delivered success");
+            }catch(MdoBrowserCdpSession.Failure error){if(!error.attachedCommandCancelled||!error.effectMayHaveOccurred||!error.getMessage().equals("cdp_popup_control_retired"))throw new AssertionError("Original flow did not retire: "+kind+" "+error.getMessage());check(true);}
+            MdoBrowserCdpSession.ControlResult data=response==null?null:response.result();check(response==null||data!=null&&!data.ok&&data.effectMayHaveOccurred);
+            check(test.wire.sent.size()==sent+1&&late[0]!=null&&test.wire.closes==0&&original.retainedRequestCount()+original.retainedResponseCount()==1);
+            check(test.client.pendingControls()==1);
+            check(!test.client.abortProtectedPause(original,()->true,100)&&test.wire.sent.size()==sent+1&&test.client.pendingControls()==1);
+            if(nativeResult.equals("native-end")){test.client.retireAttachedTarget(original);check(test.client.pendingControls()==1&&original.retainedRequestCount()+original.retainedResponseCount()==0);}
+            if(nativeResult.equals("rejected")||nativeResult.equals("unsupported")){
+                late[0].remove("result");late[0].put("error",new JSONObject().put("code",nativeResult.equals("unsupported")?-32601:-32000).put("message","private-unreported-provider-detail"));
+            }
+            if(nativeResult.equals("malformed"))late[0].getJSONObject("result").put("unexpected",true);
+            if(nativeResult.equals("wrong-session"))late[0].put("sessionId","flow-peer");
+            if(nativeResult.equals("no-ack"))test.wire.now+=101;else test.wire.add(late[0]);
+            boolean broken=Arrays.asList("malformed","wrong-session","no-ack").contains(nativeResult);
+            if(broken){
+                String code=nativeResult.equals("malformed")?"cdp_attach_control_reply_invalid":nativeResult.equals("wrong-session")?"cdp_reply_mismatch":"cdp_command_timeout";
+                failure(code,()->{if(peerRpc)test.client.call("Runtime.enable",new JSONObject(),"flow-peer",100,false);else test.client.poll(10,100);});check(test.wire.closes==1);
+            }else{
+                if(peerRpc)test.client.call("Runtime.enable",new JSONObject(),"flow-peer",100,false);else test.client.poll(10,100);
+                int remaining=nativeResult.equals("rejected")||nativeResult.equals("unsupported")?1:0;
+                if(original.retainedRequestCount()+original.retainedResponseCount()!=remaining)throw new AssertionError("Cancelled original flow discarded or forged its actual native acknowledgement");
+                check(test.client.pendingControls()==0&&test.wire.closes==0&&test.wire.sent.size()==sent+1+(peerRpc?1:0));
+                test.wire.add(late[0]);test.client.poll(10,100);check(test.wire.closes==0&&original.retainedRequestCount()+original.retainedResponseCount()==remaining);
+                failure("cdp_session_invalid",()->test.client.call("Runtime.enable",new JSONObject(),"flow-owned",100,false));
+            }
+            check(response==null||response.result()==data);
+        }
+    }
+    private static void retiredPauseAbort()throws Exception{
+        for(boolean response:new boolean[]{false,true})for(String mode:new String[]{"ack","rejected","unsupported","malformed","wrong-session","timeout","owner-loss","send-failure","pending-continue","rejected-continue","late-event"})try(Case test=new Case()){
+            abortCases++;
+            AtomicBoolean permitted=new AtomicBoolean(true);JSONObject[] held={null};int[] aborts={0},dataEvents={0};
+            test.action=(method,child,params)->{
+                if(method.equals("Target.attachedToTarget"))test.metadata.add(test.client.retainAttachedTarget());
+                else if(method.equals("Fetch.requestPaused"))test.client.retainAttachedRequest(test.metadata.get(0));
+                else if(method.equals("Runtime.executionContextCreated"))dataEvents[0]++;
+                else throw new IOException("cdp_fixture_event_invalid");
+            };
+            test.wire.after=command->{String method=command.getString("method");String child=command.optString("sessionId",null);int id=command.getInt("id");
+                if(method.equals("Fetch.continueRequest")){check("abort-owned".equals(child));held[0]=ack(id,child);permitted.set(false);return;}
+                if(method.equals("Fetch.failRequest")){
+                    aborts[0]++;check(command.length()==4&&"abort-owned".equals(child)&&command.getJSONObject("params").length()==2&&command.getJSONObject("params").getString("requestId").equals("original-abort")&&command.getJSONObject("params").getString("errorReason").equals("Aborted"));
+                    if(mode.equals("send-failure"))throw new IOException("private-unreported-transport-detail");
+                    if(mode.equals("timeout"))return;
+                    if(mode.equals("owner-loss"))permitted.set(false);
+                    JSONObject reply=ack(id,mode.equals("wrong-session")?"abort-peer":child);
+                    if(mode.equals("malformed"))reply.getJSONObject("result").put("unexpected",true);
+                    if(mode.equals("rejected")||mode.equals("unsupported")){reply.remove("result");reply.put("error",new JSONObject().put("code",mode.equals("unsupported")?-32601:-32000).put("message","private-unreported-provider-detail"));}
+                    test.wire.add(reply);return;
+                }
+                check(method.equals("Fetch.enable")||method.equals("Runtime.runIfWaitingForDebugger")||method.equals("Runtime.enable"));test.wire.add(ack(id,child));
+            };
+            test.wire.add(attached("abort-owned"));check(test.client.poll(10,100));test.wire.add(attached("abort-peer"));check(test.client.poll(10,100));
+            MdoBrowserCdpSession.AttachedTarget original=test.metadata.get(0),peer=test.metadata.get(1);
+            test.client.protectAttachedTarget(original,100);int sent=test.wire.sent.size();failure("cdp_attach_resume_unconfirmed",()->test.client.abortProtectedPause(original,()->true,100));check(test.wire.sent.size()==sent);
+            test.client.resumeProtectedAttachment(original,()->true,100);test.client.protectAttachedTarget(peer,100);test.client.resumeProtectedAttachment(peer,()->true,100);
+            if(mode.equals("late-event"))test.client.fenceChild("abort-owned");
+            JSONObject params=new JSONObject().put("requestId","original-abort");if(response)params.put("responseStatusCode",200).put("resourceType","Image");
+            test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","abort-owned").put("params",params));check(test.client.poll(10,100));
+            check(original.retainedRequestCount()+original.retainedResponseCount()==1);
+            if(mode.endsWith("-continue")){
+                MdoBrowserCdpSession.AttachedResponse row=response?test.client.nextAttachedResponse(original,permitted::get,()->true,()->true):null;
+                try{if(response)row.pass(100);else test.client.continueProtectedRequest(original,permitted::get,()->true,100);throw new AssertionError("Pending original control was accepted");}
+                catch(MdoBrowserCdpSession.Failure error){check(error.attachedCommandCancelled);}
+                check(!test.client.abortProtectedPause(original,()->true,100)&&aborts[0]==0&&test.client.pendingControls()==1);
+                if(mode.equals("rejected-continue")){held[0].remove("result");held[0].put("error",new JSONObject().put("code",-32000).put("message","private-unreported-provider-detail"));}
+                test.wire.add(held[0]);test.client.poll(10,100);permitted.set(true);
+                if(mode.equals("pending-continue")){check(!test.client.abortProtectedPause(original,()->true,100)&&aborts[0]==0&&original.retainedRequestCount()+original.retainedResponseCount()==0);continue;}
+            }
+            test.client.fenceChild("abort-owned");sent=test.wire.sent.size();
+            failure("cdp_arguments_invalid",()->test.client.abortProtectedPause(original,null,100));failure("cdp_arguments_invalid",()->test.client.abortProtectedPause(original,()->true,9));
+            failure("cdp_attach_owner_changed",()->test.client.abortProtectedPause(original,()->false,100));
+            try(Case foreign=new Case()){failure("cdp_attach_event_invalid",()->foreign.client.abortProtectedPause(original,()->true,100));check(foreign.wire.sent.isEmpty());}
+            check(test.wire.sent.size()==sent);
+            boolean success=mode.equals("ack")||mode.equals("late-event")||mode.equals("rejected-continue");
+            if(success){check(test.client.abortProtectedPause(original,permitted::get,100));check(original.retainedRequestCount()+original.retainedResponseCount()==0&&aborts[0]==1&&!original.retirementAcknowledged()&&!original.detachConfirmed());
+                check(!test.client.abortProtectedPause(original,()->true,100)&&aborts[0]==1);test.client.call("Runtime.enable",new JSONObject(),"abort-peer",100,false);
+                test.wire.add(new JSONObject().put("method","Runtime.executionContextCreated").put("sessionId","abort-owned").put("params",new JSONObject()));test.client.poll(10,100);check(dataEvents[0]==0&&test.wire.closes==0);
+                failure("cdp_session_invalid",()->test.client.call("Runtime.enable",new JSONObject(),"abort-owned",100,false));
+            }else{
+                String code=mode.equals("rejected")?"cdp_command_rejected":mode.equals("unsupported")?"cdp_method_unsupported":mode.equals("malformed")?"cdp_attach_control_reply_invalid":mode.equals("wrong-session")?"cdp_reply_mismatch":mode.equals("timeout")?"cdp_command_timeout":mode.equals("owner-loss")?"cdp_owner_changed":"cdp_transport_failed";
+                try{test.client.abortProtectedPause(original,permitted::get,100);throw new AssertionError("Native abort failure was lost");}catch(MdoBrowserCdpSession.Failure error){check(code.equals(error.getMessage())&&error.effectMayHaveOccurred!=mode.equals("unsupported"));}
+                check(aborts[0]==1);try{test.client.abortProtectedPause(original,()->true,100);throw new AssertionError("Failed original abort replayed");}catch(IOException expected){}check(aborts[0]==1);
+            }
+        }
+    }
+    private static void unsentFlowRetirement()throws Exception{
+        for(String kind:new String[]{"request","pass","abort"})try(Case test=new Case()){
+            unsentCases++;
+            AtomicBoolean permitted=new AtomicBoolean(true);int[] aborts={0};
+            test.action=(method,child,params)->{if(method.equals("Target.attachedToTarget"))test.metadata.add(test.client.retainAttachedTarget());else if(method.equals("Fetch.requestPaused"))test.client.retainAttachedRequest(test.metadata.get(0));else throw new IOException("cdp_fixture_event_invalid");};
+            test.wire.after=command->{String method=command.getString("method");if(method.equals("Fetch.failRequest"))aborts[0]++;else check(method.equals("Fetch.enable")||method.equals("Runtime.runIfWaitingForDebugger"));test.wire.add(ack(command.getInt("id"),"unsent-owned"));};
+            test.wire.add(attached("unsent-owned"));check(test.client.poll(10,100));MdoBrowserCdpSession.AttachedTarget original=test.metadata.get(0);
+            test.client.protectAttachedTarget(original,100);test.client.resumeProtectedAttachment(original,()->true,100);
+            JSONObject params=new JSONObject().put("requestId","unsent-original");if(!kind.equals("request"))params.put("responseStatusCode",204);
+            test.wire.add(new JSONObject().put("method","Fetch.requestPaused").put("sessionId","unsent-owned").put("params",params));check(test.client.poll(10,100));
+            MdoBrowserCdpSession.AttachedResponse response=kind.equals("request")?null:test.client.nextAttachedResponse(original,permitted::get,()->true,()->true);
+            int sent=test.wire.sent.size();test.wire.beforeNow=()->permitted.set(false);
+            try{if(response==null)test.client.continueProtectedRequest(original,permitted::get,()->true,100);else if(kind.equals("pass"))response.pass(100);else response.abort(100);throw new AssertionError("Unsent cancelled control was accepted");}
+            catch(MdoBrowserCdpSession.Failure error){check(error.attachedCommandCancelled&&!error.effectMayHaveOccurred);}
+            MdoBrowserCdpSession.ControlResult data=response==null?null:response.result();
+            check(test.wire.sent.size()==sent&&test.client.pendingControls()==0&&test.wire.closes==0&&original.retainedRequestCount()+original.retainedResponseCount()==1);
+            check(test.client.abortProtectedPause(original,()->true,100)&&aborts[0]==1&&original.retainedRequestCount()+original.retainedResponseCount()==0);
+            check(response==null||response.result()==data&&!data.ok&&!data.effectMayHaveOccurred);
+        }
+    }
     public static void main(String[] ignored)throws Exception{
         Looper.getMainLooper();java.util.concurrent.ExecutorService worker=Executors.newSingleThreadExecutor();
-        try{worker.submit(()->{try{protectedAutoAttachRetirement();protectedDetach();dataRetirementPending();responseStreamScopes();protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
+        try{worker.submit(()->{try{unsentFlowRetirement();retiredPauseAbort();cancelledOriginalFlow();protectedAutoAttachRetirement();protectedDetach();dataRetirementPending();responseStreamScopes();protectedFlowAdmission();success();refusedEvents();faults();cancellationAndLimits();nativeSessions();return null;}catch(Exception error){throw new RuntimeException(error);}}).get(40,TimeUnit.SECONDS);}
         finally{worker.shutdownNow();check(worker.awaitTermination(2,TimeUnit.SECONDS));}
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"scoped_protected_retirement\":true,\"retirement_ack_is_not_native_event\":true,\"other_attachment_body_retained\":true,\"no_detach_replay\":true,\"data_retired_native_identity\":true,\"data_retired_rpc_denied\":true,\"data_retired_pauses_retained\":true,\"fixed_root_autoattach_retirement\":true,\"autoattach_ack_not_native_end\":true,\"autoattach_cleanup_reply_isolated\":true,\"autoattach_failure_no_replay\":true,\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"real_native_sessions\":"+realSessions+",\"fixed_original_release\":true,\"native_resume_then_detach\":true,\"scoped_protected_retirement\":true,\"retirement_ack_is_not_native_event\":true,\"other_attachment_body_retained\":true,\"no_detach_replay\":true,\"data_retired_native_identity\":true,\"data_retired_rpc_denied\":true,\"data_retired_pauses_retained\":true,\"fixed_root_autoattach_retirement\":true,\"autoattach_ack_not_native_end\":true,\"autoattach_cleanup_reply_isolated\":true,\"autoattach_failure_no_replay\":true,\"cancelled_flow_native_receipt\":true,\"fixed_original_pause_abort\":true,\"late_pause_retained_without_data\":true,\"cancelled_flow_cases\":"+nativeFlowCases+",\"native_pause_abort_cases\":"+abortCases+",\"unsent_flow_cases\":"+unsentCases+",\"task_or_popup_ownership_proved\":false,\"provider_qualified\":false}");
     }
 }

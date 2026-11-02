@@ -201,7 +201,8 @@ def main():
                     '-cp',str(classes),'org.xserver.android.CdpAttachedTargetProbe'],cwd=ROOT,env=environment,text=True,timeout=60))
     if (not attached.get('passed') or attached.get('real_native_sessions')!=2 or not attached.get('fixed_original_release')
             or not attached.get('native_resume_then_detach') or attached.get('task_or_popup_ownership_proved') is not False or attached.get('provider_qualified') is not False
-            or any(attached.get(flag) is not True for flag in ('scoped_protected_retirement','retirement_ack_is_not_native_event','other_attachment_body_retained','no_detach_replay','data_retired_native_identity','data_retired_rpc_denied','data_retired_pauses_retained','fixed_root_autoattach_retirement','autoattach_ack_not_native_end','autoattach_cleanup_reply_isolated','autoattach_failure_no_replay'))):
+            or any(attached.get(flag) is not True for flag in ('scoped_protected_retirement','retirement_ack_is_not_native_event','other_attachment_body_retained','no_detach_replay','data_retired_native_identity','data_retired_rpc_denied','data_retired_pauses_retained','fixed_root_autoattach_retirement','autoattach_ack_not_native_end','autoattach_cleanup_reply_isolated','autoattach_failure_no_replay','cancelled_flow_native_receipt','fixed_original_pause_abort','late_pause_retained_without_data'))
+            or attached.get('cancelled_flow_cases')!=42 or attached.get('native_pause_abort_cases')!=22 or attached.get('unsent_flow_cases')!=3):
         raise RuntimeError('The fixed original attached-target release gate did not pass')
     result['jvm_attached_release']=attached
     attached_navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),

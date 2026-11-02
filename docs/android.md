@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E191)
+## Complete development host APK (current: E192)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`60502c5e18cc470dec8212e0cd87ab42ff9286ab1449f2a181f44f3522f40423`.
+`ce831502b225a4a4587a887a27cf1e4a5656f63b027cf696063664126fbb5a3c`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6414,3 +6414,43 @@ continuation receipts remain required before that path can be enabled. Public
 protected takeover and overall Android automation stay gated; phone/current
 WebView checks remain deferred. Windows/shared resources are unchanged and their
 prior verified results are explicitly reused. The overall goal remains active.
+
+### Original paused-flow receipts survive data cancellation (E192)
+
+An actual Session defect was reproduced: cancelling a sent original Fetch
+continuation caused its eventual native ACK to be discarded as old data, leaving
+the original pause permanently charged. Original request/response continuation
+and abort now have a separate immutable native receipt on the existing bounded
+control dispatcher. That exact ID/session receipt survives data and attachment
+retirement, while the cancelled data outcome remains terminal. A matching empty
+success retires only its frozen pause; protocol rejection retains that obligation,
+and corruption/timeouts retain the existing connection-failure behavior. The old
+deadline is never renewed and no sent operation is replayed.
+
+The private abortProtectedPause primitive can only abort an exact original raw
+pause. It cannot continue/read/claim a response or accept a caller-selected ID.
+It waits already-issued native controls, preserves independent body/stream
+cleanup, and does not repeat a sent abort. Pre-send cancellation leaves a proved
+NOT_SENT outcome rather than a permanently pending receipt. Late pause metadata
+is retained only for the exact protected, data-fenced original root; ordinary
+DOM/source operations remain unavailable. This primitive is not yet wired into
+the broker's human-retirement coordinator.
+
+Sixty-seven new direct cases cover late ACK/errors/timeout/native retirement,
+peer RPC isolation, fixed raw request/response aborts and unsent cancellation.
+The direct gate passes 7,048 checks (2,409 added), with two real native transport
+sessions unchanged. Two actual controlled product cases also verify the original
+pause receipt before emitting root native detach and preserve the other page.
+Fresh full native verification passes 562 modes / 23,515 reported popup checks,
+generic worker 300, 134 current input hashes, API26/JNI/kernel transport and
+ASan/UBSan; prior business outputs have no semantic/timing differences in this
+run. Actual frontend/JVM 20 and Python 178/180 pass (two existing Windows symlink
+privilege skips). The signed APK above passes actual native-flow class/constructor/
+method/field, source/payload/package/signature checks. Windows/shared resources
+remain unchanged with explicit current-hash reuse.
+
+Full original-root auto-attach/descendant/raw-pause joining, final original
+control receipts in the coordinator, public input/capture/chooser teardown and
+Activity/provider/device qualification remain open. Android automation and
+public protected takeover remain unavailable; phone/current WebView verification
+is still deferred. The overall goal remains active.
