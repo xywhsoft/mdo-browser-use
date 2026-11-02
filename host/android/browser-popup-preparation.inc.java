@@ -350,7 +350,7 @@
         final NetworkEntry entry;final MdoBrowserCdpPopupNative.Promotion owner;final MdoBrowserCdpPopupBroker.Handoff handoff;
         MdoBrowserCdpPopupNative.Source sourceProof;
         final long deadline;ProtocolPopupNetworkReady ready;MdoBrowserCdpPopupPreparation.Failure failure;
-        int phase;boolean disposing,downloadsClosed;PopupPage page;
+        int phase;boolean disposing,downloadsClosed,human;PopupPage page;
         PopupNetwork(NetworkEntry entry,MdoBrowserCdpPopupNative.Promotion owner,MdoBrowserCdpPopupBroker.Handoff handoff,long deadline,
                 ProtocolPopupNetworkReady ready,MdoBrowserCdpPopupPreparation.Failure failure){
             this.entry=entry;this.owner=owner;this.handoff=handoff;this.deadline=deadline;this.ready=ready;this.failure=failure;
@@ -385,6 +385,17 @@
             }catch(java.io.IOException|RuntimeException|Error error){retire(reason(error));}
         }
         void schedule(){networkHandler.removeCallbacks(entry.watch);if(!networkHandler.postDelayed(entry.watch,100))throw new IllegalStateException("network_scheduler_unavailable");}
+        /** Internal protected-page coordinator. The public route is still
+         * gated until same-view return and descendant retirement qualify. */
+        void takeControl()throws java.io.IOException {
+            if(phase!=1||page==null||page.phase!=2||!current())throw new java.io.IOException("cdp_popup_human_owner_invalid");
+            try{if(owner.view()!=entry.view)throw new IllegalStateException("popup_child_owner_lost");}
+            catch(RuntimeException error){throw new java.io.IOException("cdp_popup_human_owner_invalid");}
+            // Quiesce before revoking the source, preserving user cancellation
+            // and original completed bytes rather than connection-loss text.
+            entry.downloads.quiesce();handoff.takeControl(owner);human=true;
+            retire("network_user_takeover");handoff.detachForHuman(owner);
+        }
         void retire(String code){
             if(phase>=2)return;
             boolean starting=phase==0||page!=null&&page.phase<2;
@@ -406,7 +417,8 @@
             if(callback!=null)try{callback.failed(code,true);}catch(RuntimeException|Error ignored){/* one outcome, never replay native creation */}
             watch();
         }
-        void destroyed(){entry.destroyed=true;entry.quota.close();if(phase<2)retire("cdp_popup_network_native_closed");else if(!disposing)watch();}
+        void destroyed(){entry.destroyed=true;entry.quota.close();if(phase==3&&human){phase=2;entry.retiredAt=android.os.SystemClock.elapsedRealtime();}
+            if(phase<2)retire("cdp_popup_network_native_closed");else if(!disposing)watch();}
         void watch(){
             if(phase==3||networkViews.get(entry.key)!=entry||disposing)return;
             if(phase<2){
@@ -414,15 +426,22 @@
                 catch(java.io.IOException|RuntimeException|Error error){retire(reason(error));}return;
             }
             boolean nativeClean=entry.destroyed&&owner.nativeDestroyed()&&!owner.failed();
+            // A real later physical close releases human-owned cache files
+            // independently of an uncertain shared protocol cleanup receipt.
+            if(human&&nativeClean)try{closeDownloads();}catch(RuntimeException|Error error){networkCleanupFailed=true;}
+            MdoBrowserCdpSession.ControlResult transfer=human?handoff.humanDetachResult():null;if(transfer!=null&&!transfer.ok)entry.code=transfer.code;
             boolean sourceClean=entry.downloads==null||entry.downloads.sourcesClean();
-            entry.protocolDrained=handoff.detached()&&nativeClean&&sourceClean;
+            boolean humanClean=human&&owner.humanTransferred()&&owner.ended()&&!owner.failed()&&!entry.destroyed&&!owner.nativeDestroyed()&&
+                views.owns(entry.key,entry.view)&&documents.get(entry.key)==entry.profile&&handoff.humanDetached();
+            entry.protocolDrained=handoff.detached()&&(nativeClean||humanClean)&&sourceClean;
             if(entry.protocolDrained){
-                try{if(entry.downloadConnection!=null)entry.downloadConnection.disconnect(true);closeDownloads();}
+                try{if(entry.downloadConnection!=null)entry.downloadConnection.disconnect(true);if(nativeClean)closeDownloads();}
                 catch(RuntimeException|Error error){networkCleanupFailed=true;}
+                if(humanClean){phase=3;networkHandler.removeCallbacks(entry.watch);return;}
                 if(entry.downloads==null||entry.downloads.retiringFiles()==0){phase=3;networkHandler.removeCallbacks(entry.watch);networkViews.remove(entry.key,entry);return;}
             }
             long age=android.os.SystemClock.elapsedRealtime()-entry.retiredAt;
-            if(age<0||age>=5000){entry.cleanupObservationExpired=true;networkCleanupFailed=true;try{closeDownloads();}catch(RuntimeException|Error ignored){}return;}
+            if(age<0||age>=5000){entry.cleanupObservationExpired=true;networkCleanupFailed=true;try{if(!human||entry.destroyed)closeDownloads();}catch(RuntimeException|Error ignored){}return;}
             try{schedule();}catch(RuntimeException|Error error){entry.cleanupObservationExpired=true;/* the retained retiring row fences creation until recovery observes its receipts */}
         }
         private void closeDownloads(){if(!downloadsClosed&&entry.downloads!=null){downloadsClosed=true;entry.downloads.close();}}

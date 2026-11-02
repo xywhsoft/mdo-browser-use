@@ -253,6 +253,9 @@ def main():
                   'preparation-page-ready','preparation-page-parent-close','preparation-page-download','preparation-page-download-stream','preparation-page-document-change',
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
+                  'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
+                  'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-descendants',
+                  'preparation-page-human-network-close-before-detach',
                   'preparation-page-activation-unsupported','preparation-page-activation-malformed','preparation-page-world-unique','preparation-page-world-metadata','preparation-page-callback-throw',
                   'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
@@ -465,9 +468,12 @@ def main():
                 raise RuntimeError('Protected native input lost its exact document, cancellation, no-replay or original connection scope')
         if mode.startswith('preparation-page-'):
             evidence=popup_worker.get('product_page')
+            human_failure=(mode in {'preparation-page-human-network-'+name for name in ('rejected','unsupported','malformed','wrong-event','complete-rejected','descendants')}
+                           and popup_worker.get('product_frame_route',{}).get('actual_human_network') is True
+                           and popup_worker.get('product_frame_route',{}).get('wire_failed') is True)
             if (not isinstance(evidence,dict) or type(evidence.get('cleanup_confirmed')) is not bool
                     or evidence.get('ui_published') is not False or evidence.get('provider_qualified') is not False
-                    or not evidence['cleanup_confirmed'] and (evidence.get('unconfirmed_creation_fenced') is not True or evidence.get('failure_callbacks')!=1)):
+                    or not evidence['cleanup_confirmed'] and (evidence.get('unconfirmed_creation_fenced') is not True or evidence.get('failure_callbacks')!=(0 if human_failure else 1))):
                 raise RuntimeError('Protected page startup lost its actual cleanup/publication evidence')
             if mode=='preparation-page-loading-timeout':
                 retirement=popup_worker.get('loading_retirement')
@@ -527,7 +533,26 @@ def main():
         if mode=='host-close-late-transport':
             proof=popup_worker.get('host_close')
             if proof!={'original_close_raced':True,'code':'cdp_worker_closed','cleanup_confirmed':False,'source_released':False,'wire_closes':1,'disables':0,'worker_terminated':True}:raise RuntimeError('Original host close lost its authoritative cause or invented cleanup')
-        if mode.startswith('preparation-page-human-'):
+        if mode=='preparation-page-human-network-close-before-detach':
+            proof=popup_worker.get('product_frame_route')
+            if proof!={'actual_human_close_race':True,'native_destroyed':1,'detach_commands':0,'acknowledged':False,'native_event':True,'physical_close_cleanup':True,'human_cleanup_invented':False,'wire_closes':0,'browser_connections':1,'native_proof_connections':1,'new_worlds':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}:
+                raise RuntimeError('A real human page close poisoned the shared wire or invented an unsent detach ACK')
+        elif mode.startswith('preparation-page-human-network-'):
+            proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-network-'):]
+            failed=variant in {'rejected','unsupported','malformed','no-ack','wrong-event','complete-rejected','descendants'}
+            codes={'rejected':'cdp_command_rejected','complete-rejected':'cdp_command_rejected','unsupported':'cdp_method_unsupported','malformed':'cdp_attach_detach_reply_invalid','no-ack':'cdp_command_timeout','descendants':'cdp_popup_human_descendants_unqualified'}
+            if (not isinstance(proof,dict) or proof.get('actual_human_network') is not True or proof.get('detach_commands')!=(0 if variant=='descendants' else 1)
+                    or proof.get('acknowledged') is not (not failed or variant=='wrong-event') or proof.get('native_event') is not (not failed or variant=='no-ack')
+                    or proof.get('cleanup_confirmed') is not (not failed) or proof.get('page_preserved') is not True or proof.get('wire_failed') is not failed
+                    or proof.get('catalog_preserved') is not True or proof.get('old_authority_revoked') is not True
+                    or proof.get('retained_downloads')!=int(variant in {'complete','complete-rejected','pending','held-body'})
+                    or proof.get('verified_original_bytes') is not variant.startswith('complete') or proof.get('cancelled_sources') is not (variant in {'pending','held-body'})
+                    or proof.get('held_source_cleanup') is not (variant in {'pending','held-body'}) or proof.get('code')!=codes.get(variant)
+                    or proof.get('protocol_code')!=(-32000 if variant.endswith('rejected') else -32601 if variant=='unsupported' else 0)
+                    or proof.get('effect_may_have_occurred') is not (variant not in {'unsupported','descendants'})
+                    or proof.get('new_worlds')!=0 or proof.get('navigation_commands')!=0 or proof.get('provider_qualified') is not False or proof.get('ui_published') is not False):
+                raise RuntimeError('Human popup cleanup confused ACK/native/source/cache receipts, discarded original bytes or revived old authority')
+        elif mode.startswith('preparation-page-human-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-'):];lost=variant=='view-lost'
             if (not isinstance(proof,dict) or proof.get('actual_human_transfer') is not True or proof.get('committed') is not (not lost)
                     or proof.get('old_authority_revoked') is not True or proof.get('physical_view_preserved') is not (not lost)

@@ -30,6 +30,8 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
     private final MdoBrowserCdpNetworkRequests requests;
     private volatile MdoBrowserCdpSession.Events receiver;
     private volatile MdoBrowserCdpDownloads.Connection connection;
+    private volatile MdoBrowserCdpDownloads.Connection retiredConnection;
+    private volatile boolean retirementFinished;
     private MdoBrowserCdpNetworks.Navigation navigation;private MdoBrowserCdpBinding.Network navigationView;
     private boolean started;private volatile boolean ready;
 
@@ -151,6 +153,8 @@ final class MdoBrowserCdpPopupSource implements MdoBrowserCdpBinding.Peer,MdoBro
         ready=false;receiver=null;frames.close();requests.close();final MdoBrowserCdpNetworks.Navigation selected;
         synchronized(this){selected=navigation;navigation=null;navigationView=null;}
         // Never hold this source monitor while taking the navigation monitor.
-        if(selected!=null)selected.disconnected();MdoBrowserCdpDownloads.Connection original=connection;connection=null;if(original!=null)original.disconnect();handoff.close();
+        if(selected!=null)selected.disconnected();MdoBrowserCdpDownloads.Connection original=connection;connection=null;retiredConnection=original;if(original!=null)original.disconnect();handoff.close();retirementFinished=true;
     }}
+    boolean retirementQuiescent(){return retirementFinished;}
+    boolean downloadsRetired(){MdoBrowserCdpDownloads.Connection original=retiredConnection;return retirementFinished&&(original==null||original.retirementQuiescent());}
 }

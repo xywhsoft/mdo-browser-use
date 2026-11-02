@@ -30,6 +30,7 @@ final class MdoBrowserCdpDownloads implements AutoCloseable {
         boolean attachedTurn(MdoBrowserCdpPopupBroker.Handoff physical,AttachedSource source,int timeout)throws IOException {return owner.attachedTurn(this,physical,source,timeout);}
         void disconnect(){owner.disconnect(this,false);}
         void disconnect(boolean cleanupConfirmed){owner.disconnect(this,cleanupConfirmed);}
+        boolean retirementQuiescent(){synchronized(owner.gate){return owner.current==this&&owner.quiescing&&owner.disconnected&&owner.sourcesClean();}}
     }
     static final class Budget {
         private int used;

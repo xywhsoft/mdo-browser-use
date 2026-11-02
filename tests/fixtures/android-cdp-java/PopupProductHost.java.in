@@ -130,6 +130,7 @@ final class PopupProductHost {
     PopupNetwork network(String key){NetworkEntry row=networkViews.get(key);return row==null?null:row.popup;}
     boolean popupNetworkReady(String key){PopupNetwork value=network(key);return value!=null&&value.phase==1&&value.current();}
     void closePopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.close();}
+    void takePopupControl(String key)throws Exception{PopupNetwork value=network(key);value.takeControl();manual.add(key);value.entry.profile.block(MdoBrowserDocument.MANUAL,true);}
     void pollPopupNetwork(String key){PopupNetwork value=network(key);if(value!=null)value.watch();}
     int popupNetworkCount(){int count=0;for(NetworkEntry row:networkViews.values())if(row.popup!=null)count++;return count;}
     MdoBrowserCdpDownloads popupDownloads(String key){return network(key).entry.downloads;}
@@ -144,6 +145,7 @@ final class PopupProductHost {
     String popupNetworkCode(String key){return network(key).entry.code;}
     boolean popupNetworkExpired(String key){return network(key).entry.cleanupObservationExpired;}
     boolean popupProtocolDrained(String key){return network(key).entry.protocolDrained;}
+    java.util.function.BooleanSupplier popupDrainReceipt(String key){NetworkEntry original=networkViews.get(key);return ()->original.protocolDrained;}
     String popupDiagnostic(String key){PopupNetwork value=network(key);return value==null?"none":"phase="+value.phase+" code="+value.entry.code+" destroyed="+value.entry.destroyed+" native="+value.owner.nativeDestroyed()+" detach="+value.handoff.detached()+" sources="+(value.entry.downloads==null?null:value.entry.downloads.sourcesClean())+" cleanup="+networkCleanupFailed;}
     void duplicatePopupNetwork(String key)throws Exception{PopupNetwork old=network(key);prepareProtocolPopupNetwork(key,old.owner,old.handoff,android.os.SystemClock.elapsedRealtime()+3000,network->{throw new AssertionError("Duplicate source entered");},(code,effect)->{throw new AssertionError(code);});}
     void prepare(Runnable effect,MdoBrowserCdpPopupPreparation.Failure failure){prepareProtocolPopupAction("root",views.get("root"),effect,failure);}
@@ -235,8 +237,8 @@ final class PopupProductHost {
         interface Completion {void complete(Result result);}
     }
     static final class MdoBrowserDocument {
-        static final int BACKGROUND=1,CHOOSER=2,NAVIGATION=16;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
-        void block(int reason,boolean value){if(reason!=CHOOSER&&reason!=NAVIGATION)throw new AssertionError("Unexpected controlled document block");}
+        static final int BACKGROUND=1,CHOOSER=2,MANUAL=4,NAVIGATION=16;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
+        void block(int reason,boolean value){if(reason!=CHOOSER&&reason!=NAVIGATION&&reason!=MANUAL)throw new AssertionError("Unexpected controlled document block");}
         void navigation(){}void committed(){}void loaded(){}
         boolean worldInstalled(){worldQueries++;return assigned&&!closed;}boolean ready(){worldQueries++;return assigned&&!closed;}
         String phase(){worldQueries++;return ready()?"ready":"world_unavailable";}int pending(){worldQueries++;return 0;}int outstanding(){worldQueries++;return 0;}String identity(){worldQueries++;return "fd-00000000-0000-4000-8000-000000000001";}

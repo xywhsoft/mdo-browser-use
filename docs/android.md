@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E181)
+## Complete development host APK (current: E182)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,587,713 bytes, SHA-256
-`0a2b1049bfec4b4752fbcdab344498de9f34a5e81a0b5a30a57729d5f67a4917`.
+`e4aa222d3d1ff1e4868232b500c5b449a519b315d40ff01f15bdd4250565e9c1`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6186,3 +6186,36 @@ close. This is physical-ownership integration, not yet the public protected
 takeover/return coordinator. Protocol/descendant/source cleanup, authentic detach
 event and fresh return proof remain required. Provider/framework/device checks
 and public Android automation remain unavailable; preserve the current WebView.
+
+
+### Original human leaf retirement and preserved downloads (E182)
+
+The exact native transfer now has an internal product/worker coordinator. It
+quiesces unfinished original downloads before source retirement, then requires
+the human native ownership/end receipt and independently drained source/body
+cleanup before one fixed leaf detach on the original Browser wire. An empty ACK
+and matching authenticated native detached event are separate required receipts.
+Unsupported/rejected/malformed/missing replies and wrong events cannot complete
+that join or replay the detach. Nested document sessions are still explicitly
+unqualified and fenced before the command is sent.
+
+The human page and original download catalog/IDs/quota remain. Completed bytes
+stay verified/readable even after uncertain protocol cleanup; pending and held
+stream sources retain user cancellation and real abort/I/O close receipts. A
+later actual physical page close frees the retained cache independently of a
+still uncertain protocol guard. Fourteen controlled product/native-lifecycle/worker
+JVM cases, the full 502-mode regression, existing JNI/transport gates and actual
+signed APK/DEX checks pass. The native
+event guard-removal witness reproduces premature ACK-only completion.
+
+A real physical close that wins before detach dispatch now drains its own
+authenticated native event without sending an extra detach or poisoning the
+shared wire. Its regression failed before the correction and passes afterward;
+it does not fabricate a human ACK/cleanup receipt for a command never sent.
+
+The public protected takeover/return gate remains closed. The download controller
+can rearm after the joined receipts, but full browser return requires fresh
+exact-view marker/frame/Fetch proof; old popup/world authority stays retired.
+Full Activity/UI/provider, descendant cleanup and in-flight public operation joins
+remain required. Phone/current WebView stay deferred and public Android automation
+remains unavailable.

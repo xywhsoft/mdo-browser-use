@@ -62,6 +62,8 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         private final AtomicReference<MdoBrowserCdpSession.ControlResult> activationResult=new AtomicReference<>(),flowFailure=new AtomicReference<>();
         private final AtomicInteger continuedRequests=new AtomicInteger();
         private final AtomicBoolean networkAdmitted=new AtomicBoolean();
+        private final AtomicBoolean humanDetachRequested=new AtomicBoolean();
+        private final AtomicReference<MdoBrowserCdpSession.ControlResult> humanDetachResult=new AtomicReference<>();
         private Handoff(MdoBrowserCdpPopupNative.Child child,AtomicBoolean closed,long born,LongSupplier clock){proof=child.proofIdentity();brokerClosed=closed;this.born=born;this.clock=clock;}
         private boolean eligible(){try{long age=clock.getAsLong()-born;return !cancelled.get()&&!brokerClosed.get()&&age>=0&&(age<15000||networkAdmitted.get());}catch(RuntimeException|Error error){return false;}}
         void reserve(MdoBrowserCdpPopupNative.Child child,MdoBrowserCdpPopupNative.Promotion nativeReceipt)throws IOException {
@@ -85,6 +87,15 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         void takeControl(MdoBrowserCdpPopupNative.Promotion original)throws IOException {
             if(!committed.get()||!owns(original))throw problem("cdp_popup_human_owner_invalid");original.takeControl(this);
         }
+        /** Request only the original human-owned attachment's retirement.
+         * Source/body/descendant readiness is independently checked by its
+         * existing worker, never asserted by a UI boolean or target string. */
+        void detachForHuman(MdoBrowserCdpPopupNative.Promotion original)throws IOException {
+            if(!owns(original)||!original.humanTransferred()||!draining())throw problem("cdp_popup_human_owner_invalid");
+            if(!humanDetachRequested.compareAndSet(false,true))throw problem("cdp_popup_human_detach_replayed");
+        }
+        MdoBrowserCdpSession.ControlResult humanDetachResult(){return humanDetachResult.get();}
+        boolean humanDetached(){MdoBrowserCdpSession.ControlResult receipt=humanDetachResult.get();return humanDetachRequested.get()&&receipt!=null&&receipt.ok&&detached.get();}
         boolean owns(MdoBrowserCdpPopupNative.Document original){return original!=null&&original.matches(nativeOwner.get());}
         boolean owns(MdoBrowserCdpPopupNative.Source original){return original!=null&&original.matches(nativeOwner.get());}
         void admitNetwork(){networkAdmitted.set(true);}
@@ -403,7 +414,9 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
         int count=candidates.size();for(int n=0;n<count;n++){
             int index=(managedTurn+n)%count;Candidate candidate=candidates.get(index);Handoff handoff=candidate.handoff;
             if(handoff==null||!handoff.activationRequested.get())continue;
-            boolean live=handoff.current();if(retiringCandidate(candidate))continue;
+            boolean live=handoff.current();if(retiringCandidate(candidate)){
+                if(retireHuman(candidate,timeout)){managedTurn=(index+1)%count;return true;}continue;
+            }
             if(!live)throw fail("cdp_popup_candidate_retired");
             try{
                 if(handoff.activationResult.get()==null){
@@ -428,6 +441,35 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
                 if(idle){if(candidate.documentPeer!=null)candidate.documentPeer.retire();managedTurn=(index+1)%count;return true;}throw error;
             }
         }return false;
+    }
+    /** Leaf-only native detach. In-flight original bodies keep their independent
+     * cleanup pump; neither a source close nor an ACK manufactures that proof.
+     * Related document sessions stay fenced until their own retirement is
+     * qualified. The public takeover route remains unavailable meanwhile. */
+    private boolean retireHuman(Candidate candidate,int timeout)throws IOException {
+        Handoff handoff=candidate.handoff;
+        if(!handoff.humanDetachRequested.get()||handoff.humanDetachResult.get()!=null)return false;
+        MdoBrowserCdpPopupNative.Promotion owner=handoff.nativeOwner.get();
+        if(owner==null||!owner.humanTransferred()||owner.failed())throw problem("cdp_popup_human_owner_invalid");
+        // A real host close can win before dispatch. Let its authenticated
+        // native detach drain normally; do not detach again or poison peers.
+        if(owner.nativeDestroyed())return false;
+        if(!owner.ended())return false;
+        DocumentPeer document=candidate.documentPeer;
+        if(document!=null){document.close();if(!document.children.isEmpty()){
+                handoff.humanDetachResult.set(new MdoBrowserCdpSession.ControlResult(false,"cdp_popup_human_descendants_unqualified",0,false));throw problem("cdp_popup_human_descendants_unqualified");}}
+        MdoBrowserCdpPopupSource source=candidate.sourcePeer;if(source!=null)source.close();
+        MdoBrowserCdpDownloads.Connection transfers=candidate.downloads;
+        if(source!=null&&!source.retirementQuiescent()||transfers!=null&&!transfers.retirementQuiescent()||source!=null&&!source.downloadsRetired())return false;
+        try{
+            session.detachProtectedAttachment(candidate.original,handoff::draining,timeout);
+            handoff.humanDetachResult.set(new MdoBrowserCdpSession.ControlResult(true,null,0,true));return true;
+        }catch(MdoBrowserCdpSession.Failure error){
+            if("cdp_attach_retirement_busy".equals(error.getMessage())&&!error.effectMayHaveOccurred)return false;
+            handoff.humanDetachResult.set(new MdoBrowserCdpSession.ControlResult(false,safe(error.getMessage()),error.protocolCode,error.effectMayHaveOccurred));throw error;
+        }catch(IOException|RuntimeException|Error error){
+            handoff.humanDetachResult.set(new MdoBrowserCdpSession.ControlResult(false,error instanceof IOException?safe(error.getMessage()):"cdp_popup_human_detach_failed",0,true));throw error;
+        }
     }
     boolean turn(int receiveMs,int timeout)throws IOException {
         guard();if(state!=ARMED)throw problem("cdp_popup_broker_state_invalid");

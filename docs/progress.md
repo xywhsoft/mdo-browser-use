@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E182:** join exact human ownership to leaf-only protocol retirement
+  on the original worker/wire. Require independent detach ACK/native event and
+  original source/body cleanup; retain human page, completed bytes and catalog.
+  A later real close frees cache even with uncertain protocol state. Fourteen
+  new cases and an ACK-only guard-removal witness pass. Fresh native502,
+  frontend20/JS482/Python178/180, signed APK/DEX pass. Descendant retirement,
+  same-view browser rearm and public/device admission remain open; Windows W6 reuse.
+
 - **Android E181:** join exact native popup ownership to a UI human-transfer
   transaction. Publish typed retirement before manual assignment; defer old and
   already-queued native closers until the transaction ends. Eight new cases
@@ -14110,3 +14118,92 @@ including auto-attach interactions, still needs explicit qualification.
 Broader UI/provider/OS, native-origin readiness and final full-requirements/
 delivery work stay open. Phone/current WebView remain deferred. No live model,
 external test page or online publication. Overall goal remains active.
+
+### E182 original human-owned leaf protocol retirement
+
+Connected the exact physical human-transfer receipt to the original product
+PopupNetwork and its existing Browser worker. The internal coordinator first
+quiesces unfinished downloads, preserving the user cancellation cause and already
+completed original bytes, then transfers the exact native owner and retires its
+page/source markers. It requests a one-use typed retirement; no UI boolean,
+caller-selected target, URL, script, second Browser wire or replacement WebView
+can assert that cleanup is complete.
+
+The worker requires the exact Promotion's completed human transfer/end receipt,
+an independently finished original Source close, its original disconnected and
+quiescing download Connection and clean source receipts. Document peers revoke
+old authority. Existing nested document sessions are explicitly rejected with
+`cdp_popup_human_descendants_unqualified`; their native cleanup is not inferred
+from a cleared registry. Only a leaf reaches E180's fixed original detach, whose
+per-attachment pending request/response/offer/body/control/navigation checks
+still apply. Other work on the original serialized wire is not replaced.
+
+The original detach ACK and authenticated native detached event join separately.
+An ACK without the native event cannot finish the human row. An event without
+the ACK cannot finish it either. Rejection, unsupported commands, malformed ACK,
+lost ACK and wrong-session events retain sanitized original causes, protocol
+codes and possible-effect flags without replay. Uncertain shared-wire cleanup
+keeps its process guard fenced; native page preservation does not declare that
+global state clean. A real later physical page destruction can independently
+finish that row's native teardown, which is distinct from shared-wire recovery.
+
+A successfully retired human row keeps the same native view, profile/quota and
+download controller/catalog. Complete source bytes remain verified and readable
+with the same download ID and charged quota. Pending/streaming sources cancel as
+user decisions and must acknowledge original abort/I/O cleanup before detach.
+On actual later physical destruction, retained cached files are released even
+when protocol cleanup is uncertain. This fixes otherwise retained human cache
+files while preserving the independent protocol fence. The old Handoff,
+Promotion, world and marker authority never revive.
+
+Fourteen controlled actual product/native-lifecycle/common-worker JVM paths pass
+693 reported checks: normal ACK then event, event before ACK,
+ACK-only wait followed by the real event, native event without ACK, wrong event,
+protocol rejection, definite unsupported method, malformed ACK, original complete
+download, complete download retained across rejection, pending source, held body
+cleanup with a discarded late read, explicit descendant refusal and a real
+physical close before detach dispatch. Body/abort
+receipts are held to prove detach is not sent early. Final physical close verifies
+cache tickets and download quota release. The full Activity/profile implementation
+and installed provider remain outside these controlled UI/renderer seams.
+
+Removing only the native-event join in place makes the actual ACK-only case fail;
+the witness checked and restored exact source bytes before the full current-code
+build. No extra app/Home/source copy was made. See `.mdo/E182-guard-witness.log`
+and `.mdo/E182-guard-removed.log`. Fresh full native verification passes
+502 modes / 20,074 reported popup checks and all
+133 current selected input hashes, API26 compilation,
+the existing JNI/transport gates and ASan/UBSan. All earlier 488 business outcomes are compared;
+only the previously reviewed loading-timeout diagnostic fields may vary.
+Fresh 20 existing actual frontend/JVM modes, JS482 and Python178/180 pass (two
+existing Windows symlink privilege skips). Logs and current hashes are preserved
+under `.mdo/E182-*`; `.mdo/E182-verification.json` is the current receipt.
+
+An additional actual-product causal regression reproduced a real host close
+winning before the worker's detach dispatch. Treating its destroyed ownership
+as an unexplained loss poisoned the shared wire before its already queued native
+event could drain. The worker now lets that exact real close finish through its
+authentic native detach, with zero extra detach commands, no invented ACK or
+human-cleanup receipt, and the shared Browser wire preserved. The original
+failure and current passing proof are retained in
+`.mdo/E182-close-before-regression.log` and `.mdo/E182-close-before-fixed.log`.
+The corrected code then reran the complete current-input gates.
+
+The signed Android development APK is 6,587,713 bytes, SHA-256
+`e4aa222d3d1ff1e4868232b500c5b449a519b315d40ff01f15bdd4250565e9c1`. Actual DEX definitions include PopupNetwork's
+human coordinator/watch/destruction, Broker's leaf retirement, Handoff's typed
+request and ACK/event join, and original Source/Connection readiness. This is the
+complete development host; no device install or provider change was attempted.
+The exact W6 Windows archive and non-Android host/page/plugin/SDK hashes are
+unchanged. Windows SDK/visual/packed runtime results are explicit W6 reuse,
+not newly executed E182 evidence.
+
+The public protected takeover/return routes still report
+`popup_takeover_unqualified`. The tests rearm only the download controller after
+both cleanup receipts; a fresh exact-view browser marker/frame/Fetch return join
+is still required. Descendant retirement, in-flight public input/capture/chooser
+cancellation, installed-provider auto-attach interactions, ongoing native-origin
+UI readiness and final broader requirements/delivery audit remain open. Public
+Android automation/framework/provider/device admission remains false. Phone and
+current WebView stay deferred. No live models, external test pages or online
+publication. Overall goal remains active.
