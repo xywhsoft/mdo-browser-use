@@ -3833,13 +3833,13 @@ public final class CdpPopupWorkerProbe {
     }
     private static void productDocumentIsolation(String mode,String directory)throws Exception {
         String variant=mode.substring("preparation-isolated-".length());Backend backend=new Backend();android.os.SystemClock.now=1000;
-        boolean nativeLedger=variant.startsWith("native-");backend.holdNativeDescendants=nativeLedger;
+        boolean nativeLedger=variant.startsWith("native-"),grandchild=variant.startsWith("grandchild-");backend.holdNativeDescendants=nativeLedger||grandchild;
         boolean receiveRace=variant.startsWith("receive-");
         boolean control=variant.startsWith("control-");
         boolean rebind=variant.equals("reset-attach")||variant.equals("reset-runtime");
-        boolean nested=variant.equals("nested")||variant.equals("detach-nested")||rebind||nativeLedger;
-        boolean operation=variant.equals("read")||variant.equals("effect")||variant.equals("detach-nested")||rebind||receiveRace||nativeLedger;
-        boolean effect=variant.equals("effect"),peerDetach=variant.equals("detach")||variant.equals("detach-nested");
+        boolean nested=variant.equals("nested")||variant.equals("detach-nested")||rebind||nativeLedger||grandchild;
+        boolean operation=variant.equals("read")||variant.equals("effect")||variant.equals("detach-nested")||rebind||receiveRace||nativeLedger||grandchild;
+        boolean effect=variant.equals("effect")||variant.equals("grandchild-effect"),peerDetach=variant.equals("detach")||variant.equals("detach-nested");
         boolean broken=variant.equals("foreign")||variant.equals("expired")||variant.equals("receive-foreign")||variant.startsWith("native-wrong-")||variant.equals("native-limit")||variant.equals("native-retired-parent-attach");
         try(CdpNetworkWorkerProbe.Case host=new CdpNetworkWorkerProbe.Case(backend)){
             CdpNetworkBindingProbe.Context original=host.source();host.ready(original);try(NativeSource source=new NativeSource(host,original)){
@@ -3863,6 +3863,7 @@ public final class CdpPopupWorkerProbe {
                     product.prepare(prepared::incrementAndGet,networkFailure);waitFor(()->prepared.get()==1,host,true);
                     java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> firstResult=new java.util.concurrent.atomic.AtomicReference<>();
                     java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> secondResult=new java.util.concurrent.atomic.AtomicReference<>();
+                    AtomicInteger grandchildCallbacks=new AtomicInteger();
                     MdoBrowserCdpPopupWorker.Request request=product.preparationOriginal("request",MdoBrowserCdpPopupWorker.Request.class);Throwable primary=null;
                     try{
                         for(int i=0;i<2;i++){
@@ -3876,11 +3877,26 @@ public final class CdpPopupWorkerProbe {
                         if(operation){
                             waitFor(()->{for(String key:keys)product.pollPopupPage(key);return ready[0].get()==1&&ready[1].get()==1;},host,true);
                             if(rebind){renderers[0].holdMethod=variant.equals("reset-attach")?"Target.setAutoAttach":"Runtime.disable";product.rebindPopupPage(keys[0],value->{check(host.ui.onThread());firstResult.set(value);});}
+                            else if(grandchild){renderers[0].holdMethod="Runtime.evaluate";renderers[0].holdExpression="({ok:true,text:'managed'})";product.runPopupLeaf(keys[0],effect,value->{check(host.ui.onThread());grandchildCallbacks.incrementAndGet();firstResult.set(value);});}
                             else{renderers[0].holdMethod="Runtime.evaluate";renderers[0].holdExpression="({ok:true,text:'managed'})";product.runPopupPage(keys[0],effect,nested,value->{check(host.ui.onThread());firstResult.set(value);});}
                         }
                         waitFor(()->{for(String key:keys)product.pollPopupPage(key);return control?backend.heldControl!=null:renderers[0].held!=null;},host,true);
                         MdoBrowserCdpPopupBroker.Handoff firstHandoff=product.popupHandoff(keys[0]);
                         check(backend.closes.get()==0&&backend.resumes.get()>=1&&(control?backend.heldControl!=null:renderers[0].held!=null));
+                        if(grandchild){
+                            check(renderers[0].held.getString("sessionId").equals("first-leaf-session"));
+                            renderers[0].detachNative("first-child-session",backend.wire);
+                            try{waitFor(()->firstResult.get()!=null,host,true);}catch(AssertionError error){throw new AssertionError("Native ancestor detach left the original grandchild RPC waiting for its held reply",error);}
+                            MdoBrowserCdpWorker.Result originalResult=firstResult.get();
+                            check(originalResult.code.equals("cdp_session_detached")&&originalResult.bytes==null&&originalResult.effectMayHaveOccurred==effect&&grandchildCallbacks.get()==1);
+                            check(firstHandoff.current()&&!firstHandoff.retiring()&&backend.closes.get()==0&&renderers[0].nativeSessions.size()==1&&renderers[0].nativeSessions.containsKey("first-leaf-session"));
+                            renderers[1].holdMethod="Runtime.evaluate";renderers[1].holdExpression="({ok:true,text:'managed'})";
+                            java.util.concurrent.atomic.AtomicReference<MdoBrowserCdpWorker.Result> peer=new java.util.concurrent.atomic.AtomicReference<>();
+                            product.runPopupPage(keys[1],false,false,value->{check(host.ui.onThread()&&value.code==null&&value.bytes!=null&&value.bytes[0]==1);peer.set(value);});
+                            waitFor(()->renderers[1].held!=null,host,true);
+                            renderers[0].release(backend.wire);renderers[1].release(backend.wire);waitFor(()->peer.get()!=null,host,true);
+                            check(backend.closes.get()==0&&firstHandoff.current()&&!firstHandoff.detached()&&firstResult.get()==originalResult&&grandchildCallbacks.get()==1);
+                        }
                         if(receiveRace){
                             CountDownLatch cancelled=new CountDownLatch(1);java.util.concurrent.atomic.AtomicBoolean once=new java.util.concurrent.atomic.AtomicBoolean();
                             backend.receivedHook=bytes->{
@@ -3901,7 +3917,7 @@ public final class CdpPopupWorkerProbe {
                         else if(peerDetach){backend.wire.add(detached(sessions[0]));detachedSent[0]=true;}
                         else product.closePopupPage(keys[0]);
                         if(variant.equals("expired"))host.time.addAndGet(5001);
-                        if(control)backend.releaseControl();else renderers[0].release(backend.wire);
+                        if(control)backend.releaseControl();else if(!grandchild)renderers[0].release(backend.wire);
                         if(!broken){
                             waitFor(()->exact[0].destroyed==1||backend.closes.get()!=0,host,true);check(backend.closes.get()==0&&failed[1].get()==0);
                             if(!detachedSent[0]){backend.wire.add(detached(sessions[0]));detachedSent[0]=true;}
@@ -3909,6 +3925,11 @@ public final class CdpPopupWorkerProbe {
                         if(nested){
                             backend.wire.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId","first-child-session").put("params",new JSONObject().put("executionContextId",999)));
                             backend.wire.add(ack(100000,"first-leaf-session"));
+                        }
+                        if(grandchild){
+                            final int received=backend.receives.get();waitFor(()->backend.receives.get()>received+2,host,true);
+                            check(!firstHandoff.detached()&&backend.closes.get()==0&&renderers[0].nativeSessions.size()==1);
+                            renderers[0].detachNative("first-leaf-session",backend.wire);
                         }
                         if(nativeLedger){
                             if(!detachedSent[0]){backend.wire.add(detached(sessions[0]));detachedSent[0]=true;}
@@ -3945,7 +3966,7 @@ public final class CdpPopupWorkerProbe {
                             waitFor(()->{product.pollPopupNetwork(keys[0]);return firstHandoff.detached()&&product.popupNetworkCount()==1;},host,true);
                             check(backend.disables.get()==0&&backend.closes.get()==0&&backend.nativeOpens.get()==2&&MdoBrowserCdpPopupBroker.creationBlocked());
                             product.runPopupPage(keys[1],false,false,value->{check(host.ui.onThread());if(value.code==null)check(value.bytes!=null&&value.bytes.length==1&&value.bytes[0]==1);secondResult.set(value);});waitFor(()->secondResult.get()!=null,host,true);
-                            check(secondResult.get().code==null&&secondResult.get().bytes!=null&&secondResult.get().bytes.length==1&&secondResult.get().bytes[0]==0&&!secondResult.get().effectMayHaveOccurred&&renderers[1].worlds.evaluations==1);
+                            check(secondResult.get().code==null&&secondResult.get().bytes!=null&&secondResult.get().bytes.length==1&&secondResult.get().bytes[0]==0&&!secondResult.get().effectMayHaveOccurred&&renderers[1].worlds.evaluations==(grandchild?2:1));
                             if(variant.equals("receive-other"))check(renderers[1].worlds.created==2);
                             if(operation){waitFor(()->firstResult.get()!=null,host,true);check(firstResult.get().code!=null&&firstResult.get().bytes==null&&firstResult.get().effectMayHaveOccurred==effect&&renderers[0].worlds.evaluations==(rebind?0:1));}
                             check(backend.opens.get()==1&&backend.resumes.get()==2&&backend.continues.get()==(variant.equals("control-resume")?1:2)&&backend.detaches.get()==0);
@@ -3955,6 +3976,7 @@ public final class CdpPopupWorkerProbe {
                             .put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get())
                             .put("late_nested_sessions_tested",nested).put("native_detach_confirmed",firstHandoff.detached()).put("provider_qualified",false).put("ui_published",false);
                         if(nativeLedger)isolationEvidence.put("native_descendant_ledger_tested",true).put("root_receipt_waited_for_descendants",true).put("wrong_parent_denied",variant.startsWith("native-wrong-")).put("native_limit_enforced",variant.equals("native-limit")).put("retired_parent_attach_denied",variant.equals("native-retired-parent-attach"));
+                        if(grandchild)isolationEvidence.put("grandchild_rpc_retired",true).put("root_owner_preserved_until_close",true).put("late_reply_during_peer_rpc_discarded",true).put("original_effect_may_have_occurred",effect).put("original_callbacks",grandchildCallbacks.get()).put("leaf_native_receipt_required",true);
                     }catch(Exception|Error error){primary=error;System.err.println("Document isolation "+variant+" wireClosed="+backend.closes.get()+" first="+failed[0].get()+" secondReady="+ready[1].get()+" secondFailed="+failed[1].get()+" event="+backend.eventFailure+" send="+backend.sendFailure+" close="+backend.closeSite);throw error;}
                     finally{
                         try{

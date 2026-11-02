@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E188)
+## Complete development host APK (current: E189)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`f88c8e80193a0fa79236546f0f52b2972e0fff166843289fb9aebb2bec881a32`.
+`63cb50fa1873d626612e5970c73491c58f798bdf87c60b3d09d8e060265c06ce`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6337,3 +6337,24 @@ after data cancellation and the public input/capture/chooser teardown join.
 The existing public takeover gate and overall Android automation unavailability
 remain. Current phone/WebView verification is deferred; this phase does not
 constitute a production release or device installation.
+
+
+### Grandchild RPC cancellation on ancestor detach (E189)
+
+An authentic native ancestor detach now fences ordinary RPC/data admission for
+its document descendants as well. A pending grandchild RPC ends with its
+original failure and possible-effect bit while the root physical owner remains
+current. The leaf still needs its own native detach receipt before cleanup can
+be confirmed. Late replies cannot alter the old result or corrupt another
+page's current RPC; no operation is replayed.
+
+Two new original-worker read/effect cases pass 152 checks,
+including a late original reply delivered during another page's pending RPC and
+the separate leaf native cleanup receipt. The fresh native gate passes
+557 modes / 23,205 reported popup checks,
+generic worker 300, API26/JNI/transport and ASan/UBSan. Actual frontend/JVM 20 and
+Python 178/180 pass (two existing symlink-privilege skips). The signed APK above
+includes these current Session/Broker implementations with actual DEX/source/
+payload/signature checks. Public takeover/automation gates and deferred current
+phone/WebView verification remain unchanged; full framework/provider/device
+qualification is still required.

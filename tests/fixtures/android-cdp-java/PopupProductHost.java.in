@@ -132,10 +132,16 @@ final class PopupProductHost {
     void duplicatePopupPage(String key)throws Exception{prepareProtocolPopupPage(network(key),page->{throw new AssertionError("Duplicate page entered");},(code,effect)->{throw new AssertionError(code);});}
     AutoCloseable beginPopupPage(String key,Runnable ready,MdoBrowserCdpPopupPreparation.Failure failure)throws Exception{return prepareProtocolPopupPage(network(key),page->ready.run(),failure);}
     void runPopupPage(String key,boolean effect,boolean nested,MdoBrowserCdpWorker.Completion complete)throws Exception{
+        runPopupPage(key,effect,nested,false,complete);
+    }
+    void runPopupLeaf(String key,boolean effect,MdoBrowserCdpWorker.Completion complete)throws Exception{
+        runPopupPage(key,effect,true,true,complete);
+    }
+    private void runPopupPage(String key,boolean effect,boolean nested,boolean leaf,MdoBrowserCdpWorker.Completion complete)throws Exception{
         PopupNetwork owner=network(key);PopupPage page=owner.page;if(!page.documentReady())throw new AssertionError("Original popup document not ready");
         cdpWorker.submitDocument(page.marker,owner.handoff,page.proof,3000,effect,(binding,deadline)->{
             org.json.JSONArray frames=binding.frames().inventory(deadline).optJSONArray("frames");JSONObject chosen=null;
-            for(int i=0;i<frames.length();i++){JSONObject item=frames.optJSONObject(i);if(nested?binding.frames().select(item.optString("id"),item.optString("document")).session!=null:"f0".equals(item.optString("id"))){chosen=item;break;}}
+            for(int i=0;i<frames.length();i++){JSONObject item=frames.optJSONObject(i);if(leaf?"leaf-frame".equals(binding.frames().select(item.optString("id"),item.optString("document")).raw):nested?binding.frames().select(item.optString("id"),item.optString("document")).session!=null:"f0".equals(item.optString("id"))){chosen=item;break;}}
             if(chosen==null)throw new java.io.IOException("cdp_fixture_frame_missing");
             binding.frames().evaluate(chosen.optString("id"),chosen.optString("document"),"({ok:true,text:'managed'})",effect,deadline);return new byte[]{1};
         },complete);

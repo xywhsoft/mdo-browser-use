@@ -14668,3 +14668,64 @@ WebView verification stays deferred and the full goal remains active.
 A further targeted qualification must cover an in-flight grandchild RPC when
 its ancestor detaches while the root stays live; the current authentic
 child-before-root RPC witness targets the directly detached child.
+
+### E189 retire descendant RPC admission after native ancestor detach
+
+The E188 follow-up qualification reproduces a distinct scope-retirement defect.
+Hold an actual Runtime.evaluate reply from the original native leaf session and
+deliver its ancestor's authentic native detach while both page owners remain
+live. Frames removes the ancestor and its document descendants, but the old
+DocumentPeer.retireChild removed only the local data map. The leaf remained
+admitted to ordinary Session traffic, so its original RPC kept waiting for a
+reply from a data scope that had already ended. See
+`.mdo/E189-grandchild-red.log`; its primary assertion records that wait, with
+teardown failures retained as suppressed evidence.
+
+DocumentPeer.retireChild now fences that exact descendant's Session data
+admission before removing its local record. Only cdp_session_detached on the
+original attached RPC may abandon its wait when that session has explicit data
+retirement or an authentic native detach receipt. This does not mark the leaf
+physically detached: its independent native record and cleanup routing remain.
+Late ordinary replies are discarded, the original failure/effect result remains
+terminal, and foreign-source mismatches and transport failures retain rejection.
+No replacement action, URL navigation or general RPC grant is introduced.
+
+The new read and possible-effect variants target the actual leaf-frame route on
+the original worker. Each verifies one failure callback and the original effect
+bit while the root's physical owner stays current. They hold a second page's
+actual RPC reply, deliver the old leaf reply during that call, and verify the
+second page succeeds without changing the first result. After the root is
+closed and its native detach arrives, cleanup must still wait for the leaf's
+own native detach. Its authentic receipt finally releases the routing ancestor
+and original root; another page operation and final source/guard cleanup pass.
+These two modes pass 152 checks. Direct-child, parent-first
+and foreign-source cases also pass in the related focused run.
+
+Fresh full native verification passes 557 popup modes /
+23,205 reported popup checks, generic network worker 300,
+134 selected current input hashes, API26/JNI/transport and ASan/UBSan. All prior
+555 results are compared. Only the existing loading-timeout observation timing
+allowance differs: native close call site and its captured worker cleanup flag;
+the final page/source cleanup, real detach and released process guard remain
+confirmed. Fresh actual frontend/JVM 20 and Python 178/180 pass (two existing
+Windows symlink-privilege skips). See `.mdo/E189-native.log`,
+`.mdo/E189-grandchild-fixed.log`, `.mdo/E189-review-native.log` and
+`.mdo/E189-verification.json`.
+
+The complete signed development APK is 6,591,809 bytes, SHA-256
+`63cb50fa1873d626612e5970c73491c58f798bdf87c60b3d09d8e060265c06ce`; actual DEX, current source/payload, package and signature checks pass.
+The single existing local deployment was verified, stopped exactly, updated and
+restarted. Windows/shared host/page/plugin/SDK code and the E184 archive remain
+unchanged; JS 505, mounted WebView2 control 22, public C/JS SDK, visual and packed
+runtime results are explicit current-hash reuse, not fresh E189 execution.
+
+This closes E188's stated live-grandchild qualification. It remains controlled
+native-worker/protocol/product-fragment evidence, with no Activity/provider/
+device qualification or automation enablement. No extra application/Home/source
+checkout, model, phone/provider change, installation or online publication was
+used. Public human takeover still needs fixed original-root auto-attach disable
+and its ACK after data cancellation, independent descendant/body/control
+receipts and the full input/capture/chooser teardown join. Ongoing native-origin
+readiness, full Activity/UI/provider/device and broader remote/permissions/
+lifetime/OOM/performance/ecosystem/final delivery audit remain open. Current
+phone/WebView verification stays deferred and the full goal remains active.

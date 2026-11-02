@@ -351,7 +351,7 @@ def main():
                   'preparation-isolated-foreign','preparation-isolated-expired','preparation-isolated-reset-attach','preparation-isolated-reset-runtime',
                   'preparation-isolated-receive-other','preparation-isolated-receive-foreign','preparation-isolated-receive-detach',
                   'preparation-isolated-control-resume','preparation-isolated-control-request','preparation-isolated-control-response',
-                  'preparation-isolated-native-root-first','preparation-isolated-native-parent-first','preparation-isolated-native-leaf-first','preparation-isolated-native-late-attach','preparation-isolated-native-duplicate','preparation-isolated-native-wrong-parent','preparation-isolated-native-wrong-ancestry','preparation-isolated-native-limit','preparation-isolated-native-retired-parent-attach',
+                  'preparation-isolated-grandchild-read','preparation-isolated-grandchild-effect','preparation-isolated-native-root-first','preparation-isolated-native-parent-first','preparation-isolated-native-leaf-first','preparation-isolated-native-late-attach','preparation-isolated-native-duplicate','preparation-isolated-native-wrong-parent','preparation-isolated-native-wrong-ancestry','preparation-isolated-native-limit','preparation-isolated-native-retired-parent-attach',
                  'prepared-admission','prepared-admission-view','prepared-admission-network','prepared-admission-retiring','prepared-admission-mismatch'):
         popup_worker=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                         '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe',mode,str(output/('popup-controller-files' if mode.startswith('transfer') else 'popup-body-files'))],cwd=ROOT,env=environment,text=True,timeout=60))
@@ -509,6 +509,14 @@ def main():
                     or preserved and (evidence.get('native_detach_confirmed') is not True or evidence.get('effects_preserved') is not True)
                     or evidence.get('provider_qualified') is not False or evidence.get('ui_published') is not False):
                 raise RuntimeError('Original document retirement isolation was not proved')
+            if mode.startswith('preparation-isolated-grandchild-'):
+                expected={'shared_wire_preserved':True,'other_original_document_verified':True,'effects_preserved':True,
+                          'browser_connections':1,'native_proof_connections':2,'late_nested_sessions_tested':True,
+                          'native_detach_confirmed':True,'provider_qualified':False,'ui_published':False,
+                          'grandchild_rpc_retired':True,'root_owner_preserved_until_close':True,
+                          'late_reply_during_peer_rpc_discarded':True,'original_effect_may_have_occurred':mode.endswith('-effect'),
+                          'original_callbacks':1,'leaf_native_receipt_required':True}
+                if evidence!=expected:raise RuntimeError('Ancestor detach retained a grandchild RPC, lost independent native cleanup or corrupted a peer reply')
             if mode.startswith('preparation-isolated-native-'):
                 if (not evidence.get('native_descendant_ledger_tested') or not evidence.get('root_receipt_waited_for_descendants')
                         or evidence.get('wrong_parent_denied') is not mode.startswith('preparation-isolated-native-wrong-')

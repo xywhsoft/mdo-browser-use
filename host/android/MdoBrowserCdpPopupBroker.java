@@ -201,7 +201,7 @@ final class MdoBrowserCdpPopupBroker implements AutoCloseable {
             children.put(child,parent);host.nestedDocuments.put(child,this);
         }
         private void retireChildData(String child){children.remove(child);host.nestedDocuments.remove(child,this);}
-        public void retireChild(String child)throws IOException{guard();if(host.nestedDocuments.get(child)!=this)throw problem("cdp_popup_document_session_invalid");retireChildData(child);}
+        public void retireChild(String child)throws IOException{guard();if(host.nestedDocuments.get(child)!=this)throw problem("cdp_popup_document_session_invalid");host.session.fenceChild(child);retireChildData(child);}
         private boolean detached(String source,JSONObject params)throws IOException{
             Object id=params.opt("sessionId");if(!(id instanceof String)||!MdoBrowserCdpJson.token((String)id))throw problem("cdp_popup_document_attachment_invalid");
             DocumentPeer original=host.nativeDocuments.get(id);if(original==null)return false;

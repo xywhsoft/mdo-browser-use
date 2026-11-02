@@ -1402,9 +1402,10 @@ final class MdoBrowserCdpSession implements AutoCloseable {
                 return message.value;
             }
         } catch(Failure failure) {
-            // An authentic child detach can finish this original attached RPC
-            // before its reply without revoking another page on the wire.
-            boolean retired=attachmentRetirementTarget!=null&&nativeDetachedChildren.contains(session)&&"cdp_session_detached".equals(failure.getMessage());
+            // A proved native detach or explicit data retirement can end this
+            // original attached RPC without revoking another page. Data-only
+            // retirement still needs its independent native detach receipt.
+            boolean retired=attachmentRetirementTarget!=null&&(nativeDetachedChildren.contains(session)||cleanupChildren.contains(session))&&"cdp_session_detached".equals(failure.getMessage());
             if(failure.attachedCommandCancelled&&attachmentRetirementTarget!=null){
                 AttachedTarget original=attachmentRetirementTarget;attachmentCommandOwner=null;
                 try{fenceChild(original.session);retired=true;}catch(IOException|RuntimeException|Error error){close();}
