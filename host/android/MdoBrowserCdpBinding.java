@@ -657,6 +657,9 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
         }catch(JSONException invalid){throw problem("cdp_navigation_document_unproven");}
         current();document.current();source.navigationCurrent();if(!selected.current())throw problem("cdp_navigation_document_changed");return selected;
     }
+    /** Data-only UI snapshot. Rebinding still needs a fresh original-source
+     * document guard on the worker; this is never ownership authority. */
+    boolean documentUnavailable(){return peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer&&(closed.get()||contexts.dirty);}
     boolean matchesSource(MdoBrowserCdpPopupNative.Source proof){return !closed.get()&&peer instanceof MdoBrowserCdpPopupSource&&((MdoBrowserCdpPopupSource)peer).matches(proof);}
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){

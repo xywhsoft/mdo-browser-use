@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E166)
+## Complete development host APK (current: E177)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,575,425 bytes, SHA-256
-`a4a77ca74d6ea608b1f3544a521554b261125356871cb07fbdd3c6ae16fc123c`.
+Current APK: 6,587,713 bytes, SHA-256
+`11e0830f4a96d1bb783d254e443b271072d05471284e46116f9f6b21dae98ba8`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,7 +72,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the verified W5 Windows
+key is included. The app archive is extracted from the verified E176 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -6076,3 +6076,26 @@ but this does not qualify Android URI permission delivery, a Binder descriptor,
 an installed provider's actual FileList or Android public automation. Those
 flags remain false. No provider upgrade, ADB or phone action is required by this
 test. Protected navigation/takeover and overall platform admission remain open.
+
+
+### Explicit native document recovery (E175-E177)
+
+Natural protected-page navigation can be recovered by an explicit fresh unpinned
+inventory, using the original physical Source's guarded current document. Native
+navigation completion separately reports whether its same committed document is
+readable; the dispatcher waits for that state rather than reading a restoring
+realm or repeating navigation.
+
+A document binding can also lose its execution contexts without advancing the UI
+navigation epoch. A new explicit fresh read can replace that unavailable binding
+only after the original Source, Handoff, native frame/loader and settled root are
+proved. It revokes old marker/frame references and retains the existing document's
+resource quota. A settled original popup-protection continuation survives rearm;
+ongoing popup turns, hidden/manual views and unproven roots remain denied. A loss
+during an already running request is reported; that operation is not replayed.
+
+Current qualification includes18 actual JS/driver/JVM recovery paths and the477-mode
+native matrix with controlled renderer/UI peers. These checks do not establish
+Android framework, installed provider, URI/Binder, gesture or device qualification.
+Public Android automation remains disabled; phone/current-WebView checks are
+deferred. See the current [progress and retained evidence](progress.md).

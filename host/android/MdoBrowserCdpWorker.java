@@ -124,6 +124,12 @@ final class MdoBrowserCdpWorker implements AutoCloseable {
             proof=binding.currentDocument(document,deadline,proof);if(!current())throw new IOException("cdp_navigation_document_changed");
         }
     }
+    /** A published document can lose its native contexts without a UI epoch.
+     * Inspect only concurrent/volatile state; no protocol I/O on the UI thread. */
+    boolean documentUnavailable(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupNative.Document document){
+        thread();if(closed.get()||marker==null||document==null||marker.lease()!=document.lease||!document.current()||pending(marker))return false;
+        MdoBrowserCdpBinding binding=bindings.get(marker.lease());return binding==null||binding.documentUnavailable();
+    }
     DocumentRead currentPopupDocument(MdoBrowserCdpMarker marker,MdoBrowserCdpPopupBroker.Handoff handoff,MdoBrowserCdpPopupNative.Source source)throws IOException {
         thread();if(closed.get())throw new IOException("cdp_worker_closed");
         if(marker==null||handoff==null||source==null||marker.lease()!=source.lease||!source.current()||!handoff.current()||!handoff.owns(source))throw new IOException("cdp_popup_source_owner_invalid");

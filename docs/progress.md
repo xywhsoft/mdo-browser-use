@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E177:** recover lost native document contexts without a new UI
+  navigation epoch on an explicit fresh read. Use data-only binding loss detection,
+  original-source document proof and a new marker; retain settled original popup
+  protection, reject old references and preserve the same-document resource quota.
+  Seven new JS/JVM context modes, all18 frontend cases, native477, JS478,
+  Python178/180 and rebuilt APK/DEX pass. Windows reuse is source/hash verified;
+  Android device/provider qualification stays deferred.
+
 - **Android/Windows E176:** fix native commit racing UI document readiness.
   Retain the original navigation and wait for its readable realm before frame
   inventory; deny lost or malformed readiness before publishing page data.
@@ -13631,3 +13639,75 @@ release, broader Android/provider/OS admission, deferred phone checks and the
 final Windows/requirements/deliverable audit remain open. No ADB, provider update,
 live model, external website or production/store action was used. Development
 remains sequential in the one project deployment; the overall goal stays active.
+
+### E177 fresh observation after native context loss in the same UI epoch
+
+The actual JS dispatcher/frame driver/JVM/JNI path exposed a second confirmed
+product defect: after `Runtime.executionContextsCleared`, the published page still
+had the same UI navigation epoch and marker, but its native document binding was
+invalid. The next explicit fresh observation used that binding and returned
+`operation_cancelled` instead of recovering. Re-running the original E176 product
+against the settled-document fixture reproduces this failure with a settled original native
+root. The three temporarily selected original product files were restored
+byte-for-byte after the sequential reproduction. See
+`.mdo/E177-original-current-fixture.log` and `.mdo/E177-baseline-proof.log`.
+This evidence uses controlled renderer/UI peers, not an installed WebView.
+
+The UI now reads only a concurrent/volatile, data-only binding-unavailable snapshot
+from the existing worker. That hint grants no ownership. Only explicit fresh
+unpinned inventory may retire the old document marker and rearm using the cached
+physical Source's existing DocumentRead guard. The same original Handoff, target,
+frame, loader and settled root must still be proved on the worker, after work and
+before UI publication. Old marker/native frame references are invalidated, while
+the registry retains the same-document lexical/world resource quota. Pinned or
+in-flight operations cannot enter this recovery or replay an effect.
+
+If the current same-owner popup preparation has no unsettled native turn, its
+exact UI continuation is retained during rearm; the existing physical source and
+protection are not replaced. A foreign, pending or unavailable preparation cannot
+use that exception. Hidden/manual views still deny recovery, and an original root
+that is still pending remains `navigation_unproven`, without another world or
+stale page bytes. Failure during an observation remains a failed original request;
+a later explicit fresh request may recover. No broad exception suppression,
+string-based ownership grant, navigation replay or new Browser connection is added.
+
+Seven new frontend modes cover isolated-world destruction, clearing all contexts,
+each event during evaluation, hidden/manual admission loss and an unproven native
+root. Successful paths prove a new DOM/document identity in the same UI epoch,
+rejection of the old pinned frame without script execution and later observe/wait
+usability. They use real native events and the exact context from the original
+successful expression. The renderer includes the settled root commit before
+context-loss tests; the unproven case intentionally withholds it. All18 actual
+JS/driver/reader-to-JVM cases pass with current source/class/library hashes,
+one original worker and Browser/proof connection each, exact detach and physical
+cleanup, and zero navigation commands in context-loss modes. See
+`.mdo/E177-context-final.log`, `.mdo/E177-unproven.log` and
+`.mdo/E177-native-frontend.log`.
+
+Full native477 passes with 18,899 reported checks, all133 selected input
+hashes, Android API26 compilation, JNI/transport and ASan/UBSan. Serialized earlier
+business outcomes are unchanged; any differences listed in
+`.mdo/E177-semantic-differences.json` are restricted to the already reviewed
+loading-timeout close/cleanup diagnostic fields. All478 JS tests pass;
+Python178/180 pass with the same two Windows symlink-privilege skips. See
+`.mdo/E177-native.log`, `.mdo/E177-native-review.log`, `.mdo/E177-javascript.log`,
+`.mdo/E177-python.log` and `.mdo/E177-verification.json`.
+
+The rebuilt signed development APK is 6,587,713 bytes, SHA-256
+`11e0830f4a96d1bb783d254e443b271072d05471284e46116f9f6b21dae98ba8`. Actual DEX method definitions include both
+new binding-unavailable snapshot methods and the guarded current-document route.
+Package/signer/serial and the public Android automation-disabled state are retained.
+Device/framework/provider qualification remains false. The Windows artifact
+(6,942,129 bytes,
+`45c7cbed616a1fbce66b60ac80cf6746797512499eb14363846bfb28ca36aafb`) is verified current-source/hash
+reuse of E176's freshly exercised program; no new Windows runtime run is claimed
+for this Java-only change. The APK embeds that same verified application archive.
+The one development service is restored with HTTP200 readiness. See
+`.mdo/E177-apk.log`, `.mdo/E177-dex-methods.json` and `.mdo/E177-finish.log`.
+
+Product same-document/BFCache/early/overlapping navigation transitions,
+download-only-to-HTML recovery, protected takeover/release, broader Android/
+provider/OS admission, deferred device checks and final Windows/requirements/
+deliverable audit remain open. Ongoing native-origin readiness beyond explicit
+fresh reads is not newly qualified here. No phone, provider update, live model,
+external website or production/store action was used. The overall goal stays active.

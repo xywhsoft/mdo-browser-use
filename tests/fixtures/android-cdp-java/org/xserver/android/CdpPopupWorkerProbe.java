@@ -2969,19 +2969,21 @@ public final class CdpPopupWorkerProbe {
         return new JSONObject().put("native_adapter",true).put("read_only",true).put("legacy_world_queries",original.worldQueries-queries).put("phase_checked",phase).put("ready_checked",expectedReady).put("startup_checked",startup!=null).put("explicit_restore_checked",hidden||viewport||restoring).put("provider_qualified",false);
     }
     private static JSONObject frontendRecovery(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
-        boolean navigation=variant.startsWith("frontend-navigation-"),cancel=variant.equals("frontend-navigation-cancel"),natural=variant.startsWith("frontend-natural-");
+        boolean navigation=variant.startsWith("frontend-navigation-"),cancel=variant.equals("frontend-navigation-cancel"),natural=variant.startsWith("frontend-natural-"),contextLoss=variant.startsWith("frontend-context-");
+        long originalEpoch=product.views.epoch("owned",view);int contextLosses=0;boolean contextArmed=false;
         Backend.SourceRenderer navigator=navigation?new Backend.SourceRenderer(variant.equals("frontend-navigation-no-commit")?"source-navigation-no-commit":"source-navigation-flow"):null;
         if(navigation){renderer.navigationPeer=navigator;renderer.frames.rootUrl=renderer.context.rootUrl=navigator.url;renderer.wrongNavigationDocument=variant.equals("frontend-navigation-mismatch");}
         int readyWaits=0,navigationReads=0;boolean released=false;
         if(navigation)renderer.holdMethod="Page.createIsolatedWorld";
         final String document="d-00000000-0000-4000-8000-000000000169";AtomicInteger scripts=new AtomicInteger(),preparations=new AtomicInteger();
+        final CdpWorldsProbe.Context[] observedContext={null};
         product.windows.put("owned",new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){public long now(){return host.time.get();}public void at(Runnable task,long at){}public void remove(Runnable task){}},
             new MdoBrowserPopups.Budget(8),()->product.views.owns("owned",view),()->product.views.epoch("owned",view),blocked->{if(blocked){product.views.input("owned",view).invalidate("popup_pending");product.invalidatePopupDocument("owned","popup_pending");}}));
         renderer.worlds.evaluation=(context,expression)->{
-            String prefix="({local_frame:true}).";int begin=expression.lastIndexOf(prefix);if(begin<0)throw new AssertionError("Unexpected frontend expression");
+            observedContext[0]=context;String prefix="({local_frame:true}).";int begin=expression.lastIndexOf(prefix);if(begin<0)throw new AssertionError("Unexpected frontend expression");
             String tail=expression.substring(begin+prefix.length()),method=tail.substring(0,tail.indexOf('('));
             if(!method.equals("describe")&&!method.equals("observe"))throw new AssertionError("Unexpected frontend method");scripts.incrementAndGet();
-            String currentDocument=navigation?String.format(java.util.Locale.ROOT,"d-00000000-0000-4000-8000-%012d",176+navigator.navigations):natural?"d-00000000-0000-4000-8000-000000000276":document;
+            String currentDocument=navigation?String.format(java.util.Locale.ROOT,"d-00000000-0000-4000-8000-%012d",176+navigator.navigations):contextLoss?String.format(java.util.Locale.ROOT,"d-00000000-0000-4000-8000-%012d",500+context.id):natural?"d-00000000-0000-4000-8000-000000000276":document;
             JSONObject result=new JSONObject().put("ok",true).put("document",currentDocument).put("ready","complete").put("url",navigation?navigator.url:natural?renderer.frames.rootUrl:"https://original.invalid/page").put("title","Controlled popup")
                 .put("viewport",new JSONObject().put("width",320).put("height",240));
             if(method.equals("observe"))result.put("text",navigation?"Original native navigation "+navigator.navigations:natural?"Natural original native popup":"Restored original native popup").put("elements",new org.json.JSONArray()).put("frames",new org.json.JSONArray().put(new JSONObject().put("id","f0").put("dom",true))).put("visited",1).put("truncated",false);
@@ -2989,6 +2991,7 @@ public final class CdpPopupWorkerProbe {
         };
         product.bounds(view,new JSONObject().put("browser","owned").put("visible",false));product.bounds(view,new JSONObject().put("browser","owned").put("visible",true));
         if(natural){int received=backend.receives.get();naturalCommit(backend,renderer,"load-frontend-natural",true);waitFor(()->backend.receives.get()>received+2,host,true);product.nativePageCallback("owned");}
+        if(contextLoss&&!variant.endsWith("-unproven")){int received=backend.receives.get();backend.wire.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId",renderer.root).put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId",renderer.frames.rootLoader).put("url",renderer.frames.rootUrl))));waitFor(()->backend.receives.get()>received,host,true);}
         check(!product.inspectDocumentState("owned").getBoolean("ready"));
         System.out.println(new JSONObject().put("event","ready").put("provider_qualified",false));System.out.flush();
         java.io.BufferedReader input=new java.io.BufferedReader(new java.io.InputStreamReader(System.in,StandardCharsets.UTF_8));String line;
@@ -2997,9 +3000,24 @@ public final class CdpPopupWorkerProbe {
             JSONObject result=null;
             if(navigation){Handler.drain();host.ui.drain();}
             if(command.equals("fixture_finish")){System.out.println(new JSONObject().put("id",id).put("result",new JSONObject().put("ok",true)));System.out.flush();break;}
-            if(navigation&&command.equals("state"))result=product.frontendState("owned");
+            if(contextLoss&&command.equals("fixture_context_scope")){
+                String scope=request.getJSONObject("params").getString("scope");check(product.views.epoch("owned",view)==originalEpoch&&renderer.worlds.created==2);
+                if(scope.equals("hidden"))view.shown=false;else if(scope.equals("manual"))product.manual.add("owned");else {check(scope.equals("restore"));view.shown=true;product.manual.remove("owned");}
+                result=new JSONObject().put("ok",true).put("worlds",renderer.worlds.created);
+            }else if(contextLoss&&command.equals("fixture_context_loss")){
+                check(product.popupPageDocumentReady("owned")&&contextLosses==0);int receives=backend.receives.get();
+                if(variant.contains("-cleared")){renderer.worlds.contexts.clear();backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId",renderer.root).put("params",new JSONObject()));}
+                else {CdpWorldsProbe.Context exact=observedContext[0];check(exact!=null&&exact.source==null&&exact.frame.equals("frame-owned"));renderer.worlds.contexts.values().removeIf(value->value==exact);backend.wire.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId",renderer.root).put("params",new JSONObject().put("executionContextId",exact.id)));}
+                waitFor(()->backend.receives.get()>receives,host,true);contextLosses++;
+                check(product.views.epoch("owned",view)==originalEpoch&&product.popupPageDocumentReady("owned"));result=new JSONObject().put("ok",true).put("navigation",originalEpoch);
+            }else if(contextLoss&&command.equals("fixture_context_arm")){
+                check(product.popupPageDocumentReady("owned")&&!contextArmed&&contextLosses==0);contextArmed=true;
+                if(variant.contains("-cleared"))renderer.worlds.clearDuringEval=true;else renderer.worlds.destroyDuringEval=true;result=new JSONObject().put("ok",true);
+            }else if(contextLoss&&command.equals("fixture_context_disarm")){
+                check(contextArmed&&contextLosses==0);renderer.worlds.clearDuringEval=renderer.worlds.destroyDuringEval=false;contextLosses++;result=new JSONObject().put("ok",true).put("navigation",product.views.epoch("owned",view));
+            }else if((navigation||contextLoss)&&command.equals("state"))result=product.frontendState("owned");
             else if(navigation&&java.util.Arrays.asList("navigate","back","forward","reload").contains(command))result=product.frontendNavigate("owned",command,request.getJSONObject("params"));
-            else if(navigation&&command.equals("downloads"))result=product.frontendDownloads("owned",request.getJSONObject("params"));
+            else if((navigation||contextLoss)&&command.equals("downloads"))result=product.frontendDownloads("owned",request.getJSONObject("params"));
             else if(navigation&&command.equals("navigation_cancel")){product.cancelNavigation("owned",request.getJSONObject("params").getString("navigation_ref"));result=product.publicReplies.get("cancel-navigation");if(renderer.held!=null){renderer.release(backend.wire);released=true;}}
             else if(command.equals("state"))result=new JSONObject().put("automation",true).put("platform","android-webview").put("loading",false).put("navigation",product.views.epoch("owned",view))
                 .put("frame_automation",product.inspectFrameRouting("owned")).put("isolated_world",product.inspectDocumentState("owned"))
@@ -3024,7 +3042,8 @@ public final class CdpPopupWorkerProbe {
         check(backend.opens.get()==1&&backend.nativeOpens.get()==1&&backend.closes.get()==0&&view.destroyed==0);
         return new JSONObject().put("actual_product_frontend",true).put("worlds",renderer.worlds.created).put("expressions",scripts.get()).put("preparations",preparations.get())
             .put("document_ready",product.inspectDocumentState("owned").getBoolean("ready")).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false)
-            .put("native_navigation_commands",backend.nativeNavigationCommands.get()).put("readiness_waits",readyWaits).put("original_world_released",released).put("navigation_reads",navigationReads);
+            .put("native_navigation_commands",backend.nativeNavigationCommands.get()).put("readiness_waits",readyWaits).put("original_world_released",released).put("navigation_reads",navigationReads)
+            .put("context_losses",contextLosses).put("same_ui_epoch",!contextLoss||product.views.epoch("owned",view)==originalEpoch);
     }
     private static JSONObject fileCall(CdpNetworkWorkerProbe.Case host,PopupProductHost product,String id,JSONObject request)throws Exception {
         int count=product.publicCounts.getOrDefault(id,0);product.uploadRpc("owned",id,request);

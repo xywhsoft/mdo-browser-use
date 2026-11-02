@@ -295,12 +295,16 @@
         PopupNetwork network=entry.popup;PopupPage page=network.page;
         if(entry.view!=view||network.entry!=entry||page==null||page.network!=network||page.phase!=2||page.downloadOnly||!page.current())throw new java.io.IOException("cdp_popup_page_document_unavailable");
         long observed=views.epoch(key,view);
-        if(observed!=page.epoch||page.naturalReadRecovery&&!page.restoring){
+        boolean lost=inventory&&page.worldReady&&cdpWorker.documentUnavailable(page.marker,page.proof);
+        if(observed!=page.epoch||page.naturalReadRecovery&&!page.restoring||lost){
             if(!inventory||!cdpEnvironmentCurrent(key,view,observed,entry.channelLease)||!chooserReady(dialogs.get(key))||views.inputBusy(key,view)||!views.inputClean(key,view))throw new java.io.IOException("cdp_popup_page_document_unavailable");
             if(page.inFlight||cdpWorker.pending(page.marker))throw new java.io.IOException("cdp_popup_page_restore_busy");
-            PopupPreparation pending=protocolPopupPreparations.get(key);if(pending!=null&&!pending.preparation.settled())throw new java.io.IOException("cdp_popup_page_restore_busy");
+            PopupPreparation pending=protocolPopupPreparations.get(key);
+            PopupPreparation continuation=lost&&pending!=null&&pending.current()&&pending.protectedOwner==network&&pending.epoch==observed&&pending.preparation.nativeTurnSettled()?pending:null;
+            if(pending!=null&&!pending.preparation.settled()&&continuation==null)throw new java.io.IOException("cdp_popup_page_restore_busy");
             nativeOwnerAdmission();MdoBrowserCdpWorker.DocumentRead guard=cdpWorker.currentPopupDocument(entry.marker,network.handoff,network.sourceProof);
-            page.epoch=observed;page.worldReady=false;page.suspended=false;page.restoring=true;page.naturalReadRecovery=true;page.restoringRead=guard;page.navigating=null;page.pendingPreparation=null;
+            if(lost)cdpViews.invalidate(key,view,observed,"popup_document_context_lost");
+            page.epoch=observed;page.worldReady=false;page.suspended=false;page.restoring=true;page.naturalReadRecovery=true;page.restoringRead=guard;page.navigating=null;page.pendingPreparation=continuation;
             try{page.marker=protocolDocumentMarker(key,network.owner,network.handoff);page.proof=network.owner.document(page.marker);}
             catch(java.io.IOException|RuntimeException|Error error){page.restoreFailed(page.marker);throw error;}
             return page;
