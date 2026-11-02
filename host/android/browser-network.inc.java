@@ -46,8 +46,13 @@
         if(!Arrays.asList("state","bounds","close","takeover","stop").contains(command))throw new IllegalStateException("network_starting");
     }
     private void networkStop(String key,WebView view){retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.view==view){nativeNavigationRetire(entry);if(!entry.ready)networkRetire(entry,"network_start_cancelled");}}
-    private void networkTakeover(String key,WebView view){
+    /** Admission must precede document/input cancellation. A refused control
+     * request leaves the original Agent page and outstanding read untouched. */
+    private void networkTakeoverAdmission(String key,WebView view){
         NetworkEntry original=networkViews.get(key);if(original!=null&&original.view==view&&original.popup!=null)throw new UnsupportedOperationException("popup_takeover_unqualified");
+    }
+    private void networkTakeover(String key,WebView view){
+        networkTakeoverAdmission(key,view);
         retireProtocolPopupPreparation(key,view,"cdp_popup_preparation_cancelled");
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view||entry.retired||entry.draining)return;
         if(!entry.ready||entry.marker==null||entry.downloads==null){networkRetire(entry,"network_user_takeover");return;}

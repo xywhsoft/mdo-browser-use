@@ -18,6 +18,18 @@ def navigation_reservation():
     if source.count('class NavigationRequest')!=1 or 'operation.reservation==pending' not in source:raise RuntimeError('Pinned native UI navigation reservation changed')
     return source
 
+def native_control_route():
+    source=(ROOT/'.mdo/source/tools/android/MdoBrowser.java').read_text(encoding='utf-8')
+    begin='            if("takeover".equals(command)||"release".equals(command)){'
+    end='            if(uploadBusy(key,web)&&'
+    if source.count(begin)!=1 or source.count(end)!=1:
+        raise RuntimeError('Original native control-command boundary changed')
+    route=source[source.index(begin):source.index(end)]
+    if 'networkTakeover(key,web)' not in route or 'networkReleaseControl(key,web,id,request.optBoolean("agent"))' not in route:
+        raise RuntimeError('Original native control route lost its network join')
+    return route
+
+
 def prepare_popup_product(output):
     source=(ROOT/'tests/fixtures/android-cdp-java/PopupProductHost.java.in').read_text(encoding='utf-8')
     document=(ROOT/'host/android/browser-document.inc.java').read_text(encoding='utf-8')
@@ -53,6 +65,8 @@ def prepare_popup_product(output):
         '@@NETWORK_CURRENT@@':network[network.index('    private boolean networkCurrent'):network.index('    private int networkRetiring')],
         '@@NETWORK_COMMAND@@':network[network.index('    private void networkCommand'):network.index('    private void networkStop')],
         '@@NETWORK_STOP@@':network[network.index('    private void networkStop'):network.index('    private void networkTakeover')],
+        '@@NETWORK_TAKEOVER@@':network[network.index('    private void networkTakeover'):network.index('    /** Human return-control')],
+        '@@NATIVE_CONTROL_ROUTE@@':native_control_route(),
         '@@NETWORK_RETURN@@':returning,
         '@@RETURN_DIALOG@@':dialog[dialog.index('    private boolean dialogReady'):dialog.index('    private void cancelDialog')].replace('private boolean dialogReady(', 'private boolean returnDialogReady(',1),
         '@@NETWORK_REPLY@@':network[network.index('    private void networkReplyFailure'):network.index('    private void networkDestroyed(String')]+network[network.index('    private String networkProtocolCode'):network.index('    private MdoBrowserCdpDownloads newNetworkDownloads')],
@@ -271,6 +285,8 @@ def main():
                   'preparation-page-human-network-late-pause',
                   *['preparation-page-human-network-descendants-'+variant for variant in ('ack-first','parent-first','late-attach','held-ack','held-child','complete','pending','held-body','raw-request','raw-response','stop-rejected','stop-unsupported','stop-malformed','stop-no-ack','stop-send','missing-child','wrong-parent')],
                   'preparation-page-human-network-close-before-detach',
+                  'preparation-page-control-takeover','preparation-page-control-takeover-complete','preparation-page-control-takeover-read','preparation-page-control-release',
+                  *['preparation-page-human-return-control-'+variant for variant in ('flow','complete','failure-proof','failure-channel','double-return','preflight-capture')],
                   'preparation-page-human-return-flow','preparation-page-human-return-complete','preparation-page-human-return-retry','preparation-page-human-return-complete-retry','preparation-page-human-return-double-return','preparation-page-human-return-cancel-retry','preparation-page-human-return-new-download',
                   'preparation-page-human-return-preflight-agent','preparation-page-human-return-preflight-loading','preparation-page-human-return-preflight-paused','preparation-page-human-return-preflight-channel','preparation-page-human-return-preflight-profile','preparation-page-human-return-preflight-chooser','preparation-page-human-return-preflight-capture','preparation-page-human-return-preflight-detach','preparation-page-human-return-preflight-native-failed',
                   'preparation-page-human-return-failure-proof','preparation-page-human-return-failure-enable','preparation-page-human-return-failure-epoch','preparation-page-human-return-failure-loading','preparation-page-human-return-failure-channel','preparation-page-human-return-failure-input','preparation-page-human-return-failure-chooser','preparation-page-human-return-failure-capture','preparation-page-human-return-failure-retiring','preparation-page-human-return-failure-close','preparation-page-human-return-failure-cancel',
@@ -593,6 +609,10 @@ def main():
             if popup_worker.get('product_frame_route')!=expected:raise RuntimeError('Human takeover retained navigation admission, lost its original receipt or replayed navigation')
         elif mode.startswith('preparation-page-human-return-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-return-'):]
+            if variant.startswith('control-'):
+                if not isinstance(proof,dict) or proof.get('original_control_branch') is not True:
+                    raise RuntimeError('Human return bypassed the original native control branch')
+                proof={key:value for key,value in proof.items() if key!='original_control_branch'};variant=variant[len('control-'):]
             if not isinstance(proof,dict) or proof.get('provider_qualified') is not False or proof.get('ui_published') is not False:
                 raise RuntimeError('Human return lost controlled-provider scope')
             if variant.startswith('preflight-'):
@@ -611,6 +631,14 @@ def main():
             proof=popup_worker.get('product_frame_route')
             if proof!={'actual_human_close_race':True,'native_destroyed':1,'detach_commands':0,'acknowledged':False,'native_event':True,'physical_close_cleanup':True,'human_cleanup_invented':False,'wire_closes':0,'browser_connections':1,'native_proof_connections':1,'new_worlds':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}:
                 raise RuntimeError('A real human page close poisoned the shared wire or invented an unsent detach ACK')
+        elif mode.startswith('preparation-page-control-'):
+            variant=mode[len('preparation-page-control-'):]
+            expected={'original_control_branch':True,'command':'release' if variant=='release' else 'takeover','refusal_count':2,
+                'old_document_preserved':True,'native_owner_preserved':True,'manual_unchanged':True,'profile_unchanged':True,'input_clean':True,
+                'control_side_effects':0,'pending_read_preserved':variant=='takeover-read','completed_bytes':variant=='takeover-complete',
+                'new_worlds':0,'new_views':0,'navigation_commands':0,'detach_commands':0,'provider_qualified':False,'ui_published':False}
+            if popup_worker.get('product_frame_route')!=expected:
+                raise RuntimeError('Refused native control changed original document, read, bytes, profile or ownership')
         elif mode.startswith('preparation-page-human-network-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-network-'):]
             if variant.startswith('descendants-') and variant!='descendants-inflight':
@@ -877,7 +905,7 @@ def main():
             'tools/android_cdp_socket_probe.py','tests/fixtures/android-cdp-java/PopupProductHost.java.in','tests/fixtures/android-cdp-java/org/xserver/android/CdpAttachedNavigationProbe.java','host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',
             'tests/fixtures/android-cdp-websocket.c','tests/fixtures/android-cdp-xrt.c',
             *[p.relative_to(ROOT).as_posix() for p in javas])
-    result.update(navigation_reservation_sha256=hashlib.sha256(navigation_reservation().encode()).hexdigest(),source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},
+    result.update(navigation_reservation_sha256=hashlib.sha256(navigation_reservation().encode()).hexdigest(),native_control_route_sha256=hashlib.sha256(native_control_route().encode()).hexdigest(),source_sha256={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in inputs},
                   address_sanitizer=True,undefined_sanitizer=True,android_api_compiled=lock['api'],
                   android_device_qualified=False,provider_qualified=False,debugging_enabled=False,model_calls=0)
     (ROOT/'.mdo/android-cdp-socket-result.json').write_text(json.dumps(result,indent=2)+'\n')

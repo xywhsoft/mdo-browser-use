@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E193)
+## Complete development host APK (current: E194)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`3b76ffd779c52a017166635f2fac4f333c492be85a060ac4e9dfb240d715e743`.
+`abc2f0eee81f9f6a1da00ea50b4945b352bfe410360d1d4efdf3739b302eeaa0`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6490,3 +6490,28 @@ Full Activity/input/capture/chooser/profile teardown, ongoing native-origin
 readiness and provider/device qualification remain outstanding. These controlled
 native-worker/product checks do not qualify Android automation. The current
 WebView and deferred-phone arrangement remain unchanged; the full goal is active.
+
+
+### Native control admission precedes cancellation (E194)
+
+A reproduced control-button defect revoked the protected page's document before
+reporting popup_takeover_unqualified. The native owner remained live and manual
+mode was false, yet the old Agent document/read authority had already been lost.
+A pure networkTakeoverAdmission check now runs before document invalidation. The
+actual network takeover also rechecks it; already-admitted ordinary takeover
+still fences document data before source retirement and native cleanup.
+
+The exact deployed takeover/release branch and its real network prelude now run
+in the existing JNI/product harness. Four refused-control cases preserve the
+same marker, frame/document, profile/input/manual state, pending original read
+and completed download bytes across two refusals. Six more cases run the actual
+release branch after an internally qualified human transfer: success, preserved
+bytes, failed native proof, lost channel, duplicate return and capture preflight.
+Fresh native proof/Fetch ACK/UI delivery must precede manual release; old frame
+references remain invalid. The current ordinary creation/control gate also
+passes with explicit protected peers that throw if entered by that fixture.
+
+These are controlled native/product checks, not Activity/provider qualification.
+Accepted protected takeover still needs the full outer input/capture/upload/
+chooser cancellation and original-cleanup join. Its public gate and overall
+Android automation remain unavailable; phone/current WebView checks stay deferred.

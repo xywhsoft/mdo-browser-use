@@ -20,9 +20,18 @@ final class AndroidCreateHost {
     /** This ordinary-create fixture must never simulate protected popup
      * networking; the real product path has its separate JNI/worker gate. */
     static final class PopupNetwork {
+        boolean human;Object handoff,sourceProof;PopupPage page;
+        boolean returnable(){throw new AssertionError("Ordinary creation entered popup networking");}
         void retire(String reason){throw new AssertionError("Ordinary creation entered popup networking");}
         void watch(){throw new AssertionError("Ordinary creation entered popup networking");}
         void destroyed(){throw new AssertionError("Ordinary creation entered popup networking");}
+    }
+    static final class PopupPage {
+        NativeNavigation navigating;MdoBrowserCdpMarker marker;
+        void navigationRejected(NativeNavigation original){throw new AssertionError("Ordinary creation entered protected document navigation");}
+        boolean joinNavigation(NativeNavigation original){throw new AssertionError("Ordinary creation entered protected document navigation");}
+        void restoreFailed(MdoBrowserCdpMarker original){throw new AssertionError("Ordinary creation entered protected document navigation");}
+        boolean documentReady(){throw new AssertionError("Ordinary creation entered protected document navigation");}
     }
     static final class JSONException extends Exception {}
     static final class JSONObject {
@@ -185,6 +194,7 @@ final class AndroidCreateHost {
         final List<NetworkCall> calls=new ArrayList<>();boolean closed,failStart;
         final List<MdoBrowserCdpNetworks.Navigation> navigations=new ArrayList<>();boolean failNavigation;
         final List<String> navigationActions=new ArrayList<>();final List<String> navigationUrls=new ArrayList<>();final List<Integer> navigationBudgets=new ArrayList<>();
+        MdoBrowserCdpNetworks.Navigation navigatePopup(MdoBrowserCdpMarker marker,Object handoff,Object source,String url,String action,int timeout){throw new AssertionError("Ordinary creation entered popup networking");}
         MdoBrowserCdpNetworks.Navigation navigateNetwork(MdoBrowserCdpMarker.Lease lease,String url,int timeout)throws java.io.IOException{
             if(failNavigation)throw new java.io.IOException("cdp_navigation_fixture_rejected");
             MdoBrowserCdpNetworks.Navigation value=new MdoBrowserCdpNetworks.Navigation();navigations.add(value);navigationUrls.add(url);navigationBudgets.add(timeout);return value;
@@ -205,12 +215,13 @@ final class AndroidCreateHost {
         static final class Snapshot {String id="popup";}interface Done {void done(boolean ok,String code,boolean mayHaveOccurred);}
         int adopts,closes,destroyed;boolean deferred;Done pending;Runnable closing;
         Snapshot snapshot(){return new Snapshot();}void adopt(String id,T view,Done done){adopts++;pending=done;if(!deferred)done.done(true,null,true);}
+        boolean clean(){return !deferred||pending==null;}
         void close(){closes++;Runnable action=closing;closing=null;if(action!=null)action.run();}void viewDestroyed(T view){destroyed++;}
     }
     static final class PopupLink {final WebView view;final String opener,id;boolean ready;PopupLink(WebView view,String opener,String id){this.view=view;this.opener=opener;this.id=id;}}
     static final class DialogCore {boolean clean(){return true;}}
     static final class MdoBrowserDialogTarget {final WebView view;final DialogCore dialogs=new DialogCore();MdoBrowserDialogTarget(WebView view){this.view=view;}void close(){}void viewDestroyed(){}}
-    static final class Capture {void close(){}void viewDestroyed(){}}
+    static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
     static final class CdpViews {int invalidated;String reason;void close(){}MdoBrowserCdpMarker marker(String key,WebView view,long epoch,Object channel,BooleanSupplier current){throw new UnsupportedOperationException("document_requires_joint_fixture");}void invalidate(String key,WebView view,long epoch,String code){invalidated++;reason=code;}}
     WebMessagePort port;
@@ -222,6 +233,10 @@ final class AndroidCreateHost {
     final Map<String,MdoBrowserDocument> documents=new HashMap<>();final Map<String,String> documentFailures=new HashMap<>();
     final Map<String,MdoBrowserPopups<WebView>> windows=new HashMap<>();final Map<String,PopupLink> popupLinks=new HashMap<>();
     final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();final Map<String,CaptureEntry> captures=new HashMap<>();
+    // This fixture has no upload records or native picker operations; the
+    // original callback/assignment workers run in the separate JNI product gate.
+    boolean chooserReady(MdoBrowserDialogTarget target){return target==null||target.dialogs.clean();}
+    boolean uploadBusy(String key,WebView view){return false;}
     final Map<String,Boolean> loading=new HashMap<>();
     final Map<String,String> errors=new HashMap<>(),locations=new HashMap<>();final Map<String,Integer> errorCodes=new HashMap<>();
     final Set<String> pageClosed=new HashSet<>(),crashed=new HashSet<>(),manual=new HashSet<>();

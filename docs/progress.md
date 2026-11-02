@@ -15024,3 +15024,83 @@ UI/input/capture/upload/chooser/profile joins, ongoing native-origin readiness,
 Activity/provider/device and final broader requirements/delivery audit remain.
 Public protected takeover and Android automation gates stay unavailable; the
 phone/current-WebView checks remain deferred. The overall goal remains active.
+
+
+## E194 — preserve the original page when control admission is refused
+
+The first exact native-button witness failed before any product fix:
+`.mdo/E194-control-red.log` reports that rejected takeover retired the original
+document while nativeOwner=true and manual=false. The main branch invalidated
+the CDP registry before networkTakeover rejected its protected popup. This was
+a real current marker/lease loss, not just an invalidation counter or guessed
+source-order problem.
+
+The product delta is limited to browser-network.inc.java and one Android overlay
+string. New pure networkTakeoverAdmission rejects before document/input effects;
+networkTakeover rechecks it after the fence. The existing ordinary admitted order
+(document-data fence, source quiescence, native cleanup, manual grant) is retained.
+Swapping the whole cleanup call before invalidation would have left old data work
+admitted; this repair does not do so. No public capability, wire selector, replay
+or same-page authority restoration is added.
+
+native_control_route extracts the original reviewed/deployed main branch once,
+with unique boundary and join checks. The real networkCommand prelude, original
+branch, actual networkTakeover and return coordinator are joined in the single
+existing product harness. Its branch hash is recorded and verified against the
+same deployment. It is a native button branch with controlled UI/provider peers,
+not a claim that the entire Activity request path or installed provider passed.
+
+Four new refusal modes cover takeover, takeover with completed bytes, takeover
+with an outstanding original read, and release while the popup is not human-owned.
+Each rejects twice without changing its marker/current frame, native ownership,
+profile/input/manual state or pending read; the original read then completes once,
+and retained file bytes are actually checked. Six release modes use the exact
+button branch after the already qualified internal human transfer: flow, completed
+file, invalid proof, lost channel, double return and capture preflight. They hold
+the fresh Fetch ACK and UI delivery, preserve manual control until ready, require
+original errors/cleanup and reject old frame references. Their normalized proof
+must equal each current direct-coordinator equivalent, plus the exact-branch flag.
+These ten new modes report 538 checks in the final run.
+
+The first focused read test incorrectly inspected callback scratch bytes after
+return; the worker deliberately clears those bytes. It now verifies success in
+the original callback and zeroization afterwards, without changing product code.
+Preserve `.mdo/E194-control-callback-lifetime.log` and final focused evidence.
+A private mode-catalog validator initially combined broker and worker mode lists;
+it was restricted to the exact worker catalog and rejects unknown modes before
+compilation. This checker failure was not treated as a product defect.
+
+The ordinary Android creation/control gate had stale fixture declarations for
+protected navigation and newer cleanup peers. Its original 16 compiler errors
+are retained. Only those fixture declarations were updated: protected operations
+throw if an ordinary test enters them, rather than simulating protected success.
+Fresh ordinary verification passes 850 checks, including 77 asynchronous-close checks,
+with native_control_ui_join and exact_product_fragments true, framework_verified
+false. Source hashes from `.mdo/android-create-result.json` are required by the
+final verifier. See `.mdo/E194-native-create-fixed.log`; no framework pass is inferred.
+
+Final native verification: 592 modes / 25,110 reported popup
+checks, direct original cleanup 7,137, generic worker 300, 134 current input hashes,
+API26/JNI/kernel transport and ASan/UBSan. All prior 582 business output schemas
+and values are compared (only assertion counters excluded); no business changes
+are allowed. Any existing loading-timeout scheduling differences are separately
+listed in the verification receipt. Fresh actual frontend/JVM twenty and Python
+178/180 pass (two existing Windows symlink privilege skips). Evidence is retained
+in E194-native-final/review-native/verification logs and the original E193 baseline.
+All check/build handles are terminal. Complete signed APK: 6,591,809 bytes, SHA-256
+`abc2f0eee81f9f6a1da00ea50b4945b352bfe410360d1d4efdf3739b302eeaa0`. Actual DEX requires MdoBrowser.networkTakeoverAdmission and
+networkTakeover in addition to every prior fixed native-control/lifecycle class,
+method/field/constructor, payload/package/source/signature requirement.
+
+Exact prior runtime identity passed before stop/apply/start in the same deployment;
+existing integration tests also restart that same Home. Final path/config/hash/
+listener/HTTP identity passes. Windows executable/app archive, shared JS/SDK and
+plugin payload are unchanged; JS505/control22/SDK/visual/packed12 evidence is
+explicit current-hash reuse. Exact overlay comparison proves the single change
+is Android-only; no Windows host behavior is claimed changed. No extra source/
+Home/app/dependency copy, phone/provider update, install, model request, external
+website or online/store publication occurred. Accepted public protected takeover
+still needs full outer input/capture/upload/chooser cleanup joins, ongoing native
+origin readiness and Activity/provider/device plus the final broader requirements/
+delivery audit. Android automation stays unavailable, the phone/current-WebView
+arrangement remains deferred, and the full goal stays active.

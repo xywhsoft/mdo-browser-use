@@ -18,7 +18,7 @@ final class PopupProductHost {
     final Map<String,MdoBrowserDialogTarget> dialogs=new HashMap<>();
     final Map<String,CaptureEntry> captures=new HashMap<>();
     final Object activity=new Object();
-    static final class Manual {boolean ready(){return true;}}
+    static final class Manual {int cancellations;boolean ready(){return true;}void cancel(WebView view){cancellations++;}}
     final Manual manualChooser=new Manual();boolean uploadQualified;
     private JSONObject browserUseSupport()throws JSONException{return new JSONObject().put("available",uploadQualified);}
     final Map<String,PopupLink> popupLinks=new HashMap<>();
@@ -64,12 +64,26 @@ final class PopupProductHost {
     @@DOCUMENT_NAVIGATION@@
     @@NETWORK_COMMAND@@
     @@NETWORK_STOP@@
+    @@NETWORK_TAKEOVER@@
+    void publicControl(String key,String command,boolean agent)throws Exception {
+        publicControl(key,"control",command,agent);
+    }
+    void publicControl(String key,String id,String command,boolean agent)throws Exception {
+        WebView web=views.get(key);JSONObject request=new JSONObject().put("agent",agent);networkCommand(key,web,command,agent);
+        @@NATIVE_CONTROL_ROUTE@@
+        throw new AssertionError("Original control branch did not handle its command");
+    }
     @@NETWORK_RETURN@@
     @@RETURN_DIALOG@@
     interface NetworkStartHook {void started(MdoBrowserCdpMarker marker,WebView exact,MdoBrowserCdpMarker.DocumentQuota quota);}
     NetworkStartHook networkStartHook;
     void observeNetworkStart(MdoBrowserCdpMarker marker,WebView view,MdoBrowserCdpMarker.DocumentQuota quota){if(networkStartHook!=null)networkStartHook.started(marker,view,quota);}
-    boolean returnControl(String key,String id,boolean agent)throws Exception{return networkReleaseControl(key,views.get(key),id,agent);}
+    boolean nativeControlReturns;
+    boolean returnControl(String key,String id,boolean agent)throws Exception{
+        if(!nativeControlReturns)return networkReleaseControl(key,views.get(key),id,agent);
+        NetworkEntry original=networkViews.get(key);publicControl(key,id,"release",agent);
+        if(networkViews.get(key)==original)throw new AssertionError("Original release branch did not retain a fresh network owner");return true;
+    }
     boolean manualControl(String key){return manual.contains(key);}
     boolean ordinaryNetworkReady(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.ready&&!entry.retired&&networkCurrent(entry);}
     boolean ordinaryNetworkRetired(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.retired&&entry.protocolDrained;}
@@ -126,6 +140,7 @@ final class PopupProductHost {
     void pollPopupPage(String key){PopupNetwork row=network(key);if(row!=null&&row.page!=null)row.page.poll();}
     boolean popupPageReady(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.phase==2&&row.page.current();}
     boolean popupPageDocumentReady(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.documentReady();}
+    MdoBrowserCdpMarker popupDocumentMarker(String key){return network(key).page.marker;}
     boolean popupPageDownloadOnly(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.downloadOnly;}
     boolean popupPageInFlight(String key){PopupNetwork row=network(key);return row!=null&&row.page!=null&&row.page.inFlight;}
     void closePopupPage(String key){PopupNetwork row=network(key);if(row!=null&&row.page!=null)row.page.close();}
@@ -263,8 +278,8 @@ final class PopupProductHost {
         interface Completion {void complete(Result result);}
     }
     static final class MdoBrowserDocument {
-        static final int BACKGROUND=1,CHOOSER=2,MANUAL=4,NAVIGATION=16;static Runnable profileHook;int closes,destroyed,worldQueries;boolean working,closed,assigned;final Object view;Runnable complete;
-        void block(int reason,boolean value){if(reason!=CHOOSER&&reason!=NAVIGATION&&reason!=MANUAL)throw new AssertionError("Unexpected controlled document block");}
+        static final int BACKGROUND=1,CHOOSER=2,MANUAL=4,NAVIGATION=16;static Runnable profileHook;int closes,destroyed,worldQueries,blocks;boolean working,closed,assigned;final Object view;Runnable complete;
+        void block(int reason,boolean value){if(reason!=CHOOSER&&reason!=NAVIGATION&&reason!=MANUAL)throw new AssertionError("Unexpected controlled document block");blocks++;}
         void navigation(){}void committed(){}void loaded(){}
         boolean worldInstalled(){worldQueries++;return assigned&&!closed;}boolean ready(){worldQueries++;return assigned&&!closed;}
         String phase(){worldQueries++;return ready()?"ready":"world_unavailable";}int pending(){worldQueries++;return 0;}int outstanding(){worldQueries++;return 0;}String identity(){worldQueries++;return "fd-00000000-0000-4000-8000-000000000001";}
