@@ -14729,3 +14729,78 @@ receipts and the full input/capture/chooser teardown join. Ongoing native-origin
 readiness, full Activity/UI/provider/device and broader remote/permissions/
 lifetime/OOM/performance/ecosystem/final delivery audit remain open. Current
 phone/WebView verification stays deferred and the full goal remains active.
+
+### E190 preserve native retirement identity after root data cancellation
+
+The original-root witness reproduces E189 cleanup failure: hold an actual root
+Runtime.evaluate reply, transfer the physical view to the human, and cancel its
+old data call. fenceChild removed heldAttachments and paused records along with
+ordinary admission, so the existing fixed detach rejected the original native
+attachment with cdp_attach_event_invalid. See `.mdo/E190-root-red.log`; teardown
+failure is preserved separately from that primary cause.
+
+Session now separates data fencing from native record release. Data fencing
+removes ordinary admission while preserving the exact original attachment and
+its bounded paused records. Native end or terminal connection teardown removes
+those records; unconfirmed connection cleanup remains fenced. New private
+admitProtectedRetirement validates that original Session/object/retention and
+protection state, live data or cleanup-only source, deadline, reentry and the
+independent quiesced owner. It is used only by the existing fixed Browser-level
+Target.detachFromTarget command. Target/session parameters come from the native
+original, replay remains forbidden and actual ACK/native-event/source receipts
+stay separate. Generic protected commands still require ordinary data admission;
+retaining native identity grants no Runtime, DOM, new response or body authority.
+
+Five new original-worker product cases pass 317 checks: root
+read/effect, completed file, undecided download and held body read. They verify
+one original failure with its original effect bit, a drained old reply without
+resurrection, denied old frame API, one fixed native detach and independent ACK/
+native event, physical manual view preservation, retained completed bytes/catalog
+ID/quota, and actual abort/close receipts for cancelled transfer sources.
+Direct Session control cases now repeat the eight success/failure/foreign-owner/
+replay scenarios after data fencing and deny ordinary direct/attached RPC without
+I/O. A pending native pause stays charged after fencing and prevents detach;
+the actual native end clears it and makes the identity unusable. This gate passes
+3205 checks versus 2922 before, with two real native
+transport sessions unchanged.
+
+The first full run stopped at the old document-owner-loss assertion that required
+zero retained responses immediately when the UI view ended. That fixture had
+not emitted native detach and its wire was still alive. The strengthened check
+requires one retained response and no native detach at that point, then zero
+after the existing authentic detach teardown. Related owner-loss/document
+rebind/navigation cases pass. Preserve `.mdo/E190-native.log` and
+`.mdo/E190-owner-records.log`; no product behavior was weakened to satisfy it.
+
+Fresh full native verification passes 562 modes /
+23,523 reported popup checks, generic worker 300,
+134 selected current hashes, API26/JNI/transport and ASan/UBSan. All prior 557
+business results are compared; only the existing loading-timeout capture timing
+allowance differs (close call site and captured worker cleanup flag), with final
+page/source/guard cleanup still confirmed. Fresh actual frontend/JVM 20 and
+Python 178/180 pass (two existing Windows symlink-privilege skips). Evidence:
+`.mdo/E190-native-final.log`, `.mdo/E190-review-native.log`,
+`.mdo/E190-retirement-controls.log` and `.mdo/E190-verification.json`.
+The signed APK is 6,591,809 bytes, SHA-256 `5e2b2dedd0bf248ec5c3911b21ad748c354a79a7e7a274e0ca5ecc4d49176299`; actual DEX/source/
+payload/package/signature checks pass, including admitProtectedRetirement.
+
+Before deployment, the previously recorded local development PID 36892 was absent,
+port 63625 had no listener and no xs.exe process matched. Its prior log had no
+checked static crash marker, but the cause is unconfirmed. Preserve
+`.mdo/E190-runtime-before.log` and `.mdo/E190-runtime-exit-evidence.json`; this is
+not a claim that an application crash was proved or fixed. The exact-stop helper
+cleared the stale PID only after verifying absence, applied the reviewed source
+to the existing deployment and restarted it. Process/config/listener/HTTP checks
+then passed. No unrelated process or user account/session data was changed.
+
+Windows/shared host/page/plugin/SDK code and the E184 archive are unchanged; JS
+505, mounted WebView2 control 22, public C/JS SDK, visual and packed runtime
+checks are current-hash reuse. No extra app/Home/source/dependency checkout,
+model, phone/provider change, installation or online publication was used.
+This is controlled product/native-worker/JVM coverage, not framework/provider/
+device qualification. Root-scoped auto-attach disable and its fixed reply after
+data loss, native descendant joins, late paused request/control handling and
+the full public input/capture/chooser teardown join remain required. Primary
+Chromium review is saved privately for that next implementation; it does not
+qualify the installed WebView. Public takeover/Android automation stay gated,
+phone/current WebView stays deferred, and the full goal remains active.

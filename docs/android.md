@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E189)
+## Complete development host APK (current: E190)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,591,809 bytes, SHA-256
-`63cb50fa1873d626612e5970c73491c58f798bdf87c60b3d09d8e060265c06ce`.
+`5e2b2dedd0bf248ec5c3911b21ad748c354a79a7e7a274e0ca5ecc4d49176299`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6358,3 +6358,24 @@ includes these current Session/Broker implementations with actual DEX/source/
 payload/signature checks. Public takeover/automation gates and deferred current
 phone/WebView verification remain unchanged; full framework/provider/device
 qualification is still required.
+
+
+### Native root retirement after data cancellation (E190)
+
+Cancelling a root data call no longer erases its retained native identity or
+paused records. The fixed original detach can finish under independent native
+ownership while ordinary Runtime/DOM/source access remains revoked. Actual ACK,
+native event and transfer cleanup receipts remain independent; uncertain cleanup
+does not permit reuse. Five new controlled root cases pass 317
+checks, including completed/cancelled transfers and a held body read. The direct
+control gate passes 3205 with ordinary RPC denial,
+original-identity/owner/replay checks and pending-pause retention after data loss.
+
+Fresh native verification passes 562 modes /
+23,523 reported popup checks plus generic worker 300,
+API26/JNI/transport and ASan/UBSan. Actual frontend/JVM 20 and Python 178/180 pass
+(two existing symlink-privilege skips). The signed current APK above passes
+actual DEX/source/payload/signature checks. Root-specific auto-attach disable,
+remaining descendant/control/public teardown joins and full Activity/provider/
+device qualification remain open. Automation/takeover gates and the deferred
+phone/WebView arrangement remain in force.

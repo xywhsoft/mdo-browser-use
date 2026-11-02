@@ -407,7 +407,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     void fenceChild(String child)throws Failure{
         connectionGuard(false);if(!seenChildren.contains(child))throw failure("cdp_session_invalid",false);
         if(!children.contains(child)&&!cleanupChildren.contains(child))return;
-        retireChildData(child);cleanupChildren.add(child);
+        retireChildData(child,false);cleanupChildren.add(child);
     }
     /** Exact native event receipt supplied by the ancestry-validating broker.
      * It ends data/RPC authority, while descendants may still need this route. */
@@ -415,9 +415,10 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         connectionGuard(false);if(!seenChildren.contains(child))throw failure("cdp_session_invalid",false);
         nativeDetachedChildren.add(child);fenceChild(child);
     }
-    private void retireChildData(String child){
+    private void retireChildData(String child){retireChildData(child,true);}
+    private void retireChildData(String child,boolean nativeEnd){
         children.remove(child);
-        synchronized(controlGate){if(heldAttachments!=null){AttachedTarget original=heldAttachments.remove(child);if(original!=null)original.clearRequests();}
+        synchronized(controlGate){if(nativeEnd&&heldAttachments!=null){AttachedTarget original=heldAttachments.remove(child);if(original!=null)original.clearRequests();}
         for(int i=0;i<attachedNavigations.length;i++)if(attachedNavigations[i]!=null&&Objects.equals(child,attachedNavigations[i].attachment.session)){
             attachedNavigations[i].finish(navigationFailure("cdp_popup_navigation_retired",attachedNavigations[i].issued));attachedNavigations[i]=null;
         }
@@ -543,6 +544,18 @@ final class MdoBrowserCdpSession implements AutoCloseable {
         boolean live;try{live=owner.getAsBoolean();}catch(RuntimeException|Error error){live=false;}
         if(!live)throw failure("cdp_attach_owner_changed",false);
     }
+    /** The exact retained native attachment outlives data admission. This
+     * eligibility is used only by the fixed Browser detach below, never by
+     * document/source RPC or body admission. Native end removes its identity. */
+    private void admitProtectedRetirement(AttachedTarget original,BooleanSupplier quiesced,int timeout)throws IOException{
+        guard(false);synchronized(controlGate){
+            if(!browserTarget||original==null||original.owner!=this||!original.used||!original.waiting||!original.protectionConfirmed||original.detached||original.retirementAttempted||
+                heldAttachments==null||heldAttachments.get(original.session)!=original||!children.contains(original.session)&&!cleanupChildren.contains(original.session))throw failure("cdp_attach_event_invalid",false);
+        }
+        if(timeout<10||timeout>5000||quiesced==null)throw failure("cdp_arguments_invalid",false);
+        if(busy||attachmentCommandOwner!=null)throw failure("cdp_reentry_forbidden",false);
+        if(!owned(quiesced))throw failure("cdp_attach_owner_changed",false);
+    }
     private void protectedCall(AttachedTarget original,BooleanSupplier owner,BooleanSupplier retiring,String method,JSONObject params,int timeout)throws IOException {
         admitProtectedCommand(original,owner,timeout);
         attachmentCommandOwner=owner;
@@ -565,7 +578,7 @@ final class MdoBrowserCdpSession implements AutoCloseable {
     void detachProtectedAttachment(AttachedTarget original,BooleanSupplier quiesced,int timeout)throws IOException {
         guard(false);
         if(original!=null&&original.owner==this&&original.retirementAttempted)throw failure("cdp_attach_detach_replayed",false);
-        admitProtectedCommand(original,quiesced,timeout);
+        admitProtectedRetirement(original,quiesced,timeout);
         if(!original.resumed)throw failure("cdp_attach_resume_unconfirmed",false);
         if(protectedRetirementBusy(original))throw failure("cdp_attach_retirement_busy",false);
         final JSONObject params;

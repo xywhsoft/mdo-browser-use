@@ -201,7 +201,7 @@ def main():
                     '-cp',str(classes),'org.xserver.android.CdpAttachedTargetProbe'],cwd=ROOT,env=environment,text=True,timeout=60))
     if (not attached.get('passed') or attached.get('real_native_sessions')!=2 or not attached.get('fixed_original_release')
             or not attached.get('native_resume_then_detach') or attached.get('task_or_popup_ownership_proved') is not False or attached.get('provider_qualified') is not False
-            or any(attached.get(flag) is not True for flag in ('scoped_protected_retirement','retirement_ack_is_not_native_event','other_attachment_body_retained','no_detach_replay'))):
+            or any(attached.get(flag) is not True for flag in ('scoped_protected_retirement','retirement_ack_is_not_native_event','other_attachment_body_retained','no_detach_replay','data_retired_native_identity','data_retired_rpc_denied','data_retired_pauses_retained'))):
         raise RuntimeError('The fixed original attached-target release gate did not pass')
     result['jvm_attached_release']=attached
     attached_navigation=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
@@ -265,7 +265,7 @@ def main():
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
                   'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
-                  'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-descendants','preparation-page-human-network-descendants-inflight',
+                  'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-root-read','preparation-page-human-network-root-effect','preparation-page-human-network-root-complete','preparation-page-human-network-root-pending','preparation-page-human-network-root-held-body','preparation-page-human-network-descendants','preparation-page-human-network-descendants-inflight',
                   'preparation-page-human-network-close-before-detach',
                   'preparation-page-human-return-flow','preparation-page-human-return-complete','preparation-page-human-return-retry','preparation-page-human-return-complete-retry','preparation-page-human-return-double-return','preparation-page-human-return-cancel-retry','preparation-page-human-return-new-download',
                   'preparation-page-human-return-preflight-agent','preparation-page-human-return-preflight-loading','preparation-page-human-return-preflight-paused','preparation-page-human-return-preflight-channel','preparation-page-human-return-preflight-profile','preparation-page-human-return-preflight-chooser','preparation-page-human-return-preflight-capture','preparation-page-human-return-preflight-detach','preparation-page-human-return-preflight-native-failed',
@@ -604,6 +604,12 @@ def main():
                 raise RuntimeError('A real human page close poisoned the shared wire or invented an unsent detach ACK')
         elif mode.startswith('preparation-page-human-network-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-network-'):]
+            if variant.startswith('root-'):
+                if (not isinstance(proof,dict) or proof.get('data_root_retirement') is not True or proof.get('original_rpc_retired') is not True
+                        or proof.get('original_rpc_effect') is not (variant=='root-effect') or proof.get('original_rpc_callbacks')!=1
+                        or proof.get('old_reply_discarded') is not True or proof.get('ordinary_rpc_denied') is not True):
+                    raise RuntimeError('Data-retired root lost its native cleanup identity or regained ordinary RPC admission')
+                variant={'root-read':'ready','root-effect':'ready','root-complete':'complete','root-pending':'pending','root-held-body':'held-body'}[variant]
             failed=variant in {'rejected','unsupported','malformed','no-ack','wrong-event','complete-rejected','descendants','descendants-inflight'}
             codes={'rejected':'cdp_command_rejected','complete-rejected':'cdp_command_rejected','unsupported':'cdp_method_unsupported','malformed':'cdp_attach_detach_reply_invalid','no-ack':'cdp_command_timeout','descendants':'cdp_popup_human_descendants_unqualified','descendants-inflight':'cdp_popup_human_descendants_unqualified'}
             if (not isinstance(proof,dict) or proof.get('actual_human_network') is not True or proof.get('detach_commands')!=(0 if variant.startswith('descendants') else 1)
