@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android E183:** join protected human retirement to the existing same-view
+  network rearm and fresh document proof. Preserve page/profile/catalog/bytes;
+  keep manual control until fresh readiness and recheck input/modal/capture/
+  upload/popup/host cleanup admission before granting control. Stale references
+  stay denied; explicit retry, stop, close and new downloads are covered.
+  Twenty-seven new controlled JVM cases, full native529, frontend20/JS482/
+  Python178/180 and signed APK/DEX pass. Native toolbar error presentation,
+  public takeover/in-flight/descendant integration and device admission stay open.
+  Windows unchanged W6 source/runtime reuse.
+
 - **Android E182:** join exact human ownership to leaf-only protocol retirement
   on the original worker/wire. Require independent detach ACK/native event and
   original source/body cleanup; retain human page, completed bytes and catalog.
@@ -14207,3 +14217,89 @@ UI readiness and final broader requirements/delivery audit remain open. Public
 Android automation/framework/provider/device admission remains false. Phone and
 current WebView stay deferred. No live models, external test pages or online
 publication. Overall goal remains active.
+
+### E183 same physical page return with fresh network/document proof
+
+The actual native `networkReleaseControl` can now rearm an internally transferred
+protected popup only after its exact historical human ownership/end receipt,
+detach ACK plus authentic native event, source/body cleanup and retained live
+physical view all qualify. A pending original detach, an Agent return request,
+changed channel/profile, page loading and host admission failures cannot start
+the new proof. Public protected takeover still reports
+`popup_takeover_unqualified`; the new return path does not remove that gate or
+declare public Android automation/provider admission available.
+
+The implementation reuses the existing ordinary network start/result path. It
+creates a new native network marker/Connection on the same stored WebView,
+profile, UI channel and document quota, retaining the download controller and
+catalog. It never calls a replacement constructor, blank URL load or navigation.
+The old Fresh.humanOwned/Promotion/Handoff and protected document authority stay
+retired. Manual state remains set until fresh native view/frame proof and
+Fetch.enable are acknowledged and the original UI callback validates current
+ownership again. A subsequent ordinary frame read creates its own fresh world;
+an old protected frame/document reference is rejected even on the same view.
+
+Added a shared native return-admission check before startup, on ready delivery
+and after clearing manual state. It requires clean input, dialogs/choosers,
+capture and upload state, no pending popup, confirmed native construction and
+clean host/view/network retirement state. A changed input cleanup or modal/host
+state between proof and ready delivery restores/retains manual control and
+retires the new connection. Original `network_owner_changed` causes now survive
+the ready-callback error path rather than being flattened to
+`network_start_failed`. The normal rearm path shares these completion checks.
+
+Twenty-seven actual product-fragment/native-lifecycle/common-worker controlled
+JVM cases pass 1415 reported checks: same-view return,
+complete original bytes, explicit retry after known rejection (also with retained
+bytes), duplicate return, explicit retry after stop, a new download after return,
+nine preflight refusals, and eleven failure/close/stop cases. These cover loading,
+channel/profile, input callback failure through the real input/lifecycle core,
+picker/capture state, host retirement, bad native proof, rejected activation,
+close before ready delivery and cancellation after native readiness but before
+UI grant. Held Fetch ACK and held UI delivery prove manual control is not cleared
+early. New downloads use the actual new Connection and keep cancellation/cleanup
+receipts; original completed bytes keep their ID/quota and remain readable.
+
+The expanded fixture imports actual release/start/result/reply/stop and ordinary
+marker fragments, plus actual dialog readiness. The sole new start hook maps a
+new original marker to a controlled peer on the exact same already owned view
+and quota. It does not duplicate the product rearm decision, create an app/Home
+copy or edit generated source. Existing root dependency seams remain controlled.
+Profile/UI/provider state in these tests is controlled, not full Activity or
+installed-provider qualification. New commands do not claim to have executed
+over a real Android provider merely because the full JNI/transport gate passes.
+
+A causal in-place witness removes only the two completion admission checks:
+the actual input cleanup-failure case then detects incorrect manual-state
+release. Exact source bytes are restored before the full current-code build.
+See `.mdo/E183-guard-removed.log` and `.mdo/E183-guard-witness.log`.
+Fresh full native verification passes 529 modes /
+21,489 reported popup checks, all
+134 selected current hashes (including the newly
+imported native dialog fragment), API26 compilation, existing JNI/transport
+and ASan/UBSan. All earlier 502 business outcomes are compared; only the already
+reviewed loading-timeout diagnostic fields may vary. Fresh 20 existing actual
+frontend/JVM flows, JS482 and Python178/180 pass (two existing Windows symlink
+privilege skips). Current evidence is `.mdo/E183-verification.json` and the
+E183-native/native-review/python/javascript/native-frontend logs.
+
+The signed development APK is 6,587,713 bytes, SHA-256
+`648b9251ca99d2df241b6de798416f6d8a459017b20a373a563b7cf56a6c1d64`. Actual DEX method definitions include
+networkReleaseControl/networkStart/networkResult/networkReturnUnblocked and
+PopupNetwork.returnable with the prior exact transfer/detach methods. The exact
+W6 Windows archive and non-Android host/page/plugin/SDK source hashes remain
+unchanged. Windows public SDK/visual/packed runtime results are explicit W6
+reuse, not fresh E183 execution. No phone install, provider change, live model,
+external test page or online publication was attempted.
+
+Remaining product integration includes the public takeover sequence with
+in-flight navigation/input/capture/chooser cancellation and descendant cleanup,
+toolbar presentation of a structured failed return (the current UI awaits the
+native promise but merges the returned error object), provider auto-attach
+behavior and full Activity/UI/device coverage. Cancellation during an unacknowledged
+startup needs its own qualified recovery evidence; the new stop cases join
+native readiness first. Fresh return is not evidence that these outstanding
+paths or the entire feature are complete. Ongoing native-origin readiness,
+broader remote/permissions/lifetime/OOM/performance/ecosystem/final delivery
+audit remain active. Current WebView and phone verification stay deferred;
+public Android automation/framework/provider/device admission stays false.

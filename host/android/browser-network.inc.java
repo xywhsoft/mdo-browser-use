@@ -66,7 +66,11 @@
      * until fresh native proof/frame bootstrap/Fetch.enable are acknowledged. */
     private boolean networkReleaseControl(String key,WebView view,String id,boolean agent)throws java.io.IOException {
         NetworkEntry entry=networkViews.get(key);if(entry==null||entry.view!=view)return false;
-        if(entry.popup!=null)throw new UnsupportedOperationException("popup_takeover_unqualified");
+        if(entry.popup!=null){
+            if(!entry.popup.human)throw new UnsupportedOperationException("popup_takeover_unqualified");
+            if(agent)throw new IllegalStateException("user_takeover");
+            entry.popup.watch();if(!entry.popup.returnable())throw new IllegalStateException("network_retiring");
+        }
         if(entry.draining)throw new IllegalStateException("network_retiring");
         if(!entry.retired){if(entry.rearm&&entry.starting)throw new IllegalStateException("network_starting");return false;}
         if(agent)throw new IllegalStateException("user_takeover");
@@ -74,6 +78,7 @@
         if(!manual.contains(key)||stopped||browserPaused||!views.owns(key,view)||documents.get(key)!=entry.profile||!entry.profile.profileAssigned()||
             pageClosed.contains(key)||channel.current()!=entry.channelLease||!channel.active(entry.channelLease,host.getUrl()))throw new IllegalStateException("network_owner_unavailable");
         if(Boolean.TRUE.equals(loading.get(key)))throw new IllegalStateException("network_rearm_page_loading");
+        if(!networkReturnUnblocked(entry))throw new IllegalStateException("network_return_blocked");
         if(entry.downloads==null)throw new IllegalStateException("network_owner_unavailable");
         NetworkEntry next=new NetworkEntry(key,view,entry.profile,entry.channelLease,id,null,entry.quota);
         next.downloads=entry.downloads;next.rearm=true;next.warming=false;next.starting=true;next.created=true;next.warmupEpoch=views.epoch(key,view);
@@ -81,6 +86,13 @@
         next.downloadConnection=entry.downloads.rearm();
         networkHandler.removeCallbacks(entry.watch);networkViews.put(key,next);
         networkStart(next);return true;
+    }
+    private boolean networkReturnUnblocked(NetworkEntry entry){
+        CaptureEntry capture=captures.get(entry.key);MdoBrowserPopups<WebView> popup=windows.get(entry.key);
+        return !nativeViewCleanupFailed&&nativeRetiringViews.isEmpty()&&MdoBrowserCdpPopupNative.creationConfirmed()&&networkClean()&&
+            views.inputClean(entry.key,entry.view)&&dialogReady(entry.key,entry.view)&&chooserReady(dialogs.get(entry.key))&&!uploadBusy(entry.key,entry.view)&&
+            (capture==null||capture.view==entry.view&&!capture.capture.busy()&&capture.capture.cleanupConfirmed())&&
+            (popup==null||popup.clean()&&popup.snapshot()==null);
     }
     private void networkBegin(String key,WebView view,String id,String target){
         MdoBrowserDocument profile=documents.get(key);MdoBrowserChannel<WebMessagePort>.Lease lease=channel.current();
@@ -119,7 +131,7 @@
         try{
             final WebView view=entry.view;
             int budget=networkRemaining(entry,100);
-            if(!networkCurrent(entry)||entry.rearm&&(Boolean.TRUE.equals(loading.get(entry.key))||views.epoch(entry.key,view)!=entry.warmupEpoch))throw new IllegalStateException("network_owner_changed");
+            if(!networkCurrent(entry)||entry.rearm&&(Boolean.TRUE.equals(loading.get(entry.key))||views.epoch(entry.key,view)!=entry.warmupEpoch||!networkReturnUnblocked(entry)))throw new IllegalStateException("network_owner_changed");
             entry.adapter=MdoBrowserCdpView.network(view,owned->owned==view&&networkCurrent(entry)&&entry.live.get(),
                 owned->owned==view&&networkCurrent(entry)&&entry.live.get()&&entry.ready&&!entry.retired&&!entry.draining&&!manual.contains(entry.key),entry.quota);
             entry.marker=entry.adapter.marker();
@@ -157,11 +169,11 @@
             try{
                 networkRemaining(entry,10);
                 if(entry.retired||!networkCurrent(entry)||views.epoch(entry.key,entry.view)!=entry.warmupEpoch||
-                    (entry.rearm?Boolean.TRUE.equals(loading.get(entry.key)):!"about:blank".equals(entry.view.getUrl())))throw new IllegalStateException("network_owner_changed");
+                    (entry.rearm?Boolean.TRUE.equals(loading.get(entry.key))||!networkReturnUnblocked(entry):!"about:blank".equals(entry.view.getUrl())))throw new IllegalStateException("network_owner_changed");
                 if(entry.rearm){
                     JSONObject outcome=new JSONObject().put("manual",false).put("downloads_intercepted",true);
                     entry.profile.block(MdoBrowserDocument.MANUAL,false);views.manual(entry.key,entry.view,false);manual.remove(entry.key);
-                    if(!networkCurrent(entry)||entry.retired||views.epoch(entry.key,entry.view)!=entry.warmupEpoch||Boolean.TRUE.equals(loading.get(entry.key)))throw new IllegalStateException("network_owner_changed");
+                    if(!networkCurrent(entry)||entry.retired||views.epoch(entry.key,entry.view)!=entry.warmupEpoch||Boolean.TRUE.equals(loading.get(entry.key))||!networkReturnUnblocked(entry))throw new IllegalStateException("network_owner_changed");
                     entry.starting=false;entry.ready=true;networkHandler.removeCallbacks(entry.watch);entry.replySent=true;
                     reply(entry.channelLease,entry.id,outcome,null);return;
                 }
@@ -176,7 +188,7 @@
             }catch(Exception|Error failure){
                 if(entry.rearm&&views.owns(entry.key,entry.view)){manual.add(entry.key);
                     try{entry.profile.block(MdoBrowserDocument.MANUAL,true);views.manual(entry.key,entry.view,true);}catch(RuntimeException|Error ignored){}}
-                String code="network_start_timeout".equals(failure.getMessage())?"network_start_timeout":networkProtocolCode(failure.getMessage(),"network_start_failed");
+                String code=Arrays.asList("network_start_timeout","network_owner_changed").contains(failure.getMessage())?failure.getMessage():networkProtocolCode(failure.getMessage(),"network_start_failed");
                 networkRetire(entry,networkTargetMayHaveOccurred(entry)?"network_navigation_uncertain":code);
             }
             return;

@@ -396,6 +396,10 @@
             entry.downloads.quiesce();handoff.takeControl(owner);human=true;
             retire("network_user_takeover");handoff.detachForHuman(owner);
         }
+        /** Historical retirement permits only a fresh same-view network
+         * proof. It never revives this popup's document or native authority. */
+        boolean returnable(){return human&&phase==3&&entry.retired&&entry.protocolDrained&&!entry.destroyed&&owner.humanTransferred()&&
+            owner.ended()&&!owner.failed()&&!owner.nativeDestroyed()&&handoff.humanDetached()&&views.inputClean(entry.key,entry.view);}
         void retire(String code){
             if(phase>=2)return;
             boolean starting=phase==0||page!=null&&page.phase<2;

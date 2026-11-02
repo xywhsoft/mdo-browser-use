@@ -25,6 +25,7 @@ def prepare_popup_product(output):
     upload=(ROOT/'host/android/browser-native-upload.inc.java').read_text(encoding='utf-8')
     lifecycle=(ROOT/'host/android/browser-destroy.inc.java').read_text(encoding='utf-8')
     network=(ROOT/'host/android/browser-network.inc.java').read_text(encoding='utf-8')
+    dialog=(ROOT/'host/android/browser-native-dialog.inc.java').read_text(encoding='utf-8')
     capture=(ROOT/'host/android/browser-native-capture.inc.java').read_text(encoding='utf-8')
     chooser=(ROOT/'host/android/browser-native-chooser.inc.java').read_text(encoding='utf-8')
     chooser=chooser[:chooser.index('    private void cancelChooser')].replace('private boolean chooserReady(', 'private boolean productChooserReady(',1)
@@ -37,7 +38,12 @@ def prepare_popup_product(output):
     lifetime=network[network.index('    private void networkRetire(NetworkEntry'):network.index('    private void networkReplyFailure')]
     # The previously controlled root connection stays a fixture dependency;
     # the real popup registry/current/retire/watch/destruction paths run here.
-    lifetime=lifetime.replace('        retireProtocolPopupPreparation(entry.key,entry.view,', '        if(entry.popup==null)return;\n        retireProtocolPopupPreparation(entry.key,entry.view,',1)
+    lifetime=lifetime.replace('        retireProtocolPopupPreparation(entry.key,entry.view,', '        if(entry.popup==null&&!entry.rearm)return;\n        retireProtocolPopupPreparation(entry.key,entry.view,',1)
+    startup=network[network.index('    private void networkStart'):network.index('    private void networkRetire(NetworkEntry')]
+    if startup.count('            entry.marker=entry.adapter.marker();')!=1:raise RuntimeError('Original network start marker boundary changed')
+    startup=startup.replace('            entry.marker=entry.adapter.marker();','            entry.marker=entry.adapter.marker();observeNetworkStart(entry.marker,view,entry.quota);',1)
+    returning=network[network.index('    private boolean networkReleaseControl'):network.index('    private void networkBegin')]+startup
+    returning=returning.replace('dialogReady(entry.key,entry.view)','returnDialogReady(entry.key,entry.view)')
     destruction=network[network.index('    private void networkDestroyed(String'):network.index('    private String networkProtocolCode')]
     destruction=destruction.replace('private void networkDestroyed(WebView view){for(', 'private void networkDestroyed(WebView view){networkDestroyed++;for(',1)
     fragments={
@@ -46,6 +52,10 @@ def prepare_popup_product(output):
         '@@NETWORK_ENTRY@@':network[network.index('    private final class NetworkEntry'):network.index('    private boolean networkCurrent')],
         '@@NETWORK_CURRENT@@':network[network.index('    private boolean networkCurrent'):network.index('    private int networkRetiring')],
         '@@NETWORK_COMMAND@@':network[network.index('    private void networkCommand'):network.index('    private void networkStop')],
+        '@@NETWORK_STOP@@':network[network.index('    private void networkStop'):network.index('    private void networkTakeover')],
+        '@@NETWORK_RETURN@@':returning,
+        '@@RETURN_DIALOG@@':dialog[dialog.index('    private boolean dialogReady'):dialog.index('    private void cancelDialog')].replace('private boolean dialogReady(', 'private boolean returnDialogReady(',1),
+        '@@NETWORK_REPLY@@':network[network.index('    private void networkReplyFailure'):network.index('    private void networkDestroyed(String')]+network[network.index('    private String networkProtocolCode'):network.index('    private MdoBrowserCdpDownloads newNetworkDownloads')],
         '@@NAVIGATION_RESERVATION@@':navigation_reservation(),
         '@@NAVIGATION@@':(ROOT/'host/android/browser-network-navigation.inc.java').read_text(encoding='utf-8').split('    private boolean chooserFramesAllowed')[0],
         '@@DOCUMENT_NAVIGATION@@':document[document.index('    private void documentNavigation'):document.index('    private void blockDocuments')],
@@ -58,6 +68,7 @@ def prepare_popup_product(output):
         '@@PREPARATION@@':(ROOT/'host/android/browser-popup-preparation.inc.java').read_text(encoding='utf-8'),
         '@@CHOOSER@@':chooser,
         '@@FRAME_ENVIRONMENT@@':document[document.index('    private boolean cdpEnvironmentCurrent'):document.index('    private MdoBrowserCdpMarker cdpMarker')],
+        '@@ORDINARY_MARKER@@':document[document.index('    private MdoBrowserCdpMarker cdpMarker'):document.index('    private void bindDocument')].replace('private MdoBrowserCdpMarker cdpMarker(', 'private MdoBrowserCdpMarker productCdpMarker(',1),
         '@@FRAME_ROUTER@@':(ROOT/'host/android/browser-frame-router.inc.java').read_text(encoding='utf-8'),
         '@@DOCUMENT_STATE@@':document[document.index('    private JSONObject documentState'):document.index('    private void documentFailure')]+network[network.index('    private JSONObject networkState'):],
         '@@LEGACY_DOCUMENT@@':document[document.index('    private void documentFailure'):],
@@ -256,6 +267,9 @@ def main():
                   'preparation-page-human-network-flow','preparation-page-human-network-event-first','preparation-page-human-network-ack-only','preparation-page-human-network-no-ack','preparation-page-human-network-wrong-event',
                   'preparation-page-human-network-rejected','preparation-page-human-network-unsupported','preparation-page-human-network-malformed','preparation-page-human-network-complete','preparation-page-human-network-complete-rejected','preparation-page-human-network-pending','preparation-page-human-network-held-body','preparation-page-human-network-descendants',
                   'preparation-page-human-network-close-before-detach',
+                  'preparation-page-human-return-flow','preparation-page-human-return-complete','preparation-page-human-return-retry','preparation-page-human-return-complete-retry','preparation-page-human-return-double-return','preparation-page-human-return-cancel-retry','preparation-page-human-return-new-download',
+                  'preparation-page-human-return-preflight-agent','preparation-page-human-return-preflight-loading','preparation-page-human-return-preflight-paused','preparation-page-human-return-preflight-channel','preparation-page-human-return-preflight-profile','preparation-page-human-return-preflight-chooser','preparation-page-human-return-preflight-capture','preparation-page-human-return-preflight-detach','preparation-page-human-return-preflight-native-failed',
+                  'preparation-page-human-return-failure-proof','preparation-page-human-return-failure-enable','preparation-page-human-return-failure-epoch','preparation-page-human-return-failure-loading','preparation-page-human-return-failure-channel','preparation-page-human-return-failure-input','preparation-page-human-return-failure-chooser','preparation-page-human-return-failure-capture','preparation-page-human-return-failure-retiring','preparation-page-human-return-failure-close','preparation-page-human-return-failure-cancel',
                   'preparation-page-activation-unsupported','preparation-page-activation-malformed','preparation-page-world-unique','preparation-page-world-metadata','preparation-page-callback-throw',
                   'preparation-page-scheduler-failure','preparation-page-loading-timeout','preparation-page-cancel-activation','preparation-page-channel-activation','preparation-page-deadline-activation',
                   'preparation-page-world-document-change','preparation-page-world-channel-change','preparation-page-cancel-world','preparation-page-world-wait',
@@ -533,7 +547,23 @@ def main():
         if mode=='host-close-late-transport':
             proof=popup_worker.get('host_close')
             if proof!={'original_close_raced':True,'code':'cdp_worker_closed','cleanup_confirmed':False,'source_released':False,'wire_closes':1,'disables':0,'worker_terminated':True}:raise RuntimeError('Original host close lost its authoritative cause or invented cleanup')
-        if mode=='preparation-page-human-network-close-before-detach':
+        if mode.startswith('preparation-page-human-return-'):
+            proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-human-return-'):]
+            if not isinstance(proof,dict) or proof.get('provider_qualified') is not False or proof.get('ui_published') is not False:
+                raise RuntimeError('Human return lost controlled-provider scope')
+            if variant.startswith('preflight-'):
+                name=variant[len('preflight-'):];code={'agent':'user_takeover','loading':'network_rearm_page_loading','detach':'network_retiring','chooser':'network_return_blocked','capture':'network_return_blocked','native-failed':'network_return_blocked'}.get(name,'network_owner_unavailable')
+                if proof!={'actual_return_preflight':True,'code':code,'new_networks':0,'manual_retained':True,'page_preserved':True,'old_authority_revoked':True,'provider_qualified':False,'ui_published':False}:raise RuntimeError('Unqualified return issued a fresh native proof or released manual control')
+            elif variant=='failure-close':
+                if proof!={'actual_return_closed':True,'native_destroyed':1,'manual_granted':False,'new_networks':1,'network_cleanup_confirmed':True,'native_effects':0,'provider_qualified':False,'ui_published':False}:raise RuntimeError('A closed native view received stale ready/manual admission')
+            elif variant.startswith('failure-'):
+                code={'failure-proof':'cdp_binding_proof_invalid','failure-enable':'cdp_method_unsupported','failure-cancel':'network_start_cancelled'}.get(variant,'network_owner_changed')
+                if proof!={'actual_return_failure':True,'code':code,'manual_retained':True,'cleanup_confirmed':True,'page_preserved':True,'new_networks':1,'fetch_enables':0 if variant=='failure-proof' else 1,'reply_delivered':variant!='failure-channel','old_authority_revoked':True,'native_effects':0,'provider_qualified':False,'ui_published':False}:raise RuntimeError('Failed fresh proof/control cleanup granted old authority or lost its cause')
+            else:
+                retry=variant in {'retry','complete-retry','cancel-retry'}
+                expected={'actual_same_view_return':True,'fresh_network_proof':True,'fresh_document_proof':True,'old_reference_denied':True,'manual_until_ready':True,'page_preserved':True,'catalog_preserved':True,'completed_bytes':variant in {'complete','complete-retry'},'new_views':0,'navigation_commands':0,'fetch_enables':1,'new_networks':2 if retry else 1,'explicit_retry':retry,'first_rejection':('network_start_cancelled' if variant=='cancel-retry' else 'cdp_method_unsupported') if retry else None,'new_downloads':1 if variant=='new-download' else 0,'fresh_worlds':1,'native_effects':0,'provider_qualified':False,'ui_published':False}
+                if proof!=expected:raise RuntimeError('Same-view return recreated a page, revived a stale reference or lost original transfers/fresh readiness')
+        elif mode=='preparation-page-human-network-close-before-detach':
             proof=popup_worker.get('product_frame_route')
             if proof!={'actual_human_close_race':True,'native_destroyed':1,'detach_commands':0,'acknowledged':False,'native_event':True,'physical_close_cleanup':True,'human_cleanup_invented':False,'wire_closes':0,'browser_connections':1,'native_proof_connections':1,'new_worlds':0,'navigation_commands':0,'provider_qualified':False,'ui_published':False}:
                 raise RuntimeError('A real human page close poisoned the shared wire or invented an unsent detach ACK')
@@ -777,7 +807,7 @@ def main():
             'host/android/MdoBrowserCdpMarker.java','host/android/MdoBrowserCdpView.java','host/android/MdoBrowserCdpBinding.java','host/android/MdoBrowserCdpNetworkFrames.java','host/android/MdoBrowserCdpNetworkRequests.java',
             'host/android/MdoBrowserCdpRegistry.java','host/android/MdoBrowserCdpWorker.java','host/android/MdoBrowserCdpNetworks.java','host/android/MdoBrowserCdpPopupBroker.java','host/android/MdoBrowserCdpPopupWorker.java','host/android/MdoBrowserCdpPopupNative.java','host/android/MdoBrowserCdpPopupSource.java','host/android/MdoBrowserCdpPopupPreparation.java','host/android/MdoBrowserCdpFrames.java','host/android/MdoBrowserCdpWorlds.java',
             'host/android/MdoBrowserCdpOwnerScripts.java','host/android/MdoBrowserCdpFrameRequest.java','host/android/MdoBrowserCdpFrameChain.java','host/android/MdoBrowserCdpInput.java','host/android/MdoBrowserNativeInput.java','host/android/MdoBrowserCdpCapture.java','host/android/MdoBrowserCdpFileInput.java','host/android/MdoBrowserCdpChoosers.java','host/android/MdoBrowserCdpUploadScripts.java','host/android/MdoBrowserCdpUpload.java','host/android/MdoBrowserUploadCoordinator.java','host/android/MdoBrowserUploadStore.java','host/android/MdoBrowserUploadFiles.java','host/android/MdoBrowserUploadUris.java','host/android/MdoBrowserDownloadFiles.java','host/android/MdoBrowserDownloadQueue.java','host/android/MdoBrowserCdpDownloads.java','host/android/MdoBrowserUploadQueue.java','host/android/MdoBrowserChoosers.java','host/android/MdoBrowserPrivatePicker.java','host/android/MdoBrowserChannel.java','host/android/MdoBrowserCapture.java',
-            'host/android/browser-network.inc.java','host/android/browser-network-navigation.inc.java','host/android/browser-destroy.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-popup-preparation.inc.java','host/android/browser-close.inc.java','host/android/browser-native-input.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
+            'host/android/browser-network.inc.java','host/android/browser-network-navigation.inc.java','host/android/browser-destroy.inc.java','host/android/browser-document.inc.java','host/android/browser-view.inc.java','host/android/browser-popup-preparation.inc.java','host/android/browser-close.inc.java','host/android/browser-native-input.inc.java','host/android/browser-downloads.inc.java','tests/fixtures/android-cdp-java/DownloadCommandHost.java.in','host/android/browser-native-capture.inc.java','host/android/browser-native-upload.inc.java','host/android/browser-upload-assignment.inc.java','tests/fixtures/android-cdp-java/UploadAssignmentHost.java.in','host/android/browser-native-chooser.inc.java','host/android/browser-native-dialog.inc.java','host/android/browser-frame-router.inc.java','host/overlays.json','tests/fixtures/android-cdp-java/ChooserContinuationHost.java.in',
             'host/native-frames.inc.hpp','tools/update_android_owner_scripts.py','host/upload-picker-broker.js','tools/update_android_upload_broker.py',
             'host/android/MdoBrowserInput.java','host/android/MdoBrowserWheel.java','host/android/MdoBrowserLifecycle.java','host/android/MdoBrowserPopups.java','host/android/browser-native-popup.inc.java','host/android/popup-protocol.json',
             'tools/android_cdp_socket_probe.py','tests/fixtures/android-cdp-java/PopupProductHost.java.in','tests/fixtures/android-cdp-java/org/xserver/android/CdpAttachedNavigationProbe.java','host/android/json-test-sources.json','tools/setup_android_json_test.py','tests/fixtures/android-cdp-socket.c',

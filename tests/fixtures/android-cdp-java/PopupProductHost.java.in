@@ -63,6 +63,23 @@ final class PopupProductHost {
     @@NAVIGATION@@
     @@DOCUMENT_NAVIGATION@@
     @@NETWORK_COMMAND@@
+    @@NETWORK_STOP@@
+    @@NETWORK_RETURN@@
+    @@RETURN_DIALOG@@
+    interface NetworkStartHook {void started(MdoBrowserCdpMarker marker,WebView exact,MdoBrowserCdpMarker.DocumentQuota quota);}
+    NetworkStartHook networkStartHook;
+    void observeNetworkStart(MdoBrowserCdpMarker marker,WebView view,MdoBrowserCdpMarker.DocumentQuota quota){if(networkStartHook!=null)networkStartHook.started(marker,view,quota);}
+    boolean returnControl(String key,String id,boolean agent)throws Exception{return networkReleaseControl(key,views.get(key),id,agent);}
+    boolean manualControl(String key){return manual.contains(key);}
+    boolean ordinaryNetworkReady(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.ready&&!entry.retired&&networkCurrent(entry);}
+    boolean ordinaryNetworkRetired(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.retired&&entry.protocolDrained;}
+    boolean ordinaryNetworkReplySent(String key){NetworkEntry entry=networkViews.get(key);return entry!=null&&entry.popup==null&&entry.replySent;}
+    String physicalNetworkCode(String key){return networkViews.get(key).code;}
+    void pollNetwork(String key){NetworkEntry entry=networkViews.get(key);if(entry!=null)networkWatch(entry);}
+    boolean hasPhysicalNetwork(String key){return networkViews.containsKey(key);}
+    MdoBrowserCdpDownloads physicalDownloads(String key){return networkViews.get(key).downloads;}
+    void retireOrdinaryNetwork(String key){NetworkEntry entry=networkViews.get(key);if(entry!=null)networkRetire(entry,"network_test_closed");}
+    void stopNetwork(String key){networkStop(key,views.get(key));}
     JSONObject navigate(String key,String action)throws Exception {
         WebView view=views.get(key);networkCommand(key,view,action.equals("goto")?"navigate":action,true);
         if(action.equals("goto"))networkNavigate(key,view,"navigate","https://private.invalid/destination",true,3000);else networkTraverse(key,view,"navigate",action,true,3000);
@@ -202,7 +219,8 @@ final class PopupProductHost {
     MdoBrowserCdpCapture.Session captureSession(String key,MdoBrowserCdpCapture operation,MdoBrowserCdpCapture.Current current)throws Exception{return captureDocumentSession(key,views.get(key),operation,current);}
     @@CAPTURE_SESSION@@
     void invalidatePopupDocument(String key,String reason){WebView view=views.get(key);inputInvalidated(key,view,views.epoch(key,view),reason);}
-    void lifecycleInvalidated(String key,WebView view,long epoch,String reason){inputInvalidated(key,view,epoch,reason);}
+    boolean failInputInvalidation;
+    void lifecycleInvalidated(String key,WebView view,long epoch,String reason){if(failInputInvalidation)throw new IllegalStateException("controlled_input_retirement_delivery_failure");inputInvalidated(key,view,epoch,reason);}
     boolean popupDocumentPending(String key){PopupNetwork owner=network(key);return owner!=null&&owner.page!=null&&cdpWorker.pending(owner.page.marker);}
     void observeNativeProofRevocation(WebView view){
         for(NetworkEntry entry:networkViews.values())if(entry.view==view&&entry.popup!=null){
@@ -218,7 +236,8 @@ final class PopupProductHost {
     void cancelCapture(String key){CaptureEntry entry=captures.get(key);if(entry!=null)entry.capture.close();}
     void cancelPopup(String key){MdoBrowserPopups<WebView> core=windows.get(key);if(core!=null)core.cancel();}
     void cancelDialog(String key){MdoBrowserDialogTarget target=dialogs.get(key);if(target!=null)target.dialogs.cancel();}
-    MdoBrowserCdpMarker cdpMarker(String key,WebView view){return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}
+    @@ORDINARY_MARKER@@
+    MdoBrowserCdpMarker cdpMarker(String key,WebView view){NetworkEntry entry=networkViews.get(key);if(entry!=null&&entry.rearm)return productCdpMarker(key,view);return cdpViews.marker(key,view,views.epoch(key,view),channel.current(),()->views.owns(key,view));}
     static final class Root {
         int removes,adds;Runnable callback,adding;boolean failAdd;final Set<WebView> children=Collections.newSetFromMap(new IdentityHashMap<WebView,Boolean>());
         void addView(WebView exact){if(!children.add(exact))throw new AssertionError("Duplicate native UI child");adds++;Runnable work=adding;adding=null;if(work!=null)work.run();if(failAdd)throw new IllegalStateException("controlled_root_add_failure");}
@@ -295,14 +314,14 @@ final class PopupProductHost {
         // directory. No per-case cache copies or directory replacement.
         verifyFileDirectory(directory);
     }
-    static final class Capture {boolean busy(){return false;}boolean cleanupConfirmed(){return true;}void close(){}void viewDestroyed(){}}
+    static final class Capture {boolean active,clean=true;boolean busy(){return active;}boolean cleanupConfirmed(){return clean;}void close(){active=false;clean=true;}void viewDestroyed(){close();}}
     static final class CaptureEntry {final WebView view;final Capture capture=new Capture();CaptureEntry(WebView view){this.view=view;}}
     PopupProductHost(MdoBrowserLifecycle<WebView> views){this.views=views;channel.attach(host.getUrl(),new WebMessagePort());WebView root=views.get("root");if(root!=null){MdoBrowserDocument original=new MdoBrowserDocument(root);original.assigned=true;documents.put("root",original);}}
     int networkRetiring(){int count=networkReady?0:1;for(NetworkEntry row:networkViews.values())if(row.draining||row.retired&&!row.protocolDrained)count++;return count;}
     int downloadRetiring(){int count=0;for(NetworkEntry row:networkViews.values())if(row.downloads!=null)count+=row.downloads.retiringFiles();return count;}
     boolean networkClean(){return networkReady&&!networkCleanupFailed&&networkRetiring()==0&&downloadRetiring()==0;}
     MdoBrowserCdpDownloads newNetworkDownloads(){Runnable hook=downloadFactoryHook;if(hook!=null)hook.run();if(downloadQueue==null||downloadBudget==null)throw new IllegalStateException("controlled_download_backend_missing");return new MdoBrowserCdpDownloads(downloadQueue,downloadBudget);}
-    void networkReplyFailure(NetworkEntry row){}void networkDiscardUnsent(NetworkEntry row){}
+    @@NETWORK_REPLY@@
     @@NETWORK_LIFETIME@@
     @@NETWORK_DESTROY@@
     @@UPLOAD@@

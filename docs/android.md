@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E182)
+## Complete development host APK (current: E183)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,587,713 bytes, SHA-256
-`e4aa222d3d1ff1e4868232b500c5b449a519b315d40ff01f15bdd4250565e9c1`.
+`648b9251ca99d2df241b6de798416f6d8a459017b20a373a563b7cf56a6c1d64`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -6219,3 +6219,32 @@ exact-view marker/frame/Fetch proof; old popup/world authority stays retired.
 Full Activity/UI/provider, descendant cleanup and in-flight public operation joins
 remain required. Phone/current WebView stay deferred and public Android automation
 remains unavailable.
+
+
+### Same-view return with fresh proof and completion admission (E183)
+
+An internally transferred protected popup can now join the ordinary native
+network rearm only after exact human/native/protocol/source receipts. It keeps
+the same physical view, profile, channel/quota and download controller/catalog;
+no blank navigation, URL reload or replacement view is used. A fresh native
+network marker and frame/Fetch proof must finish before manual state clears.
+A later ordinary document read creates a fresh isolated world, and old protected
+references/Promotion/Handoff authority stay revoked.
+
+Return admission checks input, dialog/picker, capture/upload, pending popup and
+host cleanup state both before proof and on completion. Changed ownership or
+admission keeps manual control and drains the new connection. The original
+network_owner_changed cause survives; explicit retries after known rejection or
+stop use another fresh proof instead of replay. Completed original bytes remain
+readable, and a new download after return uses the new Connection.
+
+Twenty-seven controlled product/native-lifecycle/worker JVM cases and the full
+529-mode gate, existing frontend/JNI/transport gates and actual APK/DEX checks
+pass. The input cleanup-failure completion witness fails when the final checks
+are deliberately removed and passes with current source. UI/profile/renderer
+seams remain controlled; this does not qualify a real Android provider.
+
+Public protected takeover, in-flight/descendant joins, structured toolbar error
+presentation, unacknowledged-startup cancellation recovery and full Activity/UI/
+device qualification remain open. Public Android automation remains unavailable;
+the phone and current WebView stay deferred. Overall feature goal remains active.
