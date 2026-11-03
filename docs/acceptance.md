@@ -582,11 +582,68 @@ checked; provider/framework/device flags stay false. Same-Home headless service
 identity is restored; no inference, phone change, extra app copy or publication.
 The remaining physical/UI/device completion gates below are still open.
 
+
+## Current-phone qualification and profile-only diagnostic repair (E218)
+
+The user authorizes the current phone on 2026-11-04. Windows sees RMX5090,
+Android16/API36, WebView138.0.7204.179. Port5037 belongs to wslrelay and its ADB
+server reports Linux/native USB, so Windows adb devices is empty despite a healthy
+Windows WinUSB phone interface. Use the existing hash-matching Windows ADB37.0.1
+on an unoccupied5038 port; the same phone is immediately authorized. Do not stop
+the shared WSL server, change drivers or copy another SDK. Select this server for
+the probe process with ADB_SERVER_SOCKET=tcp:127.0.0.1:5038 and pass --adb explicitly.
+
+The actual diagnostic reports profiles:true/isolated_world:false and product
+admission correctly refuses three automation requests before creation, retaining
+manual/cleanup access. The old diagnostic nevertheless waits15s and reports
+device_probe_timed_out: MdoBrowserDocument intentionally retains a physical-only
+profile instead of throwing when optional isolation is unavailable. Handle that
+actual terminal phase immediately, requiring original profile assignment, no
+installed world and no readiness. The physical regression changes from timeout
+to isolated_world_unsupported with probe_verified:true and confirmed cleanup;
+automation/world isolation remain false. Only the diagnostic code changes.
+
+Fresh same-APK device gates:6pass/2unresolved. Explicit downgrade, native JS
+dialogs, popup transport, chooser retention/cancellation, private upload cache
+and URI seek/revoke pass. These component results do not prove host integration,
+automatic file assignment or an Agent operation. Hover produces exactly one
+trusted zero-button move at the expected target, preserving focus/click/press
+counts, but CSS :hover remains false; keep the full controlled before/after
+receipt and do not relax the assertion. Capture's view is attached/shown with
+nonzero size, but no initial scale callback was observed; retain null scale and
+capture_scale_or_view_unavailable. Neither issue has a confirmed product root
+cause or product repair here. Add bounded fixture-only failure evidence to both.
+
+Install the matching complete QA host (same dedicated package/signing identity,
+formal mdo untouched), cold-start its real main Activity and inspect actual
+Android screenshots. Its local service registers one client; a manually owned
+native browser visibly renders a local fixture via USB reverse. Close that exact
+browser/panel, remove only the owned forward/reverse mappings and stop only the
+QA package; retain installation/data for reuse. Installed main APK SHA-256
+dedb25501eb777d90588348f00f705a8b840b77c945a4c5317bad9e196459e65 matches the build. Main UI/manual browser pixels are
+observed on Android, not a Windows-main or guarded screenshot qualification.
+A read timed out while another app was foreground; after bringing the same
+QA Activity forward it succeeds without process restart. This is a bounded
+observation, not a diagnosed background/Doze failure or completed lifecycle gate.
+
+Fresh world35/document86/profile396/native-budget18 and both elapsed-clock
+cohorts pass. Both Android APKs rebuild and retain actual DEX/signature/payload
+checks. Diagnostic 987,539B has SHA-2564c9a4b85ec52a27c12dadeda7d1ee6391329645a981cb05dc2646bada8d59556.
+Windows/native engine/app/plugin sources are unchanged. Prior Windows/SDK/
+JS/native-protocol results are scoped unchanged-input reuse; aggregate E214
+acceptance source hashes are historical after these diagnostic edits, not a
+fresh source-qualified15-case run. No live model, provider upgrade, extra app
+Home/source checkout or official publication. Overall Android automation,
+Windows main permission/pixels, authenticated two-device and full-goal
+qualification remain incomplete; current-phone deferral is superseded.
+
 ## Remaining completion gates
 
-- Verify the installed Android main Activity/browser, actual provider input,
-  capture/URI grants/chooser and lifecycle. The user deferred the phone and kept
-  the current WebView. Overall Android automation remains disabled, including
+- Complete Android host input, guarded capture/URI/chooser and lifecycle
+  qualification. E218 uses the now-authorized current phone without a WebView
+  upgrade; six component gates and main/manual-browser presentation are verified,
+  while hover/capture fail and host automation remains unqualified. Overall
+  Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.
 - Exercise an actual main-interface user decision. E200 confirms the prompt

@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Current phone and diagnostic terminal state E218:** repair a real device
+  false timeout after profile-only initialization. Android16/WebView138 confirms
+  explicit downgrade and five native component gates; hover/CSS and initial
+  capture scale remain failed with precise evidence. Full QA main Activity and
+  manual native browser are visually observed. Current-phone deferral is lifted;
+  broader Android automation, Windows/human permission and two-device gates stay
+  open. Same-Home/source/SDK reuse; no provider upgrade or live model call.
+
 - **Reusable setup and completion audit E210:** reproduce setup refusing the
   existing reviewed project host solely because the external repository's
   bootstrap build changed. Validate/reuse the local host first; a new seed still
@@ -16453,3 +16461,35 @@ Overall Android automation remains disabled. Physical Activity/provider/input/
 capture/URI/chooser/lifecycle/Doze, main-window pixels/human permission decision
 and authenticated physical two-device qualification remain open. The complete
 Browser Use objective is still active and is not achieved by this correction.
+
+## E218 — current-phone tests and truthful profile-only diagnostic completion
+
+The user authorizes the current phone on2026-11-04. Diagnose empty ADB inventory
+as Windows connecting to a WSL server through5037, despite a healthy WinUSB
+interface. Reuse the existing Windows ADB37 on5038 without restarting that
+shared server, replacing drivers or copying an SDK.
+
+Actual Android16/WebView138 reproduces a false diagnostic timeout: the production
+controller deliberately retains a physical profile without an isolated world.
+Recognize its original terminal phase, verify no world/readiness authority and
+retain explicit automation refusal. The same phone regression passes after the
+diagnostic fix. Add precise bounded fixture-only hover/capture failure evidence;
+all product/runtime sources remain unchanged.
+
+Current diagnostic APK:8terminal modes,6pass/2unresolved. Hover emits one trusted
+zero-button move without new click/focus/press, but CSS hover is absent. Capture
+has a visible/attached/nonzero view and no initial scale callback. Both remain
+failed, not weakened or claimed repaired. Other native component gates pass.
+The complete QA host cold-starts, registers its actual client and visually renders
+a local manual native browser. Dispose its exact view/panel, remove only owned
+USB routes and stop only the QA package. Retain the installed full development
+APK and all data; formal mdo/provider remain unchanged.
+
+Fresh world35/document86/profile396/native-budget18 and both elapsed-clock
+cohorts pass. Rebuild both packages and inspect actual APK DEX/signature/payload;
+see current hashes and narrow device scopes in [Android](android.md) and
+[acceptance](acceptance.md). Windows/SDK/JS/native-protocol evidence is exact-input
+reuse, not a newly executed suite; the old aggregate E214 source hashes are
+historical after these diagnostic edits. No inference, provider change, extra
+app/Home/native copy or publication. Overall Android automation, Windows main
+permission/pixels, lifecycle and authenticated two-device qualification stay open.

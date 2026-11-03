@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E214)
+## Complete development host APK (current: E218)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`975f4ed8df9a3ceb1803b89133fab4d38f5cd17d7c643e028da61b52cbb01651`.
+`dedb25501eb777d90588348f00f705a8b840b77c945a4c5317bad9e196459e65`.
 E214 shares the original document's live-readable predicate between isolated
 world state and navigation page_ready. Root/default realm loss clears both
 public readiness fields even when the native document and Activity epoch stay
@@ -99,8 +99,10 @@ The packaged DEX must define this coordinator, immutable request identity and
 previous-profile destruction field alongside all prior native gates. Native
 main-branch/JNI tests use controlled Activity/provider peers; fresh shared UI and
 Windows tests do not qualify Android framework/provider/device automation.
-Overall Android admission remains disabled, and the phone/current WebView are
-unchanged. See the current verification scope in [progress](progress.md).
+Overall Android admission remains disabled. E218 reconnects the user-authorized
+phone and verifies six component gates plus the full main/manual-browser UI;
+hover and capture remain failed. The current WebView is unchanged. See the
+current verification scope in [progress](progress.md).
 
 E199 updates the shared browser UI: an ordinary loading live announcement stays
 available to accessibility while no longer changing the native viewport size.
@@ -153,9 +155,10 @@ contracts, not installed framework or sleep/Doze qualification.
 
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
-`.mdo/host/android-client/mdo-browser-use-dev.apk`,983,443 bytes SHA-256
-`8541899c921d7339a817d9e4b1cfcb5930d48ad176576d3d94e4758c4d499c92`.
-E214 rebuilds this package against the current reviewed host inputs.
+`.mdo/host/android-client/mdo-browser-use-dev.apk`,987,539 bytes SHA-256
+`4c9a4b85ec52a27c12dadeda7d1ee6391329645a981cb05dc2646bada8d59556`.
+E218 rebuilds this package against the current reviewed host inputs and fixes
+profile-only initialization being misreported as a readiness timeout.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
 ordinary-world deadline method is defined. This package is a diagnostic variant;
 both artifacts share the development package ID, and device qualification selects
@@ -6747,3 +6750,16 @@ existing Windows symlink skips) and acceptance15 pass. Both Android packages are
 rebuilt; actual DEX links each public state to the shared original-worker check.
 Windows/native/app payloads and the portable plugin remain unchanged. Android
 framework/provider/physical qualification and the full objective remain open.
+
+### Current phone and profile-only terminal state (E218)
+
+The current RMX5090/API36/WebView138 phone is authorized and tested. The
+physical-only profile is an intentional terminal state without world readiness;
+the diagnostic now verifies that state and reports isolated_world_unsupported
+instead of waiting for a timeout. Actual device gates complete with6pass and
+2unresolved: hover has a trusted move but no CSS hover, and capture lacks an
+initial scale callback. Failure evidence is retained without weakening checks.
+The full QA main Activity and its manual native browser are visually observed.
+No guarded Android automation or broader host/lifecycle qualification is claimed.
+See the E218 section in [acceptance](acceptance.md) for connection setup, exact
+phone results, APK identities, cleanup and remaining work.

@@ -28,6 +28,7 @@ final class BrowserUseCaptureProbe implements AutoCloseable {
             "<style>html,body{margin:0;height:100%;background:rgb(12,34,56)}#block{position:absolute;left:20px;top:40px;width:120px;height:80px;background:rgb(34,170,68)}</style>"+
             "<div id='block'></div>","text/html","UTF-8",null);
     }
+    double measuredScale(){return scale;}
     private void begin(){
         if(closed||started)return;
         if(!Double.isFinite(scale)||!view.isAttachedToWindow()||!view.isShown()||view.getWidth()<1||view.getHeight()<1){

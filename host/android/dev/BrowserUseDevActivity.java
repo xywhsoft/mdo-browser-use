@@ -84,7 +84,13 @@ public final class BrowserUseDevActivity extends Activity {
             }
             if("native-capture".equals(getIntent().getStringExtra("mode"))){
                 captureProbe=new BrowserUseCaptureProbe(view,handler,(ok,code,checks)->{
-                    put("native_capture_checks",checks);put("native_capture_verified",ok);finishProbe(ok,code);
+                    put("native_capture_checks",checks);put("native_capture_verified",ok);
+                    if(!ok){
+                        put("capture_measured_scale",Double.isFinite(captureProbe.measuredScale())?captureProbe.measuredScale():JSONObject.NULL);
+                        put("capture_view_attached",view.isAttachedToWindow());put("capture_view_shown",view.isShown());
+                        put("capture_view_width",view.getWidth());put("capture_view_height",view.getHeight());
+                    }
+                    finishProbe(ok,code);
                 });captureProbe.run();return;
             }
             if("native-input".equals(getIntent().getStringExtra("mode"))){
@@ -92,7 +98,9 @@ public final class BrowserUseDevActivity extends Activity {
                     android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
                 inputProbe=new BrowserUseInputProbe(view,handler,(ok,code,checks)->{
                     put("native_input_checks",checks);put("native_input_verified",ok);put("native_wheel_verified",inputProbe!=null&&inputProbe.wheelVerified());
-                    put("native_hover_verified",inputProbe!=null&&inputProbe.hoverVerified());finishProbe(ok,code);
+                    put("native_hover_verified",inputProbe!=null&&inputProbe.hoverVerified());
+                    if(!ok&&inputProbe!=null&&inputProbe.hoverFailure()!=null)put("native_hover_failure",inputProbe.hoverFailure());
+                    finishProbe(ok,code);
                 });inputProbe.run();return;
             }
             if(Build.VERSION.SDK_INT<28){finishProbe(true,"provider_loader_unsupported");return;}
@@ -103,6 +111,14 @@ public final class BrowserUseDevActivity extends Activity {
                 public void post(Runnable task,long milliseconds){if(!handler.postDelayed(task,milliseconds))throw new IllegalStateException("UI scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
             },()->!finished&&view==ownedView,()->documentEpoch,support.profiles?"mdo.browseruse.dev":null);
+            if(!support.isolatedWorld){
+                // Profile-only initialization deliberately retains its physical
+                // owner without installing a world. It will never become ready.
+                boolean physicalOnly=support.profiles&&world.profileAssigned()&&!world.worldInstalled()&&!world.ready()&&
+                    "isolated_world_unsupported".equals(world.phase());
+                put("profile_only_initialization_verified",physicalOnly);
+                finishProbe(physicalOnly,physicalOnly?"isolated_world_unsupported":"device_profile_only_invalid");return;
+            }
             view.getSettings().setJavaScriptEnabled(true);
             view.setWebViewClient(new WebViewClient(){
                 @Override public void onPageStarted(WebView web,String url,android.graphics.Bitmap icon){

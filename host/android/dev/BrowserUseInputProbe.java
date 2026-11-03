@@ -68,6 +68,8 @@ final class BrowserUseInputProbe implements AutoCloseable {
             hover();
         }));});}catch(MdoBrowserInput.Failure error){fail(error.code);}
     }
+    private JSONObject hoverFailure;
+    JSONObject hoverFailure(){return hoverFailure;}
     private void hover(){
         read("(()=>{const r=hoverArea.getBoundingClientRect();return{width:innerWidth,x:r.left+r.width/2,y:r.top+r.height/2,focus:document.activeElement.id,downs:fixture.downs}})()",before->{
             final double x=before.getDouble("x"),y=before.getDouble("y"),scale=view.getWidth()/before.getDouble("width");
@@ -75,6 +77,7 @@ final class BrowserUseInputProbe implements AutoCloseable {
                 read("({events:fixture.hovers,hover: hoverArea.matches(':hover'),color:getComputedStyle(hoverArea).backgroundColor,focus:document.activeElement.id,clicks:fixture.clicks,downs:fixture.downs})",state->{
                     if(state.getJSONArray("events").length()!=1||!state.getBoolean("hover")||!state.getString("color").equals("rgb(12, 34, 56)")||
                        !state.getString("focus").equals(before.getString("focus"))||state.getInt("clicks")!=1||state.getInt("downs")!=before.getInt("downs")){
+                        hoverFailure=new JSONObject().put("before",before).put("after",state);
                         fail("device_hover_clicked_focused_or_replayed");return;
                     }
                     JSONObject event=state.getJSONArray("events").getJSONObject(0);
