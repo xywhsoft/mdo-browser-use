@@ -155,6 +155,10 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     status.textContent = controlPending ? controlPending === "release" ? "正在交还控制…" : "正在接管浏览器…" :
       controlNotice?.message || (phase === "loading" ? "正在加载…" : state.manual ? "已由你接管 · Agent 暂停操作" : "");
     status.hidden = !status.textContent;
+    // Routine loading is already shown by the tab and stop button. Keep its
+    // live announcement without changing the native viewport during navigation.
+    // Control/recovery notices remain visible so their cleanup guidance is usable.
+    status.classList.toggle("sr-only", phase === "loading" && !controlPending && !controlNotice?.message && !state.manual);
     if (document.activeElement !== address && !state.initial_navigation_pending) address.value = state.url === "about:blank" || empty ? "" : state.url || address.value;
     back.disabled = !state.can_go_back; forward.disabled = !state.can_go_forward;
     reload.setAttribute("aria-label", state.loading ? "停止加载" : "刷新"); reload.title = state.loading ? "停止加载" : "刷新";

@@ -22,19 +22,23 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview includes E197's specific native-control
-failure guidance, E184's receipt validation and W6's superseded-pane recovery.
-Control failures retain the displayed webpage; pending operations and stale
-state cannot grant UI ownership or automatically recreate/navigate a page.
-It is **6,943,880 bytes**, SHA-256
-`abf4836c3b00a8de17a500ec6b83bb7f708178a63108ff593bf4e103ee81074f`.
-Fresh actual WebView2 control 22, public C/JS SDK (19 actions, four navigation
-and five wait conditions), visual permissions and twelve packed runtime checks
-pass. All 510 JS tests pass. The matching signed Android archive passes native
-647 and frontend/JVM20 modes, ordinary create/control850 and actual DEX checks;
-these Android controlled-peer results do not qualify a device/provider.
-See the adjacent receipt and [current progress](progress.md). The overall Browser
-Use goal remains active; no official update/store publication occurred.
+The current verified Windows preview includes E199's stable loading viewport,
+E197's specific control-failure guidance and the existing ownership recovery.
+Routine loading keeps its live status announcement without consuming a layout
+row; manual/control/recovery notices remain visible. Actual mounted WebView2
+measurements preserve identical webpage/native bounds while loading.
+It is **6,944,015 bytes**, SHA-256
+`73c39b8432be1c3cd92e8950a3ae5fb938375fd4d58a3fdc28eb75b58722121a`.
+Fresh actual control28, public C/JS SDK19/navigation4/wait5, visual permissions,
+twelve integrated acceptance cases and packed runtime12 pass. JS512 and frontend/
+JVM20 pass; ordinary create850 and unchanged native647/134 inputs are explicit
+hash-verified reuse. The signed Android host uses this exact Windows archive and
+passes actual DEX checks, but remains unqualified for provider/device automation.
+Normal-main-UI accessibility exposed a separate SDK approval association defect:
+run_id0 requests are not presented in the selected conversation. It remains open;
+neither permission API tests nor mounted component checks close that UI gate.
+See [acceptance](acceptance.md) and [current progress](progress.md). The full goal
+remains active. No official update/store publication occurred.
 
 W5 fixes actual managed read-only screenshots timing out during panel mounting:
 the panel retains its browser's original run/workspace, while the action keeps

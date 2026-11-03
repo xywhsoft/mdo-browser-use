@@ -18,8 +18,10 @@ function fixture({realHelpers=false}={}){
   const trace=[],nodes=[],timers=new Map(),controller=new AbortController();let serial=0,current=true,cleanup=true,hook=()=>{},menu,options;
   const responses=new Map();
   const node=(tag='',className='',text='')=>{
+    const classes=new Set(className.split(/\s+/).filter(Boolean));
     const value={tag,className,textContent:text,hidden:false,style:{},dataset:{},children:[],value:'',
-      classList:{add(){},toggle(){}},setAttribute(name,value){this[name]=value;},append(...values){this.children.push(...values);},
+      classList:{add(...names){for(const name of names)classes.add(name);},contains(name){return classes.has(name);},
+        toggle(name,enabled=!classes.has(name)){if(enabled)classes.add(name);else classes.delete(name);return enabled;}},setAttribute(name,value){this[name]=value;},append(...values){this.children.push(...values);},
       replaceChildren(...values){this.children=values;},getBoundingClientRect:()=>({x:0,y:0,width:800,height:600}),getClientRects:()=>[{}],click(){return this.onclick?.();}};
     nodes.push(value);return value;
   };
@@ -140,6 +142,28 @@ test('valid recovery, navigation, page quotation and end still execute in order'
 test('retired pane asks the workbench to remount only on explicit visible layout',async()=>{
   const f=fixture();await f.start();await f.flush();f.retire();f.trace.length=0;
   await f.mount.visible(false);assert.equal(f.trace.length,0);await f.mount.visible(true);assert.deepEqual(f.trace.map(x=>x.method),['remount']);
+});
+
+test('routine loading keeps its live announcement without a visible status row',async()=>{
+  const f=fixture();f.state({loading:true});await f.start();await f.flush();
+  const status=f.nodes.find(n=>n.className==='wb-browser-status');
+  assert.equal(status.role,'status');assert.equal(status.hidden,false);assert.equal(status.textContent,'正在加载…');
+  assert(status.classList.contains('sr-only'));assert.equal(f.mount.status.status,'loading');
+  f.state({loading:false});await f.tick();
+  assert.equal(status.hidden,true);assert.equal(status.classList.contains('sr-only'),false);
+});
+
+test('loading cannot hide pending control or a failed control notice',async()=>{
+  const f=fixture();f.state({loading:true});await f.start();await f.flush();
+  const status=f.nodes.find(n=>n.className==='wb-browser-status');let finish;
+  f.response('takeover',new Promise(resolve=>{finish=resolve;}));
+  const pending=f.button('接管浏览器').click();await f.flush();
+  assert.equal(status.classList.contains('sr-only'),false);assert.match(status.textContent,/正在接管/);
+  finish({manual:true});await pending;await f.flush();
+  f.response('release',{ok:false,manual:true,error:{code:'network_owner_changed'},network_cleanup_confirmed:false});
+  await f.button('接管浏览器').click();await f.flush();
+  assert.equal(status.hidden,false);assert.equal(status.classList.contains('sr-only'),false);
+  assert.match(status.textContent,/交还控制失败/);assert.match(status.textContent,/清理尚未确认/);
 });
 test('initialization never advertises actionable UI before native creation completes',async()=>{
   const f=fixture();let finish;f.hook(method=>{if(method==='create')return new Promise(resolve=>{finish=resolve;});});

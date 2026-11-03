@@ -1,5 +1,5 @@
 // Actual component, DOM, broker and WebView2. Only failed control replies and
-// delayed UI delivery below are injected; successful control uses the host.
+// delayed UI delivery/loading state below are injected; successful control uses the host.
 import {createNativeBrowserBridge} from '/js/features/workbench/native-browser.js';
 import {createLocalApplicationClient} from '/js/api/application.js';
 import {mountBrowserView} from '/js/features/workbench/browser-view.js';
@@ -7,19 +7,24 @@ const context={extension:'browser-control-ui-qa',project:'default'},client='brow
 const api=createLocalApplicationClient(()=>context),native=createNativeBrowserBridge(),abort=new AbortController(),mount={};
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 let browser,view,checks=0,mode='',releaseDelivery,stage='startup',report;
-const calls=[];
+const calls=[],bounds=[];
 const assert=(value,message)=>{checks++;if(!value)throw Error(message);};
 async function until(predicate,message){const end=performance.now()+15000;while(performance.now()<end){if(await predicate())return;await pause(30);}throw Error(message);}
 const bridge={available:()=>native.available(),async call(command,params,options){
   if(command==='release'&&mode==='structured')return{ok:false,manual:true,error:{code:'network_owner_changed'},network_cleanup_confirmed:false};
   if(command==='release'&&mode==='malformed')return{manual:'false',error:{code:'bad_reply'}};
   if(command==='release'&&mode==='scalar')throw Error('network_return_blocked');
-  calls.push(command);const result=await native.call(command,params,options);
+  calls.push(command);if(command==='bounds')bounds.push({...params.bounds,visible:params.visible});
+  const result=await native.call(command,params,options);
+  if(command==='state'&&mode==='loading')return{...result,loading:true};
   if(command==='release'&&mode==='held')await new Promise(resolve=>{releaseDelivery=resolve;});
   return result;
 }};
 const style=document.createElement('style');style.textContent='body{margin:0;background:#171717;color:#eee;font-family:system-ui}#browser{position:absolute;inset:40px 0 0;display:flex;flex-direction:column;overflow:hidden}';document.head.append(style);
-const css=document.createElement('link');css.rel='stylesheet';css.href='/css/workbench.css';document.head.append(css);
+for(const path of ['/css/app.css','/css/workbench.css']){
+  const css=document.createElement('link');css.rel='stylesheet';css.href=path;
+  await new Promise((resolve,reject)=>{css.onload=resolve;css.onerror=()=>reject(Error('Control UI stylesheet unavailable'));document.head.append(css);});
+}
 const root=document.createElement('section');root.id='browser';root.className='wb-view';document.body.append(root);
 try{
   await api.call('client.hello',{client});
@@ -29,12 +34,26 @@ try{
     signal:abort.signal,mount,bridge,clientId:client,shown:()=>true,updateTitle:()=>{},openExternal:()=>{},onEnd:()=>{},addContext:()=>{}});
   await until(()=>root.dataset.browserPhase==='ready','Mounted page did not become ready');
   const button=root.querySelector('.wb-browser-manual'),status=root.querySelector('.wb-browser-status');
+  stage='loading-viewport';const surface=root.querySelector('.wb-browser-surface');
+  const rect=()=>{const r=surface.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};};
+  await new Promise(requestAnimationFrame);const readyRect=rect(),readyBounds=bounds.at(-1);
+  mode='loading';await until(()=>root.dataset.browserPhase==='loading','Loading state did not reach the actual component');
+  await new Promise(requestAnimationFrame);await pause(100);
+  const loadingRect=rect(),loadingBounds=bounds.at(-1);
+  assert(['x','y','width','height'].every(key=>Math.abs(readyRect[key]-loadingRect[key])<.5),
+    'Loading status resized the native page: '+JSON.stringify({ready:readyRect,loading:loadingRect,readyBounds,loadingBounds}));
+  assert(status.getAttribute('role')==='status'&&!status.hidden&&status.textContent==='正在加载…'&&getComputedStyle(status).position==='absolute',
+    'Loading announcement must stay accessible without consuming page layout');
+  mode='';await until(()=>root.dataset.browserPhase==='ready','Ready state did not recover');await new Promise(requestAnimationFrame);
+  assert(['x','y','width','height'].every(key=>Math.abs(readyRect[key]-rect()[key])<.5)&&status.hidden,
+    'Returning ready shifted the page or retained the loading announcement');
   const page=await native.call('state',{browser:browser.id});
   stage='native-takeover';button.click();await until(()=>button.getAttribute('aria-pressed')==='true'&&!button.disabled,'Actual takeover failed');
   assert((await native.call('state',{browser:browser.id})).manual===true,'Host did not transfer manual control');
   for(const failure of ['structured','malformed','scalar']){
     stage='injected-'+failure;mode=failure;button.click();
     await until(()=>!button.disabled&&status.textContent.includes('交还控制失败'),'Failed control notice missing');
+    assert(!status.hidden&&getComputedStyle(status).position!=='absolute','Control recovery notice was visually hidden');
     assert(button.getAttribute('aria-pressed')==='true','Failed reply granted UI authority');
     assert(root.dataset.browserPhase==='ready'&&root.querySelector('.wb-browser-message').hidden,'Failed control hid the webpage');
     assert((await native.call('state',{browser:browser.id})).manual===true,'Fault injection changed actual native ownership');
@@ -54,7 +73,8 @@ try{
   assert(status.hidden&&mount.status.message==='','Successful return retained an obsolete failure notice');
   report={passed:true,checks,backend:'actual-mounted-browser-view-webview2',native_takeover:true,native_return:true,
     same_page:true,injected_control_errors:['structured','malformed','scalar'],early_native_state_cannot_grant_ui:true,
-    duplicate_native_release:false,control_errors_are_not_page_errors:true,android_provider_qualified:false};
+    duplicate_native_release:false,control_errors_are_not_page_errors:true,android_provider_qualified:false,
+    loading_viewport_stable:true,loading_announcement_accessible:true,control_notices_visible:true,loading_geometry:{ready:readyRect,loading:loadingRect}};
 }catch(error){report={passed:false,stage,checks,error:String(error.message||error).slice(0,512)};}
 finally{
   releaseDelivery?.();abort.abort();mount.dispose?.();mount.observer?.disconnect();

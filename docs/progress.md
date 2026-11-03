@@ -15,6 +15,14 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Shared browser UI E199:** fix a measured loading-row viewport shift (native
+  714→692 height) while preserving the live announcement and visible control
+  errors. Fresh JS512/component55, actual control28, original viewport privacy30,
+  frontend20, public SDK/visual, integrated acceptance12, Windows/Android and packed12
+  pass. Native647/create850 are unchanged-source reuse. Normal-main-UI inspection
+  exposed SDK run_id0 approvals missing from the current conversation; this newly
+  confirmed association defect remains open and is the next product fix.
+
 - **Windows integration E198:** add one reproducible sequential acceptance command
   binding source/deployed/log/receipt/native identities. Twelve fresh cases cover
   package trust/recovery, managed tools/visual permissions, actual OOPIF transfers,
@@ -15428,3 +15436,51 @@ privacy fix or a retroactive explanation of the first incomplete receipt.
 The runtime check also binds actual loopback config contents and original Home
 and requires the same executable/config/Home before and after all cases.
 No product implementation or shipped payload change; goal remains active.
+
+
+## E199 — stable loading viewport, plus actual main-interface findings
+
+The actual browser-view component loaded in WebView2 moved webpage top86→108
+and height714→692 when its loading status appeared, forwarding the smaller
+native bounds. The red test is E199-loading-layout-red.log/json. Fix routine
+loading announcements using the existing sr-only base style while keeping the
+role=status text accessible; explicit pending/manual/control failure guidance
+stays visible. No CSS, native protocol, privacy mask or authority gate changes.
+Add two component cases and real DOM/native-bounds/loading announcement checks;
+also verify all three control-error notice kinds remain visibly positioned.
+Record exact deployed base/workbench styles alongside the source hashes.
+
+Fresh actual control28, component55/all JS512, Python178/180 (two existing Windows
+symlink privilege skips), frontend/JVM20, public SDK19/navigation4/wait5, visual
+permissions, full twelve-case sequential acceptance and packed runtime12 pass.
+The original full-viewport PNG/JPEG integer/fractional/small matrix passes thirty
+pairs with identical regions/dimensions/bytes after the repair; final fixed-scene
+privacy cases remain independent. Every live test/build handle ended before docs
+were changed. No extra app/Home/source/dependency copy, model or external browser
+request, phone/provider change, installation or online publication occurred.
+
+Fresh Windows 6,944,015 bytes SHA
+`73c39b8432be1c3cd92e8950a3ae5fb938375fd4d58a3fdc28eb75b58722121a`.
+Fresh complete lite-edition Android host 6,600,001 bytes SHA
+`a22aaf061e75572b72e9f64a802c98457b8825722b8db7576b5cc5f6e46f02fd`.
+Android consumes that exact verified Windows archive; actual DEX/package/native
+payload/signature/old-runtime gates pass. Unchanged native647/cleanup7137/worker300
+and all134 source hashes plus ordinary create850/async77 are explicitly reused,
+not new provider/device tests. Portable plugin remains unchanged E169 hash-verified.
+
+Normal main-window inspection used computer-use's returned unique development
+window and read its actual accessibility tree at the exact ask-QA session route.
+The graphics screenshot channel timed out twice; HTTP/client registration and
+accessibility stayed available. No normal-window pixel pass is claimed. The
+backend had one exact owned SDK browser_open approval (run_id0, no project/session
+descriptor fields), while the selected conversation showed no confirmation
+heading. Inspecting conversation-docks confirms it selects approvals only through
+Agent run IDs. Preserve E199-main-ui-approval-red.json, the bounded accessibility
+summaries and exact pending request lifecycle. It was cancelled/released, removed
+from approvals, caused zero browser creations and restored the original headless
+deployment. No UI permission decisions were made. This is a real separately
+confirmed SDK ownership/presentation defect, not fixed by this loading change.
+Next carry original validated project/session association into bounded approval
+data and scope the UI correctly; never globally display all run_id0 approvals.
+Android/provider/device and account-authenticated two-device qualification also
+remain open. The full goal stays active.
