@@ -1911,8 +1911,8 @@ selected timeline to reload and invalidate stale cached running state.
 
 ### Ordinary Android execution deadlines
 
-The main host's ordinary isolated-world scheduler measures request budgets with
-elapsed realtime. Its Handler timer periodically checks that original absolute
+The main host and standalone diagnostic ordinary-world schedulers measure
+request budgets with elapsed realtime. The Handler timer checks that original absolute
 deadline, including after resume, and never grants a new timeout. Scheduling is
 bounded to50ms uptime slices while the UI thread is runnable; it cannot execute
 during deep sleep or guarantee a realtime scheduling latency.

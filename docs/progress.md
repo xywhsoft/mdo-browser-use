@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android diagnostic clock E205:** align the independent diagnostic Activity
+  with the main host's elapsed request budget. Actual clocks from both callers
+  run the same production-world regression:18 scenarios/54 checks pass, with the
+  main cohort green and three diagnostic failures captured before the repair.
+  Diagnostic APK DEX now invokes elapsedRealtime; source/Java8/API26/build checks
+  pass. Fresh Python183/185 plus two skips, JS526 and acceptance13 pass. Native647/
+  frontend20/create850 are exact-input E204 reuse. No phone/provider qualification
+  or Android admission change is claimed.
+
 - **Android ordinary-world deadlines E204:** fix a demonstrated sleep-clock gap
   and native dispatch after timer-registration expiry/retirement. The main host
   uses elapsed time; bounded timer checks retain the original deadline and native
@@ -13264,6 +13273,8 @@ framework/provider/device qualification. Phone/current WebView remain deferred,
 with no ADB, live model, external page or production action. The overall goal
 remains active.
 
+
+
 ### E169 frame recovery and per-expression popup protection
 
 The actual shared dispatcher requested popup preparation before its frame
@@ -15809,3 +15820,49 @@ Activity still supplies its own uptime scheduler; bring that caller under the
 same contract before its next supported-provider run. Other uptime clocks need
 their own purpose-specific audit rather than a blanket replacement. Full goal
 remains active.
+
+## E205 — bring the standalone diagnostic caller under the same deadline contract
+
+The actual main host repaired in E204 is not the older standalone diagnostic
+Activity. Inspect both caller sources and actual APK definitions before changing
+anything: the full host does not contain BrowserUseDevActivity, while the
+diagnostic APK's scheduler now() really invokes uptimeMillis in DEX. The old
+diagnostic build receipt is retained, not treated as current source qualification.
+
+Extend the existing world regression to extract each caller's actual scheduler
+expression into a separately named test class in the same QA output. Main-host
+cases stay green; the diagnostic cohort fails late-after-sleep, exact deadline
+equality and held-provider-after-sleep. Retain E205-world-red.json/log. Change
+only the diagnostic caller to elapsedRealtime. Both nine-case cohorts now pass,
+with54 control checks plus unchanged world35/document86/profile396/native-budget18.
+The Android clocks and provider callbacks are controlled, not a physical sleep or
+installed-provider result. Other uptime consumers were not blanket-replaced.
+
+Build the standalone diagnostic APK with the existing SDK/JDK/output/signer.
+Actual DEX interface definitions identify its one World.Scheduler implementation;
+that method's real invoke-static instruction now targets elapsedRealtime, and
+Pending.checkDeadline is present. Inspect disassembly as bytes because unrelated
+DEX constant strings can use modified UTF-8. No test/platform/browser runtime
+dependency or native engine/Home copy is introduced.
+
+Current diagnostic APK983,443 bytes SHA
+`02e79e461a1c573859db14217263898b62262b66d0dd9ed78635d4dee4347e05`.
+Rebuild the main host too because its conservative source fingerprint covers
+diagnostic sources. Main-host DEX, app.xrtpack and libxs.so bytes are unchanged,
+and it still contains no diagnostic Activity. Current main APK6,608,193 bytes SHA
+`804cb8b55ba0c92e32fb60bb8943f638c95a50d84029462c833a7c30d711d828`.
+Both build/source receipts, actual DEX and main APK signature/payload/old-runtime
+gates pass using the same unchanged Windows archive. No installation was made.
+
+Fresh Python183/185 with two existing Windows symlink skips, JS526 and all13
+sequential integration cases pass with532 inputs/146 unchanged deployed outputs.
+E204 native647/cleanup7137/worker300, frontend20 and create850/async77 are explicitly
+reused with all134 native,11 frontend and18 create input hashes identical. Their
+receipt/class hashes are checked; no fresh run is claimed. Windows/full SDK/
+control/packed and E203 performance are unchanged-source reuse too.
+
+All test/build handles are terminal before documentation changes. The original
+Home is restored headless; phone/current WebView, public Android admission and
+all physical/framework qualification flags remain unchanged. Keep the broader
+goal active. Further clock audits must distinguish request budgets from Android
+input timestamps and user-interaction leases before proposing any replacement.

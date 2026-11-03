@@ -99,7 +99,7 @@ public final class BrowserUseDevActivity extends Activity {
             ClassLoader loader=WebView.getWebViewClassLoader();MdoBrowserWorld.Features support=features(loader);
             final WebView ownedView=view;
             world=new MdoBrowserDocument(view,loader,new MdoBrowserWorld.Scheduler(){
-                public long now(){return SystemClock.uptimeMillis();}
+                public long now(){return SystemClock.elapsedRealtime();}
                 public void post(Runnable task,long milliseconds){if(!handler.postDelayed(task,milliseconds))throw new IllegalStateException("UI scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
             },()->!finished&&view==ownedView,()->documentEpoch,support.profiles?"mdo.browseruse.dev":null);

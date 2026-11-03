@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E204)
+## Complete development host APK (current: E205)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`cc6c260a5841501a4483e9e428b0b2e12eb9883e4a270e42e24f5353bd473e7e`.
+`804cb8b55ba0c92e32fb60bb8943f638c95a50d84029462c833a7c30d711d828`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -133,6 +133,28 @@ frontend20, create850/async77, public integration13 and current APK/DEX/source/
 signature/old-runtime gates pass. Public admission is still false; no physical
 provider, Activity, sleep/Doze or new device result is inferred. The old standalone
 diagnostic Activity's scheduler remains a separate caller to align next.
+
+E205 aligns that independent diagnostic caller. The shared world gate now
+extracts the actual main-host and diagnostic scheduler expressions into separate
+cohorts in the same output. E205-world-red.json/log preserves three failures in
+the old diagnostic cohort while the main-host cohort passes. With the diagnostic
+Activity using elapsedRealtime, all18 scenarios/54 control checks pass alongside
+world35/document86/profile396/native-budget18. These are controlled clock/provider
+contracts, not installed framework or sleep/Doze qualification.
+
+`python tools/build_android_client.py` rebuilds the existing standalone diagnostic
+APK without connecting/installing a device. Current output is
+`.mdo/host/android-client/mdo-browser-use-dev.apk`,983,443 bytes SHA-256
+`02e79e461a1c573859db14217263898b62262b66d0dd9ed78635d4dee4347e05`.
+Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
+ordinary-world deadline method is defined. This package is a diagnostic variant;
+both artifacts share the development package ID, and device qualification selects
+the required variant. The full host has no diagnostic
+Activity; its DEX/application archive/native host bytes remain unchanged. Its
+APK is rebuilt and source/signature-checked because the common source fingerprint
+also includes diagnostic inputs. Native647/frontend20/create850 evidence is
+exact-input E204 reuse; fresh Python/JS/integration and both build gates do not
+enable public Android automation or qualify an installed provider.
 
 E163 routes a protected popup's native screenshot fences through its original
 attached document and shared connection. The native capture transaction obtains

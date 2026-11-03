@@ -249,6 +249,19 @@ Android gate stays disabled, and physical provider/Activity/sleep/Doze remain
 unqualified. The standalone diagnostic Activity's older scheduler is a distinct
 follow-up; this stage repairs the main-host path. Full goal is not complete.
 
+## Diagnostic scheduler consistency (E205)
+
+E205 also brings the older standalone diagnostic scheduler under the main host's
+elapsed deadline contract. Both actual caller expressions use the same world
+evaluator and regression fixture, in separate generated classes within the one
+QA output. The old diagnostic cohort fails three sleep/deadline cases while the
+main cohort stays green; final18 cases/54 control checks pass. Diagnostic APK DEX
+independently confirms the real clock instruction. Fresh Python183/185 plus two
+existing skips, JS526 and integration13 pass. Native647/frontend20/create850 are
+checked E204 exact-input reuse. Main APK/source/signature gates pass with unchanged
+DEX/app archive/native host contents, and the full host has no diagnostic Activity.
+No device/Activity/provider/sleep/Doze or Android admission pass is inferred.
+
 ## Remaining completion gates
 
 - Verify the installed Android main Activity/browser, actual provider input,
