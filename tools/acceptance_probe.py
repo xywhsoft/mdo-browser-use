@@ -124,6 +124,8 @@ def validate(name, receipt):
     elif name == "permission-decisions":
         require(receipt["headless_restored"] and receipt["model_calls"] == 0 and not receipt["visual_prompt_verified"],
                 "Permission API checks cannot qualify the rendered prompt")
+        require(type(receipt.get("tool_terminals_verified")) is int and receipt["tool_terminals_verified"] >= 10,
+                "Managed permission calls lack their original durable tool terminal pairs")
         require({"cancelled_prompt_cannot_accept_late_grant_and_next_tool_works",
                  "dispatched_cancel_retains_uncertainty_drains_ui_and_next_tool_works",
                  "run_scoped_grant_does_not_leak_to_next_native_drive",

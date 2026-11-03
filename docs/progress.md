@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **SDK lifecycle E201:** close a durably observed tool start after its direct
+  SDK executor drains on cancellation/failure, without duplicating normal ends,
+  inventing a model reply or losing dispatched-effect uncertainty. Fresh real SDK
+  regression, C37, ten native permission tool pairs, timeline isolation and the
+  actual packed executable pass. Python182/184 (two existing skips), JS520,
+  frontend20, control28, integration12, SDK/visual, matching Windows/Android/DEX
+  and packed12 pass. Main accessibility shows the failed summary; pixel/detail
+  expansion and Android/device gates remain open. Full goal remains active.
+
 - **Approval integration E200:** bind SDK requests to the original validated
   conversation, filter before the four-item budget and cancel obsolete scoped
   reads. Real six-request queue isolation, six JS race/ownership cases and actual
@@ -15546,3 +15555,58 @@ The APK consumes that exact verified Windows archive; the E169 portable plugin
 remains byte-identical. Keep the user's current WebView and deferred phone. No
 new app/Home/source/dependency copy, external website/model request, official
 update/store publication or production deployment. Full goal stays active.
+
+
+## E201 — terminal SDK tools must not remain running in conversation history
+
+Reproduce a fresh browser_open call while waiting for permission, cancel its
+original SDK operation, confirm terminal/cancelled and may_have_completed:false,
+then inspect the exact persisted call. Old code leaves only TOOL_START; retain
+E201-terminal-red.log/json. This is a confirmed product gap, not a conclusion
+drawn only from historical QA rows. xwork refuses TOOL_DONE through its cancelled
+event gate; normal Agent runs later close their streams, direct SDK drives have
+no enclosing Agent end. Do not invent one or modify upstream native xwork.
+
+Add an owned, reference-counted terminal observer around the exact SDK call.
+Only deep-owned call/tool strings and scalar event identity are retained; source
+event text is borrowed and is never kept. The observer shares the retained effect
+boundary, surviving descendant owners. A matching root start must be durably
+observed before it can be closed. After the executor drains, publish one failed
+tool end synchronously through its original session sink before releasing it.
+Foreign, descendant or unmatched events cannot close it; an existing normal end
+is not duplicated. No model message/Agent end/retry is created. Cancellation and
+deadline uncertainty remain conservative; failed persistence is surfaced and
+never automatically republished. Old ambiguous records are not rewritten.
+
+The actual cancelled SDK regression passes; its exact event pair projects to one
+failed tool, with another same-run-zero call untouched. Production C37 covers
+allocation failure, deep-owned IDs, retained lifetime, unmatched metadata,
+ordinary completion, timeout uncertainty and failed sink behavior. Nine native
+permission/recovery scenarios now also assert ten unique original start/done
+pairs. The acceptance validator rejects missing/incomplete terminal evidence.
+Actual normal main-window accessibility shows the current failed summary and
+elapsed time. An attempt to expand the ordinary tool details could not obtain
+desktop click geometry; record that limit separately. No permission UI decision
+was attempted, and no pixel/detail-expansion pass is claimed. Restore headless.
+
+Fresh Python182/184 (two existing Windows symlink skips), JS520, frontend/JVM20,
+actual control28, public SDK19/navigation4/wait5, visual permissions and all twelve
+sequential integration cases pass. The freshly packed executable independently
+runs the same original cancellation regression in its actual archive/Home before
+all twelve unchanged packed-runtime gates; the delivered pair passes the timeline
+checks too. Current acceptance binds 523 source inputs and141 applied outputs.
+Native647/cleanup7137/worker300/create850/async77 remain explicitly reused:133 exact
+input hashes plus verified unchanged native entries/fences in the aggregate
+overlay, whose new entries only affect shared application C/state/UI.
+
+Fresh Windows 6,948,835 bytes SHA
+`ad9a3e7e29db0010026cb254f89d485fd7f20b46d4ef74df90856a3ff8f9e5fa`.
+Fresh complete lite-edition Android host 6,604,097 bytes SHA
+`07ba0060146d404551193f765669e887203d39e6a336051543261f5c0ec1f9fc`.
+APK DEX/payload/signature/old-runtime gates pass using that exact Windows archive;
+the native Java classes and E169 portable plugin are unchanged. All handles were
+terminal before docs edits. Keep the deferred phone/current WebView and actual
+Activity/provider/device qualification separate. No additional app/Home/source/
+dependency copy, model/external website, production or official/store release.
+Full goal stays active, including physical/account-device and normal-window
+qualification plus remaining whole-product verification.

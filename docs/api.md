@@ -1874,3 +1874,16 @@ The decision endpoint and the public C/JS Browser Use SDK ABI are unchanged.
 The UI resets reads when selecting another conversation and rejects stale or
 mismatched responses. Explicit owner metadata takes precedence over legacy
 nonzero Agent run matching; an unowned `run_id:0` never matches all conversations.
+
+## SDK tool termination
+
+An observed SDK tool start now receives one durable failed tool end if its
+synchronous executor exits without delivering a terminal event. The end keeps
+the original Agent/run/call/tool identity, reaches the existing session event
+stream and live observers, and is written before releasing that session. No
+Agent completion or model-history result is invented. Normal completed tool
+receipts are retained unchanged. Pre-start failures do not create phantom rows.
+The SDK error's `may_have_completed` remains authoritative for uncertainty;
+`effect_applied:false` on a failed UI record is not proof of absence of effects.
+Uncertain failure text asks the user to inspect dispatched effects before retrying.
+Failed terminal persistence is reported and never retried automatically.

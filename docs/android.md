@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E200)
+## Complete development host APK (current: E201)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,604,097 bytes, SHA-256
-`d03df112025091c7f7ebb47270939b240930b87c7e78c364eff906e9fe1dfdb5`.
+`07ba0060146d404551193f765669e887203d39e6a336051543261f5c0ec1f9fc`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,7 +72,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the fresh verified E200 Windows
+key is included. The app archive is extracted from the fresh verified E201 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -99,13 +99,18 @@ Manual/control/error guidance stays visible. The complete APK is rebuilt from
 the matching current Windows archive. E197's647 JNI modes are reused with133
 exact native-input hashes plus verified
 equivalence of the changed aggregate overlay's native entries; its new entries
-only affect approval C/state/UI. This is explicit reuse, not a new physical
+only affect approval and SDK C/state/UI. This is explicit reuse, not a new physical
 Android run. Actual DEX definitions, payload/package/signature and old-runtime
 gates pass. E200 additionally binds managed approval scope to the original validated
 project/session, selects before the response limit and resets reads on selection.
 Windows normal-main-UI accessibility now presents the SDK run_id0 prompt with
 strict session isolation. Android uses the same shared implementation; it is not
 a new Activity/provider/device pass.
+E201 additionally closes a drained SDK executor's observed failed tool record
+without inventing an Agent turn or model result. Owned metadata/callback lifetimes
+and effect uncertainty are preserved. The shared C path is verified in the
+Windows source and actual packed executable; matching Android archive inclusion
+and APK/DEX checks are not a physical Android execution pass.
 Phone/WebView, global admission and provider/device qualification stay unchanged.
 
 E163 routes a protected popup's native screenshot fences through its original

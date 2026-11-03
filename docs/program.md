@@ -22,24 +22,28 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview includes E200's conversation-owned SDK
-approvals, E199's stable loading viewport and the existing ownership recovery.
-Managed SDK tools retain their validated project/session origin independently of
-Agent run IDs. Approval reads filter that scope before the four-item budget;
-switching conversations cancels obsolete reads. Normal main-window accessibility
-confirms one selected SDK prompt while five foreign approvals wait, and none
-after that request is cancelled. No UI permission button was clicked; normal
-window pixels and an actual user decision remain separate qualification gates.
-It is **6,946,477 bytes**, SHA-256
-`feebcb33a46cd7f860d7dc01334fb591f61ad6db69236bf1edd8fecd45de8160`.
-Fresh Python179/181 (two existing Windows symlink privilege skips), JS518,
-frontend/JVM20, actual control28, public SDK19/navigation4/wait5, visual permissions,
-twelve integrated acceptance cases and packed runtime12 pass. Native647 and
-ordinary create850 reuse133 exact input hashes plus verified unchanged native
-entries in the aggregate overlay. The matching signed
-Android host passes actual DEX/payload checks; provider/device automation remains
-unqualified. See [acceptance](acceptance.md) and [current progress](progress.md).
-The full goal remains active. No official update/store publication occurred.
+The current verified Windows preview includes E201's durable SDK tool-failure
+closure, E200's conversation-owned approvals and E199's stable loading viewport.
+Cancellation during approval used to leave only TOOL_START in the conversation:
+direct SDK calls have no enclosing Agent terminal event. After the executor has
+drained, the host now records exactly one failed terminal for that observed call,
+retaining its original identity and any uncertainty about dispatched effects.
+Normal completions keep their original receipt; no Agent turn/model reply or
+operation replay is invented. Old ambiguous history is not rewritten.
+It is **6,948,835 bytes**, SHA-256
+`ad9a3e7e29db0010026cb254f89d485fd7f20b46d4ef74df90856a3ff8f9e5fa`.
+Fresh Python182/184 (two Windows symlink privilege skips), JS520, frontend/JVM20,
+actual control28, public SDK19/navigation4/wait5, visual permissions and twelve
+integrated acceptance cases pass. Ten managed permission calls retain their
+original start/done pairs. The actual packed executable independently passes the
+cancellation regression, its timeline projection and packed runtime12. Normal-main
+accessibility shows the failed tool label; detail expansion/pixels remain
+unqualified because the desktop input helper has no click geometry.
+Native647/create850 reuse133 exact inputs plus verified unchanged native entries
+in the aggregate overlay. The matching signed Android host passes DEX/payload
+checks; physical Activity/provider/device qualification is still deferred.
+See [acceptance](acceptance.md) and [current progress](progress.md). The full goal
+remains active. No official update/store publication occurred.
 
 W5 fixes actual managed read-only screenshots timing out during panel mounting:
 the panel retains its browser's original run/workspace, while the action keeps

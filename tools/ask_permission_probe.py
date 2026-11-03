@@ -23,13 +23,14 @@ OWNER={'extension':'plugin.mdo.browser-use','project':'default','session':SESSIO
 class Probe:
     def __init__(self):
         self.jobs={};self.browser=None;self.cases=[];self.stage='startup';self.checks=0;self.took_deployment=False
+        self.event_cursors={};self.terminal_calls=set()
         self.output=dev.ENV/'ask-permission-result.json'
         self.report={'passed':False,'state':'running','scope':'managed-executor-decision-api-native-effects',
                      'visual_prompt_verified':False,'model_calls':0,'cases':self.cases}
         self.save()
 
     def save(self):
-        self.report.update(stage=self.stage,checks=self.checks)
+        self.report.update(stage=self.stage,checks=self.checks,tool_terminals_verified=len(self.terminal_calls))
         self.output.write_text(json.dumps(self.report,indent=2)+'\n',encoding='utf-8')
 
     def check(self,condition,reason):
@@ -45,6 +46,11 @@ class Probe:
 
     def start(self,name,args):
         identity='sdk-'+uuid.uuid4().hex
+        status,_,body=dev.request('GET',f'/api/v1/projects/default/sessions/{SESSION}/events?after=0&limit=1')
+        envelope=json.loads(body)
+        empty=status==404 and envelope.get('error',{}).get('code')=='session_events_unavailable'
+        self.check(status==200 or empty,'Original session event boundary unavailable')
+        self.event_cursors[identity]=0 if empty else envelope['data']['latest_event_id']
         request={'id':identity,'method':'tool.call','params':{'project':'default','session':SESSION,'tool':name,'arguments':args}}
         job=dev.call('operation.start',request,SCOPE)
         self.check(job['id']==identity,'Managed operation changed its identity')
@@ -81,9 +87,27 @@ class Probe:
             current=dev.call('operation.get',{'id':identity},SCOPE)
             if current.get('terminal'):
                 self.check(current['state']==expected,'Managed operation ended in an unexpected state: '+current['state'])
+                self.check_terminal(identity,current)
                 return read_operation_result(identity,SCOPE) if expected=='succeeded' else current
             time.sleep(.05)
         raise RuntimeError('Managed operation did not terminate')
+
+    def check_terminal(self,identity,current):
+        after=self.event_cursors[identity]
+        status,_,body=dev.request('GET',f'/api/v1/projects/default/sessions/{SESSION}/events?after={after}&limit=32')
+        self.check(status==200,'Terminal session event boundary unavailable')
+        rows=[r for r in json.loads(body)['data']['items'] if r['tool_call_id']==identity]
+        self.check([r['kind'] for r in rows]==['tool_start','tool_done'],
+                   'Managed tool did not retain exactly one original start/done pair')
+        start,end=rows
+        self.check((start['agent_id'],start['run_id'],start['agent_turn'],start['tool_name'])==
+                   (end['agent_id'],end['run_id'],end['agent_turn'],end['tool_name']),
+                   'Terminal event lost the original tool identity')
+        if current['state']!='succeeded':
+            self.check(not end['success'],'Cancelled tool was recorded as successful')
+            if current.get('error',{}).get('may_have_completed'):
+                self.check('inspect' in end['text'].lower(),'Uncertain dispatched effects were hidden in history')
+        self.terminal_calls.add(identity)
 
     def release(self,identity):
         dev.call('operation.release',{'id':identity},SCOPE);self.jobs.pop(identity)

@@ -87,6 +87,11 @@ python tools/download_ui_probe.py --default-workspace
 python tools/download_ui_probe.py --missing-default-workspace
 ```
 
+Keep this test order: the Python suite produces the real managed SDK cancellation
+receipt used by the JavaScript timeline integration checks. Both use the existing
+development deployment and Home; no model call or extra application copy is made.
+
+
 Generate the portable development plugin with `python tools/package_plugin.py`.
 The allowlisted JSON and SHA-256 inventory go to `dist/`; no app staging tree,
 Home, provider settings or browser profile is included. The installer uses the

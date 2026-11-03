@@ -1534,6 +1534,56 @@
       "before": "import { api } from \"../api/client.js\";\nimport { createResourceStore } from \"./store.js\";\nimport { isTransientReadError } from \"../api/read-recovery.js\";\nimport { t } from \"../i18n.js\";\nimport { runDecisionAction } from \"./decision-action.js\";\n\nexport const approvalsStore = createResourceStore({ total: 0, limit: 4, truncated: false, items: [] },\n  { recoverRead: isTransientReadError, retainDataOnError: isTransientReadError });\nexport const approvalDecisionStore = createResourceStore({ pending: [], submitted: [] });\nconst pending = new Set();\nconst submitted = new Set();\n\nfunction publishDecisions() {\n  approvalDecisionStore.setData({ pending: [...pending], submitted: [...submitted] });\n}\n\nexport function approvalDecisionStatus(value) {\n  const id = String(value);\n  return pending.has(id) ? \"pending\" : submitted.has(id) ? \"submitted\" : \"idle\";\n}\n\nfunction approvalId(value) {\n  const id = String(value ?? \"\");\n  if (!/^[1-9][0-9]*$/.test(id)) throw new TypeError(\"approval ID is invalid\");\n  return id;\n}\n\nexport function loadApprovals({ retry = false } = {}) {\n  if (!retry && approvalsStore.isPending()) return Promise.resolve(approvalsStore.get());\n  return approvalsStore.load(async signal => {\n    const data = (await api.get(\"/approvals\", { signal })).data;\n    if (signal.aborted) throw new DOMException(\"Approval read cancelled\", \"AbortError\");\n    if (!Array.isArray(data?.items)) throw new Error(t(\"approval.invalidResponse\", {}, \"权限审核响应无效\"));\n    const live = new Set(data.items.map((item) => String(item.id)));\n    let changed = false;\n    for (const id of submitted) {\n      if (live.has(id)) continue;\n      submitted.delete(id);\n      changed = true;\n    }\n    if (changed) publishDecisions();\n    return data;\n  }, { background: !retry });\n}\n\nexport async function decideApproval(value, decision) {\n  const id = approvalId(value);\n  if (!new Set([\"allow\", \"allow_run\", \"deny\"]).has(decision))\n    throw new TypeError(\"approval decision is invalid\");\n  if (approvalDecisionStatus(id) !== \"idle\") return false;\n  pending.add(id);\n  publishDecisions();\n  try {\n    await runDecisionAction({ path: `/approvals/${id}`, id, field: \"decision\", value: decision });\n    submitted.add(id);\n    publishDecisions();\n    // Acknowledgement completes the decision. Readback has its own quiet\n    // budget and final notice; it must neither delay nor fail this PUT.\n    void loadApprovals({ retry: true });\n    return true;\n  } finally {\n    pending.delete(id);\n    publishDecisions();\n  }\n}\n",
       "after_file": "host/approvals.js",
       "suffix": ""
+    },
+    {
+      "path": "app/include/mdo/agents.h",
+      "before": "bool MdoAgentSessionDriveNative(MdoAgentSession*,MdoAgentNativeDriveFn,void*,xwork_error*);",
+      "after": "bool MdoAgentSessionDriveNative(MdoAgentSession*,MdoAgentNativeDriveFn,void*,xwork_error*);\n/* SDK UI lifecycle only: record one observed failed call after its driver drains. */\nbool MdoAgentSessionRecordToolFailure(MdoAgentSession*,const xwork_event*,xwork_error*);"
+    },
+    {
+      "path": "app/src/agents/runtime.c",
+      "before": "bool MdoAgentSessionLastSequence(MdoAgentSession* Session,",
+      "after": "#include \"browser_use_native_tool_failure.inc.c\"\n\nbool MdoAgentSessionLastSequence(MdoAgentSession* Session,"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "#include \"browser_use_tool_outcome.inc.c\"",
+      "after": "#include \"browser_use_tool_outcome.inc.c\"\n#include \"browser_use_tool_terminal.inc.c\""
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "BuToolBoundary* Boundary;} SdkToolExecution;",
+      "after": "BuToolBoundary* Boundary;BuToolTerminal* Terminal;} SdkToolExecution;"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    SdkToolExecution Execution={C,P,NULL,BuToolBoundaryCreate()};",
+      "after": "    SdkToolExecution Execution={C,P,NULL,BuToolBoundaryCreate(),NULL};"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    if(!Execution.Boundary)return MdoApplicationError(E,\"sdk_allocation_failed\",\"Cannot retain tool execution boundary\",\"tool_admission\",503,false);",
+      "after": "    if(!Execution.Boundary)return MdoApplicationError(E,\"sdk_allocation_failed\",\"Cannot retain tool execution boundary\",\"tool_admission\",503,false);\n    Execution.Terminal=BuToolTerminalCreate(Execution.Boundary,C->InvocationId,Tool);\n    if(!Execution.Terminal){BuToolBoundaryRelease(Execution.Boundary);return MdoApplicationError(E,\"sdk_allocation_failed\",\"Cannot retain tool terminal identity\",\"tool_admission\",503,false);}"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    Options.OwnerUserData=Execution.Boundary;Options.OnOwnerRetain=BuToolBoundaryRetain;Options.OnOwnerRelease=BuToolBoundaryRelease;",
+      "after": "    Options.OnEvent=BuToolTerminalEvent;Options.EventUserData=Execution.Terminal;\n    Options.OwnerUserData=Execution.Terminal;Options.OnOwnerRetain=BuToolTerminalRetain;Options.OnOwnerRelease=BuToolTerminalRelease;"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    if(!Session){BuToolBoundaryRelease(Execution.Boundary);return MdoApplicationError(",
+      "after": "    if(!Session){BuToolTerminalRelease(Execution.Terminal);BuToolBoundaryRelease(Execution.Boundary);return MdoApplicationError("
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    MdoAgentSessionRelease(Agent);MdoSessionRelease(Session);*R=Execution.Result;",
+      "after": "    if(!BuToolTerminalFinish(Execution.Terminal,Agent,C,&Error))Ok=false;\n    MdoAgentSessionRelease(Agent);MdoSessionRelease(Session);*R=Execution.Result;"
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    BuToolBoundaryRelease(Execution.Boundary);return Report;",
+      "after": "    BuToolTerminalRelease(Execution.Terminal);BuToolBoundaryRelease(Execution.Boundary);return Report;"
     }
   ],
   "files": [
@@ -1960,6 +2010,14 @@
     {
       "source": "host/approval-owner.js",
       "target": "app/web/js/features/approvals/approval-owner.js"
+    },
+    {
+      "source": "host/native-tool-failure.inc.c",
+      "target": "app/src/agents/browser_use_native_tool_failure.inc.c"
+    },
+    {
+      "source": "host/tool-terminal.inc.c",
+      "target": "app/src/application/browser_use_tool_terminal.inc.c"
     }
   ]
 }

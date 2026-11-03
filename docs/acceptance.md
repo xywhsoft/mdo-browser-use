@@ -25,8 +25,8 @@ relay, external website, online publication or extra application copy is used.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 517 authoritative source inputs, all
-137 applied host outputs, each log/receipt, actual host
+The report binds 523 authoritative source inputs, all
+141 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
 revalidates these unchanged hashes and the live runtime; it explicitly reports
@@ -39,13 +39,13 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | --- | --- | --- |
 | One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
 | Shared C/JS API and Agent tools | `contracts.json` generates C registration/header and JS declarations; actual installed C services match all 13 schemas, plugin exports match every payload byte; 16 managed tools register | Verified Windows registration and shared contracts, not merely manifest presence |
-| Observation, exact references, waiting and native input | E200 current-code SDK19/navigation4/wait5/JS518; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
+| Observation, exact references, waiting and native input | E201 current-code SDK19/navigation4/wait5/JS520; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
-| Permissions and failure recovery | Fresh nine managed ask-decision cases (194 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
+| Permissions and failure recovery | Fresh nine managed ask-decision cases with ten original durable tool terminal pairs (236 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
 | Human control and resource lifetime | E197 actual main native request, current-source647 JVM/JNI modes, original cleanup7137, worker300, ordinary create850, frontend20 and fresh actual WebView2 control28; byte retention and independent ACK/native detach joins | Native/create proofs reuse E197:133 exact input hashes plus verified unchanged native entries in the aggregate overlay; fresh E199 mounted-control checks remain separate. Android peers remain controlled and do not qualify a physical WebView |
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E200 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
+| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E201 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
 
 The old standalone `.mdo/managed-visual-result.json` was false with an empty
@@ -118,6 +118,42 @@ heading disappears; foreign requests do not appear. Only read-only accessibility
 inspection was used; no permission UI button was clicked. The same development
 Home/runtime is restored headless. Screenshot pixels and an actual user's button
 decision are still not qualified.
+
+## SDK tool termination (E201)
+
+A new managed browser_open cancellation reproduces the historical stuck tool
+label: the operation is terminal/cancelled with no dispatched effects, but the
+durable journal has only its TOOL_START. xwork's cancellation gate suppresses the
+later TOOL_DONE; ordinary model runs have an enclosing terminal event, direct SDK
+drivers do not. Preserve E201-terminal-red.log/json; do not infer this solely from
+old rows or patch ambiguous historical calls.
+
+After the synchronous driver drains, retain only the original call's owned IDs
+and scalar event identity. If its start was durably observed without an end,
+publish one failed TOOL_DONE through that same session's existing event sink,
+before releasing the Agent/session. Existing normal terminal receipts are never
+duplicated. No Agent terminal, model message or tool retry is fabricated. Retained
+descendant ownership keeps callbacks and the effect boundary alive. Cancelled or
+timed out dispatch remains uncertain; failed sink publication is surfaced and is
+not automatically repeated.
+
+The original live SDK regression now has one exact start/end pair. Production C
+helper checks37 cover identity mismatch, deep-owned IDs, retained lifetime, OOM,
+ordinary completion, timeout uncertainty and sink failure. Ten original tool
+pairs are additionally checked across the nine native permission/recovery cases;
+the acceptance validator rejects reports that omit this gate. The actual applied
+timeline projects the cancelled record to one failed tool while a separate call
+sharing run_id0 remains running. Normal-main-window accessibility shows the failed
+summary; detail expansion was unavailable (desktop input geometry), so pixels and
+that expansion are not qualified. The original headless deployment is restored.
+
+The freshly packed executable separately runs that same SDK cancellation test
+against its own archive and existing Home, then passes all twelve unchanged
+packed-program gates. Its delivered event pair passes the two timeline checks.
+Matching Windows/Android archive hashes, APK DEX/signature/payload checks and all
+523 source inputs/141 applied outputs are bound in the current evidence. All test
+and build handles are terminal before documentation changes. No model/external
+website, additional app/Home/dependency copy, phone or publication was used.
 
 ## Remaining completion gates
 
