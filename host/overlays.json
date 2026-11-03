@@ -1447,6 +1447,93 @@
       "path": "tools/android/MdoBrowser.java",
       "before": ".put(\"isolated_world\",documentState(key))",
       "after": ".put(\"isolated_world\",documentState(key)).put(\"frame_automation\",protocolPopupFrameRouting(key))"
+    },
+    {
+      "path": "app/include/mdo/approvals.h",
+      "before": "#define MDO_APPROVAL_PENDING_MAX 32u",
+      "after": "#define MDO_APPROVAL_PROJECT_CAPACITY 65u\n#define MDO_APPROVAL_SESSION_CAPACITY 33u\n#define MDO_APPROVAL_PENDING_MAX 32u"
+    },
+    {
+      "path": "app/include/mdo/approvals.h",
+      "before": "    xwork_file_scope* Files;",
+      "after": "    xwork_file_scope* Files;\n    char ProjectId[MDO_APPROVAL_PROJECT_CAPACITY];\n    char SessionId[MDO_APPROVAL_SESSION_CAPACITY];"
+    },
+    {
+      "path": "app/include/mdo/approvals.h",
+      "before": "    char ToolName[MDO_APPROVAL_TOOL_CAPACITY];",
+      "after": "    char ProjectId[MDO_APPROVAL_PROJECT_CAPACITY];\n    char SessionId[MDO_APPROVAL_SESSION_CAPACITY];\n    char ToolName[MDO_APPROVAL_TOOL_CAPACITY];"
+    },
+    {
+      "path": "app/include/mdo/approvals.h",
+      "before": "bool MdoApprovalScopeInitialize(MdoApprovalScope* Scope, bool FullAccess);",
+      "after": "/* Immutable validated presentation owner; no authority is granted here. */\nbool MdoApprovalScopeBind(MdoApprovalScope* Scope, const char* ProjectId, const char* SessionId);\nbool MdoApprovalScopeInitialize(MdoApprovalScope* Scope, bool FullAccess);"
+    },
+    {
+      "path": "app/src/approvals/manager.c",
+      "before": "bool MdoApprovalScopeInitialize(MdoApprovalScope* Scope, bool FullAccess)",
+      "after": "#include \"browser_use_approval_scope.inc.c\"\n\nbool MdoApprovalScopeInitialize(MdoApprovalScope* Scope, bool FullAccess)"
+    },
+    {
+      "path": "app/src/approvals/manager.c",
+      "before": "    if ( !MdoApprovalCapture(&Captured, Request) ) goto unlock;",
+      "after": "    if ( !MdoApprovalCapture(&Captured, Request) ) goto unlock;\n    if ( Scope != NULL ) {\n        memcpy(Captured.ProjectId, Scope->ProjectId, sizeof(Captured.ProjectId));\n        memcpy(Captured.SessionId, Scope->SessionId, sizeof(Captured.SessionId));\n    }"
+    },
+    {
+      "path": "app/src/sessions/manager.c",
+      "before": "if(!B->Scope||!MdoApprovalScopeInitialize(B->Scope,!strcmp(Info.PermissionProfile,\"full-access\")))",
+      "after": "if(!B->Scope||!MdoApprovalScopeBind(B->Scope,Info.ProjectId,Info.Id)||!MdoApprovalScopeInitialize(B->Scope,!strcmp(Info.PermissionProfile,\"full-access\")))"
+    },
+    {
+      "path": "app/src/sessions/manager.c",
+      "before": "    if ( Active->PermissionScope == NULL ) return false;",
+      "after": "    if ( Active->PermissionScope == NULL ) return false;\n    if ( !MdoApprovalScopeBind(Active->PermissionScope, ProjectId, SessionId) ) {\n        MdoApprovalScopeRelease(Active->PermissionScope);\n        Active->PermissionScope = NULL;\n        return false;\n    }"
+    },
+    {
+      "path": "app/src/api/approvals.c",
+      "before": "        MdoApiValueSetUInt(Item, \"run_id\", Info->RunId) &&",
+      "after": "        MdoApiValueSetUInt(Item, \"run_id\", Info->RunId) &&\n        MdoApiValueSetString(Item, \"project_id\", Info->ProjectId) &&\n        MdoApiValueSetString(Item, \"session_id\", Info->SessionId) &&"
+    },
+    {
+      "path": "app/src/api/approvals.c",
+      "before": "bool MdoApiApprovalsRoute(MdoApiContext* Context)\n{\n    MdoApprovalSnapshot* Snapshot;\n    xwork_error Error;\n    xvalue* Data = xrtValueObject();\n    xvalue* Items = xrtValueArray();\n    size_t Total;\n    size_t Count;\n    size_t Index;\n    bool Ok;\n    memset(&Error, 0, sizeof(Error));\n    Snapshot = MdoApprovalSnapshotCreate(&Error);\n    Total = MdoApprovalSnapshotCount(Snapshot);\n    Count = Total < MDO_APPROVAL_API_LIMIT ? Total : MDO_APPROVAL_API_LIMIT;\n    Ok = Snapshot != NULL && Data != NULL && Items != NULL;\n    for ( Index = 0u; Ok && Index < Count; ++Index ) {\n        MdoApprovalInfo Info;\n        xvalue* Item = NULL;\n        memset(&Info, 0, sizeof(Info));\n        Info.Size = sizeof(Info);\n        Ok = MdoApprovalSnapshotAt(Snapshot, Index, &Info) &&\n            MdoApiApprovalValue(&Info, &Item) &&\n            MdoApiValueAppendTake(Items, &Item);\n        xrtValueRelease(Item);\n    }\n    if ( Ok ) Ok = MdoApiValueSetUInt(Data, \"total\", Total) &&\n        MdoApiValueSetUInt(Data, \"limit\", MDO_APPROVAL_API_LIMIT) &&\n        MdoApiValueSetBool(Data, \"truncated\", Total > Count) &&\n        MdoApiValueSetTake(Data, \"items\", &Items);\n    xrtValueRelease(Items);\n    MdoApprovalSnapshotRelease(Snapshot);\n    if ( !Ok ) {\n        xrtValueRelease(Data);\n        return MdoApiReplyError(Context, 503u, \"approvals_unavailable\",\n            \"Pending approvals could not be read\", NULL);\n    }\n    return MdoApiReplySuccessTake(Context, 200u, Data, NULL);\n}\n",
+      "after_file": "host/approval-route.inc.c",
+      "suffix": ""
+    },
+    {
+      "path": "app/src/api/approvals.c",
+      "before": "#include \"../../include/mdo/approvals.h\"",
+      "after": "#include \"../../include/mdo/approvals.h\"\n#include \"browser_use_approval_query.inc.c\""
+    },
+    {
+      "path": "app/web/js/features/chat/conversation-docks.js",
+      "before": "import { taskBelongsToSession } from \"../tasks/task-owner.js\";",
+      "after": "import { taskBelongsToSession } from \"../tasks/task-owner.js\";\nimport { approvalBelongsToSession } from \"../approvals/approval-owner.js\";"
+    },
+    {
+      "path": "app/web/js/features/chat/conversation-docks.js",
+      "before": "      runIds.has(String(item.run_id))) : [];",
+      "after": "      approvalBelongsToSession(item, selected.projectId, sessionId, runIds)) : [];"
+    },
+    {
+      "path": "app/web/js/app.js",
+      "before": "import { approvalsStore, loadApprovals } from \"./state/approvals.js\";",
+      "after": "import { approvalsStore, loadApprovals, selectApprovals, clearApprovals } from \"./state/approvals.js\";"
+    },
+    {
+      "path": "app/web/js/app.js",
+      "before": "      clearAsks();",
+      "after": "      clearAsks();\n      clearApprovals();"
+    },
+    {
+      "path": "app/web/js/app.js",
+      "before": "    void selectAsks(projectId, sessionId);",
+      "after": "    void selectAsks(projectId, sessionId);\n    void selectApprovals(projectId, sessionId);"
+    },
+    {
+      "path": "app/web/js/state/approvals.js",
+      "before": "import { api } from \"../api/client.js\";\nimport { createResourceStore } from \"./store.js\";\nimport { isTransientReadError } from \"../api/read-recovery.js\";\nimport { t } from \"../i18n.js\";\nimport { runDecisionAction } from \"./decision-action.js\";\n\nexport const approvalsStore = createResourceStore({ total: 0, limit: 4, truncated: false, items: [] },\n  { recoverRead: isTransientReadError, retainDataOnError: isTransientReadError });\nexport const approvalDecisionStore = createResourceStore({ pending: [], submitted: [] });\nconst pending = new Set();\nconst submitted = new Set();\n\nfunction publishDecisions() {\n  approvalDecisionStore.setData({ pending: [...pending], submitted: [...submitted] });\n}\n\nexport function approvalDecisionStatus(value) {\n  const id = String(value);\n  return pending.has(id) ? \"pending\" : submitted.has(id) ? \"submitted\" : \"idle\";\n}\n\nfunction approvalId(value) {\n  const id = String(value ?? \"\");\n  if (!/^[1-9][0-9]*$/.test(id)) throw new TypeError(\"approval ID is invalid\");\n  return id;\n}\n\nexport function loadApprovals({ retry = false } = {}) {\n  if (!retry && approvalsStore.isPending()) return Promise.resolve(approvalsStore.get());\n  return approvalsStore.load(async signal => {\n    const data = (await api.get(\"/approvals\", { signal })).data;\n    if (signal.aborted) throw new DOMException(\"Approval read cancelled\", \"AbortError\");\n    if (!Array.isArray(data?.items)) throw new Error(t(\"approval.invalidResponse\", {}, \"权限审核响应无效\"));\n    const live = new Set(data.items.map((item) => String(item.id)));\n    let changed = false;\n    for (const id of submitted) {\n      if (live.has(id)) continue;\n      submitted.delete(id);\n      changed = true;\n    }\n    if (changed) publishDecisions();\n    return data;\n  }, { background: !retry });\n}\n\nexport async function decideApproval(value, decision) {\n  const id = approvalId(value);\n  if (!new Set([\"allow\", \"allow_run\", \"deny\"]).has(decision))\n    throw new TypeError(\"approval decision is invalid\");\n  if (approvalDecisionStatus(id) !== \"idle\") return false;\n  pending.add(id);\n  publishDecisions();\n  try {\n    await runDecisionAction({ path: `/approvals/${id}`, id, field: \"decision\", value: decision });\n    submitted.add(id);\n    publishDecisions();\n    // Acknowledgement completes the decision. Readback has its own quiet\n    // budget and final notice; it must neither delay nor fail this PUT.\n    void loadApprovals({ retry: true });\n    return true;\n  } finally {\n    pending.delete(id);\n    publishDecisions();\n  }\n}\n",
+      "after_file": "host/approvals.js",
+      "suffix": ""
     }
   ],
   "files": [
@@ -1861,6 +1948,18 @@
     {
       "source": "host/browser-view.js",
       "target": "app/web/js/features/workbench/browser-view.js"
+    },
+    {
+      "source": "host/approval-scope.inc.c",
+      "target": "app/src/approvals/browser_use_approval_scope.inc.c"
+    },
+    {
+      "source": "host/approval-query.inc.c",
+      "target": "app/src/api/browser_use_approval_query.inc.c"
+    },
+    {
+      "source": "host/approval-owner.js",
+      "target": "app/web/js/features/approvals/approval-owner.js"
     }
   ]
 }

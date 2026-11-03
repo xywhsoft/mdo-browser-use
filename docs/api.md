@@ -1857,3 +1857,20 @@ view. Fresh UI registry, contents-swap/pending-target joins and exact child
 teardown remain required before enabling the product route. Requests are bounded,
 single-use, cancellation-aware and delivered only to the current original UI;
 public JS/C signatures and Android capability flags remain unchanged.
+# Conversation-owned permission prompts
+
+Managed SDK tool execution retains the validated product project/session in its
+shared permission scope. Pending approval metadata includes `project_id` and
+`session_id` even when `run_id` is zero. These fields describe the original
+conversation; they do not authorize execution or change permission decisions.
+Descendants retain that same origin independently of their individual run IDs.
+
+The host UI reads `GET /api/v1/approvals?project_id=<id>&session_id=<id>`.
+Both IDs are required together, exactly once; malformed scopes return400.
+Filtering happens before the existing four-item response limit. `total` and
+`truncated` describe the filtered scope; `pending_total` retains the global
+pending count. The unfiltered endpoint keeps its existing global behavior.
+The decision endpoint and the public C/JS Browser Use SDK ABI are unchanged.
+The UI resets reads when selecting another conversation and rejects stale or
+mismatched responses. Explicit owner metadata takes precedence over legacy
+nonzero Agent run matching; an unowned `run_id:0` never matches all conversations.

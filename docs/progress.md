@@ -15,13 +15,22 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Approval integration E200:** bind SDK requests to the original validated
+  conversation, filter before the four-item budget and cancel obsolete scoped
+  reads. Real six-request queue isolation, six JS race/ownership cases and actual
+  main-window accessibility pass. Python179/181 (two existing skips), JS518,
+  frontend20, actual control28, integration12, SDK/visual and matching Windows/
+  Android/DEX/packed12 pass. Native647/create850 are unchanged-source reuse.
+  Actual permission-button, normal-window pixels, Android/device qualification
+  and the broader goal remain open.
+
 - **Shared browser UI E199:** fix a measured loading-row viewport shift (native
   714→692 height) while preserving the live announcement and visible control
   errors. Fresh JS512/component55, actual control28, original viewport privacy30,
   frontend20, public SDK/visual, integrated acceptance12, Windows/Android and packed12
   pass. Native647/create850 are unchanged-source reuse. Normal-main-UI inspection
   exposed SDK run_id0 approvals missing from the current conversation; this newly
-  confirmed association defect remains open and is the next product fix.
+  confirmed association defect is repaired by E200.
 
 - **Windows integration E198:** add one reproducible sequential acceptance command
   binding source/deployed/log/receipt/native identities. Twelve fresh cases cover
@@ -15484,3 +15493,56 @@ Next carry original validated project/session association into bounded approval
 data and scope the UI correctly; never globally display all run_id0 approvals.
 Android/provider/device and account-authenticated two-device qualification also
 remain open. The full goal stays active.
+
+
+## E200 — SDK approval conversation ownership and queue visibility
+
+Fix the actual main-interface defect found in E199. Managed SDK execution uses
+run_id0, so Agent-run-only dock filtering discarded its pending approvals. The
+global four-row API limit also hid later sessions. Preserve both real red reports
+(E200-approval-owner-red.log and E200-scope-queue-red.log) before the repair.
+
+Bind immutable project/session IDs only from the session manager's validated
+product session, before it publishes the shared live permission scope. Borrowed
+and active scopes retain the same origin; conflicting rebinding fails. Copy that
+origin into each owned approval snapshot. Existing run grants, read-only/full
+access, deadlines, cancellation, one-shot decisions and scope refcounts stay in
+place. Scoped GET /approvals requires both project_id and session_id exactly once;
+it filters a bounded snapshot before its existing four-row/response-size budget.
+pending_total retains the global count; total/truncated describe the selected
+scope. The frontend keeps the global count for polling, resets on navigation,
+rejects mismatched scope responses and blocks late old reads from publishing.
+Explicit ownership wins; an unknown SDK run_id0 is never displayed everywhere.
+
+Two real managed regressions and six JS cases pass. Six pending original SDK
+operations prove the last session is readable despite missing from the global
+first four, wrong projects stay empty, malformed queries fail and all callbacks
+cancel/release without native effects. Actual normal-main-window accessibility
+shows exactly one selected prompt while five foreign requests wait; cancellation
+removes it without exposing those foreign requests. Evidence: bounded E200-main-
+ui-prompt.txt, E200-main-ui-after-cancel.txt and the restored lifecycle receipt.
+No UI permission button or model request was used. Normal-window pixels and an
+actual user's decision remain unqualified; the separate synthetic decision API
+integration continues to test allow/deny/replay/run-scope/cancel/native effects.
+
+Fresh Python179/181 (two pre-existing Windows symlink skips), all JS518,
+frontend/JVM20, actual WebView2 control28, public SDK19/navigation4/wait5, visual
+permissions, sequential integrated acceptance12 and packed runtime12 pass.
+The fresh acceptance receipt binds 517 authoritative source inputs and all137 applied
+outputs. Native647, cleanup7137/worker300 and ordinary create850/async77 are
+reused with133 exact input hashes and a verified equivalent native projection of
+the changed aggregate overlay (all prior rows unchanged; added rows only affect
+approval C/state/UI). The native harness's two extracted fence lists are unchanged.
+This supporting overlay proof is recorded separately from exact hashes. These
+native modes were not freshly rerun or
+promoted to physical Android qualification. Actual APK DEX/payload/signature and
+old-runtime checks pass. Every test/build handle was terminal before docs edits.
+
+Fresh Windows 6,946,477 bytes SHA
+`feebcb33a46cd7f860d7dc01334fb591f61ad6db69236bf1edd8fecd45de8160`.
+Fresh complete lite-edition Android host 6,604,097 bytes SHA
+`d03df112025091c7f7ebb47270939b240930b87c7e78c364eff906e9fe1dfdb5`.
+The APK consumes that exact verified Windows archive; the E169 portable plugin
+remains byte-identical. Keep the user's current WebView and deferred phone. No
+new app/Home/source/dependency copy, external website/model request, official
+update/store publication or production deployment. Full goal stays active.

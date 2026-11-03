@@ -25,8 +25,8 @@ relay, external website, online publication or extra application copy is used.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 509 authoritative source inputs, all
-127 applied host outputs, each log/receipt, actual host
+The report binds 517 authoritative source inputs, all
+137 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
 revalidates these unchanged hashes and the live runtime; it explicitly reports
@@ -39,13 +39,13 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | --- | --- | --- |
 | One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
 | Shared C/JS API and Agent tools | `contracts.json` generates C registration/header and JS declarations; actual installed C services match all 13 schemas, plugin exports match every payload byte; 16 managed tools register | Verified Windows registration and shared contracts, not merely manifest presence |
-| Observation, exact references, waiting and native input | E199 current-code SDK19/navigation4/wait5/JS512; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
+| Observation, exact references, waiting and native input | E200 current-code SDK19/navigation4/wait5/JS518; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
-| Permissions and failure recovery | Fresh nine managed ask-decision cases (194 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions and native recovery verified; rendered permission prompt still unverified |
-| Human control and resource lifetime | E197 actual main native request, current-source647 JVM/JNI modes, original cleanup7137, worker300, ordinary create850, frontend20 and fresh actual WebView2 control28; byte retention and independent ACK/native detach joins | Native/create proofs are E197 source-hash-verified reuse; fresh E199 mounted-control checks remain separate. Android peers remain controlled and do not qualify a physical WebView |
+| Permissions and failure recovery | Fresh nine managed ask-decision cases (194 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
+| Human control and resource lifetime | E197 actual main native request, current-source647 JVM/JNI modes, original cleanup7137, worker300, ordinary create850, frontend20 and fresh actual WebView2 control28; byte retention and independent ACK/native detach joins | Native/create proofs reuse E197:133 exact input hashes plus verified unchanged native entries in the aggregate overlay; fresh E199 mounted-control checks remain separate. Android peers remain controlled and do not qualify a physical WebView |
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E199 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
+| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E200 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
 
 The old standalone `.mdo/managed-visual-result.json` was false with an empty
@@ -76,7 +76,7 @@ outputs under `.mdo/qa/capture-privacy/`, by content hash; no user's page or raw
 native source is saved. The final acceptance command enables this evidence.
 No product mask/runtime code or privacy gate was changed for this fixture repair.
 
-## Current main-interface findings (E199)
+## Current main-interface findings (E199–E200)
 
 The actual mounted browser component reproduced a loading layout defect:
 native webpage height714 became692 and top86 became108 when its ordinary
@@ -87,18 +87,37 @@ visible. Actual DOM/native bounds now remain identical during loading, and the
 original viewport privacy matrix also passes thirty pairs. That is independent
 evidence; it does not retroactively prove the cause of E198's incomplete receipt.
 
-Normal main-window UI Automation successfully identifies the real selected QA
+E199 normal main-window UI Automation identified the real selected QA
 conversation and its ask-mode composer. The screenshot channel timed out twice;
 normal-window framebuffer/pixel presentation remains unverified. A real SDK
-managed browser_open request remains pending in the backend with run_id0 and no
-project/session fields in its approval descriptor, but this conversation has no
-approval heading. The frontend filters approvals through registered Agent run
-identities. This is a confirmed missing SDK-to-conversation association. The
+managed browser_open request was pending with run_id0 and no project/session
+fields in its approval descriptor, but the conversation had no approval heading.
+The prior frontend filtered approvals through registered Agent run identities.
+This confirmed a missing SDK-to-conversation association. The
 exact QA request was cancelled/released, its approval disappeared and no browser
 was created. No UI permission button was clicked; no model request was made.
 Do not display every run_id0 request in every conversation. Carry original,
 validated ownership into approval data and retain strict selected-scope filtering.
-This defect is not repaired by E199 and remains a required next implementation.
+E200 repairs this defect: the durable session manager binds immutable scope
+ownership before runtime admission; snapshots deep-copy the origin; scoped API
+reads select before the existing four-item budget. The UI uses exact explicit
+ownership, cancels obsolete reads and refuses mismatched scope responses. It
+never admits an unscoped run_id0 through the legacy run-ID fallback.
+
+Two real red regressions reproduce missing origin and six-global-versus-one-
+selected results. Six simultaneously pending managed SDK operations now return
+only the last session's own request even when it is absent from the global first
+four. Invalid/partial/duplicate scopes fail closed. All six operations cancel and
+release without native effects. Six JS cases cover selection races, foreign or
+partial identity, nonzero legacy runs and response scope validation.
+
+In the actual normal main window, accessibility now exposes exactly one
+"需要确认" heading plus its allow/deny controls for the selected QA conversation
+while five foreign approvals wait. After cancelling the selected request, that
+heading disappears; foreign requests do not appear. Only read-only accessibility
+inspection was used; no permission UI button was clicked. The same development
+Home/runtime is restored headless. Screenshot pixels and an actual user's button
+decision are still not qualified.
 
 ## Remaining completion gates
 
@@ -107,9 +126,9 @@ This defect is not repaired by E199 and remains a required next implementation.
   the current WebView. Overall Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.
-- Fix the confirmed SDK approval association defect, then exercise the actual
-  main-interface permission prompt and its user decision,
-  rather than only the decision API/managed worker. Current reports keep
+- Exercise an actual main-interface user decision. E200 confirms the prompt
+  through normal-window accessibility; button action/pixel qualification remains
+  separate from the decision API/managed worker. Current reports keep
   `rendered_permission_prompt_qualified:false`.
 - Qualify account-authenticated two-device routing where required by the shared
   device workflow. Current native bridge tests intentionally keep account and

@@ -32,6 +32,8 @@ class ManagedPermissionCancellationTests(unittest.TestCase):
                 if approval:break
                 time.sleep(.05)
             self.assertIsNotNone(approval,'Original managed approval was not observed')
+            self.assertEqual(approval.get('project_id'),'default')
+            self.assertEqual(approval.get('session_id'),session)
             dev.call('operation.cancel',{'id':identity},scope)
             deadline=time.monotonic()+5;current={}
             while time.monotonic()<deadline:

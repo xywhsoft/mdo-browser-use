@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E199)
+## Complete development host APK (current: E200)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,600,001 bytes, SHA-256
-`a22aaf061e75572b72e9f64a802c98457b8825722b8db7576b5cc5f6e46f02fd`.
+Current APK: 6,604,097 bytes, SHA-256
+`d03df112025091c7f7ebb47270939b240930b87c7e78c364eff906e9fe1dfdb5`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,7 +72,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the fresh verified E199 Windows
+key is included. The app archive is extracted from the fresh verified E200 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -96,11 +96,16 @@ unchanged. See the current verification scope in [progress](progress.md).
 E199 updates the shared browser UI: an ordinary loading live announcement stays
 available to accessibility while no longer changing the native viewport size.
 Manual/control/error guidance stays visible. The complete APK is rebuilt from
-the matching current Windows archive. Native Java/control implementations and
-all134 source inputs of E197's647 JNI modes are unchanged and revalidated by hash;
-this is explicit reuse, not a new physical Android run. Actual DEX definitions,
-payload/package/signature and old-runtime gates pass. Main SDK approval UI
-association (run_id0) is a separately confirmed outstanding integration defect.
+the matching current Windows archive. E197's647 JNI modes are reused with133
+exact native-input hashes plus verified
+equivalence of the changed aggregate overlay's native entries; its new entries
+only affect approval C/state/UI. This is explicit reuse, not a new physical
+Android run. Actual DEX definitions, payload/package/signature and old-runtime
+gates pass. E200 additionally binds managed approval scope to the original validated
+project/session, selects before the response limit and resets reads on selection.
+Windows normal-main-UI accessibility now presents the SDK run_id0 prompt with
+strict session isolation. Android uses the same shared implementation; it is not
+a new Activity/provider/device pass.
 Phone/WebView, global admission and provider/device qualification stay unchanged.
 
 E163 routes a protected popup's native screenshot fences through its original
