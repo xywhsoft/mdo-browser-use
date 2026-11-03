@@ -198,6 +198,12 @@ def main():
                                                                'MdoBrowserCdpOwnerScripts.java','MdoBrowserCdpFrameRequest.java','MdoBrowserCdpFrameChain.java','MdoBrowserCdpInput.java','MdoBrowserNativeInput.java','MdoBrowserCdpCapture.java','MdoBrowserCdpFileInput.java','MdoBrowserCdpChoosers.java','MdoBrowserCdpUploadScripts.java','MdoBrowserCdpUpload.java','MdoBrowserUploadCoordinator.java','MdoBrowserUploadStore.java','MdoBrowserUploadFiles.java','MdoBrowserUploadUris.java','MdoBrowserDownloadFiles.java','MdoBrowserDownloadQueue.java','MdoBrowserCdpDownloads.java','MdoBrowserUploadQueue.java','MdoBrowserChoosers.java','MdoBrowserPrivatePicker.java','MdoBrowserChannel.java','MdoBrowserCapture.java',
                                                                'MdoBrowserInput.java','MdoBrowserWheel.java','MdoBrowserLifecycle.java','MdoBrowserPopups.java')],
                     str(generated),str(upload_generated),str(download_generated),str(popup_product),*map(str,javas),*map(str,json_sources)],cwd=ROOT,check=True)
+    input_clock=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
+                    '-cp',str(classes),'org.xserver.android.CdpPopupWorkerProbe','input-clock'],cwd=ROOT,env=environment,text=True,timeout=30))
+    if (not input_clock.get('passed') or input_clock.get('no_poll_time_acceleration') is not True
+            or input_clock.get('original_input_deadline') is not True or input_clock.get('framework_verified') is not False):
+        raise RuntimeError('The native input fixture clock advanced while only polling')
+    result['jvm_input_surface_clock']=input_clock
     vm=json.loads(subprocess.check_output([str(java/'bin/java'),'-Xcheck:jni','-Djava.library.path='+str(output),
                     '-cp',str(classes),'org.xserver.android.CdpNativeProbe'],cwd=ROOT,env=environment,text=True,timeout=30))
     if not vm.get('passed') or not vm.get('read_only_browser_discovery') or not vm.get('browser_transport') or not vm.get('real_jvm_jni') or not vm.get('native_popup_close_join') or vm.get('data_only_cancel_cycles')!=12 or vm.get('data_only_browser_cancel_cycles')!=4:

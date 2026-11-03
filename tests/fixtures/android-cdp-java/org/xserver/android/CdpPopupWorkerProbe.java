@@ -2457,9 +2457,21 @@ public final class CdpPopupWorkerProbe {
     private static final class InputSurface implements MdoBrowserLifecycle.Factory<WebView>,MdoBrowserInput.Scheduler {
         final java.util.IdentityHashMap<WebView,List<String>> events=new java.util.IdentityHashMap<>();
         final java.util.TreeMap<Long,List<Runnable>> timers=new java.util.TreeMap<>();long time=100;Runnable afterDown;
-        public long now(){return time;}public void post(Runnable task,long delay){timers.computeIfAbsent(time+delay,k->new ArrayList<>()).add(task);}
+        final LongSupplier clock;long sampled;
+        InputSurface(){this(System::nanoTime);}InputSurface(LongSupplier clock){this.clock=clock;sampled=clock.getAsLong();}
+        public long now(){long delta=TimeUnit.NANOSECONDS.toMillis(clock.getAsLong()-sampled);
+            if(delta>0){time+=delta;sampled+=TimeUnit.MILLISECONDS.toNanos(delta);}return time;}
+        public void post(Runnable task,long delay){timers.computeIfAbsent(now()+delay,k->new ArrayList<>()).add(task);}
         public void remove(Runnable task){for(List<Runnable> row:timers.values())row.removeIf(value->value==task);timers.entrySet().removeIf(row->row.getValue().isEmpty());}
-        void pump(){if(!timers.isEmpty()&&timers.firstKey()-time<100){time=Math.max(time,timers.firstKey());List<Runnable> due=timers.pollFirstEntry().getValue();for(Runnable task:due)task.run();}}
+        void pump(){
+            // Native guards execute on a real worker. Polling their completion
+            // must not fast-forward each newly posted50ms watchdog slice.
+            for(int i=0;i<128;i++){
+                if(timers.isEmpty()||timers.firstKey()>now())return;
+                List<Runnable> due=timers.pollFirstEntry().getValue();for(Runnable task:due)task.run();
+            }
+            throw new AssertionError("Unbounded native input timer queue");
+        }
         public MdoBrowserInput create(WebView view,LongSupplier epoch,BooleanSupplier admitted){
             List<String> sent=new ArrayList<>();events.put(view,sent);
             return new MdoBrowserInput(new MdoBrowserInput.Target(){
@@ -2473,6 +2485,32 @@ public final class CdpPopupWorkerProbe {
                 public boolean text(String value){return send("text:"+value);}
             },this);
         }
+    }
+    private static void inputSurfaceClock()throws Exception {
+        int start=checks.get();java.util.concurrent.atomic.AtomicLong nanos=new java.util.concurrent.atomic.AtomicLong();
+        InputSurface surface=new InputSurface(nanos::get);WebView view=new WebView();
+        MdoBrowserInput input=surface.create(view,()->1,()->true);List<MdoBrowserInput.Result> results=new ArrayList<>();List<MdoBrowserInput.Checked> guards=new ArrayList<>();
+        input.hover(20,30,(remaining,done)->{check(remaining>0&&remaining<=500);guards.add(done);},results::add);
+        for(int i=0;i<256;i++)surface.pump();
+        if(surface.time!=100||!results.isEmpty())throw new AssertionError("InputSurface advanced virtual time without clock ticks: "+surface.time);
+        check(guards.size()==1&&input.busy()&&surface.events.get(view).isEmpty());
+        nanos.addAndGet(TimeUnit.MILLISECONDS.toNanos(100));surface.pump();
+        check(surface.now()==200&&results.isEmpty()&&input.busy());guards.get(0).complete(null);
+        check(results.size()==1&&results.get(0).ok&&surface.events.get(view).size()==1&&input.cleanupConfirmed()&&surface.timers.isEmpty());
+
+        nanos.set(0);InputSurface gesture=new InputSurface(nanos::get);WebView touched=new WebView();MdoBrowserInput tap=gesture.create(touched,()->1,()->true);
+        List<MdoBrowserInput.Result> tapped=new ArrayList<>();tap.tap(10,20,tapped::add);for(int i=0;i<256;i++)gesture.pump();
+        check(gesture.time==100&&tapped.isEmpty()&&gesture.events.get(touched).equals(java.util.Arrays.asList("touch:0")));
+        nanos.addAndGet(TimeUnit.MILLISECONDS.toNanos(47));gesture.pump();check(tapped.isEmpty());
+        nanos.addAndGet(TimeUnit.MILLISECONDS.toNanos(1));gesture.pump();
+        check(tapped.size()==1&&tapped.get(0).ok&&gesture.events.get(touched).equals(java.util.Arrays.asList("touch:0","touch:1"))&&gesture.timers.isEmpty());
+
+        nanos.set(0);InputSurface expired=new InputSurface(nanos::get);WebView target=new WebView();MdoBrowserInput held=expired.create(target,()->1,()->true);
+        List<MdoBrowserInput.Result> failed=new ArrayList<>();List<MdoBrowserInput.Checked> waiting=new ArrayList<>();
+        held.hover(20,30,(remaining,done)->waiting.add(done),failed::add);expired.pump();
+        nanos.addAndGet(TimeUnit.MILLISECONDS.toNanos(501));expired.pump();check(failed.size()==1&&failed.get(0).code.equals("input_timed_out")&&!failed.get(0).effectMayHaveOccurred);
+        waiting.get(0).complete(null);check(failed.size()==1&&expired.events.get(target).isEmpty()&&held.cleanupConfirmed()&&expired.timers.isEmpty());
+        System.out.println("{\"passed\":true,\"checks\":"+(checks.get()-start)+",\"no_poll_time_acceleration\":true,\"original_input_deadline\":true,\"framework_verified\":false}");
     }
     private static JSONObject inputPopup(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer,InputSurface surface)throws Exception {
         product.windows.put("owned",new MdoBrowserPopups<>(view,new MdoBrowserPopups.Scheduler(){
@@ -2502,6 +2540,7 @@ public final class CdpPopupWorkerProbe {
         boolean held=java.util.Arrays.asList("cancel","late","focus-timeout","channel").contains(name);
         if(held)renderer.holdMethod="Page.getFrameTree";
         if(name.equals("afterdown"))surface.afterDown=()->product.views.input("owned",view).invalidate("input_cancelled");
+        long inputStartedClock=surface.now(),inputStartedAt=System.nanoTime();
         product.inputRpc("owned",request);
         if(name.equals("focus-retired"))product.popupHandoff("owned").close();
         if(held){
@@ -2518,7 +2557,8 @@ public final class CdpPopupWorkerProbe {
         List<String> sent=surface.events.get(view);JSONObject result=product.publicReplies.get("input");
         if(name.equals("channel"))check(result==null&&product.publicCounts.getOrDefault("input",0)==0&&sent.isEmpty());
         else{
-            if(result.optBoolean("accepted")!=success)throw new AssertionError("Protected input "+name+" failed: "+result);
+            if(result.optBoolean("accepted")!=success)throw new AssertionError("Protected input "+name+" failed: "+result+
+                " virtual_ms="+(surface.time-inputStartedClock)+" wall_ms="+TimeUnit.NANOSECONDS.toMillis(System.nanoTime()-inputStartedAt));
             check(product.publicCounts.get("input")==1&&result.optBoolean("cleanup_confirmed"));
             if(result.optBoolean("effect_may_have_occurred")!=(success||name.equals("afterdown")||name.equals("focus-timeout")))throw new AssertionError("Native effect scope "+name+": "+result+" events="+sent);
             if(!success)check(result.optJSONObject("error")!=null);
@@ -4844,6 +4884,7 @@ public final class CdpPopupWorkerProbe {
     }
     public static void main(String[] args)throws Exception{
         Looper.getMainLooper();System.loadLibrary("xs");String mode=args.length==0?"suite":args[0];
+        if(mode.equals("input-clock")){inputSurfaceClock();return;}
         if(mode.startsWith("prepared-admission"))preparedAdmission(mode);
         else if(mode.startsWith("preparation-isolated-"))productDocumentIsolation(mode,args[1]);
         else if(mode.startsWith("preparation-page-"))productPage(mode,args[1]);

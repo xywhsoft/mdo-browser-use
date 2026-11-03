@@ -873,6 +873,18 @@ rebuilt and actual DEX/signatures/private-provider/payload gates pass. Historica
 full native/frontend/acceptance aggregates are not current whole-suite results.
 No phone/provider/model/publication action; full completion gates remain open.
 
+## Current combined regression status (E225)
+
+The attempted current full native run stops at protected hover input. Preserve
+its failure: diagnosis finds501 virtual milliseconds in78 real milliseconds,
+and a frozen-clock test reproduces timer-poll time acceleration. Correct only the
+integration scheduler, retaining production deadlines and all original outcome
+assertions. Fresh12 clock checks and18 focused native input/control modes pass.
+The combined complete native/frontend/acceptance run is still pending; historical
+full-suite receipts remain explicitly unqualified for these changed inputs.
+Product sources and all E224 deliverable bytes are unchanged. Platform/human/
+two-device gates remain open.
+
 ## Remaining completion gates
 
 - Complete Android host input, guarded capture/URI/chooser and lifecycle

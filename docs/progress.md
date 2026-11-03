@@ -16755,3 +16755,31 @@ external page, publication, extra app/Home copy or phone polling/install. Final
 Android candidate/device qualification is still user-deferred; automation stays
 disabled. Windows main human/pixels and authenticated two-device gates remain
 open. Whole goal remains active.
+
+## E225 — correct the integration input scheduler without weakening deadlines
+
+Run the combined current native suite after E222-E224, preserving the prior
+report. It stops at preparation-page-input-hover: protected input times out.
+Retain E225-native-full.log. Bounded diagnosis records501 virtual milliseconds
+in78 real milliseconds. The fixture pumps to the next timer whenever it is less
+than100ms away; the new50ms watchdog therefore advances the fixture clock on
+polling alone, while the actual native worker is still finishing its guard.
+This does not demonstrate a product/native-provider timeout defect.
+
+A frozen-clock regression independently reproduces the flaw:256 polls move the
+old fixture from100 to601 without any clock ticks. Preserve that red log. The
+fixture now derives ordinary time from the actual monotonic clock (injectable
+only by its test), retaining fractional milliseconds and explicit fault jumps.
+Pump only already-due timers; never advance to a future watchdog. Real touch/key
+cadence is retained, as are the product's original500ms input budget and every
+success/failure/no-replay assertion. No runtime/APK/provider source is changed.
+
+Fresh12 clock assertions and all16 protected-input variants plus two original
+human-input/resource variants pass with actual JNI. Held guards do not expire
+from polling; explicit501ms expiry still denies input, ignores late callbacks
+and releases the same reservation. Add the independent input-clock gate to the
+normal full native entry point. A new complete run is still required; do not
+report the interrupted attempt or E219's old658 as current full acceptance.
+Windows/Android/portable artifacts remain byte-identical to E224. The same
+headless host/Home stays idle. No model call, phone poll/install, extra deployment
+or publication. Device/main-window/human/two-device gates remain open.
