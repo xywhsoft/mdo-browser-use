@@ -22,26 +22,23 @@ unsent target with confirmed cleanup from an uncertain navigation, preserve the
 original outcome and avoid retrying the URL or caching a successful view. Its
 Android first-navigation barrier remains behind the unqualified adapter gate.
 
-The current verified Windows preview includes E201's durable SDK tool-failure
-closure, E200's conversation-owned approvals and E199's stable loading viewport.
-Cancellation during approval used to leave only TOOL_START in the conversation:
-direct SDK calls have no enclosing Agent terminal event. After the executor has
-drained, the host now records exactly one failed terminal for that observed call,
-retaining its original identity and any uncertainty about dispatched effects.
-Normal completions keep their original receipt; no Agent turn/model reply or
-operation replay is invented. Old ambiguous history is not rewritten.
-It is **6,948,835 bytes**, SHA-256
-`ad9a3e7e29db0010026cb254f89d485fd7f20b46d4ef74df90856a3ff8f9e5fa`.
-Fresh Python182/184 (two Windows symlink privilege skips), JS520, frontend/JVM20,
-actual control28, public SDK19/navigation4/wait5, visual permissions and twelve
-integrated acceptance cases pass. Ten managed permission calls retain their
-original start/done pairs. The actual packed executable independently passes the
-cancellation regression, its timeline projection and packed runtime12. Normal-main
-accessibility shows the failed tool label; detail expansion/pixels remain
-unqualified because the desktop input helper has no click geometry.
-Native647/create850 reuse133 exact inputs plus verified unchanged native entries
-in the aggregate overlay. The matching signed Android host passes DEX/payload
-checks; physical Activity/provider/device qualification is still deferred.
+The current verified E208 Windows preview includes the Responses multipart
+repair and Chat's text-only tool result/media projection, while retaining SDK
+failure/restart recovery and conversation-owned approvals. Images are attached
+after complete tool-result groups with original source/order metadata; media
+histories retire unsafe prefix-cache keys. The original ledger and PNG bytes
+are retained. Updating only the portable plugin cannot repair an older native
+model serializer.
+
+The executable is **6,952,858 bytes**, SHA-256
+`811c819e9d6197cd2455388d6e598d83eebca6f3269c7729fa19262eb3acf6a2`.
+Its delivered .text/.rdata sections exactly match the rebuilt GUI host. Fresh
+packed12, Python198/200 (two existing Windows symlink skips), JS526, SDK,
+control28 and acceptance14 pass. Six actual Agent cohorts pass42 static requests
+across Chat, Responses and Anthropic; all Chat requests pass the strict local
+schema/order fixture and images match saved originals. This is not inference
+or real-provider acceptance. The paired signed Android APK includes the rebuilt
+ARM64 engine; its Java/DEX is unchanged and physical checks remain deferred.
 See [acceptance](acceptance.md) and [current progress](progress.md). The full goal
 remains active. No official update/store publication occurred.
 
@@ -234,13 +231,13 @@ receipts remain under `.mdo/`. Rebuild/reimport a changed plugin before running
 the paired program gate; an earlier native smoke receipt does not establish
 that a newer plugin payload was delivered.
 
-E207's current Windows executable is6,951,315 bytes, SHA-256
+E207's previous Windows executable was6,951,315 bytes, SHA-256
 `9094423c940dd977197f8f2140d0b80ad73ce2e0717000ef2696a66014c9b349`.
 Its12 actual runtime checks pass. Its native .text/.rdata sections exactly match
 the rebuilt GUI host containing the Responses multipart tool-output repair.
 The portable plugin is unchanged; updating only that plugin cannot repair an
-older native model serializer. The current APK has the exact paired app archive
-and a freshly compiled ARM64 engine. Neither artifact is an official update.
+older native model serializer. That stage paired its APK with the same app archive
+and a freshly compiled ARM64 engine; E208 supersedes those artifacts above. Neither artifact is an official update.
 See [current acceptance and remaining protocol limits](acceptance.md).
 
 `python tools/package_lifecycle_probe.py` additionally verifies native-plugin

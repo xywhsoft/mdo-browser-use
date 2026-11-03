@@ -129,10 +129,11 @@ class Conversation:
                 require(payload.get("ok") and payload.get("verification") == "field_state",
                         "Next native fill did not succeed after the ordinary failure")
             elif self.step == 5:
-                self.image = self.check_image(result, payload)
+                self.image = self.check_image(result, payload, request.get("_tool_media_by_id", {}).get(result["tool_call_id"]))
             elif self.step == 6:
                 require(payload.get("id") == self.browser, "Close result lost the original browser identity")
-        self.rows.append({"step": self.step, "request_bytes": len(json.dumps(request).encode()),
+        self.rows.append({"step": self.step, "request_bytes": request.get("_wire_bytes", len(json.dumps(request).encode())),
+                          "chat_schema_verified": request.get("_chat_schema_verified", False),
                           "tool_results": len(results), "image_verified": self.image is not None})
         if self.step == len(TOOLS):
             self.step += 1
@@ -159,13 +160,16 @@ class Conversation:
                     "max_width": 400, "max_height": 300}
         return {"action": "close", "browser": self.browser}
 
-    def check_image(self, message, payload):
+    def check_image(self, message, payload, companion=None):
         meta = payload.get("image", {})
         text = text_content(message)
         require(payload.get("ok") and meta.get("media_type") == "image/png" and
                 "base64" not in text, "Screenshot metadata/text was corrupted")
         content = message.get("content")
         images = [p for p in content if p.get("type") == "image_url"] if isinstance(content, list) else []
+        if companion is not None:
+            require(not images, "Chat tool image remained in the text-only wire result")
+            images = companion
         if self.model.endswith("-text"):
             require(not images and isinstance(content, str) and "cannot view images" in text,
                     "Text-only model did not receive the explicit image projection")
@@ -249,7 +253,9 @@ class Handler(BaseHTTPRequestHandler):
             model = request["model"]
             protocol = PROTOCOL_BY_MODEL[model]
             require(PATHS[protocol] == self.path, "Agent selected an unexpected protocol endpoint")
-            delta, finish = self.server.conversations[model].reply(normalize(request, protocol))
+            normalized = normalize(request, protocol)
+            normalized["_wire_bytes"] = size
+            delta, finish = self.server.conversations[model].reply(normalized)
             body = streaming(delta, finish, model, protocol)
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")

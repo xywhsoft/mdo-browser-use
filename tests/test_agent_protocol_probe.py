@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from agent_protocol_probe import (Conversation, FINAL, MODELS, PROMPT, TOOLS,
                                   configuration, streaming)
 from acceptance_probe import validate
-from agent_protocol_dialects import PROTOCOLS, RESPONSES, ANTHROPIC, normalize, streaming as wire_streaming
+from agent_protocol_dialects import CHAT, PROTOCOLS, RESPONSES, ANTHROPIC, normalize, streaming as wire_streaming
 import prepare_model_transport
 
 
@@ -113,7 +113,7 @@ class AgentProtocolOracleTests(unittest.TestCase):
                 "protocol": PROTOCOLS[index // 2],
                 "ordinary_failure_then_native_recovery": True, "image": image,
                 "retained_image": {"bytes": 30, "sha256": "a" * 64, "original_image_retained": True},
-                "requests": [{"step": i, "tool_results": i} for i in range(7)]})
+                "requests": [{"step": i, "tool_results": i, "chat_schema_verified": True} for i in range(7)]})
         good = {"passed": True, "real_model_calls": 0, "external_browser_pages": 0, "request_count": 42,
                 "configuration_restored": True, "same_home": True, "protocols": list(PROTOCOLS), "cohorts": cohorts}
         validate("agent-protocol", good)
@@ -127,6 +127,10 @@ class AgentProtocolOracleTests(unittest.TestCase):
             bad["cohorts"][index]["retained_image"]["original_image_retained"] = False
             with self.assertRaises(RuntimeError):
                 validate("agent-protocol", bad)
+        bad = deepcopy(good)
+        bad["cohorts"][0]["requests"][5]["chat_schema_verified"] = False
+        with self.assertRaises(RuntimeError):
+            validate("agent-protocol", bad)
         bad = deepcopy(good)
         bad["cohorts"][0]["image"]["sha256"] = "b" * 64
         with self.assertRaises(RuntimeError):
@@ -186,6 +190,55 @@ class AgentProtocolOracleTests(unittest.TestCase):
             prepare_model_transport.wanted_source(record, "foreign edit", "new")
         with self.assertRaisesRegex(RuntimeError, "replacement changed"):
             prepare_model_transport.wanted_source(record, "old", "unexpected")
+
+    def test_chat_rejects_tool_images_and_interrupted_parallel_group(self):
+        calls = [{"id": name} for name in ("one", "two")]
+        messages = [{"role": "assistant", "tool_calls": calls},
+                    {"role": "tool", "tool_call_id": "one", "content": "text"},
+                    {"role": "tool", "tool_call_id": "two", "content": "text"}]
+        self.assertTrue(normalize({"messages": messages}, CHAT)["_chat_schema_verified"])
+        for output in ([{"type": "image_url", "image_url": {"url": "data:image/png;base64,cG5n"}}], None, []):
+            bad = deepcopy(messages)
+            bad[1]["content"] = output
+            with self.assertRaisesRegex(RuntimeError, "only text"):
+                normalize({"messages": bad}, CHAT)
+        messages.insert(2, {"role": "user", "content": "premature"})
+        with self.assertRaisesRegex(RuntimeError, "before all parallel"):
+            normalize({"messages": messages}, CHAT)
+
+    def test_chat_companions_require_original_identity_order_and_single_attachment(self):
+        label = {"source": "tool_output", "tool_call_id": "one", "untrusted": True, "part_order": ["text", "image"]}
+        image = {"type": "image_url", "image_url": {"url": "data:image/png;base64,cG5n"}}
+        messages = [{"role": "assistant", "tool_calls": [{"id": "one"}]},
+                    {"role": "tool", "tool_call_id": "one", "content": [{"type": "text", "text": "caption"}]},
+                    {"role": "user", "content": [{"type": "text", "text": json.dumps(label)}, image]}]
+        request = {"messages": messages}
+        before = deepcopy(request)
+        self.assertEqual(normalize(request, CHAT)["_tool_media_by_id"], {"one": [image]})
+        self.assertEqual(request, before)
+        for field, value in (("tool_call_id", "foreign"), ("untrusted", False), ("part_order", ["image"]),
+                             ("part_order", ["text", "image", "image"])):
+            bad = deepcopy(request)
+            bad["messages"][-1]["content"][0]["text"] = json.dumps(dict(label, **{field: value}))
+            with self.assertRaises(RuntimeError):
+                normalize(bad, CHAT)
+        with self.assertRaisesRegex(RuntimeError, "duplicated"):
+            normalize({"messages": messages + [messages[-1]]}, CHAT)
+
+    def test_transport_collection_rejects_later_anchor_and_final_hash_drift(self):
+        import hashlib
+        record = {"before_sha256": hashlib.sha256(b"one two").hexdigest(),
+                  "after_sha256": hashlib.sha256(b"1 2").hexdigest(),
+                  "changes": [{"before": "one", "after": "1"}, {"before": "two", "after": "2"}]}
+        self.assertEqual(prepare_model_transport.reviewed_source(record, "one two", Path("host")), "1 2")
+        bad = deepcopy(record)
+        bad["changes"][1]["before"] = "absent"
+        with self.assertRaisesRegex(RuntimeError, "not unique"):
+            prepare_model_transport.reviewed_source(bad, "one two", Path("host"))
+        bad = deepcopy(record)
+        bad["changes"][1]["after"] = "foreign"
+        with self.assertRaisesRegex(RuntimeError, "replacement changed"):
+            prepare_model_transport.reviewed_source(bad, "one two", Path("host"))
 
 
 if __name__ == "__main__":

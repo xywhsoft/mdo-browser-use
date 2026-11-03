@@ -134,6 +134,9 @@ def validate(name, receipt):
                     cohort.get("ordinary_failure_then_native_recovery") is True,
                     "Agent tools lack original terminal/recovery evidence")
             rows = cohort.get("requests", [])
+            if index < 2:
+                require(rows and all(r.get("chat_schema_verified") is True for r in rows),
+                        "Chat schema and parallel tool ordering were not strictly verified")
             require(len(rows) == 7 and [r.get("step") for r in rows] == list(range(7)) and
                     [r.get("tool_results") for r in rows] == list(range(7)), "Agent wire history is incomplete")
             image, retained = cohort.get("image", {}), cohort.get("retained_image", {})

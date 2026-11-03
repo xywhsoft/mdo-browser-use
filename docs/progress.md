@@ -15,6 +15,16 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Strict Chat tool media E208:** reproduce rejection of the actual Agent's
+  sixth request because role:tool contained an image. Keep text/IDs in legal tool
+  results and attach original media after the complete parallel tool group, with
+  source ID and part-order metadata. Actual serializer/cache regression covers
+  seven cuts and nine xllm allocation failures without leaks or source mutation.
+  Six static Agent cohorts pass42 requests/36 tool pairs, including all strict
+  Chat requests; fresh Python198/200 plus two skips, JS526, SDK, control28,
+  acceptance14, rebuilt native engines, packed12 and signed APK/DEX/payload pass.
+  Real-provider acceptance and physical Android remain unqualified.
+
 - **Responses screenshot transport E207:** reproduce a successful saved PNG
   becoming an empty function_call_output in the next real Agent request. Repair
   native multipart serialization through a reviewed exact-baseline overlay.
@@ -15989,3 +15999,72 @@ Keep that strict-schema repair as the next independent item; E206/E207 local
 Chat results are not standard-provider qualification. Also retain the original
 physical Android, actual permission-button/pixels and authenticated two-device
 completion gates. Full goal stays active.
+
+## E208 — project Chat tool media without invalidating tool groups or caches
+
+The strict Chat fixture reproduces the sixth actual Agent request being rejected
+because its successful screenshot was serialized as image_url inside role:tool.
+The original9,358-byte PNG is still saved. Preserve .mdo/E208-chat-red.json/log;
+this local schema rejection does not prove a real provider returned the same
+HTTP error. E207's Responses repair remains byte-identical.
+
+The reviewed Chat serializer now keeps original text blocks and tool_call_id in
+legal tool messages. Image-only results have empty text. After every contiguous
+tool-result group, append one image-capable user message for each media-bearing
+result. A JSON text annotation records the original call ID, untrusted source
+and visible part order. Original media bytes/URL/detail are preserved; captions
+are not duplicated or flattened and reasoning/signature metadata remains hidden.
+All parallel tool results precede these companion messages. This is a wire
+projection: the request, saved ledger and original screenshot remain unchanged.
+
+Media expands the wire-message list, so arbitrary cached prefix cuts cannot be
+reused safely. Requests containing tool media rebuild in the reusable buffer and
+retire its cache key, including across failure and a later text-only request.
+Normal text-only caching is retained. This deliberately trades cached prefix
+serialization for correctness in media-bearing histories; no new performance
+claim is made. An actual-source C regression uses pinned xllm headers/core/parts,
+the reviewed Chat serializer, the real private cache wrapper and XRT JSON/base64.
+It checks three out-of-order parallel results, image-only and mixed captions/two
+images, escaped Unicode IDs, bytes/URL/detail, seven prefix cuts, repeated calls,
+media-to-text reuse, unsupported-part failure/recovery and nine xllm allocator
+failure points with zero outstanding instrumented blocks. XRT allocation-failure
+coverage and production ABI/lifecycle behavior are not inferred from this harness.
+
+Expand the guarded model-overlay collection to two exact-baseline native files.
+Validate every path, replacement, unique anchor, final hash, foreign edit and
+pending staging file before writes. SOURCE inputs are first applied through
+apply_host to the existing .mdo/source, then the build preparation materializes
+them in the same native checkout. Original public headers/upstream revision are
+unchanged. The explicit xllm production tree is now
+4467c46cbf48fef1b3ba868a3937a605fe286ac434063061ab08139764dd19de.
+
+The strict fixture rejects illegal tool parts, unmatched/duplicate IDs and a
+message interrupting parallel results. It reads companion images directly from
+the wire and validates source/order without inventing missing data. Chat
+acceptance now requires strict verification on every request. Raw request byte
+counts exclude normalized oracle metadata. Six actual Agent vision/text cohorts
+across Chat, Responses and Anthropic pass42 static requests,36 exact tool pairs,
+six intended failures followed by native recovery and six successful terminals.
+Vision wire PNG hashes match saved originals; text-only routes disclose the
+projection and retain originals. These are static local streams, not inference
+or real-provider acceptance. No external website/account session is used.
+
+Fresh Windows and API26 ARM64 engines, paired packaged program/APK, actual
+native/payload/signature/provider/16KiB ELF/DEX checks pass. Packed12 passes and
+actual delivered .text/.rdata bytes match the rebuilt GUI host. Windows is
+6,952,858 bytes SHA811c819e9d6197cd2455388d6e598d83eebca6f3269c7729fa19262eb3acf6a2;
+main APK is6,608,193 bytes
+SHAeb59f38cb7ef6ef59b6e6be580785361bebb50906af81f9c57ed3f425f14b9a7.
+Java/DEX, diagnostic APK and portable plugin are unchanged.
+
+Fresh Python198/200 (two existing Windows symlink skips), JS526, SDK, control28
+and all14 sequential integration cases pass with541 inputs/150 applied outputs.
+Native647/create850 proofs are reused with only the global overlay-manifest hash
+different and their original Android composition unchanged;133/134 and17/18
+direct input hashes match. Frontend20/world inputs match exactly. No phone,
+Activity/provider/Doze or overall Android automation qualification is claimed.
+All handles are terminal before documentation/commit; the original Home,
+headless loopback configuration and settings are restored. Keep the full goal
+active and preserve the outstanding physical Android, actual permission-button,
+normal-window pixels and authenticated two-device completion gates. No online
+release, update-channel change, new dependency checkout or application copy.

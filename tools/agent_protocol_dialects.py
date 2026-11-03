@@ -39,7 +39,43 @@ def content(parts):
 def normalize(request, protocol):
     """Expose real wire messages to the shared oracle without inventing results."""
     if protocol == CHAT:
-        return request
+        pending, seen, results, attachments = set(), set(), {}, {}
+        for message in request.get("messages", []):
+            if message.get("role") == "tool":
+                output = message.get("content")
+                require(isinstance(output, str) or isinstance(output, list) and output and
+                        all(p.get("type") == "text" and isinstance(p.get("text"), str) for p in output),
+                        "Chat tool content must contain only text")
+                identity = message.get("tool_call_id")
+                require(identity in pending, "Chat tool result does not match an original pending call")
+                pending.remove(identity)
+                results[identity] = message
+            else:
+                require(not pending, "Chat message appeared before all parallel tool results")
+                parts = message.get("content")
+                if message.get("role") == "user" and isinstance(parts, list) and parts and parts[0].get("type") == "text":
+                    try:
+                        label = json.loads(parts[0].get("text", ""))
+                    except (ValueError, TypeError):
+                        label = None
+                    if isinstance(label, dict) and label.get("source") == "tool_output":
+                        identity = label.get("tool_call_id")
+                        require(identity in results and identity not in attachments and label.get("untrusted") is True,
+                                "Chat media source identity was lost or duplicated")
+                        text = results[identity]["content"]
+                        text_count = len(text) if isinstance(text, list) else int(bool(text))
+                        order = label.get("part_order", [])
+                        require(isinstance(order, list) and order.count("text") == text_count and
+                                [p for p in order if p != "text"] == ["image"] * (len(parts) - 1) and len(parts) > 1 and
+                                all(p.get("type") == "image_url" and isinstance(p.get("image_url", {}).get("url"), str)
+                                    for p in parts[1:]), "Chat media order/bytes were not preserved")
+                        attachments[identity] = parts[1:]
+                for call in message.get("tool_calls", []):
+                    require(call["id"] not in seen, "Chat tool call was duplicated")
+                    pending.add(call["id"])
+                    seen.add(call["id"])
+        require(not pending, "Chat tool result group is incomplete")
+        return dict(request, _chat_schema_verified=True, _tool_media_by_id=attachments)
     messages = []
     if protocol == RESPONSES:
         require(not request.get("previous_response_id"), "Static Agent must send its original stateless history")

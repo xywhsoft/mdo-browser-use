@@ -1,7 +1,39 @@
 {
-  "path": "lib/xllm/src/dialect_responses.c",
-  "before_sha256": "9e02413152f54dcefde31893b392a832e4548a429cebc942b64b45af07507d71",
-  "after_sha256": "e867741897aacd8b991d33013eb0dfd6daaba2800ec600e270738ac3ca0aa4f3",
-  "replacement": "browser-use-responses-tool-output.inc.c",
-  "before": "            } else if ( !xllm__json_string(pBuf, pMessage->sContent ? pMessage->sContent : \"\") ||\n                        !xllm__buf_append_char(pBuf, '}') ) {\n                return false;\n            }\n"
+  "files": [
+    {
+      "path": "lib/xllm/src/dialect_responses.c",
+      "before_sha256": "9e02413152f54dcefde31893b392a832e4548a429cebc942b64b45af07507d71",
+      "after_sha256": "e867741897aacd8b991d33013eb0dfd6daaba2800ec600e270738ac3ca0aa4f3",
+      "replacement": "browser-use-responses-tool-output.inc.c",
+      "before": "            } else if ( !xllm__json_string(pBuf, pMessage->sContent ? pMessage->sContent : \"\") ||\n                        !xllm__buf_append_char(pBuf, '}') ) {\n                return false;\n            }\n"
+    },
+    {
+      "path": "lib/xllm/src/dialect_completions.c",
+      "before_sha256": "125dd03a4cb99dfea427c31b1436bb538d358cb84db62221ba4ccfc1a461bf9f",
+      "after_sha256": "97c8b82fc49b136582ac0b4fd2dbbf06f8f3285dd17c62d8c577efb3965ce51c",
+      "changes": [
+        {
+          "before": "static bool xllm__append_message(xllm_buf* pBuf, const xllm_message* pMessage,",
+          "after_file": "browser-use-chat-tool-media.inc.c",
+          "suffix": "\nstatic bool xllm__append_message(xllm_buf* pBuf, const xllm_message* pMessage,"
+        },
+        {
+          "before": "    if ( pMessage->iPartCount > 0u ) {\n        if ( !xllm__buf_append_cstr(pBuf, \",\\\"content\\\":\") ||",
+          "after": "    if ( xllm__chat_tool_media(pMessage) ) {\n        if ( !xllm__buf_append_cstr(pBuf, \",\\\"content\\\":\") ||\n             !xllm__chat_tool_text(pBuf, pMessage, pError) ) return false;\n    } else if ( pMessage->iPartCount > 0u ) {\n        if ( !xllm__buf_append_cstr(pBuf, \",\\\"content\\\":\") ||"
+        },
+        {
+          "before": "    /* 1. Serialize the delta into the accumulator (prefix bytes ride along). */",
+          "after": "    /* A tool group may expand into several wire messages. Arbitrary prefix\n     * cuts are unsafe in that case. Retire the cache key and rebuild in its\n     * reusable buffer, including after failure or a later text-only request. */\n    for ( i = 0u; i < pRequest->iMessageCount; ++i ) {\n        if ( xllm__chat_tool_media(&pRequest->pMessages[i]) ) {\n            pInner->iLen = 0u;\n            iPrefixCount = 0u;\n            pClient->pPrefixCacheOwner = NULL;\n            break;\n        }\n    }\n    /* 1. Serialize the delta into the accumulator (prefix bytes ride along). */"
+        },
+        {
+          "before": "        if ( !xllm__append_message(pInner, &pRequest->pMessages[i], &tFlags, pError) ) goto fail;\n    }",
+          "after": "        if ( !xllm__append_message(pInner, &pRequest->pMessages[i], &tFlags, pError) ) goto fail;\n        if ( pRequest->pMessages[i].eRole == XLLM_ROLE_TOOL &&\n             (i + 1u == pRequest->iMessageCount || pRequest->pMessages[i + 1u].eRole != XLLM_ROLE_TOOL) ) {\n            size_t j = i;\n            while ( j && pRequest->pMessages[j - 1u].eRole == XLLM_ROLE_TOOL ) --j;\n            for ( ; j <= i; ++j ) {\n                if ( !xllm__chat_tool_media(&pRequest->pMessages[j]) ) continue;\n                if ( !xllm__buf_append_char(pInner, ',') ||\n                     !xllm__chat_tool_attachment(pInner, &pRequest->pMessages[j], pError) ) goto fail;\n            }\n        }\n    }"
+        },
+        {
+          "before": " * the full body around it. Per-message serialization here is stateless, so\n * any message boundary is a valid prefix cut. */",
+          "after": " * the full body around it. Text-only messages remain prefix-cut safe; media\n * tool groups rebuild below because their attachments follow the whole group. */"
+        }
+      ]
+    }
+  ]
 }

@@ -43,14 +43,14 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | Requirement | Inspected implementation and authoritative evidence | Current conclusion |
 | --- | --- | --- |
 | One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
-| Shared C/JS API and Agent tools | Shared contracts, 13 installed C services and 16 managed tools; E207 actual Agent turns in six vision/text-only cohorts across Chat, Responses and Anthropic static streams | Local continuation and original-image delivery/projection verified; Chat's strict tool-content schema still requires repair, and provider acceptance/model quality are not qualified |
+| Shared C/JS API and Agent tools | Shared contracts, 13 installed C services and 16 managed tools; E208 actual Agent turns in six vision/text-only cohorts across Chat, Responses and Anthropic static streams, with strict Chat tool schema/order checks | Local continuation and original-image delivery/projection verified; real-provider acceptance/model quality are not qualified |
 | Observation, exact references, waiting and native input | E202 current-code SDK19/navigation4/wait5/JS526; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
 | Permissions and failure recovery | Fresh nine managed ask-decision cases with ten original durable tool terminal pairs (236 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
 | Human control and resource lifetime | Source-bound E204 native647/cleanup7137/worker300/create850/async77; Android source and Android overlay composition unchanged, although the global manifest adds the model repair; exact frontend20/world inputs retained; fresh Windows control28 | Android proofs are explicitly reused with the manifest difference disclosed; peers remain controlled and do not qualify a physical WebView |
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8, lifecycle/recovery10 and packed-program12; E207 Windows/Android native engines and matching artifacts rebuilt, actual APK DEX/signature/payload checked; portable plugin unchanged | Matching development artifacts are verified; Android device and official/store release are not claimed |
+| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8, lifecycle/recovery10 and packed-program12; E208 Windows/Android native engines and matching artifacts rebuilt, actual APK DEX/signature/payload checked; portable plugin unchanged | Matching development artifacts are verified; Android device and official/store release are not claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
 | Bounded Windows performance and repeated lifecycle | E203 actual main-window/public C path,16 cycles on1,024 paragraphs, verified native fill/trusted click and bounded PNG; original broker inventories and native creation reservations restored | Local latency/resource envelope measured; memory samples remain observational, not a leak-absence or production performance guarantee |
 
@@ -335,13 +335,43 @@ packed Windows .text/.rdata bytes match the rebuilt GUI host, packed12 and
 main APK source/signature/native/payload/DEX checks pass. Fresh Python194/196
 with two existing symlink skips, JS526, SDK, control28 and acceptance14 pass.
 
-There is a separate **known Chat compatibility gap**: the current Chat serializer
-puts tool images inside role:tool. The [official Chat tool-message schema](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
-permits only text there. The local Chat fixture currently admits that transport
-shape; E206/E207 green results prove local data flow, not strict standard-server
-acceptance. Keep Chat image projection/schema qualification open and repair it
-separately, preserving parallel tool-result ordering, original IDs and saved
-images. Real-model/site/account tests and physical Android remain unqualified.
+At E207, a separate Chat compatibility gap remained: tool images were put
+inside role:tool, where the [official tool-message schema](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create)
+permits only text. Its local fixture was permissive; the E206/E207 Chat results
+proved data flow rather than strict standard-server acceptance. E208 repairs and
+strictly tests that wire projection below. Real-provider acceptance remains open.
+
+## Strict Chat tool-image transport (E208)
+
+A fresh strict fixture rejects the sixth actual Agent request while preserving
+its original saved PNG. The repaired native serializer retains text segments
+and original call IDs in legal tool messages, then attaches media after all
+results in the contiguous parallel group. The companion user message identifies
+its untrusted tool source, original call ID and visible part order. Original PNG
+bytes, URLs and detail values are retained; original text is not duplicated.
+The request and saved ledger are unchanged. Media-bearing histories rebuild in
+the reusable serialization buffer and retire the prefix key so arbitrary cuts,
+retries or later text-only requests cannot reuse expanded stale wire bytes.
+Text-only prefix caching remains enabled.
+
+A compiled actual-source serializer/cache harness checks seven cuts, repeated
+requests, media-to-text transitions, three parallel results, image-only/mixed
+parts and nine xllm allocation failures with recovery and no instrumented leaks.
+This is not whole-process/XRT OOM or ABI proof. The actual delivered native Agent
+path separately passes all six protocol cohorts:42 static requests/36 tool pairs,
+six ordinary failures recovered and six successful terminals. Strict Chat schema
+and ordering are required on every Chat request, while all vision image hashes
+match the originals. No real model or external site is contacted.
+
+Fresh Python198/200 (two pre-existing Windows symlink skips), JS526, SDK,
+control28, acceptance14, Windows/API26 ARM64 builds, packed12 and signed APK/
+actual DEX/payload/native gates pass. Windows6,952,858B and main APK6,608,193B are
+matching development artifacts; use their adjacent current hash receipts.
+Android Java/DEX and diagnostic APK are unchanged. Historical native647/create850
+reuse is qualified only with the verified unchanged Android composition; their
+global overlay-manifest hash differs. Frontend20/world direct inputs are exact.
+The original configuration/Home is restored. Physical Android, real-provider,
+normal-window pixels, human permission-button and two-device gates remain open.
 
 ## Remaining completion gates
 
@@ -350,9 +380,6 @@ images. Real-model/site/account tests and physical Android remain unqualified.
   the current WebView. Overall Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.
-- Repair and strictly test Chat Completions tool-image transport against its
-  text-only tool-content schema; preserve the original image in a correctly
-  associated image-capable message without breaking parallel tool results.
 - Exercise an actual main-interface user decision. E200 confirms the prompt
   through normal-window accessibility; button action/pixel qualification remains
   separate from the decision API/managed worker. Current reports keep
