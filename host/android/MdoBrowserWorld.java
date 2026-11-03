@@ -168,12 +168,17 @@ final class MdoBrowserWorld implements AutoCloseable {
             NativeCall callback=new NativeCall(MdoBrowserWorld.this,budget);
             Pending job=new Pending(this,complete,scheduler.now()+timeout,callback);callback.delivery=job;
             if(!budget.acquire())throw new Failure("world_shared_job_limit");callback.reserved=true;
-            try{outstanding.add(callback);pending.add(job);scheduler.post(job.timer,timeout);}
+            try{outstanding.add(callback);pending.add(job);scheduler.post(job.timer,Math.min(timeout,50));}
             catch(RuntimeException|Error error){
                 job.done=true;job.complete=null;pending.remove(job);callback.release();
                 try{scheduler.remove(job.timer);}catch(RuntimeException ignored){}
                 if(error instanceof Error)throw(Error)error;throw new Failure("world_timer_unavailable");
             }
+            // Timer registration may resume after sleep or reenter document
+            // retirement. No provider owns this callback until native dispatch;
+            // release its unused reservation instead of sending expired work.
+            String rejected=!current(this)?"frame_changed":scheduler.now()>=job.deadline?"world_timed_out":null;
+            if(job.done||rejected!=null){callback.release();if(!job.done)job.finish(null,rejected);return;}
             job.sent=true;
             try{invoke(loader,reply,"JsReplyProxyBoundaryInterface","executeJavaScript",expression,callback);}
             catch(Failure failure){job.finish(null,failure.code);}
@@ -204,7 +209,16 @@ final class MdoBrowserWorld implements AutoCloseable {
     }
     private final class Pending {
         final Peer peer;Completion complete;final long deadline;final Runnable timer;final NativeCall call;boolean sent,done;
-        Pending(Peer peer,Completion complete,long deadline,NativeCall call){this.peer=peer;this.complete=complete;this.deadline=deadline;this.call=call;timer=()->finish(null,"world_timed_out");}
+        Pending(Peer peer,Completion complete,long deadline,NativeCall call){this.peer=peer;this.complete=complete;this.deadline=deadline;this.call=call;timer=this::checkDeadline;}
+        void checkDeadline(){
+            if(done)return;
+            long remaining=deadline-scheduler.now();
+            if(remaining<=0){finish(null,"world_timed_out");return;}
+            // Handler delays use uptime. A short check observes the original
+            // elapsed deadline promptly after resume without renewing it.
+            try{scheduler.post(timer,Math.min(remaining,50));}
+            catch(RuntimeException rejected){finish(null,"world_timer_unavailable");}
+        }
         void finish(String value,String code){
             if(done)return;done=true;pending.remove(this);call.delivery=null;
             Completion destination=complete;complete=null;

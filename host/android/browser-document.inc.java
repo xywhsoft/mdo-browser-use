@@ -58,7 +58,7 @@
             document=prepareDocument(key,view);
             document.initialize(WebView.getWebViewClassLoader(),new MdoBrowserWorld.Scheduler(){
                 private final android.os.Handler handler=new android.os.Handler(android.os.Looper.getMainLooper());
-                public long now(){return android.os.SystemClock.uptimeMillis();}
+                public long now(){return android.os.SystemClock.elapsedRealtime();}
                 public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("World scheduler stopped");}
                 public void remove(Runnable task){handler.removeCallbacks(task);}
             },automation?"mdo.browser-use":null,worldBudget,()->channel.current()==original&&channel.active(original,host.getUrl()));

@@ -1908,3 +1908,20 @@ history/admission receipts remain unchanged; a real tool end takes precedence.
 A retained physical job is never declared interrupted from persisted metadata.
 Unknown/legacy target descriptors stay unqualified. Runtime changes force the
 selected timeline to reload and invalidate stale cached running state.
+
+### Ordinary Android execution deadlines
+
+The main host's ordinary isolated-world scheduler measures request budgets with
+elapsed realtime. Its Handler timer periodically checks that original absolute
+deadline, including after resume, and never grants a new timeout. Scheduling is
+bounded to50ms uptime slices while the UI thread is runnable; it cannot execute
+during deep sleep or guarantee a realtime scheduling latency.
+
+Before calling the native provider, timer registration must leave the same peer,
+unfinished request and original deadline valid. Expiry or retirement before
+native entry produces no new execution and releases only the unused reservation.
+Once submitted, a client timeout or timer-rearm failure keeps native ownership
+and its quota until the original provider callback or view destruction. A late
+callback cannot replace the prior terminal result. Overall Android automation
+admission remains disabled pending integration/provider qualification; these
+internal timing fixes do not enable that product capability.

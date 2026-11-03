@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Android ordinary-world deadlines E204:** fix a demonstrated sleep-clock gap
+  and native dispatch after timer-registration expiry/retirement. The main host
+  uses elapsed time; bounded timer checks retain the original deadline and native
+  callbacks keep their budget until genuine cleanup. Nine new controlled cases/
+  27 checks plus existing world/document/profile/budget gates pass. Fresh native647
+  with134 exact input hashes, frontend20, create850/async77, Python183/185 plus two
+  skips, JS526 and acceptance13 pass. Fresh signed APK/actual DEX checks pass;
+  Windows is unchanged-source reuse. Android admission/device/Doze remain open.
+
 - **Windows performance E203:** add a reproducible bounded public-C/native probe
   in the original main window/Home. Sixteen cycles verify observation budgets,
   native field state, exactly one trusted click, PNG limits and restored broker
@@ -15738,3 +15747,65 @@ E203-main-view-result.json. No pixel, permission-button or physical Android pass
 is claimed; no product load defect follows from a screenshot-helper timeout.
 Restore the original Home headless. All test handles are terminal before docs
 edits; keep the user's phone/WebView deferral and the full goal active.
+
+## E204 — preserve ordinary isolated-world deadlines and pre-dispatch ownership
+
+The current Android entry still explicitly refuses overall Agent automation;
+internal/native contract success does not prove that product route ready. Audit
+the actual main-host wiring without enabling the gate. The ordinary document's
+world scheduler supplies uptimeMillis, unlike the private protocol worker's
+suspend-inclusive clock. A controlled provider success after101ms of elapsed
+sleep but no awake-time advancement is incorrectly accepted for a100ms request.
+At exact equality it is also accepted. Retain E204-world-red.json/log.
+
+The same actual evaluator also dispatches native executeJavaScript if timer
+registration expires or reenters close/navigation before returning. Those old
+close/navigation cases already deliver a failed client result with no reported
+effect, yet then send the native request. Preserve the original rows. A test's
+initial expectation of world_closed was corrected to the existing frame_changed
+semantics before the primary red run; that earlier diagnostic is kept separately.
+
+Use elapsedRealtime in the main host's ordinary-world scheduler. After timer
+registration, recheck the original peer, deadline and completed state before
+provider entry. A never-sent callback releases only its unused reservation and
+cannot execute after its client is terminal. A dispatched original callback
+retains its quota through client timeout until its actual native callback or
+physical view destruction; no uncertain native resource is declared free.
+
+Changing the clock alone still leaves a held provider waiting the remaining
+uptime delay after resume. A second red regression captures that gap. Pending
+timers now check the original elapsed deadline in at most50ms scheduled uptime
+slices, without extending the budget or pretending to run during sleep. An early
+check reschedules; rejection ends the client once with world_timer_unavailable.
+A late original provider reply only drains its original retained budget.
+
+The test extracts the actual host clock expression and uses the production world
+evaluator with a foreign provider loader in the existing QA output. The two
+Android clocks, provider timing and registration reentry are controlled. All nine
+new cases/27 checks pass alongside world35, document86, profile396 and native
+budget18. Java8 production compilation passes. These are not installed-provider,
+framework, actual sleep or Doze results, and no Android admission flag is enabled.
+
+Fresh full native647, all134 exact current input hashes, cleanup7137/worker300,
+frontend20, ordinary create850/async77, Python183/185 with two existing Windows
+symlink skips, JS526 and all13 integration cases pass. Current acceptance binds
+532 inputs/146 outputs. Only the two ordinary-world Java host files change product
+source; app C/JS, native binaries, SDK ABI and public contracts stay unchanged.
+The Windows artifact/full SDK/control28/packed and E203 performance evidence are
+explicit unchanged-Windows-source reuse, not fresh executions of those gates.
+
+Fresh complete lite-edition Android development host6,608,193 bytes SHA
+`cc6c260a5841501a4483e9e428b0b2e12eb9883e4a270e42e24f5353bd473e7e`.
+Actual APK DEX must define the new Pending.checkDeadline plus all prior ownership/
+cleanup methods; signature/payload/source/old-runtime checks pass. It uses the
+exact unchanged verified E202 Windows app archive. E169's portable plugin is
+unchanged. All test/build handles are terminal before documentation edits; the
+original Home/runtime is restored headless. No phone/provider change, model,
+external browser test page, new app/Home/source copy or publication was used.
+
+Keep normal-window pixels, user permission decision, physical Android and
+account-authenticated two-device qualification open. A separate older diagnostic
+Activity still supplies its own uptime scheduler; bring that caller under the
+same contract before its next supported-provider run. Other uptime clocks need
+their own purpose-specific audit rather than a blanket replacement. Full goal
+remains active.

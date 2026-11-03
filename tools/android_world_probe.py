@@ -5,6 +5,7 @@ contract gate, not an APK build, Android framework test or real-device pass.
 """
 import hashlib
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -200,6 +201,15 @@ def main():
     paths=[]
     for name,text in SOURCES.items():
         target=source/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text,encoding='utf-8',newline='\n');paths.append(target)
+    clock_source=dev.ROOT/'host/android/browser-document.inc.java'
+    clocks=re.findall(r'public long now\(\)\{return ([^;{}]+);\}',clock_source.read_text(encoding='utf-8'))
+    if len(clocks)!=1:raise RuntimeError('Expected the exact product UI-world scheduler clock')
+    timing_fixture=dev.ROOT/'tests/fixtures/AndroidElapsedWorldContractTest.java'
+    timing=source/'org/xserver/android/AndroidElapsedWorldContractTest.java'
+    timing.write_text(timing_fixture.read_text(encoding='utf-8').replace('@@UI_CLOCK@@',clocks[0]),encoding='utf-8',newline='\n')
+    clock=source/'android/os/SystemClock.java';clock.parent.mkdir(parents=True,exist_ok=True)
+    clock.write_text('package android.os; public final class SystemClock { public static long awake,elapsed; public static long uptimeMillis(){return awake;} public static long elapsedRealtime(){return elapsed;} }\n',encoding='utf-8')
+    paths.extend([timing,clock])
     production=[dev.ROOT/'host/android/MdoBrowserWorld.java',dev.ROOT/'host/android/MdoBrowserProfile.java',dev.ROOT/'host/android/MdoBrowserDocument.java']
     paths.extend([*production,dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java',dev.ROOT/'tests/fixtures/AndroidProfileContractTest.java'])
     def linux(path):
@@ -223,7 +233,13 @@ def main():
     inputs=[*production,dev.ROOT/'host/android/protocol.json',dev.ROOT/'tools/android_world_probe.py',
             dev.ROOT/'tests/fixtures/AndroidDocumentContractTest.java',dev.ROOT/'tests/fixtures/AndroidNativeBudgetContractTest.java',dev.ROOT/'tests/fixtures/AndroidProfileContractTest.java']
     report['source_sha256']={path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+    report['source_sha256'].update({path.relative_to(dev.ROOT).as_posix():hashlib.sha256(path.read_bytes()).hexdigest() for path in (timing_fixture,clock_source)})
+    timing_run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidElapsedWorldContractTest',linux(classes)],cwd=dev.ROOT,capture_output=True,text=True,timeout=30)
+    timing_rows=[json.loads(line) for line in timing_run.stdout.splitlines() if line.startswith('{')]
+    report['elapsed_deadlines']={'passed':timing_run.returncode==0,'cases':timing_rows,'stderr':timing_run.stderr[-1024:]}
+    if timing_run.returncode!=0:report['passed']=False
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
+    if not report['passed']:raise RuntimeError('Original UI-world elapsed deadline/pre-dispatch regression failed')
 
 
 if __name__=='__main__':

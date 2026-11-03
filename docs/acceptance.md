@@ -25,7 +25,7 @@ relay, external website, online publication or extra application copy is used.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 531 authoritative source inputs, all
+The report binds 532 authoritative source inputs, all
 146 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
@@ -43,9 +43,9 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
 | Permissions and failure recovery | Fresh nine managed ask-decision cases with ten original durable tool terminal pairs (236 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
-| Human control and resource lifetime | E197 actual main native request, current-source647 JVM/JNI modes, original cleanup7137, worker300, ordinary create850, frontend20 and fresh actual WebView2 control28; byte retention and independent ACK/native detach joins | Native/create proofs reuse E197:133 exact input hashes plus verified unchanged native entries in the aggregate overlay; fresh E199 mounted-control checks remain separate. Android peers remain controlled and do not qualify a physical WebView |
+| Human control and resource lifetime | E197 main native request implementation; fresh E204647 JVM/JNI modes with134 exact input hashes, cleanup7137/worker300/create850/async77/frontend20; retained WebView2 control28 and independent ACK/native detach joins | Android native/create/frontend paths are freshly rerun; Windows control proof is unchanged-source reuse. Android peers remain controlled and do not qualify a physical WebView |
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E202 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
+| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact installed revision restored. Unchanged E202 Windows, fresh E204 Android and unchanged E169 portable package hashes checked | Matching development artifacts/source archive are verified; no official/store release is claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
 | Bounded Windows performance and repeated lifecycle | E203 actual main-window/public C path,16 cycles on1,024 paragraphs, verified native fill/trusted click and bounded PNG; original broker inventories and native creation reservations restored | Local latency/resource envelope measured; memory samples remain observational, not a leak-absence or production performance guarantee |
 
@@ -223,6 +223,31 @@ attempt and one attempt after refreshing the returned window selection. Record
 E203-main-view-result.json; pixel qualification remains false. This is not a
 native webpage-load failure or a passing presentation check. No permission UI
 button/input was used, and the same original Home was restored headless.
+
+## Ordinary Android world timing (E204)
+
+The actual main-host scheduler and production evaluator reproduce two deadline
+failures: sleep-excluding time accepts a provider success after the original
+elapsed budget, and timer-registration reentry can complete/retire a request
+before an unconditional subsequent native dispatch. A partial fix also reproduces
+a held-provider timeout waiting the remaining uptime delay after resume.
+Retain E204-world-red.json/log and E204-timer-red.json/log.
+
+Use elapsed time in that main scheduler, check original ownership/deadline after
+registration before native entry, and check the original deadline through bounded
+timer slices. Rejecting a never-sent request frees only its unused reservation;
+sent callbacks keep native budget until genuine return/destruction. No timeout
+or late native reply is replayed as a new effect. Nine controlled cases/27 checks,
+world35/document86/profile396/native-budget18 and Java8 compilation pass.
+
+Fresh full native647 has134 exact current input hashes, including ASan/UBSan/API26
+and the original cleanup7137/worker300 gates. Fresh frontend20, create850/async77,
+Python183/185 plus two existing skips, JS526 and integration13 pass. The new signed
+APK and actual DEX Pending.checkDeadline/ownership methods pass source/archive/
+payload/old-runtime checks, paired with unchanged Windows app bytes. The public
+Android gate stays disabled, and physical provider/Activity/sleep/Doze remain
+unqualified. The standalone diagnostic Activity's older scheduler is a distinct
+follow-up; this stage repairs the main-host path. Full goal is not complete.
 
 ## Remaining completion gates
 

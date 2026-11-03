@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E202, unchanged in E203)
+## Complete development host APK (current: E204)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`1b3eaf4ca2a061dd7431909a59fc9338b01b97adac5b02e37e59cc8513ee4d37`.
+`cc6c260a5841501a4483e9e428b0b2e12eb9883e4a270e42e24f5353bd473e7e`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -96,7 +96,7 @@ unchanged. See the current verification scope in [progress](progress.md).
 E199 updates the shared browser UI: an ordinary loading live announcement stays
 available to accessibility while no longer changing the native viewport size.
 Manual/control/error guidance stays visible. The complete APK is rebuilt from
-the matching current Windows archive. E197's647 JNI modes are reused with133
+the matching current Windows archive. Through E203, E197's647 JNI modes were reused with133
 exact native-input hashes plus verified
 equivalence of the changed aggregate overlay's native entries; its new entries
 only affect approval and SDK C/state/UI. This is explicit reuse, not a new physical
@@ -112,6 +112,27 @@ and effect uncertainty are preserved. The shared C path is verified in the
 Windows source and actual packed executable; matching Android archive inclusion
 and APK/DEX checks are not a physical Android execution pass.
 Phone/WebView, global admission and provider/device qualification stay unchanged.
+
+E204 fixes the ordinary main-host world scheduler and its native pre-dispatch
+boundary. Android uptime excludes deep sleep; elapsed realtime includes it, while
+Handler delays themselves use uptime. See the [Android clock contract](https://developer.android.com/reference/android/os/SystemClock).
+The main scheduler now uses elapsedRealtime, and timer checks use at most50ms
+scheduled uptime slices against the original deadline. They do not renew it or
+claim to execute while the device is asleep. A success arriving after that budget
+cannot turn into a valid result. If registration already completed/retired the
+original request, no native JavaScript call is sent and its unused budget is freed.
+Client timeout of sent work retains its native quota until authentic cleanup.
+
+Nine controlled timing/registration cases with27 checks pass, including elapsed
+sleep before a late reply, exact deadline equality, pre-deadline success, expiry/
+close/navigation during registration, a held provider, an early timer check and
+rejected timer rearm. The actual evaluator and main-host clock expression are
+used, with fake clocks and foreign provider callbacks. Existing world35/document86/
+profile396/native-budget18 remain green. Fresh native647 with134 exact hashes,
+frontend20, create850/async77, public integration13 and current APK/DEX/source/
+signature/old-runtime gates pass. Public admission is still false; no physical
+provider, Activity, sleep/Doze or new device result is inferred. The old standalone
+diagnostic Activity's scheduler remains a separate caller to align next.
 
 E163 routes a protected popup's native screenshot fences through its original
 attached document and shared connection. The native capture transaction obtains
