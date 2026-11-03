@@ -46,15 +46,15 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E201)
+## Complete development host APK (current: E202, unchanged in E203)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
 and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
-Current APK: 6,604,097 bytes, SHA-256
-`07ba0060146d404551193f765669e887203d39e6a336051543261f5c0ec1f9fc`.
+Current APK: 6,608,193 bytes, SHA-256
+`1b3eaf4ca2a061dd7431909a59fc9338b01b97adac5b02e37e59cc8513ee4d37`.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -72,7 +72,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the fresh verified E201 Windows
+key is included. The app archive is extracted from the verified E202 Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.

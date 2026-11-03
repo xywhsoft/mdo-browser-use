@@ -3,6 +3,7 @@
 Official Browser Use plugin, shared C/JavaScript services, and the native browser
 enhancements needed by mdo. Development is active; see [progress](docs/progress.md).
 Current acceptance evidence and remaining gates are in [acceptance](docs/acceptance.md).
+The reproducible local latency/resource measurement is in [performance](docs/performance.md).
 
 ## Development deployment
 
@@ -58,6 +59,7 @@ python tools/frame_scroll_probe.py
 python tools/visual_probe.py
 python tools/keyboard_probe.py
 python tools/capture_readiness_probe.py
+python tools/performance_probe.py --iterations 16
 python tools/capture_privacy_probe.py
 python tools/capture_privacy_public_probe.py
 python tools/network_probe.py

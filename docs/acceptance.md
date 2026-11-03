@@ -25,7 +25,7 @@ relay, external website, online publication or extra application copy is used.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 529 authoritative source inputs, all
+The report binds 531 authoritative source inputs, all
 146 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
@@ -47,6 +47,7 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
 | Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E202 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
+| Bounded Windows performance and repeated lifecycle | E203 actual main-window/public C path,16 cycles on1,024 paragraphs, verified native fill/trusted click and bounded PNG; original broker inventories and native creation reservations restored | Local latency/resource envelope measured; memory samples remain observational, not a leak-absence or production performance guarantee |
 
 The old standalone `.mdo/managed-visual-result.json` was false with an empty
 error at `readonly-owned-canvas`. Its bytes are retained privately as
@@ -198,6 +199,30 @@ explicit panel.open after observe (observation alone does not open a display
 panel). E202-main-close-result.json records this setup limit and the bounded
 before/after accessibility hashes. Restore the same Home headless; normal-window
 pixels, permission-button and physical Android qualification remain open.
+
+## Bounded performance evidence (E203)
+
+`tools/performance_probe.py --iterations 16` measures the actual public C/native
+path in the same main window and Home, without model calls, external pages or
+action retries. All16 cycles pass the frame-driver, observation budget, native
+field/click and encoded PNG limits, with original broker resources restored.
+Current inputs531/deployed146 and runtime identity are bound in the report.
+See [performance](performance.md) for the measured latency table, process-memory
+series, exact scope and reproduction command. Private bytes after the first
+cycle increase15.8MiB, with later decreases; memory leak absence remains unproven.
+
+Fresh Python183/185 (two existing Windows symlink skips), JS526 and all13 sequential
+acceptance cases pass. Product/native sources and E202 Windows/Android/plugin
+artifacts remain unchanged and hash-checked; native647/frontend20/control28 and
+full SDK/packed/DEX results are explicitly reused rather than freshly rerun.
+
+A fresh actual main window and owned local native page were prepared for pixel
+inspection. The Windows screenshot helper returned
+`window capture timed out: timed out waiting on channel` on both the first
+attempt and one attempt after refreshing the returned window selection. Record
+E203-main-view-result.json; pixel qualification remains false. This is not a
+native webpage-load failure or a passing presentation check. No permission UI
+button/input was used, and the same original Home was restored headless.
 
 ## Remaining completion gates
 

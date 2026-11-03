@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Browser Use bounded performance fixture</title>
+<style>
+  body { font: 16px sans-serif; margin: 24px; }
+  .controls { height: 100px; }
+  input, button { margin: 6px; }
+  article { margin: 4px 0; }
+</style>
+<h1>Bounded performance fixture</h1>
+<div class="controls">
+  <label for="probe-input">Performance input</label><input id="probe-input">
+  <button id="probe-click">Performance click</button>
+  <output id="probe-status">Performance clicks 0</output>
+</div>
+<main id="content"></main>
+<script>
+  const fragment = document.createDocumentFragment();
+  for (let index = 0; index < 1024; index++) {
+    const row = document.createElement('article');
+    row.textContent = `Workload row ${index}: a fixed local paragraph for bounded page observation. `;
+    fragment.append(row);
+  }
+  document.querySelector('#content').append(fragment);
+  let clicks = 0;
+  document.querySelector('#probe-click').onclick = event => {
+    document.querySelector('#probe-status').textContent = `Performance clicks ${++clicks} trusted ${event.isTrusted}`;
+  };
+</script>

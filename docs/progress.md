@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Windows performance E203:** add a reproducible bounded public-C/native probe
+  in the original main window/Home. Sixteen cycles verify observation budgets,
+  native field state, exactly one trusted click, PNG limits and restored broker
+  inventories/creation reservations. Median initial/repeat observation587/133ms,
+  fill778ms, click634ms and capture413ms. Memory remains observational, not leak
+  absence. Fresh Python183/185 plus two existing skips, JS526 and acceptance13
+  pass with531 inputs/146 outputs. Product sources and E202 artifacts are unchanged;
+  screenshot-helper retries time out, so main-window pixels stay unqualified.
+
 - **SDK restart recovery E202:** preserve the actual validated tool target before
   execution; a lost live owner now exposes interrupted/uncertain status without
   replaying effects or rewriting the journal. The conversation derives a scoped
@@ -15684,3 +15693,48 @@ observe alone creates a native view; explicit panel.open supplies the missing
 display step for that same browser. Preserve E202-main-close-result.json and its
 bounded before/after accessibility records. No UI input/permission decision or
 pixel qualification is claimed, and the original Home is restored headless.
+
+## E203 — measure the actual public Windows workload and resource envelope
+
+The full requirement review identifies no existing reproducible full public-path
+performance record. Add tools/performance_probe.py and one fixed local fixture,
+not a new application, Home or browser. The bounded command uses1–16 iterations
+(default8), original runtime identity and the real main UI/native/public C path.
+Each cycle observes1,024 paragraphs twice, fills a field, verifies one trusted
+click, captures a bounded PNG and closes its original browser. No model/external
+page/action retry is used. Source/deployed inputs must stay fixed; actual text,
+element and image limits, original broker inventories and zero native creation
+reservations are checked. Failed original receipts are cancelled/released; failed
+cleanup cannot pass. Preserve measurements, not image contents or credentials.
+
+The final16-cycle run finishes in97.6 seconds. Initial/repeat observation medians
+are587.1/133.1ms, native fill778.4ms, click633.6ms and screenshot413.5ms. Sixteen
+nearest-rank p95 values equal their sample maxima; no general production SLO or
+comparison is claimed. All images are52,454-byte PNGs within the requested bounds.
+The initial eight-cycle report is retained separately, not pooled across tool
+revisions/startup conditions. See docs/performance.md for the complete record.
+
+Aggregate private memory is276.9MiB before work,323.9MiB after the first cycle,
+peaks at350.4MiB and ends339.7MiB. The post-first-cycle delta is15.8MiB and samples
+decrease in cycles11/12. Process count stays8; handles are4,200 in the final four
+samples. These include startup, WebView2 caches/allocators and old main-UI tabs;
+neither the remaining delta nor this finite sample establishes a leak or proves
+its absence. Keep memory_qualification:observational_only and long-duration
+qualification separate. No unproven product memory fix is introduced.
+
+Fresh Python183/185 with two existing Windows symlink skips, all JS526 and all13
+sequential integration cases pass. Current acceptance binds531 source inputs and
+146 applied outputs. Product/native sources and E202 Windows/Android/portable
+plugin artifacts remain byte-identical, checked against their original source
+archive and hashes. E202's native647/cleanup7137/worker300/create850/async77,
+frontend20/control28/full SDK/packed/DEX proof is explicitly unchanged-source reuse;
+these modes were not freshly rerun. Correct Android's current artifact pointer
+from E201 to that verified E202 APK, without claiming a new build or device pass.
+
+A separate actual-main-window native page is ready and observed through the
+public service, but the screenshot helper times out on two attempts, including
+one after refreshing the returned window selection. Record the exact error and
+E203-main-view-result.json. No pixel, permission-button or physical Android pass
+is claimed; no product load defect follows from a screenshot-helper timeout.
+Restore the original Home headless. All test handles are terminal before docs
+edits; keep the user's phone/WebView deferral and the full goal active.
