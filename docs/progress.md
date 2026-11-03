@@ -15673,3 +15673,14 @@ is restored headless. Keep the user's deferred phone/current WebView; no additio
 app/Home/source/dependency copy, model/external website or production/store release.
 E201 main-window accessibility is historical reuse, not a fresh E202 pixel or
 permission-button pass. The broader goal remains active.
+
+An additional actual-main-window lifecycle audit opens one original owned native
+browser and its explicit display panel. Read-only Windows accessibility confirms
+the unique fixture tab and native document before direct broker browser.close;
+both disappear after synchronization, and the associated backend panel is gone.
+The earlier dangling-pane hypothesis is not reproduced; no close implementation
+is changed. The private setup initially expected observe to open a panel, but
+observe alone creates a native view; explicit panel.open supplies the missing
+display step for that same browser. Preserve E202-main-close-result.json and its
+bounded before/after accessibility records. No UI input/permission decision or
+pixel qualification is claimed, and the original Home is restored headless.

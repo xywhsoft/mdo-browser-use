@@ -189,6 +189,16 @@ and bounded E202-popup-guard.json; the standalone follow-up and complete rerun
 pass. Probe failures now include line/type and that popup's tool reason. The
 product input guard is unchanged and no automatic action retry was added.
 
+A separate actual-main-window close audit confirms one unique owned fixture
+tab/native document through read-only accessibility, closes that exact browser
+through its original broker scope, then confirms both the displayed tab and its
+associated backend panel are removed. The suspected dangling-pane condition is
+not reproduced, so no product close change is made. The private setup needed
+explicit panel.open after observe (observation alone does not open a display
+panel). E202-main-close-result.json records this setup limit and the bounded
+before/after accessibility hashes. Restore the same Home headless; normal-window
+pixels, permission-button and physical Android qualification remain open.
+
 ## Remaining completion gates
 
 - Verify the installed Android main Activity/browser, actual provider input,
