@@ -369,6 +369,8 @@ def main():
                   'preparation-publication-state-navigation','preparation-publication-state-manual','preparation-publication-state-channel',
                   'preparation-publication-state-retiring','preparation-publication-state-pending','preparation-publication-state-download',
                   'preparation-publication-state-context-cleared','preparation-publication-state-context-destroyed','preparation-publication-state-context-foreign',
+                  'preparation-publication-state-context-isolated','preparation-publication-state-context-isolated-child','preparation-publication-state-context-isolated-restore',
+                  'preparation-publication-state-native-loading','preparation-publication-state-native-loaded',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
                   'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
@@ -462,10 +464,12 @@ def main():
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-state-'):]
             phase={'ready':'ready','starting':'ready','legacy':'ready','hidden':'suspended','viewport':'suspended','busy':'busy','restoring':'restoring',
                    'navigation':'document_changed','manual':'owner_unavailable','channel':'owner_unavailable','retiring':'owner_unavailable','pending':'popup_pending','download':'download_only',
-                   'context-cleared':'document_unavailable','context-destroyed':'document_unavailable','context-foreign':'ready'}[variant]
+                   'context-cleared':'document_unavailable','context-destroyed':'document_unavailable','context-foreign':'ready',
+                   'context-isolated':'document_unavailable','context-isolated-child':'ready','context-isolated-restore':'document_unavailable',
+                   'native-loading':'document_unavailable','native-loaded':'document_unavailable'}[variant]
             if (not isinstance(proof,dict) or proof.get('native_adapter') is not True or proof.get('read_only') is not True or proof.get('legacy_world_queries')!=0
-                    or proof.get('phase_checked')!=phase or proof.get('ready_checked') is not (variant in {'ready','starting','legacy','context-foreign'}) or proof.get('startup_checked') is not (variant=='starting')
-                    or proof.get('explicit_restore_checked') is not (variant in {'hidden','viewport','restoring'}) or proof.get('provider_qualified') is not False):
+                    or proof.get('phase_checked')!=phase or proof.get('ready_checked') is not (variant in {'ready','starting','legacy','context-foreign','context-isolated-child'}) or proof.get('startup_checked') is not (variant=='starting')
+                    or proof.get('explicit_restore_checked') is not (variant in {'hidden','viewport','restoring','context-isolated-restore','native-loaded'}) or proof.get('provider_qualified') is not False):
                 raise RuntimeError('The original popup document-state route, readiness or read-only boundary did not pass')
         if mode.startswith('preparation-restore-'):
             restore=popup_worker['product_publication'].get('document_restore')

@@ -54,6 +54,7 @@ public final class CdpPopupWorkerProbe {
         final AtomicInteger creates=new AtomicInteger(),opens=new AtomicInteger(),closes=new AtomicInteger(),enables=new AtomicInteger(),disables=new AtomicInteger(),resumes=new AtomicInteger(),detaches=new AtomicInteger(),receives=new AtomicInteger(),guards=new AtomicInteger(),contextEvents=new AtomicInteger();
         final Set<Thread> threads=ConcurrentHashMap.newKeySet();volatile Wire wire;volatile CountDownLatch armEntered,armRelease;
         volatile java.util.function.Consumer<byte[]> receivedHook;
+        final AtomicInteger frameLoadingEvents=new AtomicInteger();
         final Map<String,CdpBindingProbe.Factory> nativeTargets=new ConcurrentHashMap<>();final AtomicInteger nativeOpens=new AtomicInteger(),barriers=new AtomicInteger();
         final Set<String> proofTargets=ConcurrentHashMap.newKeySet();{proofTargets.add("target-proof-real");}
         volatile String barrierMode="normal";volatile Runnable proofConfirmed,closeHook;volatile boolean closeFailure;
@@ -232,7 +233,7 @@ public final class CdpPopupWorkerProbe {
                 return clock.getAsLong();
             };
             return originalBroker=new MdoBrowserCdpPopupBroker(current,originalClock,(timeout,alive,events)->{opens.incrementAndGet();return MdoBrowserCdpSession.ownedBrowser(next,alive,(method,child,params)->{
-                try{events.event(method,child,params);if(method.equals("Runtime.executionContextsCleared")||method.equals("Runtime.executionContextDestroyed"))contextEvents.incrementAndGet();}catch(IOException|RuntimeException|Error error){eventFailure=method+":"+error.getClass().getSimpleName()+":"+error.getMessage();StringBuilder site=new StringBuilder();for(StackTraceElement frame:error.getStackTrace())if(frame.getClassName().startsWith("org.xserver.android.MdoBrowser"))site.append(frame.getClassName()).append('.').append(frame.getMethodName()).append('>');eventFailureSite=site.toString();throw error;}
+                try{events.event(method,child,params);if(method.equals("Runtime.executionContextsCleared")||method.equals("Runtime.executionContextDestroyed"))contextEvents.incrementAndGet();if(method.equals("Page.frameStartedLoading")||method.equals("Page.frameStoppedLoading")||method.equals("Page.frameNavigated"))frameLoadingEvents.incrementAndGet();}catch(IOException|RuntimeException|Error error){eventFailure=method+":"+error.getClass().getSimpleName()+":"+error.getMessage();StringBuilder site=new StringBuilder();for(StackTraceElement frame:error.getStackTrace())if(frame.getClassName().startsWith("org.xserver.android.MdoBrowser"))site.append(frame.getClassName()).append('.').append(frame.getMethodName()).append('>');eventFailureSite=site.toString();throw error;}
             },clock::getAsLong);},
                 (target,timeout,alive,events)->{threads.add(Thread.currentThread());nativeOpens.incrementAndGet();CdpBindingProbe.Factory peer=nativeTargets.get(target);
                     if(peer==null)throw new IOException("cdp_fixture_unregistered_target");return peer.open(proofTargets.contains(target)?"owned":"other",timeout,alive,events);});}
@@ -3798,6 +3799,17 @@ public final class CdpPopupWorkerProbe {
     }
     private static JSONObject popupDocumentState(String variant,CdpNetworkWorkerProbe.Case host,PopupProductHost product,WebView view,Backend backend,Backend.DocumentRenderer renderer,JSONObject startup)throws Exception {
         boolean download=variant.equals("state-download"),hidden=variant.equals("state-hidden"),viewport=variant.equals("state-viewport"),restoring=variant.equals("state-restoring"),busy=variant.equals("state-busy");
+        boolean nativeRestore=variant.equals("state-context-isolated-restore")||variant.equals("state-native-loaded");
+        if(nativeRestore){
+            // Positive fresh inventory needs an authentic original-source root
+            // commit. A UI epoch/URL alone must never satisfy that guard.
+            int delivered=backend.frameLoadingEvents.get();
+            backend.wire.add(new JSONObject().put("method","Page.frameNavigated").put("sessionId",renderer.root).put("params",new JSONObject().put("frame",new JSONObject().put("id","frame-owned").put("loaderId",renderer.frames.rootLoader).put("url",renderer.frames.rootUrl))));
+            waitFor(()->backend.frameLoadingEvents.get()>delivered,host,true);
+            product.frameRpcNamed("owned","state-setup",new JSONObject().put("command","frames").put("agent",true).put("action","list"));
+            waitFor(()->product.publicCounts.getOrDefault("state-setup",0)==1,host,true);
+            check(product.publicReplies.get("state-setup").getBoolean("ok")&&product.inspectDocumentState("owned").getBoolean("ready"));
+        }
         PopupProductHost.MdoBrowserDocument original=product.documents.get("owned");int queries=original.worldQueries,calls=renderer.worlds.createCalls,effects=renderer.worlds.evaluations,proofs=backend.nativeOpens.get(),connections=backend.opens.get();
         JSONObject state=product.inspectDocumentState("owned");check(state.getString("adapter").equals("android-native-frames-v1"));
         check(state.getBoolean("installed")==!download&&state.getBoolean("ready")==!download&&state.isNull("native_document")&&product.documents.get("owned").worldQueries==queries&&product.inspectFrameRouting("owned"));
@@ -3806,14 +3818,34 @@ public final class CdpPopupWorkerProbe {
         String phase=download?"download_only":"ready";boolean expectedReady=!download;
         AtomicInteger rejects=new AtomicInteger();MdoBrowserPopups<WebView> pending=null;
         boolean nativeContext=variant.startsWith("state-context-"),foreignContext=variant.equals("state-context-foreign");
+        boolean isolatedContext=variant.startsWith("state-context-isolated"),isolatedChild=variant.equals("state-context-isolated-child");
+        boolean nativeLoading=variant.equals("state-native-loading")||variant.equals("state-native-loaded");
         if(nativeContext){
             long epoch=product.views.epoch("owned",view);int delivered=backend.contextEvents.get();
             boolean cleared=variant.equals("state-context-cleared");
+            int context=foreignContext?999999:1;
+            if(isolatedContext){
+                CdpWorldsProbe.Context selected=null;
+                for(CdpWorldsProbe.Context row:renderer.worlds.contexts.values())if(row.source==null&&row.frame.equals(isolatedChild?"root-local":"frame-owned")&&(selected==null||row.id>selected.id))selected=row;
+                check(selected!=null);final CdpWorldsProbe.Context originalContext=selected;
+                context=selected.id;renderer.worlds.contexts.values().removeIf(row->row==originalContext);
+            }
             backend.wire.add(new JSONObject().put("method",cleared?"Runtime.executionContextsCleared":"Runtime.executionContextDestroyed")
-                .put("sessionId",renderer.root).put("params",cleared?new JSONObject():new JSONObject().put("executionContextId",foreignContext?999999:1)));
+                .put("sessionId",renderer.root).put("params",cleared?new JSONObject():new JSONObject().put("executionContextId",context)));
             waitFor(()->backend.contextEvents.get()>delivered,host,true);
             check(product.views.epoch("owned",view)==epoch&&product.popupPageDocumentReady("owned"));
-            if(!foreignContext){phase="document_unavailable";expectedReady=false;}
+            if(!foreignContext&&!isolatedChild){phase="document_unavailable";expectedReady=false;}
+        }
+        if(nativeLoading){
+            long epoch=product.views.epoch("owned",view);int delivered=backend.frameLoadingEvents.get();
+            backend.wire.add(new JSONObject().put("method","Page.frameStartedLoading").put("sessionId",renderer.root).put("params",new JSONObject().put("frameId","frame-owned")));
+            waitFor(()->backend.frameLoadingEvents.get()>delivered,host,true);
+            if(nativeRestore){
+                int started=backend.frameLoadingEvents.get();
+                backend.wire.add(new JSONObject().put("method","Page.frameStoppedLoading").put("sessionId",renderer.root).put("params",new JSONObject().put("frameId","frame-owned")));
+                waitFor(()->backend.frameLoadingEvents.get()>started,host,true);
+            }
+            check(product.views.epoch("owned",view)==epoch&&product.popupPageDocumentReady("owned"));phase="document_unavailable";expectedReady=false;
         }
         if(hidden)product.bounds(view,new JSONObject().put("browser","owned").put("visible",false));
         if(viewport||restoring)product.invalidatePopupDocument("owned","input_viewport_changed");
@@ -3831,12 +3863,18 @@ public final class CdpPopupWorkerProbe {
         for(int i=0;i<5;i++){
             JSONObject current=product.inspectDocumentState("owned");if(current.getBoolean("ready")!=expectedReady||!phase.equals(current.getString("phase")))throw new AssertionError("Incorrect popup document state "+variant+": "+current);
             check(product.inspectFrameRouting("owned")&&current.getString("adapter").equals("android-native-frames-v1")&&current.isNull("native_document")&&current.getInt("pending")==((restoring||busy)?1:0));
-            check(current.getBoolean("installed")==java.util.Arrays.asList("state-ready","state-starting","state-legacy","state-busy","state-context-foreign").contains(variant));
+            check(current.getBoolean("installed")==java.util.Arrays.asList("state-ready","state-starting","state-legacy","state-busy","state-context-foreign","state-context-isolated-child").contains(variant));
         }
         check(renderer.worlds.createCalls==worlds&&renderer.worlds.evaluations==steps&&rejects.get()==0&&original.worldQueries==queries);
         if(hidden){product.bounds(view,new JSONObject().put("browser","owned").put("visible",true));check(!product.inspectDocumentState("owned").getBoolean("ready")&&renderer.worlds.createCalls==worlds);}
         if(hidden||viewport){product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.publicCounts.getOrDefault("frames",0)==1,host,true);check(product.publicReplies.get("frames").getBoolean("ok")&&product.inspectDocumentState("owned").getBoolean("ready"));}
         if(restoring||busy){renderer.release(backend.wire);waitFor(()->product.publicCounts.getOrDefault("frames",0)==1,host,true);check(product.inspectDocumentState("owned").getBoolean("ready"));}
+        if(nativeRestore){
+            long epoch=product.views.epoch("owned",view);product.frameRpc("owned",new JSONObject().put("command","frames").put("agent",true).put("action","list"));waitFor(()->product.publicCounts.getOrDefault("frames",0)==1,host,true);
+            JSONObject reply=product.publicReplies.get("frames"),after=product.inspectDocumentState("owned");
+            if(!reply.getBoolean("ok")||!after.getBoolean("ready")||product.views.epoch("owned",view)!=epoch)throw new AssertionError("Native readiness recovery "+variant+": reply="+reply+" state="+after);
+            check(true);
+        }
         if(pending!=null){pending.cancel();check(rejects.get()==1&&!product.inspectDocumentState("owned").getBoolean("ready"));}
         product.manual.remove("owned");
         if(variant.equals("state-legacy")){
@@ -3845,8 +3883,8 @@ public final class CdpPopupWorkerProbe {
             check(!absent.getBoolean("installed")&&!absent.getBoolean("ready")&&absent.isNull("native_document")&&absent.getString("phase").equals("world_unavailable"));
         }
         check(original.worldQueries==queries);
-        if(!hidden&&!viewport&&!restoring)check(renderer.worlds.createCalls==calls);check(renderer.worlds.evaluations==effects&&backend.nativeOpens.get()==proofs&&backend.opens.get()==connections);
-        return new JSONObject().put("native_adapter",true).put("read_only",true).put("legacy_world_queries",original.worldQueries-queries).put("phase_checked",phase).put("ready_checked",expectedReady).put("startup_checked",startup!=null).put("explicit_restore_checked",hidden||viewport||restoring).put("provider_qualified",false);
+        if(!hidden&&!viewport&&!restoring&&!nativeRestore)check(renderer.worlds.createCalls==calls);check(renderer.worlds.evaluations==effects&&backend.nativeOpens.get()==proofs&&backend.opens.get()==connections);
+        return new JSONObject().put("native_adapter",true).put("read_only",true).put("legacy_world_queries",original.worldQueries-queries).put("phase_checked",phase).put("ready_checked",expectedReady).put("startup_checked",startup!=null).put("explicit_restore_checked",hidden||viewport||restoring||nativeRestore).put("provider_qualified",false);
     }
     private static JSONObject frontendRecovery(String variant,CdpNetworkWorkerProbe.Case host,Backend backend,PopupProductHost product,WebView view,Backend.DocumentRenderer renderer)throws Exception {
         boolean navigation=variant.startsWith("frontend-navigation-"),cancel=variant.equals("frontend-navigation-cancel"),natural=variant.startsWith("frontend-natural-"),contextLoss=variant.startsWith("frontend-context-");
@@ -4104,7 +4142,7 @@ public final class CdpPopupWorkerProbe {
                         if(child==null){check(invalid||variant.equals("close-before-allocation"));source.adopting=null;return;}
                         check(host.ui.onThread()&&child==source.views.get("owned"));exact[0]=child;source.adopting=child;child.nativeUrl="https://original.invalid/page";
                         backend.nativeTargets.put("target-proof-real",proofPeer(child,"success",null,null));backend.sourceRenderer=initial;
-                        try{renderer[0]=new Backend.DocumentRenderer(child);renderer[0].frames.omitChild=!variant.equals("files-nested");renderer[0].frames.includeLocal=variant.equals("files-nested");}catch(Exception error){throw new AssertionError(error);}
+                        try{renderer[0]=new Backend.DocumentRenderer(child);boolean nested=variant.equals("files-nested")||variant.equals("state-context-isolated-child");renderer[0].frames.omitChild=!nested;renderer[0].frames.includeLocal=nested;}catch(Exception error){throw new AssertionError(error);}
                         if(variant.equals("state-starting"))try{check(product.inspectFrameRouting("owned"));startup[0]=product.inspectDocumentState("owned");failure("cdp_popup_document_route_required",()->product.legacyRpc("owned"));check(product.documents.get("owned").worldQueries==0);}catch(Exception error){throw new AssertionError(error);}
                         if(variant.equals("close-world"))renderer[0].holdMethod="Page.createIsolatedWorld";
                         backend.managedResumeMode="normal";

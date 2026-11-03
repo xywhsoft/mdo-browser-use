@@ -246,6 +246,7 @@ final class PopupProductHost {
     void foreignInput(String key,JSONObject request)throws Exception{PopupPage page=network(key).page;
         new MdoBrowserNativeInput(views.get(key),cdpWorker,cdpMarker("root",views.get("root")),()->true,()->1,request,page.network.handoff,page.proof);}
     void frameRpc(String key,JSONObject request)throws Exception{executeFrames(key,"frames",views.get(key),request);}
+    void frameRpcNamed(String key,String id,JSONObject request)throws Exception{executeFrames(key,id,views.get(key),request);}
     MdoBrowserCdpCapture.Session captureSession(String key,MdoBrowserCdpCapture operation,MdoBrowserCdpCapture.Current current)throws Exception{return captureDocumentSession(key,views.get(key),operation,current);}
     @@CAPTURE_SESSION@@
     void invalidatePopupDocument(String key,String reason){WebView view=views.get(key);inputInvalidated(key,view,views.epoch(key,view),reason);}

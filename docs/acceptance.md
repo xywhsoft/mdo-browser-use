@@ -514,6 +514,46 @@ real inference, external website, additional app/Home/native copy or official
 publication occurs. Overall Android automation and whole-goal qualification
 remain false.
 
+## Isolated root and loading readiness publication (E213)
+
+The prior default-context fence did not observe destruction of the root's
+isolated execution realm. A new original JNI/native-world event reproduces the
+same ready:true snapshot with the UI epoch and default context still unchanged.
+Keep E213-isolated-ready-red.log. Frame routing already invalidates its original
+Node epoch; publish that same atomic flag through a volatile root reference at
+the end of a successful worker snapshot. The UI reader checks only graph-live
+and original-epoch flags. The binding's graph reference is also volatile; no
+worker-owned graph/world map is accessed by UI status and no world is created.
+
+Five new cases cover root isolated loss, independent child loss, explicit root
+recovery, native loading and loading-stop without automatic readiness revival.
+The first positive recovery attempt correctly refused unproved native document
+provenance. Preserve both failure logs; supply and join an authentic original
+root commit in the fixture before testing recovery. All21 state modes and native
+655 pass with27,948 reported popup assertions. Compare old650 business outputs:
+only the previously reviewed loading-timeout transport-close stack and frozen
+worker cleanup observation differ. Final original detach, native destruction,
+source release and unblocked cleanup requirements remain identical.
+
+Current-source frontend/JVM/JNI20 passes; its full-compile class hashes exactly
+match the focused run, so it is not rerun solely after recompiling identical
+classes. Ordinary create850/async77 has exact unchanged input hashes and is
+reused. Fresh Python208/210 (two existing Windows symlink skips) and acceptance15
+pass;544 inputs/150 outputs bind84 static requests/90 tool pairs/12 recovered
+ordinary failures. Existing JS526/SDK/control/packed12 remain qualified reuse.
+
+Both Android packages are rebuilt/source/signature checked. Inspect actual DEX
+definitions and instructions: volatile publishedRoot and frames references,
+two atomic get calls in the map-free frame reader, one binding-to-frame reader
+call and the snapshot publication store. Main APK6,608,193B has SHA-256
+86e8a74e28c45e21bda4b71c3fb05977d630e5030c8c67aa6134f7d19eaa40cd.
+The exercised Windows archive, ARM64 engine and native/app payload bytes remain
+unchanged; Android DEX changes. Restore the same Home/headless host/config/port.
+Physical Android/provider/lifecycle, actual main-window pixels/human decision,
+authenticated physical-device and full native-origin qualification remain open.
+No phone/provider change, live inference, external site, extra app/Home/native
+copy or official publication occurs; overall Android automation remains false.
+
 ## Remaining completion gates
 
 - Verify the installed Android main Activity/browser, actual provider input,

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E212)
+## Complete development host APK (current: E213)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,10 +54,11 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`68d832861f6e634b3d8cf168a3bbffa09cf60606e70a9bf5775e553a8d72c45f`.
-E212 rebuilds the Java/DEX state projection so a lost native root-context witness
-cannot keep reporting a ready document while its UI epoch is unchanged. Actual
-DEX inspection confirms the state method calls the original worker fence. The
+`86e8a74e28c45e21bda4b71c3fb05977d630e5030c8c67aa6134f7d19eaa40cd`.
+E213 extends E212's Java/DEX state correction to the root isolated realm and
+native loading epochs. A worker snapshot publishes the original root's atomic
+epoch, revoked by native loss/loading events; UI status reads no worker maps.
+Actual DEX verifies both volatile references and the frame-fence call chain. The
 ARM64 engine retains E208's Responses multipart repair and strict Chat media
 projection, paired with the same verified Windows archive. This does not qualify
 device/provider automation or change the disabled admission gate.
@@ -151,8 +152,8 @@ contracts, not installed framework or sleep/Doze qualification.
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
 `.mdo/host/android-client/mdo-browser-use-dev.apk`,983,443 bytes SHA-256
-`ddcad4bf3e7d10ae28f0fca644ccc389b9f623ac34cec12681f399ce59732937`.
-E212 rebuilds this package against the current reviewed host inputs.
+`d953529e82f8e2c06a59291de840910f9bd3185ac4325313eba2d9c3ee3fdd1a`.
+E213 rebuilds this package against the current reviewed host inputs.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
 ordinary-world deadline method is defined. This package is a diagnostic variant;
 both artifacts share the development package ID, and device qualification selects
@@ -6691,3 +6692,30 @@ state-method instruction checked for its worker-fence call. This does not qualif
 all per-frame isolated realms or ongoing native-origin transitions. Physical
 Activity/provider/lifecycle/device checks and overall Android automation remain
 unqualified; the user's phone/current WebView deferral remains in effect.
+
+### Original atomic root readiness (E213)
+
+The original isolated root realm can disappear while its default context and
+Activity epoch remain live. A native-world destruction test reproduces the
+remaining ready:true snapshot after E212. Frame/world handling already revokes
+the original Node epoch. Publish that same AtomicBoolean only after a successful
+worker snapshot proves the root settled and isolated; read it alongside the
+graph's live flag from the UI. The binding's graph and published-root references
+are volatile. UI status never traverses graph/world maps or creates a realm.
+
+Root isolated loss and loading revoke reported readiness. A loading-stop event
+alone cannot revive the old publication. An unrelated child realm loss keeps
+root readiness; its own original frame references remain independently fenced.
+Fresh explicit inventory recovers with the original native document/source
+proof. A first recovery fixture lacked that proof and correctly got
+navigation_unproven; its positive setup now emits and joins an original native
+root commit instead of weakening admission.
+
+All21 state modes and full native655 pass, with285 assertions in five new modes.
+Fresh frontend/JVM/JNI20 and acceptance15 pass. The old650 business outcomes
+match, with two established loading-timeout scheduling diagnostics separately
+retained; final detach/destruction/source-release requirements are unchanged.
+Ordinary create/control850 is exact-input reuse. Both Android packages are
+rebuilt; actual main DEX defines the volatile fields and the atomic-only reader,
+snapshot publication and binding call. Provider/Activity/lifecycle/device and
+whole-goal qualification remain incomplete; Android automation stays disabled.

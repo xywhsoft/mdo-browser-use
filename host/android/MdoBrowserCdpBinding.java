@@ -158,7 +158,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
         void network(){network=true;armed=null;contexts.clear();identities.clear();seen.clear();}
     }
     private final Peer peer;private final MdoBrowserCdpMarker.Lease lease;private final Contexts contexts;private final String target;
-    private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private MdoBrowserCdpFrames frames;private Network sourceNavigation;
+    private final Thread owner=Thread.currentThread();private boolean controllerInstalled;private volatile MdoBrowserCdpFrames frames;private Network sourceNavigation;
     private final java.util.concurrent.atomic.AtomicBoolean closed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean cleanupFailed=new java.util.concurrent.atomic.AtomicBoolean();
     private final java.util.concurrent.atomic.AtomicBoolean closeFinished=new java.util.concurrent.atomic.AtomicBoolean();
@@ -659,7 +659,7 @@ final class MdoBrowserCdpBinding implements AutoCloseable,MdoBrowserCdpDownloads
     }
     /** Data-only UI snapshot. Rebinding still needs a fresh original-source
      * document guard on the worker; this is never ownership authority. */
-    boolean documentUnavailable(){return peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer&&(closed.get()||contexts.dirty);}
+    boolean documentUnavailable(){MdoBrowserCdpFrames graph=frames;return peer instanceof MdoBrowserCdpPopupBroker.DocumentPeer&&(closed.get()||contexts.dirty||graph!=null&&graph.documentUnavailable());}
     boolean matchesSource(MdoBrowserCdpPopupNative.Source proof){return !closed.get()&&peer instanceof MdoBrowserCdpPopupSource&&((MdoBrowserCdpPopupSource)peer).matches(proof);}
     void retireResponseOrigins(){if(frames!=null)frames.retire();}
     @Override public void close(){if(closed.compareAndSet(false,true)){

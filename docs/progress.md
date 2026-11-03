@@ -16332,3 +16332,72 @@ fix to the root/default native witness and clearing events; continue reviewing
 per-frame isolated-world and ongoing native-origin readiness. The main UI pixel/
 human decision, Android physical Activity/provider/lifecycle and authenticated
 two-device gates remain incomplete. The full goal stays active.
+
+## E213 — publish root-frame readiness through original atomic epochs
+
+The previous goal turn made progress with E212's demonstrated default-context
+state repair. Continue the remaining per-frame/native-origin review rather than
+retrying the unchanged desktop capture channel or asking again for a deferred
+phone. A new original JNI/native-world destruction event removes the root's
+isolated execution context while preserving its default context and UI epoch.
+E212 still reports installed:true/ready:true. Preserve E213-isolated-ready-red.log.
+This is another readiness defect, not evidence of stale-authority execution.
+
+The worker-owned frame graph already invalidates each original atomic Node
+epoch on world loss/loading and its live flag on retirement. Publish the exact
+settled, isolated root epoch through a volatile reference only after constructing
+a successful snapshot. Its data-only reader checks those two atomic flags and
+never reads worker-owned maps. The binding's graph reference is volatile too and
+joins that reader to the existing unavailable fence. No new allocation, executor,
+protocol query, rebind or authority is introduced by the status read. Child realm
+loss preserves the live root; original child references remain invalidated.
+
+Five permanent native modes cover root isolated loss, child isolation, positive
+explicit recovery, native loading and loading-stop with no automatic revival of
+the old published epoch. Actual event dispatch is joined, not raw receive. Repeated
+UI state reads must not create worlds/evaluations or another source connection.
+The first positive recovery test lacked the existing original-source root commit
+and correctly got navigation_unproven. Retain E213-recovery-first-failure.log and
+E213-recovery-diagnostic.log. Its corrected positive setup emits/joins that native
+commit and uses a distinct original setup request ID before capturing the test's
+baseline. It does not weaken product provenance/admission. Both positive recovery
+cases finish on the original view/channel/UI epoch without navigation replay.
+
+Full native655 passes27,948 reported popup assertions, including285 in the five
+new cases. All21 state modes pass. The initially strict comparison finds only
+two established loading-timeout scheduler observations: transport_close_site
+and worker_cleanup_confirmed. Preserve the exact before/after values and initial
+comparison. Both runs have the same final original detach, one native destruction,
+source release, no event failure and unblocked cleanup. Compare all old650 business
+schemas/values excluding assertion counters and only those two named diagnostics:
+no other differences. Do not turn a frozen intermediate cleanup observation into
+a new protocol receipt or a new product failure/root-cause claim.
+
+Current-source frontend dispatcher/frame-driver/JVM/JNI20 passes. The subsequent
+full-compile class hashes match that run exactly; no redundant repeat is needed.
+The ordinary create/control850/async77 input hashes are all exact and reused,
+not newly executed. Fresh Python208/210 passes with two existing Windows symlink
+privilege skips. Fresh acceptance15 binds544 source inputs/150 applied outputs
+and completes84 static protocol requests/90 original tool pairs/12 recovered
+ordinary failures. JS526, SDK/control28 and packed12 are unchanged-input reuse.
+
+Check the idle original runtime's PID/image/config/listener before same-Home
+stop/apply/start. Only two applied Android core Java outputs change. The exercised
+Windows archive, portable plugin and ARM64 engine remain exact. Rebuild both
+Android packages in their existing output directories. Main APK6,608,193B has
+SHA-25686e8a74e28c45e21bda4b71c3fb05977d630e5030c8c67aa6134f7d19eaa40cd;
+diagnostic983,443B has
+SHA-256d953529e82f8e2c06a59291de840910f9bd3185ac4325313eba2d9c3ee3fdd1a.
+Actual DEX verifies both private volatile references, the frame reader's two
+atomic get calls, its absence of map/current/realm-readiness calls, the binding's
+reader call and snapshot publication store. Prior actual class/method/private-
+field gates, diagnostic elapsed clock and source/package/signature checks pass.
+App/native payload bytes are unchanged; Android DEX changes.
+
+All handles are terminal before documentation/commit, and the same headless
+Home/host/config/listener is restored. No extra app/Home/native/dependency copy,
+phone/provider change, install, live inference, external page or official/store
+publication occurs. Overall Android automation and physical/provider/Activity/
+lifecycle qualification remain false. Actual main-window input/pixels, human
+permission decision, authenticated physical two-device and broader native-origin
+verification remain open. The whole Browser Use objective is not achieved.

@@ -40,6 +40,7 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     private final Map<String,Source> sources=new LinkedHashMap<>();private final Map<String,Node> nodes=new LinkedHashMap<>();
     private final Set<String> seenSessions=new LinkedHashSet<>();private long revision;private String fault;
     private final java.util.concurrent.atomic.AtomicBoolean live=new java.util.concurrent.atomic.AtomicBoolean(true);
+    private volatile java.util.concurrent.atomic.AtomicBoolean publishedRoot;
     MdoBrowserCdpFrames(MdoBrowserCdpBinding binding)throws IOException {
         if(binding==null)throw problem("cdp_frame_arguments_invalid");this.binding=binding;
         sources.put(null,new Source(null,binding.rootFrame,null));
@@ -203,14 +204,22 @@ final class MdoBrowserCdpFrames implements MdoBrowserCdpSession.Events {
     }
     private JSONObject snapshot()throws IOException,JSONException {
         current();JSONArray frames=new JSONArray();boolean complete=true;
+        java.util.concurrent.atomic.AtomicBoolean rootReady=null;
         for(Node node:nodes.values()){
             Source source=sources.get(node.session);Node parent=nodes.get(node.parent);
             boolean linked=attached(node,false)&&source!=null&&source.ready&&!node.swapped;if(!linked)complete=false;
+            boolean settled=linked&&attached(node,true),isolated=linked&&worlds.ready(node.alias,node.document);
+            if(node.raw.equals(binding.rootFrame)&&settled&&isolated)rootReady=node.epoch;
             frames.put(new JSONObject().put("id",node.alias).put("document",node.document).put("parent",parent==null?JSONObject.NULL:parent.alias)
-                .put("loading",!linked||!attached(node,true)).put("isolated",linked&&worlds.ready(node.alias,node.document)));
+                .put("loading",!settled).put("isolated",isolated));
         }
-        return new JSONObject().put("ok",true).put("complete",complete).put("frames",frames).put("generation",revision);
+        JSONObject result=new JSONObject().put("ok",true).put("complete",complete).put("frames",frames).put("generation",revision);
+        publishedRoot=rootReady;return result;
     }
+    /** Data-only status for the last published root. A native event revokes its
+     * original atomic epoch; only a successful worker snapshot can publish a
+     * replacement. UI callers never inspect the worker-owned graph/world maps. */
+    boolean documentUnavailable(){java.util.concurrent.atomic.AtomicBoolean original=publishedRoot;return !live.get()||original==null||!original.get();}
     Route select(String frame,String document)throws IOException {
         current();Node selected=null;for(Node node:nodes.values())if(node.alias.equals(frame)&&node.document.equals(document))selected=node;
         if(selected==null)throw problem("cdp_frame_stale");return route(selected,true);
