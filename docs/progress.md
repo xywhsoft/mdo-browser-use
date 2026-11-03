@@ -16675,3 +16675,41 @@ runs. Phone reconnection, current candidate installation and physical sleep/
 input/provider qualification remain user-deferred; the previous diagnostic is
 still only last-observed installed. Android automation stays disabled. Main-window
 human/pixels and authenticated two-device gates remain open; goal active.
+
+## E223 — keep screenshot deadlines across device suspend
+
+The actual capture runtime also used uptime for its operation budget. A new
+regression compiles that production scheduler against separate elapsed/uptime
+and Handler peers: the old code accepts a late pre-draw guard after the original
+budget expires during simulated suspend. Preserve its failing log. This is a
+local timeout defect, not an observed phone pixel leak or a Doze qualification.
+
+Use elapsedRealtime for the capture budget. Translate the unchanged original
+elapsed deadline into at-most50ms Handler uptime slices; each watchdog callback
+checks expiry before rearming that same deadline. Existing pre-draw, native
+readiness, encoded-result and final-guard checks now share that suspend-inclusive
+clock. Expired results withhold/clear their encoded bytes; native/bitmap leases
+still wait for their original acknowledgements and cleanup. No early watchdog
+success, timeout renewal, native drawing replay or UI-thread sleep is introduced.
+
+Fresh40 runtime-clock assertions and304 original capture lifetime checks pass.
+They cover delayed guards/readiness/encoding, post-encode private-byte clearing,
+resume watchdog, eligible captures, original deadline and timer rearm failure.
+Incrementally rebuild only Capture/nested classes in the existing JNI output;
+seven fresh frame/capture/takeover/resource cases pass and drain their original
+reservations. E222 input tests are unchanged-source reuse; its source-bound
+three input JNI cases precede the Capture change. Full658 native/frontend20/
+acceptance15 are historical, not current whole-suite runs.
+
+Both APKs rebuild with the same native engine, app archive and portable plugin.
+Actual DEX verifies the production capture clock, Handler translation and bounded
+watchdog without deadline writes, plus current input clocks and retained
+state/atomic/initial-scale/hover gates. APK signatures, private provider and
+native/app payload checks pass. Main:6608193B SHA-2568649026aa9d9c32a43940d6f021a83cc7005363b4329a5935c0eac7dfb01ec08.
+Diagnostic:991635B SHA-2567fcd88e10b9c88b871b680e7854af07b5b819b039813bee30b4fccaab03196d5.
+Windows bytes remain unchanged. Restore the same headless host/config/Home/port,
+confirm no active runs/operations and preserve all account/session data.
+No phone polling/install, provider change, real model call or publication occurs.
+Final device candidate installation/hover/sleep qualification remains deferred;
+Android automation stays disabled. Windows main human/pixels and authenticated
+two-device gates remain open; the whole goal remains active.

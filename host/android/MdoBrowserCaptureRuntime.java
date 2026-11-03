@@ -21,9 +21,14 @@ final class MdoBrowserCaptureRuntime {
     static MdoBrowserCapture.Scheduler scheduler(){
         final Handler handler=new Handler(Looper.getMainLooper());
         return new MdoBrowserCapture.Scheduler(){
-            public long now(){return SystemClock.uptimeMillis();}
+            public long now(){return SystemClock.elapsedRealtime();}
             public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("Capture UI scheduler stopped");}
-            public void at(Runnable task,long deadline){if(!handler.postAtTime(task,deadline))throw new IllegalStateException("Capture UI scheduler stopped");}
+            public void at(Runnable task,long deadline){
+                // Handler deadlines exclude deep sleep; the capture budget does
+                // not. Wake in short uptime slices against the same deadline.
+                long delay=Math.max(0,Math.min(50,deadline-SystemClock.elapsedRealtime())),uptime=SystemClock.uptimeMillis();
+                if(uptime<0||uptime>Long.MAX_VALUE-delay||!handler.postAtTime(task,uptime+delay))throw new IllegalStateException("Capture UI scheduler stopped");
+            }
             public void remove(Runnable task){handler.removeCallbacks(task);}
         };
     }

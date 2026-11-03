@@ -147,9 +147,18 @@ final class MdoBrowserCapture implements AutoCloseable {
         catch(RuntimeException|OutOfMemoryError error){if(active==job&&job.phase==phase&&job.ticket==ticket)job.finish("capture_guard_failed",null);}
     }
     private final class Job {
-        final Plan plan;final Guard guard;final Complete complete;final Lease lease;final Runnable watchdog=()->finish("capture_timed_out",null);
+        final Plan plan;final Guard guard;final Complete complete;final Lease lease;final Runnable watchdog=this::checkDeadline;
         long deadline;int phase,ticket;boolean done;Work work;byte[] encoded;
         Job(Plan plan,Guard guard,Complete complete,Lease lease){this.plan=plan;this.guard=guard;this.complete=complete;this.lease=lease;}
+        void checkDeadline(){
+            thread();if(done||active!=this)return;
+            try{
+                boolean expired=scheduler.now()>=deadline;
+                if(done||active!=this)return;
+                if(expired){finish("capture_timed_out",null);return;}
+                scheduler.at(watchdog,deadline);
+            }catch(RuntimeException|OutOfMemoryError error){if(active==this)finish("capture_timer_unavailable",null);}
+        }
         String check(){
             if(closed||destroyed)return "capture_closed";
             try{if(scheduler.now()>=deadline)return "capture_timed_out";}catch(RuntimeException error){return "capture_timer_unavailable";}
