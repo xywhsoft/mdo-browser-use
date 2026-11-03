@@ -860,6 +860,19 @@ Final device candidate installation/hover/sleep qualification remains deferred;
 Android automation stays disabled. Windows main human/pixels and authenticated
 two-device gates remain open; the whole goal remains active.
 
+## Current popup receipt deadline (E224)
+
+The old original acknowledgement could beat its queued expiry and publish success
+after5000ms. The production callback now validates that saved deadline before
+publication/resource release. Actual consumption drains its own resource while
+late/unprovable receipts retain failure and cannot bind a child or confirm Stop.
+Fresh44 controller assertions and18 actual native-source assertions cover this
+ordering, duplicate callbacks, clock failure and exact teardown. Ten focused JNI
+modes pass; the native-source mode is refreshed with the new cases. Both APKs are
+rebuilt and actual DEX/signatures/private-provider/payload gates pass. Historical
+full native/frontend/acceptance aggregates are not current whole-suite results.
+No phone/provider/model/publication action; full completion gates remain open.
+
 ## Remaining completion gates
 
 - Complete Android host input, guarded capture/URI/chooser and lifecycle

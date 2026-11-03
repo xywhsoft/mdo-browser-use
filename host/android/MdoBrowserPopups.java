@@ -157,6 +157,11 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
         thread();Entry value=entry;if(value==null||!value.snapshot.id.equals(id)||!value.sent)return;
         Protocol original=protocol;
         if(value.adopted&&value.adoption!=null&&value.adoption.dispatched)value.adoption.consumed=true;
+        // A queued timeout may run after the native acknowledgement. Receipt
+        // validity depends on its original deadline, not Handler queue order.
+        try{if(scheduler.now()>=value.expires){value.timedOut=true;faulted=true;}}
+        catch(RuntimeException|OutOfMemoryError error){value.timedOut=true;faulted=true;}
+        if(entry!=value)return;
         boolean valid=!value.invalidated&&!value.timedOut&&current(value)&&!faulted;
         entry=null;budget.release();
         try{scheduler.remove(value.timer);}catch(RuntimeException|OutOfMemoryError error){faulted=true;valid=false;}
@@ -166,7 +171,7 @@ final class MdoBrowserPopups<T> implements AutoCloseable {
             else if(value.stop.retirement!=null&&value.stop.retirement==value.adoption&&value.adopted)confirmRetirement(value.stop);
             else if(!value.adopted)value.stop.confirm();else value.stop.fail("popup_native_rejection_unconfirmed");
         }
-        finish(value,valid,valid?null:"popup_source_changed",true);
+        finish(value,valid,valid?null:value.timedOut?"popup_transport_unconfirmed":"popup_source_changed",true);
         if(value.adoption!=null&&value.adoption.nativeConsumed()&&original!=null&&original.scope==value.adoption.original.scope&&original.uiAttachment!=null)
             try{original.uiAttachment.consumed(value.adoption);}catch(RuntimeException|OutOfMemoryError error){faulted=true;if(value.stop!=null)value.stop.fail("popup_native_rejection_unconfirmed");}
         if(original!=null&&original.uiAttachment!=null)try{original.uiAttachment.drained();}

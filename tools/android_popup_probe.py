@@ -64,7 +64,8 @@ def main():
     for target,key in [('AndroidPopupContractTest','checks'),('AndroidPopupTargetContractTest','native_callback_checks'),('AndroidPopupBlockHost','owner_scope_checks')]:
         run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.'+target],
             cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
-        report[key]=json.loads(run.stdout.strip())['checks']
+        row=json.loads(run.stdout.strip());report[key]=row['checks']
+        if key=='checks':report['ack_deadline_checks']=row['ack_deadline_checks']
     if any(hashlib.sha256((dev.ROOT/name).read_bytes()).hexdigest()!=value for name,value in hashes.items()):
         raise RuntimeError('Native popup contract inputs changed during execution')
     report['source_sha256']=hashes

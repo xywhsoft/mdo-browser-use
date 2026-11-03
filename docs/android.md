@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E223)
+## Complete development host APK (current: E224)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`8649026aa9d9c32a43940d6f021a83cc7005363b4329a5935c0eac7dfb01ec08`.
+`3409b3240044d6e332f67a49b892b8ac0ca7d0541235ceb8c7dfb139cd0ca39c`.
 E214 shares the original document's live-readable predicate between isolated
 world state and navigation page_ready. Root/default realm loss clears both
 public readiness fields even when the native document and Activity epoch stay
@@ -157,7 +157,7 @@ contracts, not installed framework or sleep/Doze qualification.
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
 `.mdo/host/android-client/mdo-browser-use-dev.apk`,991,635 bytes SHA-256
-`7fcd88e10b9c88b871b680e7854af07b5b819b039813bee30b4fccaab03196d5`.
+`3b018230288a2b7ff6ba3d522ac0680f6f9f0cfba59a969e62e03d73a489d2d1`.
 E220 includes bounded post-touch hover sequencing; its final-source device
 qualification and main-host installation are deferred by the user.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
@@ -6862,3 +6862,14 @@ No phone polling/install, provider change, real model call or publication occurs
 Final device candidate installation/hover/sleep qualification remains deferred;
 Android automation stays disabled. Windows main human/pixels and authenticated
 two-device gates remain open; the whole goal remains active.
+
+### Original popup acknowledgement expiry (E224)
+
+The original native callback now checks its saved5000ms deadline directly, even
+when the overdue UI timer has not run. Late or unprovable acknowledgements keep
+popup_transport_unconfirmed; actual native consumption still drains its original
+reservation and cannot authorize a child-world binding or a successful Stop.
+Fresh44 controller and18 actual native-source deadline assertions pass, alongside
+focused original JNI lifetimes. Current APK DEX verifies the direct clock check
+before the real private Budget release. No transport replay or capability gate
+change. Phone qualification remains deferred. See [E224 progress](progress.md).

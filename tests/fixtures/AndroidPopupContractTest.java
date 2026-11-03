@@ -10,8 +10,9 @@ public final class AndroidPopupContractTest {
     static void check(boolean condition){checks++;if(!condition)throw new AssertionError("Popup check "+checks);}
     static void denied(Runnable action){try{action.run();throw new AssertionError("Expected popup rejection");}catch(IllegalStateException expected){checks++;}}
     static final class Clock implements MdoBrowserPopups.Scheduler {
-        long now;boolean fail;final Map<Runnable,Long> jobs=new LinkedHashMap<>();
-        public long now(){return now;}
+        long now;boolean fail,failClock;Runnable reading;final Map<Runnable,Long> jobs=new LinkedHashMap<>();
+        public long now(){if(reading!=null){Runnable action=reading;reading=null;action.run();}
+            if(failClock)throw new IllegalStateException("Deadline clock unavailable");return now;}
         public void at(Runnable task,long time){if(fail)throw new IllegalStateException("Scheduler stopped");jobs.put(task,time);}
         public void remove(Runnable task){jobs.remove(task);}
         void advance(long time){now=time;for(Runnable task:new ArrayList<>(jobs.keySet()))if(jobs.containsKey(task)&&jobs.get(task)<=time){jobs.remove(task);task.run();}}
@@ -50,7 +51,44 @@ public final class AndroidPopupContractTest {
         MdoBrowserPopups.Scope next=reused.core.claimProtocol(reused.view,()->true);MdoBrowserPopups.Stop current=reused.core.stopForProtocol(next);
         reused.core.viewDestroyed(reused.view);check(!old.release());check(current.release());
     }
+    static void deadlineAcknowledgements(){
+        for(long age:new long[]{4999,5000,5001,20000}){
+            Harness h=new Harness();Native nativeCall=new Native();check(h.core.open(nativeCall,false));
+            h.adopt(h.id(),new Object());Runnable oldTimer=h.clock.jobs.keySet().iterator().next();
+            h.clock.now=age;nativeCall.ack();
+            check(h.results.equals(java.util.Arrays.asList(age<5000?"true:null:true":"false:popup_transport_unconfirmed:true")));
+            check(h.budget.used()==0&&!h.core.busy()&&h.clock.jobs.isEmpty());check(h.core.clean()==(age<5000));
+            nativeCall.ack();oldTimer.run();check(h.results.size()==1&&h.budget.used()==0&&nativeCall.sends==1);
+            check(h.blocked.equals(java.util.Arrays.asList(true,false)));
+            if(age>=5000){check(!h.core.open(new Native(),false));h.core.viewDestroyed(h.view);check(h.core.clean());}
+            else h.core.close();
+        }
+        Harness protocol=new Harness();MdoBrowserPopups.Scope scope=protocol.core.claimProtocol(protocol.view,()->true);
+        check(protocol.core.readyProtocol(scope));Native child=new Native();check(protocol.core.open(child,false));
+        MdoBrowserPopups.Adoption adoption=protocol.core.prepareProtocolAdoption(scope,protocol.core.pendingProtocol(scope),new Object());
+        protocol.core.sendProtocolAdoption(scope,adoption);protocol.clock.now=5000;child.ack();
+        check(adoption.nativeConsumed()&&adoption.dispatched()&&!adoption.ok()&&!adoption.pending());
+        check(adoption.failure().equals("popup_transport_unconfirmed")&&protocol.budget.used()==0&&!protocol.core.clean());
+        protocol.core.viewDestroyed(protocol.view);
+
+        Harness stopped=new Harness();Native rejected=new Native();check(stopped.core.open(rejected,false));
+        MdoBrowserPopups.Stop stop=stopped.core.stopForProtocol();check(stop.pending()&&rejected.sends==1&&rejected.child==null);
+        stopped.clock.now=5000;rejected.ack();check(!stop.pending()&&!stop.confirmed()&&!stop.release());
+        check(stop.failure().equals("popup_native_rejection_unconfirmed")&&stopped.budget.used()==0&&!stopped.core.clean());
+        stopped.core.viewDestroyed(stopped.view);
+
+        Harness missing=new Harness();Native lostClock=new Native();check(missing.core.open(lostClock,false));missing.adopt(missing.id(),new Object());
+        missing.clock.failClock=true;lostClock.ack();
+        check(missing.results.equals(java.util.Arrays.asList("false:popup_transport_unconfirmed:true"))&&missing.budget.used()==0&&!missing.core.clean());
+        lostClock.ack();check(missing.results.size()==1&&lostClock.sends==1);missing.core.viewDestroyed(missing.view);
+
+        Harness retired=new Harness();Native original=new Native();check(retired.core.open(original,false));retired.adopt(retired.id(),new Object());
+        retired.clock.reading=()->retired.core.viewDestroyed(retired.view);original.ack();
+        check(retired.results.equals(java.util.Arrays.asList("false:popup_source_destroyed:true"))&&retired.budget.used()==0&&retired.core.clean());
+        original.ack();check(retired.results.size()==1&&original.sends==1);
+    }
     public static void main(String[] args)throws Exception {
+        deadlineAcknowledgements();int deadlineChecks=checks;
         confirmedStopAfterDestruction();
         Harness a=new Harness();Native first=new Native();check(a.core.open(first,true));String id=a.id();
         check(id.length()==36&&a.budget.used()==1&&a.core.busy()&&a.core.clean());
@@ -111,7 +149,7 @@ public final class AndroidPopupContractTest {
         check(n2.sends==0&&n3.sends==0);check(!one.core.open(new Native(),false));
         final boolean[] foreign={false};Thread other=new Thread(()->{try{a.core.snapshot();}catch(IllegalStateException expected){foreign[0]=true;}});other.start();other.join();check(foreign[0]);
         protocolStops();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+"}");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"ack_deadline_checks\":"+deadlineChecks+"}");
     }
     private static void protocolStops(){
         Harness empty=new Harness();check(empty.core.protocolSource(empty.view)&&!empty.core.protocolSource(new Object()));

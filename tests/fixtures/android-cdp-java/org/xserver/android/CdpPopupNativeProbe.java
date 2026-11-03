@@ -167,9 +167,28 @@ public final class CdpPopupNativeProbe {
             c.source.reject();check(c.source.confirmed());c.source.finish(true);
         }
     }
+    private static void lateAcknowledgements()throws Exception{
+        for(long age:new long[]{5000,5001})try(Case c=new Case()){
+            check(c.source.ready());Transport original=new Transport();check(c.core.open(original,false));
+            WebView child=new WebView();MdoBrowserLifecycle.Fresh<WebView> birth=c.fresh(child);
+            MdoBrowserPopups.Adoption adoption=c.source.adopt(c.source.pending(),birth);
+            check(adoption.pending()&&!adoption.nativeConsumed());c.now=age;
+            // Deliberately deliver the original native acknowledgement BEFORE
+            // its overdue UI timer. No second transport or new target is used.
+            original.ack();
+            check(!adoption.pending()&&!adoption.ok()&&adoption.nativeConsumed()&&adoption.dispatched());
+            check(adoption.failure().equals("popup_transport_unconfirmed")&&original.sends==1&&c.budget.used()==0);
+            try(MdoBrowserCdpView adapter=MdoBrowserCdpView.network(child,v->v==child,new MdoBrowserCdpMarker.DocumentQuota())){
+                unavailable("cdp_popup_native_child_invalid",()->c.source.child(adoption,birth,adapter));
+                check(child.evaluations==0&&child.destroyed==0);
+            }
+            original.ack();check(!adoption.ok()&&original.sends==1&&c.budget.used()==0);
+        }
+    }
     public static void main(String[] args)throws Exception{
         independentRegistry();closeBarriers();retirementDelivery();deferredRoots();retainedOwners();preparedRetirement();ownership();adoption();stale();cancellation();childMarker();birthInvalidation();
-        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"independent_registry_receipts\":true,\"transport_quiescence_identity\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
+        int start=checks;lateAcknowledgements();int lateChecks=checks-start;
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"late_ack_deadline_checks\":"+lateChecks+",\"original_callback_ownership\":true,\"typed_native_consumption\":true,\"independent_registry_receipts\":true,\"transport_quiescence_identity\":true,\"retirement_delivery_identity\":true,\"fresh_child_registry_gate\":true,\"native_destruction_receipt\":true,\"native_popup_adoption_qualified\":false,\"provider_qualified\":false}");
     }
     private static void independentRegistry()throws Exception{
         try(Case c=new Case()){

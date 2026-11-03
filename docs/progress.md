@@ -16713,3 +16713,45 @@ No phone polling/install, provider change, real model call or publication occurs
 Final device candidate installation/hover/sleep qualification remains deferred;
 Android automation stays disabled. Windows main human/pixels and authenticated
 two-device gates remain open; the whole goal remains active.
+
+## E224 — validate original popup acknowledgements at receipt time
+
+The old controller trusts a native popup acknowledgement if its queued expiry
+callback has not run yet. A regression delivers the original acknowledgement
+at/after its5000ms deadline before the overdue timer: old code reports successful
+adoption. Preserve the failing log. This is a queue-order deadline defect,
+independent of the earlier suspend-clock work; no phone failure is claimed.
+
+Check the saved expiry directly in the original consumption callback before
+releasing its reservation or publishing an outcome. A late/unprovable receipt
+retains popup_transport_unconfirmed and the existing failed-control fence.
+Actual native consumption remains true and releases only its original resource;
+it cannot authorize child-world binding, clear a failed Stop receipt, replay the
+transport or turn an earlier failure into success. Duplicate/late timers remain
+inert. Exact native teardown retains its existing recovery behavior. A view
+retired during clock sampling cannot release the original reservation twice.
+
+Fresh44 acknowledgement checks pass (166 controller assertions total), plus25
+native callback and7 exact-owner checks. Ten focused original JNI modes pass.
+Refresh the actual native-source mode with18 new checks (378 total): late original
+acks remain physically consumed but fail adoption, refuse a child binding and
+perform no page evaluation. Recompile only the changed core and then the changed
+fixture in the same native class output; verify every other source/class/library
+hash. Full658/frontend20/acceptance15 are historical after the changes, not new
+whole-suite results. The first private focused helper used an absent self receipt
+before compilation; retain that failure and correct its prior-receipt path.
+
+Both APKs rebuild; actual DEX checks receipt-time clock/expiry handling before
+physical release, preserved failure code and no send replay. Resolve Java8's
+private Budget accessor to the actual release method rather than assuming an
+inline invoke (the initial private gate mismatch is retained). Current state/
+atomic/initial-scale/hover/input/capture/diagnostic gates, signatures, private
+provider and unchanged native/app payload checks pass. Main:6608193B
+SHA-2563409b3240044d6e332f67a49b892b8ac0ca7d0541235ceb8c7dfb139cd0ca39c. Diagnostic:991635B
+SHA-2563b018230288a2b7ff6ba3d522ac0680f6f9f0cfba59a969e62e03d73a489d2d1.
+Windows/native engine/app archive/portable bytes remain unchanged. Restore and
+verify the same headless host/config/Home/listener with no active work. No model,
+external page, publication, extra app/Home copy or phone polling/install. Final
+Android candidate/device qualification is still user-deferred; automation stays
+disabled. Windows main human/pixels and authenticated two-device gates remain
+open. Whole goal remains active.
