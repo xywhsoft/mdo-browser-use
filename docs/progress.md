@@ -16600,3 +16600,42 @@ candidate qualification. Current WebView138 is unchanged; isolated-world and
 overall Android automation gates remain disabled. No live model or publication.
 Windows main presentation/human decision, authenticated physical two-device and
 remaining Android/provider/lifecycle qualification remain open; goal active.
+
+## E221 — actual-main native image delivery and scoped UI evidence
+
+Reuse the existing QA session, exact local presentation page, deployment and
+Home. Validate the live host/config/listener and idle work before starting the
+actual main window. The first private preparation used an unsupported session
+URL and failed before mutation; use the authoritative project/session route.
+No new session, app copy, Home, provider, credential or model call is needed.
+
+Current Computer Use identifies the exact development window and its native
+page/toolbar through accessibility. Two fresh-selected/activated whole-window
+captures fail with `window capture timed out: timed out waiting on channel`.
+An indexed ordinary native-button click fails with `coordinate input geometry
+is unavailable`. Its effect is not claimed. A supported UIA value setter does
+change the exact synthetic native field, confirmed by fresh accessibility.
+One Tab command is accepted but has no verified focus/effect transition; do not
+count it as a successful keyboard action. No security/authentication UI is acted
+on. A read-only inventory shows two helper processes at2282/56 USER objects,
+below the earlier10000 quota failure. It does not establish which helper owns
+this request, diagnose the capture cause or prove leak absence.
+Do not restart the shared helper or invent an mdo rendering defect from this.
+
+Separately exercise the product's own public screenshot service against that
+same mounted browser/document, release its receipt and visually inspect the
+delivered PNG. It visibly contains the fixture heading, native field/button and
+the input's masked region. Image:714x600,
+15,614B SHA-2567efdea55d1115a867e52b4f83db6b3cb71dd98fe88ec66813deb4bdd0a1d4092.
+This is current actual-main native-browser image delivery, not a whole-window
+framebuffer capture or a successful physical pointer/human permission decision.
+Those qualifications remain false.
+
+Close only this original owned browser/panel and verify its fixture disappears
+from current main accessibility. Preserve legacy/foreign tabs. Revalidate exact
+PID/image/window config/listener/idle work before restoring the original
+headless config, host, Home and port. No product/artifact changes or new broad
+suite are needed. E220's source-bound candidate tests remain exact-input reuse;
+Android final-device/main-install checks remain deferred by the user. Complete
+main presentation, human permission, Android lifecycle/provider and authenticated
+physical two-device qualification remain open; the full goal stays active.
