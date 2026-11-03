@@ -21,6 +21,7 @@ CASES = (
     ("portable-install", "tools/package_probe.py", (), "package-install-result.json"),
     ("package-recovery", "tools/package_lifecycle_probe.py", (), "package-lifecycle-result.json"),
     ("managed-tools", "tools/managed_probe.py", (), "managed-tools-result.json"),
+    ("agent-protocol", "tools/agent_protocol_probe.py", (), "agent-protocol-result.json"),
     ("managed-visual", "tools/visual_probe.py", ("--managed-only",), "managed-visual-result.json"),
     ("public-frames", "tools/public_frames_probe.py", (), "public-frames-result.json"),
     ("capture-privacy", "tools/capture_privacy_public_probe.py", ("--capture-evidence",), "capture-privacy-public-result.json"),
@@ -116,6 +117,35 @@ def validate(name, receipt):
                     "managed_popup_ownership", "native_screenshot_image", "exact_selection_and_discovery",
                     "readonly_select_denied", "native_drag"):
             require(receipt.get(key) is True, "Missing managed evidence: " + key)
+    elif name == "agent-protocol":
+        require(receipt.get("real_model_calls") == receipt.get("external_browser_pages") == 0 and
+                receipt.get("request_count") == 14 and receipt.get("configuration_restored") is True and
+                receipt.get("same_home") is True and receipt.get("protocol") == "openai-chat-completions",
+                "Agent protocol fixture scope or restoration is incomplete")
+        cohorts = receipt.get("cohorts", [])
+        require(len(cohorts) == 2 and [r.get("model") for r in cohorts] ==
+                ["browser-use-static-protocol-vision", "browser-use-static-protocol-text"],
+                "Agent protocol cohorts are incomplete or duplicated")
+        for index, cohort in enumerate(cohorts):
+            require(cohort.get("passed") is True and cohort.get("tool_terminal_pairs") == 6 and
+                    cohort.get("ordinary_failure_then_native_recovery") is True,
+                    "Agent tools lack original terminal/recovery evidence")
+            rows = cohort.get("requests", [])
+            require(len(rows) == 7 and [r.get("step") for r in rows] == list(range(7)) and
+                    [r.get("tool_results") for r in rows] == list(range(7)), "Agent wire history is incomplete")
+            image, retained = cohort.get("image", {}), cohort.get("retained_image", {})
+            require(retained.get("original_image_retained") is True and
+                    type(image.get("bytes")) is int and image["bytes"] > 0 and
+                    retained.get("bytes") == image["bytes"] and
+                    isinstance(retained.get("sha256"), str) and len(retained["sha256"]) == 64,
+                    "Agent screenshot has no original durable image evidence")
+            if index == 0:
+                require(image.get("route") == "vision" and image.get("sha256") == retained["sha256"] and
+                        0 < image.get("width", 0) <= 400 and 0 < image.get("height", 0) <= 300,
+                        "Vision protocol image differs from original native screenshot")
+            else:
+                require(image.get("route") == "text-projection" and image.get("no_wire_image") is True,
+                        "Text-only Agent projection is unqualified")
     elif name == "managed-visual":
         require(receipt["scope"] == "managed-visual-permissions-only" and receipt["model_calls"] == 0,
                 "Unexpected managed visual scope")
@@ -215,11 +245,12 @@ def main():
         return
     WORK.mkdir(parents=True, exist_ok=True)
     report = {"format": "mdo.browser-use.acceptance.v1", "passed": False, "state": "running",
-              "scope": "windows-same-home-plugin-frames-private-capture-managed-permissions-loopback-remote-and-recovery",
+              "scope": "windows-same-home-plugin-agent-protocol-frames-private-capture-managed-permissions-loopback-remote-and-recovery",
               "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=dev.ROOT, text=True).strip(),
               "started_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "source_sha256": source_inputs(), "deployed_sha256": deployed_inputs(), "runtime_before": runtime_identity(),
               "cases": [], "application_copies": 0, "model_calls": 0,
+              "real_model_calls": 0, "static_protocol_requests": 0,
               "android_device_qualified": False, "account_relay_qualified": False,
               "two_physical_devices_qualified": False, "rendered_permission_prompt_qualified": False}
     def save():
@@ -239,6 +270,8 @@ def main():
                     verify_bridge(read(path))
                 else:
                     validate(name, read(path))
+                if name == "agent-protocol":
+                    report["static_protocol_requests"] = read(path)["request_count"]
                 row.update(receipt=path.relative_to(dev.ROOT).as_posix(), receipt_sha256=sha(path))
             require(report["source_sha256"] == source_inputs(), "Source changed while an acceptance probe was live")
             require(report["deployed_sha256"] == deployed_inputs(), "Applied host changed during acceptance")
@@ -252,7 +285,7 @@ def main():
         save()
         checked_report()
         print(json.dumps({"passed": True, "cases": len(report["cases"]), "application_copies": 0,
-                          "model_calls": 0, "android_device_qualified": False}))
+                          "real_model_calls": 0, "static_protocol_requests": 14, "android_device_qualified": False}))
     except Exception as error:
         report.update(passed=False, state="failed", error=str(error)[:512])
         save()

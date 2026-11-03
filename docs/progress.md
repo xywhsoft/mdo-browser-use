@@ -15866,3 +15866,51 @@ Home is restored headless; phone/current WebView, public Android admission and
 all physical/framework qualification flags remain unchanged. Keep the broader
 goal active. Further clock audits must distinguish request budgets from Android
 input timestamps and user-interaction leases before proposing any replacement.
+
+## E206 — exercise full Agent turns and original screenshot delivery
+
+The earlier managed SDK probes do not themselves qualify a whole Agent turn.
+Add a local static SSE endpoint and exercise the real session/run API, Agent
+executor, installed C tools, normal main-interface display client and native
+WebView2. Use the original source/host/Home. No LLM inference, provider account,
+external website, phone, new app/Home copy or online publication is used.
+
+Run vision and text-only configurations serially. Each has seven original
+streamed protocol requests and six tool calls: create, observe, deliberate
+stale-document fill failure, corrected native fill, screenshot and close, then
+fixed final text. Require original streamed arguments/call IDs, cumulative
+results, no repeated request/effect, twelve exact durable start/end pairs and
+one successful terminal per Agent. Both cohorts pass. The failed tool remains
+failed in the original journal, and the same Agent proceeds to successful native
+input and normal completion.
+
+At the actual model boundary, vision receives one PNG whose exact bytes/hash
+match its original saved tool image. Text-only receives the explicit cannot-view
+notice and no wire image; the original PNG is still present in the saved
+conversation. Do not call these scripted responses model task-quality evidence,
+or infer Responses/Anthropic protocol coverage from this Chat Completions case.
+
+The fixture refuses an existing models.json or backup, keeps built-in providers
+and the default selection, writes no vault secret and rejects incoming auth or
+cookie headers. Only its newly created exact nonsecret fixture config is removed.
+Existing config hashes, same Home and original headless identity are checked
+afterward. Native Chromium idle preconnections require bounded independent HTTP
+connection handlers; development, Agent turns and test/build commands stay serial.
+
+Preserve intermediate failures as fixture evidence rather than product bugs:
+the shared page differed, the initial profile lacked required capability flags,
+ordinary failures were plain text rather than the SDK envelope, full-text event
+pagination was invalid, and the original single HTTP worker stalled on an idle
+native preconnection. Correct the fixture and rerun the whole integration flow.
+Seven adversarial oracle/acceptance checks reject wrong IDs, lost images, absent
+projection disclosure, duplicated cohorts and incomplete restoration.
+
+Fresh Python190/192 with two existing Windows symlink skips, JS526 and all14
+sequential acceptance cases pass, with534 authoritative inputs/146 unchanged
+applied outputs. Full Agent coverage is now a required acceptance case. Record
+zero real model calls separately from14 static protocol requests. All test/build
+handles are terminal before documentation edits. Product sources, SDK ABI,
+Windows/Android/plugin artifacts and public Android admission stay unchanged;
+their earlier native/build/DEX proofs are source-bound reuse, not fresh runs.
+Keep physical Android, actual permission-button/pixels and authenticated
+two-device qualification open. The full long-term goal remains active.

@@ -15,17 +15,22 @@ python tools/acceptance_probe.py
 python tools/acceptance_probe.py --check
 ```
 
-The first command runs thirteen **sequential** cases in the same `.mdo/source`,
+The first command runs fourteen **sequential** cases in the same `.mdo/source`,
 native host and Home. It imports, uninstalls/reinstalls and recovers only this
 known plugin revision, restarts the same test service and opens local synthetic
 pages. The renderer case stops exactly one newly created QA content renderer,
 after checking original process ancestry and creation identity. It never stops
 an unrelated browser process. No phone/provider change, live model, account
 relay, external website, online publication or extra application copy is used.
+One case adds fourteen loopback static protocol requests through the actual
+Agent loop; they are not LLM inference or provider calls. It requires absent
+`config/models.json` and its backup, preserves an existing override by refusing
+the check, and removes only its exact newly created nonsecret fixture file.
+Existing settings hashes and the headless runtime must be restored.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 532 authoritative source inputs, all
+The report binds 534 authoritative source inputs, all
 146 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
@@ -38,14 +43,14 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | Requirement | Inspected implementation and authoritative evidence | Current conclusion |
 | --- | --- | --- |
 | One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
-| Shared C/JS API and Agent tools | `contracts.json` generates C registration/header and JS declarations; actual installed C services match all 13 schemas, plugin exports match every payload byte; 16 managed tools register | Verified Windows registration and shared contracts, not merely manifest presence |
+| Shared C/JS API and Agent tools | Shared contracts, 13 installed C services and 16 managed tools; E206 actual full Agent turns through streamed Chat Completions, native browser results and durable tool events in vision/text-only cohorts | Verified Windows Agent continuation and image delivery/projection on this static protocol fixture; not LLM task quality or other model protocols |
 | Observation, exact references, waiting and native input | E202 current-code SDK19/navigation4/wait5/JS526; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
 | Permissions and failure recovery | Fresh nine managed ask-decision cases with ten original durable tool terminal pairs (236 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
-| Human control and resource lifetime | E197 main native request implementation; fresh E204647 JVM/JNI modes with134 exact input hashes, cleanup7137/worker300/create850/async77/frontend20; retained WebView2 control28 and independent ACK/native detach joins | Android native/create/frontend paths are freshly rerun; Windows control proof is unchanged-source reuse. Android peers remain controlled and do not qualify a physical WebView |
+| Human control and resource lifetime | E197 main native request implementation; source-bound E204647 JVM/JNI modes with134 exact input hashes, cleanup7137/worker300/create850/async77/frontend20; retained WebView2 control28 and independent ACK/native detach joins | Native/create/frontend proofs are unchanged-source reuse this phase. Android peers remain controlled and do not qualify a physical WebView |
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact installed revision restored. Unchanged E202 Windows, fresh E204 Android and unchanged E169 portable package hashes checked | Matching development artifacts/source archive are verified; no official/store release is claimed |
+| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact installed revision restored. Unchanged E202 Windows, E205 Android and E169 portable package hashes checked | Matching development artifacts/source archive are verified; no official/store release is claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
 | Bounded Windows performance and repeated lifecycle | E203 actual main-window/public C path,16 cycles on1,024 paragraphs, verified native fill/trusted click and bounded PNG; original broker inventories and native creation reservations restored | Local latency/resource envelope measured; memory samples remain observational, not a leak-absence or production performance guarantee |
 
@@ -261,6 +266,43 @@ existing skips, JS526 and integration13 pass. Native647/frontend20/create850 are
 checked E204 exact-input reuse. Main APK/source/signature gates pass with unchanged
 DEX/app archive/native host contents, and the full host has no diagnostic Activity.
 No device/Activity/provider/sleep/Doze or Android admission pass is inferred.
+
+## Full Agent protocol continuation (E206)
+
+`python tools/agent_protocol_probe.py` exercises the actual session/run API,
+Agent executor, installed C Browser Use tools, normal main-interface display
+client and native WebView2. The only model endpoint is a loopback static SSE
+fixture. Its seven scripted responses per cohort cover create, observe, an
+intentional stale-document fill failure, corrected native fill, screenshot,
+close and final text. Streamed argument fragments, original call IDs, cumulative
+tool results and exact request counts are checked; effects are not retried.
+
+Both vision and text-only configurations finish successfully. All twelve tools
+have one original start/end pair, including two failed calls; each Agent has
+one successful terminal and no error terminal. The vision request's exact PNG
+hash equals the original image in the saved conversation. Text-only requests
+contain an explicit image-unavailable notice and no image bytes; their original
+image remains durably saved. This covers actual model-boundary serialization,
+not a direct SDK invocation pretending to be an Agent turn.
+
+The fixture refuses existing model overrides and credentials in incoming model
+requests, and serves only local test pages. It does not change the default model,
+write the vault or copy account/provider credentials. Cleanup checks the exact
+fixture bytes, all existing config-file hashes, original Home and restored
+headless runtime. A bounded HTTP worker per connection prevents Chromium's idle
+preconnections from blocking model responses; Agent turns and all tests run
+sequentially. No new shipped runtime dependency is introduced.
+
+Keep the intermediate test failures as evidence: a prior shared test page was
+different, the synthetic profile initially omitted required capabilities, the
+oracle initially expected structured rather than ordinary plain-text failures,
+the event query used unsupported full-text pagination, and a single HTTP
+connection worker was blocked by a native speculative connection. These are
+fixture corrections, not confirmed product defects. Final Python190/192 with
+two existing Windows symlink skips, JS526 and all14 integration cases pass.
+Product/overlay sources and development artifacts are unchanged. Android,
+real-model quality, other model protocols, actual permission-button and physical
+two-device qualification are not inferred from this result.
 
 ## Remaining completion gates
 
