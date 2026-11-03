@@ -13,6 +13,7 @@ import sys
 
 import apply_host
 import dev
+from agent_protocol_dialects import PROTOCOLS
 
 RESULT = dev.ENV / "acceptance-result.json"
 WORK = dev.ENV / "qa/acceptance"
@@ -119,14 +120,16 @@ def validate(name, receipt):
             require(receipt.get(key) is True, "Missing managed evidence: " + key)
     elif name == "agent-protocol":
         require(receipt.get("real_model_calls") == receipt.get("external_browser_pages") == 0 and
-                receipt.get("request_count") == 14 and receipt.get("configuration_restored") is True and
-                receipt.get("same_home") is True and receipt.get("protocol") == "openai-chat-completions",
+                receipt.get("request_count") == 42 and receipt.get("configuration_restored") is True and
+                receipt.get("same_home") is True and receipt.get("protocols") == list(PROTOCOLS),
                 "Agent protocol fixture scope or restoration is incomplete")
         cohorts = receipt.get("cohorts", [])
-        require(len(cohorts) == 2 and [r.get("model") for r in cohorts] ==
-                ["browser-use-static-protocol-vision", "browser-use-static-protocol-text"],
+        expected = ["browser-use-static-protocol" + suffix + route for suffix in ("", "-responses", "-anthropic")
+                    for route in ("-vision", "-text")]
+        require(len(cohorts) == 6 and [r.get("model") for r in cohorts] == expected,
                 "Agent protocol cohorts are incomplete or duplicated")
         for index, cohort in enumerate(cohorts):
+            require(cohort.get("protocol") == PROTOCOLS[index // 2], "Agent protocol route was not verified")
             require(cohort.get("passed") is True and cohort.get("tool_terminal_pairs") == 6 and
                     cohort.get("ordinary_failure_then_native_recovery") is True,
                     "Agent tools lack original terminal/recovery evidence")
@@ -139,7 +142,7 @@ def validate(name, receipt):
                     retained.get("bytes") == image["bytes"] and
                     isinstance(retained.get("sha256"), str) and len(retained["sha256"]) == 64,
                     "Agent screenshot has no original durable image evidence")
-            if index == 0:
+            if index % 2 == 0:
                 require(image.get("route") == "vision" and image.get("sha256") == retained["sha256"] and
                         0 < image.get("width", 0) <= 400 and 0 < image.get("height", 0) <= 300,
                         "Vision protocol image differs from original native screenshot")
@@ -285,7 +288,7 @@ def main():
         save()
         checked_report()
         print(json.dumps({"passed": True, "cases": len(report["cases"]), "application_copies": 0,
-                          "real_model_calls": 0, "static_protocol_requests": 14, "android_device_qualified": False}))
+                          "real_model_calls": 0, "static_protocol_requests": report["static_protocol_requests"], "android_device_qualified": False}))
     except Exception as error:
         report.update(passed=False, state="failed", error=str(error)[:512])
         save()

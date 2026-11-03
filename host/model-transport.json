@@ -1,0 +1,7 @@
+{
+  "path": "lib/xllm/src/dialect_responses.c",
+  "before_sha256": "9e02413152f54dcefde31893b392a832e4548a429cebc942b64b45af07507d71",
+  "after_sha256": "e867741897aacd8b991d33013eb0dfd6daaba2800ec600e270738ac3ca0aa4f3",
+  "replacement": "browser-use-responses-tool-output.inc.c",
+  "before": "            } else if ( !xllm__json_string(pBuf, pMessage->sContent ? pMessage->sContent : \"\") ||\n                        !xllm__buf_append_char(pBuf, '}') ) {\n                return false;\n            }\n"
+}

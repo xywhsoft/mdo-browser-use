@@ -234,6 +234,15 @@ receipts remain under `.mdo/`. Rebuild/reimport a changed plugin before running
 the paired program gate; an earlier native smoke receipt does not establish
 that a newer plugin payload was delivered.
 
+E207's current Windows executable is6,951,315 bytes, SHA-256
+`9094423c940dd977197f8f2140d0b80ad73ce2e0717000ef2696a66014c9b349`.
+Its12 actual runtime checks pass. Its native .text/.rdata sections exactly match
+the rebuilt GUI host containing the Responses multipart tool-output repair.
+The portable plugin is unchanged; updating only that plugin cannot repair an
+older native model serializer. The current APK has the exact paired app archive
+and a freshly compiled ARM64 engine. Neither artifact is an official update.
+See [current acceptance and remaining protocol limits](acceptance.md).
+
 `python tools/package_lifecycle_probe.py` additionally verifies native-plugin
 uninstall/restart/reinstall and interrupted import recovery in the same Home.
 Uninstall retains immutable plugin generations for existing code/UI and drops

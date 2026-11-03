@@ -1644,6 +1644,16 @@
       "path": "app/web/js/features/chat/timeline-store.js",
       "before": "async function reloadTimeline(projectId, sessionId, force = false) {\n  rememberTimeline();",
       "after": "async function reloadTimeline(projectId, sessionId, force = false) {\n  if (force) sessionCache.delete(cacheKey({ projectId, sessionId }));\n  else rememberTimeline();"
+    },
+    {
+      "path": "deps.lock",
+      "before": "\"production_tree_sha256\": \"02e153e4f5778213c518ebb83a94551a0f0636ed7ffb6f0aba41a06e119abec2\"",
+      "after": "\"production_tree_sha256\": \"9e4fcc5337d3a7a39a9cedec51c78065cece9467b1e6733b0e619bf4badcf029\""
+    },
+    {
+      "path": "deps.lock",
+      "before": "  \"sdk_overlay\": {",
+      "after": "  \"browser_use_model_transport\": {\n    \"path\": \"tools/native/browser-use-model-transport.json\",\n    \"sha256\": \"37b0163d6baf3a63ad6da5f879a8330780bb6a6173364e2aea349383eb09978d\",\n    \"base_tree_sha256\": \"02e153e4f5778213c518ebb83a94551a0f0636ed7ffb6f0aba41a06e119abec2\",\n    \"tree_sha256\": \"9e4fcc5337d3a7a39a9cedec51c78065cece9467b1e6733b0e619bf4badcf029\",\n    \"purpose\": \"Preserve multipart Responses tool outputs in the native serializer\"\n  },\n  \"sdk_overlay\": {"
     }
   ],
   "files": [
@@ -2086,6 +2096,14 @@
     {
       "source": "host/tool-recovery.js",
       "target": "app/web/js/features/chat/tool-recovery.js"
+    },
+    {
+      "source": "host/model-transport.json",
+      "target": "tools/native/browser-use-model-transport.json"
+    },
+    {
+      "source": "host/responses-tool-output.inc.c",
+      "target": "tools/native/browser-use-responses-tool-output.inc.c"
     }
   ]
 }

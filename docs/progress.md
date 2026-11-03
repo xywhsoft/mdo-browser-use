@@ -15,6 +15,20 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Responses screenshot transport E207:** reproduce a successful saved PNG
+  becoming an empty function_call_output in the next real Agent request. Repair
+  native multipart serialization through a reviewed exact-baseline overlay.
+  Six static protocol cohorts pass42 requests/36 tool pairs. Fresh native engines,
+  packed12, signed APK/DEX/payload, Python194/196 plus two skips, JS526, SDK,
+  control28 and acceptance14 pass. The separate strict Chat tool-image schema
+  gap is explicitly open; local fixture success is not provider acceptance.
+
+- **Full Agent continuation E206:** add actual Agent/executor/C-tool/native
+  browser round trips, ordinary failure recovery and exact screenshot wire/saved
+  byte comparison, using only a loopback static stream. Preserve original images
+  for text-only routes. This was Chat-local-flow evidence; E207 extends the
+  protocol matrix and identifies the remaining strict Chat schema gap.
+
 - **Android diagnostic clock E205:** align the independent diagnostic Activity
   with the main host's elapsed request budget. Actual clocks from both callers
   run the same production-world regression:18 scenarios/54 checks pass, with the
@@ -15914,3 +15928,64 @@ Windows/Android/plugin artifacts and public Android admission stay unchanged;
 their earlier native/build/DEX proofs are source-bound reuse, not fresh runs.
 Keep physical Android, actual permission-button/pixels and authenticated
 two-device qualification open. The full long-term goal remains active.
+
+## E207 — preserve Responses multipart tool output and expand actual Agent checks
+
+The real Responses Agent path reproduces native screenshot success with a
+saved9,358-byte original PNG, followed by an empty function_call_output in the
+outgoing request. The serializer only handled single text parts/ordinary content;
+multipart text/image messages fell through to empty sContent. Preserve the red
+attempt6 metadata and original saved image. The local oracle rejects that empty
+output; do not attribute its synthetic rejection to an actual provider.
+
+Add the missing multipart branch using the existing input-content serializer.
+Metadata/image remain associated with the original call_id. Ordinary strings and
+single text parts keep their wire representation. The C API/ABI and tool/browser
+permissions stay unchanged. Official Responses output supports this content
+array; see the reference linked from acceptance. This is a real product repair,
+distinct from E206's earlier fixture corrections.
+
+Represent the fix with host/model-transport.json and the small C replacement.
+apply_host applies both inputs and the explicit updated xllm production-tree
+identity to the one .mdo/source. Native build preparation validates original Git
+bytes, one exact anchor, replacement/final hashes and safe paths before writing
+the exact original or already-repaired file in the existing native checkout.
+Unknown edits and interrupted staging files are preserved. The upstream revision
+and public headers are unchanged; the local dependency overlay is explicit.
+Both Windows and API26 ARM64 builds verify the actual dependency tree.
+
+Extend the actual Agent fixture to native Responses and Anthropic request/event
+shapes, preserving fragmented JSON arguments, original IDs and actual tool/image
+results. Six vision/text-only cohorts pass42 static requests,36 original tool
+pairs, six intended failures followed by native recovery and six successful
+Agent terminals. All vision PNG wire hashes match their original saved images;
+all text-only routes disclose unavailable vision, omit wire image data and retain
+the original. No inference, external website, credentials or device run is used.
+
+Fresh Windows/Android native engines and paired artifacts pass the explicit
+source/profile/tree/build gates. Packed12 passes and the actual delivered PE
+code/data sections equal the new GUI host. Current Windows6,951,315 bytes SHA
+9094423c940dd977197f8f2140d0b80ad73ce2e0717000ef2696a66014c9b349.
+Current signed main APK6,608,193 bytes SHA
+a24534390c17f8895b19eade3544bcf9229625cc714a1832c94724c796e9ac10.
+Actual DEX/signatures/provider/ELF/app/native payload checks pass; Java/DEX bytes
+and diagnostic APK are unchanged. The portable plugin remains unchanged too.
+The first APK attempt correctly refused an unexercised new Windows archive;
+the packed probe initially required stopping the existing service. Preserve
+those setup logs, then follow both existing gates; these are not product bugs.
+
+Fresh Python194/196 with two existing Windows symlink skips, JS526, SDK,
+control28 and all14 sequential integration cases pass with538 inputs/149 applied
+outputs. Native647/create850 proofs are reused: direct sources remain identical
+except the old global overlay-manifest hash, whose Android composition is
+explicitly unchanged. Frontend20/world inputs are exactly unchanged. Do not
+claim a fresh native647 run or134 identical hashes for this stage. All handles
+are terminal before documentation changes; original Home/headless config and
+existing settings are restored. No online publication or new dependency copy.
+
+A further standards audit finds that Chat permits only text in role:tool,
+where the current serializer still puts images. Its local fixture is permissive.
+Keep that strict-schema repair as the next independent item; E206/E207 local
+Chat results are not standard-provider qualification. Also retain the original
+physical Android, actual permission-button/pixels and authenticated two-device
+completion gates. Full goal stays active.

@@ -4,6 +4,7 @@ Uses the original deployment/Home. Refuses an existing model override rather
 than copying credentials or replacing any user's provider configuration.
 """
 import base64
+import argparse
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -14,10 +15,11 @@ import uuid
 
 import acceptance_probe
 import dev
+from agent_protocol_dialects import PROTOCOLS, PATHS, normalize, streaming as dialect_streaming
 
 PROVIDER = "browser-use-static-protocol"
-MODELS = (PROVIDER + "-vision", PROVIDER + "-text")
-PROTOCOL = "openai-chat-completions"
+MODELS = tuple(PROVIDER + suffix + route for suffix in ("", "-responses", "-anthropic") for route in ("-vision", "-text"))
+PROTOCOL_BY_MODEL = {model: PROTOCOLS[i // 2] for i, model in enumerate(MODELS)}
 PROMPT = "Run the local Browser Use protocol fixture; no external task or delegation."
 FINAL = "Browser Use local protocol fixture completed."
 TOOLS = ("browser_open", "browser_observe", "browser_act", "browser_act",
@@ -54,23 +56,24 @@ def configuration(port):
     provider = {"id": PROVIDER, "name": "Local static protocol fixture (not a model)",
                 "builtin": False, "editable": True, "removable": True,
                 "verify_peer": True, "timeout_ms": 15000,
-                "endpoints": {"chat_completions": f"http://127.0.0.1:{port}/v1/chat/completions"}}
+                "endpoints": {name: f"http://127.0.0.1:{port}" + PATHS[protocol] for name, protocol in
+                              zip(("chat_completions", "responses", "anthropic_messages"), PROTOCOLS)}}
     models = []
     for name in MODELS:
         capabilities = ["text-input", "tool-result-input", "text-output",
                         "tool-call-output", "streaming", "reasoning-control", "parallel-tool-calls"]
-        if name == MODELS[0]:
+        if name.endswith("-vision"):
             capabilities.append("media-input")
         models.append({"id": name, "name": name, "wire_model": name,
                        "provider": PROVIDER, "builtin": False, "free": True,
                        "editable": True, "removable": True,
-                       "protocols": [PROTOCOL], "default_protocol": PROTOCOL,
+                       "protocols": [PROTOCOL_BY_MODEL[name]], "default_protocol": PROTOCOL_BY_MODEL[name],
                        "capabilities": capabilities,
                        "window": {"mode": "shared-context", "context_tokens": 240128,
                                   "max_input_tokens": 240127, "max_output_tokens": 1024,
                                   "output_reserve_tokens": 1024, "summary_tokens": 512},
                        "reasoning_efforts": ["none"], "default_reasoning_effort": "none",
-                       "attachments": ["image"] if name == MODELS[0] else []})
+                       "attachments": ["image"] if name.endswith("-vision") else []})
     return {"schema_version": 1, "patch": {
         "providers": baseline["providers"] + [provider], "items": baseline["items"] + models}}
 
@@ -81,6 +84,7 @@ class Conversation:
         self.model, self.client, self.page = model, client, page
         self.step, self.browser, self.document = 0, None, None
         self.rows, self.image = [], None
+        self.attempts = []
 
     def reply(self, request):
         require(self.step <= len(TOOLS), "Duplicate or extra model-protocol request")
@@ -93,6 +97,11 @@ class Conversation:
         require(set(TOOLS) <= names, "Browser Use schemas were not exposed to the Agent")
         calls = [t for m in messages for t in m.get("tool_calls", [])]
         results = [m for m in messages if m["role"] == "tool"]
+        latest = results[-1] if results else {"content": ""}
+        latest_parts = latest["content"] if isinstance(latest["content"], list) else []
+        self.attempts.append({"step": self.step, "tool_results": len(results),
+            "latest_tool_text_bytes": len(text_content(latest).encode()),
+            "latest_tool_image_parts": len([p for p in latest_parts if p.get("type") == "image_url"])})
         require(len(calls) == self.step and len(results) == self.step,
                 "Missing, duplicated or unrelated tool messages at the model boundary")
         for index, (call, result) in enumerate(zip(calls, results)):
@@ -135,7 +144,7 @@ class Conversation:
         return {"tool_calls": [call]}, "tool_calls"
 
     def call_id(self, step):
-        return "bu_" + ("vision" if self.model == MODELS[0] else "text") + "_" + str(step)
+        return "bu_" + self.model.removeprefix(PROVIDER).lstrip("-").replace("-", "_") + "_" + str(step)
 
     def arguments(self, step):
         if step == 0:
@@ -157,7 +166,7 @@ class Conversation:
                 "base64" not in text, "Screenshot metadata/text was corrupted")
         content = message.get("content")
         images = [p for p in content if p.get("type") == "image_url"] if isinstance(content, list) else []
-        if self.model == MODELS[1]:
+        if self.model.endswith("-text"):
             require(not images and isinstance(content, str) and "cannot view images" in text,
                     "Text-only model did not receive the explicit image projection")
             return {"route": "text-projection", "bytes": meta["bytes"], "no_wire_image": True}
@@ -173,8 +182,10 @@ class Conversation:
         return {"route": "vision", "bytes": len(data), "sha256": sha(data), "width": width, "height": height}
 
 
-def streaming(delta, finish, model):
+def streaming(delta, finish, model, protocol=PROTOCOLS[0]):
     """Fragment argument JSON across real SSE chunks, including Unicode."""
+    if protocol != PROTOCOLS[0]:
+        return dialect_streaming(delta, finish, model, protocol)
     def chunk(value, reason=None):
         return {"id": "static-" + model, "object": "chat.completion.chunk", "model": model,
                 "choices": [{"index": 0, "delta": value, "finish_reason": reason}]}
@@ -228,15 +239,18 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             self.server.requests_total += 1
-            require(self.path == "/v1/chat/completions", "Unexpected fixture path")
-            require(not self.headers.get("Authorization") and not self.headers.get("Cookie"),
+            require(self.path in PATHS.values(), "Unexpected fixture path")
+            require(not self.headers.get("Authorization") and not self.headers.get("Cookie") and not self.headers.get("X-Api-Key"),
                     "Credentials reached the static fixture")
             size = int(self.headers.get("Content-Length", "0"))
             require(0 < size <= 4 * 1024 * 1024, "Invalid fixture request size")
             request = json.loads(self.rfile.read(size))
             require(request.get("model") in self.server.conversations, "Unregistered static fixture model")
-            delta, finish = self.server.conversations[request["model"]].reply(request)
-            body = streaming(delta, finish, request["model"])
+            model = request["model"]
+            protocol = PROTOCOL_BY_MODEL[model]
+            require(PATHS[protocol] == self.path, "Agent selected an unexpected protocol endpoint")
+            delta, finish = self.server.conversations[model].reply(normalize(request, protocol))
+            body = streaming(delta, finish, model, protocol)
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Content-Length", str(len(body)))
@@ -279,15 +293,19 @@ def retained_image(session, conversation):
     data = base64.b64decode(parts[0]["data"], validate=True)
     require(len(data) == parts[0]["data_bytes"] == conversation.image["bytes"] and
             data.startswith(b"\x89PNG\r\n\x1a\n"), "Durable screenshot bytes changed")
-    if conversation.model == MODELS[0]:
+    if conversation.model.endswith("-vision"):
         require(sha(data) == conversation.image["sha256"], "Vision wire image differs from the original saved screenshot")
     return {"bytes": len(data), "sha256": sha(data), "snapshot_sha256": sha(raw), "original_image_retained": True}
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--protocol", choices=PROTOCOLS, help="Only one protocol, for bounded diagnosis; not full acceptance")
+    args = parser.parse_args()
+    selected = tuple(m for m in MODELS if not args.protocol or PROTOCOL_BY_MODEL[m] == args.protocol)
     output = dev.ENV / "agent-protocol-result.json"
     report = {"passed": False, "state": "running", "real_model_calls": 0,
-              "external_browser_pages": 0, "protocol": PROTOCOL, "cohorts": []}
+              "external_browser_pages": 0, "protocols": list(PROTOCOLS) if not args.protocol else [args.protocol], "cohorts": []}
     save = lambda: output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     save()
     config_path = dev.HOME / "config/models.json"
@@ -323,13 +341,13 @@ def main():
                 time.sleep(.1)
         require(len(clients) == 1, "Expected one actual main-interface display client")
         page = f"http://127.0.0.1:{fixture.server_port}/page"
-        for model in MODELS:
+        for model in selected:
             conversation = Conversation(model, clients[0]["id"], page)
             fixture.conversations[model] = conversation
             session = uuid.uuid4().hex
             active_scope = {"extension": "plugin.mdo.browser-use", "project": "default", "session": session}
             created = api("POST", "/api/v1/sessions", {"project_id": "default", "client_session_id": session,
-                "title": "Browser Use static protocol QA", "model_id": model, "protocol": PROTOCOL,
+                "title": "Browser Use static protocol QA", "model_id": model, "protocol": PROTOCOL_BY_MODEL[model],
                 "reasoning_effort": "none", "permission_profile": "full-access", "workspace_root": str(dev.ROOT)})
             require(created["model_id"] == model, "QA session selected an unexpected model")
             started = api("POST", f"/api/v1/projects/default/sessions/{session}/runs",
@@ -363,11 +381,12 @@ def main():
                     "Agent left its original browser open")
             report["cohorts"].append({"model": model, "session": session, "run": run,
                 "passed": True, "requests": conversation.rows, "image": conversation.image,
+                "protocol": PROTOCOL_BY_MODEL[model],
                 "retained_image": retained_image(session, conversation),
                 "tool_terminal_pairs": 6, "ordinary_failure_then_native_recovery": True})
             save()
             run = None
-        require(fixture.requests_total == 14, "Protocol transport repeated or omitted a request")
+        require(fixture.requests_total == 7 * len(selected), "Protocol transport repeated or omitted a request")
         report["passed"], report["state"] = True, "passed"
     except Exception as error:
         report.update(error_type=type(error).__name__, error=str(error)[:512], state="failed")
@@ -406,6 +425,7 @@ def main():
             p.name: sha(p.read_bytes()) for p in (dev.HOME / "config").iterdir() if p.is_file()}
         report["same_home"] = report["runtime_after"]["home"] == report["runtime_before"]["home"]
         report["request_count"] = fixture.requests_total
+        report["protocol_attempts"] = {model: c.attempts for model, c in fixture.conversations.items()}
         report["source_sha256"] = acceptance_probe.source_inputs()
         report["deployed_inputs"] = acceptance_probe.deployed_inputs()
         if not report["configuration_restored"] or worker.is_alive():

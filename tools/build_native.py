@@ -33,6 +33,8 @@ def main():
     if subprocess.run(["git", "apply", "--reverse", "--check", "--exclude=src/webview/xs_browser.inc.hpp", str(patch)], cwd=NATIVE, capture_output=True).returncode:
         dev.run("git", "apply", "--check", str(patch), cwd=NATIVE)
         dev.run("git", "apply", "--whitespace=nowarn", str(patch), cwd=NATIVE)
+    import prepare_model_transport
+    prepare_model_transport.apply()
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>\n#include <cstdint>\n#include <wincrypt.h>\n#include <sddl.h>'),
@@ -341,6 +343,7 @@ def main():
     hashes["download"] = hashlib.sha256(download.encode()).hexdigest()
     hashes['frames']=hashlib.sha256(frames.encode()).hexdigest()
     hashes['worlds']=hashlib.sha256(worlds.encode()).hexdigest()
+    hashes['model_transport']=lock['browser_use_model_transport']['sha256']
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")
@@ -350,12 +353,16 @@ def main():
     env["PATH"] = str(Path(compiler).parent) + os.pathsep + env.get("PATH", "")
     sys.path.insert(0, str(dev.SOURCE / "tools"))
     import build_mdo
+    build_mdo.verify_dependencies(NATIVE, lock)
     host = dev.ENV / "host/xs.exe"
     subprocess.run([sys.executable, "tools/build.py", *lock["xserver"]["required_extensions"],
                     "--build-dir", str(dev.ENV / "host/objects"), "--output", str(host),
                     "--cc", compiler, "--frontend", "native", "--gui-cc", compiler,
                     *build_mdo.host_profile_arguments(False), "--icon", str(build_mdo.ICON_PATH)],
                    cwd=NATIVE, env=env, check=True)
+    for built in (host, host.with_name("xsw.exe")):
+        build_mdo.stamp_host_overlay(built, lock)
+        build_mdo.verify_host_receipt(built, lock, False)
     receipt = {"binary_sha256": hashlib.sha256(host.read_bytes()).hexdigest(), "revision": revision,
                "sdk_patch": lock["sdk_overlay"]["sha256"], "overlay": hashes}
     (dev.ENV / "host/browser-use-build.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")

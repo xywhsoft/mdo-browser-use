@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 from agent_protocol_probe import (Conversation, FINAL, MODELS, PROMPT, TOOLS,
                                   configuration, streaming)
 from acceptance_probe import validate
+from agent_protocol_dialects import PROTOCOLS, RESPONSES, ANTHROPIC, normalize, streaming as wire_streaming
+import prepare_model_transport
 
 
 class AgentProtocolOracleTests(unittest.TestCase):
@@ -44,7 +46,7 @@ class AgentProtocolOracleTests(unittest.TestCase):
                     if index == 2:
                         content = "tool_failure: code=4\nstale_document: Observe the current root document"
                     if index == 4:
-                        if model == MODELS[0]:
+                        if model.endswith("-vision"):
                             content = [{"type": "text", "text": content}, {"type": "image_url",
                                 "image_url": {"url": "data:image/png;base64," + base64.b64encode(data).decode()}}]
                         else:
@@ -82,7 +84,8 @@ class AgentProtocolOracleTests(unittest.TestCase):
         self.assertNotIn("default_model", config)
         provider = config["providers"][-1]
         self.assertNotIn("credential", provider)
-        self.assertEqual(list(provider["endpoints"].values()), ["http://127.0.0.1:1234/v1/chat/completions"])
+        self.assertEqual(list(provider["endpoints"].values()), ["http://127.0.0.1:1234/v1/chat/completions",
+            "http://127.0.0.1:1234/v1/responses", "http://127.0.0.1:1234/v1/messages"])
         self.assertTrue(any(p["id"] == "ornith" for p in config["providers"]))
         for port in (0, 65536, True):
             with self.assertRaises(RuntimeError):
@@ -104,14 +107,15 @@ class AgentProtocolOracleTests(unittest.TestCase):
     def test_acceptance_rejects_missing_original_image_or_failed_restoration(self):
         cohorts = []
         for index, model in enumerate(MODELS):
-            image = {"route": "vision" if not index else "text-projection", "bytes": 30,
+            image = {"route": "vision" if index % 2 == 0 else "text-projection", "bytes": 30,
                      "width": 40, "height": 30, "sha256": "a" * 64, "no_wire_image": True}
             cohorts.append({"model": model, "passed": True, "tool_terminal_pairs": 6,
+                "protocol": PROTOCOLS[index // 2],
                 "ordinary_failure_then_native_recovery": True, "image": image,
                 "retained_image": {"bytes": 30, "sha256": "a" * 64, "original_image_retained": True},
                 "requests": [{"step": i, "tool_results": i} for i in range(7)]})
-        good = {"passed": True, "real_model_calls": 0, "external_browser_pages": 0, "request_count": 14,
-                "configuration_restored": True, "same_home": True, "protocol": "openai-chat-completions", "cohorts": cohorts}
+        good = {"passed": True, "real_model_calls": 0, "external_browser_pages": 0, "request_count": 42,
+                "configuration_restored": True, "same_home": True, "protocols": list(PROTOCOLS), "cohorts": cohorts}
         validate("agent-protocol", good)
         for key in ("configuration_restored", "same_home"):
             bad = deepcopy(good)
@@ -131,6 +135,57 @@ class AgentProtocolOracleTests(unittest.TestCase):
         bad["cohorts"][1] = bad["cohorts"][0]
         with self.assertRaises(RuntimeError):
             validate("agent-protocol", bad)
+
+    def test_protocol_adapters_never_invent_a_missing_responses_image(self):
+        request = {"model": MODELS[2], "stream": True, "input": [{"type": "function_call_output",
+                   "call_id": "original", "output": ""}], "tools": []}
+        actual = normalize(request, RESPONSES)["messages"]
+        self.assertEqual(actual, [{"role": "tool", "tool_call_id": "original", "content": ""}])
+        with self.assertRaisesRegex(RuntimeError, "original stateless history"):
+            normalize(dict(request, previous_response_id="foreign"), RESPONSES)
+
+    def test_protocol_adapters_preserve_original_multipart_tool_result(self):
+        image = "data:image/png;base64,cG5n"
+        request = {"model": MODELS[2], "stream": True, "input": [{"type": "function_call_output",
+            "call_id": "original", "output": [{"type": "input_text", "text": "metadata 🦉"},
+                {"type": "input_image", "image_url": image}]}]}
+        a = normalize(request, RESPONSES)["messages"][0]
+        request = {"model": MODELS[4], "stream": True, "messages": [{"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "original", "content": [
+                {"type": "text", "text": "metadata 🦉"}, {"type": "image", "source": {
+                    "type": "base64", "media_type": "image/png", "data": "cG5n"}}]}]}]}
+        b = normalize(request, ANTHROPIC)["messages"][0]
+        self.assertEqual(a, b)
+        self.assertEqual(a["content"][1]["image_url"]["url"], image)
+        request["messages"][0]["role"] = "assistant"
+        with self.assertRaisesRegex(RuntimeError, "wrong role"):
+            normalize(request, ANTHROPIC)
+
+    def test_other_sse_dialects_keep_original_fragmented_call_identity(self):
+        delta = {"tool_calls": [{"id": "original", "function": {"name": "browser_act", "arguments": '{"text":"🦉"}'}}]}
+        for protocol in (RESPONSES, ANTHROPIC):
+            data = wire_streaming(delta, "tool_calls", MODELS[2], protocol).decode()
+            frames = [json.loads(line[6:]) for line in data.splitlines() if line.startswith("data: ")]
+            if protocol == RESPONSES:
+                added = next(e["item"] for e in frames if e["type"] == "response.output_item.added")
+                self.assertEqual(added["call_id"], "original")
+                pieces = [e["delta"] for e in frames if e["type"] == "response.function_call_arguments.delta"]
+            else:
+                added = next(e["content_block"] for e in frames if e["type"] == "content_block_start")
+                self.assertEqual(added["id"], "original")
+                pieces = [e["delta"]["partial_json"] for e in frames if e["type"] == "content_block_delta"]
+            self.assertEqual(len(pieces), 2)
+            self.assertEqual("".join(pieces), delta["tool_calls"][0]["function"]["arguments"])
+
+    def test_transport_overlay_rejects_baseline_or_replacement_drift(self):
+        import hashlib
+        record = {"before": "old", "before_sha256": hashlib.sha256(b"old").hexdigest(),
+                  "after_sha256": hashlib.sha256(b"new").hexdigest()}
+        self.assertEqual(prepare_model_transport.wanted_source(record, "old", "new"), "new")
+        with self.assertRaisesRegex(RuntimeError, "baseline changed"):
+            prepare_model_transport.wanted_source(record, "foreign edit", "new")
+        with self.assertRaisesRegex(RuntimeError, "replacement changed"):
+            prepare_model_transport.wanted_source(record, "old", "unexpected")
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E205)
+## Complete development host APK (current: E207)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,11 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`804cb8b55ba0c92e32fb60bb8943f638c95a50d84029462c833a7c30d711d828`.
+`a24534390c17f8895b19eade3544bcf9229625cc714a1832c94724c796e9ac10`.
+E207 rebuilds the ARM64 native engine with the Responses multipart tool-image
+repair and pairs it with the current Windows app archive. Java browser sources
+and DEX bytes are unchanged from E205; this does not qualify device/provider
+automation or change the disabled admission gate.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
