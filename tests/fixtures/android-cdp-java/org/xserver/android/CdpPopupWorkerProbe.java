@@ -3805,6 +3805,16 @@ public final class CdpPopupWorkerProbe {
         if(variant.equals("state-starting"))check(startup!=null&&startup.getString("adapter").equals("android-native-frames-v1")&&!startup.getBoolean("installed")&&!startup.getBoolean("ready")&&startup.getString("phase").equals("starting")&&startup.isNull("native_document"));
         String phase=download?"download_only":"ready";boolean expectedReady=!download;
         AtomicInteger rejects=new AtomicInteger();MdoBrowserPopups<WebView> pending=null;
+        boolean nativeContext=variant.startsWith("state-context-"),foreignContext=variant.equals("state-context-foreign");
+        if(nativeContext){
+            long epoch=product.views.epoch("owned",view);int delivered=backend.contextEvents.get();
+            boolean cleared=variant.equals("state-context-cleared");
+            backend.wire.add(new JSONObject().put("method",cleared?"Runtime.executionContextsCleared":"Runtime.executionContextDestroyed")
+                .put("sessionId",renderer.root).put("params",cleared?new JSONObject():new JSONObject().put("executionContextId",foreignContext?999999:1)));
+            waitFor(()->backend.contextEvents.get()>delivered,host,true);
+            check(product.views.epoch("owned",view)==epoch&&product.popupPageDocumentReady("owned"));
+            if(!foreignContext){phase="document_unavailable";expectedReady=false;}
+        }
         if(hidden)product.bounds(view,new JSONObject().put("browser","owned").put("visible",false));
         if(viewport||restoring)product.invalidatePopupDocument("owned","input_viewport_changed");
         if(hidden||viewport) {phase="suspended";expectedReady=false;}
@@ -3821,7 +3831,7 @@ public final class CdpPopupWorkerProbe {
         for(int i=0;i<5;i++){
             JSONObject current=product.inspectDocumentState("owned");if(current.getBoolean("ready")!=expectedReady||!phase.equals(current.getString("phase")))throw new AssertionError("Incorrect popup document state "+variant+": "+current);
             check(product.inspectFrameRouting("owned")&&current.getString("adapter").equals("android-native-frames-v1")&&current.isNull("native_document")&&current.getInt("pending")==((restoring||busy)?1:0));
-            check(current.getBoolean("installed")==java.util.Arrays.asList("state-ready","state-starting","state-legacy","state-busy").contains(variant));
+            check(current.getBoolean("installed")==java.util.Arrays.asList("state-ready","state-starting","state-legacy","state-busy","state-context-foreign").contains(variant));
         }
         check(renderer.worlds.createCalls==worlds&&renderer.worlds.evaluations==steps&&rejects.get()==0&&original.worldQueries==queries);
         if(hidden){product.bounds(view,new JSONObject().put("browser","owned").put("visible",true));check(!product.inspectDocumentState("owned").getBoolean("ready")&&renderer.worlds.createCalls==worlds);}

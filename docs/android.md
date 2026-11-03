@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E208)
+## Complete development host APK (current: E212)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,11 +54,13 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`eb59f38cb7ef6ef59b6e6be580785361bebb50906af81f9c57ed3f425f14b9a7`.
-E208 rebuilds the ARM64 native engine with both the Responses multipart tool-image
-repair and strict Chat media projection, paired with the current Windows archive. Java browser sources
-and DEX bytes are unchanged from E205; this does not qualify device/provider
-automation or change the disabled admission gate.
+`68d832861f6e634b3d8cf168a3bbffa09cf60606e70a9bf5775e553a8d72c45f`.
+E212 rebuilds the Java/DEX state projection so a lost native root-context witness
+cannot keep reporting a ready document while its UI epoch is unchanged. Actual
+DEX inspection confirms the state method calls the original worker fence. The
+ARM64 engine retains E208's Responses multipart repair and strict Chat media
+projection, paired with the same verified Windows archive. This does not qualify
+device/provider automation or change the disabled admission gate.
 Use the adjacent receipt. It checks the actual DEX classes, exact native/app
 payload hashes, ARM64/16 KiB ELF layout, zip alignment, v2/v3 APK signatures and
 the compiled private provider attributes. The DEX gate also requires the new
@@ -76,7 +78,7 @@ E118 additionally requires the original native-source join and data-only
 MdoBrowserPopups.Stop receipt definitions.
 All eight matching JNI exports are checked in the actual ARM64 host.
 No account, Home, QA page or signing
-key is included. The app archive is extracted from the verified E202 Windows
+key is included. The app archive is extracted from the verified matching Windows
 artifact and checked against every current reviewed source file; no
 application staging copy is created. Android selects its lite edition before
 the desktop macro in that platform-neutral source archive.
@@ -149,16 +151,18 @@ contracts, not installed framework or sleep/Doze qualification.
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
 `.mdo/host/android-client/mdo-browser-use-dev.apk`,983,443 bytes SHA-256
-`02e79e461a1c573859db14217263898b62262b66d0dd9ed78635d4dee4347e05`.
+`ddcad4bf3e7d10ae28f0fca644ccc389b9f623ac34cec12681f399ce59732937`.
+E212 rebuilds this package against the current reviewed host inputs.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
 ordinary-world deadline method is defined. This package is a diagnostic variant;
 both artifacts share the development package ID, and device qualification selects
 the required variant. The full host has no diagnostic
-Activity; its DEX/application archive/native host bytes remain unchanged. Its
-APK is rebuilt and source/signature-checked because the common source fingerprint
+Activity. At E205, its DEX/application archive/native host bytes were unchanged;
+the APK was rebuilt and source/signature-checked because the common source fingerprint
 also includes diagnostic inputs. Native647/frontend20/create850 evidence is
 exact-input E204 reuse; fresh Python/JS/integration and both build gates do not
-enable public Android automation or qualify an installed provider.
+enable public Android automation or qualify an installed provider. E212's fresh
+checks and state correction are described below.
 
 E163 routes a protected popup's native screenshot fences through its original
 attached document and shared connection. The native capture transaction obtains
@@ -6667,3 +6671,23 @@ flows remain separate evidence. The public main-button route still refuses
 protected takeover; next work is the bounded outer request, command exclusion,
 independent protocol retirement and guarded final manual/reply publication.
 Global Android automation and Activity/provider/device qualification stay open.
+
+### Readiness after native root-context loss (E212)
+
+A dispatched Runtime.executionContextsCleared event can invalidate the original
+native root/default context before the Activity reports a new navigation epoch.
+The old document-state getter still advertised installed/ready in that interval.
+The getter now consults the existing worker's concurrent/volatile unavailable
+fence. It neither sends protocol requests nor creates a world or silently rebinds;
+fresh explicit inventory retains its original-source recovery requirement.
+
+New cleared/default-context-destroyed cases report document_unavailable, while
+an unrelated destroyed context ID preserves readiness. These use the actual
+native worker and product state getter with controlled UI/provider peers. All16
+state cases, full native650, frontend/JVM/JNI recovery20, ordinary create/control
+850 and acceptance15 pass. No old647 business output changes (assertion counters
+excluded). Both Android artifacts above are rebuilt, with the actual main DEX
+state-method instruction checked for its worker-fence call. This does not qualify
+all per-frame isolated realms or ongoing native-origin transitions. Physical
+Activity/provider/lifecycle/device checks and overall Android automation remain
+unqualified; the user's phone/current WebView deferral remains in effect.

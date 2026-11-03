@@ -280,6 +280,10 @@
         }
         PopupNetwork owner=entry.popup;PopupPage page=owner.page;
         boolean installed=page!=null&&page.documentReady()&&page.proof!=null&&owner.handoff.owns(page.proof)&&page.proof.current();
+        // Native context loss can precede an Activity navigation callback.
+        // Read only the original worker's published fence: state must not
+        // recreate a world, perform protocol I/O or claim fresh authority.
+        if(installed&&cdpWorker.documentUnavailable(page.marker,page.proof))installed=false;
         boolean pending=page!=null&&cdpWorker.pending(page.marker);
         MdoBrowserPopups<WebView> core=windows.get(key);boolean popupPending=core!=null&&core.busy();
         boolean ready=installed&&!pending&&cdpEnvironmentCurrent(key,entry.view,page.epoch,entry.channelLease)&&chooserReady(dialogs.get(key))&&

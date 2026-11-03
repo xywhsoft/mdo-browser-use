@@ -474,6 +474,46 @@ guidance also forbids acting on security/privacy permission requests; an actual
 main permission decision must be performed by a human, not substituted by an
 API decision or synthetic DOM click.
 
+## Original native context loss must revoke reported readiness (E212)
+
+A controlled original JNI/worker event reproduces a product state defect:
+Runtime.executionContextsCleared is fully dispatched, the native binding has
+lost its root context witness, and the UI navigation epoch is unchanged, yet
+protocolPopupDocumentState still returns installed:true/ready:true/phase:ready.
+Keep .mdo/E212-context-ready-red.log. Actual execution keeps its existing native
+guards; this finding concerns a contradictory readiness snapshot, not an
+unproved successful effect through stale authority.
+
+The state getter now reads the original worker's concurrent/volatile unavailable
+fence before reporting installed/ready. This performs no protocol request,
+rebind, world creation or automatic retry. Explicit inventory retains the
+existing original-source recovery path. New cleared/default-context-destroyed
+cases require document_unavailable; a foreign context ID leaves ready unchanged.
+All16 state cases pass; the three new cases preserve the UI epoch and prove
+read-only status queries. Fresh
+native650 passes27,655 reported popup assertions; the old647 business outputs
+are identical, excluding assertion counters. Actual dispatcher/frame driver to
+JVM/JNI recovery passes20 modes, and ordinary creation/control850 passes.
+
+Fresh Python208/210 (two existing Windows symlink skips) and acceptance15 pass,
+binding544 inputs/150 outputs with84 static requests/90 original tool pairs and
+12 ordinary failures recovered. JS526, SDK/control and packed12 retain their
+unchanged-input scope. The Windows archive and ARM64 engine are exactly reused;
+both Android packages are rebuilt/source/signature checked. Inspect actual main
+DEX method instructions, not just descriptor strings: the original state getter
+contains its worker-fence call. The main APK remains6,608,193B with SHA-256
+68d832861f6e634b3d8cf168a3bbffa09cf60606e70a9bf5775e553a8d72c45f.
+Native/app payload hashes stay unchanged; Java/DEX changes. The original Home,
+headless service identity and configuration are restored.
+
+These checks cover the original native root/default witness and clearing events,
+not every per-frame isolated realm or ongoing native-origin transition. That
+review, actual main-window input/pixels, physical Android/provider/lifecycle and
+authenticated physical-device routing remain open. No phone/provider change,
+real inference, external website, additional app/Home/native copy or official
+publication occurs. Overall Android automation and whole-goal qualification
+remain false.
+
 ## Remaining completion gates
 
 - Verify the installed Android main Activity/browser, actual provider input,

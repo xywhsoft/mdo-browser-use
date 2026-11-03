@@ -37,8 +37,9 @@ packed12, Python198/200 (two existing Windows symlink skips), JS526, SDK,
 control28 and acceptance14 pass. Six actual Agent cohorts pass42 static requests
 across Chat, Responses and Anthropic; all Chat requests pass the strict local
 schema/order fixture and images match saved originals. This is not inference
-or real-provider acceptance. The paired signed Android APK includes the rebuilt
-ARM64 engine; its Java/DEX is unchanged and physical checks remain deferred.
+or real-provider acceptance. The paired signed Android APK retains E208's ARM64
+engine. E212 rebuilds its Java/DEX with the native-context readiness correction;
+physical checks remain deferred.
 See [acceptance](acceptance.md) and [current progress](progress.md). The full goal
 remains active. No official update/store publication occurred.
 

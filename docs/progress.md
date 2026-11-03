@@ -16271,3 +16271,64 @@ scope. No production deployment, real inference, external test page, new app/Hom
 native copy or phone operation occurs. No product defect is confirmed this stage.
 The new evidence distinguishes a repaired helper resource failure from the
 remaining capture/input problem. The complete Browser Use goal remains active.
+
+## E212 — revoke a ready snapshot after original native root-context loss
+
+Continue independent Android implementation work after the unavailable desktop
+capture gate. A new JNI/product test dispatches the original protected document's
+Runtime.executionContextsCleared event while preserving its UI epoch and native
+page registration. The native worker has lost its root/default context witness,
+but the old state getter still reports installed:true/ready:true/phase:ready.
+Preserve E212-context-ready-red.log. This is a demonstrated readiness defect;
+the existing operation guards still reject stale execution, and no bypassed
+effect or installed-provider failure is claimed.
+
+The actual protocolPopupDocumentState getter now checks the existing original
+worker's documentUnavailable fence before advertising installed/ready. Its
+concurrent/volatile snapshot performs no protocol I/O, world creation, source
+discovery or rebind. The state read does not clear the UI's stored recovery
+intent; explicit inventory still uses the existing original-source recovery
+guard. No public Android automation capability is enabled.
+
+Add three native event cases: clearing contexts, destruction of the original
+default context and destruction of an unrelated context ID. Await actual event
+dispatch before checking state; never use receipt of raw bytes as that join.
+Five repeated status reads must report document_unavailable for the first two
+and keep ready for the foreign ID, without a UI epoch change, legacy-world
+query, new isolated world/evaluation or another native proof/connection. All16
+state cases pass the exact full-driver validators. These use the production
+getter and original JNI/worker chain with controlled UI/provider peers.
+
+Fresh complete native gate passes650 modes/27,655 reported popup assertions,
+including159 assertions in the three new modes. Strictly compare the old647
+business schemas/values: no differences, excluding assertion counters. Existing
+kernel/JNI/API26/ASan/UBSan and fixed original control checks pass. Fresh actual
+frontend dispatcher/frame-driver/JVM/JNI recovery20 passes; ordinary create/
+control850 includes77 async-close checks. Python208/210 passes with the two
+existing Windows symlink privilege skips. Fresh acceptance15 binds544 source
+inputs/150 applied outputs and completes84 static protocol requests,90 original
+tool pairs and12 ordinary failures recovered. No live model/provider is used.
+
+Apply the reviewed fragment only to the same .mdo/source deployment after
+checking the exact running host/config/listener and empty run/operation sets.
+No native C/Windows/plugin/JS product input changes. Verify and reuse the already
+exercised Windows archive and ARM64 engine; JS526, SDK/control and packed12 are
+unchanged-input evidence reuse. Rebuild the diagnostic and full lite-host Android
+APKs in their existing outputs. The main APK is6,608,193B, SHA-256
+68d832861f6e634b3d8cf168a3bbffa09cf60606e70a9bf5775e553a8d72c45f;
+the diagnostic is983,443B, SHA-256
+ddcad4bf3e7d10ae28f0fca644ccc389b9f623ac34cec12681f399ce59732937.
+Actual main DEX instructions contain the state getter's new worker-fence call;
+all earlier method/class/private-field gates still pass. Main app/native payload
+hashes stay unchanged, while DEX changes. Diagnostic DEX still invokes elapsed
+realtime and defines the ordinary-world deadline method. Source/package/private
+provider/signature checks pass; all device/framework/automation flags stay false.
+
+Restore the same headless Home/host/config/listener and retain the matching
+development artifacts. All test/build handles are terminal before documentation
+and commit. No extra application/Home/dependency checkout, phone/provider change,
+install, real inference, external site or online publication occurs. Scope this
+fix to the root/default native witness and clearing events; continue reviewing
+per-frame isolated-world and ongoing native-origin readiness. The main UI pixel/
+human decision, Android physical Activity/provider/lifecycle and authenticated
+two-device gates remain incomplete. The full goal stays active.

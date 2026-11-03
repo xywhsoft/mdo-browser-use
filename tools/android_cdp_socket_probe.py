@@ -368,6 +368,7 @@ def main():
                   'preparation-publication-state-viewport','preparation-publication-state-busy','preparation-publication-state-restoring',
                   'preparation-publication-state-navigation','preparation-publication-state-manual','preparation-publication-state-channel',
                   'preparation-publication-state-retiring','preparation-publication-state-pending','preparation-publication-state-download',
+                  'preparation-publication-state-context-cleared','preparation-publication-state-context-destroyed','preparation-publication-state-context-foreign',
                   'preparation-restore-ready','preparation-restore-repeat','preparation-restore-hidden','preparation-restore-old-pin',
                   'preparation-restore-viewport','preparation-restore-parent','preparation-restore-cancelled','preparation-restore-stale',
                   'preparation-restore-manual','preparation-restore-channel','preparation-restore-unsupported','preparation-restore-unique',
@@ -460,9 +461,10 @@ def main():
         if mode.startswith('preparation-publication-state-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-publication-state-'):]
             phase={'ready':'ready','starting':'ready','legacy':'ready','hidden':'suspended','viewport':'suspended','busy':'busy','restoring':'restoring',
-                   'navigation':'document_changed','manual':'owner_unavailable','channel':'owner_unavailable','retiring':'owner_unavailable','pending':'popup_pending','download':'download_only'}[variant]
+                   'navigation':'document_changed','manual':'owner_unavailable','channel':'owner_unavailable','retiring':'owner_unavailable','pending':'popup_pending','download':'download_only',
+                   'context-cleared':'document_unavailable','context-destroyed':'document_unavailable','context-foreign':'ready'}[variant]
             if (not isinstance(proof,dict) or proof.get('native_adapter') is not True or proof.get('read_only') is not True or proof.get('legacy_world_queries')!=0
-                    or proof.get('phase_checked')!=phase or proof.get('ready_checked') is not (variant in {'ready','starting','legacy'}) or proof.get('startup_checked') is not (variant=='starting')
+                    or proof.get('phase_checked')!=phase or proof.get('ready_checked') is not (variant in {'ready','starting','legacy','context-foreign'}) or proof.get('startup_checked') is not (variant=='starting')
                     or proof.get('explicit_restore_checked') is not (variant in {'hidden','viewport','restoring'}) or proof.get('provider_qualified') is not False):
                 raise RuntimeError('The original popup document-state route, readiness or read-only boundary did not pass')
         if mode.startswith('preparation-restore-'):
