@@ -16217,3 +16217,57 @@ native/DEX checks are qualified unchanged-input reuse, not fresh builds/reruns.
 No new app/Home/native copy, real model, external test page or online publication.
 All handles are terminal before documentation/commit. Current proof is
 .mdo/E210-verification.json; full goal remains active and unproven complete.
+
+## E211 — diagnose the shared UI helper quota without claiming product recovery
+
+Continue the normal-main presentation gate in the existing deployment/Home and
+one known QA session, with a local native page and no Agent run/model call.
+Accessibility identifies the actual page, toolbar and selected conversation.
+Screen capture times out. One ordinary hide-sidebar input fails at
+CreateWindowExW with0x80070486. Read-only native process resource counters show
+the exact codex-computer-use.exe at10,000 USER objects, versus23 for the dev
+host. The supported JavaScript-session reset does not replace that process or
+reduce its quota. No mdo leak or historical capture root cause is inferred.
+
+Receive explicit user approval to restart only the shared helper. Verify its
+original PID6860, executable path, start time and SHA-256, terminate it and let
+the documented sky import initialize the managed replacement. Do not manually
+launch the helper or terminate Codex/the user's mdo/other apps. The replacement's
+initial USER count is3. Existing diagnostic reports remain intact; a separate
+recovered-attempt report reuses the same QA session instead of creating another.
+
+The first recovered preparation detects the saved dev PID already absent and
+no63625 listener; its identity check fails before effects. Verify both facts,
+then use the normal guarded stop/start path in the same Home. A new known local
+browser/panel is observed through its real native receipt and actual main
+accessibility. Capture fails with FrameArrived timeout; fresh selection and
+activation produce window-capture timeout. One ordinary sidebar-button attempt
+then reports coordinate input geometry unavailable. No stale coordinates,
+repeated input, security approval clicks or alternate UI automation are used.
+Screenshot and successful-input qualifications stay false. A final managed
+helper snapshot shows266 USER objects; this does not prove leak absence.
+
+Separately close the first owned browser through its public scope and confirm
+its matching pane and native heading disappear from main accessibility. Preserve
+legacy/foreign test panels rather than guessing their ownership. Close the
+recovered fixture using its exact scope and restore the same original headless
+host/config/Home/listener. Runtime identity and product/artifact hashes are
+checked. Private evidence: E211-main-view-result.json,
+E211-recovered-main-view-result.json, E211-helper-restart-before.json and the
+four GUI resource snapshots including the final snapshot, with original error logs.
+
+Reinspect the current Android main admission and already integrated input,
+network and bounded takeover coordinator. Overall automation still correctly
+reports unavailable; these controlled implementations do not supply missing
+Activity/provider/input/capture/URI/chooser/lifecycle/Doze or physical-device
+evidence. Do not enable the public gate from mocks. Current phone/WebView
+deferral stays unchanged. Normal-main security permission buttons require human
+action under the Computer Use guidance, not an automatic click or API proxy.
+
+Fresh acceptance --check accepts15 existing cases with exact544 source/150
+deployed hashes; the full suite is not rerun. All shipped code and Windows/APK/
+portable artifacts are unchanged; prior test/build claims retain their existing
+scope. No production deployment, real inference, external test page, new app/Home/
+native copy or phone operation occurs. No product defect is confirmed this stage.
+The new evidence distinguishes a repaired helper resource failure from the
+remaining capture/input problem. The complete Browser Use goal remains active.

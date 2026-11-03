@@ -438,6 +438,42 @@ device routing incomplete. Real-model/provider/site business acceptance also
 remains untested and is not asserted. Keep the original scope and deferred
 user preferences; do not turn these missing proofs into successful completion.
 
+## Main-window helper quota and capture recovery limits (E211)
+
+Actual normal-main accessibility exposes the selected QA session, native local
+fixture and browser toolbar. The first ordinary sidebar-button attempt fails
+with CreateWindowExW/0x80070486. Read-only GetGuiResources identifies the exact
+Computer Use helper at 10,000 USER objects; the development host has23. Resetting
+the supported JavaScript session leaves the same helper and quota unchanged.
+This proves the immediate helper resource failure, not an mdo allocation leak
+or the cause of all earlier capture timeouts.
+
+After explicit user authorization, verify the helper PID/path/start time/hash,
+stop only that process, and let the supported sky import initialize its managed
+replacement. Its initial USER count is3. Reopen the original dev main window
+with the same Home/session and a new local fixture browser. Native observation
+and normal-main accessibility succeed. Capture fails first with FrameArrived
+timeout, then after fresh selection/activation with window-capture timeout.
+The one subsequent ordinary sidebar-button attempt reports coordinate input
+geometry unavailable. No screenshot or successful UI input is qualified. Stop
+capture retries; the quota repair does not establish a rendering repair.
+
+The final managed helper is below quota at266 USER objects. This is a bounded
+snapshot, not proof of a leak-free helper. Close only the newly owned fixture
+browser/panel and restore the same headless Home/listener/config/host. Both
+pre-restart and recovered-attempt reports remain private under .mdo/E211-*.
+The interrupted initial preparation found its saved dev PID already absent and
+no listener, before any mutation; standard identity-guarded stop/start restores
+the deployment without changing product sources or user data.
+
+Fresh --check accepts all15 previous integration receipts against current source
+and deployed hashes. It is unchanged-input evidence reuse, not a fresh suite.
+Windows/APK/plugin bytes stay unchanged. Main pixels/button interaction, physical
+Android and authenticated physical-device routing remain open. The Computer Use
+guidance also forbids acting on security/privacy permission requests; an actual
+main permission decision must be performed by a human, not substituted by an
+API decision or synthetic DOM click.
+
 ## Remaining completion gates
 
 - Verify the installed Android main Activity/browser, actual provider input,
