@@ -43,7 +43,7 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | Requirement | Inspected implementation and authoritative evidence | Current conclusion |
 | --- | --- | --- |
 | One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
-| Shared C/JS API and Agent tools | Shared contracts, 13 installed C services and 16 managed tools; E208 actual Agent turns in six vision/text-only cohorts across Chat, Responses and Anthropic static streams, with strict Chat tool schema/order checks | Local continuation and original-image delivery/projection verified; real-provider acceptance/model quality are not qualified |
+| Shared C/JS API and Agent tools | Shared contracts, 13 installed C services and 16 managed tools; E209 single-call plus grouped actual Agent turns:12 vision/text-only cohorts across Chat, Responses and Anthropic static streams,84 requests and90 original tool pairs, with strict Chat tool schema/order checks | Local continuation and original-image delivery/projection verified; real-provider acceptance/model quality are not qualified |
 | Observation, exact references, waiting and native input | E202 current-code SDK19/navigation4/wait5/JS526; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
@@ -372,6 +372,34 @@ reuse is qualified only with the verified unchanged Android composition; their
 global overlay-manifest hash differs. Frontend20/world direct inputs are exact.
 The original configuration/Home is restored. Physical Android, real-provider,
 normal-window pixels, human permission-button and two-device gates remain open.
+
+## Actual grouped native Agent calls (E209)
+
+The earlier actual Agent matrix streamed one tool per reply. Add a second case
+with original group sizes1/1/3/1/2/1, preserving every streamed call and its index/
+item ID. Chat/Responses JSON arguments interleave with reverse second fragments;
+Responses item completion also reverses. Anthropic uses separate indexed blocks.
+The existing configuration/credential guard and same-Home restore path are reused.
+This expands the fixture; it does not diagnose a new product bug.
+
+Each real native Agent cohort executes nine tools. Two distinct-limits screenshot
+calls surround a stale-document failure in the same reply. The next reply fills
+the original field successfully; another group observes/captures, then closes
+and finishes. Every later request checks all previous images. Six vision/text
+cohorts pass42 requests/54 original start/done pairs and retain18 saved PNGs.
+Call groups and original journal IDs/statuses/final events are independently
+checked against disk; all wire vision PNG bytes match the saved originals.
+This tests grouped replies through the actual decoder/executor/ledger, not
+simultaneous native operation or real-provider acceptance.
+
+Combined with single-call cohorts, fresh acceptance15 covers84 static requests,
+90 original tool pairs and12 ordinary failures recovered. Fresh Python203/205
+(two existing Windows symlink skips) passes. Five new negative tests reject lost,
+duplicate/cross-associated images, collapsed groups and foreign IDs.543 inputs/
+150 applied outputs are bound to the current proof. Product inputs/applied bytes
+and both E208 artifacts remain exactly unchanged; JS526, SDK, control28, packed12
+and native/Android checks are qualified reuse. The full goal's physical/device,
+real-provider and actual main-window qualification limits are unchanged.
 
 ## Remaining completion gates
 

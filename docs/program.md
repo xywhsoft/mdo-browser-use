@@ -42,6 +42,14 @@ ARM64 engine; its Java/DEX is unchanged and physical checks remain deferred.
 See [acceptance](acceptance.md) and [current progress](progress.md). The full goal
 remains active. No official update/store publication occurred.
 
+E209 additionally verifies this same executable/native code through actual Agent
+replies containing several tool calls. Six grouped cohorts retain18 original
+screenshots and recover after a failed group member. Together with single calls,
+fresh acceptance15 covers84 static requests/90 tool pairs; fresh Python203/205
+passes with two existing skips. This phase changes only fixtures/verification
+and documentation: current artifacts/product hashes are identical to E208.
+It does not introduce a new runtime version or qualify real-provider/phone use.
+
 W5 fixes actual managed read-only screenshots timing out during panel mounting:
 the panel retains its browser's original run/workspace, while the action keeps
 the current caller's permissions and admission context. Foreign namespace/member

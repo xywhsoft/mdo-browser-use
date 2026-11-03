@@ -80,6 +80,11 @@ def configuration(port):
 
 class Conversation:
     """Request-state oracle; no model inference, external IO or stored prompts."""
+    tools, failure_indexes, expected_requests = TOOLS, {2}, 7
+
+    def image_evidence(self, session):
+        return {"image": self.image, "retained_image": retained_image(session, self)}
+
     def __init__(self, model, client, page):
         self.model, self.client, self.page = model, client, page
         self.step, self.browser, self.document = 0, None, None
@@ -195,12 +200,16 @@ def streaming(delta, finish, model, protocol=PROTOCOLS[0]):
                 "choices": [{"index": 0, "delta": value, "finish_reason": reason}]}
     frames = [chunk({"role": "assistant"})]
     if "tool_calls" in delta:
-        call = delta["tool_calls"][0]
-        argument = call["function"]["arguments"]
-        cut = max(1, len(argument) // 2)
-        frames.append(chunk({"tool_calls": [{"index": 0, "id": call["id"], "type": "function",
-                       "function": {"name": call["function"]["name"], "arguments": argument[:cut]}}]}))
-        frames.append(chunk({"tool_calls": [{"index": 0, "function": {"arguments": argument[cut:]}}]}))
+        calls = delta["tool_calls"]
+        for index, call in enumerate(calls):
+            argument = call["function"]["arguments"]
+            cut = max(1, len(argument) // 2)
+            frames.append(chunk({"tool_calls": [{"index": index, "id": call["id"], "type": "function",
+                           "function": {"name": call["function"]["name"], "arguments": argument[:cut]}}]}))
+        for index in reversed(range(len(calls))):
+            argument = calls[index]["function"]["arguments"]
+            cut = max(1, len(argument) // 2)
+            frames.append(chunk({"tool_calls": [{"index": index, "function": {"arguments": argument[cut:]}}]}))
     else:
         frames.append(chunk(delta))
     frames.append(chunk({}, finish))
@@ -286,32 +295,38 @@ def events(session):
     raise RuntimeError("QA event stream exceeded its bounded reader")
 
 
-def retained_image(session, conversation):
+def retained_image(session, conversation, index=4, image=None):
+    image = conversation.image if image is None else image
     snapshot = dev.HOME / "sessions/default" / session / "snapshot.json"
     raw = snapshot.read_bytes()
     document = json.loads(raw)
     entries = [e for e in document["entries"] if e.get("role") == 3 and
-               e.get("tool_call_id") == conversation.call_id(4)]
+               e.get("tool_call_id") == conversation.call_id(index)]
     require(len(entries) == 1, "Original screenshot has no unique durable tool message")
     parts = [p for p in entries[0].get("parts", []) if p.get("kind") == 2]
     require(len(parts) == 1 and parts[0].get("media_type") == "image/png",
             "Original screenshot image was lost from the saved conversation")
     data = base64.b64decode(parts[0]["data"], validate=True)
-    require(len(data) == parts[0]["data_bytes"] == conversation.image["bytes"] and
+    require(len(data) == parts[0]["data_bytes"] == image["bytes"] and
             data.startswith(b"\x89PNG\r\n\x1a\n"), "Durable screenshot bytes changed")
     if conversation.model.endswith("-vision"):
-        require(sha(data) == conversation.image["sha256"], "Vision wire image differs from the original saved screenshot")
+        require(sha(data) == image["sha256"], "Vision wire image differs from the original saved screenshot")
     return {"bytes": len(data), "sha256": sha(data), "snapshot_sha256": sha(raw), "original_image_retained": True}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--protocol", choices=PROTOCOLS, help="Only one protocol, for bounded diagnosis; not full acceptance")
+    parser.add_argument("--parallel", action="store_true", help="Exercise grouped tool calls through the same actual Agent")
     args = parser.parse_args()
+    oracle = Conversation
+    if args.parallel:
+        from agent_parallel_protocol import ParallelConversation
+        oracle = ParallelConversation
     selected = tuple(m for m in MODELS if not args.protocol or PROTOCOL_BY_MODEL[m] == args.protocol)
-    output = dev.ENV / "agent-protocol-result.json"
+    output = dev.ENV / ("agent-parallel-protocol-result.json" if args.parallel else "agent-protocol-result.json")
     report = {"passed": False, "state": "running", "real_model_calls": 0,
-              "external_browser_pages": 0, "protocols": list(PROTOCOLS) if not args.protocol else [args.protocol], "cohorts": []}
+              "external_browser_pages": 0, "parallel_groups": args.parallel, "protocols": list(PROTOCOLS) if not args.protocol else [args.protocol], "cohorts": []}
     save = lambda: output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     save()
     config_path = dev.HOME / "config/models.json"
@@ -348,7 +363,7 @@ def main():
         require(len(clients) == 1, "Expected one actual main-interface display client")
         page = f"http://127.0.0.1:{fixture.server_port}/page"
         for model in selected:
-            conversation = Conversation(model, clients[0]["id"], page)
+            conversation = oracle(model, clients[0]["id"], page)
             fixture.conversations[model] = conversation
             session = uuid.uuid4().hex
             active_scope = {"extension": "plugin.mdo.browser-use", "project": "default", "session": session}
@@ -373,23 +388,23 @@ def main():
             require(current["terminal"], "Local Agent protocol run did not terminate")
             require(current["state"] == "succeeded" and current["final_text"] == FINAL,
                     "Full Agent did not finish the original protocol turn")
-            require(current["model_calls"] == 7 and current["tool_calls"] == 6 and conversation.step == 7,
+            require(current["model_calls"] == conversation.expected_requests and
+                    current["tool_calls"] == len(conversation.tools) and conversation.step == conversation.expected_requests,
                     "Full Agent call counts changed or an effect was retried")
             ledger = events(session)
-            for index, name in enumerate(TOOLS):
+            for index, name in enumerate(conversation.tools):
                 pair = [e for e in ledger if e["tool_call_id"] == conversation.call_id(index)]
                 require([e["kind"] for e in pair] == ["tool_start", "tool_done"] and
                         all(e["tool_name"] == name for e in pair), "Original tool did not get one durable terminal pair")
-                require(pair[1]["success"] is (index != 2), "Ordinary failure status was changed in the ledger")
+                require(pair[1]["success"] is (index not in conversation.failure_indexes), "Ordinary failure status was changed in the ledger")
             require(len([e for e in ledger if e["kind"] == "agent_done"]) == 1 and
                     not any(e["kind"] == "error" for e in ledger), "Agent terminal stream contradicted success")
             require(not dev.call("browseruse.tabs", {"action": "list"}, active_scope)["tabs"],
                     "Agent left its original browser open")
             report["cohorts"].append({"model": model, "session": session, "run": run,
-                "passed": True, "requests": conversation.rows, "image": conversation.image,
+                "passed": True, "requests": conversation.rows, **conversation.image_evidence(session),
                 "protocol": PROTOCOL_BY_MODEL[model],
-                "retained_image": retained_image(session, conversation),
-                "tool_terminal_pairs": 6, "ordinary_failure_then_native_recovery": True})
+                "tool_terminal_pairs": len(conversation.tools), "ordinary_failure_then_native_recovery": True})
             save()
             run = None
         require(fixture.requests_total == 7 * len(selected), "Protocol transport repeated or omitted a request")

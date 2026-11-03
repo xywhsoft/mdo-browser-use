@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Actual Agent tool groups E209:** exercise grouped model replies of sizes
+  1/1/3/1/2/1 through the real native Agent, including two distinct screenshots
+  around an ordinary failure, native recovery, later observation/capture and
+  close. Chat/Responses arguments interleave and finish in reverse order;
+  Anthropic uses indexed content blocks. Six grouped cohorts pass42 requests/
+  54 tool pairs and18 original saved images. Combined with the single-call
+  matrix:84 requests/90 original pairs/12 failures recovered. Fresh Python203/205
+  plus two skips and acceptance15 pass. Product inputs/applied150 outputs and
+  E208 artifacts are exact unchanged; JS526/SDK/control28/packed12 are reuse,
+  not fresh reruns. Physical platform and real-provider limits remain open.
+
 - **Strict Chat tool media E208:** reproduce rejection of the actual Agent's
   sixth request because role:tool contained an image. Keep text/IDs in legal tool
   results and attach original media after the complete parallel tool group, with
@@ -16068,3 +16079,70 @@ headless loopback configuration and settings are restored. Keep the full goal
 active and preserve the outstanding physical Android, actual permission-button,
 normal-window pixels and authenticated two-device completion gates. No online
 release, update-channel change, new dependency checkout or application copy.
+
+## E209 — qualify grouped calls through the actual native Agent
+
+E208's actual Agent fixture issued only one tool call per reply. Its compiled
+serializer test already covered parallel results, but did not prove the full
+stream decoder/executor/ledger path for several calls. Extend the fixture to
+preserve every call instead of streaming only the first. Chat call indices and
+Responses item IDs carry interleaved JSON argument fragments, with the second
+fragments and Responses completion events reversed. Anthropic emits separate
+indexed start/delta/stop blocks. Original adjacent Responses function_call items
+normalize as a group; no missing tool output or media is synthesized. Event
+shapes follow the official [OpenAI function streaming guide](https://developers.openai.com/api/docs/guides/function-calling#streaming)
+and [Anthropic message streaming guide](https://platform.claude.com/docs/en/build-with-claude/streaming).
+This is a test-fixture coverage repair, not a newly reproduced product defect.
+
+Add the --parallel scenario to the existing runner and reuse its exact same
+configuration guard, original Home, main interface, fixture listener and restore
+path. No second application/Home/native checkout is created. Six cohorts run
+sequentially; the application retains its own tool-batch scheduling policy.
+A model reply containing multiple calls does not prove simultaneous native
+execution or new concurrency guarantees.
+
+Each cohort uses real Browser Use C tools/native operations: create, observe,
+then a three-call reply containing a400x300-limited screenshot, an intended stale
+fill failure and a160x120-limited screenshot. Next comes a successful native fill,
+then grouped fresh observation/320x240-limited capture, followed by close and
+final text. Expected original result counts are0/1/2/5/6/8/9. Check full call
+arguments/IDs, original group sizes1/1/3/1/2/1, ordinary failure state, field-state
+recovery, exact current dimensions and distinct image hashes. Every later request
+rechecks all prior screenshot results, catching loss or aliasing after another
+operation or request-prefix reuse. Text-only routes keep the explicit notice and
+all three original saved PNGs. The task browser inventory is empty at completion.
+
+Six grouped native Agent cohorts pass42 static requests,54 exact tool pairs,
+six intended failures recovered and18 retained original screenshots. Including
+the existing single-call matrix, fresh acceptance covers84 static requests,
+90 original pairs and12 successful Agent terminals, each with one ordinary
+failure followed by native recovery. Independently inspect the saved assistant
+call arrays, every original start/done journal pair, final journal events and
+all original PNG bytes/hashes/IHDR dimensions. All data comes from real tool
+execution; no inference, external page/account or fake tool result is used.
+This does not qualify real-provider acceptance or model quality.
+
+Five new oracle/acceptance tests reject missing, duplicate and cross-associated
+images, group collapse, lost retained bytes and foreign IDs; they verify every
+streamed call's exact index/ID/name/Unicode JSON argument. Synthetic unit inputs
+exercise the verifier only. Native evidence comes from the separate actual
+Agent probe. Fresh Python203/205 with two existing Windows symlink skips and all
+15 sequential integration cases pass, bound to543 source inputs/150 applied
+outputs. All test handles are terminal before documentation and commit.
+
+No product/host/native/header/ABI, contract, plugin or applied deployment bytes
+change in this phase. Verify all product input hashes and all150 applied hashes
+against E208. JS526, SDK, control28, packed12, both native builds, Windows/APK/DEX
+and the portable plugin are exact-source/artifact reuse, not newly rebuilt or
+re-exercised claims. Existing artifact hashes and native/source/signature receipts
+remain authoritative. Android native647/create850 retain their disclosed old
+aggregate-manifest difference with unchanged Android composition; frontend20/
+world inputs are exact. No disk-heavy rebuild/copy is needed for test-only work.
+
+The original Home/config/settings and headless loopback listener are restored.
+Current proof is .mdo/E209-verification.json. Phone/current WebView remain deferred;
+overall Android automation admission is still false. Physical Activity/provider/
+input/capture/URI grants/chooser/lifecycle/Doze, actual main permission-button
+input, normal-window pixels and authenticated two-device qualification remain
+open. Preserve the full goal and its scope; do not infer completion from this
+local grouped-call evidence or publish an official release.

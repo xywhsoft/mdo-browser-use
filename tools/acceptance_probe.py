@@ -23,6 +23,7 @@ CASES = (
     ("package-recovery", "tools/package_lifecycle_probe.py", (), "package-lifecycle-result.json"),
     ("managed-tools", "tools/managed_probe.py", (), "managed-tools-result.json"),
     ("agent-protocol", "tools/agent_protocol_probe.py", (), "agent-protocol-result.json"),
+    ("agent-parallel-protocol", "tools/agent_protocol_probe.py", ("--parallel",), "agent-parallel-protocol-result.json"),
     ("managed-visual", "tools/visual_probe.py", ("--managed-only",), "managed-visual-result.json"),
     ("public-frames", "tools/public_frames_probe.py", (), "public-frames-result.json"),
     ("capture-privacy", "tools/capture_privacy_public_probe.py", ("--capture-evidence",), "capture-privacy-public-result.json"),
@@ -118,7 +119,10 @@ def validate(name, receipt):
                     "managed_popup_ownership", "native_screenshot_image", "exact_selection_and_discovery",
                     "readonly_select_denied", "native_drag"):
             require(receipt.get(key) is True, "Missing managed evidence: " + key)
-    elif name == "agent-protocol":
+    elif name in ("agent-protocol", "agent-parallel-protocol"):
+        parallel = name == "agent-parallel-protocol"
+        if parallel:
+            require(receipt.get("parallel_groups") is True, "Grouped Agent evidence was replaced by a single-call trace")
         require(receipt.get("real_model_calls") == receipt.get("external_browser_pages") == 0 and
                 receipt.get("request_count") == 42 and receipt.get("configuration_restored") is True and
                 receipt.get("same_home") is True and receipt.get("protocols") == list(PROTOCOLS),
@@ -130,7 +134,7 @@ def validate(name, receipt):
                 "Agent protocol cohorts are incomplete or duplicated")
         for index, cohort in enumerate(cohorts):
             require(cohort.get("protocol") == PROTOCOLS[index // 2], "Agent protocol route was not verified")
-            require(cohort.get("passed") is True and cohort.get("tool_terminal_pairs") == 6 and
+            require(cohort.get("passed") is True and cohort.get("tool_terminal_pairs") == (9 if parallel else 6) and
                     cohort.get("ordinary_failure_then_native_recovery") is True,
                     "Agent tools lack original terminal/recovery evidence")
             rows = cohort.get("requests", [])
@@ -138,20 +142,33 @@ def validate(name, receipt):
                 require(rows and all(r.get("chat_schema_verified") is True for r in rows),
                         "Chat schema and parallel tool ordering were not strictly verified")
             require(len(rows) == 7 and [r.get("step") for r in rows] == list(range(7)) and
-                    [r.get("tool_results") for r in rows] == list(range(7)), "Agent wire history is incomplete")
-            image, retained = cohort.get("image", {}), cohort.get("retained_image", {})
-            require(retained.get("original_image_retained") is True and
-                    type(image.get("bytes")) is int and image["bytes"] > 0 and
-                    retained.get("bytes") == image["bytes"] and
-                    isinstance(retained.get("sha256"), str) and len(retained["sha256"]) == 64,
-                    "Agent screenshot has no original durable image evidence")
-            if index % 2 == 0:
-                require(image.get("route") == "vision" and image.get("sha256") == retained["sha256"] and
-                        0 < image.get("width", 0) <= 400 and 0 < image.get("height", 0) <= 300,
-                        "Vision protocol image differs from original native screenshot")
-            else:
-                require(image.get("route") == "text-projection" and image.get("no_wire_image") is True,
-                        "Text-only Agent projection is unqualified")
+                    [r.get("tool_results") for r in rows] == ([0, 1, 2, 5, 6, 8, 9] if parallel else list(range(7))),
+                    "Agent wire history is incomplete")
+            images = cohort.get("images", []) if parallel else [cohort]
+            if parallel:
+                groups = [1, 1, 3, 1, 2, 1]
+                require(cohort.get("group_sizes") == groups and
+                        [r.get("tool_group_sizes") for r in rows] == [groups[:i] for i in range(7)] and
+                        [r.get("verified_images") for r in rows] == [0, 0, 0, 2, 2, 3, 3], "Original Agent groups were split or collapsed")
+                require(len(images) == 3 and [v.get("call_index") for v in images] == [2, 4, 7], "Grouped image results are incomplete")
+                prefix = "bu_" + cohort["model"].removeprefix("browser-use-static-protocol").lstrip("-").replace("-", "_") + "_"
+                require([v.get("tool_call_id") for v in images] == [prefix + str(i) for i in (2, 4, 7)], "Grouped images lost original IDs")
+                require(len({v.get("retained_image", {}).get("sha256") for v in images}) == 3, "Distinct grouped screenshots were aliased")
+            for position, entry in enumerate(images):
+                image, retained = entry.get("image", {}), entry.get("retained_image", {})
+                require(retained.get("original_image_retained") is True and
+                        type(image.get("bytes")) is int and image["bytes"] > 0 and
+                        retained.get("bytes") == image["bytes"] and
+                        isinstance(retained.get("sha256"), str) and len(retained["sha256"]) == 64,
+                        "Agent screenshot has no original durable image evidence")
+                if index % 2 == 0:
+                    width, height = ((400, 300), (160, 120), (320, 240))[position] if parallel else (400, 300)
+                    require(image.get("route") == "vision" and image.get("sha256") == retained["sha256"] and
+                            0 < image.get("width", 0) <= width and 0 < image.get("height", 0) <= height,
+                            "Vision protocol image differs from original native screenshot")
+                else:
+                    require(image.get("route") == "text-projection" and image.get("no_wire_image") is True,
+                            "Text-only Agent projection is unqualified")
     elif name == "managed-visual":
         require(receipt["scope"] == "managed-visual-permissions-only" and receipt["model_calls"] == 0,
                 "Unexpected managed visual scope")
@@ -276,8 +293,8 @@ def main():
                     verify_bridge(read(path))
                 else:
                     validate(name, read(path))
-                if name == "agent-protocol":
-                    report["static_protocol_requests"] = read(path)["request_count"]
+                if name in ("agent-protocol", "agent-parallel-protocol"):
+                    report["static_protocol_requests"] += read(path)["request_count"]
                 row.update(receipt=path.relative_to(dev.ROOT).as_posix(), receipt_sha256=sha(path))
             require(report["source_sha256"] == source_inputs(), "Source changed while an acceptance probe was live")
             require(report["deployed_sha256"] == deployed_inputs(), "Applied host changed during acceptance")
