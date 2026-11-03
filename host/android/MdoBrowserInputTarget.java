@@ -4,6 +4,8 @@ import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.ViewConfiguration;
+import android.os.SystemClock;
 import android.util.TypedValue;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
@@ -16,6 +18,7 @@ import java.util.function.LongSupplier;
  * isolated-world CSS-to-view geometry/focus validation belongs to the caller. */
 final class MdoBrowserInputTarget implements MdoBrowserInput.Target {
     private final WebView view;private final LongSupplier epoch;private final BooleanSupplier admitted;
+    private long touchReleasedAt=-1;
     MdoBrowserInputTarget(WebView view,LongSupplier epoch,BooleanSupplier admitted){
         if(view==null||epoch==null||admitted==null)throw new IllegalArgumentException("Missing input binding");
         this.view=view;this.epoch=epoch;this.admitted=admitted;
@@ -27,8 +30,17 @@ final class MdoBrowserInputTarget implements MdoBrowserInput.Target {
     public boolean acquireFocus(){return interactive()&&view.requestFocus();}
     public boolean touch(int action,long down,long time,float x,float y){
         MotionEvent event=MotionEvent.obtain(down,time,action,x,y,0);
-        try{event.setSource(InputDevice.SOURCE_TOUCHSCREEN);return view.dispatchTouchEvent(event);}
+        try{event.setSource(InputDevice.SOURCE_TOUCHSCREEN);boolean accepted=view.dispatchTouchEvent(event);
+            if(accepted&&(action==MdoBrowserInput.UP||action==MdoBrowserInput.CANCEL))touchReleasedAt=SystemClock.uptimeMillis();return accepted;}
         finally{event.recycle();}
+    }
+    public long hoverDelay(long now){
+        if(touchReleasedAt<0)return 0;
+        // Chromium's deferred tap feedback can overwrite a later mouse hover.
+        // Use the platform gesture window (at least its known 150ms feedback)
+        // only after this exact target's touchscreen release. Never replay input.
+        long window=Math.max(150,ViewConfiguration.getDoubleTapTimeout());
+        return Math.max(0,window-Math.max(0,now-touchReleasedAt));
     }
     public boolean wheel(long time,float x,float y,float dx,float dy){
         // Chromium WindowAndroid uses this Activity theme attribute for BOTH

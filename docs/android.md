@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E219)
+## Complete development host APK (current: E220)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`48445e4c0264b498369368da426e66e5c1e79c98302bf48fe66ac9db52238d7c`.
+`56dc13a4d1c4cfdb02a74f1837c09a2e72e32cd6162cdee2bb4bc9950ac1c509`.
 E214 shares the original document's live-readable predicate between isolated
 world state and navigation page_ready. Root/default realm loss clears both
 public readiness fields even when the native document and Activity epoch stay
@@ -99,10 +99,11 @@ The packaged DEX must define this coordinator, immutable request identity and
 previous-profile destruction field alongside all prior native gates. Native
 main-branch/JNI tests use controlled Activity/provider peers; fresh shared UI and
 Windows tests do not qualify Android framework/provider/device automation.
-Overall Android admission remains disabled. E219 verifies seven component gates
-and the full main host's initial native scale after E218's main/manual-browser
-UI check. CSS hover remains unresolved; guarded Android host qualification is
-incomplete. The current WebView is unchanged. See [progress](progress.md).
+Overall Android admission remains disabled. E220 implements a bounded post-touch
+hover candidate after measuring late tap feedback overwriting hover. Its final
+device regression and installation await the user-deferred phone. E219 remains
+the last completed main/7-of-8 component evidence. The WebView is unchanged;
+guarded host qualification remains incomplete. See [progress](progress.md).
 
 E199 updates the shared browser UI: an ordinary loading live announcement stays
 available to accessibility while no longer changing the native viewport size.
@@ -155,10 +156,10 @@ contracts, not installed framework or sleep/Doze qualification.
 
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
-`.mdo/host/android-client/mdo-browser-use-dev.apk`,987,539 bytes SHA-256
-`3ab5de0089ed690bdac9b1bcca2e96173e47b49d2b6ffb342f449c0fe6d85ce7`.
-E219 rebuilds this package against the reviewed initial-scale repair; it retains
-E218's truthful terminal profile-only diagnostic.
+`.mdo/host/android-client/mdo-browser-use-dev.apk`,991,635 bytes SHA-256
+`2352d6896299950da3a7c5e31f6c0a4dc901c840e9905ade8f9cb1e2a119ab7c`.
+E220 includes bounded post-touch hover sequencing; its final-source device
+qualification and main-host installation are deferred by the user.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
 ordinary-world deadline method is defined. This package is a diagnostic variant;
 both artifacts share the development package ID, and device qualification selects
@@ -6775,3 +6776,15 @@ complete main manual-browser state reports native_scale_ready:true. Component
 results are7pass/1unresolved (CSS hover); overall automation remains disabled.
 See the E219 section in [acceptance](acceptance.md) for final artifact hashes,
 fresh source-bound regressions, exact scope and cleanup.
+
+### Touch feedback and mouse hover (E220)
+
+Cold hover works on the current phone; after touch, hover first matches then
+is overwritten by delayed tap feedback. The owned target records accepted
+touch release and the sequencer defers only a recent post-touch mouse hover,
+then obtains fresh guards before one native event. The delay is bounded and
+cancelable; cold hover stays immediate. Focus, touch, replay and global admission
+are unchanged. Fresh84 timing checks, JNI input/cancel and frontend20 pass;
+both APKs rebuild. Final-source device and main-install checks are deferred by
+the user after USB disappearance, so the candidate remains device-unqualified.
+See [acceptance](acceptance.md) for source inference, evidence and limits.

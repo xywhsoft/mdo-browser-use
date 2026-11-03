@@ -12,6 +12,8 @@ final class MdoBrowserInput implements AutoCloseable {
         default boolean acquireFocus(){return false;}
         default boolean wheel(long time,float x,float y,float dx,float dy){return false;}
         default boolean hover(long time,float x,float y){return false;}
+        /** Bounded native touch-feedback interval before a mouse move. No effects. */
+        default long hoverDelay(long now){return 0;}
         boolean touch(int action,long down,long time,float x,float y);
         boolean key(boolean down,long started,long time,String name,int modifiers);
         boolean text(String value);
@@ -100,12 +102,21 @@ final class MdoBrowserInput implements AutoCloseable {
         }catch(RuntimeException error){throw new Failure("input_target_failed");}
     }
     private void start(Pending job)throws Failure {
-        try{job.started=scheduler.now();job.deadline=job.started+job.duration+500;}
+        try{job.started=scheduler.now();}
         catch(RuntimeException error){throw new Failure("input_timer_unavailable");}
-        active=job;
+        active=job;long delay=0;
+        if(job.hover){
+            try{delay=target.hoverDelay(job.started);}
+            catch(RuntimeException|OutOfMemoryError error){if(job.done||active!=job)return;active=null;throw new Failure("input_target_failed");}
+            if(job.done||active!=job)return;
+            if(delay<0||delay>1000){active=null;throw new Failure("input_timing_invalid");}
+        }
+        // Keep the original 500ms guarded-input budget after the bounded wait.
+        // No guard result or coordinate witness is cached across this interval.
+        job.deadline=job.started+job.duration+delay+500;
         try{
-            if(job.check!=null)scheduler.post(job.watchdog,job.duration+501);
-            scheduler.post(job.timer,0);
+            if(job.check!=null)scheduler.post(job.watchdog,job.duration+delay+501);
+            scheduler.post(job.timer,delay);
         }catch(RuntimeException|Error error){active=null;
             try{scheduler.remove(job.timer);}catch(RuntimeException ignored){}
             try{scheduler.remove(job.watchdog);}catch(RuntimeException ignored){}

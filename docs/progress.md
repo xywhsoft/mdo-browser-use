@@ -16544,3 +16544,59 @@ Windows/native/app archive/portable plugin bytes remain unchanged. No live model
 additional app/Home/native copy, provider upgrade or publication. Windows main
 human-permission/pixels, authenticated physical two-device and remaining Android
 framework/host qualification stay open; the whole goal remains incomplete.
+
+## E220 — serialize post-touch mouse hover
+
+The current phone supplies new evidence before disconnection: a cold hover
+passes, but hover shortly after a trusted tap initially matches :hover and then
+loses it. The fixed fixture records true at0.7/16.2ms and false at50.3/100.3ms;
+the earlier button becomes hovered again, with no additional input event, click,
+focus change, active touch or active pointer. Delaying only the next hover by
+100/250/350/1000ms passes all17 original native-input checks. Experimental results
+are explicitly unqualified and their source/flags are reverted.
+
+[Chromium138 EventHandler](https://chromium.googlesource.com/chromium/src/+/refs/tags/138.0.7204.179/third_party/blink/renderer/core/input/event_handler.cc)
+retains a deferred tap element for a minimum150ms active feedback interval and
+later updates its hover/active state. Attribution to that exact timer is an
+inference from the pinned source plus the measured overwrite, not an instrumented
+browser stack. The demonstrated integration defect is interleaving mouse hover
+with unfinished touch feedback; it is not an inability to generate native hover.
+
+After an accepted UP/CANCEL on the exact owned target, record native uptime.
+For a subsequent mouse hover, wait the remaining platform
+[double-tap gesture window](https://developer.android.com/reference/android/view/ViewConfiguration#getDoubleTapTimeout()),
+with a150ms floor. Cold/settled hover has zero delay. The sequencer reserves its
+original job during this asynchronous wait, rejects delays outside0..1000ms and
+keeps the original500ms input/guard budget after it. No guard or coordinate
+witness is cached across waiting. Cancellation, navigation, hidden/replaced view,
+viewport change and deadline still prevent effects. No UI-thread sleep, extra
+mouse move, focus event, touch or replay is introduced. This is a conservative
+gesture window for the observed race, not universal provider/lifecycle proof.
+
+Preserve the red early-hover regression. Fresh84 settle checks pass, including
+native-feedback overwrite ordering, cold latency, busy exclusion, stale state,
+cancel/late callback, OOM, bad timing, reentrant replacement and the full bounded
+guard budget. Existing input177/lifecycle167/channel22/guard63/wheel66/hover82/
+initial-scale143 and ordinary create850/async77/scale-bridge28 pass. Recompile
+only the changed production Input class and nested classes in the existing JNI
+output after verifying every other native source hash. Three fresh JNI frame-
+input/held-resource/held-request cases and frontend20 pass with current class
+hashes. Targeted Python1+8 pass. The old full658 native and acceptance15 aggregates
+are historical after Input/Target changes, not newly source-qualified complete
+runs; no unchanged broad suite is repeated. No extra source/app/Home/native copy.
+
+Both Android packages rebuild and retain actual DEX/signature/private-provider/
+native/app-payload checks. Actual DEX also proves the post-dispatch release clock,
+platform timeout and bounded sequencer scheduling; it does not prove device
+behavior. Main:6,608,193B SHA-25656dc13a4d1c4cfdb02a74f1837c09a2e72e32cd6162cdee2bb4bc9950ac1c509.
+Diagnostic:991,635B SHA-2562352d6896299950da3a7c5e31f6c0a4dc901c840e9905ade8f9cb1e2a119ab7c.
+Windows, native engine/app archive and portable plugin bytes remain unchanged.
+
+The phone disappears before final-source device tests start; the user explicitly
+defers reconnection and asks to continue other work. Final candidate hover/input,
+current main installation and restoration from the last diagnostic variant are
+pending. Last completed E219 cohort remains7pass/1unresolved and is not current-
+candidate qualification. Current WebView138 is unchanged; isolated-world and
+overall Android automation gates remain disabled. No live model or publication.
+Windows main presentation/human decision, authenticated physical two-device and
+remaining Android/provider/lifecycle qualification remain open; goal active.
