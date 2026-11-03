@@ -74,6 +74,27 @@ def call(method: str, params: dict | None = None, context: dict | None = None):
     return result["data"]
 
 
+def prepare_host(base: Path, host: Path) -> None:
+    # Once this deployment has its reviewed host, another repository's build
+    # output is no longer an input. Validate the local file before any copy.
+    if host.exists():
+        digest = hashlib.sha256(host.read_bytes()).hexdigest()
+        if digest == LOCK["bootstrap_host_sha256"]:
+            return
+        receipt_path = ENV / "host/browser-use-build.json"
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8")) if receipt_path.exists() else {}
+        if receipt.get("binary_sha256") != digest:
+            raise RuntimeError("Unrecognized project host preserved; review its build receipt before setup")
+        return
+    # A new deployment still requires the exact pinned bootstrap; an updated
+    # external file must never be silently adopted or overwrite a local host.
+    original_host = base / ".build/host/xs.exe"
+    if hashlib.sha256(original_host.read_bytes()).hexdigest() != LOCK["bootstrap_host_sha256"]:
+        raise RuntimeError("Bootstrap host hash changed; review mdo.lock.json before reuse")
+    host.parent.mkdir(exist_ok=True)
+    shutil.copy2(original_host, host)
+
+
 def setup(base: Path) -> None:
     base = base.resolve()
     ENV.mkdir(exist_ok=True)
@@ -87,18 +108,8 @@ def setup(base: Path) -> None:
         run("git", "remote", "set-url", "origin", LOCK["repository"], cwd=SOURCE)
     if run("git", "rev-parse", "HEAD", cwd=SOURCE) != LOCK["commit"]:
         raise RuntimeError("Development mdo checkout is not at the pinned commit; refusing to reset it")
-    original_host = base / ".build/host/xs.exe"
     host = ENV / "host/xs.exe"
-    if hashlib.sha256(original_host.read_bytes()).hexdigest() != LOCK["bootstrap_host_sha256"]:
-        raise RuntimeError("Bootstrap host hash changed; review mdo.lock.json before reuse")
-    host.parent.mkdir(exist_ok=True)
-    if host.exists() and hashlib.sha256(host.read_bytes()).hexdigest() != LOCK["bootstrap_host_sha256"]:
-        receipt_path = ENV / "host/browser-use-build.json"
-        receipt = json.loads(receipt_path.read_text(encoding="utf-8")) if receipt_path.exists() else {}
-        if receipt.get("binary_sha256") != hashlib.sha256(host.read_bytes()).hexdigest():
-            raise RuntimeError("Unrecognized project host preserved; review its build receipt before setup")
-    if not host.exists():
-        shutil.copy2(original_host, host)
+    prepare_host(base, host)
     # Generate through the upstream source generator without materializing
     # another xs dependency checkout just to prepare C/SDK source files.
     prepare = (

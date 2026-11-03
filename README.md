@@ -7,12 +7,35 @@ The reproducible local latency/resource measurement is in [performance](docs/per
 
 ## Development deployment
 
+Run this initial sequence with the development service stopped (the stop
+command checks any recorded process path/config before stopping it):
+
 ```powershell
+python tools/dev.py stop
 python tools/dev.py setup --mdo-source D:\GIT\mdo
+python tools/contracts.py --check
+python tools/apply_host.py --validate
+python tools/apply_host.py
+python tools/build_native.py --source D:\GIT\xserver
+python tools/dev.py start
+python tools/install.py
+python tools/dev.py stop
 python tools/dev.py start
 python tools/dev.py status
-python tools/dev.py stop
 ```
+
+Apply the reviewed host inputs **before** building the enhanced native host.
+The builder reads the overlaid dependency lock, native SDK patch and model
+transport manifest from `.mdo/source`; an unpatched fresh checkout lacks those
+inputs. Stop before applying/rebuilding, and restart the same process when the
+plugin installer requires it. Do not install over an unexpected plugin revision.
+
+A new deployment still requires the exact bootstrap binary pinned in
+`mdo.lock.json`; a changed external build is refused. Once this project contains
+the pinned bootstrap or a host matching its local build receipt, `setup` reuses
+that host without reading the other repository's current build output. It never
+replaces an unknown local host. The source revision remains pinned as well.
+GCC/MinGW is needed to build the enhanced host, not by the shipped plugin.
 
 The setup preserves this repository's origin. A **single** sparse mdo source
 checkout and one reusable development Home live under `.mdo/`. Local Git objects
@@ -25,28 +48,26 @@ The default service is headless for SDK checks. Native browser verification will
 use the same deployment in window mode, not a second application installation.
 Running `setup` again reuses the same files. Stop the service before rebuilding.
 
-For the current Windows automation backend, build the enhanced host once:
+For routine headless startup/status/shutdown after that preparation, use
+`python tools/dev.py start`, `python tools/dev.py status` and
+`python tools/dev.py stop`. Re-running `setup` requires stopping first. It does
+not reapply host overlays, rebuild a host or silently update dependencies.
+
+The regular Windows acceptance entry point runs fifteen sequential cases in the
+same deployment and restores it headless. Its static model-protocol fixture
+makes no inference/provider calls; existing provider overrides are preserved
+by refusing that fixture. See [acceptance scope and remaining gates](docs/acceptance.md).
 
 ```powershell
-python tools/dev.py stop
-python tools/build_native.py --source D:\GIT\xserver
+python tools/acceptance_probe.py
+python tools/acceptance_probe.py --check
 ```
 
-This uses one pinned SDK checkout and one object directory under `.mdo/`, reusing
-local Git objects. GCC/MinGW is needed for development, not for the shipped plugin.
-
-Install the current development plugin into this deployment, then restart the
-same process when the installer reports a native restart requirement:
+Individual development probes remain available below. Android device commands
+are separate qualification steps requiring the deferred phone/provider; their
+presence here does not mean the current APK is automation-qualified.
 
 ```powershell
-python tools/contracts.py --check
-python tools/apply_host.py --validate
-python tools/dev.py stop
-python tools/apply_host.py
-python tools/dev.py start
-python tools/install.py
-python tools/dev.py stop
-python tools/dev.py start
 python tools/build_remote_bridge_probe.py
 python -m unittest discover -s tests -v
 node --test --test-concurrency=1 (Get-ChildItem tests -Filter 'test_*.mjs' -File | Sort-Object Name | Select-Object -ExpandProperty FullName)

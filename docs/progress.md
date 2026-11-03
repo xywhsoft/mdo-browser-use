@@ -15,6 +15,17 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **Reusable setup and completion audit E210:** reproduce setup refusing the
+  existing reviewed project host solely because the external repository's
+  bootstrap build changed. Validate/reuse the local host first; a new seed still
+  requires the exact pinned binary and an unknown local host remains preserved.
+  Two real same-deployment setups pass with identical host/config/settings and
+  all150 applied hashes. Correct first-build order and stale acceptance counts
+  in README/acceptance. Five trust-guard tests, fresh Python208/210 plus two skips
+  and acceptance15 pass with544 inputs. Product/artifacts remain unchanged.
+  Requirement audit retains Android, actual main input/pixels and authenticated
+  two-device gaps; it does not infer completion from controlled/local checks.
+
 - **Actual Agent tool groups E209:** exercise grouped model replies of sizes
   1/1/3/1/2/1 through the real native Agent, including two distinct screenshots
   around an ordinary failure, native recovery, later observation/capture and
@@ -16146,3 +16157,63 @@ input/capture/URI grants/chooser/lifecycle/Doze, actual main permission-button
 input, normal-window pixels and authenticated two-device qualification remain
 open. Preserve the full goal and its scope; do not infer completion from this
 local grouped-call evidence or publish an official release.
+
+## E210 — preserve reviewed local host reuse and audit completion honestly
+
+A requirement-by-requirement audit identifies a real reusable-environment bug.
+The project host still exactly matches its reviewed build receipt, but the
+external D:/GIT/mdo/.build/host/xs.exe has changed since the pinned bootstrap.
+The old setup validates that unrelated external file before considering the
+existing local host. An actual same-deployment setup fails with the bootstrap
+hash error. Preserve .mdo/E210-setup-red.json/log; the exact current runtime was
+checked and stopped first, then restored. The existing host/settings/state were
+unchanged by that rejection.
+
+Extract prepare_host in tools/dev.py and first validate the existing local host:
+accept the pinned bootstrap or a binary matching the local build receipt,
+preserving the original trust policy. An unknown/unreceipted file remains an
+error and is never replaced. Only an absent local host causes an external
+bootstrap read, exact pinned hash check and first copy. A changed new seed is
+still refused; there is no silent dependency/version update. The source checkout
+stays pinned, and setup still requires a stopped service.
+
+Five unit guards cover local reviewed reuse despite a changed/missing external
+build, existing pinned-bootstrap reuse without another receipt, unknown/missing
+receipt preservation and good/bad new seed cases. These use mocks and create no
+application/Home/dependency copies. Separately run the actual existing setup
+twice: runtime state, port/config, host bytes, Home configuration hashes and all
+150 applied host outputs remain identical. The original headless service returns
+HTTP200 with the same listener identity and configuration. No product binary,
+SDK, plugin contract or Android admission changes.
+
+The README's first native build was also before apply_host, although the builder
+now reads patched deps.lock, SDK/native sources and model-transport inputs from
+SOURCE. Reorder setup/contracts/validate/apply/build/start/install/restart and
+separate regular startup from full development probes. Clearly state the pinned
+bootstrap requirement for a new seed and reviewed-local-host reuse for subsequent
+setup. Fresh-install behavior is source/guard verification, not an extra copied
+application run. All58 documented tool script paths exist. Correct acceptance's
+outdated14/42/538/149 introduction to15cases/84staticrequests/544inputs/150outputs.
+
+Reinspect the shared contract generator,13 services/16 tools, native C registrar,
+C and JS clients, scope/permission/error paths, Android admission source and
+actual artifact flags. The installed plugin is enabled without restart/config/
+recovery errors. Existing native/transfer/permission/recovery and ecosystem
+receipts support their documented local scope. Android's actual compiled source
+still returns available:false/automation:false, including providers with the
+isolated-world feature; its dispatcher refuses unsupported automation. This is
+explicit downgrade, not proof of complete Android automation. Existing JVM/native
+peer results do not substitute for Activity/provider/input/capture/URI grants/
+chooser/lifecycle/Doze qualification. Main permission-button input/normal pixels
+and account-authenticated two-device workflows likewise lack completion proof.
+See the detailed completion-audit section in docs/acceptance.md.
+
+Fresh Python208/210 with two pre-existing Windows symlink skips and all15
+sequential integration cases pass.84staticrequests/90 original tool pairs still
+complete, with12 ordinary failures recovered. Bind544 source inputs/150 exact
+applied outputs; all shipped product/native/plugin inputs and existing E208
+artifacts remain byte-identical. JS526, SDK, control28, packed12 and Android
+native/DEX checks are qualified unchanged-input reuse, not fresh builds/reruns.
+No new app/Home/native copy, real model, external test page or online publication.
+All handles are terminal before documentation/commit. Current proof is
+.mdo/E210-verification.json; full goal remains active and unproven complete.

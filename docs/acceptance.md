@@ -15,23 +15,24 @@ python tools/acceptance_probe.py
 python tools/acceptance_probe.py --check
 ```
 
-The first command runs fourteen **sequential** cases in the same `.mdo/source`,
+The first command runs fifteen **sequential** cases in the same `.mdo/source`,
 native host and Home. It imports, uninstalls/reinstalls and recovers only this
 known plugin revision, restarts the same test service and opens local synthetic
 pages. The renderer case stops exactly one newly created QA content renderer,
 after checking original process ancestry and creation identity. It never stops
 an unrelated browser process. No phone/provider change, live model, account
 relay, external website, online publication or extra application copy is used.
-One case adds forty-two loopback static protocol requests through the actual
-Agent loop; they are not LLM inference or provider calls. It requires absent
+Two cases add eighty-four loopback static protocol requests through the actual
+Agent loop (single and grouped calls); they are not LLM inference or provider
+calls. Each requires absent
 `config/models.json` and its backup, preserves an existing override by refusing
 the check, and removes only its exact newly created nonsecret fixture file.
 Existing settings hashes and the headless runtime must be restored.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 538 authoritative source inputs, all
-149 applied host outputs, each log/receipt, actual host
+The report binds 544 authoritative source inputs, all
+150 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
 revalidates these unchanged hashes and the live runtime; it explicitly reports
@@ -400,6 +401,42 @@ duplicate/cross-associated images, collapsed groups and foreign IDs.543 inputs/
 and both E208 artifacts remain exactly unchanged; JS526, SDK, control28, packed12
 and native/Android checks are qualified reuse. The full goal's physical/device,
 real-provider and actual main-window qualification limits are unchanged.
+
+## Completion audit after E210
+
+This audit starts from the full objective and current sources, not from a green
+summary. It inspects mdo.lock.json, contracts.json, the generated C/JS contracts,
+runtime/plugin.c, both SDK clients, host routing/capability sources, plugin and
+package manifests, actual native/build/artifact receipts, current acceptance
+journals and the remaining platform/UI/device evidence. Documentation commands
+are not treated as successful runs merely because their scripts exist.
+
+| Original requirement | Current authoritative evidence | Status and completion limit |
+| --- | --- | --- |
+| One reusable pinned project environment; single development stream; controlled disk use | Actual same-Home setup red then two green repetitions, exact host/config/settings/150 applied hashes, pinned Git/build receipts; one existing source/native/object tree | Verified for this existing deployment. New seed requires the pinned bootstrap; no clean-room app/Home copy is run or claimed. README now applies reviewed inputs before native build. |
+| Official plugin and simultaneous C/JS API | Single contracts generator,13 registered services/16 tools, C registrar, sdk/browser_use.h and sdk/client.mjs; enabled installed plugin and actual C/JS/managed/native paths | Verified stated shared-contract and Windows flows. Static provider streams verify transport/continuation, not inference quality or real-provider approval. |
+| Observation, locating, waits and native Windows input | Actual managed/public frames/readiness tests, exact original refs, field-state and trusted input receipts, unchanged-source SDK and JS regressions | Verified documented bounded DOM/frame scenarios. This is not a complete browser accessibility tree or arbitrary website business acceptance. |
+| Tabs/popups/dialogs, screenshots, upload/download/save | Real local native/managed operations and privacy capture pairs; transfer hashes, original task/picker/source identity; durable journals and packaged code | Verified stated local workflows. Physical Android chooser/URI/provider/Activity behavior remains unqualified. |
+| Permissions, takeover, cancellation and restart/renderer recovery | Actual decision API/native/managed checks, original terminal pairs and uncertain-effect retention, current control source hashes | Backend/control paths verified. The actual normal-main permission button and complete main-window pixels still lack proof; old accessibility/controlled worker evidence is narrower. |
+| Android adaptation and explicit downgrade | Packaged API26 ARM64/DEX/native classes; actual MdoBrowser.browserUseSupport returns available:false and state reports automation:false; shared dispatcher refuses unsupported automation | Partly implemented/controlled-tested; incomplete platform qualification. Old-provider manual downgrade does not prove a capable-provider adapter, actual Activity/input/capture/URI grants/chooser/lifecycle/Doze. The user deferred phone/provider changes. |
+| Device routing and ownership | Actual production C bridge to real native browser in the same host, original-task transfer and cancellation checks | Verified same-host bridge scope only. No current account-authenticated two-physical-device proof. |
+| Ecosystem installation, lifecycle and documentation | Real local import/export/trust/stale-plan/uninstall/recovery cases, package allowlist and matching inventories;58 documented tool script paths exist | Local installation verified; updated setup/build instructions source-checked and existing setup actually rerun. Device-only commands are inventory, not passed qualification. Store/official update publication is not performed. |
+| Deliverable and production stability claims | Actual current Windows/APK/portable hashes, host/source/ABI/payload/signature/DEX receipts, fresh15-case acceptance; source-bound resource/OOM/lifetime/performance tests | Matching development artifacts verified. Measurements retain their limited scope; no leak-absence, arbitrary-provider or whole-product completion claim is inferred. |
+
+E210 fixes a demonstrated setup reuse defect: an existing reviewed host no
+longer depends on another repository's current build output. An unknown local
+host and a changed first bootstrap are still refused. The actual setup passes
+twice with preserved state and original runtime restoration. Five trust guards,
+fresh Python208/210 (two existing Windows symlink skips) and acceptance15 pass;
+544 inputs/150 outputs are bound to the current proof. Shipped code and E208
+artifacts are unchanged, so existing JS526/SDK/control28/packed12/native/Android
+proofs are qualified reuse. No new platform admission is enabled.
+
+The full objective is **not achieved**. Current evidence leaves Android physical
+qualification, actual main-interface decision/pixels and authenticated physical
+device routing incomplete. Real-model/provider/site business acceptance also
+remains untested and is not asserted. Keep the original scope and deferred
+user preferences; do not turn these missing proofs into successful completion.
 
 ## Remaining completion gates
 
