@@ -6873,3 +6873,16 @@ Fresh44 controller and18 actual native-source deadline assertions pass, alongsid
 focused original JNI lifetimes. Current APK DEX verifies the direct clock check
 before the real private Budget release. No transport replay or capability gate
 change. Phone qualification remains deferred. See [E224 progress](progress.md).
+
+### Combined current software integration (E226)
+
+The complete current native/JNI entry point passes all658 workflow modes plus
+its following frame/input/capture/file/chooser/cleanup checks, under ASan/UBSan
+and API26 compilation. Fresh frontend20 uses the same current classes/library.
+The input fixture's false clock acceleration is independently checked (12
+assertions); production deadlines are unchanged. Source/host hashes match the
+original pre-run snapshot. Delivered E224 APKs and their source/signature/DEX
+proofs remain byte-identical. These are current combined software results with
+controlled UI/provider peers, not physical Android qualification. Global Agent
+admission stays disabled. Final device install/hover/guarded host/URI/lifecycle/
+Doze and restoration remain user-deferred. See [current acceptance](acceptance.md).

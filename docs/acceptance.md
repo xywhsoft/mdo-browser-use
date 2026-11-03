@@ -31,7 +31,7 @@ Existing settings hashes and the headless runtime must be restored.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 544 authoritative source inputs, all
+The report binds 549 authoritative source inputs, all
 150 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
@@ -43,17 +43,18 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 
 | Requirement | Inspected implementation and authoritative evidence | Current conclusion |
 | --- | --- | --- |
-| One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
-| Shared C/JS API and Agent tools | Shared contracts, 13 installed C services and 16 managed tools; E209 single-call plus grouped actual Agent turns:12 vision/text-only cohorts across Chat, Responses and Anthropic static streams,84 requests and90 original tool pairs, with strict Chat tool schema/order checks | Local continuation and original-image delivery/projection verified; real-provider acceptance/model quality are not qualified |
-| Observation, exact references, waiting and native input | E202 current-code SDK19/navigation4/wait5/JS526; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
-| Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
-| Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
-| Permissions and failure recovery | Fresh nine managed ask-decision cases with ten original durable tool terminal pairs (236 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
-| Human control and resource lifetime | Source-bound E204 native647/cleanup7137/worker300/create850/async77; Android source and Android overlay composition unchanged, although the global manifest adds the model repair; exact frontend20/world inputs retained; fresh Windows control28 | Android proofs are explicitly reused with the manifest difference disclosed; peers remain controlled and do not qualify a physical WebView |
-| Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8, lifecycle/recovery10 and packed-program12; E208 Windows/Android native engines and matching artifacts rebuilt, actual APK DEX/signature/payload checked; portable plugin unchanged | Matching development artifacts are verified; Android device and official/store release are not claimed |
-| Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
-| Bounded Windows performance and repeated lifecycle | E203 actual main-window/public C path,16 cycles on1,024 paragraphs, verified native fill/trusted click and bounded PNG; original broker inventories and native creation reservations restored | Local latency/resource envelope measured; memory samples remain observational, not a leak-absence or production performance guarantee |
+| One reusable pinned environment | E226 fresh acceptance15 binds549 current inputs/150 applied outputs and exact host/config/Home/listener before/after; no extra application copy | Verified in this project; same headless deployment restored |
+| Shared C/JS API and Agent tools | E226 actual installed13 C services/16 managed tools;12 single/grouped cohorts across Chat, Responses and Anthropic,84 local static requests/90 original tool terminal pairs;12 ordinary failures recover | Current local tool continuation/image projection verified; real-provider/model quality is not qualified |
+| Observation, exact references, waiting and native input | E226 managed tools/public frame operations through actual Windows native views, plus fresh20 frontend/JNI recovery modes and658 native workflow modes on current sources | Stated Windows operations and controlled Android integration verified; bounded DOM subset, not complete accessibility-tree equivalence |
+| Screenshots, visual actions and privacy | E226 managed visual operations and six public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons; original dimensions equal and complete delivered bytes unchanged after private edits | Verified these actual capture/permission cases; enclosing desktop framebuffer remains unqualified |
+| Tabs, popups, dialogs, uploads and downloads | E226 real local managed/native flows and eight remote-bridge cases; exact131075-byte save and one original POST; fresh native-source378 assertions include18 late-ack checks | Original local/bridge ownership and transfers verified; arbitrary OS/site/provider business flows are not claimed |
+| Permissions and failure recovery | E226 nine managed ask-decision cases/236 assertions/ten original terminal pairs, explicit owned-renderer reload recovery, same-Home durable restart recovery without duplicate tab | Backend decisions/recovery verified; actual human button decision and normal-window pixels remain unverified |
+| Human control and resource lifetime | E226 fresh full658 JNI workflow modes,7137 attached-release assertions, current source/clock/input/capture/file/native-owner checks, fresh20 frontend recovery modes; native Android UI/provider peers are controlled | Current combined software integration verified; physical WebView/lifecycle/Doze qualification remains incomplete |
+| Remote ownership and transfer | E226 production C bridge to actual headed WebView2: eight cases, original task binding, cancellation/recovery, upload digest and retained save | Same-host protocol integration verified; authenticated physical two-device routing remains unverified |
+| Plugin installation and deliverables | E226 real portable import/export/trust/stale-plan8 and lifecycle/recovery10; E224 delivered APKs/native/app/portable/Windows hashes unchanged and source-matching | Matching development artifacts retained; exact artifact/DEX/signature proofs reused, no new Android-device or official release claim |
+| Android adaptation and explicit downgrade | E226 current full native/JNI/ASan/UBSan/API26 entry point and frontend20 pass with all before/after input hashes unchanged; previous device evidence remains separate | Controlled integration verified; final current-device/provider/main-UI qualification is incomplete and automation stays disabled |
+| Bounded Windows performance and repeated lifecycle | E203 historical16-cycle actual main/public C measurement; E226 verifies current functional lifecycles and unchanged deliverables | Earlier bounded measurement retained; no new performance or production leak-absence claim |
+
 
 The old standalone `.mdo/managed-visual-result.json` was false with an empty
 error at `readonly-owned-canvas`. Its bytes are retained privately as
@@ -873,7 +874,7 @@ rebuilt and actual DEX/signatures/private-provider/payload gates pass. Historica
 full native/frontend/acceptance aggregates are not current whole-suite results.
 No phone/provider/model/publication action; full completion gates remain open.
 
-## Current combined regression status (E225)
+## Intermediate combined regression failure (E225)
 
 The attempted current full native run stops at protected hover input. Preserve
 its failure: diagnosis finds501 virtual milliseconds in78 real milliseconds,
@@ -884,6 +885,31 @@ The combined complete native/frontend/acceptance run is still pending; historica
 full-suite receipts remain explicitly unqualified for these changed inputs.
 Product sources and all E224 deliverable bytes are unchanged. Platform/human/
 two-device gates remain open.
+
+## Current combined integration qualification (E226)
+
+The source-fixed complete native entry point now exits successfully:658 workflow
+modes and all following native/worker/frame/input/capture/file/chooser/cleanup
+gates pass, including the new12 frozen-clock assertions. The original E225
+failure and501-vs78ms diagnosis remain retained. Fresh frontend20 then passes
+against exactly those current classes/native library. No source or applied-host
+input changed during either run.
+
+Fresh Windows acceptance15 also passes with549 authoritative inputs/150 applied
+outputs,84 static requests,90 original tool pairs and12 ordinary failure/recovery
+cohorts. It verifies real local/native/public/remote C bridge paths and restores
+the same headless host, config, Home and port with zero active runs/operations/
+browsers/panels and no model override files. No real model, external test page,
+phone/provider action, new application/Home or publication is involved. All
+E224 development deliverable bytes remain unchanged. Rebuilding unchanged
+packages or repeating unrelated passing suites is unnecessary for this phase.
+
+This supersedes E225's pending combined software run, without overriding any
+physical-platform gate. Actual Android current-candidate installation/hover/
+guarded host/URI/lifecycle/Doze, actual human permission decision, complete
+Windows main-window pixels/input and authenticated two-device routing remain
+unverified. The user defers the phone; the Windows human-availability question
+has no answer yet. No such decision is inferred and no permission UI is acted on.
 
 ## Remaining completion gates
 

@@ -16783,3 +16783,42 @@ report the interrupted attempt or E219's old658 as current full acceptance.
 Windows/Android/portable artifacts remain byte-identical to E224. The same
 headless host/Home stays idle. No model call, phone poll/install, extra deployment
 or publication. Device/main-window/human/two-device gates remain open.
+
+## E226 — qualify the combined current implementation
+
+Continue the exact live native retry, without starting another check or editing
+its inputs. The complete entry point exits0 with all658 workflow modes and its
+following native/worker/frame/input/capture/chooser/upload/download/cleanup
+checks. ASan/UBSan and API26 compilation gates pass. The new frozen-clock gate
+passes12 assertions; native-source popup mode passes378 including18 late-ack
+checks. Verify every recorded input against the before-run snapshot. E225's
+original failure and501 virtual/78 real ms evidence remain retained; no product
+timeout was expanded and no failed attempt is counted as green.
+
+Run frontend20 sequentially against those actual freshly compiled classes and
+native library; all modes pass and their before/after hashes stay equal. Then
+run actual Windows acceptance15 in the same deployment. It binds549 current
+source inputs/150 reviewed host outputs,84 loopback static protocol requests,
+90 original tool terminal pairs and12 ordinary failure/recovery cohorts across
+Chat, Responses and Anthropic single/grouped turns. Fresh install8/lifecycle10,
+managed/native visuals/public frames, six complete-byte private capture pairs,
+owned renderer recovery, ask9/236 assertions/ten terminal pairs, durable restart
+and eight real C-to-headed-native bridge cases all pass. Retained remote save
+is131075 exact bytes with one POST; no retry/replay is introduced.
+
+Verify exact original host image/config/Home/port after the scripted restarts;
+zero active runs/operations/browsers/panels and absent model overrides. Current
+Windows, Android main/diagnostic, portable plugin and native/app payload bytes
+are identical to E224; source-matching artifact/DEX/signature proofs are reused.
+No unnecessary rebuild or unrelated full unit-suite rerun. No real model,
+external test page, phone poll/install/provider change, additional application/
+Home copy or publication. Only acceptance documentation changes in this phase.
+
+Update the front acceptance matrix to this current combined evidence, replacing
+historical full-suite claims while retaining their original reports. This does
+not complete the original goal: Android current-candidate/device/guarded host/
+URI/Doze/main restoration, Windows whole main-window pixels/physical input/actual
+human permission and authenticated physical two-device routing remain open.
+Phone reconnection is user-deferred. The pending Windows availability question
+has no answer; no permission UI is acted on and no user decision is inferred.
+Goal remains active with its full original scope.
