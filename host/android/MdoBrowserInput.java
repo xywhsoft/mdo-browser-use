@@ -6,7 +6,13 @@ import java.nio.charset.StandardCharsets;
  * input injection. The caller must bind the target to an admitted document and
  * (for text/keys) its verified DOM focus before using this low-level adapter. */
 final class MdoBrowserInput implements AutoCloseable {
-    interface Scheduler { long now(); void post(Runnable task,long milliseconds); void remove(Runnable task); }
+    interface Scheduler {
+        /** Native MotionEvent/KeyEvent timestamps and gesture cadence: uptime. */
+        long now();
+        /** Operation budgets include device suspend; single-clock test peers may reuse now(). */
+        default long elapsed(){return now();}
+        void post(Runnable task,long milliseconds);void remove(Runnable task);
+    }
     interface Target {
         long document(); int width(); int height(); boolean interactive(); boolean focused();
         default boolean acquireFocus(){return false;}
@@ -102,7 +108,8 @@ final class MdoBrowserInput implements AutoCloseable {
         }catch(RuntimeException error){throw new Failure("input_target_failed");}
     }
     private void start(Pending job)throws Failure {
-        try{job.started=scheduler.now();}
+        long elapsed;
+        try{job.started=scheduler.now();elapsed=scheduler.elapsed();}
         catch(RuntimeException error){throw new Failure("input_timer_unavailable");}
         active=job;long delay=0;
         if(job.hover){
@@ -113,9 +120,9 @@ final class MdoBrowserInput implements AutoCloseable {
         }
         // Keep the original 500ms guarded-input budget after the bounded wait.
         // No guard result or coordinate witness is cached across this interval.
-        job.deadline=job.started+job.duration+delay+500;
+        job.deadline=elapsed+job.duration+delay+500;
         try{
-            if(job.check!=null)scheduler.post(job.watchdog,job.duration+delay+501);
+            if(job.check!=null)scheduler.post(job.watchdog,Math.min(50,job.duration+delay+501));
             scheduler.post(job.timer,delay);
         }catch(RuntimeException|Error error){active=null;
             try{scheduler.remove(job.timer);}catch(RuntimeException ignored){}
@@ -143,10 +150,21 @@ final class MdoBrowserInput implements AutoCloseable {
     @Override public void close(){thread();if(closed)return;closed=true;try{retire("input_closed");}finally{invalidated=null;}}
     private final class Pending {
         final Completion complete;final boolean needsFocus;final long document;final int width,height;final Guard check;
-        final Runnable timer=this::tick,watchdog=()->finish("input_timed_out");float[] points;String name,text;int modifiers,duration,index,delivered,ticket;
+        final Runnable timer=this::tick,watchdog=this::checkDeadline;float[] points;String name,text;int modifiers,duration,index,delivered,ticket;
         long started,deadline;float x,y,dx,dy;boolean sent,pressed,keyDown,done,finishing,checking,focus,wheel,hover;
         Pending(Completion complete,boolean needsFocus,long document,int width,int height,Guard check){
             this.complete=complete;this.needsFocus=needsFocus;this.document=document;this.width=width;this.height=height;this.check=check;
+        }
+        void checkDeadline(){
+            thread();if(done||finishing||active!=this)return;
+            try{
+                long remaining=deadline-scheduler.elapsed();
+                if(done||finishing||active!=this)return;
+                if(remaining<0){finish("input_timed_out");return;}
+                // Handler delay is uptime-based. Short slices recheck the
+                // original elapsed deadline after resume without extending it.
+                scheduler.post(watchdog,Math.min(50,remaining+1));
+            }catch(RuntimeException|OutOfMemoryError error){finish("input_timer_unavailable");}
         }
         private String guard(){
             if(closed)return "input_closed";
@@ -160,7 +178,7 @@ final class MdoBrowserInput implements AutoCloseable {
             thread();if(done||finishing||checking||active!=this)return;
             if(check==null){dispatch();return;}
             String failure;
-            try{failure=guard();if(failure==null)failure=check.rejection();if(failure==null&&scheduler.now()>deadline)failure="input_timed_out";}
+            try{failure=guard();if(failure==null)failure=check.rejection();if(failure==null&&scheduler.elapsed()>deadline)failure="input_timed_out";}
             catch(RuntimeException|OutOfMemoryError error){failure="input_target_failed";}
             // Scope checks may synchronously retire this exact queued input.
             // Native focus is an effect too; never acquire it after retirement.
@@ -170,7 +188,7 @@ final class MdoBrowserInput implements AutoCloseable {
                 if(focus){sent=true;if(!target.acquireFocus()){finish("input_focus_required");return;}}
                 if(done||finishing||active!=this)return;
                 checking=true;final int original=++ticket;
-                check.check(Math.max(1,deadline-scheduler.now()),code->{
+                check.check(Math.max(1,deadline-scheduler.elapsed()),code->{
                     thread();if(done||finishing||active!=this||!checking||original!=ticket)return;checking=false;
                     if(code!=null){finish(code);return;}dispatch();
                 });
@@ -181,7 +199,8 @@ final class MdoBrowserInput implements AutoCloseable {
             String failure=null;boolean accepted=false;long now=0;
             try{
                 now=scheduler.now();
-                failure=guard();if(failure==null&&now>deadline)failure="input_timed_out";
+                failure=guard();if(failure==null&&scheduler.elapsed()>deadline)failure="input_timed_out";
+                if(done||finishing||active!=this)return;
                 if(failure==null){
                     // Mark potential effects and held state before calling the
                     // framework: callbacks may synchronously invalidate us.

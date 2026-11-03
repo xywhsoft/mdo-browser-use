@@ -25,6 +25,7 @@ final class BrowserUseChooserProbe implements AutoCloseable {
         // gesture may open a chooser synchronously while its UP is returning.
         input=new MdoBrowserInput(new MdoBrowserInputTarget(view,()->epoch,()->!closed&&!finished),new MdoBrowserInput.Scheduler(){
             public long now(){return SystemClock.uptimeMillis();}
+            public long elapsed(){return SystemClock.elapsedRealtime();}
             public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("chooser_fixture_scheduler_unavailable");}
             public void remove(Runnable task){handler.removeCallbacks(task);}
         });

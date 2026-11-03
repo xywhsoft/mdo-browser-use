@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E220)
+## Complete development host APK (current: E222)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`56dc13a4d1c4cfdb02a74f1837c09a2e72e32cd6162cdee2bb4bc9950ac1c509`.
+`0eee13702758fca7f9f83096024d9978e9c59cd2442e7787565644776a4fcc8d`.
 E214 shares the original document's live-readable predicate between isolated
 world state and navigation page_ready. Root/default realm loss clears both
 public readiness fields even when the native document and Activity epoch stay
@@ -157,7 +157,7 @@ contracts, not installed framework or sleep/Doze qualification.
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
 `.mdo/host/android-client/mdo-browser-use-dev.apk`,991,635 bytes SHA-256
-`2352d6896299950da3a7c5e31f6c0a4dc901c840e9905ade8f9cb1e2a119ab7c`.
+`d3b9a6814df596215c40d04ebb2608e27fd57605843e7380c35d5395405d8a53`.
 E220 includes bounded post-touch hover sequencing; its final-source device
 qualification and main-host installation are deferred by the user.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
@@ -6788,3 +6788,39 @@ are unchanged. Fresh84 timing checks, JNI input/cancel and frontend20 pass;
 both APKs rebuild. Final-source device and main-install checks are deferred by
 the user after USB disappearance, so the candidate remains device-unqualified.
 See [acceptance](acceptance.md) for source inference, evidence and limits.
+
+### Native input deadlines across suspend (E222)
+
+A controlled two-clock regression fails on the previous input sequencer: uptime
+stops during suspend, so a queued hover or late guard can still send input after
+the original real-time budget has expired. This proves a local deadline defect;
+it is not a new physical-phone or Doze observation.
+
+Separate suspend-inclusive elapsed deadlines from uptime MotionEvent/KeyEvent
+timestamps and gesture cadence. The common host and all four device probes use
+elapsedRealtime explicitly. A bounded50ms uptime watchdog rechecks the same
+original elapsed deadline after resume. Every pre-focus/guard/dispatch boundary
+also checks that deadline. No waiting renews the budget, stale callbacks cannot
+send effects, and an already-held touch/key is cancelled/released exactly once.
+A reentrant retirement during clock sampling cannot continue native dispatch.
+No event replay, UI-thread sleep, provider change or new dependency is added.
+
+Preserve the failing regression log. Fresh32 two-clock cases/checks pass alongside
+the existing input177/lifecycle167/channel22/guard63/wheel66/hover82/scale143 and
+hover-settle99 assertions (the latter counter includes additional timer slices,
+not15 new behavior cases). Three focused actual JNI frame/held-input cases pass
+after recompiling only Input and its nested classes in the existing output.
+Eight packaging tests pass. Both APKs rebuild; actual DEX verifies every shipped
+input scheduler's explicit clocks, separate event/deadline reads and50ms watchdog,
+plus the retained state/atomic/initial-scale/hover gates. Signatures, private
+provider, native/app payload and old runtime checks pass. No full658 native,
+frontend20 or acceptance15 rerun is claimed after these input-source changes.
+
+Main APK:6608193B SHA-2560eee13702758fca7f9f83096024d9978e9c59cd2442e7787565644776a4fcc8d.
+Diagnostic:991635B SHA-256d3b9a6814df596215c40d04ebb2608e27fd57605843e7380c35d5395405d8a53.
+Windows/native engine/app archive/portable bytes remain unchanged. The same
+headless host/config/Home/listener is restored and has no active operations or
+runs. Phone reconnection, current candidate installation and physical sleep/
+input/provider qualification remain user-deferred; the previous diagnostic is
+still only last-observed installed. Android automation stays disabled. Main-window
+human/pixels and authenticated two-device gates remain open; goal active.

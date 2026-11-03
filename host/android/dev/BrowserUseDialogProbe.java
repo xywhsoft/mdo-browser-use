@@ -91,6 +91,7 @@ final class BrowserUseDialogProbe implements AutoCloseable {
         if(closed||finished)return;
         input=new MdoBrowserInput(new MdoBrowserInputTarget(view,()->epoch,()->!closed&&!finished),new MdoBrowserInput.Scheduler(){
             public long now(){return SystemClock.uptimeMillis();}
+            public long elapsed(){return SystemClock.elapsedRealtime();}
             public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException();}
             public void remove(Runnable task){handler.removeCallbacks(task);}
         });

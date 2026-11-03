@@ -16639,3 +16639,39 @@ suite are needed. E220's source-bound candidate tests remain exact-input reuse;
 Android final-device/main-install checks remain deferred by the user. Complete
 main presentation, human permission, Android lifecycle/provider and authenticated
 physical two-device qualification remain open; the full goal stays active.
+
+## E222 — expire native input across device suspend
+
+A controlled two-clock regression fails on the previous input sequencer: uptime
+stops during suspend, so a queued hover or late guard can still send input after
+the original real-time budget has expired. This proves a local deadline defect;
+it is not a new physical-phone or Doze observation.
+
+Separate suspend-inclusive elapsed deadlines from uptime MotionEvent/KeyEvent
+timestamps and gesture cadence. The common host and all four device probes use
+elapsedRealtime explicitly. A bounded50ms uptime watchdog rechecks the same
+original elapsed deadline after resume. Every pre-focus/guard/dispatch boundary
+also checks that deadline. No waiting renews the budget, stale callbacks cannot
+send effects, and an already-held touch/key is cancelled/released exactly once.
+A reentrant retirement during clock sampling cannot continue native dispatch.
+No event replay, UI-thread sleep, provider change or new dependency is added.
+
+Preserve the failing regression log. Fresh32 two-clock cases/checks pass alongside
+the existing input177/lifecycle167/channel22/guard63/wheel66/hover82/scale143 and
+hover-settle99 assertions (the latter counter includes additional timer slices,
+not15 new behavior cases). Three focused actual JNI frame/held-input cases pass
+after recompiling only Input and its nested classes in the existing output.
+Eight packaging tests pass. Both APKs rebuild; actual DEX verifies every shipped
+input scheduler's explicit clocks, separate event/deadline reads and50ms watchdog,
+plus the retained state/atomic/initial-scale/hover gates. Signatures, private
+provider, native/app payload and old runtime checks pass. No full658 native,
+frontend20 or acceptance15 rerun is claimed after these input-source changes.
+
+Main APK:6608193B SHA-2560eee13702758fca7f9f83096024d9978e9c59cd2442e7787565644776a4fcc8d.
+Diagnostic:991635B SHA-256d3b9a6814df596215c40d04ebb2608e27fd57605843e7380c35d5395405d8a53.
+Windows/native engine/app archive/portable bytes remain unchanged. The same
+headless host/config/Home/listener is restored and has no active operations or
+runs. Phone reconnection, current candidate installation and physical sleep/
+input/provider qualification remain user-deferred; the previous diagnostic is
+still only last-observed installed. Android automation stays disabled. Main-window
+human/pixels and authenticated two-device gates remain open; goal active.

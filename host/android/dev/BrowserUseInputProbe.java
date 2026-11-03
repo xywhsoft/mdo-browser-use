@@ -21,6 +21,7 @@ final class BrowserUseInputProbe implements AutoCloseable {
         this.view=view;this.handler=handler;this.completion=completion;
         owners=new MdoBrowserLifecycle<>((owned,epoch,admitted)->new MdoBrowserInput(new MdoBrowserInputTarget(owned,epoch,admitted),new MdoBrowserInput.Scheduler(){
             public long now(){return SystemClock.uptimeMillis();}
+            public long elapsed(){return SystemClock.elapsedRealtime();}
             public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("Input scheduler stopped");}
             public void remove(Runnable task){handler.removeCallbacks(task);}
         }));owners.put("fixture",view);input=owners.input("fixture",view);

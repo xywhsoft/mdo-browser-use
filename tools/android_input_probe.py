@@ -19,7 +19,8 @@ def main():
         'host/android/MdoBrowserChannel.java','tests/fixtures/AndroidInputContractTest.java',
         'tests/fixtures/AndroidLifecycleContractTest.java','tests/fixtures/AndroidChannelContractTest.java',
         'tests/fixtures/AndroidInputGuardContractTest.java','tests/fixtures/AndroidWheelContractTest.java',
-        'tests/fixtures/AndroidHoverContractTest.java','tests/fixtures/AndroidInitialScaleContractTest.java','tests/fixtures/AndroidHoverSettleContractTest.java')]
+        'tests/fixtures/AndroidHoverContractTest.java','tests/fixtures/AndroidInitialScaleContractTest.java','tests/fixtures/AndroidHoverSettleContractTest.java',
+        'tests/fixtures/AndroidInputElapsedContractTest.java')]
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputContractTest'],
@@ -46,6 +47,9 @@ def main():
     settle=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidHoverSettleContractTest'],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['hover_settle_checks']=json.loads(settle.stdout.strip())['checks']
+    elapsed=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputElapsedContractTest'],
+        cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['elapsed_input_checks']=json.loads(elapsed.stdout.strip())['checks']
     report['source_sha256']={source.relative_to(dev.ROOT).as_posix():hashlib.sha256(source.read_bytes()).hexdigest() for source in [*sources,dev.ROOT/'tools/android_input_probe.py']}
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
