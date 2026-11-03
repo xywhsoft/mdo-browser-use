@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import test from 'node:test';
+import {interruptedToolNotice} from '../host/tool-recovery.js';
 // Actual applied timeline projection and real durable SDK cancellation receipt.
 // Run the Python managed-terminal regression first, as in the sequential suite.
 const source=readFileSync(new URL('../.mdo/source/app/web/js/features/chat/timeline.js',import.meta.url),'utf8');
-const project=new Function('t',source.replace(/^import .+;\r?$/gm,'').replace(/^export /gm,'')+';return eventsToTimeline;')
-  ((key,values,fallback)=>fallback||key);
+const project=new Function('t','interruptedToolNotice',source.replace(/^import .+;\r?$/gm,'').replace(/^export /gm,'')+';return eventsToTimeline;')
+  ((key,values,fallback)=>fallback||key,interruptedToolNotice);
 const receipt=JSON.parse(readFileSync(new URL('../.mdo/managed-tool-terminal-result.json',import.meta.url),'utf8'));
 test('actual durable cancelled SDK call projects to one failed tool with an output',()=>{
   assert.deepEqual(receipt.events.map(r=>r.kind),['tool_start','tool_done']);

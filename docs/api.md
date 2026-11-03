@@ -1887,3 +1887,24 @@ The SDK error's `may_have_completed` remains authoritative for uncertainty;
 `effect_applied:false` on a failed UI record is not proof of absence of effects.
 Uncertain failure text asks the user to inspect dispatched effects before retrying.
 Failed terminal persistence is reported and never retried automatically.
+
+### Service restart and lost SDK tool ownership
+
+Generic SDK `operation.get`/identical `operation.start` for an old nonterminal
+admission without its live in-process job returns `state:interrupted`,
+`outcome:uncertain` and `error.code:sdk_operation_interrupted`, with
+`may_have_completed:true` and `retryable:false`. `operation.result` returns HTTP409
+with that code and uncertainty in `error.details`; the local JS client preserves
+those details. This concerns generic SDK tool jobs, independently of the Browser
+Use service's own durable action identities. Inspect effects before a deliberate
+new operation; recovery does not replay execution.
+
+New root SDK tool jobs retain a versioned descriptor of their validated actual
+project/session/tool before execution. The descriptor contains no arguments and
+does not replace caller scope. Only that exact target can derive a `tool_outcome`
+notice on the original root/run-zero TOOL_START in event/conversation responses.
+It is presentation metadata, not a tool result or a new journal event. Raw
+history/admission receipts remain unchanged; a real tool end takes precedence.
+A retained physical job is never declared interrupted from persisted metadata.
+Unknown/legacy target descriptors stay unqualified. Runtime changes force the
+selected timeline to reload and invalidate stale cached running state.

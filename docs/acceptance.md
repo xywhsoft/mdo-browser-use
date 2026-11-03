@@ -15,7 +15,7 @@ python tools/acceptance_probe.py
 python tools/acceptance_probe.py --check
 ```
 
-The first command runs twelve **sequential** cases in the same `.mdo/source`,
+The first command runs thirteen **sequential** cases in the same `.mdo/source`,
 native host and Home. It imports, uninstalls/reinstalls and recovers only this
 known plugin revision, restarts the same test service and opens local synthetic
 pages. The renderer case stops exactly one newly created QA content renderer,
@@ -25,8 +25,8 @@ relay, external website, online publication or extra application copy is used.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 523 authoritative source inputs, all
-141 applied host outputs, each log/receipt, actual host
+The report binds 529 authoritative source inputs, all
+146 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
 revalidates these unchanged hashes and the live runtime; it explicitly reports
@@ -39,13 +39,13 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | --- | --- | --- |
 | One reusable pinned environment | `mdo.lock.json`, `tools/dev.py`, reviewed overlays; exact PID/executable/config/listener and HTTP200 before/after acceptance | Verified in this project; no new source/Home/app copy |
 | Shared C/JS API and Agent tools | `contracts.json` generates C registration/header and JS declarations; actual installed C services match all 13 schemas, plugin exports match every payload byte; 16 managed tools register | Verified Windows registration and shared contracts, not merely manifest presence |
-| Observation, exact references, waiting and native input | E201 current-code SDK19/navigation4/wait5/JS520; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
+| Observation, exact references, waiting and native input | E202 current-code SDK19/navigation4/wait5/JS526; fresh managed execution plus 26 public frame operations using two actual out-of-process frames, nested Unicode fill and selection | Verified stated Windows operations; DOM observation remains a bounded subset, not full accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | Fresh managed native canvas click/drag; read-only screenshots allowed while input/drag denied; six actual public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons retain identical delivered bytes after private values change | Verified these capture/permission cases; separate desktop framebuffer presentation is not claimed |
 | Tabs, popups, dialogs, uploads and downloads | Fresh managed popup/dialog checks, public nested frame picker/file/directory hash checks, original-task remote upload and one original POST/download/save with 131075 exact bytes | Verified actual local native and production-bridge workflows; not arbitrary OS dialogs or website business acceptance |
 | Permissions and failure recovery | Fresh nine managed ask-decision cases with ten original durable tool terminal pairs (236 reported assertions), cancellation/late decision/stale document/run-grant isolation; actual owned renderer failure then explicit reload; durable admission survives same-Home restart without duplicate tab | Backend decisions/native recovery verified; E200 normal-main-UI accessibility confirms the scoped SDK prompt; actual user button decision and normal-window pixels remain unverified |
 | Human control and resource lifetime | E197 actual main native request, current-source647 JVM/JNI modes, original cleanup7137, worker300, ordinary create850, frontend20 and fresh actual WebView2 control28; byte retention and independent ACK/native detach joins | Native/create proofs reuse E197:133 exact input hashes plus verified unchanged native entries in the aggregate overlay; fresh E199 mounted-control checks remain separate. Android peers remain controlled and do not qualify a physical WebView |
 | Remote ownership and transfer | Fresh production C bridge -> real headed WebView2, eight cases including original-task binding, cancel/recovery, stale input denial, upload full hash and retained POST save; native bridge drains | Verified same-host protocol integration; account relay authentication and two-device networking remain unverified |
-| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E201 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
+| Plugin installation and deliverables | Fresh portable import/export/trust/stale-plan8 and uninstall/reinstall/conflict/startup recovery10; exact current installed revision restored. Fresh E202 Windows/Android and unchanged E169 portable package hashes checked | Fresh matching development builds are verified; no official/store release is claimed |
 | Android adaptation and explicit downgrade | Native classes/actual APK DEX, API26/JNI/source/lifetime gates, explicit capabilities/preflight refusal and retained manual browsing | Implementation and controlled checks continue; installed Activity/provider/device qualification and overall automation admission are incomplete |
 
 The old standalone `.mdo/managed-visual-result.json` was false with an empty
@@ -154,6 +154,40 @@ Matching Windows/Android archive hashes, APK DEX/signature/payload checks and al
 523 source inputs/141 applied outputs are bound in the current evidence. All test
 and build handles are terminal before documentation changes. No model/external
 website, additional app/Home/dependency copy, phone or publication was used.
+
+## SDK restart outcome recovery (E202)
+
+A forced same-Home restart reproduces terminal/interrupted operation metadata
+without uncertainty details and a conversation that still displays the original
+tool as running. A separate red cache test shows the forced reload reinserting
+its prior running snapshot. Retain both red records.
+
+Persist the validated actual tool target before execution, separately from caller
+scope and without arguments. Recovery reports sdk_operation_interrupted/HTTP409,
+outcome:uncertain and may_have_completed:true. Only a matching versioned original
+target may enrich its TOOL_START with a read-only tool_outcome notice. A physical
+retained job takes precedence; real durable tool ends retain their original result.
+No raw event/receipt/model result is rewritten, no end is fabricated and no effect
+is replayed. Unknown historical records remain unqualified. Runtime changes clear
+stale caches and force a fresh selected conversation read; local JS errors preserve
+the uncertainty details.
+
+The actual restart probe passes46 checks across distinct caller/target sessions,
+four foreign metadata variants, unchanged raw history/admission bytes, no duplicate
+tab/approval and no model/native effects. The packed executable independently
+checks that same original interrupted admission; eight projection/cache/SDK checks
+pass against the delivered implementation. Fresh integration13, Python183/185 plus
+two existing skips, JS526, frontend20, control28, SDK/visual and matching signed
+Windows/Android artifacts pass. Native647/create850 and E201 main-window accessibility
+are explicitly source-checked reuse; physical Android and normal-window pixels
+remain unqualified.
+
+The first full run's popup assertion was empty. The original tool end establishes
+target_changed at the final pre-input recheck, rather than a lost SDK outcome.
+Its exact movement/change cause is not established. Preserve the failed receipt
+and bounded E202-popup-guard.json; the standalone follow-up and complete rerun
+pass. Probe failures now include line/type and that popup's tool reason. The
+product input guard is unchanged and no automatic action retry was added.
 
 ## Remaining completion gates
 

@@ -1584,6 +1584,66 @@
       "path": "app/src/application/tools.c",
       "before": "    BuToolBoundaryRelease(Execution.Boundary);return Report;",
       "after": "    BuToolTerminalRelease(Execution.Terminal);BuToolBoundaryRelease(Execution.Boundary);return Report;"
+    },
+    {
+      "path": "app/include/mdo/application.h",
+      "before": "bool MdoApplicationJobsInit(void);",
+      "after": "bool MdoApplicationJobsInit(void);\nbool MdoApplicationJobToolTarget(const mdo_sdk_context_v1*,cstr,cstr,cstr);\nbool MdoApplicationToolOutcome(cstr,cstr,cstr,cstr,xvalue**);"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "static xvalue* SdkJobReceipt(cstr Id,bool* Missing){",
+      "after": "static xvalue* SdkJobReceipt(cstr Id,bool* Missing);\n#include \"browser_use_operation_recovery.inc.c\"\nstatic xvalue* SdkJobReceipt(cstr Id,bool* Missing){"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "        if(!Terminal){SdkPut(V,\"state\",\"interrupted\");xrtValueObjectSetNew(V,XRT_STR_LITERAL(\"terminal\"),xrtValueBool(true));}",
+      "after": "        if(!Terminal&&!BuInterruptedReceipt(V)){xrtValueRelease(V);return NULL;}"
+    },
+    {
+      "path": "app/src/application/jobs.c",
+      "before": "if(!strcmp(Method,\"operation.result\")){xrtValueRelease(Receipt);return MdoApplicationError(",
+      "after": "if(!strcmp(Method,\"operation.result\")&&SdkField(Receipt,\"state\")&&!strcmp(SdkField(Receipt,\"state\"),\"interrupted\")){xrtValueRelease(Receipt);return MdoApplicationError(E,\"sdk_operation_interrupted\",BuInterruptedMessage,\"operation_recovery\",409,true);}if(!strcmp(Method,\"operation.result\")){xrtValueRelease(Receipt);return MdoApplicationError("
+    },
+    {
+      "path": "app/src/application/tools.c",
+      "before": "    bool Ok=Ready&&MdoAgentSessionDriveNative(Agent,SdkToolDrive,&Execution,&Error);",
+      "after": "    if(Ready&&!MdoApplicationJobToolTarget(C,Project,SessionId,Tool)){Ready=false;xworkErrorInit(&Error);Error.eCode=XWORK_ERROR_IO;snprintf(Error.sMessage,sizeof(Error.sMessage),\"Cannot retain the original tool operation target before execution\");}\n    bool Ok=Ready&&MdoAgentSessionDriveNative(Agent,SdkToolDrive,&Execution,&Error);"
+    },
+    {
+      "path": "app/src/api/events.c",
+      "before": "    if ( Ok && Event->Kind == XWORK_EVENT_AGENT_START &&",
+      "after": "    if (Ok && Event->Kind == XWORK_EVENT_TOOL_START && !Event->RunId && !Event->AgentDepth) {\n        xvalue* Outcome=NULL;\n        Ok=MdoApplicationToolOutcome(ProjectId,SessionId,Event->ToolCallId,Event->ToolName,&Outcome);\n        if(Ok&&Outcome)Ok=MdoApiValueSetTake(Item,\"tool_outcome\",&Outcome);\n        xrtValueRelease(Outcome);\n    }\n    if ( Ok && Event->Kind == XWORK_EVENT_AGENT_START &&"
+    },
+    {
+      "path": "app/web/js/features/chat/timeline.js",
+      "before": "import { toolCallSummary, toolSectionNode } from \"./tool-content.js\";",
+      "after": "import { toolCallSummary, toolSectionNode } from \"./tool-content.js\";\nimport { interruptedToolNotice } from \"./tool-recovery.js\";"
+    },
+    {
+      "path": "app/web/js/features/chat/timeline.js",
+      "before": "        if (event.tool_call_id)\n          tools.set(",
+      "after": "        const interrupted=interruptedToolNotice(event);\n        if(interrupted)Object.assign(item,{state:\"failed\",text:interrupted,outputText:interrupted,recoveryState:\"interrupted\"});\n        if (event.tool_call_id)\n          tools.set("
+    },
+    {
+      "path": "app/web/js/features/chat/timeline.js",
+      "before": "          tool.outputText = event.text || (event.success",
+      "after": "          delete tool.recoveryState;\n          tool.outputText = event.text || (event.success"
+    },
+    {
+      "path": "app/web/js/api/application.js",
+      "before": "{ code: envelope.error?.code, status: response.status }",
+      "after": "{ code: envelope.error?.code, status: response.status, requestId: envelope.request_id || \"\", details: envelope.error?.details ?? null }"
+    },
+    {
+      "path": "app/web/js/features/chat/timeline-store.js",
+      "before": "  if (event.type === \"events\") applyLiveTimeline(event);",
+      "after": "  if (event.type === \"runtime_changed\") { clearTimelineCache(); void reloadSelectedTimeline(); }\n  else if (event.type === \"events\") applyLiveTimeline(event);"
+    },
+    {
+      "path": "app/web/js/features/chat/timeline-store.js",
+      "before": "async function reloadTimeline(projectId, sessionId, force = false) {\n  rememberTimeline();",
+      "after": "async function reloadTimeline(projectId, sessionId, force = false) {\n  if (force) sessionCache.delete(cacheKey({ projectId, sessionId }));\n  else rememberTimeline();"
     }
   ],
   "files": [
@@ -2018,6 +2078,14 @@
     {
       "source": "host/tool-terminal.inc.c",
       "target": "app/src/application/browser_use_tool_terminal.inc.c"
+    },
+    {
+      "source": "host/operation-recovery.inc.c",
+      "target": "app/src/application/browser_use_operation_recovery.inc.c"
+    },
+    {
+      "source": "host/tool-recovery.js",
+      "target": "app/web/js/features/chat/tool-recovery.js"
     }
   ]
 }

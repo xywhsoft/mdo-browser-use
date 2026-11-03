@@ -4,6 +4,7 @@ import base64
 import struct
 import sys
 import time
+import traceback
 import uuid
 
 import dev
@@ -163,7 +164,7 @@ def main():
         assert tool("browser_wait", {"browser": browser, "until": "text", "text": "confirm:false"})["success"]
         popup = tool("browser_act", {"browser": browser, "document": value(resumed)["document"],
                      "op": "click", "target": {"name": "Open popup"}})
-        assert popup["success"] and value(popup)["outcome"] == "popup_open"
+        assert popup["success"] and value(popup)["outcome"] == "popup_open", popup.get("text", "")[:512]
         child = None
         for _ in range(100):
             child = next((row for row in value(tool("browser_tabs", {"action": "list"}))["tabs"]
@@ -203,7 +204,9 @@ def main():
         output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(report, indent=2))
     except Exception as error:
-        output.write_text(json.dumps({"passed": False, "error": str(error)[:512]}) + "\n", encoding="utf-8")
+        frame = traceback.extract_tb(error.__traceback__)[-1]
+        output.write_text(json.dumps({"passed": False, "error": str(error)[:512],
+                         "error_type": type(error).__name__, "failure_line": frame.lineno}) + "\n", encoding="utf-8")
         raise
     finally:
         if browser:
@@ -222,5 +225,5 @@ if __name__ == "__main__":
     try:
         main()
     except (OSError, RuntimeError, AssertionError, ValueError) as error:
-        print(error, file=sys.stderr)
+        traceback.print_exc()
         raise SystemExit(1)

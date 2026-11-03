@@ -26,6 +26,7 @@ CASES = (
     ("capture-privacy", "tools/capture_privacy_public_probe.py", ("--capture-evidence",), "capture-privacy-public-result.json"),
     ("renderer-recovery", "tools/renderer_recovery_probe.py", (), "renderer-recovery-result.json"),
     ("permission-decisions", "tools/ask_permission_probe.py", (), "ask-permission-result.json"),
+    ("managed-restart", "tools/sdk_tool_restart_probe.py", (), "sdk-tool-restart-result.json"),
     ("remote-bridge-build", "tools/build_remote_bridge_probe.py", (), "qa/remote-bridge/build.json"),
     ("remote-browser", "tools/remote_browser_probe.py", (), "remote-browser-result.json"),
     ("restart-recovery", "tools/restart_probe.py", (), "restart-result.json"),
@@ -131,6 +132,14 @@ def validate(name, receipt):
                  "run_scoped_grant_does_not_leak_to_next_native_drive",
                  "approval_preserves_original_document_and_failure_is_recoverable"} <= set(receipt["cases"]),
                 "Permission cancellation/scope/recovery evidence is incomplete")
+    elif name == "managed-restart":
+        require(receipt["headless_restored"] and receipt["same_home"] and receipt["model_calls"]==receipt["native_effects"]==0,
+                "SDK restart did not preserve the original environment/effect boundary")
+        require(all(receipt.get(key) is True for key in ("no_replay","original_history_unchanged","receipt_unchanged",
+                "actual_target_preserved","foreign_metadata_rejected")), "SDK restart ownership/recovery evidence is incomplete")
+        require(receipt["caller_session"]!=receipt["target_session"] and len(receipt["events"])==1 and
+                receipt["events"][0]["kind"]=="tool_start" and receipt["events"][0]["tool_outcome"]["may_have_completed"] is True,
+                "SDK restart projection lacks original cross-session uncertainty")
     elif name == "public-frames":
         require(receipt["native_process_frames"] == 2 and receipt["operations"] >= 26 and receipt["model_calls"] == 0,
                 "Native OOPIF integration did not execute its complete workflow")

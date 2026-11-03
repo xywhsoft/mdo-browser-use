@@ -15,6 +15,15 @@ development stream and the single deployment inside this project.
 
 Latest verified milestones:
 
+- **SDK restart recovery E202:** preserve the actual validated tool target before
+  execution; a lost live owner now exposes interrupted/uncertain status without
+  replaying effects or rewriting the journal. The conversation derives a scoped
+  notice and clears stale runtime caches. Fresh forced-restart46, Python183/185
+  (two existing skips), JS526, frontend20, control28, integration13, SDK/visual,
+  matching Windows/Android/DEX and packed12 pass. The packed executable separately
+  verifies the original interrupted operation. Android/device and normal-window
+  qualification remain open; the full goal stays active.
+
 - **SDK lifecycle E201:** close a durably observed tool start after its direct
   SDK executor drains on cancellation/failure, without duplicating normal ends,
   inventing a model reply or losing dispatched-effect uncertainty. Fresh real SDK
@@ -15610,3 +15619,57 @@ Activity/provider/device qualification separate. No additional app/Home/source/
 dependency copy, model/external website, production or official/store release.
 Full goal stays active, including physical/account-device and normal-window
 qualification plus remaining whole-product verification.
+
+## E202 — retain interrupted SDK tool outcomes across service restart
+
+Force the same development service to restart while one original browser_open
+waits for approval. Old code returns terminal/interrupted but omits an uncertainty
+error, while the conversation keeps only its running TOOL_START. Preserve the
+red receipt/log. A second red check shows that a forced timeline reload reinserts
+the stale running snapshot into the cache after clearing it.
+
+Before execution, persist only the actual validated project/session/tool IDs and
+a target schema version. Caller scope remains separate: the regression deliberately
+uses different caller and target conversations. Persist no tool arguments or page
+contents. If no physical SDK job remains, an old nonterminal admission receipt
+projects interrupted/uncertain with sdk_operation_interrupted, HTTP409 and
+may_have_completed:true. It never authorizes automatic retry. A physical retained
+job wins over persisted metadata, and nested calls do not overwrite the root target.
+
+Only a qualified original target may add a read-only tool_outcome notice to its
+TOOL_START in events/conversation responses. No journal, admission receipt, model
+message or TOOL_DONE is fabricated. A real retained tool result takes precedence.
+Legacy or mismatched metadata stays unqualified. The local JS SDK retains error
+details; runtime changes force the selected timeline to reload without reinserting
+its stale cache entry. The forced restart regression passes46 checks, including
+caller isolation, four foreign target variants, unchanged raw history/receipt,
+no duplicated tabs/approvals and no model/native effects.
+
+An initial managed integration run stopped on opening a popup. Its original
+durable tool end records target_changed before input; the final target identity
+or geometry recheck refused it. The exact source of that change is not established.
+Preserve the failed acceptance receipt/log and E202-popup-guard.json. The standalone
+follow-up and fresh full acceptance pass. Add failure line/type and popup reason
+to the probe diagnostics; do not relax the product guard or add automatic retries.
+
+Fresh Python183/185 (two existing Windows symlink skips), all JS526, frontend/JVM20,
+actual WebView2 control28, public SDK19/navigation4/wait5, visual permissions and all
+thirteen sequential integration cases pass. Acceptance binds529 source inputs and
+146 applied outputs. Native647/cleanup7137/worker300/create850/async77 are explicitly
+reused with133 exact input hashes plus verified unchanged native overlay entries
+and fences; they were not freshly rerun or promoted to device qualification.
+
+The freshly packed executable independently verifies both cancellation and the
+original interrupted operation in the same Home, then passes all twelve original
+packed-runtime gates and eight timeline/cache/SDK projection checks. Fresh Windows
+6,951,141 bytes SHA
+`6c3fb6dda811bd5e1d3f37be80ea870692148b4d9ed7598819f9ac46d4eb0825`.
+Fresh complete lite-edition Android host6,608,193 bytes SHA
+`1b3eaf4ca2a061dd7431909a59fc9338b01b97adac5b02e37e59cc8513ee4d37`.
+APK DEX/signature/payload/old-runtime checks use that exact Windows app archive;
+native Java classes and the E169 portable plugin remain unchanged. All test/build
+handles were terminal before these documentation edits. The single original Home
+is restored headless. Keep the user's deferred phone/current WebView; no additional
+app/Home/source/dependency copy, model/external website or production/store release.
+E201 main-window accessibility is historical reuse, not a fresh E202 pixel or
+permission-button pass. The broader goal remains active.
