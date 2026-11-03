@@ -637,12 +637,65 @@ Home/source checkout or official publication. Overall Android automation,
 Windows main permission/pixels, authenticated two-device and full-goal
 qualification remain incomplete; current-phone deferral is superseded.
 
+
+## Initial native scale on the current phone (E219)
+
+The visible attached WebView can finish its first document without emitting
+onScaleChanged. E218 consequently retains NaN and refuses capture. A controlled
+initial-native-scale experiment produces3.5 and passes21 pixel/encode/cancel
+checks. The hover-enter experiment still fails CSS hover and is reverted;
+no speculative hover product change or relaxed assertion is retained.
+
+The common production view listener now requests an original native visual-state
+barrier when initial scale is missing. A weak exact-view/document-epoch token
+samples a candidate only after that callback. Existing native scale callbacks
+take precedence; navigation, close, replacement, duplicate callback and getter
+reentrancy cannot publish stale data. One submitted callback per physical view
+coalesces100 navigations; an ambiguous native-registration failure retains its
+bounded slot until terminal callback or view retirement. Cross-thread cancel is
+rejected before mutation (red regression retained). No polling, page execution,
+new world or document/input admission is introduced.
+
+[Android getScale documentation](https://developer.android.com/reference/android/webkit/WebView#getScale())
+warns of renderer/UI races. The sampled value is only a geometry candidate;
+original native/isolated document, viewport/physical-size, scroll, scale and
+privacy checks remain required before and after capture/encoding. The visual
+barrier alone does not qualify capture or eliminate that API limitation.
+
+Fresh lifecycle143 and exact common-host bridge28 checks pass, alongside
+ordinary create850/async77, frontend20, full native658, world35/document86/
+profile396/native-budget18 and both clock cohorts. The old658 business results
+match (assertion counters excluded); even the separately inspected
+loading-timeout scheduler fields are unchanged. Final native cleanup stays
+unchanged. Python208/210 passes
+with two existing Windows symlink skips. Acceptance15 binds
+546 current inputs/150 applied outputs,
+84 static requests,90 original tool pairs and12 recovered ordinary failures.
+
+The final installed diagnostic completes8 component modes:7pass/1unresolved.
+Capture passes21 with measured native scale3.5 using the actual production
+visual callback. CSS hover still fails; world isolation is an explicit downgrade
+on unchanged WebView138.0.7204.179. Guarded Android automation remains false.
+The complete main APK's actual manual native browser now reports
+native_scale_ready:true after loading; inspect its actual DEX callback/token
+and preserve native/app payload bytes. Dispose exact browser/panel/actions,
+remove owned USB routes and stop only the QA package. Formal mdo/data/provider
+are untouched. This does not qualify full guarded Android automation or Doze.
+
+Main APK:6,608,193B SHA-25648445e4c0264b498369368da426e66e5c1e79c98302bf48fe66ac9db52238d7c.
+Diagnostic:987,539B SHA-2563ab5de0089ed690bdac9b1bcca2e96173e47b49d2b6ffb342f449c0fe6d85ce7.
+Windows/native/app archive/portable plugin bytes remain unchanged. No live model,
+additional app/Home/native copy, provider upgrade or publication. Windows main
+human-permission/pixels, authenticated physical two-device and remaining Android
+framework/host qualification stay open; the whole goal remains incomplete.
+
 ## Remaining completion gates
 
 - Complete Android host input, guarded capture/URI/chooser and lifecycle
-  qualification. E218 uses the now-authorized current phone without a WebView
-  upgrade; six component gates and main/manual-browser presentation are verified,
-  while hover/capture fail and host automation remains unqualified. Overall
+  qualification. E219 uses the authorized current phone without a WebView
+  upgrade; seven component gates, initial scale and main/manual-browser
+  presentation are verified. CSS hover and guarded host automation remain
+  unqualified. Overall
   Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.

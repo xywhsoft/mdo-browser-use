@@ -74,6 +74,20 @@
         catch(RuntimeException|Error failure){promoted.close();throw failure;}
     }
     /** Common native policy/listeners, with no navigation or UI publication. */
+    private static final class InitialScaleCallback extends WebView.VisualStateCallback {
+        private final MdoBrowserLifecycle.InitialScale<WebView> original;
+        InitialScaleCallback(MdoBrowserLifecycle.InitialScale<WebView> original){this.original=original;}
+        @Override public void onComplete(long id){
+            if(id!=original.epoch)original.cancel();
+            MdoBrowserLifecycle.InitialScale<WebView> next=original.complete(WebView::getScale);
+            if(next!=null)postInitialScale(next.currentView(),next);
+        }
+    }
+    static void postInitialScale(WebView view,MdoBrowserLifecycle.InitialScale<WebView> original){
+        if(original==null||!original.submit(view))return;
+        try{view.postVisualStateCallback(original.epoch,new InitialScaleCallback(original));}
+        catch(RuntimeException failure){original.cancel();}
+    }
     private void configureBrowserView(String key,WebView web){
         web.getSettings().setJavaScriptEnabled(true);web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);web.getSettings().setAllowContentAccess(false);
@@ -84,7 +98,7 @@
         web.setWebViewClient(new WebViewClient(){
             @Override public void onScaleChanged(WebView view,float oldScale,float newScale){if(views.owns(key,view))cancelCapture(key);views.scaleChanged(key,view,newScale);}
             @Override public void onPageStarted(WebView view,String address,Bitmap icon){if(!views.owns(key,view))return;documentNavigation(key,view);if(!views.navigation(key,view))return;loading.put(key,true);errors.remove(key);errorCodes.remove(key);locations.put(key,address);networkNavigation(key,view,address);}
-            @Override public void onPageFinished(WebView view,String address){if(views.owns(key,view)){documentLoaded(key,view);if(!networkLoaded(key,view,address))loading.put(key,false);}}
+            @Override public void onPageFinished(WebView view,String address){if(views.owns(key,view)){documentLoaded(key,view);if(!networkLoaded(key,view,address))loading.put(key,false);postInitialScale(view,views.initialScale(key,view));}}
             @Override public void onReceivedError(WebView view,WebResourceRequest navigation,WebResourceError error){
                 if(views.owns(key,view)&&navigation.isForMainFrame()){cancelNavigationRequest(key,view);loading.put(key,false);errors.put(key,error.getDescription().toString());errorCodes.put(key,error.getErrorCode());}
             }

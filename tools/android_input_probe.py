@@ -4,6 +4,7 @@ One project QA output, existing WSL JDK, no app/Home/provider changes. Framework
 binding is compiled separately by build_android_client.py, not simulated here.
 """
 import json
+import hashlib
 import subprocess
 import sys
 import dev
@@ -18,7 +19,7 @@ def main():
         'host/android/MdoBrowserChannel.java','tests/fixtures/AndroidInputContractTest.java',
         'tests/fixtures/AndroidLifecycleContractTest.java','tests/fixtures/AndroidChannelContractTest.java',
         'tests/fixtures/AndroidInputGuardContractTest.java','tests/fixtures/AndroidWheelContractTest.java',
-        'tests/fixtures/AndroidHoverContractTest.java')]
+        'tests/fixtures/AndroidHoverContractTest.java','tests/fixtures/AndroidInitialScaleContractTest.java')]
     subprocess.run(['wsl.exe','--exec','javac','--release','8','-encoding','UTF-8','-d',linux(classes),*[linux(source) for source in sources]],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=45)
     run=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInputContractTest'],
@@ -39,6 +40,10 @@ def main():
     hover=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidHoverContractTest'],
         cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
     report['hover_checks']=json.loads(hover.stdout.strip())['checks']
+    initial=subprocess.run(['wsl.exe','--exec','java','-cp',linux(classes),'org.xserver.android.AndroidInitialScaleContractTest'],
+        cwd=dev.ROOT,check=True,capture_output=True,text=True,timeout=30)
+    report['initial_scale_checks']=json.loads(initial.stdout.strip())['checks']
+    report['source_sha256']={source.relative_to(dev.ROOT).as_posix():hashlib.sha256(source.read_bytes()).hexdigest() for source in [*sources,dev.ROOT/'tools/android_input_probe.py']}
     result.write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8');print(json.dumps(report,indent=2))
 
 

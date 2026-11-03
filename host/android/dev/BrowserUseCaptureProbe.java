@@ -13,29 +13,38 @@ import android.webkit.WebViewClient;
 final class BrowserUseCaptureProbe implements AutoCloseable {
     interface Done {void complete(boolean ok,String code,int checks);}
     private final WebView view;private final Handler handler;private final Done done;
-    private boolean closed,started;private double scale=Double.NaN;private long epoch=1,end;private int checks,draws;
+    private final MdoBrowserLifecycle<WebView> owners;
+    private boolean closed,started;private long epoch=1,end;private int checks,draws;
     private MdoBrowserCapture capture;private MdoBrowserCaptureTarget target;
     private final Runnable readiness=this::begin;
-    BrowserUseCaptureProbe(WebView view,Handler handler,Done done){this.view=view;this.handler=handler;this.done=done;}
+    BrowserUseCaptureProbe(WebView view,Handler handler,Done done){
+        this.view=view;this.handler=handler;this.done=done;
+        owners=new MdoBrowserLifecycle<>((exact,navigation,admitted)->new MdoBrowserInput(new MdoBrowserInputTarget(exact,navigation,admitted),new MdoBrowserInput.Scheduler(){
+            public long now(){return SystemClock.uptimeMillis();}
+            public void post(Runnable task,long delay){if(!handler.postDelayed(task,delay))throw new IllegalStateException("Input scheduler stopped");}
+            public void remove(Runnable task){handler.removeCallbacks(task);}
+        }));owners.put("fixture",view);
+    }
     void run(){
         view.getSettings().setJavaScriptEnabled(true);
         view.setWebViewClient(new WebViewClient(){
-            @Override public void onScaleChanged(WebView web,float before,float after){scale=after;}
-            @Override public void onPageStarted(WebView web,String url,Bitmap icon){epoch++;}
-            @Override public void onPageFinished(WebView web,String url){if(!started&&!closed){end=SystemClock.uptimeMillis()+4000;handler.post(readiness);}}
+            @Override public void onScaleChanged(WebView web,float before,float after){owners.scaleChanged("fixture",web,after);}
+            @Override public void onPageStarted(WebView web,String url,Bitmap icon){epoch++;owners.navigation("fixture",web);}
+            @Override public void onPageFinished(WebView web,String url){if(!started&&!closed){MdoBrowser.postInitialScale(web,owners.initialScale("fixture",web));end=SystemClock.uptimeMillis()+4000;handler.post(readiness);}}
         });
         view.loadDataWithBaseURL("http://127.0.0.1/","<!doctype html><meta name='viewport' content='width=device-width,initial-scale=1'>"+
             "<style>html,body{margin:0;height:100%;background:rgb(12,34,56)}#block{position:absolute;left:20px;top:40px;width:120px;height:80px;background:rgb(34,170,68)}</style>"+
             "<div id='block'></div>","text/html","UTF-8",null);
     }
-    double measuredScale(){return scale;}
+    private double scale(){return owners.scale("fixture",view);}
+    double measuredScale(){return scale();}
     private void begin(){
         if(closed||started)return;
-        if(!Double.isFinite(scale)||!view.isAttachedToWindow()||!view.isShown()||view.getWidth()<1||view.getHeight()<1){
+        if(!Double.isFinite(scale())||!view.isAttachedToWindow()||!view.isShown()||view.getWidth()<1||view.getHeight()<1){
             if(SystemClock.uptimeMillis()<end){handler.postDelayed(readiness,25);return;}fail("capture_scale_or_view_unavailable");return;
         }
         started=true;
-        target=new MdoBrowserCaptureTarget(view,()->"fd-00000000-0000-4000-8000-000000000001",()->epoch,()->scale,()->!closed);
+        target=new MdoBrowserCaptureTarget(view,()->"fd-00000000-0000-4000-8000-000000000001",()->epoch,this::scale,()->!closed);
         MdoBrowserCapture.Target counted=new MdoBrowserCapture.Target(){
             public MdoBrowserCapture.Snapshot snapshot(){return target.snapshot();}
             public void ready(Runnable complete){target.ready(complete);}
@@ -45,6 +54,7 @@ final class BrowserUseCaptureProbe implements AutoCloseable {
         image(0);
     }
     private MdoBrowserCapture.Plan plan(int index){
+        double scale=scale();
         return new MdoBrowserCapture.Plan(target.snapshot(),(index==0?20:170)*scale,(index==0?40:160)*scale,
             (index==0?120:60)*scale,(index==0?80:40)*scale,.5,index==0?"png":"jpeg",262144,3000);
     }
@@ -81,6 +91,6 @@ final class BrowserUseCaptureProbe implements AutoCloseable {
         }catch(MdoBrowserCapture.Failure|RuntimeException error){fail("capture_cancel_verification_failed");}
     }
     private void fail(String code){if(!closed)done.complete(false,code,checks);}
-    void viewDestroyed(){if(capture!=null)capture.viewDestroyed();}
-    @Override public void close(){closed=true;handler.removeCallbacks(readiness);if(capture!=null)capture.close();}
+    void viewDestroyed(){if(capture!=null)capture.viewDestroyed();owners.viewDestroyed(view);}
+    @Override public void close(){closed=true;handler.removeCallbacks(readiness);if(capture!=null)capture.close();owners.close();}
 }

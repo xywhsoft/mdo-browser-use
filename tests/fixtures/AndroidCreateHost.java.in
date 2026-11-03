@@ -75,6 +75,11 @@ final class AndroidCreateHost {
         void setJavaScriptCanOpenWindowsAutomatically(boolean value){touch();}
     }
     static final class WebView {
+        abstract static class VisualStateCallback {public abstract void onComplete(long id);}
+        static final class Visual {final long id;final VisualStateCallback callback;Visual(long id,VisualStateCallback callback){this.id=id;this.callback=callback;}}
+        final List<Visual> visuals=new ArrayList<>();int scaleReads;float scaleCandidate=3.5f;boolean failVisual;Runnable beforeScale;
+        void postVisualStateCallback(long id,VisualStateCallback callback){visuals.add(new Visual(id,callback));if(failVisual)throw new IllegalStateException("Controlled visual registration failure");}
+        float getScale(){scaleReads++;if(beforeScale!=null){Runnable action=beforeScale;beforeScale=null;action.run();}return scaleCandidate;}
         static final int INVISIBLE=4;final AndroidCreateHost host;int destroys,touches,loads;WebViewClient client;
         WebView(Object activity){host=(AndroidCreateHost)activity;host.created.add(this);}
         static ClassLoader getWebViewClassLoader(){return AndroidCreateHost.class.getClassLoader();}

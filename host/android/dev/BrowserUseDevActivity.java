@@ -85,8 +85,8 @@ public final class BrowserUseDevActivity extends Activity {
             if("native-capture".equals(getIntent().getStringExtra("mode"))){
                 captureProbe=new BrowserUseCaptureProbe(view,handler,(ok,code,checks)->{
                     put("native_capture_checks",checks);put("native_capture_verified",ok);
+                    put("capture_measured_scale",Double.isFinite(captureProbe.measuredScale())?captureProbe.measuredScale():JSONObject.NULL);
                     if(!ok){
-                        put("capture_measured_scale",Double.isFinite(captureProbe.measuredScale())?captureProbe.measuredScale():JSONObject.NULL);
                         put("capture_view_attached",view.isAttachedToWindow());put("capture_view_shown",view.isShown());
                         put("capture_view_width",view.getWidth());put("capture_view_height",view.getHeight());
                     }

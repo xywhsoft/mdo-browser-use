@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E218)
+## Complete development host APK (current: E219)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,7 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`dedb25501eb777d90588348f00f705a8b840b77c945a4c5317bad9e196459e65`.
+`48445e4c0264b498369368da426e66e5c1e79c98302bf48fe66ac9db52238d7c`.
 E214 shares the original document's live-readable predicate between isolated
 world state and navigation page_ready. Root/default realm loss clears both
 public readiness fields even when the native document and Activity epoch stay
@@ -99,10 +99,10 @@ The packaged DEX must define this coordinator, immutable request identity and
 previous-profile destruction field alongside all prior native gates. Native
 main-branch/JNI tests use controlled Activity/provider peers; fresh shared UI and
 Windows tests do not qualify Android framework/provider/device automation.
-Overall Android admission remains disabled. E218 reconnects the user-authorized
-phone and verifies six component gates plus the full main/manual-browser UI;
-hover and capture remain failed. The current WebView is unchanged. See the
-current verification scope in [progress](progress.md).
+Overall Android admission remains disabled. E219 verifies seven component gates
+and the full main host's initial native scale after E218's main/manual-browser
+UI check. CSS hover remains unresolved; guarded Android host qualification is
+incomplete. The current WebView is unchanged. See [progress](progress.md).
 
 E199 updates the shared browser UI: an ordinary loading live announcement stays
 available to accessibility while no longer changing the native viewport size.
@@ -156,9 +156,9 @@ contracts, not installed framework or sleep/Doze qualification.
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
 `.mdo/host/android-client/mdo-browser-use-dev.apk`,987,539 bytes SHA-256
-`4c9a4b85ec52a27c12dadeda7d1ee6391329645a981cb05dc2646bada8d59556`.
-E218 rebuilds this package against the current reviewed host inputs and fixes
-profile-only initialization being misreported as a readiness timeout.
+`3ab5de0089ed690bdac9b1bcca2e96173e47b49d2b6ffb342f449c0fe6d85ce7`.
+E219 rebuilds this package against the reviewed initial-scale repair; it retains
+E218's truthful terminal profile-only diagnostic.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
 ordinary-world deadline method is defined. This package is a diagnostic variant;
 both artifacts share the development package ID, and device qualification selects
@@ -6763,3 +6763,15 @@ The full QA main Activity and its manual native browser are visually observed.
 No guarded Android automation or broader host/lifecycle qualification is claimed.
 See the E218 section in [acceptance](acceptance.md) for connection setup, exact
 phone results, APK identities, cleanup and remaining work.
+
+### Initial native scale (E219)
+
+The current phone exposes a missing initial onScaleChanged notification. The
+common listener now samples a weak original native geometry candidate after a
+visual barrier, with native callbacks taking precedence, bounded outstanding
+callbacks and navigation/close/duplicate/thread fences. Original capture privacy
+and geometry guards remain unchanged. Actual diagnostic pixels pass21 and the
+complete main manual-browser state reports native_scale_ready:true. Component
+results are7pass/1unresolved (CSS hover); overall automation remains disabled.
+See the E219 section in [acceptance](acceptance.md) for final artifact hashes,
+fresh source-bound regressions, exact scope and cleanup.

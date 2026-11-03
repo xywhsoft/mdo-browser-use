@@ -16,6 +16,38 @@ import java.util.function.LongSupplier;
 final class MdoBrowserLifecycle<T> implements AutoCloseable {
     interface Factory<T> {MdoBrowserInput create(T view,LongSupplier epoch,BooleanSupplier admitted);}
     interface Invalidated<T> {void changed(String key,T view,long epoch,String reason);}
+    /** A missing initial scale may be sampled after a native visual barrier.
+     * This is a geometry candidate, never document/input admission. The native
+     * callback retains weak identities and cannot revive a replaced document. */
+    static final class InitialScale<T> {
+        private final WeakReference<MdoBrowserLifecycle<T>> owner;private final WeakReference<T> view;
+        private final String key;final long epoch;private boolean submitted,cancelled;
+        private InitialScale(MdoBrowserLifecycle<T> owner,String key,T view,long epoch){this.owner=new WeakReference<>(owner);this.view=new WeakReference<>(view);this.key=key;this.epoch=epoch;}
+        private boolean current(){
+            MdoBrowserLifecycle<T> core=owner.get();T exact=view.get();if(core==null||exact==null)return false;core.thread();
+            MdoBrowserLifecycle<T>.Entry entry=core.current(key,exact);
+            return !cancelled&&entry!=null&&entry.epoch==epoch&&entry.initialScale==this&&!Double.isFinite(entry.scale);
+        }
+        boolean forView(T exact){return view.get()==exact&&current();}
+        T currentView(){return current()?view.get():null;}
+        boolean submit(T exact){if(submitted)return false;if(!forView(exact)){cancel();return false;}submitted=true;return true;}
+        void cancel(){
+            MdoBrowserLifecycle<T> core=owner.get();T exact=view.get();if(core==null||exact==null){cancelled=true;return;}core.thread();cancelled=true;
+            MdoBrowserLifecycle<T>.Entry entry=core.current(key,exact);
+            if(entry!=null&&entry.initialScale==this){if(entry.scaleWantedEpoch==epoch)entry.scaleWantedEpoch=0;if(!submitted)entry.initialScale=null;}
+        }
+        InitialScale<T> complete(java.util.function.ToDoubleFunction<T> sample){
+            MdoBrowserLifecycle<T> core=owner.get();T exact=view.get();if(core==null||exact==null)return null;core.thread();
+            MdoBrowserLifecycle<T>.Entry entry=core.current(key,exact);if(entry==null||entry.initialScale!=this)return null;
+            double candidate=Double.NaN;boolean sampled=false;
+            if(current())try{candidate=sample.applyAsDouble(exact);sampled=true;}catch(RuntimeException failure){cancelled=true;}
+            boolean publish=sampled&&current();entry=core.current(key,exact);if(entry==null||entry.initialScale!=this)return null;
+            entry.initialScale=null;if(entry.scaleWantedEpoch==epoch)entry.scaleWantedEpoch=0;
+            if(publish)core.scaleChanged(key,exact,candidate);
+            entry=core.current(key,exact);
+            return entry!=null&&entry.scaleWantedEpoch==entry.epoch&&!Double.isFinite(entry.scale)?core.initialScale(key,exact):null;
+        }
+    }
     /** Minted only by the UI registry at construction, never from a tab ID or
      * a currently blank view. Long-lived consumers retain data/weak refs only. */
     static final class Fresh<T> {
@@ -59,7 +91,7 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
         boolean destroyed(){MdoBrowserLifecycle<T> core=owner.get();if(core!=null)core.thread();return disposed||birth!=null&&birth.destroyed();}
     }
     private final class Entry {
-        final T view;MdoBrowserInput input;Fresh<T> fresh;long epoch=1;double scale=Double.NaN;boolean hidden,manual,failed;
+        final T view;MdoBrowserInput input;Fresh<T> fresh;InitialScale<T> initialScale;long epoch=1,scaleWantedEpoch;double scale=Double.NaN;boolean hidden,manual,failed;
         Entry(T view){this.view=view;}
     }
     private final class History {
@@ -217,8 +249,15 @@ final class MdoBrowserLifecycle<T> implements AutoCloseable {
     boolean inputBusy(String key,T view){thread();Entry entry=current(key,view);return entry!=null&&entry.input.busy();}
     boolean inputClean(String key,T view){thread();Entry entry=current(key,view);return entry!=null&&!entry.failed&&entry.input.cleanupConfirmed();}
     double scale(String key,T view){thread();Entry entry=current(key,view);return entry==null?Double.NaN:entry.scale;}
+    InitialScale<T> initialScale(String key,T view){
+        thread();Entry entry=current(key,view);if(entry==null||Double.isFinite(entry.scale))return null;
+        entry.scaleWantedEpoch=entry.epoch;
+        if(entry.initialScale!=null){if(entry.initialScale.submitted||entry.initialScale.current())return null;entry.initialScale.cancel();entry.scaleWantedEpoch=entry.epoch;}
+        return entry.initialScale=new InitialScale<>(this,key,view,entry.epoch);
+    }
     void scaleChanged(String key,T view,double factor){
         thread();Entry entry=current(key,view);if(entry==null)return;
+        if(entry.initialScale!=null)entry.initialScale.cancel();entry.scaleWantedEpoch=0;
         double next=Double.isFinite(factor)&&factor>0&&factor<=32?factor:Double.NaN;
         if(Double.compare(next,entry.scale)==0)return;entry.scale=next;
         settle(entry,()->entry.input.invalidate("input_viewport_changed"));
