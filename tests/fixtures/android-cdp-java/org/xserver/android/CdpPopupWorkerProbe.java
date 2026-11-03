@@ -1030,7 +1030,11 @@ public final class CdpPopupWorkerProbe {
                     c.backend.wire.add(ack(999,"proof-real"));Handler.drain();check(handoff.flowFailure()==result&&!handoff.current());
                     if(scopedOwnerLoss){
                         check(!handoff.detached()&&MdoBrowserCdpPopupBroker.creationBlocked());
-                        c.backend.wire.add(detached("proof-real"));waitFor(()->handoff.detached()&&c.backend.closes.get()==1,c.host,true);
+                        // The transport's close counter is published before
+                        // disarm's finally releases the process admission fence.
+                        // Join the original completed cleanup, not that earlier
+                        // transport notification on another thread.
+                        c.backend.wire.add(detached("proof-real"));waitFor(()->handoff.detached()&&c.backend.closes.get()==1&&c.backend.disables.get()==1&&!MdoBrowserCdpPopupBroker.creationBlocked(),c.host,true);
                         check(c.backend.disables.get()==1&&!MdoBrowserCdpPopupBroker.creationBlocked());
                     }
                 }else{
@@ -2591,10 +2595,39 @@ public final class CdpPopupWorkerProbe {
             product.nativePageCallback("owned");check(!product.popupPageDocumentReady("owned"));
             waitFor(()->{product.pollNavigation("owned");return product.popupPageDocumentReady("owned")&&product.navigationSettled("owned");},host,true);check(navigator.navigations==1&&product.views.epoch("owned",view)>epoch);
         }
+        JSONObject worldState=null;
+        if(name.startsWith("world-")){
+            long originalEpoch=product.views.epoch("owned",view);JSONObject before=product.inspectNavigation("owned");
+            check(before.getBoolean("page_ready")&&before.getBoolean("page_current")&&before.getString("id").equals(reference));
+            int dispatched=backend.contextEvents.get();boolean defaults=name.equals("world-default");
+            if(defaults){renderer.worlds.contexts.clear();backend.wire.add(new JSONObject().put("method","Runtime.executionContextsCleared").put("sessionId",renderer.root).put("params",new JSONObject()));}
+            else{
+                CdpWorldsProbe.Context exact=null;
+                for(CdpWorldsProbe.Context candidate:renderer.worlds.contexts.values())if(candidate.source==null&&candidate.frame.equals("frame-owned")&&(exact==null||candidate.id>exact.id))exact=candidate;
+                check(exact!=null);final CdpWorldsProbe.Context original=exact;renderer.worlds.contexts.values().removeIf(candidate->candidate==original);
+                backend.wire.add(new JSONObject().put("method","Runtime.executionContextDestroyed").put("sessionId",renderer.root).put("params",new JSONObject().put("executionContextId",exact.id)));
+            }
+            waitFor(()->backend.contextEvents.get()>dispatched,host,true);
+            JSONObject lost=product.inspectNavigation("owned"),document=product.inspectDocumentState("owned");
+            check(lost.getBoolean("page_current")&&lost.getString("id").equals(reference)&&product.views.epoch("owned",view)==originalEpoch&&!document.getBoolean("ready"));
+            if(lost.getBoolean("page_ready"))throw new AssertionError("Navigation reports a lost world ready: navigation="+lost+" document="+document);
+            boolean recovered=name.equals("world-recover");
+            if(recovered){
+                int replies=product.preparationReplies;
+                product.frameRpcNamed("owned","world-recover",new JSONObject().put("command","frames").put("agent",true).put("action","list").put("navigation_ref",reference));
+                waitFor(()->product.preparationReplies==replies+1,host,true);
+                JSONObject after=product.inspectNavigation("owned"),current=product.inspectDocumentState("owned");
+                if(!product.publicReplies.get("world-recover").getBoolean("ok")||!current.getBoolean("ready")||!after.getBoolean("page_ready"))throw new AssertionError("Navigation association lost after explicit world recovery: navigation="+after+" document="+current);
+                check(after.getBoolean("page_current")&&after.getString("id").equals(reference)&&product.views.epoch("owned",view)==originalEpoch);
+            }
+            check(navigator.navigations==1&&backend.nativeNavigationCommands.get()==1);
+            worldState=new JSONObject().put("default_context",defaults).put("ready_after_loss",false).put("original_native_document_current",true).put("same_ui_epoch",true).put("same_navigation_reference",true).put("explicit_recovery",recovered).put("navigation_replayed",false);
+        }
         check(renderer.worlds.evaluations==0&&backend.opens.get()==1&&backend.nativeOpens.get()==1);
         JSONObject evidence=new JSONObject().put("actual_product_navigation",true).put("guarded_new_document",true).put("navigation_commands",navigator.navigations)
             .put("new_worlds",renderer.worlds.created-worlds).put("stale_references_refused",staleReferences).put("ready",product.popupPageDocumentReady("owned")).put("late_callback",name.equals("callback"))
             .put("native_effects",0).put("browser_connections",backend.opens.get()).put("native_proof_connections",backend.nativeOpens.get()).put("provider_qualified",false);
+        if(worldState!=null)evidence.put("native_world_readiness",worldState);
         if(name.equals("from-download")){MdoBrowserCdpDownloads.Snapshot original=product.popupDownloads("owned").list()[0];check(original.terminal()&&original.sourceCleanupConfirmed&&backend.bodyClaims.get()==0&&!product.popupPageDownloadOnly("owned"));evidence.put("download_only_origin",true).put("pending_download_denied",true).put("original_download_retained",true).put("body_claims",0);}
         return evidence;
     }

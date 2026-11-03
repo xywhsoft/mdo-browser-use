@@ -281,6 +281,7 @@ def main():
                   'preparation-network-concurrent-ready','preparation-network-concurrent-proof','preparation-network-concurrent-detach',
                   'preparation-page-ready','preparation-page-parent-close','preparation-page-download','preparation-page-download-stream','preparation-page-document-change',
                   'preparation-page-navigation-flow','preparation-page-navigation-callback','preparation-page-navigation-mismatch','preparation-page-navigation-cancel','preparation-page-navigation-rejected','preparation-page-navigation-no-commit','preparation-page-navigation-overlap','preparation-page-navigation-from-download',
+                  'preparation-page-navigation-world-loss','preparation-page-navigation-world-recover','preparation-page-navigation-world-default',
                   'preparation-page-human-flow','preparation-page-human-late-close','preparation-page-human-queued-close','preparation-page-human-reentrant','preparation-page-human-hidden','preparation-page-human-ui-rejected','preparation-page-human-view-lost','preparation-page-human-no-revival',
                   *['preparation-page-human-stage-'+variant for variant in ('prepared-cancel','prepared-expire','prepared-resume','duplicate','wrong-view','timer-rejected','cancel-started','expire-started','resume-started','close-started','flow','input','read','complete','capture-pending','channel-changed')],
                   *['preparation-page-human-request-'+variant for variant in ('capture-visual', 'capture-running', 'capture-postguard', 'capture-failure', 'input', 'chooser', 'pending-duplicate', 'timer', 'stop', 'close', 'channel', 'pause', 'timeout', 'held-event', 'held-ack', 'rejected', 'channel-after', 'profile-after', 'view-after', 'stop-after', 'timeout-after', 'close-after', 'pause-after', 'foreign-capture')],
@@ -589,10 +590,11 @@ def main():
                 raise RuntimeError('Closing a navigation source disrupted the second original attachment')
         if mode.startswith('preparation-page-navigation-'):
             proof=popup_worker.get('product_frame_route');variant=mode[len('preparation-page-navigation-'):]
-            worlds={'flow':4,'callback':2,'mismatch':0,'cancel':0,'rejected':1,'no-commit':0,'overlap':2,'from-download':1}[variant]
+            worlds={'flow':4,'callback':2,'mismatch':0,'cancel':0,'rejected':1,'no-commit':0,'overlap':2,'from-download':1,
+                    'world-loss':1,'world-recover':2,'world-default':1}[variant]
             if (not isinstance(proof,dict) or proof.get('actual_product_navigation') is not True or proof.get('guarded_new_document') is not True
                     or proof.get('navigation_commands')!=(4 if variant=='flow' else 2 if variant=='overlap' else 1) or proof.get('new_worlds')!=worlds
-                    or proof.get('stale_references_refused')!=(3 if variant=='flow' else 1 if variant=='overlap' else 0) or proof.get('ready') is not (variant in {'flow','callback','rejected','overlap','from-download'})
+                    or proof.get('stale_references_refused')!=(3 if variant=='flow' else 1 if variant=='overlap' else 0) or proof.get('ready') is not (variant in {'flow','callback','rejected','overlap','from-download','world-loss','world-recover','world-default'})
                     or proof.get('late_callback') is not (variant=='callback') or proof.get('native_effects')!=0
                     or proof.get('browser_connections')!=1 or proof.get('native_proof_connections')!=1 or proof.get('provider_qualified') is not False):
                 raise RuntimeError('Product popup navigation lost commit/destination/document rearm, cancellation or stale-reference isolation')
@@ -600,6 +602,9 @@ def main():
                 raise RuntimeError('Guarded navigation replayed an unacknowledged command or lost the replacement document')
             if variant=='from-download' and (proof.get('download_only_origin') is not True or proof.get('pending_download_denied') is not True or proof.get('original_download_retained') is not True or proof.get('body_claims')!=0):
                 raise RuntimeError('Download-only navigation lost the explicit decision, original receipt or body admission')
+            if variant.startswith('world-') and proof.get('native_world_readiness')!={'default_context':variant=='world-default','ready_after_loss':False,
+                    'original_native_document_current':True,'same_ui_epoch':True,'same_navigation_reference':True,'explicit_recovery':variant=='world-recover','navigation_replayed':False}:
+                raise RuntimeError('Navigation readiness lost the original live realm/document distinction or explicit no-replay recovery')
         if mode=='host-close-late-transport':
             proof=popup_worker.get('host_close')
             if proof!={'original_close_raced':True,'code':'cdp_worker_closed','cleanup_confirmed':False,'source_released':False,'wire_closes':1,'disables':0,'worker_terminated':True}:raise RuntimeError('Original host close lost its authoritative cause or invented cleanup')

@@ -35,6 +35,7 @@ final class AndroidCreateHost {
         boolean joinNavigation(NativeNavigation original){throw new AssertionError("Ordinary creation entered protected document navigation");}
         void restoreFailed(MdoBrowserCdpMarker original){throw new AssertionError("Ordinary creation entered protected document navigation");}
         boolean documentReady(){throw new AssertionError("Ordinary creation entered protected document navigation");}
+        boolean documentReadable(){throw new AssertionError("Ordinary creation entered protected document navigation");}
     }
     static final class JSONException extends Exception {}
     static final class JSONObject {

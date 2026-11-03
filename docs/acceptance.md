@@ -554,6 +554,34 @@ authenticated physical-device and full native-origin qualification remain open.
 No phone/provider change, live inference, external site, extra app/Home/native
 copy or official publication occurs; overall Android automation remains false.
 
+
+## Shared native navigation readable state (E214)
+
+The actual product route reproduces page_ready:true after native root realm
+loss even though isolated_world.ready is false. The same original native
+document, Activity epoch and navigation ID remain current. Both public states
+now use the original document's live-readable predicate; no status query rebinds
+a world or replays a navigation. Three native cases (145 assertions) prove
+isolated loss, default-context clearing and explicit same-reference recovery.
+Existing navigation association already preserves that recovery and is unchanged.
+
+The first full run fails in an existing activation cleanup assertion: a test
+reads the transport-close counter before disarm's finally releases process
+admission. Preserve that log and join original final cleanup in the bounded
+wait; product cleanup is unchanged. Focused owner-loss cases, fresh frontend20,
+full native658/28089 reported popup assertions, create850/async77, Python208/210
+(two existing Windows symlink skips) and acceptance15 pass. Two already qualified loading-timeout scheduler diagnostics vary; their exact values are retained and final detach/destruction/source-release/admission remains unchanged.
+Acceptance binds544 inputs/150 applied outputs,84 static requests/90 original
+tool pairs and12 recovered ordinary failures. JS526/SDK/control28/packed12 use
+only unchanged-input evidence. Main APK 6,608,193B has SHA-256
+975f4ed8df9a3ceb1803b89133fab4d38f5cd17d7c643e028da61b52cbb01651.
+Actual DEX verifies both shared-reader calls, the original worker fence and
+retained atomic publication. The Windows archive/ARM64 engine/app payload and
+portable plugin remain exact. Both Android packages are rebuilt, source/signature
+checked; provider/framework/device flags stay false. Same-Home headless service
+identity is restored; no inference, phone change, extra app copy or publication.
+The remaining physical/UI/device completion gates below are still open.
+
 ## Remaining completion gates
 
 - Verify the installed Android main Activity/browser, actual provider input,

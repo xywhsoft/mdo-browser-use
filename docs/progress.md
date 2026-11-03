@@ -16401,3 +16401,55 @@ publication occurs. Overall Android automation and physical/provider/Activity/
 lifecycle qualification remain false. Actual main-window input/pixels, human
 permission decision, authenticated physical two-device and broader native-origin
 verification remain open. The whole Browser Use objective is not achieved.
+
+## E214 — share original live readability with navigation state
+
+Read E176's page_ready contract and reproduce an actual product inconsistency:
+a settled native navigation retains its exact committed document/ID/UI epoch,
+but root isolated context destruction clears isolated_world.ready while old
+page_ready remains true. Preserve E214-navigation-ready-red.log. Share the exact
+PopupPage.documentReadable predicate: UI bootstrap, proof ownership/currentness
+and original worker-published native/root fence. Both status getters use it;
+neither performs I/O, creates worlds, rebinds nor reissues navigation.
+
+Three added native modes cover root loss, all/default-context clearing and
+explicit guarded frame inventory recovery. They contribute 145 assertions and
+prove readiness clears, exact native document/epoch/reference stay current and
+the original single navigation is never replayed. Explicit recovery already
+preserves the navigation association; the misleadingly named private
+E214-navigation-association-red.log contains a GREEN result. Keep it as such;
+there is no second product association fix. Internal documentReady continues to
+describe the UI bootstrap. The ordinary-create fixture adds a throwing stub for
+the new protected helper and never claims that protected route was exercised.
+
+The first full native run fails at the existing activation-flow-owner-loss
+cleanup assertion. Its wire-close counter is published from inside session.close
+before disarm's finally releases the process admission fence. The old test
+immediately asserted final admission after the earlier transport notification.
+Retain E214-native-full-first-failure.log; wait under the original bounded test
+deadline for detach, close, disable and released admission together. Product
+cleanup is unchanged; both focused owner-loss cases pass. A subsequent complete
+current-input run passes all658 modes/28089 reported popup assertions.
+Two already qualified loading-timeout scheduler diagnostics vary; their exact values are retained and final detach/destruction/source-release/admission remains unchanged.
+
+Fresh frontend dispatcher/JVM/JNI20 and ordinary create/control850/async-close77
+pass. Fresh Python208/210 passes with two existing Windows symlink-privilege
+skips. Fresh acceptance15 binds544 source inputs/150 applied outputs,84 static
+requests/90 original tool pairs/12 ordinary failures recovered. JS526,
+SDK/control28/packed12 are scoped unchanged-input reuse. Only the applied
+MdoBrowser.java changes; original core/native engine and Windows artifact remain
+exact. Rebuild both Android Java/DEX packages in the existing outputs. Main APK
+6,608,193B SHA-256975f4ed8df9a3ceb1803b89133fab4d38f5cd17d7c643e028da61b52cbb01651;
+diagnostic 983,443B SHA-2568541899c921d7339a817d9e4b1cfcb5930d48ad176576d3d94e4758c4d499c92.
+Actual DEX verifies each public state calls the shared helper once, which checks
+the original worker fence once; prior private-field/atomic/clock/signature gates
+also pass. Android native/app payload bytes are unchanged; only DEX changes.
+
+All test/build handles are terminal before documentation and commit. Restore
+same headless Home/host/config/listener identity with no active run/operation or
+model override. No extra app/Home/native/dependency copy, phone/provider change,
+install, real inference, external site or official/store publication occurs.
+Overall Android automation remains disabled. Physical Activity/provider/input/
+capture/URI/chooser/lifecycle/Doze, main-window pixels/human permission decision
+and authenticated physical two-device qualification remain open. The complete
+Browser Use objective is still active and is not achieved by this correction.

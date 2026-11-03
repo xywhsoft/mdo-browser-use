@@ -106,6 +106,9 @@
         boolean current(){return phase<3&&network.page==this&&network.current();}
         boolean documentCurrent(){return marker!=null&&marker.lease().current()&&views.owns(network.entry.key,network.entry.view)&&views.epoch(network.entry.key,network.entry.view)==epoch;}
         boolean documentReady(){return phase==2&&!downloadOnly&&worldReady&&!restoring&&current()&&documentCurrent();}
+        // The UI bootstrap phase can outlive a native realm. Public readiness
+        // also needs this original document's current worker-published fence.
+        boolean documentReadable(){return documentReady()&&proof!=null&&network.handoff.owns(proof)&&proof.current()&&!cdpWorker.documentUnavailable(marker,proof);}
         boolean continuingNativePreparation(PopupPreparation original){return original!=null&&pendingPreparation==original&&protocolPopupPreparations.get(network.entry.key)==original&&original.protectedOwner==network&&original.epoch==epoch&&phase==2&&!downloadOnly&&current()&&views.epoch(network.entry.key,network.entry.view)==epoch;}
         void invalidated(String reason){
             if(phase!=2||downloadOnly)return;
@@ -279,11 +282,7 @@
                 .put("profile_isolation",pending.profile!=null&&pending.profile.profileAssigned());
         }
         PopupNetwork owner=entry.popup;PopupPage page=owner.page;
-        boolean installed=page!=null&&page.documentReady()&&page.proof!=null&&owner.handoff.owns(page.proof)&&page.proof.current();
-        // Native context loss can precede an Activity navigation callback.
-        // Read only the original worker's published fence: state must not
-        // recreate a world, perform protocol I/O or claim fresh authority.
-        if(installed&&cdpWorker.documentUnavailable(page.marker,page.proof))installed=false;
+        boolean installed=page!=null&&page.documentReadable();
         boolean pending=page!=null&&cdpWorker.pending(page.marker);
         MdoBrowserPopups<WebView> core=windows.get(key);boolean popupPending=core!=null&&core.busy();
         boolean ready=installed&&!pending&&cdpEnvironmentCurrent(key,entry.view,page.epoch,entry.channelLease)&&chooserReady(dialogs.get(key))&&

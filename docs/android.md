@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E213)
+## Complete development host APK (current: E214)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,11 +54,13 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`86e8a74e28c45e21bda4b71c3fb05977d630e5030c8c67aa6134f7d19eaa40cd`.
-E213 extends E212's Java/DEX state correction to the root isolated realm and
-native loading epochs. A worker snapshot publishes the original root's atomic
-epoch, revoked by native loss/loading events; UI status reads no worker maps.
-Actual DEX verifies both volatile references and the frame-fence call chain. The
+`975f4ed8df9a3ceb1803b89133fab4d38f5cd17d7c643e028da61b52cbb01651`.
+E214 shares the original document's live-readable predicate between isolated
+world state and navigation page_ready. Root/default realm loss clears both
+public readiness fields even when the native document and Activity epoch stay
+current. An explicit observation may recover the same navigation without replay.
+Actual DEX verifies both status-to-helper calls and the original worker fence,
+alongside E213's volatile/atomic publication chain. The
 ARM64 engine retains E208's Responses multipart repair and strict Chat media
 projection, paired with the same verified Windows archive. This does not qualify
 device/provider automation or change the disabled admission gate.
@@ -152,8 +154,8 @@ contracts, not installed framework or sleep/Doze qualification.
 `python tools/build_android_client.py` rebuilds the existing standalone diagnostic
 APK without connecting/installing a device. Current output is
 `.mdo/host/android-client/mdo-browser-use-dev.apk`,983,443 bytes SHA-256
-`d953529e82f8e2c06a59291de840910f9bd3185ac4325313eba2d9c3ee3fdd1a`.
-E213 rebuilds this package against the current reviewed host inputs.
+`8541899c921d7339a817d9e4b1cfcb5930d48ad176576d3d94e4758c4d499c92`.
+E214 rebuilds this package against the current reviewed host inputs.
 Its actual DEX World.Scheduler.now() instruction invokes elapsedRealtime and the
 ordinary-world deadline method is defined. This package is a diagnostic variant;
 both artifacts share the development package ID, and device qualification selects
@@ -6719,3 +6721,29 @@ Ordinary create/control850 is exact-input reuse. Both Android packages are
 rebuilt; actual main DEX defines the volatile fields and the atomic-only reader,
 snapshot publication and binding call. Provider/Activity/lifecycle/device and
 whole-goal qualification remain incomplete; Android automation stays disabled.
+
+### Navigation and execution-world readable state (E214)
+
+An original committed/settled navigation can retain page_current:true while its
+root execution world disappears. The old navigation state incorrectly reported
+page_ready:true after isolated_world.ready had become false. Reproduce this
+through actual product/JNI routes and native context events; retain the red log.
+Both public states now use PopupPage.documentReadable, which preserves the UI
+bootstrap, exact proof ownership/currentness and original published worker fence.
+Status reads do not create worlds, rebind documents or issue/retry navigation.
+
+Three new cases cover isolated-root loss, all/default-context clearing and
+explicit guarded inventory recovery with the original navigation reference.
+They preserve the original native document, Activity epoch and navigation ID;
+recovery creates a fresh realm without replaying the single navigation command.
+The internal documentReady bootstrap flag has a different purpose and remains
+unchanged. Existing navigation association/recovery needs no product repair.
+
+The first full run exposes an old activation test's thread-order assumption:
+transport close notification precedes disarm's process-admission release. Join
+the actual final cleanup in its bounded wait; do not weaken product cleanup.
+Fresh frontend20, full native658, ordinary create850/async77, Python208/210 (two
+existing Windows symlink skips) and acceptance15 pass. Both Android packages are
+rebuilt; actual DEX links each public state to the shared original-worker check.
+Windows/native/app payloads and the portable plugin remain unchanged. Android
+framework/provider/physical qualification and the full objective remain open.
