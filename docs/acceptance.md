@@ -6,6 +6,18 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E231 updates the shared panel error UI after the human reports every visible
+old tab as unavailable. An exact `resource_missing`/`browser_missing`404 now
+explains that the page ended and offers a scoped close, without automatically
+reopening a URL or retrying an absent resource. Transient, ownership and unrelated
+404 errors keep their ordinary retry. Fresh96 component checks and the actual
+deleted-resource/main-browser UI path pass; the newly packed Windows program
+passes12 runtime checks. E226's full15 remains historical after this change.
+The original human request expired after300 seconds with a failed tool result
+and exactly one start/done pair; no browser was created and human permission
+acceptance remains unqualified. No claim is made about why the user missed the
+earlier prompt. See E231 in the progress record for the current verification scope.
+
 ## Reproduce Windows integration
 
 Run in this repository with the existing development deployment started headless:

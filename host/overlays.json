@@ -1654,6 +1654,17 @@
       "path": "deps.lock",
       "before": "  \"sdk_overlay\": {",
       "after": "  \"browser_use_model_transport\": {\n    \"path\": \"tools/native/browser-use-model-transport.json\",\n    \"sha256\": \"ab8a795da555fcb748f55fbcc8d1e46ba61a88039ea7256891068794b866ad76\",\n    \"base_tree_sha256\": \"02e153e4f5778213c518ebb83a94551a0f0636ed7ffb6f0aba41a06e119abec2\",\n    \"tree_sha256\": \"4467c46cbf48fef1b3ba868a3937a605fe286ac434063061ab08139764dd19de\",\n    \"purpose\": \"Preserve Responses tool images and project Chat tool media after complete tool groups\"\n  },\n  \"sdk_overlay\": {"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  const fail = (root, error, retry) => { root.replaceChildren(make(\"p\", \"wb-error\", error.message || String(error)), button(\"重新读取\", retry)); };",
+      "after_file": "host/panel-failure.inc.js",
+      "suffix": ""
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "if (!abort.signal.aborted) fail(root, error, () => remount(row.id));",
+      "after": "if (!abort.signal.aborted) fail(root, error, () => remount(row.id), () => close(row.id, () => !abort.signal.aborted && mounts.get(row.id) === value && entries.get(row.id) === row));"
     }
   ],
   "files": [

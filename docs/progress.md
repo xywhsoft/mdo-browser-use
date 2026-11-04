@@ -16822,3 +16822,51 @@ human permission and authenticated physical two-device routing remain open.
 Phone reconnection is user-deferred. The pending Windows availability question
 has no answer; no permission UI is acted on and no user decision is inferred.
 Goal remains active with its full original scope.
+
+## E231 — explain ended workbench resources without replaying requests
+
+The human reports no visible approval and every old workbench tab showing
+`The requested workbench resource is unavailable`. Inspect the original E230
+operation rather than retrying: it ends after300 seconds, its actual tool result
+is unsuccessful with effect_applied:false, and the durable history contains one
+original start/done pair. SDK transport completion is not tool success. No
+browser was created and no human decision is inferred. Previous read-only
+accessibility observed the scoped prompt; it does not prove the human saw it
+before expiry. The reason the user missed it remains unqualified.
+
+Separately reproduce the panel error behavior in the applied manager: a missing
+browser/resource404 prints its raw broker message and offers the same read again.
+Eight new mount-path regressions retain the initial five failures. The shared
+error UI now distinguishes exact resource_missing/browser_missing404 from
+transient, ownership and unrelated404 failures. Missing originals show an ended
+page explanation and one close action; the other failures keep retry. No URL,
+native effect or tool is replayed. A retired mount, replaced entry or aborted
+view cannot use that close callback against its replacement. No existing session
+permission or approval policy is changed, and no security UI button is clicked.
+
+Fresh96 shared component/mount/native-view checks pass. In the same actual main
+window, create/remove an owned synthetic document resource, then open its panel:
+the broker returns the original404 and accessibility shows the ended-page heading
+and close action. The first snapshot preceded content readiness; a fresh read
+confirms the expected UI. Remove that owned fixture and use the preexisting
+full-access QA session for a separate normal-browser control: actual native
+observation and main-window accessibility show the local ask-permission fixture,
+its button and unchanged Applied0 counter. This is automated software evidence,
+not a human permission/pixel qualification or proof of the old tabs' full history.
+
+The system also returned os1455 once during diagnostic process creation. Later
+the old test host was absent, its port had no listener and its saved PID belonged
+to an unrelated process. Preserve that process; verify original image/config/Home
+hashes and recover only the stale deployment record before starting the same
+headless host. Do not infer a renderer crash, user close or resource-exhaustion
+root cause from this observation. Owned fixture resource/panels/browser are
+cleaned and all user account/session/history data retained.
+
+Repack the Windows preview:6953047B SHA-256
+34e4a359837018152a8147808d333d4fc8eba1c6920cddb0610efe114c80e0b4.
+Its fresh12 packed runtime checks pass and restore the same headless Home/port.
+No native engine or Android Java code changed. E226 full15 is historical after
+this shared UI edit, and the previous Android artifact retains its old app
+archive until rebuilt. Whole-window pixels/physical input, actual human decision,
+Android current-device/install/restoration and authenticated physical two-device
+gates remain open. No phone poll, live model, external page or publication occurs.

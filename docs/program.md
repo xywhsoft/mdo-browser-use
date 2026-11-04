@@ -7,6 +7,15 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
+E231 rebuilds the preview with the shared ended-resource panel recovery UI.
+Exact missing-resource404 replies show an ended-page explanation and a scoped
+close action; transient failures still offer retry. Fresh96 component checks,
+the actual removed-resource panel and normal native local-page path pass. The
+packed executable passes12 runtime checks in the same Home and restores the
+original headless host. Whole-window pixels and a human permission decision
+remain unqualified; E226 full acceptance is historical after this UI change.
+The Android artifact has not yet been rebuilt with this new app archive.
+
 Development archives explicitly define `MDO_BROWSER_USE_DEVELOPMENT=1`. In that
 build only, the updater reports `status:development`/`enabled:false` and does not
 load, alter, install from or become blocked by the official update channel.
@@ -30,8 +39,9 @@ histories retire unsafe prefix-cache keys. The original ledger and PNG bytes
 are retained. Updating only the portable plugin cannot repair an older native
 model serializer.
 
-The executable is **6,952,858 bytes**, SHA-256
-`811c819e9d6197cd2455388d6e598d83eebca6f3269c7729fa19262eb3acf6a2`.
+The current E231 executable is **6,953,047 bytes**, SHA-256
+`34e4a359837018152a8147808d333d4fc8eba1c6920cddb0610efe114c80e0b4`.
+The following E208/E209 broader results are retained historical evidence.
 Its delivered .text/.rdata sections exactly match the rebuilt GUI host. Fresh
 packed12, Python198/200 (two existing Windows symlink skips), JS526, SDK,
 control28 and acceptance14 pass. Six actual Agent cohorts pass42 static requests
