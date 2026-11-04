@@ -15,6 +15,13 @@ The user-confirmed E240 approval remains separate from E241's expired retest;
 repaired automatic display has native evidence but no new human confirmation.
 Android physical qualification and the remaining full-goal gates stay open.
 
+The user later reports that the E241 prompt was not seen. Its accessible heading
+and buttons are not proof of visible pixels or human discoverability. Retain
+that report with the expired original request; do not attribute it solely to
+late feedback. E244 prepares the same development window at the exact balanced
+QA conversation with no approval/deadline, and asks the user to confirm the
+window first. No new permission request is started without that confirmation.
+
 E240's actual human retest confirms one allow click and the original successful
 tool terminal pair, but no page appears: `browser_open(create)` retained only a
 suspended browser record, with zero display panels. An explicit reveal of that

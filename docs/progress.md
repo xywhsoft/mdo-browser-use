@@ -17189,3 +17189,20 @@ automatic display is verified; new human automatic-display and whole desktop
 pixels are not. Android current-device/main restoration and authenticated physical
 two-device gates remain open, as does the full original goal. No phone poll or
 repeated human prompt is used to substitute for those missing results.
+
+## E244 — anchor the visible test window before another timed request
+
+The user reports no E241 permission prompt. Preserve that late observation on
+the exact expired request without altering its failed result, deadline or
+terminal pair. The earlier accessibility heading/buttons do not prove that
+they were actually visible to the human. Current source inspection establishes
+no additional rendering root cause; do not invent a fix from that contradiction.
+
+Guard the same idle headless host/config/Home/listener, then prepare its existing
+balanced QA conversation in the development window. Select the unique actual
+returned Windows window and activate it through the documented Computer Use
+API. Read-only accessibility confirms the exact QA title/local route and absence
+of a pending decision. Ask the user to switch to that titled window and confirm
+what is visible before issuing any new timed request. No request or deadline is
+started in this phase; the owned window intentionally remains open for review.
+No product source/artifact changes or repeated broad regressions are needed.
