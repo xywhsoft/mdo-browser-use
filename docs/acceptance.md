@@ -14,8 +14,8 @@ now temporarily yield the covering workbench without changing saved tab order,
 resource identity or maximization preference. Explicit inspection remains
 available; new decisions take priority again. The same native document returns
 after cancellation, without input or navigation replay. Fresh551 sequential JS
-checks and the actual native before/after regression pass. E232 full15 and its
-deliverables are historical until rebuilt/retested for this new UI change.
+checks and the actual native before/after regression pass. E234 completes fresh
+acceptance16 and rebuilds both matching development artifacts; E232 is historical.
 This does not qualify an actual human approval or enclosing desktop pixels.
 
 E231 updates the shared panel error UI after the human reports every visible
@@ -40,7 +40,7 @@ python tools/acceptance_probe.py
 python tools/acceptance_probe.py --check
 ```
 
-The first command runs fifteen **sequential** cases in the same `.mdo/source`,
+The first command runs sixteen **sequential** cases in the same `.mdo/source`,
 native host and Home. It imports, uninstalls/reinstalls and recovers only this
 known plugin revision, restarts the same test service and opens local synthetic
 pages. The renderer case stops exactly one newly created QA content renderer,
@@ -56,7 +56,7 @@ Existing settings hashes and the headless runtime must be restored.
 Logs reuse `.mdo/qa/acceptance/`; the bounded summary is
 `.mdo/acceptance-result.json`. Preserve a failed log before rerunning.
 
-The report binds 551 authoritative source inputs, all
+The report binds 554 authoritative source inputs, all
 150 applied host outputs, each log/receipt, actual host
 binary/config/listener and remote C bridge dependencies. Inputs must stay fixed
 while a case runs. A contradictory/nonterminal result cannot pass. `--check`
@@ -68,21 +68,22 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 
 | Requirement | Inspected implementation and authoritative evidence | Current conclusion |
 | --- | --- | --- |
-| One reusable pinned environment | E232 fresh acceptance15 binds551 current inputs/150 applied outputs and exact host/config/Home/listener before/after; no extra application copy | Verified in this project; same headless deployment restored |
-| Shared C/JS API and Agent tools | E232 actual installed13 C services/16 managed tools;12 single/grouped cohorts across Chat, Responses and Anthropic,84 local static requests/90 original tool terminal pairs;12 ordinary failures recover | Current local tool continuation/image projection verified; real-provider/model quality is not qualified |
-| Observation, exact references, waiting and native input | E232 managed tools/public frame operations through actual Windows native views; E226 Android/JNI evidence retained separately below | Stated Windows operations verified; bounded DOM subset, not complete accessibility-tree equivalence |
-| Screenshots, visual actions and privacy | E232 managed visual operations and six public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons; original dimensions equal and complete delivered bytes unchanged after private edits | Verified these actual capture/permission cases; enclosing desktop framebuffer remains unqualified |
-| Tabs, popups, dialogs, uploads and downloads | E232 real local managed/native flows and eight remote-bridge cases; exact131075-byte save and one original POST; E226 native-source378 assertions are prior source-bound evidence | Original local/bridge ownership and transfers verified; arbitrary OS/site/provider business flows are not claimed |
-| Permissions and failure recovery | E232 nine managed ask-decision cases/236 assertions/ten original terminal pairs, explicit owned-renderer reload recovery, same-Home durable restart recovery without duplicate tab | Backend decisions/recovery verified; actual human button decision and normal-window pixels remain unverified |
+| One reusable pinned environment | E234 fresh acceptance16 binds554 current inputs/150 applied outputs and exact host/config/Home/listener before/after; no extra application copy | Verified in this project; same headless deployment restored |
+| Shared C/JS API and Agent tools | E234 actual installed13 C services/16 managed tools;12 single/grouped cohorts across Chat, Responses and Anthropic,84 local static requests/90 original tool terminal pairs;12 ordinary failures recover | Current local tool continuation/image projection verified; real-provider/model quality is not qualified |
+| Observation, exact references, waiting and native input | E234 managed tools/public frame operations through actual Windows native views; E226 Android/JNI evidence retained separately below | Stated Windows operations verified; bounded DOM subset, not complete accessibility-tree equivalence |
+| Screenshots, visual actions and privacy | E234 managed visual operations and six public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons; original dimensions equal and complete delivered bytes unchanged after private edits | Verified these actual capture/permission cases; enclosing desktop framebuffer remains unqualified |
+| Tabs, popups, dialogs, uploads and downloads | E234 real local managed/native flows and eight remote-bridge cases; exact131075-byte save and one original POST; E226 native-source378 assertions are prior source-bound evidence | Original local/bridge ownership and transfers verified; arbitrary OS/site/provider business flows are not claimed |
+| Permissions and failure recovery | E234 nine managed ask-decision cases/237 assertions/ten original terminal pairs; actual selected-decision native hide/restore without a grant; explicit owned-renderer and same-Home restart recovery | Backend decisions and native presentation verified; actual human button decision and normal-window pixels remain unverified |
 | Human control and resource lifetime | E226 fresh full658 JNI workflow modes,7137 attached-release assertions, current source/clock/input/capture/file/native-owner checks, fresh20 frontend recovery modes; native Android UI/provider peers are controlled | Current combined software integration verified; physical WebView/lifecycle/Doze qualification remains incomplete |
-| Remote ownership and transfer | E232 production C bridge to actual headed WebView2: eight cases, original task binding, cancellation/recovery, upload digest and retained save | Same-host protocol integration verified; authenticated physical two-device routing remains unverified |
-| Plugin installation and deliverables | E232 real portable import/export/trust/stale-plan8 and lifecycle/recovery10; E231 Windows packed12 and E232 rebuilt signed Android archive match current app inputs | Matching development artifacts retained; no new Android-device or official release claim |
-| Android adaptation and explicit downgrade | E226 full native/JNI/ASan/UBSan/API26 and frontend20 evidence retained; E232 changes shared panel JS only, not Android Java/native source | Prior controlled integration retained; final current-device/provider/main-UI qualification is incomplete and automation stays disabled |
-| Bounded Windows performance and repeated lifecycle | E203 historical16-cycle actual main/public C measurement; E232 verifies current functional lifecycles | Earlier bounded measurement retained; no new performance or production leak-absence claim |
+| Remote ownership and transfer | E234 production C bridge to actual headed WebView2: eight cases, original task binding, cancellation/recovery, upload digest and retained save | Same-host protocol integration verified; authenticated physical two-device routing remains unverified |
+| Plugin installation and deliverables | E234 real portable import/export/trust/stale-plan8 and lifecycle/recovery10; current Windows packed12 and signed Android archive match current app inputs | Matching development artifacts retained; no new Android-device or official release claim |
+| Android adaptation and explicit downgrade | E226 full native/JNI/ASan/UBSan/API26 and frontend20 evidence retained; E233-E234 change shared UI/fixtures only, not Android Java/native source | Prior controlled integration retained; final current-device/provider/main-UI qualification is incomplete and automation stays disabled |
+| Bounded Windows performance and repeated lifecycle | E203 historical16-cycle actual main/public C measurement; E234 verifies current functional lifecycles | Earlier bounded measurement retained; no new performance or production leak-absence claim |
 
-E232 does not rerun the full658 native entry point. Its only changed recorded
-input is overlays.json: the previous entries/files remain identical and the two
-new entries target panel-manager.js only. Java/native sources are unchanged.
+E234 does not rerun the full658 native entry point. Its only changed recorded
+input is overlays.json: the previous entries/files remain identical and the20
+new entries target panel-manager.js, application-sdk.js and app.js only.
+Java/native sources are unchanged.
 Frontend20 source/class/library hashes still match E226 and are reused, not a
 fresh run. The rebuilt APK verifies its current signed app/native payload and
 production DEX definitions; this does not qualify an installed physical device.

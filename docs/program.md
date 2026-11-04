@@ -7,6 +7,16 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
+The current E234 preview adds decision-priority workbench presentation: a
+covering native pane yields to the selected conversation's decision and returns
+with the same resources afterwards. New decisions and explicit inspection are
+handled without clearing tab/layout preferences. Actual pre-fix/fixed native
+regressions,551 sequential JS checks,12 packed checks and fresh acceptance16 pass.
+Backend approval tests use a fixed other display conversation; a separate native
+test selects the balanced target and cancels its original request without any
+grant. The matching signed Android archive is rebuilt; no human/device/pixel
+qualification or online publication is inferred.
+
 E231 rebuilds the preview with the shared ended-resource panel recovery UI.
 Exact missing-resource404 replies show an ended-page explanation and a scoped
 close action; transient failures still offer retry. Fresh96 component checks,
@@ -40,8 +50,8 @@ histories retire unsafe prefix-cache keys. The original ledger and PNG bytes
 are retained. Updating only the portable plugin cannot repair an older native
 model serializer.
 
-The current E231 executable is **6,953,047 bytes**, SHA-256
-`34e4a359837018152a8147808d333d4fc8eba1c6920cddb0610efe114c80e0b4`.
+The current E234 executable is **6,953,373 bytes**, SHA-256
+`1b460c1bdaa9bca9229bafc654ec1e14ff37fb9e3969a50905cd640e46b6b773`.
 The following E208/E209 broader results are retained historical evidence.
 Its delivered .text/.rdata sections exactly match the rebuilt GUI host. Fresh
 packed12, Python198/200 (two existing Windows symlink skips), JS526, SDK,

@@ -16985,3 +16985,32 @@ The separate native visibility gate explicitly selects the balanced target,
 retains the original native resources and never grants a permission. These two
 tests cover their distinct stated scopes without claiming human approval.
 The complete sixteen-case run still needs to be retried with these fixed inputs.
+
+### E234 complete current acceptance and deliverables
+
+Retry the entire entry point sequentially with fixed889837a inputs; all sixteen
+cases pass on554 current source inputs/150 applied outputs. This includes the
+new selected-conversation native visibility case, all nine backend decisions/
+237 assertions/ten original terminal pairs,84 static protocol requests/90 tool
+pairs, private capture, renderer/restart recovery and eight remote-bridge cases.
+The initial full failure and its fixture diagnosis remain retained; no assertions
+or original tool identities are removed. The source map remains identical to
+the new before-run snapshot through every case. No source/docs edits occur while
+a test/build is live, and no test result substitutes for a human decision.
+
+Current Windows:6953373B SHA-256
+1b460c1bdaa9bca9229bafc654ec1e14ff37fb9e3969a50905cd640e46b6b773;
+its twelve packed runtime checks pass. Current Android:6612289B SHA-256
+9b6e2b8594be83697a915ccfb4cc30fdf859ffa1a5cc85c06cd4c7d1f7478f82;
+actual assembly verifies signed app/native payloads, private provider and
+production DEX definitions against the same reviewed app archive. No phone
+installation/provider change or official publication occurs.
+
+Full658 JNI is not rerun. Its only changed recorded input remains overlays.json;
+all original entries/files match, and its20 appended entries target only shared
+panel/application JS. Java/native source inputs remain exact. Frontend20 source/
+class/library hashes remain exact reused evidence. Final verification binds the
+current16 receipt,551 JS checks, native red/green regression and both artifacts,
+and restores the exact headless image/config/Home/listener with no active work
+or model overrides. Android admission stays disabled; current physical Android,
+whole-window/human-input and authenticated physical two-device gates stay open.
