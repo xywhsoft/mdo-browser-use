@@ -7,11 +7,14 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current E234 preview adds decision-priority workbench presentation: a
+The current E236 preview adds decision-priority workbench presentation: a
 covering native pane yields to the selected conversation's decision and returns
 with the same resources afterwards. New decisions and explicit inspection are
 handled without clearing tab/layout preferences. Actual pre-fix/fixed native
-regressions,551 sequential JS checks,12 packed checks and fresh acceptance16 pass.
+regressions,553 sequential JS checks,12 packed checks and fresh acceptance16 pass.
+Hidden/disposed panes retain their meaningful native geometry; the actual
+pending controller stays827x710 instead of collapsing to1x1. The acceptance gate
+checks the original positive dimensions as well as native visibility.
 Backend approval tests use a fixed other display conversation; a separate native
 test selects the balanced target and cancels its original request without any
 grant. The matching signed Android archive is rebuilt; no human/device/pixel
@@ -50,8 +53,8 @@ histories retire unsafe prefix-cache keys. The original ledger and PNG bytes
 are retained. Updating only the portable plugin cannot repair an older native
 model serializer.
 
-The current E234 executable is **6,953,373 bytes**, SHA-256
-`1b460c1bdaa9bca9229bafc654ec1e14ff37fb9e3969a50905cd640e46b6b773`.
+The current E236 executable is **6,953,482 bytes**, SHA-256
+`e19136923fcbcc565948cd3329374ffe503c05d23e73b2276e2061f66d257e68`.
 The following E208/E209 broader results are retained historical evidence.
 Its delivered .text/.rdata sections exactly match the rebuilt GUI host. Fresh
 packed12, Python198/200 (two existing Windows symlink skips), JS526, SDK,

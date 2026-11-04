@@ -17044,3 +17044,43 @@ width and height rather than trust a boolean or absence of a layout error.
 The original headless image/config/Home/port is restored; no human grant or
 pixel/provider/device qualification is inferred. Current E234 delivered builds
 and full16 remain historical until rebuilt/retested for this shared UI change.
+
+## E236 — qualify retained viewport presentation and matching builds
+
+Repack the current Windows app archive and run its twelve packed runtime checks;
+all pass in the same Home. Rebuild only the complete Android development APK
+using the same native engine, Java sources and existing toolchain/output. Verify
+signature/alignment, private provider, production DEX definitions and matching
+app/native payloads; no physical device or framework qualification is inferred.
+Windows:6953482B SHA-256
+e19136923fcbcc565948cd3329374ffe503c05d23e73b2276e2061f66d257e68.
+Android:6612289B SHA-256
+50d32f3cd0bd0377166f759c1a415ea3435e0339339717011e7a94981438dd99.
+
+Continue the exact live acceptance session without starting another check or
+editing its inputs. It exits0 with all sixteen cases passing against554 source
+inputs/150 applied outputs. The strengthened selected-decision gate verifies
+positive original/pending native dimensions both827x710, original native
+visibility transitions and unchanged document/counter without any grant or
+replay. All nine backend decisions/237 assertions/ten terminal pairs,84 static
+protocol requests/90 tool pairs, ordinary failure recovery, private capture,
+owned-renderer/restart recovery and remote8/onePOST/131075exact-byte gates pass.
+The source map is identical to its before-run snapshot throughout. E234 full16
+and its artifacts are historical; E235's553 sequential JS run is source-matching.
+
+Final verification binds current packaged panel/browser/application JS to the
+actual runtime archive, both delivered artifact digests, Android app/native
+payloads and the accepted current16 receipt. Full658 is not rerun: its only
+changed recorded input is the reviewed shared-UI manifest delta, with original
+entries/files and actual Java/native inputs unchanged. Browser-view.js is not
+an input to that native report. Frontend20 source/class/library maps remain
+exact reused evidence. No narrow or reused result is presented as new device,
+human, enclosing desktop pixel or provider qualification.
+
+Restore and verify the exact original headless host/config/Home/listener/HTTP200;
+zero active runs, operations, browsers, panels or approvals and no model override
+remain. Human readiness is requested before any new five-minute permission
+prompt; the previous expired request is not replayed. Android current-device/
+main restoration and authenticated physical two-device gates remain open. No
+phone poll, inference, external page, extra environment or publication occurs.
+Goal remains active with its full original scope.
