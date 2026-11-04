@@ -6,6 +6,18 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E247 completes the requested Windows main-window human interaction checklist.
+The user confirms every step: visible local page, takeover, typing Windows E247,
+physical button action, return to Agent, retained page/input/result after hiding
+and showing the workbench, new-tab navigation/switch/close, and maximize/restore.
+The subsequent real Browser Use observation succeeds on the original document
+and reads `Local action verified` at827x710. Record this as human-confirmed
+presentation and physical interaction, not an automated framebuffer capture:
+Computer Use capture timed out twice and pointer injection had no geometry.
+The exact local test resources are cleaned and the same headless runtime is
+restored. Product/artifact bytes are unchanged. Android physical qualification
+is now requested again; the phone is detected, with tests still to be executed.
+
 E245/E246 now qualifies the human browser-open/page-display flow. The distinct
 original request succeeds, creates its browser and retains one exact start/done
 pair without an agent approval action or diagnostic reveal. After stopping
@@ -1012,10 +1024,9 @@ has no answer yet. No such decision is inferred and no permission UI is acted on
 - Qualify account-authenticated two-device routing where required by the shared
   device workflow. Current native bridge tests intentionally keep account and
   physical-device flags false; they do not claim remote desktop pixel transport.
-- Inspect complete normal main-window presentation. E221 verifies current
-  actual-main native-browser PNG delivery and one UIA field setter; whole-window
-  capture and physical pointer/keyboard effects remain unqualified after tool
-  failures. Native viewport pixels do not prove the enclosing app frame.
+- Windows normal main-window presentation and physical interaction are human
+  qualified by E247. Automated whole-window capture remains unavailable and is
+  not a substitute for, or an additional failure of, that completed human gate.
 - Recheck the whole matrix against any subsequent product changes, complete
   remaining implementation/qualification work and deliver matching artifacts
   with accurate limitations. The current development builds are not production

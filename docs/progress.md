@@ -17239,3 +17239,32 @@ Current human evidence is in the private E245 original and E246 scoped receipt.
 Android current-device/main restoration, full Windows presentation/in-page input
 and authenticated physical two-device qualification remain separate open gates;
 the full Browser Use goal is not declared complete.
+
+## E247 — complete Windows human interaction acceptance
+
+The user requests Windows full manual acceptance first, then prioritizes the
+Android device and other remaining checks. Revalidate the exact idle headless
+host/config/Home/listener and reuse the existing full-access presentation QA
+session and local fixture. No model call, new Home or environment is used.
+
+Computer Use captures fail after one fresh-selection retry, and an ordinary
+takeover-button pointer action fails with unavailable coordinate geometry.
+Preserve those exact tool limitations. Ask the user to perform the bounded
+local-only checklist rather than count accessibility existence as interaction.
+The user reports all steps passed: visible page, takeover, Windows E247 text,
+Example action/Local action verified, return control, hidden/shown page state,
+new browser tab/local navigation/switch/close, and maximize/restore layout.
+
+The subsequent actual Browser Use observation succeeds on the original document,
+reads Local action verified and retains827x710 viewport. Only the original plugin
+panel and a suspended descriptor from the manually closed local fixture tab
+remain. Remove those exact owned test resources after checking identities;
+restore the same headless runtime with zero operations/runs/browser/panels.
+The private E247 receipt distinguishes human-confirmed presentation/input from
+unavailable automated framebuffer/pointer evidence. No product or artifact
+change or redundant broad regression is needed.
+
+The user also reconnects the authorized phone; ADB now detects exactly one
+device. Android current-candidate installation/component/main/lifecycle gates
+are next. Do not carry the old user-deferred phone status forward as a current
+instruction, enable unqualified automation, or declare the full goal complete.

@@ -22,6 +22,13 @@ acceptance as passed, without inferring zero extra window/tab clicks or complete
 desktop-framebuffer/physical-input qualification. Delivered artifact bytes are
 unchanged by this evidence update.
 
+E247 subsequently passes the complete requested Windows human checklist:
+in-page typing/button action, takeover/return, hide/show with state retention,
+new-tab navigation/switch/close, and maximize/restore layout. A real observation
+then reads the action result from the unchanged original native document. The
+human main-window/input gate is passed; automated whole-window capture remains
+unavailable. This evidence-only update does not change development artifacts.
+
 The inherited E236 decision-priority workbench presentation ensures a
 covering native pane yields to the selected conversation's decision and returns
 with the same resources afterwards. New decisions and explicit inspection are
