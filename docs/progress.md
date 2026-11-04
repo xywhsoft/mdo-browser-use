@@ -16905,3 +16905,57 @@ phone poll/install, real inference, external page or publication. The original
 human approval expired without a decision and does not pass human qualification.
 Whole-window pixels/physical input, current Android device/main restoration and
 authenticated physical two-device gates remain open; original goal stays active.
+
+## E233 — give decisions priority over a covering workbench
+
+Continue the user's missing-prompt report. The default development window is
+1100px wide; the workbench's existing <=1100px rule positions it over the
+conversation at z-index20. A maximized workbench hides the conversation on wide
+screens as well. Decision arrival previously adjusted only mobile sidebar/focus,
+leaving the covering workbench visible. This explains how a selected approval
+could exist in accessibility without being visible over the tool area. It
+establishes this failure path, not every detail of the earlier human's timing.
+
+Keep the saved layout and native/task resources; derive effective presentation
+from the selected conversation's pending-decision attribute. A covering
+workbench yields to that decision. This shared predicate drives dock visibility,
+panel reports, mount visibility, native-child synchronization and the opener's
+state. Pending-state observation restores the original presentation afterwards.
+Automatic panel activation cannot cover another waiting decision. The user may
+explicitly inspect the tools while deciding, and a new decision yields again.
+Explicitly closing during inspection stays closed. No tab/order/resource/run or
+maximization preference is cleared, and no URL/input/action is replayed. An early
+decision before application UI initialization is safe; normal wide split views
+do not steal desktop typing focus. Permission admission, TTL and decisions stay
+unchanged; no security UI button is automated or granted through an API.
+
+Retain the failing regression against the original app callback; fresh17 unit
+cases verify width boundaries, maximum/normal views, initialization, inspection,
+cancel/drain and multiple waiting decisions. Update two existing mount fixtures
+to provide the new visibility dependency. An initial all-JS invocation omitted
+file-level single concurrency while the service was stopped; retain its failed
+log and connection-refused errors. The corrected --test-concurrency=1 run against
+the live headless service passes all551 cases. This setup error is not a product
+fault. No source edits occur while either check is live.
+
+Add tools/decision_visibility_probe.py using the same existing balanced QA
+conversation/Home and actual native local fixture. It observes the original
+native page visible, starts one exact scoped unapproved click, verifies its
+native child hidden while approval waits and its original resources retained,
+then cancels it. The same document and visible native child return with the
+Applied0 counter unchanged and one original failed start/done pair. No human
+grant, physical input, whole-window pixel or model qualification is inferred.
+
+Run that exact native regression against the pre-fix UI in the same deployment:
+it fails 'Covered workbench did not yield for the decision'. Cleanup cancels the
+owned request and restores headless. Guard the temporary reviewed manifest by
+exact hashes, restore the fixed manifest and applied sources, then run the
+regression again; all three native cases pass. Only the original deployment is
+used; no app/Home/native copy. Preserve the old failure, both successful native
+results and the manifest restoration journal. Current native host image/config/
+Home/port are restored and no pending approval or operation remains.
+
+This phase changes shared UI sources only. Existing E232 artifacts/full15 are
+historical until rebuilt/retested; no Java/native engine change or phone poll.
+Human permission/pixels, current Android candidate/device/main restoration and
+authenticated physical two-device gates remain open. Goal remains active.

@@ -6,6 +6,18 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E233 reproduces an additional visibility defect at the default1100px test
+window: the workbench overlays the conversation at widths up to1100px; a
+maximized workbench also hides it on wide screens. A selected approval can
+therefore exist in accessibility while its conversation is covered. Decisions
+now temporarily yield the covering workbench without changing saved tab order,
+resource identity or maximization preference. Explicit inspection remains
+available; new decisions take priority again. The same native document returns
+after cancellation, without input or navigation replay. Fresh551 sequential JS
+checks and the actual native before/after regression pass. E232 full15 and its
+deliverables are historical until rebuilt/retested for this new UI change.
+This does not qualify an actual human approval or enclosing desktop pixels.
+
 E231 updates the shared panel error UI after the human reports every visible
 old tab as unavailable. An exact `resource_missing`/`browser_missing`404 now
 explains that the page ended and offers a scoped close, without automatically

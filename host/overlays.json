@@ -1665,6 +1665,97 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "if (!abort.signal.aborted) fail(root, error, () => remount(row.id));",
       "after": "if (!abort.signal.aborted) fail(root, error, () => remount(row.id), () => close(row.id, () => !abort.signal.aborted && mounts.get(row.id) === value && entries.get(row.id) === row));"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  const reveal = id => {",
+      "after_file": "host/workbench-decision.inc.js",
+      "suffix": "  const reveal = id => {"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "return Object.freeze({ ensure, open:",
+      "after": "return Object.freeze({ ensure, revealConversation, open:"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "    await ensure();\n    if (!layout.open && !layout.order.length) return newTab();",
+      "after": "    await ensure();\n    if (layout.open && !workbenchVisible()) { decisionInspection = true; render(); return; }\n    decisionInspection = false;\n    if (!layout.open && !layout.order.length) return newTab();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "    if (stopped) return;\n    shell.dataset.workbench = layout.open ?",
+      "after": "    if (stopped) return;\n    if (!decisionPending()) decisionInspection = false;\n    const open = workbenchVisible();\n    shell.dataset.workbench = open ?"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "layout.maximized && layout.open);",
+      "after": "layout.maximized && open);"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "dock.hidden = !layout.open;",
+      "after": "dock.hidden = !open;"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "opener.title = layout.open ?",
+      "after": "opener.title = open ?"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "String(layout.open));",
+      "after": "String(open));"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "const visible = layout.open && !document.hidden",
+      "after": "const visible = open && !document.hidden"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "root.hidden = !layout.open ||",
+      "after": "root.hidden = !workbenchVisible() ||"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "!root.hidden && layout.open && !document.hidden",
+      "after": "!root.hidden && workbenchVisible() && !document.hidden"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "  const overlays = new MutationObserver(() => {",
+      "after": "  const overlays = new MutationObserver(records => {\n    if (records.some(record => record.attributeName === \"data-decision-pending\")) render();"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "mounted.visible?.(layout.open && !document.hidden",
+      "after": "mounted.visible?.(workbenchVisible() && !document.hidden"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "\"data-settings-open\"] });",
+      "after": "\"data-settings-open\",\"data-decision-pending\"] });"
+    },
+    {
+      "path": "app/web/js/features/shell/application-sdk.js",
+      "before": "return Object.freeze({ sdk, canLeave:",
+      "after": "return Object.freeze({ sdk, revealConversation: () => workbench?.revealConversation() ?? false, canLeave:"
+    },
+    {
+      "path": "app/web/js/app.js",
+      "before": "  const conversationDocks = createConversationDocks({",
+      "after": "  let applicationUi;\n  const conversationDocks = createConversationDocks({"
+    },
+    {
+      "path": "app/web/js/app.js",
+      "before": "  const applicationUi = createApplicationUi({",
+      "after": "  applicationUi = createApplicationUi({"
+    },
+    {
+      "path": "app/web/js/app.js",
+      "before": "    onDecisionArrived: (card) => {\n      if (!mobileLayout.matches) return;",
+      "after": "    onDecisionArrived: (card) => {\n      const revealed = applicationUi?.revealConversation();\n      if (!mobileLayout.matches) {\n        if (revealed) {\n          const heading = card.querySelector(\"h3\") ?? card;\n          heading.tabIndex = -1; heading.focus({ preventScroll: true });\n        }\n        return;\n      }"
     }
   ],
   "files": [

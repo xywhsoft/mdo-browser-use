@@ -13,9 +13,9 @@ function fixture(error) {
   const button=(label,run)=>Object.assign(node('button','',label),{click:run});
   const row={id:'panel',type:'mdo.browser',owner:'extension',client:'display',resource:{id:'original'},context:{session:'task'}};
   const entries=new Map([[row.id,row]]),mounts=new Map(),content=node('main'),reports=[],closed=[],retried=[];
-  const build=new Function('make','button','mounts','layout','content','definitions','bound','displayTarget','browserView',
+  const build=new Function('make','button','mounts','layout','workbenchVisible','content','definitions','bound','displayTarget','browserView',
     'clientId','remount','close','entries','ResizeObserver',failure+mounting+';return mount;');
-  const mount=build(node,button,mounts,{open:true,active:row.id},content,new Map([[row.type,{renderer:'browser'}]]),
+  const mount=build(node,button,mounts,{open:true,active:row.id},()=>true,content,new Map([[row.type,{renderer:'browser'}]]),
     ()=>({call:async(method,params)=>{reports.push({method,params});}}),'local',async()=>{throw error;},'display',id=>retried.push(id),
     async(id,current)=>{if(current())closed.push(id);},entries,class{observe(){}});
   return{row,entries,mounts,reports,closed,retried,start:()=>mount(row),root:()=>content.children[0]};

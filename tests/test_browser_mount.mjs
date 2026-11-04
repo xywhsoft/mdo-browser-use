@@ -11,10 +11,10 @@ function fixture({preview=false}={}) {
   const nativeRow=preview?{...row,resource:{id:'browser'}}:row;
   const controller=new AbortController(),mount={abort:controller,browserId:'browser'},mounts=new Map([['panel',mount]]),entries=new Map([['panel',row]]),views=new Map(),closed=[],reconciled=[],titles=[],remounted=[];
   let resolve,options,currentTarget='local';
-  const factory=new Function('mountBrowserView','bound','bridge','clientId','layout','navigation','update','layoutApi','addContext','browserViews','close','popupManager','isRemoteTarget','targetState','createBrowserViewLifetime','entries','mounts','remount',
+  const factory=new Function('mountBrowserView','bound','bridge','clientId','layout','workbenchVisible','navigation','update','layoutApi','addContext','browserViews','close','popupManager','isRemoteTarget','targetState','createBrowserViewLifetime','entries','mounts','remount',
     `let stopped=false;const displayTarget='local';${body};return {browserView,stop(){stopped=true;}};`);
   const layout={open:true,active:'panel'};
-  const host=factory(async(root,value)=>{options=value;return new Promise(done=>{resolve=done;});},value=>({context:value.context}),{},'display',layout,{get:()=>({view:'chat'})},
+  const host=factory(async(root,value)=>{options=value;return new Promise(done=>{resolve=done;});},value=>({context:value.context}),{},'display',layout,()=>layout.open,{get:()=>({view:'chat'})},
     async(id,patch,current=()=>true)=>{if(current())titles.push({id,patch});},{call(){throw Error('No external navigation');}},()=>{},views,
     async(id,current=()=>true)=>{if(current())closed.push(id);},{reconcile:id=>reconciled.push(id)},()=>currentTarget!=='local',()=>({selected:{id:currentTarget}}),createBrowserViewLifetime,entries,mounts,id=>remounted.push(id));
   const execute=async()=>({state:'original'}),view={id:'browser',execute};
