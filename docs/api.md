@@ -584,7 +584,9 @@ fails after the browser record was created, the error retains that identity in
 its message and `may_have_completed:true`; inspect it instead of blindly opening
 another browser. Automatically mounted Browser Use records retain their required
 automation preflight, including Android's disabled-adapter/provider refusal before
-native creation or URL delivery. Ordinary manual browsing is unchanged.
+native creation or URL delivery. Reusing an older keyed browser also retains
+this required policy in its owned display panel, preserving the existing panel
+identity and other parameters. Ordinary manual browsing is unchanged.
 
 The managed `tool.call` boundary preserves cancellation as `sdk_cancelled`
 (499) and deadline expiry as `sdk_deadline_expired` (504), rather than a generic

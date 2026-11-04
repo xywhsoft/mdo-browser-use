@@ -92,6 +92,23 @@ class PluginTests(unittest.TestCase):
         finally:
             self.invoke({"action": "close", "browser": browser["id"]})
 
+    def test_keyed_older_browser_and_panel_keep_required_automation_on_reuse(self):
+        browser = dev.call("browser.create", {"client": self.client, "key": "older-create-policy",
+                           "download_policy": "intercept"}, self.scope)
+        try:
+            original = dev.call("panel.open", {"client": self.client, "type": "mdo.browser",
+                                "key": browser["id"], "resource": {"id": browser["id"]},
+                                "params": {"retained": "original"}}, self.scope)
+            reused = self.invoke({"action": "create", "client": self.client, "key": "older-create-policy"})
+            self.assertEqual(reused["id"], browser["id"])
+            panels = [row for row in dev.call("panel.list", {}, self.scope)
+                      if row.get("resource", {}).get("id") == browser["id"]]
+            self.assertEqual([row["id"] for row in panels], [original["id"]])
+            self.assertIs(panels[0]["params"].get("automation_required"), True)
+            self.assertEqual(panels[0]["params"]["retained"], "original")
+        finally:
+            self.invoke({"action": "close", "browser": browser["id"]})
+
     def test_context_cannot_be_bypassed_by_an_explicit_client(self):
         created = self.invoke({"action": "create", "client": self.client, "key": "scoped-tab"})
         try:

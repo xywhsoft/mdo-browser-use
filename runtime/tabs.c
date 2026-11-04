@@ -21,15 +21,31 @@ static bool BuUrl(const char* Url) {
 static mdo_result BuTabPanel(const mdo_sdk_context_v1* C,const xvalue* Browser,
                             xvalue** Result,mdo_error_v1* E) {
     const mdo_values_v1* V=C->Api->Values;
-    xvalue* Args=V->Object(),*Resource=V->Object();
-    bool Ok=Args&&Resource&&BuPut(C,Args,"type","mdo.browser")&&
+    xvalue* Args=V->Object(),*Resource=V->Object(),*Settings=V->Object(),*Required=V->Bool(true);
+    bool Ok=Args&&Resource&&Settings&&Required&&BuPut(C,Args,"type","mdo.browser")&&
         BuPut(C,Args,"client",BuText(C,Browser,"client"))&&
         BuPut(C,Args,"key",BuText(C,Browser,"id"))&&
         BuPut(C,Resource,"id",BuText(C,Browser,"id"))&&
-        V->Set(Args,"resource",Resource)&&BuPut(C,Args,"reveal","activate");
-    V->Release(Resource);
+        V->Set(Args,"resource",Resource)&&BuPut(C,Args,"reveal","activate")&&
+        V->Set(Settings,"automation_required",Required)&&V->Set(Args,"params",Settings);
+    V->Release(Resource);V->Release(Settings);V->Release(Required);
     if(!Ok){V->Release(Args);return BuFail(E,"allocation_failed","Cannot prepare the browser display panel",500);}
-    mdo_result Code=mdoCall(C,"panel.open",Args,Result,E);V->Release(Args);return Code;
+    mdo_result Code=mdoCall(C,"panel.open",Args,Result,E);V->Release(Args);
+    if(Code!=MDO_RESULT_OK)return Code;
+    bool Guarded=false;const xvalue* Old=V->Get(*Result,"params");
+    V->Boolean(V->Get(Old,"automation_required"),&Guarded);
+    if(Guarded)return Code;
+    // A keyed record from an earlier plugin may lack the creation policy.
+    // Upgrade its existing panel in place; preserve other view parameters.
+    Args=V->Object();Settings=Old&&V->Kind(Old)==MDO_VALUE_OBJECT?V->Clone(Old):V->Object();Required=V->Bool(true);
+    const xvalue* Revision=V->Get(*Result,"revision");
+    Ok=Args&&Settings&&Required&&Revision&&BuPut(C,Args,"id",BuText(C,*Result,"id"))&&
+        V->Set(Args,"revision",Revision)&&V->Set(Settings,"automation_required",Required)&&V->Set(Args,"params",Settings);
+    V->Release(Settings);V->Release(Required);xvalue* Updated=NULL;
+    Code=Ok?mdoCall(C,"panel.update",Args,&Updated,E):BuFail(E,"allocation_failed","Cannot retain the existing browser display policy",500);
+    V->Release(Args);V->Release(*Result);*Result=Updated;
+    if(Code!=MDO_RESULT_OK&&E)E->MayHaveCompleted=true;
+    return Code;
 }
 static mdo_result BuTabs(void* U,const mdo_sdk_context_v1* C,const xvalue* P,
                          xvalue** Result,mdo_error_v1* E) {

@@ -16823,42 +16823,6 @@ Phone reconnection is user-deferred. The pending Windows availability question
 has no answer; no permission UI is acted on and no user decision is inferred.
 Goal remains active with its full original scope.
 
-## E240 — fix browser creation that never displayed its page
-
-The user is ready for a fresh human permission request. Preserve the expired
-E230 identity and use a new owned E240 operation in the same balanced QA session.
-The actual user clicks allow once; its original managed operation succeeds with
-one start/done pair and creates a suspended browser, but the user reports no page.
-The authoritative panel inventory is empty. Explicit reveal of that same browser
-creates its pane and the user confirms the fixture is visible. Record these
-separate observations: human approval is verified, automatic display failed.
-Restore the exact same headless runtime and retain the original evidence.
-
-The C tabs(create) path called only browser.create and never published a display
-panel. Add a checked shared panel-publication helper and call it from create as
-well as explicit reveal, preserving the original browser result and idempotent
-browser/panel keys. If publication fails after creation, retain the browser for
-inspection and mark the error's possible effect rather than report no effect.
-Retain a non-caller-overridable automation-required creation policy, honored by
-the shared native initializer before sending any URL; auto-display cannot bypass
-the Android provider/adapter downgrade. Manual browsing is unchanged.
-
-A real installed-plugin regression first fails with zero panels after successful
-creation. After installation/restart all13 C plugin checks pass, including owned
-active-panel publication and same-key reuse. All60 browser-component checks pass,
-including both Android admission refusals before native create and the initial
-automation flag. The first two new component checks expected an error status
-instead of the component's actual rejection contract; retain that fixture failure
-and correct the assertions, without changing production refusal. Preserve an
-initial unittest import-path failure separately from the genuine product red.
-
-The actual managed/native workflow passes with a new pre-observe gate: create
-alone must produce one ready visible positive-sized pane before any observe,
-input or capture can repair missing presentation. All existing tool/permission/
-popup/native-input/drag/capture/recovery checks remain. Whole16 acceptance and
-matching artifacts still require refresh; E236 builds are historical for these
-changed inputs. No model, phone/provider, second Home or publication action.
-
 ## E231 — explain ended workbench resources without replaying requests
 
 The human reports no visible approval and every old workbench tab showing
@@ -17120,3 +17084,69 @@ prompt; the previous expired request is not replayed. Android current-device/
 main restoration and authenticated physical two-device gates remain open. No
 phone poll, inference, external page, extra environment or publication occurs.
 Goal remains active with its full original scope.
+
+## E240 — fix browser creation that never displayed its page
+
+The user is ready for a fresh human permission request. Preserve the expired
+E230 identity and use a new owned E240 operation in the same balanced QA session.
+The actual user clicks allow once; its original managed operation succeeds with
+one start/done pair and creates a suspended browser, but the user reports no page.
+The authoritative panel inventory is empty. Explicit reveal of that same browser
+creates its pane and the user confirms the fixture is visible. Record these
+separate observations: human approval is verified, automatic display failed.
+Restore the exact same headless runtime and retain the original evidence.
+
+The C tabs(create) path called only browser.create and never published a display
+panel. Add a checked shared panel-publication helper and call it from create as
+well as explicit reveal, preserving the original browser result and idempotent
+browser/panel keys. If publication fails after creation, retain the browser for
+inspection and mark the error's possible effect rather than report no effect.
+Retain a non-caller-overridable automation-required creation policy, honored by
+the shared native initializer before sending any URL; auto-display cannot bypass
+the Android provider/adapter downgrade. Manual browsing is unchanged.
+
+A real installed-plugin regression first fails with zero panels after successful
+creation. After installation/restart all13 C plugin checks pass, including owned
+active-panel publication and same-key reuse. All60 browser-component checks pass,
+including both Android admission refusals before native create and the initial
+automation flag. The first two new component checks expected an error status
+instead of the component's actual rejection contract; retain that fixture failure
+and correct the assertions, without changing production refusal. Preserve an
+initial unittest import-path failure separately from the genuine product red.
+
+The actual managed/native workflow passes with a new pre-observe gate: create
+alone must produce one ready visible positive-sized pane before any observe,
+input or capture can repair missing presentation. All existing tool/permission/
+popup/native-input/drag/capture/recovery checks remain. Whole16 acceptance and
+matching artifacts still require refresh; E236 builds are historical for these
+changed inputs. No model, phone/provider, second Home or publication action.
+
+## E241 — retain the distinct expired automatic-display retest
+
+Prepare a new E241 operation only after the focused repair passes; never replay
+E230 or E240. Read-only main-window accessibility confirms its selected balanced
+conversation, heading and allow/deny buttons. The user provides no new response
+before the original300-second budget expires. The original tool result is
+success:false/effect:false with one exact start/done pair, no browser and no
+remaining approval. This does not qualify human automatic display. Restore the
+same headless host/config/Home and retain the failed original request. Do not
+silently renew its deadline or issue another prompt. E240's real human approval
+and later explicit-reveal observation remain separate evidence.
+
+## E242 — retain automation policy when an older keyed tab is reused
+
+An existing browser/panel from before the auto-display repair lacks the new
+record flag. Actual keyed reuse and a component admission test both fail:
+the old panel has no required policy and its mount could send a native create
+before Android's adapter refusal. Preserve these red results. Attach required
+automation to the owned panel as well as new browser records; upgrade only the
+same existing panel with its expected revision, retaining its other parameters
+and browser identity. The shared UI initializer honors that panel policy before
+native create/navigation. It is not a capability override or a native adapter
+enablement. Global Android admission remains disabled.
+
+Fresh14 installed C plugin tests and the complete557-case sequential JS run
+pass, including actual older-key reuse and the component's pre-create refusal.
+No author edits occur during live tests. Complete current acceptance/build
+refresh remains pending. E240/E241 human evidence is retained without treating
+the expired retest as a successful user decision.

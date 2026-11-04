@@ -82,6 +82,13 @@ test('the retained Browser Use creation policy requests native automation on its
   assert.equal(f.trace.find(row=>row.method==='create').params.automation,true);
 });
 
+test('an older browser record still honors its Browser Use panel automation policy before native creation',async()=>{
+  const f=fixture();f.row.params={automation_required:true};
+  f.response('capabilities',{initial_download_interception:true,browser_use:{available:false,reason:'android_adapter_incomplete'}});
+  await assert.rejects(f.start(),{code:'unsupported_capability',capability_reason:'android_adapter_incomplete'});
+  assert(!f.trace.some(row=>['create','navigate'].includes(row.method)));
+});
+
 test('initial broker result cannot initialize a retired browser mount',async()=>{
   const f=fixture();f.hook(method=>{if(method==='browser.get')f.retire();});await f.start();await f.flush();
   assert(!f.trace.some(x=>['browser.attach','create','bounds','state','browser.report'].includes(x.method)));

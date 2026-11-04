@@ -19,6 +19,13 @@ pass; the latter now checks displayed/ready positive geometry before any observe
 or followup browser command. Current full16 and matching rebuilt deliverables
 remain pending for these changed sources; E236 evidence/builds are historical.
 
+E242 additionally repairs older keyed browser/panel reuse: retain required
+automation in the same owned panel and honor it before native create. Both the
+actual SDK reuse and component admission regressions first fail, then pass with
+all14 C plugin tests and557 sequential JS checks. The distinct E241 human retest
+expires without a response and with success:false/effect:false; it does not
+qualify automatic display. E240's actual human approval remains verified.
+
 E235 additionally fixes native viewport collapse while a browser pane is hidden:
 actual controller bounds changed827x710 ->1x1 ->827x710 during a decision. Retain
 the original meaningful bounds for hide/disposal and accept a new visible size

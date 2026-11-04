@@ -192,6 +192,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   const initialize = async (refresh = false) => {
     if (refresh) browser = owned(await call("browser.get", { id }));
     await ensureNativeBrowser({bridge,sdk,browser,clientId,bounds:rect(surface),alive:current,cancelOnDetach:false,
+      requireAutomation:row.params?.automation_required===true,
       beforeCreate:()=>{check();if(!onBind(view)){retired=true;check();}}});
     check(); initialized = true; lastBounds = ""; await syncVisible(shown()); check();
   };
