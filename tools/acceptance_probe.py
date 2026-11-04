@@ -29,6 +29,7 @@ CASES = (
     ("capture-privacy", "tools/capture_privacy_public_probe.py", ("--capture-evidence",), "capture-privacy-public-result.json"),
     ("renderer-recovery", "tools/renderer_recovery_probe.py", (), "renderer-recovery-result.json"),
     ("permission-decisions", "tools/ask_permission_probe.py", (), "ask-permission-result.json"),
+    ("decision-visibility", "tools/decision_visibility_probe.py", (), "decision-visibility-result.json"),
     ("managed-restart", "tools/sdk_tool_restart_probe.py", (), "sdk-tool-restart-result.json"),
     ("remote-bridge-build", "tools/build_remote_bridge_probe.py", (), "qa/remote-bridge/build.json"),
     ("remote-browser", "tools/remote_browser_probe.py", (), "remote-browser-result.json"),
@@ -185,6 +186,17 @@ def validate(name, receipt):
                  "run_scoped_grant_does_not_leak_to_next_native_drive",
                  "approval_preserves_original_document_and_failure_is_recoverable"} <= set(receipt["cases"]),
                 "Permission cancellation/scope/recovery evidence is incomplete")
+    elif name == "decision-visibility":
+        require(receipt.get("scope") == "actual-main-native-decision-visibility" and
+                receipt.get("headless_restored") is True and receipt.get("model_calls") == 0 and
+                receipt.get("permission_grants") == 0 and receipt.get("pending_native_visible") is False,
+                "Actual unapproved decision visibility/cleanup evidence is incomplete")
+        require(receipt.get("human_permission_qualified") is False and receipt.get("desktop_pixels_qualified") is False,
+                "Native visibility checks cannot qualify human decisions or desktop pixels")
+        require(receipt.get("cases") == ["original_native_browser_visible",
+                "pending_decision_hides_native_child_preserves_original_resources",
+                "cancel_restores_same_native_document_without_input_or_navigation_replay"],
+                "The original native document/resource/cancellation workflow was not verified")
     elif name == "managed-restart":
         require(receipt["headless_restored"] and receipt["same_home"] and receipt["model_calls"]==receipt["native_effects"]==0,
                 "SDK restart did not preserve the original environment/effect boundary")

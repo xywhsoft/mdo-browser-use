@@ -16959,3 +16959,29 @@ This phase changes shared UI sources only. Existing E232 artifacts/full15 are
 historical until rebuilt/retested; no Java/native engine change or phone poll.
 Human permission/pixels, current Android candidate/device/main restoration and
 authenticated physical two-device gates remain open. Goal remains active.
+
+## E234 — make backend approval display deterministic
+
+Repack the current decision-priority UI and verify twelve Windows packed checks;
+build the matching signed Android app archive. No native engine/Java change or
+device qualification is implied. Add the actual native decision-visibility gate
+to the regular acceptance entry point, with explicit rejection of reports that
+claim human/pixel qualification or omit the original document/resource workflow.
+
+The first sixteen-case attempt stops in the existing approval probe's stale-
+document phase: its deliberate navigation while an approval is held requires a
+visible viewport, but the prior selected conversation is showing that approval
+and the covering workbench correctly yields. Preserve the first acceptance
+receipt, original204-check/eight-terminal failure and exact viewport diagnostic.
+This backend decision test previously inherited window selection from history;
+it explicitly did not qualify the rendered prompt.
+
+Give that backend fixture an explicit, fixed other QA display conversation.
+Keep its original balanced tool target/scope, arguments, managed permission
+executor and every deny/cancel/replay/run-grant/stale-document/native-effect/
+terminal assertion. Verify the existing display profile rather than overwrite
+it. All nine original cases now pass237 assertions and ten exact terminal pairs.
+The separate native visibility gate explicitly selects the balanced target,
+retains the original native resources and never grants a permission. These two
+tests cover their distinct stated scopes without claiming human approval.
+The complete sixteen-case run still needs to be retried with these fixed inputs.

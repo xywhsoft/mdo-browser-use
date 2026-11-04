@@ -13,7 +13,7 @@ import time
 import uuid
 
 import dev
-from managed_probe import read_operation_result,tool,value
+from managed_probe import FULL,read_operation_result,tool,value
 
 SESSION=hashlib.sha256(b'mdo-browser-use/ask-permission-qa/v1').hexdigest()[:32]
 SCOPE={'extension':'browser-use-managed-qa','project':'default','session':SESSION}
@@ -160,8 +160,17 @@ class Probe:
         created=dev.call('session.create',{'body':{'project_id':'default','client_session_id':SESSION,
                          'title':'Browser Use ask-permission QA','permission_profile':'balanced','workspace_root':str(dev.ROOT)}},SCOPE)
         self.check(created['data']['permission_profile']=='balanced','Persistent QA permission changed; refusing to overwrite it')
+        # These are explicit backend decision tests, including navigation while
+        # an approval is held. Select a fixed other QA conversation so a prior
+        # run's selected task cannot change the viewport under this fixture.
+        # The separate decision_visibility_probe selects SESSION and verifies
+        # its actual native hiding/restoration without granting anything.
+        display=dev.call('session.create',{'body':{'project_id':'default','client_session_id':FULL,
+                         'title':'Browser Use managed QA','permission_profile':'full-access','workspace_root':str(dev.ROOT)}},SCOPE)
+        self.check(display['data']['permission_profile']=='full-access','Persistent display QA permission changed; refusing to overwrite it')
+        self.report['display_session']=FULL
         (dev.SOURCE/'app/web/__browser_use_ask__.html').write_bytes((dev.ROOT/'tests/fixtures/ask-permission.html').read_bytes())
-        self.took_deployment=True;dev.stop();dev.start(window=True)
+        self.took_deployment=True;dev.stop();dev.start(window=True,page='/#/projects/default/sessions/'+FULL)
         end=time.monotonic()+30;clients=[]
         while time.monotonic()<end:
             clients=dev.call('ui.clients')
