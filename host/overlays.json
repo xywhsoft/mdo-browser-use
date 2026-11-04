@@ -1756,6 +1756,31 @@
       "path": "app/web/js/app.js",
       "before": "    onDecisionArrived: (card) => {\n      if (!mobileLayout.matches) return;",
       "after": "    onDecisionArrived: (card) => {\n      const revealed = applicationUi?.revealConversation();\n      if (!mobileLayout.matches) {\n        if (revealed) {\n          const heading = card.querySelector(\"h3\") ?? card;\n          heading.tabIndex = -1; heading.focus({ preventScroll: true });\n        }\n        return;\n      }"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "#include \"browser_use_workspace.inc.c\"",
+      "after": "#include \"browser_use_workspace.inc.c\"\n#include \"browser_use_panel_activation.inc.c\""
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "        if(V){*R=xrtValueClone(V);Ok=true;goto done;}\n        if(xrtValueCount(A)>=64)",
+      "after": "        if(V){\n            if(Browser||!WbEqual(SdkField(P,\"reveal\"),\"activate\")){*R=xrtValueClone(V);Ok=true;goto done;}\n            if(!WbRequestPanelActivation(V,E))goto done;\n            *R=xrtValueClone(V);\n        }else{\n        if(xrtValueCount(A)>=64)"
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "        xrtValueArrayAppendNew(WbArray(Next,Kind),V);*R=xrtValueClone(V);\n    }else if(!strcmp(Method,\"panel.layout.get\")",
+      "after": "        if(!Browser&&WbEqual(SdkField(P,\"reveal\"),\"activate\")&&!SdkPutUInt(V,\"reveal_revision\",1)){xrtValueRelease(V);WbFail(E,\"allocation_failed\",\"Cannot retain initial panel activation\",500);goto done;}\n        xrtValueArrayAppendNew(WbArray(Next,Kind),V);*R=xrtValueClone(V);\n        }\n    }else if(!strcmp(Method,\"panel.layout.get\")"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "import { createBrowserPopups } from \"./popup-manager.js\";",
+      "after": "import { createBrowserPopups } from \"./popup-manager.js\";\nimport { panelActivationRequested } from \"./panel-activation.js\";"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "        if (!previous && row.reveal === \"activate\") { layout.active = row.id; layout.open = true; }",
+      "after": "        if (panelActivationRequested(row, previous)) { layout.active = row.id; layout.open = true; }"
     }
   ],
   "files": [
@@ -2210,6 +2235,14 @@
     {
       "source": "host/chat-tool-media.inc.c",
       "target": "tools/native/browser-use-chat-tool-media.inc.c"
+    },
+    {
+      "source": "host/panel-activation.inc.c",
+      "target": "app/src/application/browser_use_panel_activation.inc.c"
+    },
+    {
+      "source": "host/panel-activation.js",
+      "target": "app/web/js/features/workbench/panel-activation.js"
     }
   ]
 }

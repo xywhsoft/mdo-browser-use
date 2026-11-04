@@ -22,6 +22,7 @@ CASES = (
     ("portable-install", "tools/package_probe.py", (), "package-install-result.json"),
     ("package-recovery", "tools/package_lifecycle_probe.py", (), "package-lifecycle-result.json"),
     ("managed-tools", "tools/managed_probe.py", (), "managed-tools-result.json"),
+    ("tab-activation", "tools/tab_activation_probe.py", (), "tab-activation-result.json"),
     ("agent-protocol", "tools/agent_protocol_probe.py", (), "agent-protocol-result.json"),
     ("agent-parallel-protocol", "tools/agent_protocol_probe.py", ("--parallel",), "agent-parallel-protocol-result.json"),
     ("managed-visual", "tools/visual_probe.py", ("--managed-only",), "managed-visual-result.json"),
@@ -120,6 +121,13 @@ def validate(name, receipt):
                     "managed_popup_ownership", "native_screenshot_image", "exact_selection_and_discovery",
                     "readonly_select_denied", "native_drag"):
             require(receipt.get(key) is True, "Missing managed evidence: " + key)
+    elif name == "tab-activation":
+        require(receipt.get("cases") == ["reveal-original-mounted-page",
+                "keyed-create-activates-original-page", "background-reuse-and-reports-preserve-selection"] and
+                receipt.get("original_document_retained") is True and
+                receipt.get("original_panel_revision_retained") is True and
+                receipt.get("headless_restored") is True and receipt.get("real_model_calls") == 0,
+                "Existing tab activation lacks original-instance/document/selection evidence")
     elif name in ("agent-protocol", "agent-parallel-protocol"):
         parallel = name == "agent-parallel-protocol"
         if parallel:

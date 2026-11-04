@@ -17309,3 +17309,31 @@ only the QA package. Retain the installed current full host/data. No product or
 artifact bytes, provider, model or publication change occurs. Windows E247 human
 acceptance remains passed. Full guarded Android host/provider/lifecycle and
 authenticated physical two-device acceptance remain incomplete.
+
+## E250 — preserve keyed activation without replacing the native document
+
+Other acceptance reproduces a distinct local defect: with two actually mounted
+native pages, browseruse.tabs(reveal) returns the original first panel but leaves
+it hidden behind the second. The tracked real-window regression also fails on
+the original implementation. Preserve both red receipts and restored runtimes.
+The backend deduplicates panel.open by key without publishing a change; frontend
+synchronization activates only newly discovered panels. No activation request
+reaches an already known tab.
+
+Retain a monotonic one-shot reveal_revision for explicit keyed activation and
+publish it through the existing workbench change path. Keep the panel content
+revision, browser identity, task ownership and native document unchanged. The
+display client consumes only a newer safe-integer request; ordinary reports,
+content updates, duplicate/older snapshots and background opens do not steal
+selection. Invalid/exhausted retained counters fail before publishing changes.
+No UI receipt is silently abandoned and no navigation/input is replayed.
+
+The actual native regression now passes all three cases: reveal an existing
+mounted tab, keyed create of the same tab, and background/report selection
+retention. Original documents and content revisions remain intact. All15
+installed C plugin checks and562 sequential JS checks pass. The same headless
+runtime is restored; no model or external page is used. Add this regression as
+the seventeenth acceptance case. Complete fresh acceptance and matching program
+packaging are the next stage; earlier artifacts/results remain historical after
+this product-source change. Android Java/native sources are unchanged, but this
+shared UI change is not represented as new physical Android qualification.

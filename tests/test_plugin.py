@@ -109,6 +109,23 @@ class PluginTests(unittest.TestCase):
         finally:
             self.invoke({"action": "close", "browser": browser["id"]})
 
+    def test_keyed_activation_does_not_invalidate_panel_content(self):
+        browser = self.invoke({"action": "create", "client": self.client,
+                               "url": "http://127.0.0.1/", "key": "activation-revision"})
+        try:
+            panel = next(row for row in dev.call("panel.list", {}, self.scope)
+                         if row.get("resource", {}).get("id") == browser["id"])
+            revealed = self.invoke({"action": "reveal", "browser": browser["id"]})
+            self.assertEqual(revealed["id"], panel["id"])
+            self.assertEqual(revealed["revision"], panel["revision"])
+            self.assertGreater(revealed["reveal_revision"], panel["reveal_revision"])
+            reused = dev.call("panel.open", {"client": self.client, "type": "mdo.browser",
+                "key": browser["id"], "resource": {"id": browser["id"]}, "reveal": "background"}, self.scope)
+            self.assertEqual(reused["reveal_revision"], revealed["reveal_revision"])
+            self.assertEqual(self.invoke({"action": "get", "browser": browser["id"]})["revision"], browser["revision"])
+        finally:
+            self.invoke({"action": "close", "browser": browser["id"]})
+
     def test_context_cannot_be_bypassed_by_an_explicit_client(self):
         created = self.invoke({"action": "create", "client": self.client, "key": "scoped-tab"})
         try:
