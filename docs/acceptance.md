@@ -15,8 +15,19 @@ and reads `Local action verified` at827x710. Record this as human-confirmed
 presentation and physical interaction, not an automated framebuffer capture:
 Computer Use capture timed out twice and pointer injection had no geometry.
 The exact local test resources are cleaned and the same headless runtime is
-restored. Product/artifact bytes are unchanged. Android physical qualification
-is now requested again; the phone is detected, with tests still to be executed.
+restored. Product/artifact bytes are unchanged.
+
+E248/E249 subsequently passes all eight current Android diagnostic component
+gates on the unchanged WebView138, restores/verifies the installed current full
+QA host and observes actual main/manual-browser pixels. Human typing/button
+action and short background/lock UI retention pass, including new typing after
+unlock on the same application process. The initial button-failure report is
+clarified by the user: the expected result text was already present. A separate
+background HTTP/ADB stall is retained as unqualified transport evidence, without
+a product-root-cause claim. Clean all exact test resources/mappings and retain
+the installed full host. Guarded host automation is still unavailable on this
+provider; background service/full Doze and authenticated physical two-device
+checks remain open. See docs/android.md for the exact qualification boundary.
 
 E245/E246 now qualifies the human browser-open/page-display flow. The distinct
 original request succeeds, creates its browser and retains one exact start/done
@@ -1013,11 +1024,11 @@ has no answer yet. No such decision is inferred and no permission UI is acted on
 
 ## Remaining completion gates
 
-- Complete Android host input, guarded capture/URI/chooser and lifecycle
-  qualification. E220 adds a bounded touch-feedback/hover candidate after
-  measuring the race on the unchanged phone. The user defers final-source
-  device verification; the last E219 cohort remains7pass/1unresolved.
-  Guarded host automation remains unqualified. Overall
+- Complete Android guarded main-host input/capture/URI/chooser and lifecycle
+  qualification. E248/E249 supersedes the old final-source device deferral and
+  E2197pass/1unresolved with current8/8 component checks, verified current main
+  installation and human short UI-lifecycle acceptance. Background service/full
+  Doze and guarded host automation remain unqualified. Overall
   Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.

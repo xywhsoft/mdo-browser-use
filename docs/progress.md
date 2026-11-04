@@ -17268,3 +17268,44 @@ The user also reconnects the authorized phone; ADB now detects exactly one
 device. Android current-candidate installation/component/main/lifecycle gates
 are next. Do not carry the old user-deferred phone status forward as a current
 instruction, enable unqualified automation, or declare the full goal complete.
+
+## E248/E249 — current Android components and physical main UI acceptance
+
+Use the same authorized phone and dedicated5038 ADB. Current diagnostic source
+and APK hashes match before all eight sequential component gates; all pass,
+including17 native input/hover/wheel and21 capture checks. The old unresolved
+input candidate is now physically verified. World admission deliberately reports
+isolated_world_unsupported, rejects three automation requests before creation,
+retains manual/cleanup admission and confirms cleanup. This is a downgrade pass,
+not isolation or overall automation success. Preserve the prior result files.
+
+Install the matching complete E242 QA host to the same dedicated package. Pull
+and verify installed APK SHA-256
+7b4995e99b54834e7da02fabb1c1e2eee3ac10b2df19c0be5bea53ef7ef97ccf.
+The current full-host restoration is complete; the old experimental diagnostic
+is no longer installed. The formal app/data and WebView138 remain untouched.
+Actual phone screenshots show the main interface and a manually owned native
+local page. First bootstrap forwarding times out, then200 returns on the same
+process; retain that observation without a diagnosed product repair.
+
+The user initially reports Example action has no response. Before any agent page
+touch, the actual screenshot already shows their Android E248 text and Local
+action verified. The user clarifies that this text was present and they expected
+another change. Record physical typing/button acceptance as passed, retaining
+the original report and clarification. Do not invent a touch or script defect.
+
+The actual background test triggers HTTP and independent ADB shell timeouts.
+Foregrounding alone does not restore the connection; dedicated-server/USB
+recovery restores it. The original application process/page/input/result remain
+intact. Keep the failed transport record; neither an mdo crash/root cause nor
+background service availability is established. The user subsequently performs
+an approximately10-second lock/unlock, confirms retained content and appends
+-resume. Current screenshots independently show that field and original action
+result on the same process. Qualify this short manual UI recovery only, not full
+Doze, pending guarded operations or service availability during suspend.
+
+Close only the exact synthetic browser/panel, remove owned USB mappings and stop
+only the QA package. Retain the installed current full host/data. No product or
+artifact bytes, provider, model or publication change occurs. Windows E247 human
+acceptance remains passed. Full guarded Android host/provider/lifecycle and
+authenticated physical two-device acceptance remain incomplete.

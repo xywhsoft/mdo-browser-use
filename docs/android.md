@@ -1,5 +1,38 @@
 # Android Browser Use adapter
 
+## Current physical-device acceptance (E248/E249)
+
+The reconnected RMX5090 runs Android16/API36 and the unchanged WebView
+138.0.7204.179. All eight current diagnostic APK component gates pass: explicit
+unsupported-world downgrade, native input including hover/wheel (17 checks),
+native capture (21 checks), dialogs, popup transport, chooser retention/cancel,
+private upload staging and URI seek/revoke. Diagnostic SHA-256:
+`3b018230288a2b7ff6ba3d522ac0680f6f9f0cfba59a969e62e03d73a489d2d1`.
+These are component checks, not full guarded host automation qualification.
+
+Restore the complete current E242 host APK to the same dedicated QA package,
+pull/hash-check its installed bytes and retain its data. The actual main UI
+and manual native browser render a local page. The user types Android E248,
+clicks Example action and confirms the visible Local action verified text;
+their initial no-reaction report is clarified as expecting additional feedback.
+Preserve the original report, not an invented product-button repair.
+
+The original page/input/result survive the real background/return path and a
+user-performed approximately10-second lock/unlock. The user can append -resume
+after unlocking, verified in the actual phone screenshot, with the same original
+application process. The background check also encounters HTTP and independent
+ADB shell timeouts; foreground alone does not recover that connection. USB/
+dedicated ADB recovery restores transport without restarting the QA app. Its
+cause is unproven, so background service availability and full Doze qualification
+remain open despite the retained UI state.
+
+Clean the exact synthetic browser/panel and owned USB forward/reverse mappings,
+stop only the QA package and retain the installed current full host. Formal mdo
+and its data are untouched. No provider update, model call or release occurs.
+The provider lacks isolated worlds, and overall Android automation stays
+disabled. Guarded main-host operations, full Doze and authenticated physical
+two-device qualification remain incomplete.
+
 The Android implementation is in progress. Reviewed overlays extend the pinned
 manual WebView with private isolated native-frame execution, guarded native input,
 capture and retained dialogs. These compile and have deterministic contract
