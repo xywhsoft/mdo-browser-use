@@ -67,6 +67,31 @@ class PluginTests(unittest.TestCase):
         finally:
             self.invoke({"action": "close", "browser": identity})
 
+    def test_create_requests_display_without_a_followup_browser_command(self):
+        args = {"action": "create", "client": self.client,
+                "url": "http://127.0.0.1/", "key": "create-visible-tab"}
+        browser = self.invoke(args)
+        try:
+            def panels():
+                return [row for row in dev.call("panel.list", {}, self.scope)
+                        if row.get("resource", {}).get("id") == browser["id"]]
+            rows = panels()
+            self.assertEqual(len(rows), 1, "Create returned success without a display panel")
+            panel = rows[0]
+            self.assertEqual(panel["type"], "mdo.browser")
+            self.assertEqual(panel["client"], self.client)
+            self.assertEqual(panel["reveal"], "activate")
+            self.assertEqual(panel["owner"], browser["owner"])
+            self.assertEqual(panel["context"], browser["context"])
+            # Publication requests display; a headless client cannot prove load.
+            self.assertEqual(browser["state"], "suspended")
+            self.assertIs(browser["automation_required"], True)
+            self.assertNotIn("runtime", panel)
+            self.assertEqual(self.invoke(args)["id"], browser["id"])
+            self.assertEqual([row["id"] for row in panels()], [panel["id"]])
+        finally:
+            self.invoke({"action": "close", "browser": browser["id"]})
+
     def test_context_cannot_be_bypassed_by_an_explicit_client(self):
         created = self.invoke({"action": "create", "client": self.client, "key": "scoped-tab"})
         try:

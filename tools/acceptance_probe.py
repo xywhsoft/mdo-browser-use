@@ -115,7 +115,7 @@ def validate(name, receipt):
                  "recovery_is_idempotent_on_second_startup"} <= set(receipt["checks"]), "Package recovery evidence is incomplete")
     elif name == "managed-tools":
         require(receipt["registered_tools"] == 16, "Managed tool registration is incomplete")
-        for key in ("readonly_read_allowed", "readonly_write_denied", "full_access_without_extra_prompt",
+        for key in ("readonly_read_allowed", "readonly_write_denied", "full_access_without_extra_prompt", "open_displays_without_followup_command",
                     "tool_failure_then_recovery", "native_dialog_checkpoint_and_response", "readonly_dialog_response_denied",
                     "managed_popup_ownership", "native_screenshot_image", "exact_selection_and_discovery",
                     "readonly_select_denied", "native_drag"):

@@ -3,7 +3,7 @@ export const contractVersion = 1;
 export const services = [
   {
     "id": "browseruse.tabs",
-    "description": "List, inspect, create, reveal or close browser tabs owned by the calling extension and task. Creating a record does not prove a native page has loaded.",
+    "description": "List, inspect, create, reveal or close browser tabs owned by the calling extension and task. Create also requests an active display panel; native page load must be verified separately.",
     "input": {
       "type": "object",
       "additionalProperties": false,

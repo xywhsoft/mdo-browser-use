@@ -6,6 +6,7 @@ export function createNativeBrowserExecutor(bridge, browser) {
 }
 
 export async function ensureNativeBrowser({ bridge, sdk, browser, clientId, bounds, visible = false, requireDownloads = false, requireAutomation = false, alive = () => true, beforeCreate, cancelOnDetach = true }) {
+  requireAutomation ||= browser.automation_required === true;
   const pending = browser.runtime?.popup_request;
   const check = () => { if (!alive()) throw new DOMException("浏览器所属窗口或设备已改变", "AbortError"); };
   check();

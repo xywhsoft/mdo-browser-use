@@ -575,6 +575,17 @@ Managed tools `browser_tabs/observe/wait/dialog/screenshot` are read-only; `brow
 use the existing external-service permission. Full access adds no second
 approval system. Ordinary tool failures remain feedback for the Agent.
 
+`browseruse.tabs(create)` (including managed `browser_open`) creates the owned
+browser record and requests an active `mdo.browser` display panel in the same
+client/task. The returned browser identity and suspended state are still record
+metadata, not proof of native page load; inspect the actual page before acting.
+The original admission key reuses both browser and panel. If panel publication
+fails after the browser record was created, the error retains that identity in
+its message and `may_have_completed:true`; inspect it instead of blindly opening
+another browser. Automatically mounted Browser Use records retain their required
+automation preflight, including Android's disabled-adapter/provider refusal before
+native creation or URL delivery. Ordinary manual browsing is unchanged.
+
 The managed `tool.call` boundary preserves cancellation as `sdk_cancelled`
 (499) and deadline expiry as `sdk_deadline_expired` (504), rather than a generic
 executor failure. Cancellation before permission admission has

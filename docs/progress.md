@@ -16823,6 +16823,42 @@ Phone reconnection is user-deferred. The pending Windows availability question
 has no answer; no permission UI is acted on and no user decision is inferred.
 Goal remains active with its full original scope.
 
+## E240 — fix browser creation that never displayed its page
+
+The user is ready for a fresh human permission request. Preserve the expired
+E230 identity and use a new owned E240 operation in the same balanced QA session.
+The actual user clicks allow once; its original managed operation succeeds with
+one start/done pair and creates a suspended browser, but the user reports no page.
+The authoritative panel inventory is empty. Explicit reveal of that same browser
+creates its pane and the user confirms the fixture is visible. Record these
+separate observations: human approval is verified, automatic display failed.
+Restore the exact same headless runtime and retain the original evidence.
+
+The C tabs(create) path called only browser.create and never published a display
+panel. Add a checked shared panel-publication helper and call it from create as
+well as explicit reveal, preserving the original browser result and idempotent
+browser/panel keys. If publication fails after creation, retain the browser for
+inspection and mark the error's possible effect rather than report no effect.
+Retain a non-caller-overridable automation-required creation policy, honored by
+the shared native initializer before sending any URL; auto-display cannot bypass
+the Android provider/adapter downgrade. Manual browsing is unchanged.
+
+A real installed-plugin regression first fails with zero panels after successful
+creation. After installation/restart all13 C plugin checks pass, including owned
+active-panel publication and same-key reuse. All60 browser-component checks pass,
+including both Android admission refusals before native create and the initial
+automation flag. The first two new component checks expected an error status
+instead of the component's actual rejection contract; retain that fixture failure
+and correct the assertions, without changing production refusal. Preserve an
+initial unittest import-path failure separately from the genuine product red.
+
+The actual managed/native workflow passes with a new pre-observe gate: create
+alone must produce one ready visible positive-sized pane before any observe,
+input or capture can repair missing presentation. All existing tool/permission/
+popup/native-input/drag/capture/recovery checks remain. Whole16 acceptance and
+matching artifacts still require refresh; E236 builds are historical for these
+changed inputs. No model, phone/provider, second Home or publication action.
+
 ## E231 — explain ended workbench resources without replaying requests
 
 The human reports no visible approval and every old workbench tab showing

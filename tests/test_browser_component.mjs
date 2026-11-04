@@ -68,6 +68,20 @@ for(const action of ['hide','dispose'])test(`native ${action} retains the origin
   }
 });
 
+for(const reason of ['isolated_world_unsupported','android_adapter_incomplete'])
+test(`automatically displayed Browser Use tabs retain ${reason} admission before native create`,async()=>{
+  const f=fixture();f.browser({automation_required:true,download_policy:'intercept'});
+  f.response('capabilities',{initial_download_interception:true,browser_use:{available:false,reason}});
+  await assert.rejects(f.start(),{code:'unsupported_capability',capability_reason:reason});await f.flush();
+  assert(!f.trace.some(row=>['create','navigate'].includes(row.method)));
+});
+
+test('the retained Browser Use creation policy requests native automation on its first displayed navigation',async()=>{
+  const f=fixture();f.browser({automation_required:true});
+  await f.start();await f.flush();
+  assert.equal(f.trace.find(row=>row.method==='create').params.automation,true);
+});
+
 test('initial broker result cannot initialize a retired browser mount',async()=>{
   const f=fixture();f.hook(method=>{if(method==='browser.get')f.retire();});await f.start();await f.flush();
   assert(!f.trace.some(x=>['browser.attach','create','bounds','state','browser.report'].includes(x.method)));

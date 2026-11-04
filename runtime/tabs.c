@@ -18,6 +18,19 @@ static bool BuUrl(const char* Url) {
     for(const char* P=Authority;P<End;P++)if(*P=='@')return false;
     return true;
 }
+static mdo_result BuTabPanel(const mdo_sdk_context_v1* C,const xvalue* Browser,
+                            xvalue** Result,mdo_error_v1* E) {
+    const mdo_values_v1* V=C->Api->Values;
+    xvalue* Args=V->Object(),*Resource=V->Object();
+    bool Ok=Args&&Resource&&BuPut(C,Args,"type","mdo.browser")&&
+        BuPut(C,Args,"client",BuText(C,Browser,"client"))&&
+        BuPut(C,Args,"key",BuText(C,Browser,"id"))&&
+        BuPut(C,Resource,"id",BuText(C,Browser,"id"))&&
+        V->Set(Args,"resource",Resource)&&BuPut(C,Args,"reveal","activate");
+    V->Release(Resource);
+    if(!Ok){V->Release(Args);return BuFail(E,"allocation_failed","Cannot prepare the browser display panel",500);}
+    mdo_result Code=mdoCall(C,"panel.open",Args,Result,E);V->Release(Args);return Code;
+}
 static mdo_result BuTabs(void* U,const mdo_sdk_context_v1* C,const xvalue* P,
                          xvalue** Result,mdo_error_v1* E) {
     (void)U;const mdo_values_v1* V=C->Api->Values;
@@ -48,10 +61,24 @@ static mdo_result BuTabs(void* U,const mdo_sdk_context_v1* C,const xvalue* P,
             if(BuEqual(Client,BuText(C,V->At(Clients,I),"id")))Found=true;
         V->Release(Clients);
         if(!Found)return BuFail(E,"client_missing","The selected display client is not online",409);
-        xvalue* Args=V->Object();const char* Fields[]={"client","url","key","title"};
-        for(size_t I=0;I<4;I++){const xvalue* Field=V->Get(P,Fields[I]);if(Field)V->Set(Args,Fields[I],Field);}
-        if(!BuPut(C,Args,"download_policy","intercept")){V->Release(Args);return BuFail(E,"allocation_failed","Cannot retain the required initial download policy",500);}
-        Code=mdoCall(C,"browser.create",Args,Result,E);V->Release(Args);return Code;
+        xvalue* Args=V->Object();const char* Fields[]={"client","url","key","title"};bool Ok=Args!=NULL;
+        for(size_t I=0;I<4;I++){const xvalue* Field=V->Get(P,Fields[I]);if(Field)Ok=Ok&&V->Set(Args,Fields[I],Field);}
+        xvalue* Automation=V->Bool(true);
+        Ok=Ok&&Automation&&V->Set(Args,"automation_required",Automation)&&BuPut(C,Args,"download_policy","intercept");
+        V->Release(Automation);
+        if(!Ok){V->Release(Args);return BuFail(E,"allocation_failed","Cannot retain the original browser creation policy",500);}
+        Code=mdoCall(C,"browser.create",Args,Result,E);V->Release(Args);
+        if(Code!=MDO_RESULT_OK)return Code;
+        xvalue* Panel=NULL;Code=BuTabPanel(C,*Result,&Panel,E);V->Release(Panel);
+        if(Code!=MDO_RESULT_OK){
+            // The original record is retained for inspection; never create it
+            // again or claim that a display failure means no effect occurred.
+            if(E){char Cause[128];snprintf(Cause,sizeof(Cause),"%.120s",E->Message);
+                snprintf(E->Message,sizeof(E->Message),"Browser %.100s was retained, but display failed: %.120s",BuText(C,*Result,"id"),Cause);
+                E->MayHaveCompleted=true;}
+            V->Release(*Result);*Result=NULL;
+        }
+        return Code;
     }
     if(!Id||!*Id)return BuFail(E,"browser_required","Supply a browser identity",422);
     xvalue* Args=V->Object();BuPut(C,Args,"id",Id);
@@ -60,9 +87,5 @@ static mdo_result BuTabs(void* U,const mdo_sdk_context_v1* C,const xvalue* P,
     if(!BuOwned(C,Browser)){V->Release(Args);V->Release(Browser);return BuFail(E,"context_mismatch","Browser belongs to another extension or task",409);}
     if(!strcmp(Action,"get")){*Result=Browser;V->Release(Args);return MDO_RESULT_OK;}
     if(!strcmp(Action,"close")){Code=mdoCall(C,"browser.close",Args,Result,E);V->Release(Args);V->Release(Browser);return Code;}
-    V->Release(Args);Args=V->Object();
-    BuPut(C,Args,"type","mdo.browser");BuPut(C,Args,"client",BuText(C,Browser,"client"));
-    BuPut(C,Args,"key",Id);xvalue* Resource=V->Object();BuPut(C,Resource,"id",Id);
-    V->Set(Args,"resource",Resource);V->Release(Resource);BuPut(C,Args,"reveal","activate");
-    Code=mdoCall(C,"panel.open",Args,Result,E);V->Release(Args);V->Release(Browser);return Code;
+    V->Release(Args);Code=BuTabPanel(C,Browser,Result,E);V->Release(Browser);return Code;
 }

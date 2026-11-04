@@ -6,6 +6,19 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E240's actual human retest confirms one allow click and the original successful
+tool terminal pair, but no page appears: `browser_open(create)` retained only a
+suspended browser record, with zero display panels. An explicit reveal of that
+same record loads the fixture and the user confirms seeing it. This qualifies
+the human approval, not automatic display or enclosing desktop pixels. Fix the
+shared C service to publish an activating owned display panel during create,
+retaining download and required-automation admission. The new regression fails
+against the original installed plugin and passes after the fix. All13 installed
+C plugin checks,60 browser-component checks and the real managed/native workflow
+pass; the latter now checks displayed/ready positive geometry before any observe
+or followup browser command. Current full16 and matching rebuilt deliverables
+remain pending for these changed sources; E236 evidence/builds are historical.
+
 E235 additionally fixes native viewport collapse while a browser pane is hidden:
 actual controller bounds changed827x710 ->1x1 ->827x710 during a decision. Retain
 the original meaningful bounds for hide/disposal and accept a new visible size

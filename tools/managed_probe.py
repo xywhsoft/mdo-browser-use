@@ -95,6 +95,17 @@ def main():
                        "url": f"http://127.0.0.1:{dev.state()['port']}/__browser_use_page__.html"})
         assert created["success"]
         browser = value(created)["id"]
+        # Opening alone must publish and show its native pane. A later observe,
+        # capture or input must not accidentally repair a missing display step.
+        end = time.monotonic() + 12
+        while time.monotonic() < end:
+            panels = [row for row in dev.call("panel.list", {}, owner)
+                      if row.get("resource", {}).get("id") == browser]
+            if len(panels) == 1 and panels[0].get("runtime", {}).get("visible") and panels[0]["runtime"].get("status") == "ready":
+                break
+            time.sleep(.05)
+        assert len(panels) == 1 and panels[0].get("runtime", {}).get("visible") and panels[0]["runtime"].get("status") == "ready", "browser_open did not display its page without another browser command"
+        assert panels[0]["runtime"]["width"] > 1 and panels[0]["runtime"]["height"] > 1
         observed = tool("browser_observe", {"browser": browser})
         assert observed["success"]
         page = value(observed)
@@ -197,6 +208,7 @@ def main():
         report = {"passed": True, "backend": "actual-managed-tool-webview2", "registered_tools": len(json.loads((dev.ROOT/"contracts.json").read_text(encoding="utf-8"))["tools"]),
                   "readonly_read_allowed": True, "readonly_write_denied": True,
                   "full_access_without_extra_prompt": True, "tool_failure_then_recovery": True,
+                  "open_displays_without_followup_command": True,
                   "native_dialog_checkpoint_and_response": True, "readonly_dialog_response_denied": True,
                   "managed_popup_ownership": True, "native_screenshot_image": True,
                   "native_mouse_gestures": ["double_click", "right_click", "middle_click"],

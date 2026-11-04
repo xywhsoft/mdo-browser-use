@@ -3,7 +3,7 @@
   "services": [
     {
       "id": "browseruse.tabs",
-      "description": "List, inspect, create, reveal or close browser tabs owned by the calling extension and task. Creating a record does not prove a native page has loaded.",
+      "description": "List, inspect, create, reveal or close browser tabs owned by the calling extension and task. Create also requests an active display panel; native page load must be verified separately.",
       "callback": "BuTabs",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
       "input": {
@@ -1097,7 +1097,7 @@
         "close"
       ],
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
-      "description": "Create, reveal or close a browser tab in this task. Requires an explicit display client for create. Creation is not proof that the page loaded."
+      "description": "Create and display, reveal or close a browser tab in this task. Requires an explicit display client for create. Creation requests display; verify page load separately."
     },
     {
       "id": "browser_observe",
