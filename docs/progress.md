@@ -17337,3 +17337,41 @@ the seventeenth acceptance case. Complete fresh acceptance and matching program
 packaging are the next stage; earlier artifacts/results remain historical after
 this product-source change. Android Java/native sources are unchanged, but this
 shared UI change is not represented as new physical Android qualification.
+
+## E251 — fresh full acceptance and matching development packages
+
+Build the current Windows app in place, preserving the original Home and host.
+Its actual packed program passes12 checks. Rebuild the matching signed Android
+archive; signature/alignment/private-provider/production DEX and app/native
+payload gates pass. Java/native Android sources and the portable plugin bytes
+remain unchanged. The phone is no longer detected after the completed E248/E249
+manual workflow, so retain its last observed E242 full-host installation and
+mark the latest candidate update/device retest pending. No new phone or full
+guarded Android qualification is inferred from packaging.
+
+Run the entire strengthened17-case acceptance entry point sequentially with558
+authoritative source inputs/152 applied outputs fixed throughout. All17 pass,
+including existing-tab activation without remount, actual managed tools,
+84 local static protocol requests/90 original terminal pairs, privacy/capture,
+permission decisions, original native viewport preservation, renderer/restart
+recovery, local package lifecycle and eight same-host remote bridge cases. This
+is new execution, not reused evidence. Current562 JS and15 installed C plugin
+checks also pass. No live model, external page, extra application/Home, provider
+update or official publication is used.
+
+Windows:6954527B SHA-256
+2cb2662320d3ca70e62743960be914dc76c740d66b3217e93522175eb1a40b44.
+Android:6612289B SHA-256
+e5d849ef271a09aa183dc0280ec834f956ffbeb85607e65e6161817721a24f3e.
+Portable plugin remains250875B SHA-256
+6e714ef666b6c0592e77e9387d38b3ec87684f61c4b327be7ee054f531d795cd.
+
+Final verification binds actual artifact/receipt/source/native/app bytes to the
+current17 report (SHA-256
+902329bab6aa3ae7e38394a2f4755083d6c64988b0209a39ac26c6af7ba4efeb)
+and restores the original headless host/config/Home/listener. No active runs,
+operations, UI clients, browsers, panels, approvals or model overrides remain.
+Retain the original red activation regressions, clarified human result and
+unresolved USB/ADB failure without inventing a product root cause. Full guarded
+Android/provider/Doze, latest-candidate physical retest and account-authenticated
+physical two-device gates remain open; the full Browser Use goal is incomplete.

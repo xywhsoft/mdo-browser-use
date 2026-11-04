@@ -79,7 +79,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E242)
+## Complete development host APK (current: E251)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -87,8 +87,17 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,612,289 bytes, SHA-256
-`7b4995e99b54834e7da02fabb1c1e2eee3ac10b2df19c0be5bea53ef7ef97ccf`.
-E242 rebuilds the exact current Windows app archive and matches its paired
+`e5d849ef271a09aa183dc0280ec834f956ffbeb85607e65e6161817721a24f3e`.
+E251 rebuilds the matching app archive with E250's keyed panel activation repair.
+Signature/alignment/production DEX definitions and actual app/native payload
+checks pass. Current Windows acceptance17,562 JS,15 C plugin checks and packed12
+pass; Android Java/native inputs are unchanged. The phone is unavailable after
+the completed E248/E249 manual check. This latest APK is not installed or
+physically qualified; the last installed complete host is the E242 artifact
+identified in that physical-device record. The portable plugin is unchanged.
+
+The following E242 record describes the preceding app archive.
+E242 rebuilt the exact Windows app archive and matched its paired
 portable C plugin. Auto-displayed Browser Use records and older keyed panels
 retain required-automation preflight; the shared component refuses the disabled
 Android adapter/provider before native creation or URL delivery. Fresh557 JS,

@@ -7,7 +7,21 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current E242 preview fixes Browser Use create-only success without a visible
+E251 is the current preview: explicit reveal or keyed create activates the
+original already-mounted tab, preserving its page and content revision. Ordinary
+reports/background opens do not steal selection. The original implementation
+fails the actual main-window regression; the repair passes fresh acceptance17,
+562 sequential JS checks,15 installed C plugin checks and12 packed checks.
+
+Current Windows artifact:6,954,527 bytes, SHA-256
+`2cb2662320d3ca70e62743960be914dc76c740d66b3217e93522175eb1a40b44`.
+The matching signed Android archive is rebuilt and its payload verified; it is
+not newly installed/device-qualified because the phone is unavailable. The
+portable C plugin bytes remain unchanged. E247 Windows human acceptance and
+E248/E249 Android human short-lifecycle results retain their original tested
+candidate scope; this new activation repair has actual Windows native evidence.
+
+The preceding E242 preview fixes Browser Use create-only success without a visible
 page: shared C/JS tabs(create) now publishes its owned activating browser panel.
 Both new and older keyed records retain the required automation admission before
 native URL delivery. Fresh557 sequential JS checks,14 installed C plugin checks,
