@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E224)
+## Complete development host APK (current: E232)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,7 +54,14 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,608,193 bytes, SHA-256
-`3409b3240044d6e332f67a49b892b8ac0ca7d0541235ceb8c7dfb139cd0ca39c`.
+`82d8ab39fc00cd48401591be69b586d23654f31b58cf4740337c7669e6f85d18`.
+E232 rebuilds the signed APK with the shared ended-resource panel recovery UI
+from E231 and the current Windows app archive. It verifies the packaged app and
+ARM64 payload, production DEX definitions, signature and alignment. Java/native
+sources and the diagnostic APK remain unchanged; full658 is not rerun. The
+original recorded manifest changes only for the two panel-manager.js overlays;
+frontend20 source/class/library evidence remains exact unchanged-source reuse.
+No device installation, provider update or physical input qualification occurs.
 E214 shares the original document's live-readable predicate between isolated
 world state and navigation page_ready. Root/default realm loss clears both
 public readiness fields even when the native document and Activity epoch stay

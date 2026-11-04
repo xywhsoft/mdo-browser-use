@@ -13,8 +13,9 @@ close action; transient failures still offer retry. Fresh96 component checks,
 the actual removed-resource panel and normal native local-page path pass. The
 packed executable passes12 runtime checks in the same Home and restores the
 original headless host. Whole-window pixels and a human permission decision
-remain unqualified; E226 full acceptance is historical after this UI change.
-The Android artifact has not yet been rebuilt with this new app archive.
+remain unqualified. E232 subsequently passes fresh acceptance15 and rebuilds the
+matching signed Android artifact with this same app archive. E226 full acceptance
+is historical after this UI change; no physical Android check is implied.
 
 Development archives explicitly define `MDO_BROWSER_USE_DEVELOPMENT=1`. In that
 build only, the updater reports `status:development`/`enabled:false` and does not

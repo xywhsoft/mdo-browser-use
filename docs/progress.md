@@ -16870,3 +16870,38 @@ this shared UI edit, and the previous Android artifact retains its old app
 archive until rebuilt. Whole-window pixels/physical input, actual human decision,
 Android current-device/install/restoration and authenticated physical two-device
 gates remain open. No phone poll, live model, external page or publication occurs.
+
+## E232 — rebuild matched deliverables and qualify the shared UI change
+
+Rebuild only the complete Android development APK with E231's current Windows
+app archive, reusing the existing native engine/toolchain/output directories.
+Signature, alignment, private provider and actual production DEX definition
+checks pass. The packaged app digest matches the reviewed current archive and
+the ARM64 payload matches its unchanged native build receipt. APK:6608193B,
+SHA-25682d8ab39fc00cd48401591be69b586d23654f31b58cf4740337c7669e6f85d18.
+Windows remains E231's6953047B artifact with its twelve passed packed checks.
+No additional application/Home/native environment is created.
+
+Run the complete fifteen-case Windows acceptance sequentially on551 fixed
+current inputs and150 applied outputs. All pass, including84 loopback static
+protocol requests,90 original tool pairs, ordinary failure recovery, private
+capture, owned renderer recovery, scoped ask decisions, durable restart and
+eight real C/native remote-bridge cases. Preserve E226's prior receipt and the
+E231 red/component/actual-UI evidence; the new acceptance receipt supersedes the
+old full15 claim. Source and deployment maps remain unchanged throughout.
+
+The old full658 native report is not rerun: its only changed recorded input is
+overlays.json. Verify that all original entries/files remain identical and the
+two new changes affect panel-manager.js only; no Android Java/native input is
+changed. Frontend20 source/class/native-library hashes still match and are
+explicitly reused. Do not call those tests freshly executed or extend their
+controlled provider evidence to a physical device. Current APK build/signature/
+payload/DEX checks are separate actual assembly evidence.
+
+Final audit verifies the current source/receipt/artifact hashes, exact original
+headless image/config/Home/listener and HTTP200; no active runs, operations,
+browsers, panels or approvals remain and no model override is retained. No
+phone poll/install, real inference, external page or publication. The original
+human approval expired without a decision and does not pass human qualification.
+Whole-window pixels/physical input, current Android device/main restoration and
+authenticated physical two-device gates remain open; original goal stays active.
