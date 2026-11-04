@@ -7,7 +7,17 @@ The executable supplies the native browser and shared host services; the
 portable plugin supplies the official Browser Use tools/SDK and Skill.
 It is not an online release or an update-channel publication.
 
-The current E236 preview adds decision-priority workbench presentation: a
+The current E242 preview fixes Browser Use create-only success without a visible
+page: shared C/JS tabs(create) now publishes its owned activating browser panel.
+Both new and older keyed records retain the required automation admission before
+native URL delivery. Fresh557 sequential JS checks,14 installed C plugin checks,
+12 packed checks and acceptance16 pass. Use the matching portable plugin;
+replacing only the program leaves an older installed C implementation unchanged.
+E240's real human approval and same-browser explicit-reveal observation confirm
+the old defect. E241's distinct automatic-display retest expires without a human
+response; native automated verification is not represented as that human result.
+
+The inherited E236 decision-priority workbench presentation ensures a
 covering native pane yields to the selected conversation's decision and returns
 with the same resources afterwards. New decisions and explicit inspection are
 handled without clearing tab/layout preferences. Actual pre-fix/fixed native
@@ -53,8 +63,10 @@ histories retire unsafe prefix-cache keys. The original ledger and PNG bytes
 are retained. Updating only the portable plugin cannot repair an older native
 model serializer.
 
-The current E236 executable is **6,953,482 bytes**, SHA-256
-`e19136923fcbcc565948cd3329374ffe503c05d23e73b2276e2061f66d257e68`.
+The current E242 executable is **6,953,528 bytes**, SHA-256
+`c120e9902defedb29319363392c4826be668a96dcccd6195f154d6ca19a4372a`.
+The paired portable plugin is250875 bytes, SHA-256
+`6e714ef666b6c0592e77e9387d38b3ec87684f61c4b327be7ee054f531d795cd`.
 The following E208/E209 broader results are retained historical evidence.
 Its delivered .text/.rdata sections exactly match the rebuilt GUI host. Fresh
 packed12, Python198/200 (two existing Windows symlink skips), JS526, SDK,

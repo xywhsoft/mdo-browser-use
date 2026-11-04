@@ -17150,3 +17150,42 @@ pass, including actual older-key reuse and the component's pre-create refusal.
 No author edits occur during live tests. Complete current acceptance/build
 refresh remains pending. E240/E241 human evidence is retained without treating
 the expired retest as a successful user decision.
+
+## E243 — complete automatic-display acceptance and matching deliverables
+
+Rebuild the paired portable plugin, Windows program and matching signed Android
+development APK in the original deployment. All12 packed-program checks pass;
+preserve an initial stopped-service precondition failure separately from the
+successful actual run. Android signature/alignment/private-provider/production
+DEX-definition and app/native payload checks pass. Its app archive exactly
+matches the Windows artifact; no Java/native-source, provider or device change.
+
+Execute the entire strengthened16-case acceptance entry point sequentially with
+554 source inputs/150 applied outputs unchanged throughout. All16 pass, including
+create-only display before observe, original tool continuation,84 static protocol
+requests/90 tool terminal pairs, capture/privacy, renderer and same-Home restart
+recovery, all nine backend decisions/237 assertions/ten terminal pairs, the
+selected-decision retained827x710 viewport and eight remote-bridge cases. No
+real inference, external page, second environment or official publication occurs.
+Fresh557 JS and14 installed C plugin results match these inputs.
+
+Windows:6953528B SHA-256
+c120e9902defedb29319363392c4826be668a96dcccd6195f154d6ca19a4372a.
+Android:6612289B SHA-256
+7b4995e99b54834e7da02fabb1c1e2eee3ac10b2df19c0be5bea53ef7ef97ccf.
+Portable plugin:250875B SHA-256
+6e714ef666b6c0592e77e9387d38b3ec87684f61c4b327be7ee054f531d795cd.
+Both program and plugin must be updated to obtain the C create/display repair.
+The packages remain development deliverables with official updates disabled.
+
+Final source/artifact/receipt verification binds the current16 result (SHA-256
+28d68b340ea275e36d133124cb93534f4c1323b73cbc97d191f7d72c7b13be0f),
+the before-run source map, actual packaged app/native bytes, matching plugin and
+original headless host/config/Home/listener. Zero active runs, operations, UI
+clients, browsers, panels or approvals and no model overrides remain. Retain all
+original human/failed-regression evidence. E240 proves actual human approval and
+later explicit display; E241 expires without a new decision. Native repaired
+automatic display is verified; new human automatic-display and whole desktop
+pixels are not. Android current-device/main restoration and authenticated physical
+two-device gates remain open, as does the full original goal. No phone poll or
+repeated human prompt is used to substitute for those missing results.

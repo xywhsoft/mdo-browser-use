@@ -53,7 +53,7 @@ For routine headless startup/status/shutdown after that preparation, use
 `python tools/dev.py stop`. Re-running `setup` requires stopping first. It does
 not reapply host overlays, rebuild a host or silently update dependencies.
 
-The regular Windows acceptance entry point runs fifteen sequential cases in the
+The regular Windows acceptance entry point runs sixteen sequential cases in the
 same deployment and restores it headless. Its static model-protocol fixture
 makes no inference/provider calls; existing provider overrides are preserved
 by refusing that fixture. See [acceptance scope and remaining gates](docs/acceptance.md).

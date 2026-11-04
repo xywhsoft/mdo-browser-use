@@ -6,6 +6,15 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E243 completes the current E242 repair qualification: all16 acceptance cases pass
+with554 source inputs/150 deployed outputs unchanged during the run, including
+the new create-only display gate. Matching Windows/Android/portable-plugin builds,
+557 sequential JS checks,14 installed C plugin checks and12 packed checks are
+verified together. E240/E242 focused results below precede this full refresh.
+The user-confirmed E240 approval remains separate from E241's expired retest;
+repaired automatic display has native evidence but no new human confirmation.
+Android physical qualification and the remaining full-goal gates stay open.
+
 E240's actual human retest confirms one allow click and the original successful
 tool terminal pair, but no page appears: `browser_open(create)` retained only a
 suspended browser record, with zero display panels. An explicit reveal of that
@@ -16,8 +25,8 @@ retaining download and required-automation admission. The new regression fails
 against the original installed plugin and passes after the fix. All13 installed
 C plugin checks,60 browser-component checks and the real managed/native workflow
 pass; the latter now checks displayed/ready positive geometry before any observe
-or followup browser command. Current full16 and matching rebuilt deliverables
-remain pending for these changed sources; E236 evidence/builds are historical.
+or followup browser command. This focused E240 result precedes E243's complete
+full16 and matching-deliverable refresh; E236 evidence/builds are historical.
 
 E242 additionally repairs older keyed browser/panel reuse: retain required
 automation in the same owned panel and honor it before native create. Both the

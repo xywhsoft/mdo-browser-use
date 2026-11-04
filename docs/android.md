@@ -46,7 +46,7 @@ source cleanup remains admitted until policy disable/close completes. Completed
 bytes and known error causes survive this transition. Explicit same-page rearm
 and retained popup/download-only ownership are still in progress.
 
-## Complete development host APK (current: E236)
+## Complete development host APK (current: E242)
 
 `dist/mdo-browser-use-dev-android-arm64-v8a.apk` now packages the actual mdo
 Activity/service, ARM64 engine/command worker, reviewed browser/chooser bridges
@@ -54,8 +54,17 @@ and private upload provider. This is a **complete host with the lite tool
 edition**, not a tiny diagnostic Activity and not a production release.
 
 Current APK: 6,612,289 bytes, SHA-256
-`50d32f3cd0bd0377166f759c1a415ea3435e0339339717011e7a94981438dd99`.
-E236 rebuilds the matching app archive with E235's shared retained native-view
+`7b4995e99b54834e7da02fabb1c1e2eee3ac10b2df19c0be5bea53ef7ef97ccf`.
+E242 rebuilds the exact current Windows app archive and matches its paired
+portable C plugin. Auto-displayed Browser Use records and older keyed panels
+retain required-automation preflight; the shared component refuses the disabled
+Android adapter/provider before native creation or URL delivery. Fresh557 JS,
+14 C plugin checks,12 packed checks and Windows acceptance16 pass. APK signature,
+alignment, private-provider, production DEX-definition and actual app/native
+payload checks pass. Java/native sources are unchanged, full658 is not rerun,
+and no device installation/provider update/Android qualification occurs.
+The following E236 record describes the earlier app archive.
+E236 rebuilt the matching app archive with E235's shared retained native-view
 bounds. Current Windows actual native visibility/dimension checks,553 JS and
 acceptance16 pass; those do not qualify physical Android layout/input. APK
 signing/alignment/private provider/DEX definitions/app/native payload checks
