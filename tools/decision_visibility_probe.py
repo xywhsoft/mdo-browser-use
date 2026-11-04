@@ -84,8 +84,11 @@ def main():
         require(page['ok'] and 'Applied 0 trusted:none' in page['text'],'Fixture already has an input effect')
         panel=dev.call('panel.open',{'type':'mdo.browser','client':clients[0]['id'],'key':browser,'resource':{'id':browser},'reveal':'activate'},OWNER)
         wait(lambda:dev.call('panel.get',{'id':panel['id']},OWNER).get('runtime',{}).get('visible'),'Original panel never became visible')
-        def visible():return invoke('browser.command',{'id':browser,'command':'state'},'browser.result')['visible']
-        require(visible() is True,'Original native browser is not visible');case('original_native_browser_visible')
+        def native_state():return invoke('browser.command',{'id':browser,'command':'state'},'browser.result')
+        initial=native_state();bounds=initial.get('controller_bounds',{})
+        require(initial['visible'] is True,'Original native browser is not visible')
+        require(bounds.get('width',0)>1 and bounds.get('height',0)>1,'Original viewport is not qualified')
+        report['native_before_bounds']=bounds;case('original_native_browser_visible')
         status,_,body=dev.request('GET',f'/api/v1/projects/default/sessions/{SESSION}/events?after=0&limit=1')
         require(status==200,'Original event cursor unavailable');cursor=json.loads(body)['data']['latest_event_id']
         operation='sdk-'+uuid.uuid4().hex
@@ -95,7 +98,11 @@ def main():
         require(owned['tool']=='browser_act' and json.loads(owned['arguments_json'])==args,'Approval lost original arguments')
         require(owned['session_id']==SESSION and owned['project_id']=='default','Approval lost selected conversation')
         wait(lambda:dev.call('panel.get',{'id':panel['id']},OWNER).get('runtime',{}).get('visible') is False,'Covered workbench did not yield for the decision')
-        require(visible() is False,'Original native child still covers the decision')
+        hidden=native_state();report['native_pending_bounds']=hidden.get('controller_bounds',{});save()
+        require(hidden['visible'] is False,'Original native child still covers the decision')
+        require(all(report['native_pending_bounds'].get(key)==bounds[key] for key in ('width','height')),
+                'Hiding the decision viewport resized the original native page')
+        report['native_viewport_preserved']=True
         require(any(row['id']==panel['id'] for row in dev.call('panel.list',{},OWNER)),'Decision discarded the panel')
         require(any(row['id']==browser for row in dev.call('browser.list',{},OWNER)),'Decision discarded the browser')
         report['pending_native_visible']=False;case('pending_decision_hides_native_child_preserves_original_resources')
@@ -109,7 +116,7 @@ def main():
         require([row['kind'] for row in events]==['tool_start','tool_done'] and not events[-1]['success'],'Original tool terminal pair missing')
         dev.call('operation.release',{'id':operation},SCOPE);operation=None
         wait(lambda:dev.call('panel.get',{'id':panel['id']},OWNER).get('runtime',{}).get('visible'),'Original panel was not restored')
-        require(visible() is True,'Original native child was not restored')
+        require(native_state()['visible'] is True,'Original native child was not restored')
         after=invoke('browseruse.observe',{'browser':browser})
         require(after['ok'] and 'Applied 0 trusted:none' in after['text'],'Unapproved action changed the fixture')
         require(after['document']==page['document'],'Presentation replayed the original navigation')

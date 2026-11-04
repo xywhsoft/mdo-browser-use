@@ -16,13 +16,14 @@ const helperFactory=name=>new Function('document',readFileSync(new URL(`../host/
   .replace('export function','function')+`;return createBrowser${name};`);
 function fixture({realHelpers=false}={}){
   const trace=[],nodes=[],timers=new Map(),controller=new AbortController();let serial=0,current=true,cleanup=true,hook=()=>{},menu,options;
+  let geometry={x:0,y:0,width:800,height:600};
   const responses=new Map();
   const node=(tag='',className='',text='')=>{
     const classes=new Set(className.split(/\s+/).filter(Boolean));
     const value={tag,className,textContent:text,hidden:false,style:{},dataset:{},children:[],value:'',
       classList:{add(...names){for(const name of names)classes.add(name);},contains(name){return classes.has(name);},
         toggle(name,enabled=!classes.has(name)){if(enabled)classes.add(name);else classes.delete(name);return enabled;}},setAttribute(name,value){this[name]=value;},append(...values){this.children.push(...values);},
-      replaceChildren(...values){this.children=values;},getBoundingClientRect:()=>({x:0,y:0,width:800,height:600}),getClientRects:()=>[{}],click(){return this.onclick?.();}};
+      replaceChildren(...values){this.children=values;},getBoundingClientRect:()=>({...geometry}),getClientRects:()=>[{}],click(){return this.onclick?.();}};
     nodes.push(value);return value;
   };
   const row={id:'panel',resource:{id:'browser'},owner:'extension',client:'display',context:{device:'device',project:'project',session:'task'}};
@@ -47,11 +48,25 @@ function fixture({realHelpers=false}={}){
     updateTitle:async title=>{trace.push({method:'title',title});await hook('title');},openExternal:async url=>trace.push({method:'external',url}),
     onEnd:async id=>trace.push({method:'end',id}),addContext:value=>trace.push({method:'context',value})});
   return{trace,nodes,root,mount,controller,timers,start,row,options:()=>options,retire:()=>{current=false;},cleanup:value=>{cleanup=value;},
-    hook:value=>{hook=value;},browser:value=>{browser={...browser,...value};},state:value=>{state={...state,...value};},
+    hook:value=>{hook=value;},geometry:value=>{geometry={...geometry,...value};},browser:value=>{browser={...browser,...value};},state:value=>{state={...state,...value};},
     response:(method,value)=>{responses.set(method,value);},
     button:label=>nodes.find(n=>n.tag==='button'&&n.textContent===label),menu:label=>menu().find(item=>item.label===label),
     async flush(){for(let i=0;i<30;i++)await Promise.resolve();},async tick(){const entry=[...timers][0];if(entry){timers.delete(entry[0]);entry[1]();}await this.flush();}};
 }
+
+for(const action of ['hide','dispose'])test(`native ${action} retains the original viewport when its DOM surface collapses`,async()=>{
+  const f=fixture();await f.start();await f.flush();
+  const original=f.trace.filter(row=>row.method==='bounds'&&row.params.visible).at(-1).params.bounds;
+  f.geometry({width:0,height:0});
+  if(action==='dispose')f.mount.dispose();else await f.mount.visible(false);
+  await f.flush();const hidden=f.trace.filter(row=>row.method==='bounds').at(-1).params;
+  assert.equal(hidden.visible,false);assert.deepEqual(hidden.bounds,original);
+  if(action==='hide'){
+    f.geometry({width:420,height:320});await f.mount.visible(true);await f.flush();
+    const restored=f.trace.filter(row=>row.method==='bounds').at(-1).params;
+    assert.equal(restored.visible,true);assert.equal(restored.bounds.width,420);assert.equal(restored.bounds.height,320);
+  }
+});
 
 test('initial broker result cannot initialize a retired browser mount',async()=>{
   const f=fixture();f.hook(method=>{if(method==='browser.get')f.retire();});await f.start();await f.flush();

@@ -93,7 +93,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     assertDisplayUrl(browser.url); check();
   } catch (error) { if (!current()) return view; throw error; }
   mount.browserId = id;
-  let state = { url: browser.url || "about:blank", loading: Boolean(browser.url) }, timer, lastBounds = "", lastReport = "", lastTitle = row.title || "", polling = false, connecting = false;
+  let state = { url: browser.url || "about:blank", loading: Boolean(browser.url) }, timer, lastBounds = "", retainedBounds, lastReport = "", lastTitle = row.title || "", polling = false, connecting = false;
   const toolbar = make("form", "wb-browser-toolbar"), address = make("input", "wb-address"), region = make("div", "wb-browser-region"), surface = make("div", "wb-browser-surface"), message = make("div", "wb-browser-message"), status = make("span", "wb-browser-status");
   address.setAttribute("aria-label", "搜索或输入网址"); address.placeholder = "搜索或输入网址"; address.spellcheck = false; address.autocomplete = "off";
   address.value = browser.url || ""; status.setAttribute("role", "status");
@@ -170,7 +170,11 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   const syncVisible = value => {
     if (!current() || !initialized) return Promise.resolve();
     const bounds = rect(surface), overlay = [...document.querySelectorAll("dialog[open], [role=menu]:not([hidden])")].some(node => node.getClientRects().length);
-    const params = { bounds, visible: value && bounds.width > 0 && bounds.height > 0 && !overlay && browserPhase(state) !== "empty" && !state.error };
+    const visible = value && bounds.width > 0 && bounds.height > 0 && !overlay && browserPhase(state) !== "empty" && !state.error;
+    // display:none collapses the DOM surface. Hiding must not resize the native
+    // document and trigger responsive-page changes while a decision is pending.
+    if (visible || !retainedBounds && bounds.width > 0 && bounds.height > 0) retainedBounds = { ...bounds };
+    const params = { bounds: visible ? bounds : retainedBounds || bounds, visible };
     const identity = JSON.stringify(params); if (identity === lastBounds || !bridge.available()) return Promise.resolve(); lastBounds = identity;
     return uiExecute("bounds", params).catch(() => { if (current() && lastBounds === identity) lastBounds = ""; });
   };
@@ -182,7 +186,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     if (disposed) return;
     const hide = !brokerInvalid && canHide(); disposed = true; onDispose?.();
     clearTimeout(timer); downloads.dispose(); choosers.dispose(); dialogs.dispose(); menu.dispose();
-    if (hide && bridge.available()) void execute("bounds", { bounds: rect(surface), visible: false }).catch(() => {});
+    if (hide && bridge.available()) void execute("bounds", { bounds: retainedBounds || rect(surface), visible: false }).catch(() => {});
   };
   mount.observer = new ResizeObserver(() => { void syncVisible(shown()); }); mount.observer.observe(surface);
   const initialize = async (refresh = false) => {

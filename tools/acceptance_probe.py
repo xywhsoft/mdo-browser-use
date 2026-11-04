@@ -191,6 +191,10 @@ def validate(name, receipt):
                 receipt.get("headless_restored") is True and receipt.get("model_calls") == 0 and
                 receipt.get("permission_grants") == 0 and receipt.get("pending_native_visible") is False,
                 "Actual unapproved decision visibility/cleanup evidence is incomplete")
+        original,hidden=receipt.get("native_before_bounds",{}),receipt.get("native_pending_bounds",{})
+        require(receipt.get("native_viewport_preserved") is True and
+                all(type(original.get(key)) is int and original[key]>1 and hidden.get(key)==original[key]
+                    for key in ("width","height")), "Decision hiding changed the original native viewport")
         require(receipt.get("human_permission_qualified") is False and receipt.get("desktop_pixels_qualified") is False,
                 "Native visibility checks cannot qualify human decisions or desktop pixels")
         require(receipt.get("cases") == ["original_native_browser_visible",

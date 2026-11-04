@@ -17014,3 +17014,33 @@ current16 receipt,551 JS checks, native red/green regression and both artifacts,
 and restores the exact headless image/config/Home/listener with no active work
 or model overrides. Android admission stays disabled; current physical Android,
 whole-window/human-input and authenticated physical two-device gates stay open.
+
+## E235 — preserve native page geometry while a pane is hidden
+
+Inspect the actual controller state during the new decision-visibility workflow.
+It changes827x710 ->1x1 ->827x710 while the pane hides and restores. The DOM
+surface collapses under display:none, and the shared component sends that zero
+rectangle to native bounds, which clamps to1x1. This can trigger responsive page
+changes during an outstanding approval. Retain the diagnostic and add a real
+native assertion for the original pending width/height; unfixed code fails
+'Hiding the decision viewport resized the original native page'. Keep the red
+result and its original cleanup. Two component regressions also fail for hide
+and disposal against the collapsed DOM surface.
+
+Retain the original meaningful bounds per scoped browser component. Hiding or
+disposing its eligible native view uses those bounds with visible:false; a
+visible valid rectangle replaces them on later resize/show. Existing scope,
+retirement, cleanup eligibility and native binding guards remain authoritative.
+No navigation/input is sent or replayed, no foreign view is hidden and no new
+runtime dependency is introduced. The first hidden mount with no earlier real
+geometry does not invent a prior viewport proof.
+
+Fresh115 component/mount/decision checks and the complete553-case single-
+concurrency JS entry point pass. In the real main/native regression, pending
+controller bounds now remain827x710 while visible:false; cancellation restores
+the same document and visible page with unchanged Applied0 counter. Extend the
+regular acceptance validator to require positive, equal original/pending native
+width and height rather than trust a boolean or absence of a layout error.
+The original headless image/config/Home/port is restored; no human grant or
+pixel/provider/device qualification is inferred. Current E234 delivered builds
+and full16 remain historical until rebuilt/retested for this shared UI change.

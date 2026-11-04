@@ -6,6 +6,13 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E235 additionally fixes native viewport collapse while a browser pane is hidden:
+actual controller bounds changed827x710 ->1x1 ->827x710 during a decision. Retain
+the original meaningful bounds for hide/disposal and accept a new visible size
+when shown again. Fresh553 sequential JS checks and the actual native viewport
+regression pass; the pending controller now stays827x710. E234 full16/artifacts
+are historical until rebuilt/retested for this additional shared UI change.
+
 E233 reproduces an additional visibility defect at the default1100px test
 window: the workbench overlays the conversation at widths up to1100px; a
 maximized workbench also hides it on wide screens. A selected approval can
