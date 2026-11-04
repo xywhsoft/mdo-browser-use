@@ -17206,3 +17206,36 @@ of a pending decision. Ask the user to switch to that titled window and confirm
 what is visible before issuing any new timed request. No request or deadline is
 started in this phase; the owned window intentionally remains open for review.
 No product source/artifact changes or repeated broad regressions are needed.
+
+## E245/E246 — human confirms the repaired browser-open/page-display flow
+
+The user explicitly starts manual acceptance. The previously prepared E244
+window no longer exists: repeat process/listener checks, loopback refusal and
+fresh returned-window inventory confirm that it is terminal. Preserve E244's
+window-only state; no E244 request was ever issued. Reopen only the same guarded
+development environment and use a distinct E245 original request in the existing
+balanced QA conversation, with the current source/applied input maps unchanged.
+
+Computer Use is stopped by the user's physical Escape. Stop UI actions and
+perform only exact-owned cleanup. At that point the original request is already
+terminal succeeded: tool success:true/effect:true, its browser exists and one
+exact original start/done pair is retained. No agent permission action or
+diagnostic reveal is sent. Release that request/browser and restore the same
+headless host/config/Home/listener. Initially leave manual acceptance unconfirmed
+because no human page observation has arrived.
+
+The user then confirms that the page displayed and that they intentionally
+exited. Record human browser-open/page-display acceptance as passed on that
+original request, retaining both the Escape event and the initial unconfirmed
+assessment. Do not infer zero additional foreground/tab clicks, whole main-window
+pixels or physical controls inside the page from this statement. E230/E241 failed
+requests keep their original outcomes. The repaired flow need not be retested
+merely because the user exited after seeing it.
+
+Read-only current16 receipt/source/artifact binding and actual headless/idle state
+remain valid; this reuses the existing software evidence rather than executing
+another full regression. No product/package changes or new approval are made.
+Current human evidence is in the private E245 original and E246 scoped receipt.
+Android current-device/main restoration, full Windows presentation/in-page input
+and authenticated physical two-device qualification remain separate open gates;
+the full Browser Use goal is not declared complete.

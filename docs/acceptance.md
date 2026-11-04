@@ -6,6 +6,15 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E245/E246 now qualifies the human browser-open/page-display flow. The distinct
+original request succeeds, creates its browser and retains one exact start/done
+pair without an agent approval action or diagnostic reveal. After stopping
+Computer Use with Escape, the user confirms that the page had displayed and
+that exiting was intentional. Record that scoped manual acceptance as passed;
+do not mistake the exit for a browser failure. This does not establish zero
+additional window/tab interaction, enclosing desktop pixels or physical input
+inside the page. The same headless runtime is restored with no test resources.
+
 E243 completes the current E242 repair qualification: all16 acceptance cases pass
 with554 source inputs/150 deployed outputs unchanged during the run, including
 the new create-only display gate. Matching Windows/Android/portable-plugin builds,
@@ -117,7 +126,7 @@ The tool is development-only and adds no shipped Python/Node/browser dependency.
 | Observation, exact references, waiting and native input | E236 managed tools/public frame operations through actual Windows native views; E226 Android/JNI evidence retained separately below | Stated Windows operations verified; bounded DOM subset, not complete accessibility-tree equivalence |
 | Screenshots, visual actions and privacy | E236 managed visual operations and six public fixed-scene PNG/JPEG integer/fractional/downscaled comparisons; original dimensions equal and complete delivered bytes unchanged after private edits | Verified these actual capture/permission cases; enclosing desktop framebuffer remains unqualified |
 | Tabs, popups, dialogs, uploads and downloads | E236 real local managed/native flows and eight remote-bridge cases; exact131075-byte save and one original POST; E226 native-source378 assertions are prior source-bound evidence | Original local/bridge ownership and transfers verified; arbitrary OS/site/provider business flows are not claimed |
-| Permissions and failure recovery | E236 nine managed ask-decision cases/237 assertions/ten original terminal pairs; selected-decision native hide/restore preserves827x710 without a grant; explicit owned-renderer and same-Home restart recovery | Backend decisions and native presentation verified; actual human button decision and normal-window pixels remain unverified |
+| Permissions and failure recovery | E236 nine managed ask-decision cases/237 assertions/ten original terminal pairs; selected-decision native hide/restore preserves827x710 without a grant; explicit owned-renderer and same-Home restart recovery | Backend decisions and native presentation verified; human browser-open/page-display flow subsequently confirmed in E245/E246; complete main-window pixels remain unverified |
 | Human control and resource lifetime | E226 fresh full658 JNI workflow modes,7137 attached-release assertions, current source/clock/input/capture/file/native-owner checks, fresh20 frontend recovery modes; native Android UI/provider peers are controlled | Current combined software integration verified; physical WebView/lifecycle/Doze qualification remains incomplete |
 | Remote ownership and transfer | E236 production C bridge to actual headed WebView2: eight cases, original task binding, cancellation/recovery, upload digest and retained save | Same-host protocol integration verified; authenticated physical two-device routing remains unverified |
 | Plugin installation and deliverables | E236 real portable import/export/trust/stale-plan8 and lifecycle/recovery10; current Windows packed12 and signed Android archive match current app inputs | Matching development artifacts retained; no new Android-device or official release claim |
@@ -497,7 +506,7 @@ are not treated as successful runs merely because their scripts exist.
 | Official plugin and simultaneous C/JS API | Single contracts generator,13 registered services/16 tools, C registrar, sdk/browser_use.h and sdk/client.mjs; enabled installed plugin and actual C/JS/managed/native paths | Verified stated shared-contract and Windows flows. Static provider streams verify transport/continuation, not inference quality or real-provider approval. |
 | Observation, locating, waits and native Windows input | Actual managed/public frames/readiness tests, exact original refs, field-state and trusted input receipts, unchanged-source SDK and JS regressions | Verified documented bounded DOM/frame scenarios. This is not a complete browser accessibility tree or arbitrary website business acceptance. |
 | Tabs/popups/dialogs, screenshots, upload/download/save | Real local native/managed operations and privacy capture pairs; transfer hashes, original task/picker/source identity; durable journals and packaged code | Verified stated local workflows. Physical Android chooser/URI/provider/Activity behavior remains unqualified. |
-| Permissions, takeover, cancellation and restart/renderer recovery | Actual decision API/native/managed checks, original terminal pairs and uncertain-effect retention, current control source hashes | Backend/control paths verified. The actual normal-main permission button and complete main-window pixels still lack proof; old accessibility/controlled worker evidence is narrower. |
+| Permissions, takeover, cancellation and restart/renderer recovery | Actual decision API/native/managed checks, original terminal pairs and uncertain-effect retention, current control source hashes | Backend/control paths verified. E245/E246 adds human browser-open/page-display acceptance; complete main-window pixels and in-page physical input remain unqualified. |
 | Android adaptation and explicit downgrade | Packaged API26 ARM64/DEX/native classes; actual MdoBrowser.browserUseSupport returns available:false and state reports automation:false; shared dispatcher refuses unsupported automation | Partly implemented/controlled-tested; incomplete platform qualification. Old-provider manual downgrade does not prove a capable-provider adapter, actual Activity/input/capture/URI grants/chooser/lifecycle/Doze. The user deferred phone/provider changes. |
 | Device routing and ownership | Actual production C bridge to real native browser in the same host, original-task transfer and cancellation checks | Verified same-host bridge scope only. No current account-authenticated two-physical-device proof. |
 | Ecosystem installation, lifecycle and documentation | Real local import/export/trust/stale-plan/uninstall/recovery cases, package allowlist and matching inventories;58 documented tool script paths exist | Local installation verified; updated setup/build instructions source-checked and existing setup actually rerun. Device-only commands are inventory, not passed qualification. Store/official update publication is not performed. |
@@ -1000,10 +1009,6 @@ has no answer yet. No such decision is inferred and no permission UI is acted on
   Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.
-- Exercise an actual main-interface user decision. E200 confirms the prompt
-  through normal-window accessibility; button action/pixel qualification remains
-  separate from the decision API/managed worker. Current reports keep
-  `rendered_permission_prompt_qualified:false`.
 - Qualify account-authenticated two-device routing where required by the shared
   device workflow. Current native bridge tests intentionally keep account and
   physical-device flags false; they do not claim remote desktop pixel transport.

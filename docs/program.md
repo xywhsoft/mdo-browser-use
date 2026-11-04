@@ -16,6 +16,11 @@ replacing only the program leaves an older installed C implementation unchanged.
 E240's real human approval and same-browser explicit-reveal observation confirm
 the old defect. E241's distinct automatic-display retest expires without a human
 response; native automated verification is not represented as that human result.
+The later distinct E245 request succeeds and the user confirms the page displayed
+before intentionally exiting. E246 records that human browser-open/page-display
+acceptance as passed, without inferring zero extra window/tab clicks or complete
+desktop-framebuffer/physical-input qualification. Delivered artifact bytes are
+unchanged by this evidence update.
 
 The inherited E236 decision-priority workbench presentation ensures a
 covering native pane yields to the selected conversation's decision and returns
