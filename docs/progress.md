@@ -17598,3 +17598,29 @@ checks and full current-target Browser Use remain incomplete.
   Install only the dedicated QA Android package, preserving its login and the
   formal package/data. Its actual frontend now loads the SDK modules. Physical
   cross-device workflow qualification is recorded separately below.
+
+# E263: physical Android controller -> Windows native browser qualification
+
+- Execute the SDK inside the actual Android main WebView using a temporary
+  frontend plugin in the original Home. The product obtains the real account
+  route and selects the original Windows display client; the actual route is
+  XRUDP. Python only provisions fixtures and checks final receipts/bytes, not
+  browser actions. No Node substitute controller or model request is used.
+- Nine scoped cases pass: real controller/target identity, observation, Unicode
+  fill/exactly-one trusted click, screenshot delivered/decoded on Android,
+  cancellation without replay, navigation/stale-document denial, page-verified
+  upload, retained single-POST download/exact workspace save, and browser close.
+  Screenshot18307bytes/559x480. Both transfer directions verify all131075bytes
+  with SHA-256f6589d93167a38ddd6bd9337c012f163142839caf8667ce80e012469649e58fb.
+- Preserve the terminal sanitized state and original failed MIME attempt. Remove
+  the exact temporary QA plugin/report and hash-matching files/maps; confirm all
+  other plugins retain IDs/revisions/enabled state. Trash only the unchanged
+  synthetic task using its current ETag. Final zero browsers/panels/operations,
+  both accounts retained, original phone PID and formal APK unchanged. Restore
+  the same Windows Home/port to original headless mode with no active runs.
+- This closes the actual phone-controller remote Browser Use gap. It does not
+  qualify Android guarded Agent operations; admission remains disabled. The
+  read-only current0.9.3 assessment finds37 matching overlay groups, five needing
+  review and one retired JSON installer path. No source pin/mainline/company
+  program is changed. That integration and remaining Android whole-host/lifecycle
+  qualification remain unfinished; do not mark the whole goal complete.

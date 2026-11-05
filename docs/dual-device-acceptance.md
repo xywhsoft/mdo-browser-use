@@ -1,5 +1,58 @@
 # Physical two-device acceptance
 
+## E263: actual Android controller to Windows Browser Use
+
+The actual RMX5090 Android WebView, running complete QA APK
+17064eaf32c1e3ff199429b66d20819463d452233af25cb87053d50248554698,
+executes the frontend SDK against the original Windows development display
+client/native WebView2. Its original account selects the user-authorized target
+through product account/remote transport; the observed route is XRUDP. Python
+prepares synthetic fixtures and verifies receipts/hashes, but does not substitute
+for the phone controller or issue the page actions. No model requests occur.
+
+| Actual check | Result |
+| --- | --- |
+| Android controller, selected target, original Windows display identity | Pass; controller and native display clients are distinct |
+| Remote C/JS/native observation | Pass on the synthetic page |
+| Unicode fill and trusted click | Pass; exactly one trusted click |
+| Capture delivery to Android | PNG18307bytes, decoded559x480 on the phone |
+| Waiting cancellation | Original receipt cancelled; browser continues without replay |
+| Navigation and old-document action | New document observed; stale action denied |
+| Workspace upload | Page verifies the full131075-byte SHA-256 |
+| Retained POST download/save | Independently observed one POST; complete saved bytes and hash match |
+| Original browser close | Pass; zero remaining test browsers/panels/operations |
+
+The transfer hash is
+f6589d93167a38ddd6bd9337c012f163142839caf8667ce80e012469649e58fb.
+Retain the sanitized terminal receipt in `.mdo/physical-browser-state.json` and
+final restoration checks in `.mdo/E263-final-check.json`. The temporary frontend
+plugin and report resource are removed, all other plugins retain their original
+IDs/revisions/enabled states, owned hash-matching pages/upload/download files and
+USB maps are removed. Only the unchanged synthetic task is moved to trash with
+its exact ETag. Both logins, the original phone PID and formal Android APK hash
+are retained. The same Windows Home/port is restored to its original headless
+mode after confirming zero active/starting runs.
+
+The first attempt exposed a real static-host MIME defect: `.mjs` SDK modules
+were served as application/octet-stream. Preserve that failed receipt and fix
+the pinned native MIME mapping before the successful current run. The reusable
+`tools/physical_browser_probe.py` installs the bounded QA frontend and requires
+an explicit physical start; it refuses to overwrite the original state receipt.
+For a future run, first inspect/archive only that cleaned private receipt and
+control markers. After returning the phone to local mode, acknowledge cleanup
+with a private `physical-browser-cleanup.json` containing its exact `id`.
+Use the similarly scoped abort marker while waiting; do not kill the probe and
+skip its cleanup. Credentials are never stored in these receipts.
+
+This qualifies the covered physical phone-controller -> Windows-browser flow.
+Android guarded Agent execution remains disabled. The source deployment is
+still pinned0.7.0. The read-only0.9.3 assessment at
+d5301ad4c5b9b1bd727eded047a55963e3aa3787 finds37 matching overlay groups,
+five needing review (application SDK, panel manager, approvals, connector and
+deps.lock), and the removed JSON installer path. No pin, current mainline or
+company program is overwritten. That migration and whole-goal qualification
+remain separate unfinished work.
+
 ## E253: real same-account authentication and control
 
 On2026-11-05 the user personally logs into the existing development environment

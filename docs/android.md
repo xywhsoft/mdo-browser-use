@@ -1,5 +1,25 @@
 # Android Browser Use adapter
 
+## Latest physical controller and display qualification (E263)
+
+The current complete QA APK
+17064eaf32c1e3ff199429b66d20819463d452233af25cb87053d50248554698
+is installed and hash-verified on the original RMX5090. Its actual WebView loads
+the frontend SDK after the confirmed `.mjs` static-host MIME repair, and passes
+the nine-case phone-controller -> Windows-native-browser flow. Capture bytes are
+decoded on the phone; upload/download full hashes and single POST are independently
+verified. See [physical-device evidence](dual-device-acceptance.md#e263-actual-android-controller-to-windows-browser-use).
+The QA plugin, files, report and USB mappings are removed; login, original phone
+PID and separate formal mdo APK/data remain. No provider change or model call.
+
+E256-E259 separately reproduced and repaired hidden first-layout scaling and
+same-document channel replacement. The final actual phone display check retained
+scale1, original document/input and incrementing clicks through hiding/settings/
+revealing. Those scoped display passes supersede the earlier suspected cause
+below. They do not qualify guarded Android Agent automation, which remains
+disabled, or the full background/Doze/URI/chooser lifecycle matrix. Earlier
+APK/diagnostic evidence below is historical and not relabeled as the current APK.
+
 ## Current complete APK and deep-idle recovery (E255)
 
 On2026-11-05 install the E251 complete APK, SHA-256

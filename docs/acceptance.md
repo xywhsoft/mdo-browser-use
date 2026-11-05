@@ -6,6 +6,24 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E263 now passes an actual Android WebView controller -> account-selected Windows
+native Browser Use workflow, nine scoped cases. This uses the real frontend SDK,
+remote C service, Windows display client and native WebView2, with XRUDP selected
+by the product transport. Unicode input/trusted click, screenshot decoded on the
+phone, cancellation without replay, stale-document denial, upload/full hash and
+single-POST retained download/workspace save all pass. Owned test resources are
+removed and both accounts retained. This closes the missing physical phone
+controller case; it does not enable Android as the guarded automation target.
+The confirmed `.mjs` static-host MIME defect is repaired in both native builds;
+fresh578 sequential JS and12 packed-program checks pass. See
+[E263 details](dual-device-acceptance.md#e263-actual-android-controller-to-windows-browser-use).
+
+The enhanced deployment is still pinned to mdo0.7.0. A read-only assessment of
+the current0.9.3 mainline identifies37 matching overlay groups, five needing
+review and one retired installer path. This integration/ZIP migration and
+Android guarded host/full lifecycle qualification remain incomplete. Earlier
+stage results below retain their original source/package scope.
+
 E253 now verifies covered real same-account two-device authentication/control
 flows against the user-authorized company Windows device: production ticket/
 relay handshake, exact target/member identity, real server-side view rejection,
