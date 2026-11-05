@@ -82,7 +82,11 @@ def main():
         if time.monotonic() >= deadline:
             raise RuntimeError("Real device discovery did not finish")
         time.sleep(.2)
-    assert listing["job"]["state"] == "done"
+    if listing["job"]["state"] != "done":
+        args.output.write_text(json.dumps({"phase": "discovery-failed", "passed": False,
+            "direction": args.direction, "mode": args.mode, "http_status": listing.get("status"),
+            "error_code": listing.get("error"), "real_model_calls": 0}, indent=2) + "\n", encoding="utf-8")
+        raise RuntimeError("Real discovery failed; inspect its sanitized receipt")
     targets = [row for row in listing["listing"]["devices"] if row["id"] == remote["device_id"]]
     assert len(targets) == 1 and targets[0]["online"] and targets[0]["allow_remote"] and not targets[0]["revoked"]
     result = controller.data("POST", "/api/v1/connector/devices",

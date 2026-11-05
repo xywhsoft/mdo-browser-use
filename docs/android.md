@@ -1,5 +1,49 @@
 # Android Browser Use adapter
 
+## Current complete APK and deep-idle recovery (E255)
+
+On2026-11-05 install the E251 complete APK, SHA-256
+e5d849ef271a09aa183dc0280ec834f956ffbeb85607e65e6161817721a24f3e,
+in the dedicated user-authorized QA package on the RMX5090. The previous QA
+package has been removed since E249; create no replacement Home or formal mdo
+copy. The user personally logs into this QA app. Its installed APK is verified;
+the separate formal mdo APK hash remains unchanged.
+
+The user confirms native page input/click. Screenshots show their actual text
+Android E525 and Local action verified, with count2. Force the real device into
+deep IDLE for20seconds: the shell verifies IDLE at both ends. A cleanup trap
+unforces idle, resets only this test's simulated unplug and wakes the device.
+Verify original ACTIVE/charging/force-idle=false and battery updates restored.
+After the user's manual unlock/return, the same original app PID, displayed
+document UUID, text and result remain; a further human click increments2to3.
+This qualifies this bounded forced-deep-idle manual-page recovery case, not
+long-duration natural Doze, pending guarded operations or the whole Doze matrix.
+
+The in-idle USB-forwarded HTTP read times out. The ADB transport later changes
+from18to20 and loses its USB mappings. Recreate only this test's original maps;
+the same app PID remains. Do not infer an app crash or a product cause for USB
+reconnection. Phone account discovery subsequently returns200. The desktop also
+briefly fails fresh discovery with status0 and a new relay connection with
+ECONNRESET; independent desktop HTTPS initially disconnects, then a verified
+TLS1.3 connection returns200. Preserve these original failures. A fresh real
+desktop-to-phone control cohort then passes7checks against the original runtime.
+This proves recovery, not a permanent network repair or stable in-idle service.
+
+An initial native test page created while settings are visible renders at an
+abnormally enlarged scale on reveal. A second page created while the workbench
+is visible renders normally (innerWidth360, DPR3.5, visual scale1, font36px).
+The initial collapsed viewport passed by the UI is a suspected area; the exact
+product cause and fix remain unconfirmed. Preserve the anomalous page screenshot
+and ordinary page/manual evidence; do not silently mark this display case passed.
+
+The actual main capability still reports isolated_world_unsupported. Guarded
+Android Agent automation remains disabled. No provider update, page-world
+fallback, real model request or online release occurs. Remove only both synthetic
+browser/panel pairs, hash-matching fixture pages and owned USB maps; retain both
+account logins and the installed full QA app. Final device lists report both
+targets online, no controller and zero viewers. See dual-device-acceptance.md
+for the covered real account/relay qualification and its controller UI limits.
+
 ## Current physical-device acceptance (E248/E249)
 
 The reconnected RMX5090 runs Android16/API36 and the unchanged WebView

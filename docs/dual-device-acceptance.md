@@ -105,3 +105,16 @@ Phone main-window/provider/lifecycle testing continues separately. Its current
 capability receipt still reports isolated_world_unsupported; guarded Android
 Agent automation remains disabled. No provider upgrade or page-world fallback
 is used, and no real model request occurs.
+
+After the actual20-second deep-idle phone check, fresh desktop discovery briefly
+fails with status0; a phone-originated ticket is obtained, but the desktop Node
+relay socket receives ECONNRESET before target handshake. Independent desktop
+HTTPS also initially disconnects. A subsequent verified TLS1.3/public HTTP200
+check and fresh desktop-to-phone control cohort pass7checks, with the same
+original phone runtime. Original failed receipts are preserved. Final discovery
+from both endpoints returns200, both targets are online/unoccupied and both
+accounts remain signed in. Record31passed scoped checks in total, alongside
+these transient failures; do not claim uninterrupted networking or a root-cause
+repair. The Android manual page survives the real deep-idle interval; see
+android.md for exact scope, current provider limitation and initial-page scaling
+anomaly. All synthetic resources/connections/USB mappings are cleaned.

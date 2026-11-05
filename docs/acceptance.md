@@ -1046,6 +1046,16 @@ has no answer yet. No such decision is inferred and no permission UI is acted on
 
 ## Remaining completion gates
 
+E255 supersedes the phone latest-candidate installation deferral and adds actual
+phone/desktop account qualification: the E251 full APK is installed/hash-verified,
+manual input/click passes and one real20-second forced-deep-idle page recovery
+retains the original PID/document/input/result. It does not qualify the whole
+Doze/guarded-operation matrix. Both auth directions pass24scoped checks; after
+preserved transient desktop network failures, a fresh7-check control cohort
+passes and both final device listings are online/unoccupied. Initial hidden-page
+creation shows an enlarged-viewport anomaly, with cause/fix still open. See
+android.md and dual-device-acceptance.md; Android automation remains disabled.
+
 - Complete Android guarded main-host input/capture/URI/chooser and lifecycle
   qualification. E248/E249 supersedes the old final-source device deferral and
   E2197pass/1unresolved with current8/8 component checks, verified current main

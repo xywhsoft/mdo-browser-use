@@ -17458,3 +17458,31 @@ checks and full current-target Browser Use remain incomplete.
   WebView lacks isolated execution worlds. Main-page/lifecycle checks continue;
   abnormal initial page scaling is preserved for diagnosis. No model calls,
   release, provider change or unrelated device/project edits.
+
+## E255 continued: current phone manual/deep-idle evidence and cleanup
+
+- User confirms current complete APK input/click. Actual screenshots show the
+  entered Android E525, clicks2before/3after and the same original document UUID.
+  Real deep IDLE is verified at both ends of a20second interval. The remote
+  cleanup trap and independent state checks restore ACTIVE/charging/force=false
+  and battery updates. User unlocks/returns; original app PID remains.
+- This passes the bounded forced-deep-idle manual-page recovery case. Idle HTTP
+  times out and the USB transport reconnects/loses mappings; retain that evidence
+  without inventing an app crash/cause. Whole Doze, background availability and
+  guarded Android Agent operations remain unqualified.
+- Desktop post-idle discovery twice fails with status0; a new relay socket fails
+  ECONNRESET. Phone discovery succeeds. Independent desktop HTTPS initially
+  disconnects then verified TLS1.3/public HTTP200 succeeds. Fresh real control
+  passes7checks on the original phone runtime. Preserve all failures; recovery
+  is not a permanent network repair. Improve only probe failure receipts.
+- Observe an abnormally enlarged initial native page after creation under the
+  settings view. A visible-created peer renders normally with360CSSpx/DPR3.5/
+  scale1. Initial zero-size geometry is suspected, but cause/fix are unconfirmed.
+  No product source change or passing qualification of this failing case.
+- Final real device lists return200, online/unoccupied/zero viewers; both logins
+  remain. Formal Android APK hash is unchanged. Exact test browser/panel pairs,
+  hash-matching fixtures and USB maps are removed; QA app/current login retained.
+  Temporary idle/battery overrides are verified restored. Current capability
+  still reports isolated_world_unsupported; provider and admission are unchanged.
+- No model calls, new runtime dependencies, source deployment/build changes or
+  publication. Whole Browser Use goal remains incomplete.
