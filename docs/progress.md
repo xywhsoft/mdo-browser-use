@@ -17375,3 +17375,24 @@ Retain the original red activation regressions, clarified human result and
 unresolved USB/ADB failure without inventing a product root cause. Full guarded
 Android/provider/Doze, latest-candidate physical retest and account-authenticated
 physical two-device gates remain open; the full Browser Use goal is incomplete.
+
+## E252 — prepare the real account-authenticated dual-device environment
+
+The user authorizes starting physical two-device authentication acceptance and
+will personally log in, then supply access to the second device. Revalidate the
+exact idle E251 headless host/config/Home/listener and unchanged reviewed inputs.
+Open the same deployment's normal native development window at its root page;
+HTTP200 and one actual display client are verified. The filtered account state
+is signed_out. No login, password, token, relay grant or remote authorization is
+created, entered or recorded by the agent.
+
+Leave this untimed window open for the user's own login. The local account and
+the device selector's connector use the same installation account while the
+selected target is local; selecting a remote target later keeps controller and
+target account access separate. No additional local Home/app copy is created,
+and the user's formal mdo is untouched. Current development program/plugin files
+remain those qualified in E251. The private E252 record retains only runtime,
+source and nonsecret readiness facts. Account-authenticated physical routing
+remains unqualified until both actual devices and their authorized connection
+are available. Do not rerun headless acceptance or restart this prepared window
+while the user is logging in.
