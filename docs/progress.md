@@ -17396,3 +17396,44 @@ source and nonsecret readiness facts. Account-authenticated physical routing
 remains unqualified until both actual devices and their authorized connection
 are available. Do not rerun headless acceptance or restart this prepared window
 while the user is logging in.
+
+## E253/E254 — actual account-authenticated company-device checks
+
+The user logs into the existing environment and authorizes 公司台式机. Revalidate
+the exact prepared window/runtime and use its current login in memory. The real
+same-account listing identifies one online Windows target allowing remote
+control, with no existing controller/viewer. Obtain actual one-use connector
+tickets and connect through the production TLS relay with production client
+transport. Do not print/persist the account, grant, ticket or write token.
+
+Actual view and control checks pass: exact requested target/member handshake,
+bootstrap/metadata, both local and real server-side read-only write denial,
+remote SDK invocation, unique owned resource write/readback, stale-revision
+rejection without overwrite and exact resource removal. Reusing the consumed
+relay ticket in a correctly formed second upgrade returns401; taking the same
+connector ticket again returns409. Reconnection keeps the same original target
+runtime. After closure, fresh same-account listing confirms zero viewers and no
+control occupant. The user's company projects/sessions/program/settings and
+both login states remain intact. No model or external browser page is used.
+
+The actual target reports0.9.2, not the project's pinned0.7.0. Initially no display
+client is registered; after the user opens the company workbench, one actual
+client acknowledges basic native browser capabilities. Browser Use services/
+plugin are absent. No browser operation on user content is performed or counted
+as a successful remote Browser Use action.
+
+An old-format import-planning body first returns413; a small equivalent legacy
+request returns422/extension_json_retired. Read-only actual target VFS source
+confirms the directory-ZIP ecosystem and retired JSON payload. Preserve both
+responses; do not invent a gateway/body-limit defect or install an incompatible
+package. A read-only assessment of available0.9.2 commita7a64ae finds32 directly
+matching overlay paths and five needing porting, including removed legacy
+installer code and changed native dependencies. No source pin, dependency,
+company program, permission or extension is changed.
+
+Record the covered real two-device authentication/control flows as qualified,
+separately from full remote Browser Use. The reviewed next-stage boundary and
+remaining scope are in docs/dual-device-acceptance.md. The local authenticated
+development window is retained for continued testing; all probe connections and
+the one synthetic resource are cleaned. Android guarded host/Doze/latest-package
+checks and full current-target Browser Use remain incomplete.

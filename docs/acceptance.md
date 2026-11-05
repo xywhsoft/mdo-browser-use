@@ -6,6 +6,17 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E253 now verifies covered real same-account two-device authentication/control
+flows against the user-authorized company Windows device: production ticket/
+relay handshake, exact target/member identity, real server-side view rejection,
+owned resource write/readback/stale-update/cleanup, consumed-ticket HTTP401 and
+released peer occupancy. This is stronger than the earlier same-host bridge
+fixture, but it is not full remote Browser Use. The company runs0.9.2 and the
+current plugin/host is pinned to0.7.0; actual target replies/source confirm the
+old JSON extension format is retired. E254 records the ZIP/host migration
+boundary without changing the pin or company program. See
+[physical-device acceptance](dual-device-acceptance.md).
+
 E251 completes fresh17-case Windows acceptance against558 source inputs and152
 applied outputs, with562 sequential JS checks,15 installed C plugin checks and12
 packed-program checks. E250's real native tab-activation regression is included:
@@ -1043,9 +1054,11 @@ has no answer yet. No such decision is inferred and no permission UI is acted on
   Android automation remains disabled, including
   on otherwise feature-capable providers until the adapter is qualified. Never
   substitute page-world Agent execution or enable the gate from JVM doubles.
-- Qualify account-authenticated two-device routing where required by the shared
-  device workflow. Current native bridge tests intentionally keep account and
-  physical-device flags false; they do not claim remote desktop pixel transport.
+- Complete native Browser Use operations through the actual company target.
+  E253 qualifies covered same-account two-device authentication/control flows;
+  E254 identifies the current0.9.2 directory-ZIP/host migration prerequisite.
+  The earlier same-host bridge fixture remains distinct and does not claim
+  physical-device authentication or remote desktop pixel transport.
 - Windows normal main-window presentation and physical interaction are human
   qualified by E247. Automated whole-window capture remains unavailable and is
   not a substitute for, or an additional failure of, that completed human gate.
