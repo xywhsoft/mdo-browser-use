@@ -17437,3 +17437,24 @@ remaining scope are in docs/dual-device-acceptance.md. The local authenticated
 development window is retained for continued testing; all probe connections and
 the one synthetic resource are cleaned. Android guarded host/Doze/latest-package
 checks and full current-target Browser Use remain incomplete.
+# E255: real phone/desktop authentication qualification
+
+- Install and hash-verify the current E251 complete APK in the user-authorized
+  dedicated Android QA package; formal mdo/data are retained. Restore only the
+  exited local development runtime; its original account persists. The user
+  personally logs into the phone and enables local desktop remote access.
+- Actual native-account API + production TLS relay passes both directions,
+  each with 5 view and 7 control checks. Verify target/member identity, both view
+  write guards, real control SDK/resource roundtrip, stale denial/exact cleanup,
+  consumed-ticket HTTP401, single-delivery HTTP409 and closed-route no fallback.
+  Fresh role connections retain each original target runtime.
+- Add reusable physical_auth_probe.py/mjs. Never persist or print tickets,
+  authentication tokens or credentials. Its Node controller runs on the desktop;
+  this is not Android controller UI, UDP or full Browser Use qualification.
+- Retain the initial reverse setup failure without inventing a product root
+  cause: desktop first enabling assigns an ID; an initial ticket later fails
+  generically, while actual online discovery and subsequent connections pass.
+- Current phone main capability still rejects guarded automation because its
+  WebView lacks isolated execution worlds. Main-page/lifecycle checks continue;
+  abnormal initial page scaling is preserved for diagnosis. No model calls,
+  release, provider change or unrelated device/project edits.

@@ -61,3 +61,47 @@ the user-approved single deployment/Home, login and previous evidence, and must
 not downgrade/overwrite the company's0.9.2 program to satisfy a test. This is a
 reviewed migration boundary; the source pin and company program are unchanged
 in E253/E254. Full real-device Browser Use remains incomplete.
+
+## E255: actual Android phone and local Windows desktop
+
+The current user-authorized RMX5090 phone and the existing Windows deployment
+are tested through their actual account/native APIs and the production TLS
+relay. The phone's old QA package is no longer installed at discovery. Install
+the matching E251 complete development APK under the dedicated QA ID; verify
+its installed SHA-256, preserving the separate formal mdo package and its data.
+The desktop's previous process has exited; restart only this deployment with
+its original Home. Its persisted account remains signed in. The user personally
+logs into the new phone QA app and enables remote access on the local desktop.
+
+Both directions pass view and control cohorts: 5 view checks and 7 control
+checks per direction, 24 total. Each connects with an actual account-issued
+ticket, verifies the exact distinct target device/member, and uses production
+remote transport. The view cohort independently verifies controller and actual
+target write denial. The control cohort calls the real SDK, writes/reads a
+unique synthetic resource, rejects a stale revision, removes the exact original
+resource and confirms absence. Consumed relay tickets return HTTP401; a second
+local ticket delivery returns HTTP409. Closing a transport rejects subsequent
+requests without falling back to the controller's local API. Fresh role
+connections reach the same original runtime in each direction.
+
+The first reverse preflight races initial desktop enabling: enabling assigns
+its first device ID, unlike the earlier disabled snapshot. After refreshing the
+identity, an initial ticket job fails with remote_service_unavailable. Its
+original HTTP status was not captured, so the exact server-side reason is not
+proven. Subsequent actual server discovery confirms online/enabled/unoccupied,
+and fresh view/control requests pass. The reusable probe now joins discovery
+before requesting a ticket and retains a sanitized terminal failure receipt.
+No product root cause or repair is inferred from this setup transition.
+
+Run `tools/physical_auth_probe.py` with the private USB-forward receipt, direction,
+role and a new output path. Credentials stay in memory and reach Node through
+stdin, never argv or result files. This qualifies the covered native-account/
+relay flows on two real devices. The Node controller executes on the desktop,
+including when the ticket originates from the phone's account API. It does not
+qualify physical Android controller UI interactions, direct UDP traversal,
+cross-account denial, device-wide revocation or full remote Browser Use.
+
+Phone main-window/provider/lifecycle testing continues separately. Its current
+capability receipt still reports isolated_world_unsupported; guarded Android
+Agent automation remains disabled. No provider upgrade or page-world fallback
+is used, and no real model request occurs.
