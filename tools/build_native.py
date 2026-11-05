@@ -35,6 +35,8 @@ def main():
         dev.run("git", "apply", "--whitespace=nowarn", str(patch), cwd=NATIVE)
     import prepare_model_transport
     prepare_model_transport.apply()
+    import prepare_static_mime
+    prepare_static_mime.apply()
     base = (dev.SOURCE / "tools/native/xs_browser.inc.hpp").read_text(encoding="utf-8")
     changes = [
         ('#include <mutex>', '#include <mutex>\n#include <cmath>\n#include <vector>\n#include <cstdint>\n#include <wincrypt.h>\n#include <sddl.h>'),
@@ -344,6 +346,7 @@ def main():
     hashes['frames']=hashlib.sha256(frames.encode()).hexdigest()
     hashes['worlds']=hashlib.sha256(worlds.encode()).hexdigest()
     hashes['model_transport']=lock['browser_use_model_transport']['sha256']
+    hashes['static_mime']=lock['browser_use_static_mime']['sha256']
     record_path.write_text(json.dumps(hashes, indent=2) + "\n", encoding="utf-8")
     if args.prepare_only:
         print("Single native source prepared")

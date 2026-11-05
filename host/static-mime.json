@@ -1,0 +1,11 @@
+{
+  "path": "src/protocol/http.h",
+  "before_sha256": "8b134d6f5924760486e9aa1fa8cafc375f8c182be4f1a9e5775c992096ae74d6",
+  "after_sha256": "9c8aa67f3ee4be0283e9b349da78551fc1f9e502a9d22ef1e6eef5653e86b7f4",
+  "changes": [
+    {
+      "before": "\t\t{ \".css\", \"text/css; charset=utf-8\" }, { \".js\", \"text/javascript; charset=utf-8\" },",
+      "after": "\t\t{ \".css\", \"text/css; charset=utf-8\" }, { \".js\", \"text/javascript; charset=utf-8\" },\n\t\t{ \".mjs\", \"text/javascript; charset=utf-8\" },"
+    }
+  ]
+}

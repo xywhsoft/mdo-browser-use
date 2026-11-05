@@ -1916,6 +1916,11 @@
       "path": "app/web/js/api/connector.js",
       "before": "      const error = new Error(\"无法完成设备操作，请检查登录、设备状态和服务连接\");\n      error.code = state.error; error.status = state.status; throw error;",
       "after": "      throw connectorJobError(state, body?.action);"
+    },
+    {
+      "path": "deps.lock",
+      "before": "  \"sdk_overlay\": {",
+      "after": "  \"browser_use_static_mime\": {\n    \"path\": \"tools/native/browser-use-static-mime.json\",\n    \"sha256\": \"b1e26b884f0607a8994d920267181c306751962a5482a79ad9b79f84ee52b0d6\",\n    \"purpose\": \"Serve ESM plugin mjs sources with JavaScript MIME\"\n  },\n  \"sdk_overlay\": {"
     }
   ],
   "files": [
@@ -2394,6 +2399,10 @@
     {
       "source": "host/connector-error.js",
       "target": "app/web/js/api/connector-error.js"
+    },
+    {
+      "source": "host/static-mime.json",
+      "target": "tools/native/browser-use-static-mime.json"
     }
   ]
 }

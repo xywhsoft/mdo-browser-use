@@ -17573,3 +17573,28 @@ checks and full current-target Browser Use remain incomplete.
   compiles/signs/verifies. The real successful phone discovery above used the
   preceding45b7candidate; the final diagnostic-only/policy refinement is compiled
   and contract-tested, not misreported as a new phone runtime acceptance.
+
+# E262/E263: actual plugin module loading and native MIME repair
+
+- The first physical Android-controller frontend does not load. Actual HTTP
+  replies serve its JavaScript entry correctly, but SDK `.mjs` imports use
+  application/octet-stream. The pinned XS_HttpMime table has no `.mjs` entry;
+  this is a confirmed static-host defect, independent of relay connectivity.
+  Retain the failed attempt and exact cleanup in E262-import-failure.json.
+- Add the reviewed `.mjs` JavaScript MIME mapping to the single pinned native
+  build input. The manifest pins original/repaired hashes and refuses unknown
+  edits or links. Both native builders validate it; the Windows build receipt
+  records its identity. An initial CRLF manifest identity failure is preserved;
+  authoritative LF bytes and dependency metadata are corrected before building.
+- Compile the exact original/repaired MIME function: the original rejects the
+  new contract; the repair passes nine cases, including uppercase extensions
+  and unchanged JavaScript/CSS/JSON/image/unknown/binary behavior. Rebuild the
+  original Windows and ARM64 native inputs, with no extra deployment or Home.
+- Fresh Windows packed-program checks pass12; all578 sequential JS cases pass.
+  Current complete Windows candidate SHA-256
+  845ad5a34cc58c64db9fc82f353781e273c92b92d466820c75b6d1ebf7b73b70;
+  complete signed Android candidate
+  17064eaf32c1e3ff199429b66d20819463d452233af25cb87053d50248554698.
+  Install only the dedicated QA Android package, preserving its login and the
+  formal package/data. Its actual frontend now loads the SDK modules. Physical
+  cross-device workflow qualification is recorded separately below.
