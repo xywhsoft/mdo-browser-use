@@ -17486,3 +17486,38 @@ checks and full current-target Browser Use remain incomplete.
   still reports isolated_world_unsupported; provider and admission are unchanged.
 - No model calls, new runtime dependencies, source deployment/build changes or
   publication. Whole Browser Use goal remains incomplete.
+
+# E256-E259: hidden first viewport and same-document Android channel repair
+
+- Reproduce the enlarged first page in the actual full QA app: creating below
+  settings passes a zero-size surface to Android's 1px fallback. After reveal,
+  visualViewport.scale becomes 2.7082; a visible-created control stays at 1.
+  Defer native creation/navigation until finite, positive surface bounds exist.
+  Cancel the wait on abort/disposal/retirement; preserve valid bounds if hiding
+  races creation. Eight focused component regressions cover these lifetimes.
+- The first repaired APK reveals a second failure: its create request times out.
+  Scoped temporary native events show repeated attach callbacks while the same
+  document lease is live, with no create reaching the native handler. Fragment
+  finishes were replacing the port without a document start. Keep the exact live
+  document/port lease; reject stale finishes for a different current document.
+  Actual starts still invalidate, including same-URL reload. Temporary native
+  logging is removed from product sources and the final APK.
+- The exact product attach admission prefix fails the new regression before
+  repair (repeated finish retired the live port). The repaired Java 8 contract
+  passes 9 callback cases alongside the existing 22 channel-identity cases and
+  input/lifetime suites. Explicit attach still means a fresh connection.
+- Install/hash-verify the final complete APK d15b952c01aba1449afd89eeffca5d472b751c33b639f1cd2c2343cb1b0adbc3
+  in the existing QA package. Actual settings-hidden creation remains unallocated;
+  return displays the fixture at scale1/vw360/font28px. Physical input/click
+  succeeds. Collapse, settings navigation and revealing the original panel retain
+  input E259-hidden, the original document UUID and clicks1; a further physical
+  click increments to2. No recreate/navigation replay is used for that reveal.
+- Layout JS passes69 component and570 sequential JS cases; Windows mounted native
+  control and the actual packed program's12 checks pass. The Android full APK
+  compiles/signs/verifies with the existing engine/provider. The phone's current
+  WebView still lacks isolated worlds; guarded Android Agent automation remains
+  unavailable, rather than silently using the page world.
+- Remove only owned browsers, fixture and USB routes. Keep both login states and
+  formal Android app/data; no model calls or publication. Account transport
+  diagnostics/recovery and actual phone-controller Browser Use remain next work;
+  the full goal is not complete.

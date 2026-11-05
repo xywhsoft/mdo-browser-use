@@ -15,7 +15,7 @@ const factory=new Function('ensureNativeBrowser','createNativeBrowserExecutor','
 const helperFactory=name=>new Function('document',readFileSync(new URL(`../host/${name==='Dialogs'?'dialog':'chooser'}-ui.js`,import.meta.url),'utf8')
   .replace('export function','function')+`;return createBrowser${name};`);
 function fixture({realHelpers=false}={}){
-  const trace=[],nodes=[],timers=new Map(),controller=new AbortController();let serial=0,current=true,cleanup=true,hook=()=>{},menu,options;
+  const trace=[],nodes=[],timers=new Map(),controller=new AbortController();let serial=0,current=true,cleanup=true,hook=()=>{},menu,options,onResize;
   let geometry={x:0,y:0,width:800,height:600};
   const responses=new Map();
   const node=(tag='',className='',text='')=>{
@@ -41,18 +41,52 @@ function fixture({realHelpers=false}={}){
     realHelpers?helperFactory('Dialogs')(document):helper('dialogs'),browserLocation,browserPhase,safeBrowserUrl,browserScopeKey,node,name=>node('span',name),
     (name,label,action,onError)=>{const button=node('button','',label);button.onclick=()=>Promise.resolve().then(action).catch(onError);return button;},
     (button,items)=>{menu=items;return{dispose(){}};},(...values)=>trace.push({method:'toast',values}),()=>false,document,
-    {clipboard:{async writeText(value){trace.push({method:'clipboard',value});}}},class{observe(){}},1,
+    {clipboard:{async writeText(value){trace.push({method:'clipboard',value});}}},class{constructor(callback){onResize=callback;}observe(){}},1,
     callback=>{const id=++serial;timers.set(id,callback);return id;},id=>timers.delete(id));
   const start=()=>run(root,options={row,sdk,bridge,signal:controller.signal,mount,clientId:'display',shown:()=>true,alive:()=>current,
     canHide:()=>cleanup,onBind:view=>{trace.push({method:'bind',id:view.id});return current;},onRetired:()=>trace.push({method:'remount'}),
     updateTitle:async title=>{trace.push({method:'title',title});await hook('title');},openExternal:async url=>trace.push({method:'external',url}),
     onEnd:async id=>trace.push({method:'end',id}),addContext:value=>trace.push({method:'context',value})});
   return{trace,nodes,root,mount,controller,timers,start,row,options:()=>options,retire:()=>{current=false;},cleanup:value=>{cleanup=value;},
-    hook:value=>{hook=value;},geometry:value=>{geometry={...geometry,...value};},browser:value=>{browser={...browser,...value};},state:value=>{state={...state,...value};},
+    hook:value=>{hook=value;},geometry:value=>{geometry={...geometry,...value};},resize:()=>onResize(),browser:value=>{browser={...browser,...value};},state:value=>{state={...state,...value};},
     response:(method,value)=>{responses.set(method,value);},
     button:label=>nodes.find(n=>n.tag==='button'&&n.textContent===label),menu:label=>menu().find(item=>item.label===label),
     async flush(){for(let i=0;i<30;i++)await Promise.resolve();},async tick(){const entry=[...timers][0];if(entry){timers.delete(entry[0]);entry[1]();}await this.flush();}};
 }
+
+for(const geometry of [{width:0,height:0},{width:0},{height:0},{width:NaN}])
+test(`initial collapsed or invalid layout never creates a native document: ${JSON.stringify(geometry)}`,async()=>{
+  const f=fixture();f.geometry(geometry);const pending=f.start();await f.flush();
+  try{
+    assert(!f.trace.some(x=>['bind','create','state','bounds'].includes(x.method)));
+    f.geometry({width:360,height:640});f.resize();await pending;await f.flush();
+    const creations=f.trace.filter(x=>x.method==='create');assert.equal(creations.length,1);
+    assert.equal(creations[0].params.bounds.width,360);assert.equal(creations[0].params.bounds.height,640);
+    f.resize();await f.mount.visible(true);await f.flush();
+    assert.equal(f.trace.filter(x=>x.method==='create').length,1);
+  }finally{f.controller.abort();f.mount.dispose();await pending;}
+});
+
+for(const finish of ['dispose','abort','retire'])
+test(`initial layout wait stops without native effects on ${finish}`,async()=>{
+  const f=fixture();f.geometry({width:0,height:0});const pending=f.start();await f.flush();
+  if(finish==='dispose')f.mount.dispose();
+  else if(finish==='abort')f.controller.abort();
+  else{f.retire();await f.mount.visible(false);}
+  await pending;f.geometry({width:360,height:640});f.resize();await f.flush();
+  assert(!f.trace.some(x=>['bind','create','state','bounds','navigate'].includes(x.method)));
+  assert.equal(f.timers.size,0);
+});
+
+test('layout collapsing during first native create retains its valid starting viewport',async()=>{
+  const f=fixture();f.geometry({width:420,height:640});let complete;
+  f.hook(method=>{if(method==='create')return new Promise(resolve=>{complete=resolve;});});
+  const pending=f.start();await f.flush();assert(complete);
+  f.geometry({width:0,height:0});f.resize();complete();await pending;await f.flush();
+  const hidden=f.trace.filter(x=>x.method==='bounds').at(-1).params;
+  assert.equal(hidden.visible,false);assert.equal(hidden.bounds.width,420);assert.equal(hidden.bounds.height,640);
+  assert.equal(f.trace.filter(x=>x.method==='create').length,1);
+});
 
 for(const action of ['hide','dispose'])test(`native ${action} retains the original viewport when its DOM surface collapses`,async()=>{
   const f=fixture();await f.start();await f.flush();

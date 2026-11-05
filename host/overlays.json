@@ -1781,6 +1781,11 @@
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "        if (!previous && row.reveal === \"activate\") { layout.active = row.id; layout.open = true; }",
       "after": "        if (panelActivationRequested(row, previous)) { layout.active = row.id; layout.open = true; }"
+    },
+    {
+      "path": "tools/android/MdoBrowser.java",
+      "before": "        if (stopped || url == null) return;",
+      "after": "        if (stopped || !channel.requiresAttach(url,host.getUrl(),port)) return;"
     }
   ],
   "files": [

@@ -16,6 +16,13 @@ final class MdoBrowserChannel<P> implements AutoCloseable {
         return current=new Lease(port,document(url));
     }
     Lease current(){thread();return current;}
+    /** WebView can finish again for fragment navigation without starting a new
+     * document. Preserve its live port, including pending native operations.
+     * A real start invalidates the lease before a same-URL reload finishes. */
+    boolean requiresAttach(String finishedUrl,String currentUrl,P port){
+        thread();String finished=document(finishedUrl);
+        return !closed&&finished!=null&&!finished.isEmpty()&&finished.equals(document(currentUrl))&&!owns(current,port,currentUrl);
+    }
     boolean owns(Lease lease,P source,String url){
         thread();return !closed&&lease!=null&&lease==current&&source==lease.port&&lease.document.equals(document(url));
     }

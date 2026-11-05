@@ -1,0 +1,38 @@
+package org.xserver.android;
+
+/** Uses the exact product attach admission prefix with controlled callback
+ * ordering. Does not simulate Android message delivery or claim device QA. */
+public final class AndroidFinishContractTest {
+    static int checks;
+    static void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
+    final MdoBrowserChannel<Object> channel=new MdoBrowserChannel<>();
+    final Host host=new Host();Object port;boolean stopped;int allocations,invalidations;
+    static final class Host {String url="http://127.0.0.1/app#chat";String getUrl(){return url;}}
+    void attach(String url){
+@@ATTACH_GUARD@@
+        invalidations++;channel.invalidate();port=new Object();allocations++;channel.attach(url,port);
+    }
+    void start(){channel.invalidate();port=null;}
+    public static void main(String[] args){
+        AndroidFinishContractTest h=new AndroidFinishContractTest();
+        h.attach(h.host.url);Object first=h.port;MdoBrowserChannel<Object>.Lease lease=h.channel.current();
+        check(h.allocations==1,"First document did not attach");
+        h.attach(h.host.url);
+        check(h.port==first&&h.channel.current()==lease&&h.invalidations==1,"Repeated finish retired the live native port");
+        h.host.url="http://127.0.0.1/app#settings";h.attach(h.host.url);
+        check(h.port==first&&h.channel.current()==lease,"Fragment finish changed the pending operation's channel");
+        h.host.url="http://127.0.0.1/app#chat";h.attach("http://127.0.0.1/app#settings");
+        check(h.port==first&&h.channel.current()==lease,"Delayed fragment callback replaced the same document");
+        h.start();h.attach(h.host.url);
+        check(h.port!=first&&!h.channel.active(lease,h.host.url)&&h.allocations==2,"Same-URL reload reused an invalid lease");
+        Object reloaded=h.port;h.host.url="http://127.0.0.1/other";h.start();
+        h.attach("http://127.0.0.1/app#chat");
+        check(h.port==null&&h.allocations==2,"Delayed previous-document finish attached to the new host");
+        h.attach(h.host.url);check(h.port!=null&&h.port!=reloaded&&h.allocations==3,"New top document did not attach");
+        Object current=h.port;h.attach(null);h.stopped=true;h.attach(h.host.url);
+        check(h.port==current&&h.allocations==3,"Stopped/null callback mutated a channel");
+        h.stopped=false;h.channel.close();h.attach(h.host.url);
+        check(h.port==current&&h.allocations==3,"Closed owner admitted a callback");
+        System.out.println("{\"passed\":true,\"checks\":"+checks+",\"android_device_verified\":false}");
+    }
+}

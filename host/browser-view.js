@@ -9,6 +9,7 @@ import { toast } from "../../utils/dom.js";
 import { isRemoteTarget } from "../../api/target.js";
 
 const rect = node => { const r = node.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height), scale: devicePixelRatio || 1 }; };
+const usableBounds = bounds => [bounds.x, bounds.y, bounds.width, bounds.height, bounds.scale].every(Number.isFinite) && bounds.width > 0 && bounds.height > 0 && bounds.scale > 0;
 function assertDisplayUrl(url) {
   if (url && isRemoteTarget() && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname))
     throw new Error("此地址指向目标设备的本地服务。请先映射预览服务，或提供可访问的网址。");
@@ -50,7 +51,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   canHide = () => false, onBind = () => true, onDispose, onRetired, updateTitle, openExternal, onEnd, addContext }) {
   const id = row.resource.id, scope = browserScopeKey(row);
   const execute = createNativeBrowserExecutor(bridge, id), view = { id, execute };
-  let disposed = false, retired = false, brokerInvalid = false, initialized = false, controlPending = "", controlEpoch = 0, controlNotice;
+  let disposed = false, retired = false, brokerInvalid = false, initialized = false, initialBoundsWaiter, controlPending = "", controlEpoch = 0, controlNotice;
   const current = () => !disposed && !retired && !brokerInvalid && !signal.aborted && alive();
   const check = () => { if (!current()) throw new DOMException("浏览器所属窗口或设备已改变", "AbortError"); };
   const ready = () => { check(); if (!initialized) throw new DOMException("浏览器正在初始化", "AbortError"); };
@@ -178,22 +179,43 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     const identity = JSON.stringify(params); if (identity === lastBounds || !bridge.available()) return Promise.resolve(); lastBounds = identity;
     return uiExecute("bounds", params).catch(() => { if (current() && lastBounds === identity) lastBounds = ""; });
   };
+  const initialBounds = () => {
+    check(); const bounds = rect(surface);
+    if (usableBounds(bounds)) return Promise.resolve(bounds);
+    // A hidden pane has no viewport yet. A 1px native fallback changes Android
+    // page layout/zoom before reveal. Retain only this pane's layout wait; no
+    // navigation or native allocation occurs until its actual surface exists.
+    return new Promise((resolve, reject) => {
+      const finish = (error, value) => {
+        signal.removeEventListener("abort", sample); initialBoundsWaiter = undefined;
+        if (error) reject(error); else resolve(value);
+      };
+      const sample = () => {
+        if (!current()) { finish(new DOMException("浏览器所属窗口或设备已改变", "AbortError")); return; }
+        const value = rect(surface); if (usableBounds(value)) finish(null, value);
+      };
+      initialBoundsWaiter = sample; signal.addEventListener("abort", sample, { once: true }); sample();
+    });
+  };
   mount.visible = value => {
+    initialBoundsWaiter?.();
     if (!current()) { if (value && !disposed && !brokerInvalid && !signal.aborted) onRetired?.(); return Promise.resolve(); }
     return syncVisible(value);
   };
   mount.dispose = () => {
     if (disposed) return;
     const hide = !brokerInvalid && canHide(); disposed = true; onDispose?.();
+    initialBoundsWaiter?.();
     clearTimeout(timer); downloads.dispose(); choosers.dispose(); dialogs.dispose(); menu.dispose();
-    if (hide && bridge.available()) void execute("bounds", { bounds: retainedBounds || rect(surface), visible: false }).catch(() => {});
+    if (hide && bridge.available() && retainedBounds) void execute("bounds", { bounds: retainedBounds, visible: false }).catch(() => {});
   };
-  mount.observer = new ResizeObserver(() => { void syncVisible(shown()); }); mount.observer.observe(surface);
+  mount.observer = new ResizeObserver(() => { initialBoundsWaiter?.(); void syncVisible(shown()); }); mount.observer.observe(surface);
   const initialize = async (refresh = false) => {
+    const bounds = await initialBounds(); check();
     if (refresh) browser = owned(await call("browser.get", { id }));
-    await ensureNativeBrowser({bridge,sdk,browser,clientId,bounds:rect(surface),alive:current,cancelOnDetach:false,
+    await ensureNativeBrowser({bridge,sdk,browser,clientId,bounds,alive:current,cancelOnDetach:false,
       requireAutomation:row.params?.automation_required===true,
-      beforeCreate:()=>{check();if(!onBind(view)){retired=true;check();}}});
+      beforeCreate:()=>{check();if(!onBind(view)){retired=true;check();}retainedBounds={...bounds};}});
     check(); initialized = true; lastBounds = ""; await syncVisible(shown()); check();
   };
   const failure = (error, prefix = "") => {
