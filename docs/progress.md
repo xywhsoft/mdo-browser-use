@@ -17521,3 +17521,55 @@ checks and full current-target Browser Use remain incomplete.
   formal Android app/data; no model calls or publication. Account transport
   diagnostics/recovery and actual phone-controller Browser Use remain next work;
   the full goal is not complete.
+
+# E260: bounded device discovery recovery and per-job failure receipts
+
+- Confirm two observability defects in the actual native/client path: fetch
+  causes are lost before the generic status0 failure, and the background relay
+  worker can replace shared error/status before UI reads the completed job.
+  Add per-call, per-job diagnostics before cleanup: fixed phase, attempt/failure
+  counts, elapsed monotonic time and up to8 numeric cause kind/code/system codes.
+  Domains come only from a fixed allowlist of native domain names; unknown domains become native. No error text, URL/body/token or
+  retained native error object enters a public snapshot or diagnostic log.
+- Only GET /api/v1/devices without a body may recover transient transport
+  errors/explicit incomplete EOF, at most3attempts sharing15seconds. Backoff is
+  bounded/jittered/cancellable. Certificate/policy, malformed protocol, memory,
+  argument/range, unsupported and cancellation failures do not retry. All
+  registration/revoke/remove/ticket/account mutations remain one attempt.
+  Existing device listings remain in native state on failure.
+- Job snapshots retain their own error/status/transport receipt independently
+  of relay state. The UI uses that receipt, distinguishes account readiness,
+  HTTP denial/server failure and transport interruption, and advises inspection
+  rather than replay for uncertain writes. Its polling budget now accommodates
+  the existing20second account acquisition plus the15second request budget.
+- Actual C policy with controlled fetch/clock passes52fault checks. Eight JS
+  diagnostic cases pass; the full current578sequential JS cases pass after
+  rebuilding the native bridge fixture for changed account source. The initial
+  stale-fixture rejection is preserved as validation evidence.
+- Real logged-in development service discovery returns200/complete in153ms,
+  one attempt, no failures,4device rows. The queue endpoint's202 was initially
+  rejected by the probe helper's default200 expectation; inspect that original
+  completed job instead of resubmitting it. No real model calls or device
+  permission/account changes. This does not establish a permanent repair or
+  exact cause of the historical external ECONNRESET/HTTPS disconnect.
+
+- The updated full Android QA app retains login/PID. First discovery fails
+  in224ms/status0 with a bounded native state/IO cause chain; preserve it without
+  inferring a permanent defect. The user reports accidental phone operation and
+  requests one recheck. That one new read succeeds200/complete in246ms,1attempt,
+  0failures,4devices on the same original PID. Owned USB forwarding is removed.
+  Error-domain allowlisting is tightened for future failures; no raw domain or
+  message is exposed. Historical reset/disconnect cause remains unproven.
+
+- Native HTTP client source shows wrapper kinds may inherit an inner teardown
+  STATE despite an intervening IO cause. Read-only recovery recognizes that
+  actual IO cause while preserving definitive permission/protocol/cancel denials;
+  a pure unexplained STATE still never retries. Add the observed four-level
+  state/state/IO/state shape and pure-state controls to the policy regression.
+- Final Windows candidate bcb916cf41d84a67e7ba81c890d1f93ff0ff9626f83a3181a18ce895cef5aa48
+  passes the12packed-program runtime checks. The final native bridge is rebuilt
+  and all4affected bridge regressions pass after the last C-policy change.
+  Final complete Android candidate2e422e495e9d1333bd702845ca4956037ab1f445b0a31c4c79cd35df7f851bad
+  compiles/signs/verifies. The real successful phone discovery above used the
+  preceding45b7candidate; the final diagnostic-only/policy refinement is compiled
+  and contract-tested, not misreported as a new phone runtime acceptance.

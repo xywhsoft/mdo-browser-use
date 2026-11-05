@@ -1786,6 +1786,136 @@
       "path": "tools/android/MdoBrowser.java",
       "before": "        if (stopped || url == null) return;",
       "after": "        if (stopped || !channel.requiresAttach(url,host.getUrl(),port)) return;"
+    },
+    {
+      "path": "app/src/account/internal.h",
+      "before": "#include \"../../include/mdo/secrets.h\"",
+      "after": "#include \"../../include/mdo/secrets.h\"\n#include \"browser_use_account_transport.h\""
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "static xvalue* MdoAccountJsonClient(cstr Origin,",
+      "after": "\n#include \"browser_use_account_fetch.inc.c\"\n\nstatic xvalue* MdoAccountJsonClient(cstr Origin,"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "uint16* Status, bool Service)",
+      "after": "uint16* Status, bool Service, MdoAccountTransport* Transport)"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "    if (!xsFetch(&request, &response)) goto done;",
+      "after": "    bool read_only = Service && !strcmp(Path,\"/api/v1/devices\") && !strcmp(Method,\"GET\") && !Body;\n    if (!MdoAccountFetch(&request,&response,read_only,Transport)) goto done;\n    if (Transport) Transport->Phase = \"http\";"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "    xjsonreadconfig limits; xrtJsonReadConfigInit(&limits);",
+      "after": "    if (Transport) Transport->Phase = \"json\";\n    xjsonreadconfig limits; xrtJsonReadConfigInit(&limits);"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "\ndone:\n",
+      "after": "\n    if (Transport && (!Status || *Status < 400u)) Transport->Phase = \"complete\";\ndone:\n"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "return MdoAccountJsonClient(Origin,Path,Method,Body,Access,Cancel,Status,false);",
+      "after": "return MdoAccountJsonClient(Origin,Path,Method,Body,Access,Cancel,Status,false,NULL);"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "    if (Status) *Status = 0u;\n    if (!Lease",
+      "after": "    return MdoAccountServiceJsonDetailed(Path,Method,Body,Lease,Status,NULL);\n}\nxvalue* MdoAccountServiceJsonDetailed(cstr Path, cstr Method, const xvalue* Body,\n    const MdoAccountLease* Lease, uint16* Status, MdoAccountTransport* Transport)\n{\n    if (Transport) { memset(Transport,0,sizeof(*Transport)); Transport->Phase = \"account\"; }\n    if (Status) *Status = 0u;\n    if (!Lease"
+    },
+    {
+      "path": "app/src/account/client.c",
+      "before": "Lease->AccessToken,Lease->Cancel,Status,true);",
+      "after": "Lease->AccessToken,Lease->Cancel,Status,true,Transport);"
+    },
+    {
+      "path": "app/src/remote/service_client.h",
+      "before": "MdoRemoteSocket* MdoRemoteServiceConnect(",
+      "after": "xvalue* MdoRemoteServiceCallDetailed(cstr Path, cstr Method, const xvalue* Body,\n    const MdoAccountLease* Lease, uint16* Status, MdoAccountTransport* Transport);\nMdoRemoteSocket* MdoRemoteServiceConnect("
+    },
+    {
+      "path": "app/src/remote/service_client.c",
+      "before": "    if (Status) *Status = 0u;\n    if (!Path",
+      "after": "    return MdoRemoteServiceCallDetailed(Path,Method,Body,Lease,Status,NULL);\n}\nxvalue* MdoRemoteServiceCallDetailed(cstr Path, cstr Method, const xvalue* Body,\n    const MdoAccountLease* Lease, uint16* Status, MdoAccountTransport* Transport)\n{\n    if (Status) *Status = 0u;\n    if (!Path"
+    },
+    {
+      "path": "app/src/remote/service_client.c",
+      "before": "MdoAccountServiceJson(Path,Method,Body,Lease,Status);",
+      "after": "MdoAccountServiceJsonDetailed(Path,Method,Body,Lease,Status,Transport);"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "#include \"service_client.h\"",
+      "after": "#include \"service_client.h\"\n#include \"browser_use_job_diagnostic.inc.c\""
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "    uint16 Status;",
+      "after": "    uint16 Status, JobStatus;\n    cstr JobError;\n    MdoAccountTransport JobTransport;"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "        g_MdoRemote.JobState = \"queued\";",
+      "after": "        g_MdoRemote.JobState = \"queued\";\n        g_MdoRemote.JobError = \"\"; g_MdoRemote.JobStatus = 0u;\n        memset(&g_MdoRemote.JobTransport,0,sizeof(g_MdoRemote.JobTransport));"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "        MdoAccountSetString(job,\"state\",g_MdoRemote.JobState);",
+      "after": "        MdoAccountSetString(job,\"state\",g_MdoRemote.JobState) &&\n        MdoAccountSetString(job,\"error\",g_MdoRemote.JobError) &&\n        MdoAccountSetUInt(job,\"status\",g_MdoRemote.JobStatus) &&\n        xrtValueObjectSetNew(job,XRT_STR_LITERAL(\"transport\"),MdoRemoteJobDiagnostic(&g_MdoRemote.JobTransport));"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "    uint16 status = 0u; cstr error = \"remote_login_required\";",
+      "after": "    uint16 status = 0u; cstr error = \"remote_login_required\";\n    MdoAccountTransport transport = {0}; transport.Phase = \"account\";"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "MdoRemoteServiceCall(\"/api/v1/devices\",\"GET\",NULL,&lease,&status)",
+      "after": "MdoRemoteServiceCallDetailed(\"/api/v1/devices\",\"GET\",NULL,&lease,&status,&transport)"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "MdoRemoteServiceCall(\"/api/v1/devices/register\",\"POST\",body,&lease,&status)",
+      "after": "MdoRemoteServiceCallDetailed(\"/api/v1/devices/register\",\"POST\",body,&lease,&status,&transport)"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "MdoRemoteServiceCall(path,\"POST\",body,&lease,&status)",
+      "after": "MdoRemoteServiceCallDetailed(path,\"POST\",body,&lease,&status,&transport)"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "        g_MdoRemote.JobState = ok ? \"done\" : \"failed\";",
+      "after": "        g_MdoRemote.JobState = ok ? \"done\" : \"failed\";\n        g_MdoRemote.JobError = ok ? \"\" : error; g_MdoRemote.JobStatus = status;\n        g_MdoRemote.JobTransport = transport;"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "        g_MdoRemote.JobState = \"failed\"; g_MdoRemote.Error = \"remote_account_changed\";",
+      "after": "        g_MdoRemote.JobState = \"failed\"; g_MdoRemote.Error = \"remote_account_changed\";\n        g_MdoRemote.JobError = \"remote_account_changed\"; g_MdoRemote.JobStatus = 0u;"
+    },
+    {
+      "path": "app/src/remote/manager.c",
+      "before": "                g_MdoRemote.JobState = \"failed\"; g_MdoRemote.Error = \"remote_resources_unavailable\";",
+      "after": "                g_MdoRemote.JobState = \"failed\"; g_MdoRemote.Error = \"remote_resources_unavailable\";\n                g_MdoRemote.JobError = \"remote_resources_unavailable\"; g_MdoRemote.JobStatus = 0u;"
+    },
+    {
+      "path": "app/web/js/api/connector.js",
+      "before": "const endpoints = new Set(",
+      "after": "import { connectorJobError } from \"./connector-error.js\";\nconst endpoints = new Set("
+    },
+    {
+      "path": "app/web/js/api/connector.js",
+      "before": "const id = queued.job?.id, until = Date.now() + 20000;",
+      "after": "const id = queued.job?.id, until = Date.now() + 40000;"
+    },
+    {
+      "path": "app/web/js/api/connector.js",
+      "before": "      const error = new Error(\"无法完成设备操作，请检查登录、设备状态和服务连接\");\n      error.code = state.error; error.status = state.status; throw error;",
+      "after": "      throw connectorJobError(state, body?.action);"
     }
   ],
   "files": [
@@ -2248,6 +2378,22 @@
     {
       "source": "host/panel-activation.js",
       "target": "app/web/js/features/workbench/panel-activation.js"
+    },
+    {
+      "source": "host/account-transport.h",
+      "target": "app/src/account/browser_use_account_transport.h"
+    },
+    {
+      "source": "host/account-fetch.inc.c",
+      "target": "app/src/account/browser_use_account_fetch.inc.c"
+    },
+    {
+      "source": "host/remote-job-diagnostic.inc.c",
+      "target": "app/src/remote/browser_use_job_diagnostic.inc.c"
+    },
+    {
+      "source": "host/connector-error.js",
+      "target": "app/web/js/api/connector-error.js"
     }
   ]
 }
