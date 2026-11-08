@@ -2,6 +2,7 @@
 #include "tabs.c"
 #include "observe.c"
 #include "actions.c"
+#include "evaluate.c"
 #include "navigation.c"
 #include "dialogs.c"
 #include "choosers.c"

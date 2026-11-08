@@ -22,10 +22,12 @@ class NativeFrameIdentityTests(unittest.TestCase):
 #include <memory>
 #include <string>
 #include <utility>
+#include <algorithm>
 '''+node+r'''
 struct xb_frame_job{int finished=0;void finish(const std::string&,const char*){finished++;}};
 struct xb_frame_state{unsigned generation=0;std::string root,error;std::map<std::string,xb_frame_node> nodes,previousNodes;
- std::map<std::string,bool> loading;std::map<std::string,std::shared_ptr<xb_frame_job>> jobs;};
+ std::map<std::string,bool> loading;std::map<std::string,std::shared_ptr<xb_frame_job>> jobs;
+ std::map<std::string,std::shared_ptr<xb_script_context>> scriptContexts;};
 struct xb_view{std::shared_ptr<xb_frame_state> frames=std::make_shared<xb_frame_state>();};
 static int serial=0;
 static std::string xb_frame_id(const char* prefix){return std::string(prefix)+std::to_string(++serial);}
@@ -35,8 +37,10 @@ int main(){
  auto view=std::make_shared<xb_view>();auto state=view->frames;state->root="root";
  auto old=*xb_frame_upsert(state,"root","","loader-one","https://same.test/","","");
  auto job=std::make_shared<xb_frame_job>();state->jobs["pending"]=job;state->loading["root"]=true;
+ auto page=std::make_shared<xb_script_context>();page->frame="root";state->scriptContexts["original"]=page;
  state->error="frame_limit";xb_frames_navigation(view);
  if(job->finished!=1||state->generation!=1||!state->nodes.empty()||!state->loading.empty()||!state->root.empty()||!state->error.empty())return 1;
+ if(page->alive||!state->scriptContexts.empty())return 9;
  state->root="root";
  auto unchanged=xb_frame_upsert(state,"root","","loader-one","https://changed-url.test/","","");
  if(unchanged->document!=old.document||unchanged->id!=old.id||!state->previousNodes.empty())return 2;

@@ -126,6 +126,7 @@ export function createBrowserUseClient(sdk) {
     save: (params, options) => perform("save")({...params,timeout_ms:params.timeout_ms===undefined?60000:params.timeout_ms}, options),
     result: single("result"),
     act: perform("act"),
+    evaluate: perform("evaluate"),
     navigate: perform("navigate"),
     waitFor: complete("wait"),
     dialog: (params, options) => params.action === "respond" ? perform("dialog")(params, options) : complete("dialog")(params, options),

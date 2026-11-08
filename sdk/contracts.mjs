@@ -601,7 +601,8 @@ export const services = [
             "browseruse.upload",
             "browseruse.chooser",
             "browseruse.download",
-            "browseruse.save"
+            "browseruse.save",
+            "browseruse.evaluate"
           ]
         },
         "arguments": {
@@ -1060,6 +1061,66 @@ export const services = [
           "type": "integer",
           "minimum": 1000,
           "maximum": 60000
+        }
+      }
+    },
+    "output": {
+      "type": "object"
+    }
+  },
+  {
+    "id": "browseruse.evaluate",
+    "description": "Execute one authorized JavaScript function body in an explicitly selected browser document or observed iframe. Page world accesses page globals; isolated world has separate globals. Await promises, return bounded JSON, and never replay uncertain effects.",
+    "input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "browser",
+        "document",
+        "script"
+      ],
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "document": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "script": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 65536
+        },
+        "frame": {
+          "type": "string",
+          "pattern": "^(f0|f-[a-fA-F0-9-]{36})$",
+          "maxLength": 64
+        },
+        "frame_document": {
+          "type": "string",
+          "pattern": "^fd-[a-fA-F0-9-]{36}$",
+          "maxLength": 64
+        },
+        "world": {
+          "type": "string",
+          "enum": [
+            "page",
+            "isolated"
+          ]
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 10000
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 256,
+          "maximum": 65536
         }
       }
     },

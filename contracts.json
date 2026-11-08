@@ -615,7 +615,8 @@
               "browseruse.upload",
               "browseruse.chooser",
               "browseruse.download",
-              "browseruse.save"
+              "browseruse.save",
+              "browseruse.evaluate"
             ]
           },
           "arguments": {
@@ -908,11 +909,29 @@
           "directory": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path"],
+            "required": [
+              "path"
+            ],
             "properties": {
-              "path": {"type": "string", "minLength": 1, "maxLength": 4096},
-              "space": {"type": "string", "enum": ["native", "workspace", "home", "application"]},
-              "name": {"type": "string", "minLength": 1, "maxLength": 240}
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "space": {
+                "type": "string",
+                "enum": [
+                  "native",
+                  "workspace",
+                  "home",
+                  "application"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              }
             }
           },
           "ticket": {
@@ -1074,6 +1093,68 @@
       "output": {
         "type": "object"
       }
+    },
+    {
+      "id": "browseruse.evaluate",
+      "description": "Execute one authorized JavaScript function body in an explicitly selected browser document or observed iframe. Page world accesses page globals; isolated world has separate globals. Await promises, return bounded JSON, and never replay uncertain effects.",
+      "callback": "BuEvaluate",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "input": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "browser",
+          "document",
+          "script"
+        ],
+        "properties": {
+          "browser": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "document": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "script": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 65536
+          },
+          "frame": {
+            "type": "string",
+            "pattern": "^(f0|f-[a-fA-F0-9-]{36})$",
+            "maxLength": 64
+          },
+          "frame_document": {
+            "type": "string",
+            "pattern": "^fd-[a-fA-F0-9-]{36}$",
+            "maxLength": 64
+          },
+          "world": {
+            "type": "string",
+            "enum": [
+              "page",
+              "isolated"
+            ]
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 100,
+            "maximum": 10000
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 65536
+          }
+        }
+      },
+      "output": {
+        "type": "object"
+      }
     }
   ],
   "tools": [
@@ -1212,6 +1293,12 @@
       "service": "browseruse.save",
       "description": "Save a completed verified download to a new relative path in the original task workspace. Existing parents required; never overwrite/refetch. Returns file metadata and recovery identities. Original response remains until explicit release.",
       "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_WORKSPACE_WRITE | MDO_TOOL_EFFECT_EXTERNAL_SERVICE"
+    },
+    {
+      "id": "browser_evaluate",
+      "service": "browseruse.evaluate",
+      "effects": "MDO_TOOL_EFFECT_READ | MDO_TOOL_EFFECT_EXTERNAL_SERVICE",
+      "description": "Execute one authorized JavaScript function body in an explicitly selected browser document or observed iframe. Page world accesses page globals; isolated world has separate globals. Await promises, return bounded JSON, and never replay uncertain effects. Use return for a result and await for async work. First observe: document is the root observation ID; iframe execution also requires frame and its frame_document from that observation. Script execution can change the website, even when intended as a read; read-only tasks cannot execute it. Existing user takeover and permissions apply."
     }
   ]
 }

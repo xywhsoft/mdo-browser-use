@@ -5,7 +5,7 @@ import test from 'node:test';
 // Run the actual shared authority guard. The visual consumer is a narrow seam
 // that probes only the pending read-only capture checkpoint it was supplied.
 let source=readFileSync(new URL('../host/automation-dispatch.js',import.meta.url),'utf8');
-for(const name of ['capture-image','visual-snapshot','upload-dispatch','download-dispatch','download-save'])
+for(const name of ['capture-image','visual-snapshot','upload-dispatch','download-dispatch','download-save','script-dispatch'])
   source=source.replace(`from "./${name}.js"`,`from ${JSON.stringify(new URL(`../host/${name}.js`,import.meta.url).href)}`);
 source=source.replace('import { browserRuntime } from "./automation-runtime.js";','function browserRuntime(){}')
   .replace('import { executeVisualAction } from "./visual-dispatch.js";',`async function executeVisualAction(args){return globalThis.__visualCheckpointConsumer(args);}`);

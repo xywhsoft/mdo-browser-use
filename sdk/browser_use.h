@@ -28,4 +28,6 @@ static inline mdo_result mdoBrowserUseSave(const mdo_sdk_context_v1* C,const xva
 {return mdoCall(C,"browseruse.save",P,R,E);}
 static inline mdo_result mdoBrowserUseChooser(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
 {return mdoCall(C,"browseruse.chooser",P,R,E);}
+static inline mdo_result mdoBrowserUseEvaluate(const mdo_sdk_context_v1* C,const xvalue* P,xvalue** R,mdo_error_v1* E)
+{return mdoCall(C,"browseruse.evaluate",P,R,E);}
 #endif

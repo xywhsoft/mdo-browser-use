@@ -3,6 +3,12 @@
 Official Browser Use plugin, shared C/JavaScript services, and the native browser
 enhancements needed by mdo. Development is active; see [progress](docs/progress.md).
 Current acceptance evidence and remaining gates are in [acceptance](docs/acceptance.md).
+Custom JavaScript is available through `browser_evaluate` / `browseruse.evaluate`
+on the updated Windows host: select an observed tab or iframe, choose page or
+separate isolated globals, and return bounded JSON from an async function body.
+See the browser-use Skill for parameters, limits and original-operation recovery.
+This new tool requires the updated host; the earlier E264 preview executable
+does not contain its native implementation.
 The reproducible local latency/resource measurement is in [performance](docs/performance.md).
 
 ## Development deployment

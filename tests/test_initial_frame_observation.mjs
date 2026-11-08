@@ -8,7 +8,7 @@ const source=async name=>(await readFile(new URL('../host/'+name+'.js',import.me
 const moduleUrl=code=>`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
 const nativeImport=name=>JSON.stringify(new URL('../host/'+name+'.js',import.meta.url).href);
 let dispatcher=await source('automation-dispatch');
-for(const name of ['capture-image','visual-snapshot','visual-dispatch','upload-dispatch','download-dispatch','download-save'])
+for(const name of ['capture-image','visual-snapshot','visual-dispatch','upload-dispatch','download-dispatch','download-save','script-dispatch'])
   dispatcher=dispatcher.replace(`from "./${name}.js"`,`from ${nativeImport(name)}`);
 const {executeBrowserAutomation}=await import(moduleUrl(dispatcher));
 const reader=moduleUrl(await source('frame-reader'));

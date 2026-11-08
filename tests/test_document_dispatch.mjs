@@ -5,7 +5,7 @@ import {fixture,createDocumentDriver,doc,fd,ref} from './fixtures/document-drive
 
 let source=readFileSync(new URL('../host/automation-dispatch.js',import.meta.url),'utf8');
 source=source.replace('from "./automation-runtime.js"',`from ${JSON.stringify(new URL('../page/runtime.js',import.meta.url).href)}`);
-for(const name of ['capture-image','visual-snapshot','visual-dispatch','upload-dispatch','download-dispatch','download-save'])
+for(const name of ['capture-image','visual-snapshot','visual-dispatch','upload-dispatch','download-dispatch','download-save','script-dispatch'])
   source=source.replace(`from "./${name}.js"`,`from ${JSON.stringify(new URL(`../host/${name}.js`,import.meta.url).href)}`);
 const {executeBrowserAutomation}=await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 

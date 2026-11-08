@@ -8,6 +8,7 @@
   "runtime/contracts.inc.h",
   "runtime/dialogs.c",
   "runtime/downloads.c",
+  "runtime/evaluate.c",
   "runtime/navigation.c",
   "runtime/observe.c",
   "runtime/operations.c",

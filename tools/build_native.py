@@ -314,6 +314,9 @@ def main():
         current = download_path.read_text(encoding="utf-8")
         if current != download and hashlib.sha256(current.encode()).hexdigest() != record.get("download"):
             raise RuntimeError("Unreviewed native download helper edit preserved")
+    script_state='\\"automation\\":true,\\"automation_unique_world\\":'
+    if base.count(script_state)!=1:raise RuntimeError("Native script capability state anchor changed")
+    base=base.replace(script_state,'\\"automation\\":true,\\"script_execution\\":true,\\"automation_unique_world\\":',1)
     frames=(dev.ROOT/'host/native-frames.inc.hpp').read_text(encoding='utf-8')
     frames_path=target.with_name('xs_browser_frames.inc.hpp')
     if frames_path.exists():

@@ -242,7 +242,7 @@
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
       "before": "  const browserViews = new Map();",
-      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal,current)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"新窗口\",resource:{id:browser.id},reveal},sdk,undefined,current),\n    closePanels:async (browser,current)=>{for(const [id,row] of [...entries]){if(!current())return;if(row.resource?.id===browser&&entries.get(id)===row)await close(id,()=>current()&&entries.get(id)===row);}},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
+      "after": "  const browserViews = new Map();\n  const popupManager = createBrowserPopups({ bridge,api,views:browserViews,clientId,\n    alive:()=>!stopped&&displayTarget===(isRemoteTarget()?targetState().selected.id:\"local\"),\n    open:(browser,sdk,reveal,current)=>open(\"mdo.browser\",{key:browser.id,title:browser.title||\"\u65b0\u7a97\u53e3\",resource:{id:browser.id},reveal},sdk,undefined,current),\n    closePanels:async (browser,current)=>{for(const [id,row] of [...entries]){if(!current())return;if(row.resource?.id===browser&&entries.get(id)===row)await close(id,()=>current()&&entries.get(id)===row);}},\n    onError:error=>toast(error.message,\"error\") });\n  const nativePopup = event => { void popupManager.reconcile(event.detail?.browser); };\n  window.addEventListener(\"mdo-browser-popup\",nativePopup);"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -277,7 +277,7 @@
     {
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "      return new Promise((resolve, reject) => {",
-      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"原生浏览器正在为另一个弹出请求创建\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
+      "after": "      if (command === \"create\" && creating.has(params.browser)) {\n        const active = creating.get(params.browser);\n        if (active.popup !== (params.popup || \"\") || active.opener !== (params.opener || \"\")) return Promise.reject(new Error(\"\u539f\u751f\u6d4f\u89c8\u5668\u6b63\u5728\u4e3a\u53e6\u4e00\u4e2a\u5f39\u51fa\u8bf7\u6c42\u521b\u5efa\"));\n        return active.promise;\n      }\n      const result = new Promise((resolve, reject) => {"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",
@@ -478,7 +478,7 @@
     {
       "path": "app/web/js/features/workbench/native-browser.js",
       "before": "        if (active.popup !== (params.popup || \"\")",
-      "after": "        if(active.interception !== (params.intercept_downloads===true))return Promise.reject(new Error(\"原生浏览器正在使用不同的下载拦截策略创建，请检查已有标签。\"));\n        if (active.popup !== (params.popup || \"\")"
+      "after": "        if(active.interception !== (params.intercept_downloads===true))return Promise.reject(new Error(\"\u539f\u751f\u6d4f\u89c8\u5668\u6b63\u5728\u4f7f\u7528\u4e0d\u540c\u7684\u4e0b\u8f7d\u62e6\u622a\u7b56\u7565\u521b\u5efa\uff0c\u8bf7\u68c0\u67e5\u5df2\u6709\u6807\u7b7e\u3002\"));\n        if (active.popup !== (params.popup || \"\")"
     },
     {
       "path": "app/web/js/features/workbench/native-browser.js",
@@ -1403,12 +1403,12 @@
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "  async function open(type, params = {}, scopedApi = api, definition) {\n    if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"工作区已退出\"));",
-      "after": "  async function open(type, params = {}, scopedApi = api, definition, current = () => true) {\n    const check = () => { if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"工作区已退出\")); if (!current()) throw new DOMException(\"原标签页或任务已改变\", \"AbortError\"); };\n    check();"
+      "before": "  async function open(type, params = {}, scopedApi = api, definition) {\n    if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"\u5de5\u4f5c\u533a\u5df2\u9000\u51fa\"));",
+      "after": "  async function open(type, params = {}, scopedApi = api, definition, current = () => true) {\n    const check = () => { if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"\u5de5\u4f5c\u533a\u5df2\u9000\u51fa\")); if (!current()) throw new DOMException(\"\u539f\u6807\u7b7e\u9875\u6216\u4efb\u52a1\u5df2\u6539\u53d8\", \"AbortError\"); };\n    check();"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "      const scope = await client.call(\"sdk.context\"); if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"工作区已退出\"));",
+      "before": "      const scope = await client.call(\"sdk.context\"); if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"\u5de5\u4f5c\u533a\u5df2\u9000\u51fa\"));",
       "after": "      const scope = await client.call(\"sdk.context\"); check();"
     },
     {
@@ -1525,7 +1525,7 @@
     },
     {
       "path": "app/web/js/state/approvals.js",
-      "before": "import { t as uiErrorText, t } from \"../i18n.js\";\nimport { api } from \"../api/client.js\";\nimport { createResourceStore } from \"./store.js\";\nimport { isTransientReadError } from \"../api/read-recovery.js\";\n\nimport { runDecisionAction } from \"./decision-action.js\";\n\nexport const approvalsStore = createResourceStore({ total: 0, limit: 4, truncated: false, items: [] },\n  { recoverRead: isTransientReadError, retainDataOnError: isTransientReadError });\nexport const approvalDecisionStore = createResourceStore({ pending: [], submitted: [] });\nconst pending = new Set();\nconst submitted = new Set();\n\nfunction publishDecisions() {\n  approvalDecisionStore.setData({ pending: [...pending], submitted: [...submitted] });\n}\n\nexport function approvalDecisionStatus(value) {\n  const id = String(value);\n  return pending.has(id) ? \"pending\" : submitted.has(id) ? \"submitted\" : \"idle\";\n}\n\nfunction approvalId(value) {\n  const id = String(value ?? \"\");\n  if (!/^[1-9][0-9]*$/.test(id)) throw new TypeError(uiErrorText(\"error.detail.approvalIdIsInvalid\", {}, \"approval ID is invalid\"));\n  return id;\n}\n\nexport function loadApprovals({ retry = false } = {}) {\n  if (!retry && approvalsStore.isPending()) return Promise.resolve(approvalsStore.get());\n  return approvalsStore.load(async signal => {\n    const data = (await api.get(\"/approvals\", { signal })).data;\n    if (signal.aborted) throw new DOMException(\"Approval read cancelled\", \"AbortError\");\n    if (!Array.isArray(data?.items)) throw new Error(t(\"approval.invalidResponse\", {}, \"权限审核响应无效\"));\n    const live = new Set(data.items.map((item) => String(item.id)));\n    let changed = false;\n    for (const id of submitted) {\n      if (live.has(id)) continue;\n      submitted.delete(id);\n      changed = true;\n    }\n    if (changed) publishDecisions();\n    return data;\n  }, { background: !retry });\n}\n\nexport async function decideApproval(value, decision) {\n  const id = approvalId(value);\n  if (!new Set([\"allow\", \"allow_run\", \"deny\"]).has(decision))\n    throw new TypeError(uiErrorText(\"error.detail.approvalDecisionIsInvalid\", {}, \"approval decision is invalid\"));\n  if (approvalDecisionStatus(id) !== \"idle\") return false;\n  pending.add(id);\n  publishDecisions();\n  try {\n    await runDecisionAction({ path: `/approvals/${id}`, id, field: \"decision\", value: decision });\n    submitted.add(id);\n    publishDecisions();\n    // Acknowledgement completes the decision. Readback has its own quiet\n    // budget and final notice; it must neither delay nor fail this PUT.\n    void loadApprovals({ retry: true });\n    return true;\n  } finally {\n    pending.delete(id);\n    publishDecisions();\n  }\n}\n",
+      "before": "import { t as uiErrorText, t } from \"../i18n.js\";\nimport { api } from \"../api/client.js\";\nimport { createResourceStore } from \"./store.js\";\nimport { isTransientReadError } from \"../api/read-recovery.js\";\n\nimport { runDecisionAction } from \"./decision-action.js\";\n\nexport const approvalsStore = createResourceStore({ total: 0, limit: 4, truncated: false, items: [] },\n  { recoverRead: isTransientReadError, retainDataOnError: isTransientReadError });\nexport const approvalDecisionStore = createResourceStore({ pending: [], submitted: [] });\nconst pending = new Set();\nconst submitted = new Set();\n\nfunction publishDecisions() {\n  approvalDecisionStore.setData({ pending: [...pending], submitted: [...submitted] });\n}\n\nexport function approvalDecisionStatus(value) {\n  const id = String(value);\n  return pending.has(id) ? \"pending\" : submitted.has(id) ? \"submitted\" : \"idle\";\n}\n\nfunction approvalId(value) {\n  const id = String(value ?? \"\");\n  if (!/^[1-9][0-9]*$/.test(id)) throw new TypeError(uiErrorText(\"error.detail.approvalIdIsInvalid\", {}, \"approval ID is invalid\"));\n  return id;\n}\n\nexport function loadApprovals({ retry = false } = {}) {\n  if (!retry && approvalsStore.isPending()) return Promise.resolve(approvalsStore.get());\n  return approvalsStore.load(async signal => {\n    const data = (await api.get(\"/approvals\", { signal })).data;\n    if (signal.aborted) throw new DOMException(\"Approval read cancelled\", \"AbortError\");\n    if (!Array.isArray(data?.items)) throw new Error(t(\"approval.invalidResponse\", {}, \"\u6743\u9650\u5ba1\u6838\u54cd\u5e94\u65e0\u6548\"));\n    const live = new Set(data.items.map((item) => String(item.id)));\n    let changed = false;\n    for (const id of submitted) {\n      if (live.has(id)) continue;\n      submitted.delete(id);\n      changed = true;\n    }\n    if (changed) publishDecisions();\n    return data;\n  }, { background: !retry });\n}\n\nexport async function decideApproval(value, decision) {\n  const id = approvalId(value);\n  if (!new Set([\"allow\", \"allow_run\", \"deny\"]).has(decision))\n    throw new TypeError(uiErrorText(\"error.detail.approvalDecisionIsInvalid\", {}, \"approval decision is invalid\"));\n  if (approvalDecisionStatus(id) !== \"idle\") return false;\n  pending.add(id);\n  publishDecisions();\n  try {\n    await runDecisionAction({ path: `/approvals/${id}`, id, field: \"decision\", value: decision });\n    submitted.add(id);\n    publishDecisions();\n    // Acknowledgement completes the decision. Readback has its own quiet\n    // budget and final notice; it must neither delay nor fail this PUT.\n    void loadApprovals({ retry: true });\n    return true;\n  } finally {\n    pending.delete(id);\n    publishDecisions();\n  }\n}\n",
       "after_file": "host/approvals.js",
       "suffix": ""
     },
@@ -1646,7 +1646,7 @@
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "  const fail = (root, error, retry) => { root.replaceChildren(make(\"p\", \"wb-error\", error.message || String(error)), button(uiMessage(\"resource.retryLoad\", {}, \"重新读取\"), retry)); };",
+      "before": "  const fail = (root, error, retry) => { root.replaceChildren(make(\"p\", \"wb-error\", error.message || String(error)), button(uiMessage(\"resource.retryLoad\", {}, \"\u91cd\u65b0\u8bfb\u53d6\"), retry)); };",
       "after_file": "host/panel-failure.inc.js",
       "suffix": ""
     },
@@ -1903,7 +1903,7 @@
     },
     {
       "path": "app/web/js/api/connector.js",
-      "before": "      const error = new Error(uiText(\"ui.connector.deviceOperationFailedCheckSignInDeviceStatusAnd\", {}, \"无法完成设备操作，请检查登录、设备状态和服务连接\"));\n      error.code = state.error; error.status = state.status; throw error;",
+      "before": "      const error = new Error(uiText(\"ui.connector.deviceOperationFailedCheckSignInDeviceStatusAnd\", {}, \"\u65e0\u6cd5\u5b8c\u6210\u8bbe\u5907\u64cd\u4f5c\uff0c\u8bf7\u68c0\u67e5\u767b\u5f55\u3001\u8bbe\u5907\u72b6\u6001\u548c\u670d\u52a1\u8fde\u63a5\"));\n      error.code = state.error; error.status = state.status; throw error;",
       "after": "      throw connectorJobError(state, body?.action);"
     },
     {
@@ -1915,6 +1915,26 @@
       "path": "deps.lock",
       "before": "\"production_tree_sha256\": \"c6432b4cf9cb001bf4ce23553ba45244c5b0fd5852e66bb37fbdd393371cfc32\"",
       "after": "\"production_tree_sha256\": \"dcffd71c39a57fc561227cb6dc08f5390fc9bce3436ef489eec467f4a7690dad\""
+    },
+    {
+      "path": "app/src/application/workbench.c",
+      "before": "\"wait_for\",\"dialog\",\"chooser\",\"upload\"",
+      "after": "\"wait_for\",\"execute_js\",\"dialog\",\"chooser\",\"upload\""
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'wait_for','dialog','chooser','upload'",
+      "after": "'wait_for','execute_js','dialog','chooser','upload'"
+    },
+    {
+      "path": "tools/workbench_contracts.py",
+      "before": "'url':s,'selector':s,'text':s,'script':s,",
+      "after": "'url':s,'selector':s,'text':s,'script':s,'frame':s,'frame_document':s,'world':{'type':'string','enum':['page','isolated']},"
+    },
+    {
+      "path": "app/web/js/features/workbench/panel-manager.js",
+      "before": "const routedCommand=[\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"capture\",\"upload\"]",
+      "after": "const routedCommand=[\"observe\",\"act\",\"navigate_to\",\"wait_for\",\"capture\",\"upload\",\"execute_js\"]"
     }
   ],
   "files": [
@@ -2397,6 +2417,10 @@
     {
       "source": "host/static-mime.json",
       "target": "tools/native/browser-use-static-mime.json"
+    },
+    {
+      "source": "host/script-dispatch.js",
+      "target": "app/web/js/features/workbench/script-dispatch.js"
     }
   ]
 }

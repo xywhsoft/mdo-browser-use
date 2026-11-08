@@ -17695,3 +17695,36 @@ checks and full current-target Browser Use remain incomplete.
   lifecycle probes, and does not rebuild/install or retest Android/two-device/
   Doze. Prior phone evidence stays bound to its prior APK. No real model calls,
   additional app/Home copies, main-repository edits or online publication.
+
+# E265: explicit JavaScript in a selected tab or iframe
+
+- Add `browser_evaluate` and `browseruse.evaluate`, the generated C convenience
+  API and JS durable-operation client. Register17tools/14services. Script is an
+  async function body with return/await. Update the real Skill and directory ZIP
+  allowlist; current plugin/Skill installed-byte and deterministic checks pass6.
+- Integrate `execute_js` into mainline mdo and the reviewed development overlay.
+  Require a fresh root document and exact observed iframe/document; support
+  page globals and a separate isolated scripts world. Keep the trusted observer
+  realm separate, no raw/numeric protocol IDs or origin-security relaxations.
+- Native unique page contexts retire on reset/destroy/navigation/detach. Bound
+  source64KiB, whole call10seconds, synchronous execution3seconds and JSON result
+  default16KiB/max64KiB. Sixteen provider-owned pending reservations per browser
+  remain counted after client timeout and release only on provider completion or
+  destruction. Native context/reservation checks and existing original-world80,
+  frame identity and routed CDP17 checks pass.
+- Actual mainline managed-tool/native Windows workflow passes12cases: page and
+  isolated globals, async JSON, same/cross-site OOPIF/nested frames, exceptions,
+  result budgets and recovery, stale document/frame refusal, timeout increment
+  exactly once and read-only denial. SDK errors retain structured uncertainty;
+  model tool errors use their ordinary text format. No live model calls.
+- Mainline1790JS cases:1789pass/1skip; plugin592JS pass. Preserve initial dynamic
+  module-import fixture failures and corrected harness session-body/catalog/
+  managed-error-decoding failures. Do not relax production guards or replay
+  effects to pass. Standard Windows build passes and both canonical/native
+  source hashes match the locked SDK patch.
+- Restore the same headless source/config/Home/port after mainline runtime
+  testing; retain account and the updated owned plugin/Skill. No app/Home clones,
+  Android admission/provider changes, device acceptance or online publication.
+  Earlier preview program artifacts retain their earlier scope; this feature's
+  standard mainline test program and receipts are in mdo's
+  `.build/browser-js-evaluation`. The full cross-platform goal remains open.
