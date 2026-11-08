@@ -98,6 +98,16 @@ def allowed_files():
     allowed.update("generated/module-sdk/mdo/" + path.name for path in (dev.SOURCE / "include/mdo").glob("*.h"))
     allowed.update("generated/module-sdk/mdo/native/" + path.name for path in (APP / "include/mdo").glob("*.h")
                    if path.name != "application.h")
+    import extension_builtins
+    with patch.object(Path, "write_text", side_effect=RuntimeError("Builtin index differs from its generator")), \
+         patch.object(Path, "write_bytes", side_effect=RuntimeError("Builtin archive differs from its generator")):
+        extension_builtins.generate(dev.SOURCE)
+    allowed.add("generated/builtin-extensions/index.h")
+    for kind in extension_builtins.KINDS:
+        parent = APP / "default-home" / kind
+        for directory in parent.iterdir() if parent.exists() else ():
+            if directory.is_dir() and (directory / "extension.json").is_file():
+                allowed.add("generated/builtin-extensions/" + kind + "-" + directory.name + ".zip")
     return allowed
 
 
@@ -123,7 +133,7 @@ def main(recover=False):
     lock = build_mdo.load_object(build_mdo.LOCK_PATH)
     # The pinned generator removes old bundled provider keys. Do not let an
     # unexpected local key enter that path or the product archive.
-    if build_mdo.BUILTIN_KEY_PATH.exists():
+    if getattr(build_mdo, "BUILTIN_KEY_PATH", APP / ".retired-builtin-key").exists():
         raise RuntimeError("Unexpected legacy bundled key retained; inspect it before packaging")
     build_mdo.prepare(lock)
     build_cli_forwarder.build(dev.ENV / "native-source", APP / "generated/native/windows/cli-forwarder.exe",

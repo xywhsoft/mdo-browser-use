@@ -17655,3 +17655,43 @@ checks and full current-target Browser Use remain incomplete.
   0.9.5 and the existing account remains signed in. Distribution/other native
   regression results are recorded in the next stage; full Android qualification
   remains incomplete. No model calls or online publication.
+
+## E264 continued: current directory distribution and final regression
+
+- Fix the portable packer to include only regenerated/hash-checked builtin ZIPs
+  and their index from the new baseline. Keep its source/secret/unknown-file
+  guards and development official-update isolation. Update the packed-program
+  verifier for typed plugin recipes and read/hash every original installed file
+  at the same directory revision; new directory listings no longer supply hashes.
+- The previous default-home Skill override is not discoverable under the new
+  directory catalog. Add a real two-file Skill ZIP, typed skill:mdo.browser-use,
+  and declare that dependency in the plugin ZIP. Install the Skill and native
+  plugin through the current upload/seal/fingerprint flow; restart the same
+  idle Home and verify both valid/enabled identities. Deterministic archive,
+  metadata and complete installed-byte checks pass for both packages (six checks).
+  Fix a ZIP filename variable shadow exposed by the first CLI build; remove only
+  its exact hash-matching misnamed output. Final package names/hashes are verified.
+- A managed-tool attempt immediately after process start fails because the
+  asynchronous account model catalog is pending. Retain the failure. Its later
+  read reports ready/three models. Join that original read-only startup before
+  submitting tools; the fresh full managed flow passes, including permission
+  denial, display, dialogs/popups, image delivery, gestures, selection and drag.
+  Do not infer a server/model defect or retry an effectful tool request.
+- Add a regression parsing actual applied modules with imports intact; all296
+  parse and all579 final sequential JS checks pass. Final packed executable
+  passes12checks with the matching current ZIP plugin. This includes actual main
+  UI registration, full file hashes, original Home, capture, network reset and
+  recovery navigation, browser close and preserved official-update policy.
+- Current Windows candidate7691246bytes SHA-256
+  631ebd6be323056283cbbe6c050e33f3a4c9b4ccd8faf28ab14a1fc057879e46.
+  Plugin ZIP51012bytes SHA-256
+  908cb93070a155902cb152930f0ac368ece2398162be0b0bd410e8cfa13bf928;
+  Skill ZIP5529bytes SHA-256
+  d8603420cbe52ad6fe88ac9b99217053a8825fef42c9094030990d0671cb99bb.
+  Final service reports0.9.5, original Home/port63625 and retained signed-in
+  account; zero active/starting runs, browsers or operations. Headless mode is
+  restored. Keep sanitized E264 logs and E264-final.json in the single deployment.
+- This round does not rerun the entire17-case acceptance or the retired JSON
+  lifecycle probes, and does not rebuild/install or retest Android/two-device/
+  Doze. Prior phone evidence stays bound to its prior APK. No real model calls,
+  additional app/Home copies, main-repository edits or online publication.

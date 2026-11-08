@@ -2,9 +2,9 @@
 
 This is a development preview of `mdo.browser-use`, not a production release.
 The current installation package targets Windows x86-64 with this project's
-enhanced mdo host. Stock mdo 0.7.0 does not include all required native/host
-services. The package's minimum build checks the plugin format, not the presence
-of those enhancements. Install only with the matching enhanced program.
+enhanced mdo0.9.5 host. Stock mainline does not include all required native/host
+services. Install only with the matching enhanced program; this is a development
+preview and does not publish or join the official automatic-update channel.
 
 Android development continues separately. The tested current-version device's
 WebView lacks isolated execution worlds; automation remains explicitly disabled.
@@ -14,15 +14,19 @@ Android automation, and no provider upgrade is required for development.
 ## Build and install
 
 From this repository, run `python tools/package_plugin.py`. It creates
-`dist/mdo-browser-use-0.1.0.mdo-extension.json` and a SHA-256 inventory receipt.
-The artifact uses mdo's existing `mdo.extension.v2` format. It contains one
+`dist/mdo-browser-use-0.1.0.zip`, `dist/mdo-browser-use-skill-0.1.0.zip`
+and their SHA-256 inventory receipts. Install the Skill first; the plugin declares
+its typed Skill dependency. The Skill is a real extension directory, rather than
+an override of a legacy default-home file that the new catalog cannot discover.
+The artifact is a complete directory ZIP, with `extension.json` metadata and
+`plugin.json` execution recipe. Legacy embedded JSON imports are retired. It contains one
 modern plugin, its C implementation, shared C/JS SDK, page runtime, Skill,
 these instructions, and the MIT license. No Python or Node runtime is needed
 by the installed plugin.
 
 In the matching enhanced mdo, open Settings → Extensions → Plugins, choose
-the installation-file import action, and select the JSON file. Review the
-source/code trust prompt and installation plan. Enable the plugin after import
+the installation-file import action, and select the matching ZIP files. Review the
+source/code trust prompt and current directory fingerprint. Enable the plugin after import
 and restart when mdo requests it. An ID conflict with a separately installed
 development copy is an intentional protection; do not replace unrelated files.
 
@@ -36,11 +40,14 @@ it is not a publisher signature or a substitute for trusting the source.
 
 ## Verification and limits
 
-`python tools/package_probe.py` exercises the real local ecosystem importer,
-enable/restart and exported-byte roundtrip using this project's single Home.
-It requires the running headless development service and never contacts an
-online catalog or model. It refuses to replace an unexpected plugin revision.
-The importer uses a plan digest; an intervening modification must be replanned.
+`python tools/install.py` uploads bounded chunks, seals the archive, installs it
+with the exact current directory fingerprint, and enables the typed plugin.
+It requires the running development service and never contacts an online catalog
+or model. A running native plugin must be disabled and the idle development
+service restarted before replacing its files; restart again to activate the new
+native entry. The packed-program probe checks every installed archive file hash.
+The old `package_probe.py` and `package_lifecycle_probe.py` cover the retired JSON
+installer and are historical until ported; they are not current ZIP qualification.
 
 The normal native probes verify actual browser operations separately; a
 successful package import alone does not establish native browser support.

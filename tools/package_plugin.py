@@ -121,8 +121,13 @@ def build_directory(root=ROOT):
     recipe = {key: manifest[key] for key in ("entry", "overrides") if key in manifest}
     metadata = {key: manifest[key] for key in ("name", "version", "description", "author", "license")}
     metadata.update(kind="plugins", id="plugin:" + manifest["id"], alias=manifest["id"],
-                    entry="plugin.json", platforms=["windows-x86_64"], readme="docs/distribution.md")
+                    entry="plugin.json", platforms=["windows-x86_64"], readme="docs/distribution.md",
+                    dependencies=[{"id": "skill:mdo.browser-use"}])
     files = [*files, ("extension.json", encode(metadata)), ("plugin.json", encode(recipe))]
+    return directory_zip("mdo-browser-use-" + manifest["version"] + ".zip", files)
+
+
+def directory_zip(artifact_name, files):
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for name, content in sorted(files):
@@ -131,15 +136,29 @@ def build_directory(root=ROOT):
             info.external_attr = 0o100644 << 16
             archive.writestr(info, content)
     data = stream.getvalue()
-    name = "mdo-browser-use-" + manifest["version"] + ".zip"
-    return name, data, {"format": "mdo.browser-use.directory-receipt.v1", "artifact": {
-        "name": name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()},
+    return artifact_name, data, {"format": "mdo.browser-use.directory-receipt.v1", "artifact": {
+        "name": artifact_name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()},
         "files": [{"path": name, "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()}
                   for name, content in sorted(files)]}
 
 
+def build_skill_directory(root=ROOT):
+    manifest, _ = snapshot(root)
+    metadata = dict(kind="skills", id="skill:mdo.browser-use", alias="browser-use",
+                    name="Browser Use", version=manifest["version"], entry="SKILL.md",
+                    platforms=["any"], author=manifest["author"], license=manifest["license"],
+                    description="Use the Browser Use tools with original documents, scoped receipts and permission checks.")
+    return directory_zip("mdo-browser-use-skill-" + manifest["version"] + ".zip", [
+        ("extension.json", encode(metadata)),
+        ("SKILL.md", read_text(root, "overlay/default-home/skills/browser-use/SKILL.md"))])
+
+
 def main():
-    name, data, receipt = build_directory()
+    for name, data, receipt in (build_skill_directory(), build_directory()):
+        write_package(name, data, receipt)
+
+
+def write_package(name, data, receipt):
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     if linked(destination.lstat()):

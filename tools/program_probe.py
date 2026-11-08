@@ -40,14 +40,15 @@ class Fixture(BaseHTTPRequestHandler):
 
 
 def paired_plugin_source():
-    name,data,metadata=package_plugin.build()
+    name,data,metadata=package_plugin.build_directory()
     path=dev.ROOT/'dist'/name
     if (not path.is_file() or package_plugin.linked(path.lstat()) or
             path.stat().st_size!=len(data) or package_program.sha(path)!=metadata['artifact']['sha256']):
         raise RuntimeError('Paired portable Browser Use plugin is stale; build and install the reviewed package first')
     manifest,files=package_plugin.snapshot()
-    inventory={name:{'bytes':len(payload),'sha256':hashlib.sha256(payload).hexdigest()} for name,payload in files}
-    return metadata['artifact'],manifest,inventory
+    inventory={row['path']:{'bytes':row['bytes'],'sha256':row['sha256']} for row in metadata['files']}
+    recipe={key:manifest[key] for key in ('entry','overrides') if key in manifest}
+    return metadata['artifact'],dict(id='plugin:'+manifest['id'],**recipe),inventory
 
 
 def main():
@@ -123,8 +124,14 @@ def main():
             raise RuntimeError("Packed frontend did not register an SDK client")
         mark("packed_ui_registered")
         plugin=dev.call('plugin.get',{'id':plugin_manifest['id']})
-        installed={row['path']:{'bytes':row['bytes'],'sha256':row['sha256']} for row in plugin['files']}
-        if not plugin.get('enabled') or plugin['manifest']!=plugin_manifest or installed!=plugin_files:
+        installed={}
+        for row in plugin['files']:
+            if row.get('directory'):continue
+            content=dev.call('plugin.file.read',{'id':plugin['id'],'revision':plugin['revision'],'path':row['path']})
+            if content['revision']!=plugin['revision']:raise RuntimeError('Plugin changed during packed inventory review')
+            payload=content['text'].encode('utf-8')
+            installed[row['path']]={'bytes':len(payload),'sha256':hashlib.sha256(payload).hexdigest()}
+        if not plugin.get('enabled') or any(plugin['manifest'].get(k)!=v for k,v in plugin_manifest.items() if k!='id') or installed!=plugin_files:
             raise RuntimeError('Packed program did not load the reviewed paired plugin inventory')
         if receipt['files'].get('web/js/features/workbench/automation-runtime.js',{}).get('sha256')!=plugin_files['page/runtime.js']['sha256']:
             raise RuntimeError('Packed host and paired plugin page runtimes differ')

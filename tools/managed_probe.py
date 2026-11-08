@@ -78,6 +78,18 @@ def main():
     owner = {"extension": "plugin.mdo.browser-use", "project": "default", "session": FULL}
     try:
         dev.start(window=True)
+        # Current mainline resolves the task's model before constructing its
+        # managed executor. Join the original read-only catalog startup rather
+        # than submitting a tool while the signed-in catalog is still pending.
+        deadline = time.monotonic() + 45
+        while True:
+            code, _, raw = dev.request("GET", "/api/v1/models")
+            catalog = json.loads(raw).get("data", {})
+            if code == 200 and catalog.get("login_state") == "ready" and catalog.get("models"):
+                break
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Original model catalog did not become ready; no tool was submitted")
+            time.sleep(.25)
         end = time.monotonic() + 25
         while time.monotonic() < end:
             clients = value(tool("browser_tabs", {"action": "clients"}))["clients"]

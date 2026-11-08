@@ -6,6 +6,24 @@ The matrix covers the original environment, shared C/JS API, native browser
 operations, transfers, permissions/control/recovery, Android and distribution.
 It does not redefine completion as a successful subset of tests.
 
+E264 updates the single Windows deployment to origin/master
+4f1111b2e7bb68e138be817f48571a2c825908b5 / mdo0.9.5 and rebuilds its enhanced
+native dependency. Current579 sequential JS checks pass, including parsing
+all296 frontend modules without stripping imports. The actual SDK/native flow
+passes19actions,4navigations,5wait conditions and image/frame observation; the
+actual managed tool/permission flow passes. Six directory ZIP/identity/installed
+byte checks pass for the plugin and its real Skill dependency. The final packed
+Windows executable passes12checks, including every installed plugin file hash,
+native image delivery, reset reporting and navigation recovery. Source/format
+migration failures are retained and repaired; no live model inference occurs.
+
+The existing Home/login/port and official-update policy are retained; final
+headless state has zero runs, operations and browsers. This is a current Windows
+regression round, not a fresh whole17-case acceptance, JSON installer recovery,
+Android APK build/device/Doze or authenticated physical two-device retest. Those
+earlier results retain their own source/artifact scope. Android guarded Agent
+admission remains disabled. See progress.md for E264 evidence and limits.
+
 E263 now passes an actual Android WebView controller -> account-selected Windows
 native Browser Use workflow, nine scoped cases. This uses the real frontend SDK,
 remote C service, Windows display client and native WebView2, with XRUDP selected
@@ -18,10 +36,10 @@ The confirmed `.mjs` static-host MIME defect is repaired in both native builds;
 fresh578 sequential JS and12 packed-program checks pass. See
 [E263 details](dual-device-acceptance.md#e263-actual-android-controller-to-windows-browser-use).
 
-The enhanced deployment is still pinned to mdo0.7.0. A read-only assessment of
-the current0.9.3 mainline identifies37 matching overlay groups, five needing
-review and one retired installer path. This integration/ZIP migration and
-Android guarded host/full lifecycle qualification remain incomplete. Earlier
+At E263 the enhanced deployment was pinned to mdo0.7.0; a read-only0.9.3
+assessment found37 matching overlay groups, five needing review and one retired
+installer path. E264 above supersedes that pending Windows source/ZIP migration.
+Android guarded host/full lifecycle qualification remains incomplete. Earlier
 stage results below retain their original source/package scope.
 
 E253 now verifies covered real same-account two-device authentication/control

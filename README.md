@@ -116,14 +116,15 @@ development deployment and Home; no model call or extra application copy is made
 
 
 Generate the portable development plugin with `python tools/package_plugin.py`.
-The allowlisted JSON and SHA-256 inventory go to `dist/`; no app staging tree,
-Home, provider settings or browser profile is included. The installer uses the
-same local ecosystem plan/import and enable flow as the UI. A separately applied
-old development plugin intentionally conflicts with ecosystem ownership;
-`python tools/package_probe.py` migrates only this project's exact known payload
-and verifies import/restart/export in the same Home. See
+The allowlisted plugin and Skill directory ZIPs and SHA-256 inventories go to
+`dist/`; no app staging tree, Home, provider settings or browser profile is
+included. The installer uses the current chunked archive/typed dependency flow
+with exact directory fingerprints. `python tools/directory_package_probe.py`
+verifies deterministic archives, actual enabled identities and installed bytes.
+Disable/restart the idle native plugin before replacing it, then restart to
+activate the replacement. See
 [distribution requirements and limits](docs/distribution.md). The preview needs
-this project's enhanced Windows host; stock 0.7.0 and Android automation are not
+this project's enhanced0.9.5 Windows host; stock mainline and Android automation are not
 advertised as compatible. This does not publish a release.
 
 The matching enhanced Windows development executable is produced by
@@ -131,8 +132,8 @@ The matching enhanced Windows development executable is produced by
 `python tools/program_probe.py` starts that artifact, exercises the real
 C → JS → native browser path and restores the headless service, using the same
 Home. See [program packaging and recovery](docs/program.md).
-`python tools/package_lifecycle_probe.py` verifies uninstall/reinstall,
-retained-generation conflicts and actual startup recovery in that same Home.
+The old `package_probe.py` and `package_lifecycle_probe.py` describe the retired
+JSON importer; they are historical, not qualification of the current ZIP flow.
 
 The native probe reuses this exact deployment, briefly opens its real WebView2
 window with local fixtures, and restores headless mode afterwards. No live model
