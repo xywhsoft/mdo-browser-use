@@ -54,7 +54,14 @@ def apply(check=False, validate=False):
         if target.exists() and not validate:
             current = target.read_text(encoding="utf-8")
             if current != wanted and previous.get(row["target"]) != digest(current):
-                raise RuntimeError("Unreviewed generated host file preserved: " + row["target"])
+                # A full-file overlay may replace a tracked upstream file.
+                # After a reviewed pin upgrade, accept only that exact new
+                # baseline; unrelated edits still require their prior receipt.
+                original = subprocess.run(["git", "show", dev.LOCK["commit"] + ":" + row["target"]],
+                                          cwd=dev.SOURCE, capture_output=True)
+                baseline = original.stdout.decode("utf-8").replace("\r\n", "\n") if original.returncode == 0 else None
+                if baseline != current:
+                    raise RuntimeError("Unreviewed generated host file preserved: " + row["target"])
         staged[target] = wanted
     # Materialize from the pinned baseline each time, never repeatedly patch an
     # already patched text. Previous hashes permit reviewed overlay upgrades,

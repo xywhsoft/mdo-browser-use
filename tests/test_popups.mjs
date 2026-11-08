@@ -1,3 +1,4 @@
+import { wireI18n } from './fixtures/i18n.mjs';
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -230,7 +231,7 @@ test("page close requests remove exactly their scoped browser and panels",async(
 
 test("the actual native bridge serializes concurrent creation and rejects a changed popup identity",async()=>{
   const code=await readFile(new URL("../.mdo/source/app/web/js/features/workbench/native-browser.js",import.meta.url),"utf8");
-  const { createNativeBrowserBridge }=await import(`data:text/javascript;base64,${Buffer.from(code).toString("base64")}`);
+  const { createNativeBrowserBridge }=await import(`data:text/javascript;base64,${Buffer.from(wireI18n(code)).toString("base64")}`);
   const savedWindow=globalThis.window,savedChrome=globalThis.chrome;
   const events=new EventTarget(),sent=[];let receive;
   globalThis.window=events;globalThis.chrome={webview:{addEventListener(name,listener){receive=listener;},removeEventListener(){},postMessage(json){sent.push(JSON.parse(json));}}};

@@ -1,9 +1,10 @@
 """Install/update this plugin in the single project mdo deployment."""
 import json
+import hashlib
 import sys
 
 import dev
-from package_plugin import build
+from package_plugin import build_directory
 
 def ecosystem(action, **fields):
     # Only the local ecosystem authoring/import/export paths are used here.
@@ -30,15 +31,34 @@ def enable(identity):
 
 
 def install(package=None):
-    if package is None:
-        package = json.loads(build()[1])
-    plan = ecosystem("plan_import", package=package)
-    if not plan.get("can_install"):
-        raise RuntimeError("Plugin import plan contains unresolved dependencies or conflicts")
-    ecosystem("import", package=package, trust_code=True, expected_plan=plan["sha256"])
-    identity = package["resources"][0]["id"]
+    if package is not None:
+        raise ValueError("Use a complete directory ZIP; legacy JSON packages are retired")
+    name, data, receipt = build_directory()
+    def request(method, path, body=None, headers=None):
+        status, _, raw = dev.request(method, path, body, headers=headers)
+        value = json.loads(raw)
+        if status != 200 or not value.get("ok"):
+            raise RuntimeError("Directory install failed: HTTP " + str(status) + " " + value.get("error", {}).get("code", "failed") + ": " + value.get("error", {}).get("message", ""))
+        return value["data"]
+    task = request("POST", "/api/v1/extension-tasks", {
+        "kind": "plugins", "purpose": "install", "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()})
+    path = "/api/v1/extension-tasks/" + task["id"]
+    try:
+        for at in range(0, len(data), 1048576):
+            request("PUT", path + "/chunks/" + str(at), data[at:at + 1048576],
+                    {"Content-Type": "application/octet-stream"})
+        request("POST", path + "/seal", {})
+        status, _, raw = dev.request("GET", "/api/v1/extensions/plugins/mdo.browser-use")
+        previous = json.loads(raw).get("data", {})
+        if status not in (200, 404) or (status == 200 and previous.get("id") not in ("", "plugin:mdo.browser-use")):
+            raise RuntimeError("An unrelated extension identity is preserved")
+        request("POST", path + "/install", {"id": "mdo.browser-use", "trust_code": True, "enabled": False,
+                                             "expected_revision": previous.get("revision", "")})
+    finally:
+        request("DELETE", path)
+    identity = "plugin:mdo.browser-use"
     result = enable(identity)
-    print(json.dumps({"plugin": identity, "files": len(package["resources"][0]["files"]),
+    print(json.dumps({"plugin": identity, "files": len(receipt["files"]),
                       "pending": result.get("pending", False),
                       "restart_required": result.get("restart_required", False)}, indent=2))
     return result

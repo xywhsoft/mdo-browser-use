@@ -46,7 +46,7 @@ def request(method: str, path: str, body: dict | None = None,
     current = state()
     connection = http.client.HTTPConnection("127.0.0.1", current["port"], timeout=15)
     outgoing = dict(headers or {})
-    if body is not None:
+    if body is not None and not isinstance(body, bytes):
         outgoing["Content-Type"] = "application/json"
     if method not in ("GET", "HEAD", "OPTIONS"):
         _, response_headers, _ = request("GET", "/api/v1/bootstrap")
@@ -55,7 +55,7 @@ def request(method: str, path: str, body: dict | None = None,
             outgoing["X-Mdo-Write-Token"] = token
     try:
         connection.request(method, path,
-                           json.dumps(body).encode() if body is not None else None,
+                           body if isinstance(body, bytes) else json.dumps(body).encode() if body is not None else None,
                            outgoing)
         response = connection.getresponse()
         return response.status, dict((k.lower(), v) for k, v in response.getheaders()), response.read()

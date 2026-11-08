@@ -793,12 +793,6 @@
       "suffix": "    add('files.digest'"
     },
     {
-      "path": "app/src/api/ecosystem_install.inc.c",
-      "before": "static bool EcoLocalCurrent(cstr path,xvalue* change,const xvalue* owned,char error[1024])\n{\n    if(!EcoLocalAllowed(path))return false;\n    xvalue* Plugin=ExtensionPluginOwner(path);if(Plugin){snprintf(error,1024,\"Resource is owned by plugin %s; change that plugin first\",MdoPackageText(Plugin,\"id\",64));xrtValueRelease(Plugin);return false;}\n    if(!strcmp(path,\"config/plugins.json\"))return xrtValueObjectHas(change,XRT_STR_LITERAL(\"old\"));\n    bool exists=false;xfileinfo info;if(!MdoHomeExternalStat(path,&exists,&info))return false;\n    if(!exists){if(owned){snprintf(error,1024,\"Installed file is missing: %s\",path);return false;}\n        xfile builtin=MdoResourceOpenRead(path);if(builtin){xrtClose(builtin);snprintf(error,1024,\"Built-in resource cannot be replaced: %s\",path);return false;}\n        xrtClearError();return xrtValueObjectSetNew(change,XRT_STR_LITERAL(\"old\"),xrtValueNull());}\n    if(!owned&&!strncmp(path,\"data/ecosystem/mcp/\",19)){bool missing=false;char* raw=MdoExtensionRead(path,true,131072,&missing);char hash[65];bool same=raw&&MdoExtensionHash(raw,hash)&&!strcmp(hash,MdoPackageText(change,\"sha256\",64));\n        char* encoded=same?xrtBase64EncodeNew(raw,strlen(raw),NULL):NULL;bool reused=encoded&&MdoApiValueSetString(change,\"old\",encoded);xrtFree(encoded);xrtFree(raw);if(reused)return true;}\n    if(!owned||info.Type!=XFILE_TYPE_FILE||!(info.Available&XFILE_INFO_SIZE)||info.Size>64u*1024u*1024u){snprintf(error,1024,\"Resource already exists: %s\",path);return false;}\n    xfile f=MdoHomeOpenRead(path);size_t n=(size_t)info.Size;bytes b=xrtMalloc(n+1);char hash[65];bool ok=f&&b&&xrtReadFull(f,b,n,NULL)&&MdoExtensionHashBytes(b,n,hash)&&!strcmp(hash,MdoPackageText(owned,\"sha256\",64));if(f)xrtClose(f);\n    if(!ok)snprintf(error,1024,\"Resource was edited locally: %s. Keep it or export/remove it before updating.\",path);\n    char* encoded=ok?xrtBase64EncodeNew(b,n,NULL):NULL;ok=encoded&&MdoApiValueSetString(change,\"old\",encoded);xrtFree(encoded);xrtFree(b);return ok;\n}\n",
-      "after_file": "host/ecosystem-current.inc.c",
-      "suffix": "\n"
-    },
-    {
       "path": "tools/android/MdoBrowser.java",
       "before": "    private JSONObject browserUseSupport;",
       "after_file": "host/android/browser-document.inc.java",
@@ -1409,12 +1403,12 @@
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "  async function open(type, params = {}, scopedApi = api, definition) {\n    if (stopped) throw new Error(\"工作区已退出\");",
-      "after": "  async function open(type, params = {}, scopedApi = api, definition, current = () => true) {\n    const check = () => { if (stopped) throw new Error(\"工作区已退出\"); if (!current()) throw new DOMException(\"原标签页或任务已改变\", \"AbortError\"); };\n    check();"
+      "before": "  async function open(type, params = {}, scopedApi = api, definition) {\n    if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"工作区已退出\"));",
+      "after": "  async function open(type, params = {}, scopedApi = api, definition, current = () => true) {\n    const check = () => { if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"工作区已退出\")); if (!current()) throw new DOMException(\"原标签页或任务已改变\", \"AbortError\"); };\n    check();"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "      const scope = await client.call(\"sdk.context\"); if (stopped) throw new Error(\"工作区已退出\");",
+      "before": "      const scope = await client.call(\"sdk.context\"); if (stopped) throw new Error(uiText(\"ui.panelManager.workspaceExited\", {}, \"工作区已退出\"));",
       "after": "      const scope = await client.call(\"sdk.context\"); check();"
     },
     {
@@ -1531,7 +1525,7 @@
     },
     {
       "path": "app/web/js/state/approvals.js",
-      "before": "import { api } from \"../api/client.js\";\nimport { createResourceStore } from \"./store.js\";\nimport { isTransientReadError } from \"../api/read-recovery.js\";\nimport { t } from \"../i18n.js\";\nimport { runDecisionAction } from \"./decision-action.js\";\n\nexport const approvalsStore = createResourceStore({ total: 0, limit: 4, truncated: false, items: [] },\n  { recoverRead: isTransientReadError, retainDataOnError: isTransientReadError });\nexport const approvalDecisionStore = createResourceStore({ pending: [], submitted: [] });\nconst pending = new Set();\nconst submitted = new Set();\n\nfunction publishDecisions() {\n  approvalDecisionStore.setData({ pending: [...pending], submitted: [...submitted] });\n}\n\nexport function approvalDecisionStatus(value) {\n  const id = String(value);\n  return pending.has(id) ? \"pending\" : submitted.has(id) ? \"submitted\" : \"idle\";\n}\n\nfunction approvalId(value) {\n  const id = String(value ?? \"\");\n  if (!/^[1-9][0-9]*$/.test(id)) throw new TypeError(\"approval ID is invalid\");\n  return id;\n}\n\nexport function loadApprovals({ retry = false } = {}) {\n  if (!retry && approvalsStore.isPending()) return Promise.resolve(approvalsStore.get());\n  return approvalsStore.load(async signal => {\n    const data = (await api.get(\"/approvals\", { signal })).data;\n    if (signal.aborted) throw new DOMException(\"Approval read cancelled\", \"AbortError\");\n    if (!Array.isArray(data?.items)) throw new Error(t(\"approval.invalidResponse\", {}, \"权限审核响应无效\"));\n    const live = new Set(data.items.map((item) => String(item.id)));\n    let changed = false;\n    for (const id of submitted) {\n      if (live.has(id)) continue;\n      submitted.delete(id);\n      changed = true;\n    }\n    if (changed) publishDecisions();\n    return data;\n  }, { background: !retry });\n}\n\nexport async function decideApproval(value, decision) {\n  const id = approvalId(value);\n  if (!new Set([\"allow\", \"allow_run\", \"deny\"]).has(decision))\n    throw new TypeError(\"approval decision is invalid\");\n  if (approvalDecisionStatus(id) !== \"idle\") return false;\n  pending.add(id);\n  publishDecisions();\n  try {\n    await runDecisionAction({ path: `/approvals/${id}`, id, field: \"decision\", value: decision });\n    submitted.add(id);\n    publishDecisions();\n    // Acknowledgement completes the decision. Readback has its own quiet\n    // budget and final notice; it must neither delay nor fail this PUT.\n    void loadApprovals({ retry: true });\n    return true;\n  } finally {\n    pending.delete(id);\n    publishDecisions();\n  }\n}\n",
+      "before": "import { t as uiErrorText, t } from \"../i18n.js\";\nimport { api } from \"../api/client.js\";\nimport { createResourceStore } from \"./store.js\";\nimport { isTransientReadError } from \"../api/read-recovery.js\";\n\nimport { runDecisionAction } from \"./decision-action.js\";\n\nexport const approvalsStore = createResourceStore({ total: 0, limit: 4, truncated: false, items: [] },\n  { recoverRead: isTransientReadError, retainDataOnError: isTransientReadError });\nexport const approvalDecisionStore = createResourceStore({ pending: [], submitted: [] });\nconst pending = new Set();\nconst submitted = new Set();\n\nfunction publishDecisions() {\n  approvalDecisionStore.setData({ pending: [...pending], submitted: [...submitted] });\n}\n\nexport function approvalDecisionStatus(value) {\n  const id = String(value);\n  return pending.has(id) ? \"pending\" : submitted.has(id) ? \"submitted\" : \"idle\";\n}\n\nfunction approvalId(value) {\n  const id = String(value ?? \"\");\n  if (!/^[1-9][0-9]*$/.test(id)) throw new TypeError(uiErrorText(\"error.detail.approvalIdIsInvalid\", {}, \"approval ID is invalid\"));\n  return id;\n}\n\nexport function loadApprovals({ retry = false } = {}) {\n  if (!retry && approvalsStore.isPending()) return Promise.resolve(approvalsStore.get());\n  return approvalsStore.load(async signal => {\n    const data = (await api.get(\"/approvals\", { signal })).data;\n    if (signal.aborted) throw new DOMException(\"Approval read cancelled\", \"AbortError\");\n    if (!Array.isArray(data?.items)) throw new Error(t(\"approval.invalidResponse\", {}, \"权限审核响应无效\"));\n    const live = new Set(data.items.map((item) => String(item.id)));\n    let changed = false;\n    for (const id of submitted) {\n      if (live.has(id)) continue;\n      submitted.delete(id);\n      changed = true;\n    }\n    if (changed) publishDecisions();\n    return data;\n  }, { background: !retry });\n}\n\nexport async function decideApproval(value, decision) {\n  const id = approvalId(value);\n  if (!new Set([\"allow\", \"allow_run\", \"deny\"]).has(decision))\n    throw new TypeError(uiErrorText(\"error.detail.approvalDecisionIsInvalid\", {}, \"approval decision is invalid\"));\n  if (approvalDecisionStatus(id) !== \"idle\") return false;\n  pending.add(id);\n  publishDecisions();\n  try {\n    await runDecisionAction({ path: `/approvals/${id}`, id, field: \"decision\", value: decision });\n    submitted.add(id);\n    publishDecisions();\n    // Acknowledgement completes the decision. Readback has its own quiet\n    // budget and final notice; it must neither delay nor fail this PUT.\n    void loadApprovals({ retry: true });\n    return true;\n  } finally {\n    pending.delete(id);\n    publishDecisions();\n  }\n}\n",
       "after_file": "host/approvals.js",
       "suffix": ""
     },
@@ -1647,17 +1641,12 @@
     },
     {
       "path": "deps.lock",
-      "before": "\"production_tree_sha256\": \"02e153e4f5778213c518ebb83a94551a0f0636ed7ffb6f0aba41a06e119abec2\"",
-      "after": "\"production_tree_sha256\": \"4467c46cbf48fef1b3ba868a3937a605fe286ac434063061ab08139764dd19de\""
-    },
-    {
-      "path": "deps.lock",
       "before": "  \"sdk_overlay\": {",
-      "after": "  \"browser_use_model_transport\": {\n    \"path\": \"tools/native/browser-use-model-transport.json\",\n    \"sha256\": \"ab8a795da555fcb748f55fbcc8d1e46ba61a88039ea7256891068794b866ad76\",\n    \"base_tree_sha256\": \"02e153e4f5778213c518ebb83a94551a0f0636ed7ffb6f0aba41a06e119abec2\",\n    \"tree_sha256\": \"4467c46cbf48fef1b3ba868a3937a605fe286ac434063061ab08139764dd19de\",\n    \"purpose\": \"Preserve Responses tool images and project Chat tool media after complete tool groups\"\n  },\n  \"sdk_overlay\": {"
+      "after": "  \"browser_use_model_transport\": {\n    \"path\": \"tools/native/browser-use-model-transport.json\",\n    \"sha256\": \"226e81fd64b3fbf653b7e0845af195530c2ee036a26b709689f613c1cfa646c3\",\n    \"base_tree_sha256\": \"02e153e4f5778213c518ebb83a94551a0f0636ed7ffb6f0aba41a06e119abec2\",\n    \"tree_sha256\": \"4467c46cbf48fef1b3ba868a3937a605fe286ac434063061ab08139764dd19de\",\n    \"purpose\": \"Preserve Responses tool images and project Chat tool media after complete tool groups\"\n  },\n  \"sdk_overlay\": {"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "  const fail = (root, error, retry) => { root.replaceChildren(make(\"p\", \"wb-error\", error.message || String(error)), button(\"重新读取\", retry)); };",
+      "before": "  const fail = (root, error, retry) => { root.replaceChildren(make(\"p\", \"wb-error\", error.message || String(error)), button(uiMessage(\"resource.retryLoad\", {}, \"重新读取\"), retry)); };",
       "after_file": "host/panel-failure.inc.js",
       "suffix": ""
     },
@@ -1699,8 +1688,8 @@
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
-      "before": "opener.title = layout.open ?",
-      "after": "opener.title = open ?"
+      "before": "writeUiAttribute(opener, \"title\", layout.open ?",
+      "after": "writeUiAttribute(opener, \"title\", open ?"
     },
     {
       "path": "app/web/js/features/workbench/panel-manager.js",
@@ -1739,8 +1728,8 @@
     },
     {
       "path": "app/web/js/features/shell/application-sdk.js",
-      "before": "return Object.freeze({ sdk, canLeave:",
-      "after": "return Object.freeze({ sdk, revealConversation: () => workbench?.revealConversation() ?? false, canLeave:"
+      "before": "return Object.freeze({ sdk, selectAgent,",
+      "after": "return Object.freeze({ sdk, revealConversation: () => workbench?.revealConversation() ?? false, selectAgent,"
     },
     {
       "path": "app/web/js/app.js",
@@ -1914,13 +1903,18 @@
     },
     {
       "path": "app/web/js/api/connector.js",
-      "before": "      const error = new Error(\"无法完成设备操作，请检查登录、设备状态和服务连接\");\n      error.code = state.error; error.status = state.status; throw error;",
+      "before": "      const error = new Error(uiText(\"ui.connector.deviceOperationFailedCheckSignInDeviceStatusAnd\", {}, \"无法完成设备操作，请检查登录、设备状态和服务连接\"));\n      error.code = state.error; error.status = state.status; throw error;",
       "after": "      throw connectorJobError(state, body?.action);"
     },
     {
       "path": "deps.lock",
       "before": "  \"sdk_overlay\": {",
       "after": "  \"browser_use_static_mime\": {\n    \"path\": \"tools/native/browser-use-static-mime.json\",\n    \"sha256\": \"b1e26b884f0607a8994d920267181c306751962a5482a79ad9b79f84ee52b0d6\",\n    \"purpose\": \"Serve ESM plugin mjs sources with JavaScript MIME\"\n  },\n  \"sdk_overlay\": {"
+    },
+    {
+      "path": "deps.lock",
+      "before": "\"production_tree_sha256\": \"c6432b4cf9cb001bf4ce23553ba45244c5b0fd5852e66bb37fbdd393371cfc32\"",
+      "after": "\"production_tree_sha256\": \"dcffd71c39a57fc561227cb6dc08f5390fc9bce3436ef489eec467f4a7690dad\""
     }
   ],
   "files": [

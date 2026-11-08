@@ -3,6 +3,8 @@ import { browserScopeKey } from "./browser-ownership.js";
 import { createBrowserDownloads } from "./download-ui.js";
 import { createBrowserChoosers } from "./chooser-ui.js";
 import { createBrowserDialogs } from "./dialog-ui.js";
+import { setUiAttribute as writeUiAttribute, setUiText as writeUiText, t as uiText, uiMessage } from "../../i18n.js";
+
 import { browserLocation, browserPhase, safeBrowserUrl } from "./model.js";
 import { element as make, icon, iconButton, popupMenu } from "./controls.js";
 import { toast } from "../../utils/dom.js";
@@ -12,7 +14,7 @@ const rect = node => { const r = node.getBoundingClientRect(); return { x: Math.
 const usableBounds = bounds => [bounds.x, bounds.y, bounds.width, bounds.height, bounds.scale].every(Number.isFinite) && bounds.width > 0 && bounds.height > 0 && bounds.scale > 0;
 function assertDisplayUrl(url) {
   if (url && isRemoteTarget() && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(url).hostname))
-    throw new Error("此地址指向目标设备的本地服务。请先映射预览服务，或提供可访问的网址。");
+    throw new Error(uiText("ui.browserView.thisUrlPointsToALocalServiceOnThe", {}, uiText("ui.browserView.thisUrlPointsToALocalServiceOnThe", {}, "此地址指向目标设备的本地服务。请先映射预览服务，或提供可访问的网址。")));
 }
 
 function controlError(command, failure, cleanup) {
@@ -96,22 +98,22 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   mount.browserId = id;
   let state = { url: browser.url || "about:blank", loading: Boolean(browser.url) }, timer, lastBounds = "", retainedBounds, lastReport = "", lastTitle = row.title || "", polling = false, connecting = false;
   const toolbar = make("form", "wb-browser-toolbar"), address = make("input", "wb-address"), region = make("div", "wb-browser-region"), surface = make("div", "wb-browser-surface"), message = make("div", "wb-browser-message"), status = make("span", "wb-browser-status");
-  address.setAttribute("aria-label", "搜索或输入网址"); address.placeholder = "搜索或输入网址"; address.spellcheck = false; address.autocomplete = "off";
+  writeUiAttribute(address, "aria-label", uiMessage("ui.browserView.searchOrEnterAUrl", {}, uiText("ui.browserView.searchOrEnterAUrl", {}, "搜索或输入网址"))); writeUiAttribute(address, "placeholder", uiMessage("ui.browserView.searchOrEnterAUrl", {}, uiText("ui.browserView.searchOrEnterAUrl", {}, "搜索或输入网址"))); address.spellcheck = false; address.autocomplete = "off";
   address.value = browser.url || ""; status.setAttribute("role", "status");
   const action = (name, label, run) => iconButton(name, label, () => { check(); return run(); }, errorToast);
-  const back = action("arrow-left", "后退", () => uiExecute("back")), forward = action("arrow-right", "前进", () => uiExecute("forward"));
-  const reload = action("refresh", "刷新", () => state.loading ? uiExecute("stop") : recover());
+  const back = action("arrow-left", uiText("ui.browserView.back", {}, "后退"), () => uiExecute("back")), forward = action("arrow-right", uiText("ui.browserView.forward", {}, "前进"), () => uiExecute("forward"));
+  const reload = action("refresh", uiText("resource.refresh", {}, "刷新"), () => state.loading ? uiExecute("stop") : recover());
   const takeControl = () => uiExecute(state.manual ? "release" : "takeover");
-  const manual = action("hand", "接管浏览器", takeControl);
+  const manual = action("hand", uiText("ui.browserView.takeOverBrowser", {}, "接管浏览器"), takeControl);
   const viewport = make("div", "wb-viewport-toolbar"); viewport.hidden = row.type !== "mdo.preview";
-  const size = make("select", "wb-viewport-size"); size.setAttribute("aria-label", "预览宽度");
-  for (const [value, label] of [["", "自适应"], ["390", "手机 · 390"], ["768", "平板 · 768"], ["1280", "桌面 · 1280"]]) { const option = make("option", "", label); option.value = value; size.append(option); }
+  const size = make("select", "wb-viewport-size"); size.setAttribute("aria-label", uiText("ui.browserView.previewWidth", {}, "预览宽度"));
+  for (const [value, label] of [["", uiText("ui.panelManager.responsive", {}, "自适应")], ["390", uiText("ui.browserView.phone390", {}, "手机 · 390")], ["768", uiText("ui.browserView.tablet768", {}, "平板 · 768")], ["1280", uiText("ui.browserView.desktop1280", {}, "桌面 · 1280")]]) { const option = make("option", "", label); option.value = value; size.append(option); }
   const resize = () => { if (!current()) return; surface.style.width = size.value ? `${size.value}px` : "100%"; surface.style.maxWidth = "100%"; void syncVisible(shown()); };
   size.onchange = resize;
-  viewport.append(size, action("monitor", "横竖屏", () => { const width = surface.getBoundingClientRect().height; surface.style.width = `${Math.round(width)}px`; void syncVisible(shown()); }));
-  const preview = action("monitor", "设备预览", () => { viewport.hidden = !viewport.hidden; preview.setAttribute("aria-pressed", String(!viewport.hidden)); });
+  viewport.append(size, action("monitor", uiText("ui.panelManager.orientation", {}, "横竖屏"), () => { const width = surface.getBoundingClientRect().height; surface.style.width = `${Math.round(width)}px`; void syncVisible(shown()); }));
+  const preview = action("monitor", uiText("ui.browserView.devicePreview", {}, "设备预览"), () => { viewport.hidden = !viewport.hidden; preview.setAttribute("aria-pressed", String(!viewport.hidden)); });
   preview.setAttribute("aria-pressed", String(!viewport.hidden));
-  const more = action("more", "浏览器更多操作", () => {});
+  const more = action("more", uiMessage("ui.browserView.moreBrowserActions", {}, uiText("ui.browserView.moreBrowserActions", {}, "浏览器更多操作")), () => {});
   forward.classList.add("wb-browser-forward"); manual.classList.add("wb-browser-manual"); preview.classList.add("wb-browser-preview-toggle");
   const downloadButton=action("download","下载",()=>{downloadButton.setAttribute("aria-expanded",String(downloads.toggle()));});
   downloadButton.classList.add("wb-browser-download-toggle");downloadButton.setAttribute("aria-expanded","false");
@@ -124,25 +126,25 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
   region.append(surface, message); root.append(toolbar, dialogs.element, choosers.element, downloads.element, viewport, status, region); root.classList.add("wb-browser-view");
   const openSystem = () => { check(); return openExternal(safeBrowserUrl(state.url === "about:blank" ? browserLocation(address.value) : state.url)); };
   const menu = popupMenu(more, () => [
-    { label: "前进", execute: () => uiExecute("forward"), disabled: !state.can_go_forward },
-    { label: state.manual ? "交还给 Agent" : "接管浏览器", checked: Boolean(state.manual), disabled: Boolean(controlPending), execute: takeControl },
-    { label: "设备预览", checked: !viewport.hidden, execute: () => preview.click() },
-    { label: "在系统浏览器打开", execute: openSystem, disabled: !state.url || state.url === "about:blank" },
-    { label: "复制网址", execute: () => { check(); return navigator.clipboard.writeText(state.url); }, disabled: !state.url || state.url === "about:blank" },
-    { label: "引用页面文字到对话", execute: async () => {
+    { label: uiText("ui.browserView.forward", {}, "前进"), execute: () => uiExecute("forward"), disabled: !state.can_go_forward },
+    { label: state.manual ? uiText("ui.browserView.returnControlToAgent", {}, "交还给 Agent") : uiText("ui.browserView.takeOverBrowser", {}, "接管浏览器"), checked: Boolean(state.manual), disabled: Boolean(controlPending), execute: takeControl },
+    { label: uiText("ui.browserView.devicePreview", {}, "设备预览"), checked: !viewport.hidden, execute: () => preview.click() },
+    { label: uiText("ui.browserView.openInSystemBrowser", {}, "在系统浏览器打开"), execute: openSystem, disabled: !state.url || state.url === "about:blank" },
+    { label: uiText("ui.browserView.copyUrl", {}, "复制网址"), execute: () => { check(); return navigator.clipboard.writeText(state.url); }, disabled: !state.url || state.url === "about:blank" },
+    { label: uiText("ui.browserView.quotePageTextInConversation", {}, "引用页面文字到对话"), execute: async () => {
       const result = await uiExecute("snapshot");
-      if (!result.ok) throw new Error(result.error || "读取页面失败");
+      if (!result.ok) throw new Error(result.error || uiText("ui.browserView.couldNotReadPage", {}, "读取页面失败"));
       addContext({ title: state.title || state.url, content: result.value.text, source: state.url, context: row.context });
     }, disabled: browserPhase(state) !== "ready" },
-    { label: "复制诊断信息", execute: () => { check(); return navigator.clipboard.writeText(JSON.stringify({ platform: state.platform, phase: browserPhase(state), loading: state.loading, visible: state.visible, bounds: state.bounds, viewport_attached: state.viewport_attached, viewport_topmost: state.viewport_topmost, controller_bounds: state.controller_bounds, error: state.error, error_code: state.error_code,
+    { label: uiText("ui.browserView.copyDiagnosticInformation", {}, "复制诊断信息"), execute: () => { check(); return navigator.clipboard.writeText(JSON.stringify({ platform: state.platform, phase: browserPhase(state), loading: state.loading, visible: state.visible, bounds: state.bounds, viewport_attached: state.viewport_attached, viewport_topmost: state.viewport_topmost, controller_bounds: state.controller_bounds, error: state.error, error_code: state.error_code,
       control: controlNotice ? { command: controlNotice.command, code: controlNotice.code, network_cleanup_confirmed: controlNotice.network_cleanup_confirmed } : undefined }, null, 2)); } },
-    { label: "结束浏览", execute: async () => {
+    { label: uiText("ui.browserView.endBrowsing", {}, "结束浏览"), execute: async () => {
       ready();
       await call("browser.close", { id });
       await uiExecute("close"); await onEnd(id);
     } },
   ], { signal, onError: errorToast });
-  const title = make("h3"), detail = make("p"), retry = action("refresh", "重新加载", () => recover()), system = action("globe", "在系统浏览器打开", openSystem);
+  const title = make("h3"), detail = make("p"), retry = action("refresh", uiMessage("ui.browserView.reload", {}, uiText("ui.browserView.reload", {}, "重新加载")), () => recover()), system = action("globe", uiMessage("ui.browserView.openInSystemBrowser", {}, uiText("ui.browserView.openInSystemBrowser", {}, "在系统浏览器打开")), openSystem);
   message.append(icon("globe"), title, detail, retry, system);
   const paint = (sync = true) => {
     if (!current()) return;
@@ -150,11 +152,11 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     mount.status = { status: phase === "error" ? "error" : phase === "loading" ? "loading" : "ready", message: controlNotice?.message || state.error || "" };
     const empty = phase === "empty", failed = phase === "error";
     message.hidden = !empty && !failed; message.classList.toggle("wb-error", failed);
-    title.textContent = failed ? "网页未能打开" : "浏览器";
-    detail.textContent = failed ? `${state.error}${state.error_code === undefined ? "" : `（${state.platform || "浏览器"} ${state.error_code}）`}` : "粘贴或输入网址，按回车打开网页。";
+    writeUiText(title, failed ? uiMessage("ui.browserView.couldNotOpenPage", {}, uiText("ui.browserView.couldNotOpenPage", {}, "网页未能打开")) : uiMessage("ui.startView.browser", {}, uiText("ui.startView.browser", {}, "浏览器")));
+    writeUiText(detail, failed ? `${state.error}${state.error_code === undefined ? "" : `（${state.platform || uiMessage("ui.startView.browser", {}, uiText("ui.startView.browser", {}, "浏览器"))} ${state.error_code}）`}` : uiMessage("ui.browserView.pasteOrEnterAUrlAndPressEnterTo", {}, uiText("ui.browserView.pasteOrEnterAUrlAndPressEnterTo", {}, "粘贴或输入网址，按回车打开网页。")));
     retry.hidden = !failed || !bridge.available(); system.hidden = !failed || !state.url || state.url === "about:blank";
     status.textContent = controlPending ? controlPending === "release" ? "正在交还控制…" : "正在接管浏览器…" :
-      controlNotice?.message || (phase === "loading" ? "正在加载…" : state.manual ? "已由你接管 · Agent 暂停操作" : "");
+      controlNotice?.message || (phase === "loading" ? uiText("ui.browserView.loading", {}, "正在加载…") : state.manual ? uiText("ui.browserView.youHaveControlAgentActionsPaused", {}, "已由你接管 · Agent 暂停操作") : "");
     status.hidden = !status.textContent;
     // Routine loading is already shown by the tab and stop button. Keep its
     // live announcement without changing the native viewport during navigation.
@@ -162,9 +164,9 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     status.classList.toggle("sr-only", phase === "loading" && !controlPending && !controlNotice?.message && !state.manual);
     if (document.activeElement !== address && !state.initial_navigation_pending) address.value = state.url === "about:blank" || empty ? "" : state.url || address.value;
     back.disabled = !state.can_go_back; forward.disabled = !state.can_go_forward;
-    reload.setAttribute("aria-label", state.loading ? "停止加载" : "刷新"); reload.title = state.loading ? "停止加载" : "刷新";
+    writeUiAttribute(reload, "aria-label", state.loading ? uiMessage("ui.browserView.stopLoading", {}, uiText("ui.browserView.stopLoading", {}, "停止加载")) : uiMessage("resource.refresh", {}, uiText("resource.refresh", {}, "刷新"))); writeUiAttribute(reload, "title", state.loading ? uiMessage("ui.browserView.stopLoading", {}, uiText("ui.browserView.stopLoading", {}, "停止加载")) : uiMessage("resource.refresh", {}, uiText("resource.refresh", {}, "刷新")));
     reload.replaceChildren(icon(state.loading ? "stop" : "refresh"));
-    manual.setAttribute("aria-pressed", String(Boolean(state.manual))); manual.title = state.manual ? "交还给 Agent" : "接管浏览器"; manual.setAttribute("aria-label", manual.title);
+    manual.setAttribute("aria-pressed", String(Boolean(state.manual))); manual.title = state.manual ? uiText("ui.browserView.returnControlToAgent", {}, "交还给 Agent") : uiText("ui.browserView.takeOverBrowser", {}, "接管浏览器"); manual.setAttribute("aria-label", manual.title);
     manual.disabled = Boolean(controlPending); manual.setAttribute("aria-busy", String(Boolean(controlPending)));
     if (sync) void syncVisible(shown());
   };
@@ -251,7 +253,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
       if (controlPending || epoch !== controlEpoch) return;
       state = next; await dialogs.refresh(state); check(); await choosers.refresh(state); check(); await downloads.refresh(state); check(); paint();
       const location = /^https?:\/\//.test(state.url || "") ? state.url : "";
-      const label = state.title || (location && new URL(location).hostname) || "浏览器";
+      const label = state.title || (location && new URL(location).hostname) || uiText("ui.startView.browser", {}, uiText("ui.startView.browser", {}, "浏览器"));
       if (location && (location !== browser.url || label !== browser.title)) {
         try { browser = owned(await call("browser.update", { id, revision: browser.revision, url: location, title: label.slice(0, 256) })); }
         catch (error) { if (error.status === 409) browser = owned(await call("browser.get", { id })); else throw error; }
@@ -276,7 +278,7 @@ export async function mountBrowserView(root, { row, sdk, signal, mount, bridge, 
     })().catch(errorToast);
   };
   paint();
-  if (!bridge.available()) { state = { ...state, error: "完整浏览需要在 mdo 客户端打开，当前窗口没有原生浏览器后端。", loading: false }; paint(); return view; }
+  if (!bridge.available()) { state = { ...state, error: uiText("ui.browserView.fullBrowsingRequiresTheMdoClientThisWindowHas", {}, "完整浏览需要在 mdo 客户端打开，当前窗口没有原生浏览器后端。"), loading: false }; paint(); return view; }
   try { await initialize(); if (current()) void poll(); }
   catch (error) { if (current()) throw error; }
   return view;

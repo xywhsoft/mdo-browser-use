@@ -32,6 +32,19 @@ bool xsFetch(const XS_FetchRequest* Request,XS_FetchResponse* Response){(void)Re
 void xsFetchResponseUnit(XS_FetchResponse* Response){(void)Response;QaForbidden();}
 xfile MdoHomeOpenWrite(cstr Path,uint32 Flags){(void)Path;(void)Flags;QaForbidden();}
 bool MdoHomeRemove(cstr Path,bool Backup){(void)Path;(void)Backup;QaForbidden();}
+/* New mainline download/account producers are outside this bridge client's
+ * scope. They must abort if reached; actual Browser Use transfers still pass
+ * through the real HTTP loopback and original target service below. */
+MdoNativeDownload* MdoDownloadsBegin(cstr A,cstr B,cstr C,cstr D,uint64 N,const xvalue* V,xcancel* X,char E[512]){QaForbidden();}
+xcancel* MdoDownloadsCancelToken(MdoNativeDownload* T,xcancel* C){QaForbidden();}
+bool MdoDownloadsGate(MdoNativeDownload* T,xcancel* C){QaForbidden();}
+bool MdoDownloadsProgress(MdoNativeDownload* T,uint64 N,cstr P){QaForbidden();}
+bool MdoDownloadsEnd(MdoNativeDownload* T,bool O,cstr C,cstr E,xcancel* X){QaForbidden();}
+MdoAriaResult MdoAriaDownload(MdoNativeDownload* T,cstr U,uint64 N,cstr H,cstr A,xcancel* C,char** R,MdoTransferReport* P){QaForbidden();}
+bool MdoUpdateGetStatus(MdoUpdateStatus* S){QaForbidden();}
+void xrtHttpCallDestroy(xhttpcall* C){QaForbidden();}
+void xrtHttpRequestDestroy(xhttprequest* R){QaForbidden();}
+void xrtHttpClientDestroy(xhttpclient* C){QaForbidden();}
 
 static bool QaEmit(uint64 Route,xbytesview Bytes,void* Data){
     (void)Data;char* Encoded=xrtBase64EncodeNew(Bytes.Data,Bytes.Size,NULL);size_t Size=Encoded?strlen(Encoded):0;

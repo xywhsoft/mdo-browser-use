@@ -1,3 +1,4 @@
+import { uiText } from './fixtures/i18n.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
@@ -6,7 +7,7 @@ import test from 'node:test';
 // Exercise the actual deployed live decoder. Replace its three imports only;
 // inject the socket/timers, without another browser/application/source copy.
 const path = new URL('../.mdo/source/app/web/js/api/live.js', import.meta.url);
-let source = readFileSync(path, 'utf8');
+let source = readFileSync(path, 'utf8').replace(/^import .+ from ["'](?:\.\.\/)+i18n\.js["'];\r?$/gm, '');
 for (const line of [
   'import { targetLiveSocket } from "./target.js";',
   'import { api } from "./client.js";',
@@ -14,7 +15,7 @@ for (const line of [
 ]) { assert.equal(source.split(line).length, 2); source = source.replace(line, ''); }
 const end = source.indexOf('\nexport const liveConnection ='); assert.ok(end > 0);
 source = source.slice(0, end).replace('export function createLiveConnection', 'function createLiveConnection');
-const context = {}; vm.runInNewContext(source + '\nglobalThis.factory = createLiveConnection;', context);
+const context = { uiText }; vm.runInNewContext(source + '\nglobalThis.factory = createLiveConnection;', context);
 
 function fixture() {
   let next = 0; const sockets = [], timers = new Map(), events = [];

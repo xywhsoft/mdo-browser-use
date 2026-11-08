@@ -17624,3 +17624,34 @@ checks and full current-target Browser Use remain incomplete.
   review and one retired JSON installer path. No source pin/mainline/company
   program is changed. That integration and remaining Android whole-host/lifecycle
   qualification remain unfinished; do not mark the whole goal complete.
+
+# E264: rebase the single deployment onto current mdo0.9.5
+
+- Verify origin/master is4f1111b2e7bb68e138be817f48571a2c825908b5,
+  version0.9.5. Preserve the other repository's uncommitted config header.
+  Verify the exact old host overlays/native source identity before transitioning
+  only the existing source/native checkouts; retain code-only patches and hash
+  journals. Reuse the original Home/port, without application/Home copies.
+- Rebase reviewed anchors and complete-file overlays, retaining upstream Agent
+  lifecycle, restored plugin-panel handling and internationalized UI. Drop the
+  retired JSON installer overlay. Responses tool-image serialization is already
+  fixed upstream and is retained unchanged; rebase Chat media-group handling and
+  pin its full tree. Rebuild the native host at dependency e9a3551a with current
+  XRT and the reviewed browser/MIME enhancements.
+- Move the portable installer to the current chunked directory ZIP tasks and
+  separate extension metadata/recipe, using typed plugin identity and an exact
+  current directory fingerprint. The real legacy-directory replacement, enable
+  and restart succeed; Browser Use is enabled without plugin errors. Keep old
+  receipts as historical; legacy JSON package/lifecycle probes are not current
+  directory-format acceptance.
+- First JS run exposes stale component translation peers and an unloaded old
+  plugin. Update only those peers and unused transitive download abort seams in
+  the production bridge fixture. All578 current sequential JS checks pass.
+  Actual UI startup then catches a duplicate import introduced during this merge;
+  fix it, and check all296 applied frontend modules: zero syntax errors.
+- The actual C service -> main UI -> native WebView2 SDK probe now passes,
+  including19actions,4navigations,5wait conditions,29elements/3frames and native
+  image delivery. Restore the same headless deployment afterward. Runtime reports
+  0.9.5 and the existing account remains signed in. Distribution/other native
+  regression results are recorded in the next stage; full Android qualification
+  remains incomplete. No model calls or online publication.

@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import io
 import json
 from pathlib import Path, PurePosixPath
 import re
 import stat
 import sys
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BYTES = 64 * 1024 * 1024
@@ -113,8 +115,31 @@ def build(root=ROOT):
     return name, data, receipt
 
 
+def build_directory(root=ROOT):
+    """Current mdo installs whole directory ZIPs, with a separate recipe."""
+    manifest, files = snapshot(root)
+    recipe = {key: manifest[key] for key in ("entry", "overrides") if key in manifest}
+    metadata = {key: manifest[key] for key in ("name", "version", "description", "author", "license")}
+    metadata.update(kind="plugins", id="plugin:" + manifest["id"], alias=manifest["id"],
+                    entry="plugin.json", platforms=["windows-x86_64"], readme="docs/distribution.md")
+    files = [*files, ("extension.json", encode(metadata)), ("plugin.json", encode(recipe))]
+    stream = io.BytesIO()
+    with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, content in sorted(files):
+            info = zipfile.ZipInfo(name, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o100644 << 16
+            archive.writestr(info, content)
+    data = stream.getvalue()
+    name = "mdo-browser-use-" + manifest["version"] + ".zip"
+    return name, data, {"format": "mdo.browser-use.directory-receipt.v1", "artifact": {
+        "name": name, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest()},
+        "files": [{"path": name, "bytes": len(content), "sha256": hashlib.sha256(content).hexdigest()}
+                  for name, content in sorted(files)]}
+
+
 def main():
-    name, data, receipt = build()
+    name, data, receipt = build_directory()
     destination = ROOT / "dist"
     destination.mkdir(exist_ok=True)
     if linked(destination.lstat()):
