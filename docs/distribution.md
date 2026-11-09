@@ -2,8 +2,8 @@
 
 This is a development preview of `mdo.browser-use`, not a production release.
 The current installation package targets Windows x86-64 with this project's
-updated mdo 0.9.5 development host, including the plugin prompt-contribution
-mechanism. Install only with the matching program; this is a development
+updated mdo 0.9.6 or newer host, including the plugin prompt-contribution
+mechanism. Install only with a compatible program; this is a development
 preview and does not publish or join the official automatic-update channel.
 
 Android development continues separately. The tested current-version device's
@@ -19,7 +19,8 @@ and their SHA-256 inventory receipts. Install the Skill first; the plugin declar
 its typed Skill dependency. The Skill is a real extension directory, rather than
 an override of a legacy default-home file that the new catalog cannot discover.
 The artifact is a complete directory ZIP, with `extension.json` metadata and
-`plugin.json` execution recipe. Legacy embedded JSON imports are retired. It contains one
+`plugin.json` execution recipe. Native/frontend entry paths are identical in
+both files and all declared sources are included. Legacy embedded JSON imports are retired. It contains one
 modern plugin, its C implementation, shared C/JS SDK, page runtime, Skill,
 these instructions, and the MIT license. No Python or Node runtime is needed
 by the installed plugin.
@@ -61,6 +62,6 @@ Agent/SubAgent receives only the parts matching its own actual tools. Full
 workflows remain in the on-demand browser-use Skill; installing that Skill is
 still a package dependency, not automatic preloading of its full text.
 
-These declarations require mdo's plugin prompt-contribution host update
-(2026-11-09 development sources). Earlier hosts do not support the new recipe
+These declarations require mdo's plugin prompt-contribution host update,
+included in the official 0.9.6 client. Earlier hosts do not support the new recipe
 field. This package has not been published to the online extension store.

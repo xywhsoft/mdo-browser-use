@@ -80,7 +80,10 @@ def snapshot(root=ROOT):
     version = manifest.get("version", "")
     if not re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version):
         raise ValueError("Invalid plugin version")
-    required = [manifest.get("entry", {}).get("native")]
+    entries = manifest.get("entry", {})
+    required = [entries.get("native")]
+    if "frontend" in entries:
+        required.append(entries["frontend"])
     required.extend(row.get("source") for row in manifest.get("overrides", []))
     prompts = manifest.get("prompts", [])
     if not isinstance(prompts, list) or len(prompts) > 16:
@@ -140,6 +143,10 @@ def build_directory(root=ROOT):
     metadata.update(kind="plugins", id="plugin:" + manifest["id"], alias=manifest["id"],
                     entry="plugin.json", platforms=["windows-x86_64"], readme="docs/distribution.md",
                     dependencies=[{"id": "skill:mdo.browser-use"}])
+    # The store checks these against the execution recipe. Do not publish a
+    # native plugin as metadata-only or copy unrelated recipe keys here.
+    metadata.update({key: manifest["entry"][key]
+                     for key in ("native", "frontend") if key in manifest["entry"]})
     files = [*files, ("extension.json", encode(metadata)), ("plugin.json", encode(recipe))]
     return directory_zip("mdo-browser-use-" + manifest["version"] + ".zip", files)
 

@@ -14,6 +14,40 @@ import package_plugin as package
 
 
 class PackageTests(unittest.TestCase):
+    def test_directory_metadata_matches_execution_entries(self):
+        import io, zipfile
+        for frontend in (False, True):
+            original = package.read_text
+            def source(root, path):
+                content = original(root, path)
+                if frontend and path == "plugin.json":
+                    value = json.loads(content)
+                    value["entry"]["frontend"] = "page/runtime.js"
+                    return package.encode(value)
+                return content
+            with self.subTest(frontend=frontend), mock.patch.object(package, "read_text", side_effect=source):
+                _, data, _ = package.build_directory()
+                with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                    metadata = json.loads(archive.read("extension.json"))
+                    recipe = json.loads(archive.read("plugin.json"))
+                    for key in ("native", "frontend"):
+                        self.assertEqual(metadata.get(key), recipe["entry"].get(key))
+                        if key in metadata:
+                            self.assertIn(metadata[key], archive.namelist())
+
+    def test_missing_frontend_entry_aborts_packaging(self):
+        original = package.read_text
+        def source(root, path):
+            content = original(root, path)
+            if path == "plugin.json":
+                value = json.loads(content)
+                value["entry"]["frontend"] = "page/missing.js"
+                return package.encode(value)
+            return content
+        with mock.patch.object(package, "read_text", side_effect=source):
+            with self.assertRaisesRegex(ValueError, "entry"):
+                package.build_directory()
+
     def test_directory_preserves_bounded_tool_gated_prompt_contributions(self):
         import io, zipfile
         _, data, _ = package.build_directory()

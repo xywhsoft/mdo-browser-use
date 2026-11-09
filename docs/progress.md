@@ -17746,3 +17746,20 @@ checks and full current-target Browser Use remain incomplete.
   workflow guide. Plugin ZIP55,301bytes; separate Skill ZIP6,235bytes.
   Corrected an obsolete0.7.0 documentation assertion and initialized the Skill
   provider in the package fixture; no product dependency guard was relaxed.
+
+# 2026-11-09 Store-compatible directory entry metadata
+
+- Directory ZIP metadata now repeats the native/frontend entry paths from the
+  plugin execution recipe. Missing frontend sources abort packaging, just like
+  native entry and override sources; store consistency checks remain strict.
+- Document the official mdo 0.9.6 prompt-capable host requirement. The plugin
+  remains a Windows development preview; no new Android capability is claimed.
+- Eight package unit tests pass, including metadata equality with both entry
+  types and missing frontend rejection. The first new frontend fixture named
+  a nonexistent file; corrected it to the actual page/runtime.js source.
+- Rebuilt plugin ZIP: 55,356 bytes, SHA-256
+  708e4a4117cb998953bb6e6b26e01be4b240644ad240da29c4774bce4fb85fdb.
+  Separate Skill ZIP remains 6,235 bytes, SHA-256
+  ee97f93074e7d8ef7b154ab4ab0291057ca8f89c483d4eb9bc14327dac4f4da8.
+- Packaging does not publish a catalog entry or update the client release.
+  Exact server-validator and current-client lifecycle checks follow separately.
