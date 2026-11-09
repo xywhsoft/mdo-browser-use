@@ -2,8 +2,8 @@
 
 This is a development preview of `mdo.browser-use`, not a production release.
 The current installation package targets Windows x86-64 with this project's
-enhanced mdo0.9.5 host. Stock mainline does not include all required native/host
-services. Install only with the matching enhanced program; this is a development
+updated mdo 0.9.5 development host, including the plugin prompt-contribution
+mechanism. Install only with the matching program; this is a development
 preview and does not publish or join the official automatic-update channel.
 
 Android development continues separately. The tested current-version device's
@@ -53,3 +53,14 @@ The normal native probes verify actual browser operations separately; a
 successful package import alone does not establish native browser support.
 The complete cross-platform Browser Use goal remains in progress. No store,
 website download or automatic-update release is published by these commands.
+## Automatic capability instructions
+
+The current development package declares three bounded, tool-gated prompt
+contributions: browser workflow, JavaScript execution, and file transfers. Each
+Agent/SubAgent receives only the parts matching its own actual tools. Full
+workflows remain in the on-demand browser-use Skill; installing that Skill is
+still a package dependency, not automatic preloading of its full text.
+
+These declarations require mdo's plugin prompt-contribution host update
+(2026-11-09 development sources). Earlier hosts do not support the new recipe
+field. This package has not been published to the online extension store.

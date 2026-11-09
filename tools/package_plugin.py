@@ -82,6 +82,23 @@ def snapshot(root=ROOT):
         raise ValueError("Invalid plugin version")
     required = [manifest.get("entry", {}).get("native")]
     required.extend(row.get("source") for row in manifest.get("overrides", []))
+    prompts = manifest.get("prompts", [])
+    if not isinstance(prompts, list) or len(prompts) > 16:
+        raise ValueError("Invalid plugin prompts")
+    prompt_ids, prompt_bytes = set(), 0
+    for prompt in prompts:
+        if not isinstance(prompt, dict) or prompt.get("id") in prompt_ids:
+            raise ValueError("Invalid or duplicate plugin prompt")
+        prompt_ids.add(prompt.get("id"))
+        name = prompt.get("file")
+        if name not in dict(files):
+            raise ValueError("Plugin prompt file missing from package")
+        content = dict(files)[name]
+        if not content.strip() or len(content) > 2048:
+            raise ValueError("Plugin prompt exceeds fragment limit")
+        prompt_bytes += len(content)
+    if prompt_bytes > 4096:
+        raise ValueError("Plugin prompts exceed total limit")
     if not required or any(name not in dict(files) for name in required):
         raise ValueError("Plugin entry or override source missing from package")
     if not {"LICENSE", "docs/distribution.md"}.issubset(dict(files)):
@@ -118,7 +135,7 @@ def build(root=ROOT):
 def build_directory(root=ROOT):
     """Current mdo installs whole directory ZIPs, with a separate recipe."""
     manifest, files = snapshot(root)
-    recipe = {key: manifest[key] for key in ("entry", "overrides") if key in manifest}
+    recipe = {key: manifest[key] for key in ("entry", "overrides", "prompts") if key in manifest}
     metadata = {key: manifest[key] for key in ("name", "version", "description", "author", "license")}
     metadata.update(kind="plugins", id="plugin:" + manifest["id"], alias=manifest["id"],
                     entry="plugin.json", platforms=["windows-x86_64"], readme="docs/distribution.md",

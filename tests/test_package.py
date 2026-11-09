@@ -14,12 +14,38 @@ import package_plugin as package
 
 
 class PackageTests(unittest.TestCase):
+    def test_directory_preserves_bounded_tool_gated_prompt_contributions(self):
+        import io, zipfile
+        _, data, _ = package.build_directory()
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            recipe = json.loads(archive.read("plugin.json"))
+            self.assertEqual(len(recipe["prompts"]), 3)
+            total = 0
+            for prompt in recipe["prompts"]:
+                self.assertEqual(prompt["activation"], "with-tools")
+                self.assertTrue(prompt["when"].get("any_tools") or prompt["when"].get("all_tools"))
+                body = archive.read(prompt["file"])
+                self.assertGreater(len(body), 0)
+                self.assertLessEqual(len(body), 2048)
+                total += len(body)
+            self.assertLessEqual(total, 4096)
+
+    def test_missing_prompt_source_aborts_packaging(self):
+        original = package.read_text
+        def omitted(root, path):
+            content = original(root, path)
+            return json.dumps([name for name in json.loads(content) if name != "runtime/prompts/browser-basics.md"]).encode() if path == "package-files.json" else content
+        with mock.patch.object(package, "read_text", side_effect=omitted):
+            with self.assertRaisesRegex(ValueError, "prompt file missing"):
+                package.build_directory()
+
     def test_artifact_is_self_consistent_and_contains_only_reviewed_payload(self):
         name, data, receipt = package.build()
         value = json.loads(data)
         self.assertEqual(value["format"], "mdo.extension.v2")
         self.assertEqual(value["manifest"]["platforms"], ["windows-x86_64"])
-        self.assertIn("Stock mdo 0.7.0", value["manifest"]["readme"])
+        self.assertIn("development preview", value["manifest"]["readme"])
+        self.assertIn("plugin prompt-contribution", value["manifest"]["readme"])
         self.assertIn("incomplete", value["manifest"]["readme"])
         self.assertEqual(len(value["resources"]), 1)
         resource = value["resources"][0]

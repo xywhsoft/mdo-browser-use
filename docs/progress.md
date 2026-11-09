@@ -17728,3 +17728,21 @@ checks and full current-target Browser Use remain incomplete.
   Earlier preview program artifacts retain their earlier scope; this feature's
   standard mainline test program and receipts are in mdo's
   `.build/browser-js-evaluation`. The full cross-platform goal remains open.
+# 2026-11-09 Plugin-owned prompt contributions
+
+- Browser Use now supplies short workflow, JavaScript and file-transfer
+  instructions through the generic host registry. Conditions reference actual
+  plugin tools; the main Agent and each SubAgent select independently.
+- Detailed Skill content remains on demand. No lifecycle request-append hooks,
+  frontend callbacks, runtime dependencies or Browser Use-specific core rules.
+- Directory packaging retains the declarations and all prompt files, validates
+  byte limits/source closure and retains the existing Skill dependency.
+- Requires the updated mainline prompt-contribution host. Earlier pinned
+  development hosts are not silently treated as compatible. No online release
+  or new Android/device acceptance is claimed.
+- Verification: six package tests pass; current-mainline native compilation
+  loads the actual plugin ZIP's17tools and three contributions, and all five
+  package/selection checks pass. A tabs-only role receives only the short
+  workflow guide. Plugin ZIP55,301bytes; separate Skill ZIP6,235bytes.
+  Corrected an obsolete0.7.0 documentation assertion and initialized the Skill
+  provider in the package fixture; no product dependency guard was relaxed.

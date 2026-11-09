@@ -9,6 +9,35 @@
   "entry": {
     "native": "runtime/plugin.c"
   },
+  "prompts": [
+    {
+      "id": "browser-basics",
+      "title": "Browser Use workflow",
+      "file": "runtime/prompts/browser-basics.md",
+      "targets": ["primary", "subagent"],
+      "activation": "with-tools",
+      "when": {
+        "any_tools": ["browser_tabs", "browser_open", "browser_observe", "browser_act", "browser_navigate", "browser_wait", "browser_dialog", "browser_dialog_respond", "browser_screenshot", "browser_upload", "browser_upload_status", "browser_choosers", "browser_chooser_cancel", "browser_downloads", "browser_download", "browser_save_download", "browser_evaluate"]
+      },
+      "priority": 100
+    },
+    {
+      "id": "browser-javascript",
+      "title": "Browser JavaScript execution",
+      "file": "runtime/prompts/browser-javascript.md",
+      "activation": "with-tools",
+      "when": { "all_tools": ["browser_evaluate"] },
+      "priority": 200
+    },
+    {
+      "id": "browser-files",
+      "title": "Browser file transfers",
+      "file": "runtime/prompts/browser-files.md",
+      "activation": "with-tools",
+      "when": { "any_tools": ["browser_upload", "browser_download", "browser_save_download"] },
+      "priority": 300
+    }
+  ],
   "overrides": [
     {
       "source": "overlay/default-home/skills/browser-use/SKILL.md",
