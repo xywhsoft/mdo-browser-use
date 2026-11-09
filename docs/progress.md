@@ -17763,3 +17763,28 @@ checks and full current-target Browser Use remain incomplete.
   ee97f93074e7d8ef7b154ab4ab0291057ca8f89c483d4eb9bc14327dac4f4da8.
 - Packaging does not publish a catalog entry or update the client release.
   Exact server-validator and current-client lifecycle checks follow separately.
+
+# 2026-11-09 Corrected ZIP acceptance and store deployment
+
+- Added a reproducible HTTP lifecycle check for the two real directory ZIPs:
+  upload/seal/install, verify every installed file byte, update using the exact
+  previous directory fingerprint, and uninstall. All six checks pass on the
+  existing official mdo 0.9.6 service. Native code stays disabled for this
+  lifecycle check; separate actual-plugin loading verifies native execution.
+- Current mainline actual-package native probe passes all five checks: 17 tools,
+  three prompt contributions, capability-specific selection and no Skill body
+  preload. Eight portable package unit tests pass.
+- The extension-store server now accepts and fully validates plugin prompts;
+  exact server-header ZIP suite passes 42 positive/adversarial cases. Existing
+  nine-category store publication/ownership/update regressions also pass.
+- Four hash-checked validator files deployed to ai.xywhsoft.com; xs.service
+  restarted once and public catalog/extension pages respond successfully. The
+  42-item existing catalog is unchanged, startup compiler errors are zero, and
+  native host/config hashes are unchanged. Private backups retained.
+- Server commits c0fb78ff and b80fe38d contain the fix and deployment receipt in
+  D:/GIT/home. Browser Use package remains 55,356 bytes with SHA-256
+  708e4a4117cb998953bb6e6b26e01be4b240644ad240da29c4774bce4fb85fdb.
+- No public Browser Use submission/catalog publication, client update release,
+  new Android acceptance, model calls or account-data modifications. The two
+  lifecycle installations and upload tasks were removed via their ordinary
+  APIs; existing unrelated extensions were preserved.
